@@ -1,4 +1,6 @@
-//! This example illustrates how to setup and use the progress bar widget
+//! This example illustrates how to setup and use the ProgressBar widget.
+//! Any Node that has a `ProgressBar` component *and* an immediate child node
+//! with the `ProgressBarInner` component will be considered a ProgressBar-widget.
 
 use bevy::{
     prelude::*,
@@ -32,7 +34,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
     commands.spawn(Camera2dBundle::default());
 
-    // root
+    // background that fills the entire viewport
     commands
         .spawn(NodeBundle {
             style: Style {
@@ -47,6 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|root| {
+            // Progress bar
             root.spawn(NodeBundle {
                 style: Style {
                     size: Size::new(Val::Percent(50.0), Val::Px(50.0)),
@@ -59,6 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             })
             .insert(ProgressBarWidget::new(0.0, 0., 1.))
             .with_children(|outer| {
+                // Inner node of the progress bar that will change size as progress changes.
                 outer
                     .spawn(NodeBundle {
                         style: Style {
@@ -92,7 +96,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 const LOAD_DURATION: f32 = 3.0;
 const COMPLETE_DURATION: f32 = 1.5;
 
-/// This is just a helper-system.
+/// This is a helper system to mimic some changing state.
+/// It will "Load" for a time until it reaches completed,
+/// then it will stay on the "Completed"-state for a time before resetting.
 fn update_progress_state(mut progress: ResMut<Progress>, time: Res<Time>) {
     let elapsed_time = match *progress {
         Progress::Loading(value) => value,

@@ -3,33 +3,57 @@
 
 use bevy_ecs::{
     prelude::Component,
-    query::{With, Changed},
+    query::{Changed, With},
     system::Query,
 };
 use bevy_hierarchy::Children;
 use bevy_log::warn;
 
-
 use crate::{Size, Style, Val};
 
+/// A progress bar widget.
 #[derive(Component, Default, Clone, Debug)]
 pub struct ProgressBarWidget {
+    /// The current progress of the progress bar.
+    ///
+    /// Valid range between min and max, inclusive.
     progress: f32,
+    /// Minimum valid value that progress can have. Inclusive.
     min: f32,
-    max: f32
+    /// Maximum valid value that progress can have. Inclusive.
+    max: f32,
+    /// Defines the direction of the `ProgressBarWidget`.
+    direction: ProgressBarDirection,
 }
 
-/// Marker component for the inner box of the loading bar.
+/// Defines the direction the progress bar will increase the size of the inner node.
+///
+/// It increases in the direction of the flex-axis.
+#[derive(Default, Debug, Clone)]
+pub enum ProgressBarDirection {
+    /// Direction from FlexStart to FlexEnd
+    #[default]
+    Horizontal,
+    /// Direction from CrossStart to CrossEnd
+    Vertical,
+}
+
+/// Marker component for the inner box of the progress bar.
 #[derive(Component, Default, Clone, Debug)]
 pub struct LoadingBarInner;
 
 impl ProgressBarWidget {
     /// Creates a new [`ProgressBarWidget`].
     pub fn new(progress: f32, min: f32, max: f32) -> Self {
-        if min > max { 
+        if min > max {
             panic!("Min should not be larger than max");
         } else {
-            ProgressBarWidget { progress, min, max }
+            ProgressBarWidget {
+                progress,
+                min,
+                max,
+                direction: ProgressBarDirection::default(),
+            }
         }
     }
 
@@ -57,10 +81,17 @@ pub(crate) fn update_progress_bars(
     for (widget, children) in q.iter() {
         for child in children.iter() {
             if let Ok(mut style) = inner.get_mut(*child) {
-                style.size = Size::new(
-                    Val::Percent(map_range(widget.get_progress(), (widget.min, widget.max),  (0., 100.0))),
-                    Val::Percent(100.0),
-                );
+                let current_size = style.size;
+                let new_value = Val::Percent(map_range(
+                    widget.get_progress(),
+                    (widget.min, widget.max),
+                    (0., 100.0),
+                ));
+
+                style.size = match widget.direction {
+                    ProgressBarDirection::Horizontal => Size::new(new_value, current_size.height),
+                    ProgressBarDirection::Vertical => Size::new(current_size.width, new_value),
+                };
             }
         }
     }
