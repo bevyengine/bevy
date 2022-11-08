@@ -25,8 +25,8 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button,
-        widget::LoadingBarWidgetBundle, Interaction, UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
+        UiScale,
     };
 }
 
@@ -41,7 +41,7 @@ use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
-use widget::update_loading_bars;
+use widget::update_progress_bars;
 
 use crate::prelude::UiCameraConfig;
 
@@ -154,7 +154,7 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                update_loading_bars.before(UiSystem::Flex),
+                update_progress_bars.before(UiSystem::Flex),
             );
 
         crate::render::build_ui_render(app);

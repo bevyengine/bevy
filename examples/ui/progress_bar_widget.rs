@@ -1,8 +1,8 @@
-//! This example illustrates how to setup and use the LoadingBarWidget
+//! This example illustrates how to setup and use the progress bar widget
 
 use bevy::{
     prelude::*,
-    ui::widget::{LoadingBarInner, LoadingBarWidget},
+    ui::widget::{LoadingBarInner, ProgressBarWidget},
 };
 
 fn main() {
@@ -23,6 +23,10 @@ enum Progress {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    let canvas_background: Color = Color::rgba_u8(19, 21, 22, 255);
+    let progress_bar_background: Color = Color::rgba_u8(29, 31, 33, 255);
+    let progress_bar_foreground: Color = Color::rgba_u8(50, 104, 159, 255);
+    let text_color: Color = Color::rgba_u8(197, 198, 190, 255);
     let font = asset_server.load("fonts/FiraMono-Medium.ttf");
 
     // ui camera
@@ -39,20 +43,21 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            background_color: Color::rgba(19.0 / 255.0, 21.0 / 255.0, 22.0 / 255.0, 1.0).into(),
+            background_color: canvas_background.into(),
             ..default()
         })
         .with_children(|root| {
-            root.spawn(LoadingBarWidgetBundle {
+            root.spawn(NodeBundle {
                 style: Style {
                     size: Size::new(Val::Percent(50.0), Val::Px(50.0)),
                     justify_content: JustifyContent::FlexStart,
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                background_color: Color::rgba(29.0 / 255.0, 31.0 / 255.0, 33.0 / 255.0, 1.0).into(),
+                background_color: progress_bar_background.into(),
                 ..default()
             })
+            .insert(ProgressBarWidget::new(0.0, 0., 1.))
             .with_children(|outer| {
                 outer
                     .spawn(NodeBundle {
@@ -61,13 +66,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             position_type: PositionType::Absolute,
                             ..default()
                         },
-                        background_color: Color::rgba(
-                            50.0 / 255.0,
-                            104.0 / 255.0,
-                            159.0 / 255.0,
-                            1.0,
-                        )
-                        .into(),
+                        background_color: progress_bar_foreground.into(),
                         ..default()
                     })
                     .insert(LoadingBarInner);
@@ -77,7 +76,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         TextStyle {
                             font: font.clone(),
                             font_size: 20.0,
-                            color: Color::rgba(197.0 / 255.0, 198.0 / 255.0, 190.0 / 255.0, 1.0),
+                            color: text_color,
                         },
                     ),
                     style: Style {
@@ -118,9 +117,9 @@ fn update_progress_state(mut progress: ResMut<Progress>, time: Res<Time>) {
     };
 }
 
-/// This is responsible for updating the value of the LoadingBarWidget component.
+/// This is responsible for updating the value of the ProgressBarWidget component.
 /// This could be in response to changes in player health values, loading of assets ++.
-fn set_widget_progress(mut q: Query<&mut LoadingBarWidget>, progress: Res<Progress>) {
+fn set_widget_progress(mut q: Query<&mut ProgressBarWidget>, progress: Res<Progress>) {
     for mut widget in q.iter_mut() {
         let current_progress = match *progress {
             Progress::Loading(value) => map_range(value, (0., LOAD_DURATION), (0., 1.)),
@@ -130,8 +129,9 @@ fn set_widget_progress(mut q: Query<&mut LoadingBarWidget>, progress: Res<Progre
     }
 }
 
+/// Updates the text of the progress-bar.
 fn update_widget_text(
-    widgets: Query<(&LoadingBarWidget, &Children)>,
+    widgets: Query<(&ProgressBarWidget, &Children)>,
     mut q: Query<&mut Text, With<Parent>>,
 ) {
     for (widget, children) in widgets.iter() {
@@ -148,6 +148,8 @@ fn update_widget_text(
     }
 }
 
+// TODO: This should be moved into bevy_math or something
+/// Maps a value from one range of values to a new range of values.
 fn map_range(value: f32, old_range: (f32, f32), new_range: (f32, f32)) -> f32 {
     (value - old_range.0) / (old_range.1 - old_range.0) * (new_range.1 - new_range.0) + new_range.0
 }
