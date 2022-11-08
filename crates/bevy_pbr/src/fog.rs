@@ -361,8 +361,8 @@ impl FogFalloff {
     ///
     /// ## Tips
     /// - Alpha values of the provided colors can modulate the `extinction` and `inscattering` effects;
-    /// - Using an `extinction_color` of [`Color:WHITE`] or [`Color:NONE`] disables the extinction effect;
-    /// - Using an `inscattering_color` of [`Color:BLACK`] or [`Color:NONE`] disables the inscattering effect.
+    /// - Using an `extinction_color` of [`Color::WHITE`] or [`Color::NONE`] disables the extinction effect;
+    /// - Using an `inscattering_color` of [`Color::BLACK`] or [`Color::NONE`] disables the inscattering effect.
     pub fn from_visibility_colors(
         visibility: f32,
         extinction_color: Color,
