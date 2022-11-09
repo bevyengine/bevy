@@ -140,10 +140,6 @@ fn change_window(
                         .set_cursor_grab(convert_cursor_grab_mode(grab_mode))
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
-                bevy_window::WindowCommand::SetAlwaysOnTop { always_on_top } => {
-                    let window = winit_windows.get_window(id).unwrap();
-                    window.set_always_on_top(always_on_top);
-                }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_cursor_visible(visible);
@@ -226,6 +222,10 @@ fn change_window(
                     if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
                         window.set_max_inner_size(Some(max_inner_size));
                     }
+                }
+                bevy_window::WindowCommand::SetAlwaysOnTop { always_on_top } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_always_on_top(always_on_top);
                 }
                 bevy_window::WindowCommand::Close => {
                     // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.

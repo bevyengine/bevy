@@ -501,11 +501,6 @@ impl Window {
     pub fn resize_constraints(&self) -> WindowResizeConstraints {
         self.resize_constraints
     }
-    /// Get whether or not the window is always on top.
-    #[inline]
-    pub fn always_on_top(&self) -> bool {
-        self.always_on_top
-    }
 
     /// The window's client position in physical pixels.
     #[inline]
@@ -597,13 +592,6 @@ impl Window {
             logical_resolution: Vec2::new(self.requested_width, self.requested_height),
             scale_factor: self.scale_factor(),
         });
-    }
-
-    /// Set whether of not the window is always on top.
-    pub fn set_always_on_top(&mut self, always_on_top: bool) {
-        self.always_on_top = always_on_top;
-        self.command_queue
-            .push(WindowCommand::SetAlwaysOnTop { always_on_top });
     }
 
     #[allow(missing_docs)]
@@ -813,6 +801,18 @@ impl Window {
             mode,
             resolution: UVec2::new(self.physical_width, self.physical_height),
         });
+    }
+    /// Get whether or not the window is always on top.
+    #[inline]
+    pub fn always_on_top(&self) -> bool {
+        self.always_on_top
+    }
+
+    /// Set whether of not the window is always on top.
+    pub fn set_always_on_top(&mut self, always_on_top: bool) {
+        self.always_on_top = always_on_top;
+        self.command_queue
+            .push(WindowCommand::SetAlwaysOnTop { always_on_top });
     }
     /// Close the operating system window corresponding to this [`Window`].
     ///  
