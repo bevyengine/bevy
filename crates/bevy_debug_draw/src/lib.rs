@@ -1,16 +1,14 @@
-use std::f32::consts::TAU;
-
 use bevy_app::{CoreStage, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, HandleUntyped};
 use bevy_ecs::{
-    prelude::{Component, Entity},
+    component::Component,
+    entity::Entity,
     query::With,
     system::{Commands, Query, Res, ResMut, Resource},
 };
-use bevy_math::{vec3, Quat, Vec2, Vec3};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    prelude::{Color, Mesh, SpatialBundle},
+    prelude::{Mesh, SpatialBundle},
     render_phase::AddRenderCommand,
     render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
     Extract, RenderApp, RenderStage,
@@ -21,15 +19,19 @@ use bevy_pbr::{NotShadowCaster, NotShadowReceiver};
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::Mesh2dHandle;
 
+pub mod debug_draw;
+
 #[cfg(feature = "bevy_sprite")]
 pub mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 pub mod pipeline_3d;
 
+use crate::debug_draw::DebugDraw;
+
 /// The `bevy_debug_draw` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{DebugDraw, DebugDrawConfig, DebugDrawPlugin};
+    pub use crate::{debug_draw::DebugDraw, DebugDrawConfig, DebugDrawPlugin};
 }
 
 pub const SHADER_HANDLE: HandleUntyped =
@@ -94,173 +96,8 @@ impl Default for DebugDrawConfig {
     }
 }
 
-#[derive(Resource)]
-pub struct DebugDraw {
-    positions: Vec<[f32; 3]>,
-    colors: Vec<[f32; 4]>,
-    mesh_handle: Option<Handle<Mesh>>,
-    /// The amount of line segments to use when drawing a circle.
-    ///
-    /// Defaults to `24`.
-    pub circle_segments: u32,
-}
-
-impl Default for DebugDraw {
-    fn default() -> Self {
-        DebugDraw {
-            positions: Vec::new(),
-            colors: Vec::new(),
-            mesh_handle: None,
-            circle_segments: 24,
-        }
-    }
-}
-
-impl DebugDraw {
-    /// Draw a line from `start` to `end`.
-    pub fn line(&mut self, start: Vec3, end: Vec3, color: Color) {
-        self.line_gradient(start, end, color, color);
-    }
-
-    /// Draw a line from `start` to `end`.
-    pub fn line_gradient(&mut self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
-        self.positions.extend([start.to_array(), end.to_array()]);
-        self.colors.extend([
-            start_color.as_linear_rgba_f32(),
-            end_color.as_linear_rgba_f32(),
-        ]);
-    }
-
-    /// Draw a line from `start` to `start + vector`.
-    pub fn ray(&mut self, start: Vec3, vector: Vec3, color: Color) {
-        self.ray_gradient(start, vector, color, color);
-    }
-
-    /// Draw a line from `start` to `start + vector`.
-    pub fn ray_gradient(
-        &mut self,
-        start: Vec3,
-        vector: Vec3,
-        start_color: Color,
-        end_color: Color,
-    ) {
-        self.line_gradient(start, start + vector, start_color, end_color);
-    }
-
-    /// Draw a circle at `position` with the flat side facing `normal`.
-    pub fn circle(&mut self, position: Vec3, normal: Vec3, radius: f32, color: Color) {
-        let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-        self.positions
-            .extend((0..self.circle_segments).into_iter().flat_map(|i| {
-                let mut angle = i as f32 * TAU / self.circle_segments as f32;
-                let start = rotation * (Vec2::from(angle.sin_cos()) * radius).extend(0.) + position;
-
-                angle += TAU / self.circle_segments as f32;
-                let end = rotation * (Vec2::from(angle.sin_cos()) * radius).extend(0.) + position;
-
-                [start.to_array(), end.to_array()]
-            }));
-
-        self.colors.extend(
-            std::iter::repeat(color.as_linear_rgba_f32()).take(self.circle_segments as usize * 2),
-        );
-    }
-
-    /// Draw a sphere.
-    pub fn sphere(&mut self, position: Vec3, radius: f32, color: Color) {
-        self.circle(position, Vec3::X, radius, color);
-        self.circle(position, Vec3::Y, radius, color);
-        self.circle(position, Vec3::Z, radius, color);
-    }
-
-    /// Draw a rectangle.
-    pub fn rect(&mut self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
-        let half_size = size / 2.;
-        let tl = (position + rotation * vec3(-half_size.x, half_size.y, 0.)).to_array();
-        let tr = (position + rotation * vec3(half_size.x, half_size.y, 0.)).to_array();
-        let bl = (position + rotation * vec3(-half_size.x, -half_size.y, 0.)).to_array();
-        let br = (position + rotation * vec3(half_size.x, -half_size.y, 0.)).to_array();
-        self.positions.extend([tl, tr, tr, br, br, bl, bl, tl]);
-        self.colors
-            .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(8))
-    }
-
-    /// Draw a box.
-    pub fn cuboid(&mut self, position: Vec3, rotation: Quat, size: Vec3, color: Color) {
-        let half_size = size / 2.;
-        // Front
-        let tlf = (position + rotation * vec3(-half_size.x, half_size.y, half_size.z)).to_array();
-        let trf = (position + rotation * vec3(half_size.x, half_size.y, half_size.z)).to_array();
-        let blf = (position + rotation * vec3(-half_size.x, -half_size.y, half_size.z)).to_array();
-        let brf = (position + rotation * vec3(half_size.x, -half_size.y, half_size.z)).to_array();
-        // Back
-        let tlb = (position + rotation * vec3(-half_size.x, half_size.y, -half_size.z)).to_array();
-        let trb = (position + rotation * vec3(half_size.x, half_size.y, -half_size.z)).to_array();
-        let blb = (position + rotation * vec3(-half_size.x, -half_size.y, -half_size.z)).to_array();
-        let brb = (position + rotation * vec3(half_size.x, -half_size.y, -half_size.z)).to_array();
-        self.positions.extend([
-            tlf, trf, trf, brf, brf, blf, blf, tlf, // Front
-            tlb, trb, trb, brb, brb, blb, blb, tlb, // Back
-            tlf, tlb, trf, trb, brf, brb, blf, blb, // Front to back
-        ]);
-        self.colors
-            .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(24))
-    }
-
-    /// Draw a line from `start` to `end`.
-    pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: Color) {
-        self.line_gradient_2d(start, end, color, color);
-    }
-
-    /// Draw a line from `start` to `end`.
-    pub fn line_gradient_2d(
-        &mut self,
-        start: Vec2,
-        end: Vec2,
-        start_color: Color,
-        end_color: Color,
-    ) {
-        self.line_gradient(start.extend(0.), end.extend(0.), start_color, end_color);
-    }
-
-    /// Draw a line from `start` to `start + vector`.
-    pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: Color) {
-        self.ray(start.extend(0.), vector.extend(0.), color);
-    }
-
-    // Draw a circle.
-    pub fn circle_2d(&mut self, position: Vec2, radius: f32, color: Color) {
-        self.circle(position.extend(0.), Vec3::Z, radius, color);
-    }
-
-    /// Draw a rectangle.
-    pub fn rect_2d(&mut self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
-        self.rect(
-            position.extend(0.),
-            Quat::from_rotation_z(rotation),
-            size,
-            color,
-        );
-    }
-
-    /// Clear everything drawn up to this point, this frame.
-    pub fn clear(&mut self) {
-        self.positions.clear();
-        self.colors.clear();
-    }
-
-    /// Take the positions and colors data from `self` and overwrite the `mesh`'s vertex positions and colors.
-    pub fn update_mesh(&mut self, mesh: &mut Mesh) {
-        mesh.insert_attribute(
-            Mesh::ATTRIBUTE_POSITION,
-            std::mem::take(&mut self.positions),
-        );
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, std::mem::take(&mut self.colors));
-    }
-}
-
 #[derive(Component)]
-pub struct DebugDrawMesh;
+struct DebugDrawMesh;
 
 pub(crate) fn update(
     config: Res<DebugDrawConfig>,
@@ -298,7 +135,7 @@ pub(crate) fn update(
     }
 }
 
-/// Move the DebugDrawMesh marker Component and the DebugDrawConfig Resource to the render context.
+/// Move the [`DebugDrawMesh`] marker Component and the [`DebugDrawConfig`] Resource to the render context.
 pub(crate) fn extract(
     mut commands: Commands,
     query: Extract<Query<Entity, With<DebugDrawMesh>>>,

@@ -20,7 +20,12 @@ fn setup(mut commands: Commands) {
 }
 
 fn system(mut draw: ResMut<DebugDraw>, time: Res<Time>) {
-    draw.cuboid(Vec3::Y * -0.5, Quat::IDENTITY, Vec3::new(5., 1., 2.), Color::BLACK);
+    draw.cuboid(
+        Vec3::Y * -0.5,
+        Quat::IDENTITY,
+        Vec3::new(5., 1., 2.),
+        Color::BLACK,
+    );
     draw.rect(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),
