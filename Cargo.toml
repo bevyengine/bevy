@@ -1504,17 +1504,6 @@ wasm = true
 
 # Window
 [[example]]
-name = "always_on_top"
-path = "examples/window/always_on_top.rs"
-
-[package.metadata.example.always_on_top]
-name = "Always On Top"
-description = "A Window which is always over other windows."
-category = "Window"
-wasm = false
-
-
-[[example]]
 name = "clear_color"
 path = "examples/window/clear_color.rs"
 
