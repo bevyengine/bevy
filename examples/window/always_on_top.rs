@@ -1,7 +1,7 @@
-//! Shows how to display a window in transparent mode.
+//! Shows how to display a window which stays on top of others.
 //!
 //! This feature works as expected depending on the platform. Please check the
-//! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.transparent)
+//! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.always_on_top)
 //! for more details.
 
 use bevy::prelude::*;
