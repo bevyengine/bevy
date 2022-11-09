@@ -114,6 +114,8 @@ impl Color {
     pub const TEAL: Color = Color::rgb(0.0, 0.5, 0.5);
     /// <div style="background-color:rgb(100%, 39%, 28%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const TOMATO: Color = Color::rgb(1.0, 0.39, 0.28);
+    /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    pub const TRANSPARENT: Color = Color::rgba(0.0, 0.0, 0.0, 0.0);
     /// <div style="background-color:rgb(25%, 88%, 82%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const TURQUOISE: Color = Color::rgb(0.25, 0.88, 0.82);
     /// <div style="background-color:rgb(93%, 51%, 93%); width: 10px; padding: 10px; border: 1px solid;"></div>
