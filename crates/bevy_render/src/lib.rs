@@ -38,6 +38,8 @@ pub mod prelude {
 
 use globals::GlobalsPlugin;
 pub use once_cell;
+use pipelined_rendering::update_rendering;
+use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
@@ -56,8 +58,20 @@ use std::{
 };
 
 /// Contains the default Bevy rendering backend based on wgpu.
-#[derive(Default)]
-pub struct RenderPlugin;
+pub struct RenderPlugin {
+    pub use_pipelined_rendering: bool,
+}
+
+impl Default for RenderPlugin {
+    fn default() -> Self {
+        RenderPlugin {
+            #[cfg(not(target_arch = "wasm32"))]
+            use_pipelined_rendering: true,
+            #[cfg(target_arch = "wasm32")]
+            use_pipelined_rendering: false,
+        }
+    }
+}
 
 /// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -121,6 +135,10 @@ pub mod main_graph {
 /// A Label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
+
+/// A Label for the sub app that runs the parts of pipelined rendering that need to run on the main thread.
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+pub struct PipelinedRenderingApp;
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
@@ -212,7 +230,7 @@ impl Plugin for RenderPlugin {
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
-                let _render_span = bevy_utils::tracing::info_span!("renderer subapp").entered();
+                let _render_span = bevy_utils::tracing::info_span!("extract").entered();
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =
@@ -319,6 +337,17 @@ impl Plugin for RenderPlugin {
                     render_app.world.clear_entities();
                 }
             });
+
+            if self.use_pipelined_rendering {
+                app.add_sub_app(
+                    PipelinedRenderingApp,
+                    App::new(),
+                    |app_world, _render_app| {
+                        update_rendering(app_world);
+                    },
+                    |_render_world| {},
+                );
+            }
         }
 
         app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
