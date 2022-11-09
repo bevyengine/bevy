@@ -142,7 +142,7 @@ fn change_window(
                 }
                 bevy_window::WindowCommand::SetAlwaysOnTop { always_on_top } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_always_on_top(always_on_top)
+                    window.set_always_on_top(always_on_top);
                 }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {
                     let window = winit_windows.get_window(id).unwrap();
