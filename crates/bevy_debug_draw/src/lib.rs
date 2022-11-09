@@ -99,7 +99,7 @@ impl Default for DebugDrawConfig {
 #[derive(Component)]
 struct DebugDrawMesh;
 
-pub(crate) fn update(
+fn update(
     config: Res<DebugDrawConfig>,
     mut debug_draw: ResMut<DebugDraw>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -136,7 +136,7 @@ pub(crate) fn update(
 }
 
 /// Move the [`DebugDrawMesh`] marker Component and the [`DebugDrawConfig`] Resource to the render context.
-pub(crate) fn extract(
+fn extract(
     mut commands: Commands,
     query: Extract<Query<Entity, With<DebugDrawMesh>>>,
     config: Extract<Res<DebugDrawConfig>>,
