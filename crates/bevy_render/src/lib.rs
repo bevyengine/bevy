@@ -7,6 +7,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod mesh;
+pub mod pipelined_rendering;
 pub mod primitives;
 pub mod rangefinder;
 pub mod render_asset;
