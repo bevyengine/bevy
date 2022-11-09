@@ -972,6 +972,12 @@ pub struct WindowDescriptor {
     pub fit_canvas_to_parent: bool,
     /// Specifies how the alpha channel of the textures should be handled during compositing.
     pub alpha_mode: CompositeAlphaMode,
+    /// Sets the window to always be on top of other windows.
+    ///
+    /// ## Platform-specific
+    /// - iOS / Android / Web: Unsupported.
+    /// - Linux (Wayland): Unsupported.
+    pub always_on_top: bool,
 }
 
 impl Default for WindowDescriptor {
@@ -994,6 +1000,7 @@ impl Default for WindowDescriptor {
             canvas: None,
             fit_canvas_to_parent: false,
             alpha_mode: CompositeAlphaMode::Auto,
+            always_on_top: false,
         }
     }
 }
