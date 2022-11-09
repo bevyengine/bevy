@@ -217,7 +217,10 @@ impl Camera {
         }
 
         // Once in NDC space, we can discard the z element and rescale x/y to fit the screen
-        Some((ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size)
+        let mut viewport_pos = (ndc_space_coords.truncate() + Vec2::ONE) / 2.0 * target_size;
+        // Viewport origin is at the top.
+        viewport_pos.y *= -1.;
+        Some(viewport_pos)
     }
 
     /// Returns a ray originating from the camera, that passes through everything beyond `viewport_position`.
@@ -234,7 +237,9 @@ impl Camera {
         viewport_position: Vec2,
     ) -> Option<Ray> {
         let target_size = self.logical_viewport_size()?;
-        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+        let mut ndc = viewport_position * 2. / target_size - Vec2::ONE;
+        // Viewport origin is at the top.
+        ndc.y *= -1.;
 
         let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
         // Using EPSILON because passing an ndc with Z = 0 returns NaNs.
