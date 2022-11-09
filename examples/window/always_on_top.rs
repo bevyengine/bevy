@@ -1,6 +1,6 @@
 //! Shows how to display a window which stays on top of others.
 //!
-//! This feature works as expected depending on the platform. Please check the
+//! This feature only works on some platforms. Please check the
 //! [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.always_on_top)
 //! for more details.
 
