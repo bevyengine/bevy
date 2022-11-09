@@ -158,14 +158,14 @@ impl App {
         ComputeTaskPool::init(TaskPool::default).scope(thread_executor, |scope| {
             if self.run_once {
                 for sub_app in self.sub_apps.values_mut() {
-                    (sub_app.extract)(&mut self.world, &mut sub_app.app);
-                }
-                for sub_app in self.sub_apps.values_mut() {
                     scope.spawn(async { (sub_app.runner)(&mut sub_app.app) });
                 }
             }
             self.schedule.run(&mut self.world);
         });
+        for sub_app in self.sub_apps.values_mut() {
+            (sub_app.extract)(&mut self.world, &mut sub_app.app);
+        }
         self.run_once = true;
 
         self.world.clear_trackers();
