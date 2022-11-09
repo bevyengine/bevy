@@ -294,6 +294,7 @@ pub struct Window {
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
     alpha_mode: CompositeAlphaMode,
+    always_on_top: bool,
 }
 /// A command to be sent to a window.
 ///
@@ -369,6 +370,10 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
+    /// Set whether the window is always on top.
+    SetAlwaysOnTop {
+        always_on_top: bool,
+    },
     Close,
 }
 
@@ -438,6 +443,7 @@ impl Window {
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
             alpha_mode: window_descriptor.alpha_mode,
+            always_on_top: window_descriptor.always_on_top,
         }
     }
     /// Get the window's [`WindowId`].
@@ -494,6 +500,11 @@ impl Window {
     #[inline]
     pub fn resize_constraints(&self) -> WindowResizeConstraints {
         self.resize_constraints
+    }
+    /// Get whether or not the window is always on top.
+    #[inline]
+    pub fn always_on_top(&self) -> bool {
+        self.always_on_top
     }
 
     /// The window's client position in physical pixels.
@@ -586,6 +597,13 @@ impl Window {
             logical_resolution: Vec2::new(self.requested_width, self.requested_height),
             scale_factor: self.scale_factor(),
         });
+    }
+
+    /// Set whether of not the window is always on top.
+    pub fn set_always_on_top(&mut self, always_on_top: bool) {
+        self.always_on_top = always_on_top;
+        self.command_queue
+            .push(WindowCommand::SetAlwaysOnTop { always_on_top });
     }
 
     #[allow(missing_docs)]

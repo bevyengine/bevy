@@ -140,6 +140,10 @@ fn change_window(
                         .set_cursor_grab(convert_cursor_grab_mode(grab_mode))
                         .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
+                bevy_window::WindowCommand::SetAlwaysOnTop { always_on_top } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_always_on_top(always_on_top)
+                }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_cursor_visible(visible);
