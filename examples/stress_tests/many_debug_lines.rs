@@ -11,7 +11,7 @@ fn main() {
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(Config {
             line_count: 50_000,
-            simple: false,
+            fancy: false,
         })
         .insert_resource(DebugDrawConfig {
             always_on_top: false,
@@ -26,7 +26,7 @@ fn main() {
 #[derive(Resource, Debug)]
 struct Config {
     line_count: u32,
-    simple: bool,
+    fancy: bool,
 }
 
 fn system(
@@ -42,10 +42,10 @@ fn system(
         config.line_count = config.line_count.saturating_sub(10_000);
     }
     if input.just_pressed(KeyCode::Space) {
-        config.simple = !config.simple;
+        config.fancy = !config.fancy;
     }
 
-    if config.simple {
+    if !config.fancy {
         for _ in 0..config.line_count {
             draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
         }
@@ -64,7 +64,7 @@ fn system(
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(1., 3., 5.).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
@@ -90,7 +90,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         FPS: {:.0}\n\n\
         Controls:\n\
         Up/Down: Raise or lower the line count.\n\
-        Spacebar: Toggle simple mode.",
+        Spacebar: Toggle fancy mode.",
         config.line_count, fps,
     );
 }
