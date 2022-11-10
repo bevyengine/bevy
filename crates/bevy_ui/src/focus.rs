@@ -127,6 +127,8 @@ pub fn ui_focus_system(
         .find_map(|window| window.cursor_position())
         .or_else(|| touches_input.first_pressed_position());
 
+    let window_height = windows.primary().height();
+
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
@@ -165,7 +167,7 @@ pub fn ui_focus_system(
                 // clicking
                 let contains_cursor = if let Some(cursor_position) = cursor_position {
                     (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&cursor_position.y)
+                        && (min.y..max.y).contains(&(window_height - cursor_position.y))
                 } else {
                     false
                 };
