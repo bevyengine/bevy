@@ -159,7 +159,7 @@ impl Default for BloomSettings {
             threshold: 1.0,
             knee: 0.1,
             scale: 1.0,
-            intensity: 1.0,
+            intensity: 0.3,
         }
     }
 }
