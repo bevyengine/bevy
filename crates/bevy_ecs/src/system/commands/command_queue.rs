@@ -21,10 +21,11 @@ struct CommandMeta {
 // preferred to simplicity of implementation.
 #[derive(Default)]
 pub struct CommandQueue {
-    // This contiguously stores a set of alternating objects:
-    // A `CommandMeta`, followed by a sequence of bytes with length specified by the metadata.
-    // These bytes hold the data for a type-erased `Command`, and must be passed to
-    // the corresponding `CommandMeta.write_command_and_get_size` fn pointer.
+    // This buffer densely stores all queued commands.
+    //
+    // For each command, one `CommandMeta` is stored, followed by zero or more bytes
+    // to store the command itself. To interpret these bytes, a pointer must
+    // be passed to the corresponding `CommandMeta.write_command_and_get_size` fn pointer.
     bytes: Vec<MaybeUninit<u8>>,
 }
 
