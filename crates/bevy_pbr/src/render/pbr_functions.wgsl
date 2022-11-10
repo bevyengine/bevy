@@ -260,5 +260,9 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 }
+
+fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
+    return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
+}
 #endif
 
