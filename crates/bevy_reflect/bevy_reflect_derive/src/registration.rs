@@ -21,7 +21,7 @@ pub(crate) fn impl_get_type_registration<'a>(
     let type_deps_fn = type_dependencies.map(|deps| {
         quote! {
             fn register_type_dependencies(registry: &mut #bevy_reflect_path::TypeRegistry) {
-                #(registry.try_register::<#deps>();)*
+                #(registry.register::<#deps>();)*
             }
         }
     });

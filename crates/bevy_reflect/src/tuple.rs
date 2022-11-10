@@ -594,7 +594,7 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn register_type_dependencies(_registry: &mut TypeRegistry) {
-                $(_registry.try_register::<$name>();)*
+                $(_registry.register::<$name>();)*
             }
         }
 

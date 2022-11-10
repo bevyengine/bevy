@@ -364,7 +364,7 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn register_type_dependencies(registry: &mut TypeRegistry) {
-                registry.try_register::<T>();
+                registry.register::<T>();
             }
         }
 
@@ -594,8 +594,8 @@ macro_rules! impl_reflect_for_hashmap {
             }
 
             fn register_type_dependencies(registry: &mut TypeRegistry) {
-                registry.try_register::<K>();
-                registry.try_register::<V>();
+                registry.register::<K>();
+                registry.register::<V>();
             }
         }
 
@@ -990,7 +990,7 @@ impl<T: Reflect + TypePath + GetTypeRegistration, const N: usize> GetTypeRegistr
     }
 
     fn register_type_dependencies(registry: &mut TypeRegistry) {
-        registry.try_register::<T>();
+        registry.register::<T>();
     }
 }
 
@@ -1000,7 +1000,7 @@ impl<T: FromReflect + TypePath + GetTypeRegistration> GetTypeRegistration for Op
     }
 
     fn register_type_dependencies(registry: &mut TypeRegistry) {
-        registry.try_register::<T>();
+        registry.register::<T>();
     }
 }
 
@@ -1532,7 +1532,7 @@ impl<T: FromReflect + Clone + TypePath + GetTypeRegistration> GetTypeRegistratio
     }
 
     fn register_type_dependencies(registry: &mut TypeRegistry) {
-        registry.try_register::<T>();
+        registry.register::<T>();
     }
 }
 

@@ -63,10 +63,6 @@ pub trait GetTypeRegistration {
     ///
     /// This method is called by [`TypeRegistry::register`] to register any other required types.
     /// Often, this is done for fields of structs and enum variants to ensure all types are properly registered.
-    ///
-    /// If manually implementing, it is _highly_ recommended to use [`TypeRegistry::try_register`] for these dependent types.
-    /// Using this method allows the type to be skipped if it has already been registered, thus preventing any
-    /// undesired overwrites and reducing registration costs.
     #[allow(unused_variables)]
     fn register_type_dependencies(registry: &mut TypeRegistry) {}
 }
@@ -111,39 +107,53 @@ impl TypeRegistry {
         registry
     }
 
-    /// Registers the type `T`, adding reflect data as specified in the [`Reflect`] derive:
+    /// Attempts to register the type `T` if it has not yet been registered already.
+    ///
+    /// If the registration for type `T` already exists, it will not be registered again.
+    /// To register the type, overwriting any existing registration, use [register](Self::register) instead.
+    ///
+    /// Additionally, this will add the reflect [data](TypeData) as specified in the [`Reflect`] derive:
     /// ```ignore (Neither bevy_ecs nor serde "derive" are available.)
-    /// #[derive(Component, serde::Serialize, serde::Deserialize, Reflect)]
+    /// #[derive(Reflect)]
     /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
+    /// struct Foo;
     /// ```
     pub fn register<T>(&mut self)
     where
         T: GetTypeRegistration,
     {
-        self.add_registration(T::get_type_registration());
+        if !self.add_registration(T::get_type_registration()) {
+            return;
+        }
+
         T::register_type_dependencies(self);
     }
 
-    /// Attempts to register the type `T` if it has not yet been registered already.
+    /// Attempts to register the type described by `registration`.
     ///
-    /// If the registration for type `T` already exists, it will not be registered again.
+    /// If the registration for the type already exists, it will not be registered again.
     ///
-    /// To register the type, overwriting any existing registration, use [register](Self::register) instead.
-    pub fn try_register<T>(&mut self)
-    where
-        T: GetTypeRegistration + 'static,
-    {
-        if !self.contains(TypeId::of::<T>()) {
-            self.register::<T>();
+    /// To forcibly register the type, overwriting any existing registration, use the
+    /// [`force_add_registration`](Self::force_add_registration) method instead.
+    ///
+    /// Returns `true` if the registration was successfully added,
+    /// or `false` if it already exists.
+    pub fn add_registration(&mut self, registration: TypeRegistration) -> bool {
+        if self.contains(registration.type_id()) {
+            false
+        } else {
+            self.force_add_registration(registration);
+            true
         }
     }
 
     /// Registers the type described by `registration`.
-    pub fn add_registration(&mut self, registration: TypeRegistration) {
-        if self.registrations.contains_key(&registration.type_id()) {
-            return;
-        }
-
+    ///
+    /// If the registration for the type already exists, it will be overwritten.
+    ///
+    /// To avoid overwriting existing registrations, it's recommended to use the
+    /// [`register`](Self::register) or [`add_registration`](Self::add_registration) methods instead.
+    pub fn force_add_registration(&mut self, registration: TypeRegistration) {
         let short_name = registration.type_info().type_path_table().short_path();
         if self.short_path_to_id.contains_key(short_name)
             || self.ambiguous_names.contains(short_name)
