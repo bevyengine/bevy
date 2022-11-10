@@ -1322,7 +1322,7 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
-        // SAFETY: component_id is valid, ensured by caller
+        // SAFETY: component_id and is_send are valid, ensured by caller
         self.initialize_resource_internal(component_id, is_send)
             .insert(value, change_tick);
     }
@@ -1337,6 +1337,7 @@ impl World {
         is_send: bool,
     ) -> &mut ResourceData {
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
+        // SAFETY: Caller guarentees that `is_send` matches the underlying type.
         self.storages
             .resources
             .initialize_with(component_id, &self.components, is_send, || {
@@ -1348,14 +1349,14 @@ impl World {
 
     pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
         let component_id = self.components.init_resource::<R>();
-        // SAFETY: resource initialized above
+        // SAFETY: resource initialized above, resource type must be Send
         unsafe { self.initialize_resource_internal(component_id, true) };
         component_id
     }
 
     pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
         let component_id = self.components.init_non_send::<R>();
-        // SAFETY: resource initialized above
+        // SAFETY: resource initialized above, resource type might not be send
         unsafe { self.initialize_resource_internal(component_id, false) };
         component_id
     }

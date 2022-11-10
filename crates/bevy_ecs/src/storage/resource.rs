@@ -183,7 +183,7 @@ impl Resources {
     ///
     /// # Safety
     /// `is_send` must be accurate for the Resource that is being
-    pub(crate) fn initialize_with(
+    pub(crate) unsafe fn initialize_with(
         &mut self,
         component_id: ComponentId,
         components: &Components,
