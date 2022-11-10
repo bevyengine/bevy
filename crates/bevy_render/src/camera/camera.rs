@@ -242,7 +242,7 @@ impl Camera {
         // Using EPSILON because an ndc with Z = 0 returns NaNs.
         let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
-        Some(Ray {
+        (!world_near_plane.is_nan() && !world_far_plane.is_nan()).then_some(Ray {
             origin: world_near_plane,
             direction: (world_far_plane - world_near_plane).normalize(),
         })
