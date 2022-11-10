@@ -96,6 +96,9 @@ macro_rules! impl_ptr {
 }
 
 impl_ptr!(Ptr);
+impl_ptr!(PtrMut);
+impl_ptr!(OwningPtr);
+
 impl<'a> Ptr<'a> {
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
@@ -125,6 +128,7 @@ impl<'a> Ptr<'a> {
         self.0.as_ptr()
     }
 }
+
 impl<'a, T> From<&'a T> for Ptr<'a> {
     #[inline]
     fn from(val: &'a T) -> Self {
@@ -134,7 +138,6 @@ impl<'a, T> From<&'a T> for Ptr<'a> {
     }
 }
 
-impl_ptr!(PtrMut);
 impl<'a> PtrMut<'a> {
     /// Transforms this [`PtrMut`] into an [`OwningPtr`]
     ///
@@ -164,6 +167,7 @@ impl<'a> PtrMut<'a> {
         self.0.as_ptr()
     }
 }
+
 impl<'a, T> From<&'a mut T> for PtrMut<'a> {
     #[inline]
     fn from(val: &'a mut T) -> Self {
@@ -173,7 +177,6 @@ impl<'a, T> From<&'a mut T> for PtrMut<'a> {
     }
 }
 
-impl_ptr!(OwningPtr);
 impl<'a> OwningPtr<'a> {
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
