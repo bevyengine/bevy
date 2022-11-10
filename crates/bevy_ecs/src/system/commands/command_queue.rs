@@ -98,16 +98,14 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
-        // Cursor that will iterate over the entries in the buffer.
-        // It will alternate between values of type `CommandMeta` and a values of unknown types.
+        // Pointer that will iterate over the entries of the buffer.
         let mut cursor = self.bytes.as_mut_ptr();
 
         // The address of the end of the buffer.
         let end_addr = cursor as usize + self.bytes.len();
 
-        // SAFETY: In the iteration below, `meta.func` will safely consume and drop each pushed command.
-        // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
-        // unnecessary allocations.
+        // Reset the buffer so its internal storage can get reused.
+        // SAFETY: Below `meta.write_command_and_get_size` will safely consume and drop each pushed command.
         unsafe { self.bytes.set_len(0) };
 
         while (cursor as usize) < end_addr {
