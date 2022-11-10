@@ -108,8 +108,18 @@ impl FromWorld for TonemappingPipeline {
 
 #[derive(Component, Clone, Reflect, Default)]
 #[reflect(Component)]
-pub struct Tonemapping {
-    pub is_enabled: bool,
+pub enum Tonemapping {
+    #[default]
+    Disabled,
+    Enabled {
+        is_deband_dither_enabled: bool,
+    },
+}
+
+impl Tonemapping {
+    pub fn is_enabled(&self) -> bool {
+        matches!(self, Tonemapping::Enabled { .. })
+    }
 }
 
 impl ExtractComponent for Tonemapping {

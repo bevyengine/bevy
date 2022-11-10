@@ -363,9 +363,16 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
 
-        if let Some(tonemapping) = tonemapping {
-            if tonemapping.is_enabled && !view.hdr {
+        if let Some(Tonemapping::Enabled {
+            is_deband_dither_enabled,
+        }) = tonemapping
+        {
+            if !view.hdr {
                 view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+
+                if *is_deband_dither_enabled {
+                    view_key |= MeshPipelineKey::DEBAND_DITHER;
+                }
             }
         }
         let rangefinder = view.rangefinder3d();

@@ -54,7 +54,7 @@ impl Node for TonemappingNode {
             Err(_) => return Ok(()),
         };
 
-        let tonemapping_enabled = tonemapping.map_or(false, |t| t.is_enabled);
+        let tonemapping_enabled = tonemapping.map_or(false, |t| t.is_enabled());
         if !tonemapping_enabled || !target.is_hdr() {
             return Ok(());
         }

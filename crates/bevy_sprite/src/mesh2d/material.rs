@@ -328,9 +328,16 @@ pub fn queue_material2d_meshes<M: Material2d>(
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        if let Some(tonemapping) = tonemapping {
-            if tonemapping.is_enabled && !view.hdr {
+        if let Some(Tonemapping::Enabled {
+            is_deband_dither_enabled,
+        }) = tonemapping
+        {
+            if !view.hdr {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+
+                if *is_deband_dither_enabled {
+                    view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
+                }
             }
         }
 
