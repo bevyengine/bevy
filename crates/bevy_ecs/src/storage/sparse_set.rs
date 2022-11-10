@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Tick},
     entity::Entity,
     storage::Column,
 };
@@ -176,6 +176,24 @@ impl ComponentSparseSet {
                 self.dense.get_ticks_unchecked(dense_index),
             ))
         }
+    }
+
+    #[inline]
+    pub fn get_added_ticks(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
+        let dense_index = *self.sparse.get(entity.index())? as usize;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index]);
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
+        unsafe { Some(self.dense.get_added_ticks_unchecked(dense_index)) }
+    }
+
+    #[inline]
+    pub fn get_changed_ticks(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
+        let dense_index = *self.sparse.get(entity.index())? as usize;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index]);
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
+        unsafe { Some(self.dense.get_changed_ticks_unchecked(dense_index)) }
     }
 
     #[inline]
