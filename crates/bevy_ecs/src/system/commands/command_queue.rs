@@ -63,18 +63,18 @@ impl CommandQueue {
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
         let ptr = unsafe { self.bytes.as_mut_ptr().add(old_len) };
 
-        // SAFETY: The end of the buffer has enough space for the metadata due to the `.reserve()` call,
-        // so we can cast it to a pointer and perform an unaligned write in order to fill the buffer.
+        // SAFETY: Due to the `.reserve()` call above, the end of the buffer has at least
+        // enough space to fit a value of type `CommandMeta`.
         // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
         unsafe {
             ptr.cast::<CommandMeta>().write_unaligned(meta);
         }
 
         if mem::size_of::<C>() > 0 {
-            // SAFETY: There is enough space after the metadata to store the command,
-            // due to the `.reserve()` call above.
-            // We will write to the buffer via an unaligned pointer write.
-            // Since the underlying buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
+            // SAFETY: Due to the `.reserve()` call above, the buffer has enough space
+            // to fit a value of type `C` after the metadata.
+            // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
+            // The value will eventually be dropped when `.apply()` is called.
             unsafe {
                 ptr.add(mem::size_of::<CommandMeta>())
                     .cast::<C>()
@@ -111,9 +111,8 @@ impl CommandQueue {
         unsafe { self.bytes.set_len(0) };
 
         while (cursor as usize) < end_addr {
-            // SAFETY: We know that the cursor must point to a value of type `CommandMeta`,
-            // since the buffer alternates between storing `CommandMeta` and unknown bytes.
-            // Its value will have been fully initialized during any calls to `push`.
+            // SAFETY: The cursor is either at the start of the buffer, or just after the previous command.
+            // Since we know that the cursor is in bounds, it must point to the start of a new command.
             let meta = unsafe { cursor.cast::<CommandMeta>().read_unaligned() };
             // Advance to the bytes just after `meta`, which represent a type-erased command.
             // SAFETY: For most types of `Command`, the pointer immediately following the metadata
@@ -124,8 +123,8 @@ impl CommandQueue {
             // SAFETY: The type currently under the cursor must be the same type
             // erased by `meta.write_command_and_get_size`.
             // We know that they are the same type, since they were stored next to each other by `.push()`.
-            // The command will not get double-dropped since the length of the buffer has been reset,
-            // which ensures the bytes will not be read after this function.
+            // Since the buffer has been cleared, this same command won't be read again,
+            // which ensures that a double-drop does not occur.
             let size = unsafe { (meta.write_command_and_get_size)(cursor, world) };
             // Advance the cursor past the command.
             // SAFETY: At this point, it will either point to the next `CommandMeta`,
