@@ -92,6 +92,12 @@ macro_rules! impl_ptr {
                 Self(inner, PhantomData)
             }
         }
+        impl<'a, T> From<&'a T> for $ptr<'a> {
+            #[inline]
+            fn from(val: &'a T) -> Self {
+                unsafe { Self::new(NonNull::from(val).cast()) }
+            }
+        }
     };
 }
 
@@ -125,6 +131,7 @@ impl<'a> Ptr<'a> {
         self.0.as_ptr()
     }
 }
+
 impl_ptr!(PtrMut);
 impl<'a> PtrMut<'a> {
     /// Transforms this [`PtrMut`] into an [`OwningPtr`]
@@ -155,6 +162,13 @@ impl<'a> PtrMut<'a> {
         self.0.as_ptr()
     }
 }
+impl<'a, T> From<&'a mut T> for PtrMut<'a> {
+    #[inline]
+    fn from(val: &'a mut T) -> Self {
+        unsafe { Self::new(NonNull::from(val).cast()) }
+    }
+}
+
 impl_ptr!(OwningPtr);
 impl<'a> OwningPtr<'a> {
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
