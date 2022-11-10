@@ -91,6 +91,7 @@ pub(crate) type DrawDebugLines = (
     DrawMesh2d,
 );
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn queue(
     config: Res<DebugDrawConfig>,
     draw2d_functions: Res<DrawFunctions<Transparent2d>>,

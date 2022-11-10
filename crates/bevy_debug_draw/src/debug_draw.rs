@@ -93,7 +93,7 @@ impl DebugDraw {
         let br = (position + rotation * vec3(half_size.x, -half_size.y, 0.)).to_array();
         self.positions.extend([tl, tr, tr, br, br, bl, bl, tl]);
         self.colors
-            .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(8))
+            .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(8));
     }
 
     /// Draw a box.
@@ -115,7 +115,7 @@ impl DebugDraw {
             tlf, tlb, trf, trb, brf, brb, blf, blb, // Front to back
         ]);
         self.colors
-            .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(24))
+            .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(24));
     }
 
     /// Draw a line from `start` to `end`.

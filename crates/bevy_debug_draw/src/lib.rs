@@ -105,13 +105,13 @@ fn update(
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
 ) {
-    if let Some(mut mesh) = debug_draw
+    if let Some(mesh) = debug_draw
         .mesh_handle
         .as_ref()
         .and_then(|handle| meshes.get_mut(handle))
     {
         if config.enabled {
-            debug_draw.update_mesh(&mut mesh);
+            debug_draw.update_mesh(mesh);
         } else {
             debug_draw.clear();
             mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION);

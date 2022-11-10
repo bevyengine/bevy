@@ -128,6 +128,7 @@ pub(crate) type DrawDebugLines = (
     DrawMesh,
 );
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn queue(
     opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
     debug_line_pipeline: Res<DebugLinePipeline>,

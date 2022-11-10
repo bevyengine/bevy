@@ -3,11 +3,19 @@ use std::f32::consts::TAU;
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    window::PresentMode,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "Many Debug Lines".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
+            ..default()
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .insert_resource(Config {
             line_count: 50_000,
@@ -63,6 +71,8 @@ fn system(
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+    warn!(include_str!("warning_string.txt"));
+
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(3., 1., 5.).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
