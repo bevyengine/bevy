@@ -805,5 +805,5 @@ fn queue_bloom_bind_groups(
 }
 
 fn calculate_mip_count(min_view: u32) -> u32 {
-    ((min_view as f32).log2().round() as u32 - 1).max(1)
+    ((min_view as f32).log2().round() as u32 - 3).max(1)
 }
