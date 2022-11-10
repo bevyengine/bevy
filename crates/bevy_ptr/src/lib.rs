@@ -92,13 +92,6 @@ macro_rules! impl_ptr {
                 Self(inner, PhantomData)
             }
         }
-        impl<'a, T> From<&'a T> for $ptr<'a> {
-            #[inline]
-            fn from(val: &'a T) -> Self {
-                // SAFETY: The returned pointer has the same lifetime as the passed reference.
-                unsafe { Self::new(NonNull::from(val).cast()) }
-            }
-        }
     };
 }
 
@@ -130,6 +123,13 @@ impl<'a> Ptr<'a> {
     #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(self) -> *mut u8 {
         self.0.as_ptr()
+    }
+}
+impl<'a, T> From<&'a T> for Ptr<'a> {
+    #[inline]
+    fn from(val: &'a T) -> Self {
+        // SAFETY: The returned pointer has the same lifetime as the passed reference.
+        unsafe { Self::new(NonNull::from(val).cast()) }
     }
 }
 
