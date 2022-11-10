@@ -1,15 +1,16 @@
 use std::mem::{self, MaybeUninit};
 
+use bevy_ptr::OwningPtr;
+
 use super::Command;
 use crate::world::World;
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this function pointer.
-    /// Ensure that `value` is not dropped after calling this fn pointer.
     ///
     /// Returns the size of `T` in bytes.
-    write_command_and_get_size: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World) -> usize,
+    write_command_and_get_size: unsafe fn(value: OwningPtr, world: &mut World) -> usize,
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -43,11 +44,10 @@ impl CommandQueue {
         C: Command,
     {
         let meta = CommandMeta {
-            write_command_and_get_size: |ptr: *mut MaybeUninit<u8>, world| {
+            write_command_and_get_size: |ptr, world| {
                 // SAFETY: The safety invariants of the field `CommandMeta.write_command_and_get_size`
                 // guarantee that `ptr` will point to a value of type `C`.
-                // The caller will ensure a double-drop does not happen.
-                let command = unsafe { ptr.cast::<C>().read_unaligned() };
+                let command = unsafe { ptr.read_unaligned::<C>() };
                 command.write(world);
                 mem::size_of::<C>()
             },
@@ -105,7 +105,8 @@ impl CommandQueue {
         let end_addr = cursor as usize + self.bytes.len();
 
         // Reset the buffer so its internal storage can get reused.
-        // SAFETY: Below `meta.write_command_and_get_size` will safely consume and drop each pushed command.
+        // SAFETY: Below, each command will have its ownership transferred to user code,
+        // which will be responsible for dropping each value.
         unsafe { self.bytes.set_len(0) };
 
         while (cursor as usize) < end_addr {
@@ -117,12 +118,13 @@ impl CommandQueue {
             // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
             // might be 1 byte past the end of the buffer, which is safe.
             cursor = unsafe { cursor.add(mem::size_of::<CommandMeta>()) };
+            // Construct an owned pointer to the command.
+            // SAFETY: Since the buffer has been cleared, the command won't get double-dropped later.
+            let cmd = unsafe { OwningPtr::new(std::ptr::NonNull::new_unchecked(cursor.cast())) };
             // SAFETY: The data underneath the cursor must correspond to the type erased by the metadata,
             // since they were stored next to each other by `.push()`.
             // For ZSTs, we can lie about this as long as the pointer is otherwise valid.
-            // Since the buffer has been cleared, this same command won't be read again,
-            // which ensures that a double-drop does not occur.
-            let size = unsafe { (meta.write_command_and_get_size)(cursor, world) };
+            let size = unsafe { (meta.write_command_and_get_size)(cmd, world) };
             // Advance the cursor past the command.
             // For ZSTs, the cursor will not move.
             // SAFETY: At this point, it will either point to the next `CommandMeta`,
