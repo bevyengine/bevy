@@ -12,7 +12,7 @@ struct CommandMeta {
     write_command_and_get_size: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World) -> usize,
 }
 
-/// A queue of [`Command`]s
+/// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
 //
 // NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` instead of a `Vec<Box<dyn Command>>`
 // as an optimization. Since commands are used frequently in systems as a way to spawn
