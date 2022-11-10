@@ -59,6 +59,9 @@ use std::{
 
 /// Contains the default Bevy rendering backend based on wgpu.
 pub struct RenderPlugin {
+    /// Pipelined rendering runs the rendering simultaneously with the main app.
+    /// Use this to turn pipelined rendering on or off. By default it's on in native
+    /// environments and off in wasm.
     pub use_pipelined_rendering: bool,
 }
 
@@ -230,7 +233,7 @@ impl Plugin for RenderPlugin {
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
-                let _render_span = bevy_utils::tracing::info_span!("extract").entered();
+                let _render_span = bevy_utils::tracing::info_span!("extract main to render app").entered();
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =
@@ -265,6 +268,8 @@ impl Plugin for RenderPlugin {
                     extract(app_world, render_app);
                 }
             }, |render_app| {
+                #[cfg(feature = "trace")]
+                let _render_span = bevy_utils::tracing::info_span!("render app").entered();
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =

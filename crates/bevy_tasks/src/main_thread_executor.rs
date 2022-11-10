@@ -31,17 +31,17 @@ impl ThreadExecutor {
 
     /// Gets the `[MainThreadSpawner]` for the thread executor.
     /// Use this to spawn tasks that run on the thread this was instatiated on.
-    pub fn spawner(&self) -> MainThreadSpawner<'static> {
-        MainThreadSpawner(self.executor.clone())
+    pub fn spawner(&self) -> ThreadSpawner<'static> {
+        ThreadSpawner(self.executor.clone())
     }
 
     /// Gets the `[MainThreadTicker]` for this executor.
     /// Use this to tick the executor.
     /// It only returns the ticker if it's on the thread the executor was created on
     /// and returns `None` otherwise.
-    pub fn ticker(&self) -> Option<MainThreadTicker> {
+    pub fn ticker(&self) -> Option<ThreadTicker> {
         if thread::current().id() == self.thread_id {
-            return Some(MainThreadTicker {
+            return Some(ThreadTicker {
                 executor: self.executor.clone(),
                 _marker: PhantomData::default(),
             });
@@ -50,22 +50,24 @@ impl ThreadExecutor {
     }
 }
 
+/// Used to spawn on the [`ThreadExecutor`]
 #[derive(Debug)]
-pub struct MainThreadSpawner<'a>(Arc<Executor<'a>>);
-impl<'a> MainThreadSpawner<'a> {
+pub struct ThreadSpawner<'a>(Arc<Executor<'a>>);
+impl<'a> ThreadSpawner<'a> {
     /// Spawn a task on the main thread
     pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
         self.0.spawn(future)
     }
 }
 
+/// Used to tick the [`ThreadExecutor`]
 #[derive(Debug)]
-pub struct MainThreadTicker {
+pub struct ThreadTicker {
     executor: Arc<Executor<'static>>,
     // make type not send or sync
     _marker: PhantomData<*const ()>,
 }
-impl MainThreadTicker {
+impl ThreadTicker {
     /// Tick the main thread executor.
     /// This needs to be called manually on the thread if it is not being used with
     /// a `[TaskPool::scope]`.

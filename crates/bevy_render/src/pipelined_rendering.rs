@@ -1,4 +1,5 @@
 use async_channel::{Receiver, Sender};
+
 use bevy_app::{App, SubApp};
 use bevy_ecs::{
     schedule::MainThreadExecutor,
@@ -7,22 +8,19 @@ use bevy_ecs::{
 };
 use bevy_tasks::ComputeTaskPool;
 
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Instrument;
-
 use crate::{PipelinedRenderingApp, RenderApp};
 
-/// Resource to be used for pipelined rendering for sending the render app from the main thread to the rendering thread
+/// Resource for pipelined rendering to send the render app from the main thread to the rendering thread
 #[derive(Resource)]
 pub struct MainToRenderAppSender(pub Sender<SubApp>);
 
-/// Resource used by pipelined rendering to send the render app from the render thread to the main thread
+/// Resource for pipelined rendering to send the render app from the render thread to the main thread
 #[derive(Resource)]
 pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 
-/// sets up the render thread and insert resource into the main app for controlling the render thread
+/// Sets up the render thread and inserts resources into the main app used for controlling the render thread
+/// This does nothing if pipelined rendering is not enabled.
 pub fn setup_rendering(app: &mut App) {
-    // skip this if pipelined rendering is not enabled
     if app.get_sub_app(PipelinedRenderingApp).is_err() {
         return;
     }
@@ -36,42 +34,38 @@ pub fn setup_rendering(app: &mut App) {
     app.insert_resource(MainToRenderAppSender(app_to_render_sender));
     app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
 
-    let render_task = async move {
-        loop {
-            // TODO: exit loop when app is exited
-            let recv_task = app_to_render_receiver.recv();
-            let mut sub_app = recv_task.await.unwrap();
-            sub_app.run();
-            render_to_app_sender.send(sub_app).await.unwrap();
-        }
-    };
-    #[cfg(feature = "trace")]
-    let span = bevy_utils::tracing::info_span!("render app");
-    #[cfg(feature = "trace")]
-    let render_task = render_task.instrument(span);
-    ComputeTaskPool::get().spawn(render_task).detach();
+    ComputeTaskPool::get()
+        .spawn(async move {
+            loop {
+                // TODO: exit loop when app is exited
+                let recv_task = app_to_render_receiver.recv();
+                let mut sub_app = recv_task.await.unwrap();
+                sub_app.run();
+                render_to_app_sender.send(sub_app).await.unwrap();
+            }
+        })
+        .detach();
 }
 
+/// This function is used for synchronizing the main app with the render world.
+/// Do not call this function if pipelined rendering is not setup.
 pub fn update_rendering(app_world: &mut World) {
-    // wait to get the render app back to signal that rendering is finished
-    let mut render_app = app_world
-        .resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
-            ComputeTaskPool::get()
-                .scope(Some(main_thread_executor.0.clone()), |s| {
-                    s.spawn(async {
-                        let receiver = world.get_resource::<RenderToMainAppReceiver>().unwrap();
-                        let recv = receiver.0.recv();
-                        recv.await.unwrap()
-                    });
-                })
-                .pop()
-        })
-        .unwrap();
+    app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
+        // we use a scope here to run any main thread tasks that the render world still needs to run
+        // while we wait for the render world to be received.
+        let mut render_app = ComputeTaskPool::get()
+            .scope(Some(main_thread_executor.0.clone()), |s| {
+                s.spawn(async {
+                    let receiver = world.get_resource::<RenderToMainAppReceiver>().unwrap();
+                    receiver.0.recv().await.unwrap()
+                });
+            })
+            .pop()
+            .unwrap();
 
-    render_app.extract(app_world);
+        render_app.extract(world);
 
-    app_world.resource_scope(|_world, sender: Mut<MainToRenderAppSender>| {
+        let sender = world.get_resource::<MainToRenderAppSender>().unwrap();
         sender.0.send_blocking(render_app).unwrap();
     });
-    // frame pacing plugin should run here somehow. i.e. after rendering, but before input handling
 }

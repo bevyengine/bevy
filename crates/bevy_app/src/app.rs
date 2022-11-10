@@ -67,7 +67,7 @@ pub struct App {
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
-    pub runner: Box<dyn Fn(App) + Send + Sync>, // send/sync bound is only required to make App Send/Sync
+    pub runner: Box<dyn Fn(App) + Send + Sync>, // Send + Sync bound is only required to make App Send + Sync
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
@@ -89,7 +89,7 @@ impl Debug for App {
 pub struct SubApp {
     app: App,
     extract: Box<dyn Fn(&mut World, &mut App) + Send + Sync>, // Send + Sync bound is only required to make SubApp send sync
-    runner: Box<dyn Fn(&mut App) + Send + Sync>, // this send sync bound is required since we're actually sending this function to another thread
+    runner: Box<dyn Fn(&mut App) + Send + Sync>, // this Send + Sync bound is required since we're running this function on another thread
 }
 
 impl SubApp {
@@ -159,7 +159,7 @@ impl App {
     /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
-        let _bevy_frame_update_span = info_span!("main_app").entered();
+        let _bevy_frame_update_span = info_span!("main app").entered();
         self.schedule.run(&mut self.world);
         for sub_app in self.sub_apps.values_mut() {
             sub_app.extract(&mut self.world);
@@ -997,15 +997,15 @@ impl App {
 
     /// Adds an [`App`] as a child of the current one.
     ///
-    /// The provided function `f` is called by the [`update`](Self::update) method. The [`World`]
+    /// The provided functions `extract` and `runner` are normally called by the [`update`](Self::update) method. The [`World`]
     /// parameter represents the main app world, while the [`App`] parameter is just a mutable
     /// reference to the `SubApp` itself.
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
         mut app: App,
-        sub_app_extract: impl Fn(&mut World, &mut App) + 'static + Send + Sync,
-        sub_app_runner: impl Fn(&mut App) + 'static + Send + Sync,
+        extract: impl Fn(&mut World, &mut App) + 'static + Send + Sync,
+        runner: impl Fn(&mut App) + 'static + Send + Sync,
     ) -> &mut Self {
         if let Some(executor) = self.world.get_resource::<MainThreadExecutor>() {
             app.world.insert_resource(executor.clone());
@@ -1014,8 +1014,8 @@ impl App {
             label.as_label(),
             SubApp {
                 app,
-                extract: Box::new(sub_app_extract),
-                runner: Box::new(sub_app_runner),
+                extract: Box::new(extract),
+                runner: Box::new(runner),
             },
         );
         self
@@ -1055,12 +1055,12 @@ impl App {
         }
     }
 
-    /// inserts an existing sub app into the app
+    /// Inserts an existing sub app into the app
     pub fn insert_sub_app(&mut self, label: impl AppLabel, sub_app: SubApp) {
         self.sub_apps.insert(label.as_label(), sub_app);
     }
 
-    /// remove a sub app from the app
+    /// Removes a sub app from the app. Returns None if the label doesn't exist.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
         self.sub_apps.remove(&label.as_label())
     }

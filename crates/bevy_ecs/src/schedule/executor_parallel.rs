@@ -18,7 +18,7 @@ use fixedbitset::FixedBitSet;
 #[cfg(test)]
 use scheduling_event::*;
 
-///
+/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Default)]
 pub struct MainThreadExecutor(pub Arc<ThreadExecutor>);
 
