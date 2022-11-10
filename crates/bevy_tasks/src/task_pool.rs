@@ -295,9 +295,9 @@ impl TaskPool {
                         }
                     };
 
-                    executor.run(tick_forever).or(get_results).await
+                    tick_forever.or(get_results).await
                 } else {
-                    executor.run(get_results).await
+                    get_results.await
                 }
             })
         }
