@@ -2,7 +2,7 @@
 #![no_std]
 #![warn(missing_docs)]
 
-use core::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use core::{cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, ptr::NonNull};
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
@@ -176,10 +176,10 @@ impl<'a> OwningPtr<'a> {
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
-        let mut temp = MaybeUninit::new(val);
-        // SAFETY: `temp.as_mut_ptr()` is a reference to a local value on the stack, so it cannot be null
-        let ptr = unsafe { NonNull::new_unchecked(temp.as_mut_ptr().cast::<u8>()) };
-        f(Self(ptr, PhantomData))
+        let mut temp = ManuallyDrop::new(val);
+        // SAFETY: The value behind the pointer will not get dropped or observed later,
+        // so it's safe to promote it to an owning pointer.
+        f(unsafe { PtrMut::from(&mut temp).promote() })
     }
 
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
