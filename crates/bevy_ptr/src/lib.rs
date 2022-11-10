@@ -95,6 +95,7 @@ macro_rules! impl_ptr {
         impl<'a, T> From<&'a T> for $ptr<'a> {
             #[inline]
             fn from(val: &'a T) -> Self {
+                // SAFETY: The returned pointer has the same lifetime as the passed reference.
                 unsafe { Self::new(NonNull::from(val).cast()) }
             }
         }
@@ -165,6 +166,7 @@ impl<'a> PtrMut<'a> {
 impl<'a, T> From<&'a mut T> for PtrMut<'a> {
     #[inline]
     fn from(val: &'a mut T) -> Self {
+        // SAFETY: The returned pointer has the same lifetime as the passed reference.
         unsafe { Self::new(NonNull::from(val).cast()) }
     }
 }
