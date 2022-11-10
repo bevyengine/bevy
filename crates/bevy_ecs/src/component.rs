@@ -542,7 +542,7 @@ impl Tick {
         ticks_since_system > ticks_since_insert
     }
 
-    fn check_tick(&mut self, change_tick: u32) {
+    pub(crate) fn check_tick(&mut self, change_tick: u32) {
         let age = change_tick.wrapping_sub(self.tick);
         // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
         // so long as this check always runs before that can happen.
@@ -596,11 +596,6 @@ impl ComponentTicks {
             added: Tick::new(change_tick),
             changed: Tick::new(change_tick),
         }
-    }
-
-    pub(crate) fn check_ticks(&mut self, change_tick: u32) {
-        self.added.check_tick(change_tick);
-        self.changed.check_tick(change_tick);
     }
 
     /// Manually sets the change tick.
