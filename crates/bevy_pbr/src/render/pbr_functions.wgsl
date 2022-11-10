@@ -91,12 +91,12 @@ fn apply_normal_mapping(
     // calculates the normal maps so there is no error introduced. Do not change this code
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
-    N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
+    N = Nt.x * T + Nt.y * B + Nt.z * N;
 #endif
 #endif
 #endif
 
-    return N;
+    return normalize(N);
 }
 
 // NOTE: Correctly calculates the view vector depending on whether
