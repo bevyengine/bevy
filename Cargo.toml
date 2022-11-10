@@ -1343,6 +1343,16 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_debug_lines"
+path = "examples/stress_tests/many_debug_lines.rs"
+
+[package.metadata.example.many_debug_lines]
+name = "Many Debug Lines"
+description = "Test rendering of many debug lines"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_foxes"
 path = "examples/stress_tests/many_foxes.rs"
 
