@@ -739,7 +739,7 @@ impl World {
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R
             unsafe {
-                self.insert_resource_by_id(component_id, ptr);
+                self.insert_resource_by_id(component_id, true, ptr);
             }
         });
     }
@@ -779,7 +779,7 @@ impl World {
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R
             unsafe {
-                self.insert_resource_by_id(component_id, ptr);
+                self.insert_resource_by_id(component_id, false, ptr);
             }
         });
     }
@@ -1311,31 +1311,35 @@ impl World {
     ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
-    /// `component_id` must exist in this [`World`]
+    /// `component_id` must exist in this [`World`]. `is_send` must correspond to whether the resource
+    /// adheres to invariants of `Send`.
     #[inline]
     pub unsafe fn insert_resource_by_id(
         &mut self,
         component_id: ComponentId,
+        is_send: bool,
         value: OwningPtr<'_>,
     ) {
         let change_tick = self.change_tick();
 
         // SAFETY: component_id is valid, ensured by caller
-        self.initialize_resource_internal(component_id)
+        self.initialize_resource_internal(component_id, is_send)
             .insert(value, change_tick);
     }
 
     /// # Safety
     /// `component_id` must be valid for this world
+    /// `is_send` should correspond for the resource being initialized.
     #[inline]
     unsafe fn initialize_resource_internal(
         &mut self,
         component_id: ComponentId,
+        is_send: bool,
     ) -> &mut ResourceData {
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         self.storages
             .resources
-            .initialize_with(component_id, &self.components, || {
+            .initialize_with(component_id, &self.components, is_send, || {
                 let id = ArchetypeComponentId::new(*archetype_component_count);
                 *archetype_component_count += 1;
                 id
@@ -1345,14 +1349,14 @@ impl World {
     pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
         let component_id = self.components.init_resource::<R>();
         // SAFETY: resource initialized above
-        unsafe { self.initialize_resource_internal(component_id) };
+        unsafe { self.initialize_resource_internal(component_id, true) };
         component_id
     }
 
     pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
         let component_id = self.components.init_non_send::<R>();
         // SAFETY: resource initialized above
-        unsafe { self.initialize_resource_internal(component_id) };
+        unsafe { self.initialize_resource_internal(component_id, false) };
         component_id
     }
 
@@ -1794,7 +1798,7 @@ mod tests {
         OwningPtr::make(value, |ptr| {
             // SAFETY: value is valid for the component layout
             unsafe {
-                world.insert_resource_by_id(component_id, ptr);
+                world.insert_resource_by_id(component_id, true, ptr);
             }
         });
 

@@ -2,7 +2,9 @@ use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::tracing::error;
 use std::cell::UnsafeCell;
+use std::thread::ThreadId;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
@@ -10,6 +12,22 @@ use std::cell::UnsafeCell;
 pub struct ResourceData {
     column: Column,
     id: ArchetypeComponentId,
+    origin_thread_id: Option<ThreadId>,
+}
+
+impl Drop for ResourceData {
+    fn drop(&mut self) {
+        if let Some(origin_thread_id) = self.origin_thread_id {
+            if origin_thread_id != std::thread::current().id() {
+                error!(
+                    "Attempted to drop non-send resource from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                    origin_thread_id,
+                    std::thread::current().id()
+                );
+                std::process::abort();
+            }
+        }
+    }
 }
 
 impl ResourceData {
@@ -162,10 +180,14 @@ impl Resources {
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
+    ///
+    /// # Safety
+    /// `is_send` must be accurate for the Resource that is being
     pub(crate) fn initialize_with(
         &mut self,
         component_id: ComponentId,
         components: &Components,
+        is_send: bool,
         f: impl FnOnce() -> ArchetypeComponentId,
     ) -> &mut ResourceData {
         self.resources.get_or_insert_with(component_id, || {
@@ -173,6 +195,7 @@ impl Resources {
             ResourceData {
                 column: Column::with_capacity(component_info, 1),
                 id: f(),
+                origin_thread_id: is_send.then(|| std::thread::current().id()),
             }
         })
     }
