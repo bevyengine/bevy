@@ -129,6 +129,7 @@ impl<'a, T> From<&'a T> for Ptr<'a> {
     #[inline]
     fn from(val: &'a T) -> Self {
         // SAFETY: The returned pointer has the same lifetime as the passed reference.
+        // Access is immutable.
         unsafe { Self::new(NonNull::from(val).cast()) }
     }
 }
@@ -167,6 +168,7 @@ impl<'a, T> From<&'a mut T> for PtrMut<'a> {
     #[inline]
     fn from(val: &'a mut T) -> Self {
         // SAFETY: The returned pointer has the same lifetime as the passed reference.
+        // The reference is mutable, and thus will not alias.
         unsafe { Self::new(NonNull::from(val).cast()) }
     }
 }
