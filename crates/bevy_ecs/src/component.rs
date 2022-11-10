@@ -335,7 +335,11 @@ impl ComponentDescriptor {
         }
     }
 
-    fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
+    /// Create a new non-send `ComponentDescriptor` for the type `T`.
+    ///
+    /// If type `T` is [Send] and [Sync] then it should implement [`Component`] and
+    /// call [`ComponentDescriptor::new`] instead.
+    pub fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type,
