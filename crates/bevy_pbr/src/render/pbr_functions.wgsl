@@ -57,7 +57,7 @@ fn apply_normal_mapping(
     // Unreal Engine, Godot, and more all use the mikktspace method. Do not change this code
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
-    var N: vec3<f32> = world_normal;
+    var N: vec3<f32> = normalize(world_normal);
 
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
