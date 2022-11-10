@@ -17,6 +17,13 @@ pub struct ResourceData {
 
 impl Drop for ResourceData {
     fn drop(&mut self) {
+        self.validate_drop();
+    }
+}
+
+impl ResourceData {
+    #[inline]
+    fn validate_drop(&self) {
         if let Some(origin_thread_id) = self.origin_thread_id {
             if origin_thread_id != std::thread::current().id() {
                 error!(
@@ -28,9 +35,7 @@ impl Drop for ResourceData {
             }
         }
     }
-}
 
-impl ResourceData {
     /// Returns true if the resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
@@ -78,6 +83,9 @@ impl ResourceData {
     /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
+        if self.origin_thread_id.is_some() {
+            self.origin_thread_id = Some(std::thread::current().id());
+        }
         if self.is_present() {
             self.column.replace(0, value, change_tick);
         } else {
@@ -133,6 +141,7 @@ impl ResourceData {
     /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     pub(crate) unsafe fn remove_and_drop(&mut self) {
+        self.validate_drop();
         self.column.clear();
     }
 }
@@ -182,7 +191,7 @@ impl Resources {
     /// Will panic if `component_id` is not valid for the provided `components`
     ///
     /// # Safety
-    /// `is_send` must be accurate for the Resource that is being
+    /// `is_send` must be accurate for the Resource that is being initialized.
     pub(crate) unsafe fn initialize_with(
         &mut self,
         component_id: ComponentId,
