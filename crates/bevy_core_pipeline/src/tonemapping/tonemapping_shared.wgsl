@@ -33,5 +33,5 @@ fn reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
 fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
     var dither = vec3<f32>(dot(vec2<f32>(171.0, 231.0), frag_coord)).xxx;
     dither = fract(dither.rgb / vec3<f32>(103.0, 71.0, 97.0));
-    return dither / 255.0;
+    return (dither - 0.5) / 255.0;
 }
