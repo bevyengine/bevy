@@ -195,7 +195,7 @@ impl Resources {
             ResourceData {
                 column: Column::with_capacity(component_info, 1),
                 id: f(),
-                origin_thread_id: is_send.then(|| std::thread::current().id()),
+                origin_thread_id: (!is_send).then(|| std::thread::current().id()),
             }
         })
     }
