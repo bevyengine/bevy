@@ -654,7 +654,7 @@ mod tests {
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
     use crate::{
-        component::{ComponentTicks, Components},
+        component::{Components, Tick},
         entity::Entity,
         storage::Table,
     };
@@ -679,7 +679,7 @@ mod tests {
                     table.get_column_mut(component_id).unwrap().initialize(
                         row,
                         value_ptr,
-                        ComponentTicks::new(0),
+                        Tick::new(0),
                     );
                 });
             };
