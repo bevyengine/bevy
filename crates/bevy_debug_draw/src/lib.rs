@@ -82,7 +82,7 @@ pub struct DebugDrawConfig {
     /// Defaults to `true`.
     pub enabled: bool,
     /// Whether debug drawing should ignore depth and draw on top of everything else.
-    /// 
+    ///
     /// This setting only affects 3D. In 2D, debug drawing is always on top.
     ///
     /// Defaults to `true`.
