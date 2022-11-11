@@ -1247,6 +1247,16 @@ category = "Shaders"
 wasm = false
 
 [[example]]
+name = "compute_shader_buffer"
+path = "examples/shader/compute_shader_buffer.rs"
+
+[package.metadata.example.compute_shader_buffer]
+name = "Compute - Accessing buffers"
+description = "A compute shader that passes buffers between the CPU and the GPU"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "array_texture"
 path = "examples/shader/array_texture.rs"
 
