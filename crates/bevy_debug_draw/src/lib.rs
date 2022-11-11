@@ -45,16 +45,18 @@ impl Plugin for DebugDrawPlugin {
 
         app.init_resource::<DebugDraw>()
             .init_resource::<DebugDrawConfig>()
-            .add_system_to_stage(CoreStage::Last, update)
-            .sub_app_mut(RenderApp)
-            .add_system_to_stage(RenderStage::Extract, extract);
+            .add_system_to_stage(CoreStage::Last, update);
+
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
+
+        render_app.add_system_to_stage(RenderStage::Extract, extract);
 
         #[cfg(feature = "bevy_sprite")]
         {
             use bevy_core_pipeline::core_2d::Transparent2d;
             use pipeline_2d::*;
 
-            app.sub_app_mut(RenderApp)
+            render_app
                 .add_render_command::<Transparent2d, DrawDebugLines>()
                 .init_resource::<DebugLinePipeline>()
                 .init_resource::<SpecializedMeshPipelines<DebugLinePipeline>>()
@@ -66,7 +68,7 @@ impl Plugin for DebugDrawPlugin {
             use bevy_core_pipeline::core_3d::Opaque3d;
             use pipeline_3d::*;
 
-            app.sub_app_mut(RenderApp)
+            render_app
                 .add_render_command::<Opaque3d, DrawDebugLines>()
                 .init_resource::<DebugLinePipeline>()
                 .init_resource::<SpecializedMeshPipelines<DebugLinePipeline>>()
