@@ -149,7 +149,7 @@ pub struct BloomSettings {
     /// Scale used when upsampling (default: 1.0).
     pub scale: f32,
 
-    /// Intensity of the bloom effect (default: 1.0).
+    /// Intensity of the bloom effect (default: 0.3).
     pub intensity: f32,
 }
 
@@ -159,7 +159,7 @@ impl Default for BloomSettings {
             threshold: 1.0,
             knee: 0.1,
             scale: 1.0,
-            intensity: 1.0,
+            intensity: 0.3,
         }
     }
 }
@@ -655,7 +655,7 @@ fn prepare_bloom_uniforms(
                 threshold: settings.threshold,
                 knee: settings.knee,
                 scale: settings.scale * scale,
-                intensity: settings.intensity / 3.0,
+                intensity: settings.intensity,
             };
             let index = bloom_uniforms.uniforms.push(uniform);
             Some((entity, (BloomUniformIndex(index))))
