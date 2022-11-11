@@ -165,7 +165,10 @@ impl ComponentSparseSet {
     }
 
     #[inline]
-    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
+    pub fn get_with_ticks(
+        &self,
+        entity: Entity,
+    ) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
         let dense_index = *self.sparse.get(entity.index())? as usize;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index]);
@@ -198,7 +201,7 @@ impl ComponentSparseSet {
     }
 
     #[inline]
-    pub fn get_ticks(&self, entity: Entity) -> Option<&UnsafeCell<ComponentTicks>> {
+    pub fn get_ticks(&self, entity: Entity) -> Option<ComponentTicks> {
         let dense_index = *self.sparse.get(entity.index())? as usize;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index]);

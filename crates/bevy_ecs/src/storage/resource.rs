@@ -1,5 +1,5 @@
 use crate::archetype::ArchetypeComponentId;
-use crate::component::{ComponentId, ComponentTicks, Tick, Components};
+use crate::component::{ComponentId, ComponentTicks, Components, Tick};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
@@ -33,14 +33,8 @@ impl ResourceData {
 
     /// Gets a read-only reference to the change ticks of the underlying resource, if available.
     #[inline]
-    pub fn get_ticks(&self) -> Option<&ComponentTicks> {
-        self.column
-            .get_ticks(0)
-            // SAFETY:
-            //  - This borrow's lifetime is bounded by the lifetime on self.
-            //  - A read-only borrow on self can only exist while a mutable borrow doesn't
-            //    exist.
-            .map(|ticks| unsafe { ticks.deref() })
+    pub fn get_ticks(&self) -> Option<ComponentTicks> {
+        self.column.get_ticks(0)
     }
 
     #[inline]
@@ -85,7 +79,8 @@ impl ResourceData {
     ) {
         if self.is_present() {
             self.column.replace_untracked(0, value);
-            *self.column.get_ticks_unchecked(0).deref_mut() = change_ticks;
+            *self.column.get_added_ticks_unchecked(0).deref_mut() = change_ticks.added;
+            *self.column.get_changed_ticks_unchecked(0).deref_mut() = change_ticks.changed;
         } else {
             self.column.push(value, change_ticks);
         }

@@ -395,9 +395,7 @@ impl<'a> DetectChanges for MutUntyped<'a> {
 
     #[inline]
     fn set_changed(&mut self) {
-        self.ticks
-            .changed
-            .set_changed(self.ticks.change_tick);
+        self.ticks.changed.set_changed(self.ticks.change_tick);
     }
 
     #[inline]

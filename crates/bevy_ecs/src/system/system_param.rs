@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, Tick, Components},
+    component::{Component, ComponentId, ComponentTicks, Components, Tick},
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
@@ -306,7 +306,8 @@ impl<'w, T: Resource> Res<'w, T> {
 
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
-        self.added.is_changed(self.last_change_tick, self.change_tick)
+        self.added
+            .is_changed(self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.

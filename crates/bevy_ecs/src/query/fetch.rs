@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentStorage, Tick, ComponentTicks, StorageType},
+    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table},
@@ -747,7 +747,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     ) -> Self::Item<'w> {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
-                let (table_components, added_ticks, changed_ticks) = fetch.table_data.debug_checked_unwrap();
+                let (table_components, added_ticks, changed_ticks) =
+                    fetch.table_data.debug_checked_unwrap();
                 Mut {
                     value: table_components.get(table_row).deref_mut(),
                     ticks: Ticks {
@@ -767,7 +768,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: Ticks {
-                        added: added.deref_mut(), 
+                        added: added.deref_mut(),
                         changed: changed.deref_mut(),
                         change_tick: fetch.change_tick,
                         last_change_tick: fetch.last_change_tick,
@@ -996,7 +997,10 @@ impl<T: Component> ChangeTrackers<T> {
 #[doc(hidden)]
 pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
-    table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+    table_ticks: Option<(
+        ThinSlicePtr<'w, UnsafeCell<Tick>>, // Added
+        ThinSlicePtr<'w, UnsafeCell<Tick>>, // Changed
+    )>,
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
@@ -1074,13 +1078,11 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         &id: &ComponentId,
         table: &'w Table,
     ) {
-        fetch.table_ticks = Some(
-            table
-                .get_column(id)
-                .debug_checked_unwrap()
-                .get_ticks_slice()
-                .into(),
-        );
+        let column = table.get_column(id).debug_checked_unwrap();
+        fetch.table_ticks = Some((
+            column.get_added_ticks_slice().into(),
+            column.get_changed_ticks_slice().into(),
+        ));
     }
 
     #[inline(always)]
@@ -1092,20 +1094,22 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => ChangeTrackers {
                 component_ticks: {
-                    let table_ticks = fetch.table_ticks.debug_checked_unwrap();
-                    table_ticks.get(table_row).read()
+                    let (added, changed) = fetch.table_ticks.debug_checked_unwrap();
+                    ComponentTicks {
+                        added: added.get(table_row).read(),
+                        changed: changed.get(table_row).read(),
+                    }
                 },
                 marker: PhantomData,
                 last_change_tick: fetch.last_change_tick,
                 change_tick: fetch.change_tick,
             },
             StorageType::SparseSet => ChangeTrackers {
-                component_ticks: *fetch
+                component_ticks: fetch
                     .sparse_set
                     .debug_checked_unwrap()
                     .get_ticks(entity)
-                    .debug_checked_unwrap()
-                    .get(),
+                    .debug_checked_unwrap(),
                 marker: PhantomData,
                 last_change_tick: fetch.last_change_tick,
                 change_tick: fetch.change_tick,

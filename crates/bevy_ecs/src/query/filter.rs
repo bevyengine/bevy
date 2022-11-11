@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
+    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{ComponentSparseSet, Table},
@@ -413,7 +413,10 @@ macro_rules! impl_tick_filter {
         #[doc(hidden)]
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
-            table_ticks: Option<ThinSlicePtr<'w, UnsafeCell<ComponentTicks>>>,
+            table_ticks: Option<(
+                ThinSlicePtr<'w, UnsafeCell<Tick>>,
+                ThinSlicePtr<'w, UnsafeCell<Tick>>
+            )>,
             marker: PhantomData<T>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
@@ -474,12 +477,13 @@ macro_rules! impl_tick_filter {
                 &component_id: &ComponentId,
                 table: &'w Table
             ) {
-                fetch.table_ticks = Some(
-                    table.get_column(component_id)
-                    .debug_checked_unwrap()
-                         .get_ticks_slice()
-                         .into()
-                );
+                let column = table
+                    .get_column(component_id)
+                    .debug_checked_unwrap();
+                fetch.table_ticks = Some((
+                    column.get_added_ticks_slice().into(),
+                    column.get_changed_ticks_slice().into()
+                ));
             }
 
             #[inline]
@@ -502,23 +506,23 @@ macro_rules! impl_tick_filter {
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        $is_detected(&*(
-                            fetch.table_ticks
-                            .debug_checked_unwrap()
-                                 .get(table_row))
-                                 .deref(),
+                        let (added, changed) = fetch.table_ticks.debug_checked_unwrap();
+                        let ticks = ComponentTicks {
+                            added: added.get(table_row).read(),
+                            changed: changed.get(table_row).read()
+                        };
+                        $is_detected(&ticks, fetch.last_change_tick, fetch.change_tick)
+                    }
+                    StorageType::SparseSet => {
+                        $is_detected(
+                            &fetch
+                                .sparse_set
+                                .debug_checked_unwrap()
+                                .get_ticks(entity)
+                                .debug_checked_unwrap(),
                             fetch.last_change_tick,
                             fetch.change_tick
                         )
-                    }
-                    StorageType::SparseSet => {
-                        let ticks = &*fetch
-                            .sparse_set
-                            .debug_checked_unwrap()
-                            .get_ticks(entity)
-                            .debug_checked_unwrap()
-                            .get();
-                        $is_detected(ticks, fetch.last_change_tick, fetch.change_tick)
                     }
                 }
             }

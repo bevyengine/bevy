@@ -11,9 +11,7 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
-    component::{
-        Component, ComponentDescriptor, ComponentId, ComponentInfo, Tick, Components,
-    },
+    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},

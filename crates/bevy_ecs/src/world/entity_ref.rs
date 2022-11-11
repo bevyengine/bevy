@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
     change_detection::{MutUntyped, Ticks},
-    component::{Component, ComponentId, Tick, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
     world::{Mut, World},
@@ -77,12 +77,9 @@ impl<'w> EntityRef<'w> {
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
-    pub fn get_change_ticks<T: Component>(&self) -> Option<&'w ComponentTicks> {
+    pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY: entity location is valid
-        unsafe {
-            get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-                .map(|ticks| ticks.deref())
-        }
+        unsafe { get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location) }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with
@@ -209,12 +206,9 @@ impl<'w> EntityMut<'w> {
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
     /// detection in custom runtimes.
     #[inline]
-    pub fn get_change_ticks<T: Component>(&self) -> Option<&ComponentTicks> {
+    pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY: entity location is valid
-        unsafe {
-            get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-                .map(|ticks| ticks.deref())
-        }
+        unsafe { get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location) }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with
@@ -666,7 +660,7 @@ unsafe fn get_ticks(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<&UnsafeCell<ComponentTicks>> {
+) -> Option<ComponentTicks> {
     let archetype = &world.archetypes[location.archetype_id];
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
@@ -762,7 +756,7 @@ pub(crate) unsafe fn get_ticks_with_type(
     type_id: TypeId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<&UnsafeCell<ComponentTicks>> {
+) -> Option<ComponentTicks> {
     let component_id = world.components.get_id(type_id)?;
     get_ticks(world, component_id, entity, location)
 }

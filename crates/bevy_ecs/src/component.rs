@@ -523,7 +523,7 @@ pub struct Tick {
 }
 
 impl Tick {
-    const fn new(tick: u32) -> Self {
+    pub const fn new(tick: u32) -> Self {
         Self { tick }
     }
 
