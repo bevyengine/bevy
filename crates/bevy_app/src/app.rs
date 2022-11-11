@@ -63,9 +63,6 @@ pub struct App {
     /// The systems of the [`App`] will run using this [`World`].
     /// If additional separate [`World`]-[`Schedule`] pairs are needed, you can use [`sub_app`](App::add_sub_app)s.
     pub world: World,
-    /// The [setup function](Self::set_setup) is responsible for any final setup needed
-    /// before calling the runner
-    setup: Box<dyn Fn(&mut App) + Send + Sync>,
     /// The [runner function](Self::set_runner) is primarily responsible for managing
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
@@ -148,7 +145,6 @@ impl App {
         Self {
             world: Default::default(),
             schedule: Default::default(),
-            setup: Box::new(empty_setup),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
@@ -184,8 +180,14 @@ impl App {
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
-        let setup = std::mem::replace(&mut app.setup, Box::new(empty_setup));
-        (setup)(&mut app);
+
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let mut plugin_registry = std::mem::take(&mut app.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.setup(&mut app);
+        }
+        std::mem::swap(&mut app.plugin_registry, &mut plugin_registry);
+
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
@@ -797,14 +799,6 @@ impl App {
         self
     }
 
-    /// Sets the function that will be called before the [runner](Self::set_runner)
-    /// This can be useful when you have work to do before the runner is called, but
-    /// after plugins have been built
-    pub fn set_setup(&mut self, setup_fn: impl Fn(&mut App) + 'static + Send + Sync) -> &mut Self {
-        self.setup = Box::new(setup_fn);
-        self
-    }
-
     /// Sets the function that will be called when the app is run.
     ///
     /// The runner function `run_fn` is called only once by [`App::run`]. If the
@@ -1094,8 +1088,6 @@ impl App {
 fn run_once(mut app: App) {
     app.update();
 }
-
-fn empty_setup(_app: &mut App) {}
 
 /// An event that indicates the [`App`] should exit. This will fully exit the app process at the
 /// start of the next tick of the schedule.

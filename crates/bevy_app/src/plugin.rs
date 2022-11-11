@@ -16,6 +16,12 @@ use std::any::Any;
 pub trait Plugin: Downcast + Any + Send + Sync {
     /// Configures the [`App`] to which this plugin is added.
     fn build(&self, app: &mut App);
+    /// Runs after all plugins are built, but before the app runner is called.
+    /// This can be useful if you have some resource that other plugins need during their build step,
+    /// but after build you want to remove it and send it to another thread.
+    fn setup(&self, _app: &mut App) {
+        // do nothing
+    }
     /// Configures a name for the [`Plugin`] which is primarily used for debugging.
     fn name(&self) -> &str {
         std::any::type_name::<Self>()

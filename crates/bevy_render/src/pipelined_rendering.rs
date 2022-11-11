@@ -40,7 +40,6 @@ pub struct PipelinedRenderingPlugin;
 impl Plugin for PipelinedRenderingPlugin {
     fn build(&self, app: &mut App) {
         let mut sub_app = App::new();
-        app.set_setup(setup_rendering);
         sub_app.add_stage(
             RenderExtractStage::BeforeIoAfterRenderStart,
             SystemStage::parallel(),
@@ -49,37 +48,34 @@ impl Plugin for PipelinedRenderingPlugin {
             render_app.run();
         });
     }
-}
 
-// Sets up the render thread and inserts resources into the main app used for controlling the render thread.
-// This should be called after plugins have all been built as it removes the rendering sub app from the main app.
-// This does nothing if pipelined rendering is not enabled.
-fn setup_rendering(app: &mut App) {
-    // skip setting up when headless
-    if app.get_sub_app(RenderExtractApp).is_err() {
-        return;
+    // Sets up the render thread and inserts resources into the main app used for controlling the render thread.
+    fn setup(&self, app: &mut App) {
+        // skip setting up when headless
+        if app.get_sub_app(RenderExtractApp).is_err() {
+            return;
+        }
+
+        let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
+        let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
+
+        let render_app = app.remove_sub_app(RenderApp).unwrap();
+        render_to_app_sender.send_blocking(render_app).unwrap();
+
+        app.insert_resource(MainToRenderAppSender(app_to_render_sender));
+        app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
+
+        ComputeTaskPool::get()
+            .spawn(async move {
+                loop {
+                    let recv_task = app_to_render_receiver.recv();
+                    let mut sub_app = recv_task.await.unwrap();
+                    sub_app.run();
+                    render_to_app_sender.send(sub_app).await.unwrap();
+                }
+            })
+            .detach();
     }
-
-    let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
-    let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
-
-    let render_app = app.remove_sub_app(RenderApp).unwrap();
-    render_to_app_sender.send_blocking(render_app).unwrap();
-
-    app.insert_resource(MainToRenderAppSender(app_to_render_sender));
-    app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
-
-    ComputeTaskPool::get()
-        .spawn(async move {
-            loop {
-                // TODO: exit loop when app is exited
-                let recv_task = app_to_render_receiver.recv();
-                let mut sub_app = recv_task.await.unwrap();
-                sub_app.run();
-                render_to_app_sender.send(sub_app).await.unwrap();
-            }
-        })
-        .detach();
 }
 
 // This function is used for synchronizing the main app with the render world.
