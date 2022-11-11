@@ -1,9 +1,9 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
+    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{ComponentSparseSet, Table},
+    storage::{Column, ComponentSparseSet, Table},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
@@ -405,7 +405,8 @@ macro_rules! impl_tick_filter {
         $name: ident,
         $(#[$fetch_meta:meta])*
         $fetch_name: ident,
-        $is_detected: expr
+        $get_slice: expr,
+        $get_sparse_set: expr
     ) => {
         $(#[$meta])*
         pub struct $name<T>(PhantomData<T>);
@@ -413,10 +414,7 @@ macro_rules! impl_tick_filter {
         #[doc(hidden)]
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
-            table_ticks: Option<(
-                ThinSlicePtr<'w, UnsafeCell<Tick>>,
-                ThinSlicePtr<'w, UnsafeCell<Tick>>
-            )>,
+            table_ticks: Option< ThinSlicePtr<'w, UnsafeCell<Tick>>>,
             marker: PhantomData<T>,
             sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
@@ -480,10 +478,9 @@ macro_rules! impl_tick_filter {
                 let column = table
                     .get_column(component_id)
                     .debug_checked_unwrap();
-                fetch.table_ticks = Some((
-                    column.get_added_ticks_slice().into(),
-                    column.get_changed_ticks_slice().into()
-                ));
+                fetch.table_ticks = Some(
+                    $get_slice(&column).into(),
+                );
             }
 
             #[inline]
@@ -506,23 +503,21 @@ macro_rules! impl_tick_filter {
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        let (added, changed) = fetch.table_ticks.debug_checked_unwrap();
-                        let ticks = ComponentTicks {
-                            added: added.get(table_row).read(),
-                            changed: changed.get(table_row).read()
-                        };
-                        $is_detected(&ticks, fetch.last_change_tick, fetch.change_tick)
+                        fetch
+                            .table_ticks
+                            .debug_checked_unwrap()
+                            .get(table_row)
+                            .deref()
+                            .is_changed(fetch.last_change_tick, fetch.change_tick)
                     }
                     StorageType::SparseSet => {
-                        $is_detected(
-                            &fetch
-                                .sparse_set
-                                .debug_checked_unwrap()
-                                .get_ticks(entity)
-                                .debug_checked_unwrap(),
-                            fetch.last_change_tick,
-                            fetch.change_tick
-                        )
+                        let sparse_set = &fetch
+                            .sparse_set
+                            .debug_checked_unwrap();
+                        $get_sparse_set(sparse_set, entity)
+                            .debug_checked_unwrap()
+                            .deref()
+                            .is_changed(fetch.last_change_tick, fetch.change_tick)
                     }
                 }
             }
@@ -599,7 +594,8 @@ impl_tick_filter!(
     /// ```
     Added,
     AddedFetch,
-    ComponentTicks::is_added
+    Column::get_added_ticks_slice,
+    ComponentSparseSet::get_added_ticks
 );
 
 impl_tick_filter!(
@@ -636,7 +632,8 @@ impl_tick_filter!(
     /// ```
     Changed,
     ChangedFetch,
-    ComponentTicks::is_changed
+    Column::get_changed_ticks_slice,
+    ComponentSparseSet::get_changed_ticks
 );
 
 /// A marker trait to indicate that the filter works at an archetype level.
