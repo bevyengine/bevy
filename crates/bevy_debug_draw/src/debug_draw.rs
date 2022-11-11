@@ -5,6 +5,8 @@ use bevy_ecs::system::Resource;
 use bevy_math::{vec3, Quat, Vec2, Vec3};
 use bevy_render::prelude::{Color, Mesh};
 
+/// A resource with an immediate mode API for drawing lines and wireshapes.
+/// Useful for visual debugging.
 #[derive(Resource)]
 pub struct DebugDraw {
     positions: Vec<[f32; 3]>,
@@ -137,6 +139,17 @@ impl DebugDraw {
     /// Draw a line from `start` to `start + vector`.
     pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: Color) {
         self.ray(start.extend(0.), vector.extend(0.), color);
+    }
+
+    /// Draw a line from `start` to `start + vector`.
+    pub fn ray_gradient_2d(
+        &mut self,
+        start: Vec2,
+        vector: Vec2,
+        start_color: Color,
+        end_color: Color,
+    ) {
+        self.line_gradient_2d(start, start + vector, start_color, end_color);
     }
 
     // Draw a circle.
