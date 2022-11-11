@@ -1,6 +1,6 @@
 use async_channel::{Receiver, Sender};
 
-use bevy_app::{App, AppLabel, SubApp};
+use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_ecs::{
     schedule::{MainThreadExecutor, Stage, StageLabel, SystemStage},
     system::Resource,
@@ -35,35 +35,39 @@ pub struct MainToRenderAppSender(pub Sender<SubApp>);
 #[derive(Resource)]
 pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 
-pub(crate) fn build_pipelined_rendering(main_app: &mut App) {
-    let mut app = App::new();
-    main_app.set_setup(setup_rendering);
-    main_app.add_stage(
-        RenderExtractStage::BeforeIoAfterRendering,
-        SystemStage::parallel(),
-    );
-    app.add_sub_app(
-        RenderExtractApp,
-        App::new(),
-        |app_world, _render_app| {
-            update_rendering(app_world);
-        },
-        |render_app| {
-            {
-                #[cfg(feature = "trace")]
-                let _stage_span =
-                    bevy_utils::tracing::info_span!("stage", name = "before_io_after_rendering")
-                        .entered();
+#[derive(Default)]
+pub struct PipelinedRenderingPlugin;
+impl Plugin for PipelinedRenderingPlugin {
+    fn build(&self, app: &mut App) {
+        let mut sub_app = App::new();
+        app.set_setup(setup_rendering);
+        app.add_stage(
+            RenderExtractStage::BeforeIoAfterRendering,
+            SystemStage::parallel(),
+        );
+        sub_app.add_sub_app(
+            RenderExtractApp,
+            App::new(),
+            update_rendering,
+            |render_app| {
+                {
+                    #[cfg(feature = "trace")]
+                    let _stage_span = bevy_utils::tracing::info_span!(
+                        "stage",
+                        name = "before_io_after_rendering"
+                    )
+                    .entered();
 
-                // render
-                let render = render_app
-                    .schedule
-                    .get_stage_mut::<SystemStage>(RenderExtractStage::BeforeIoAfterRendering)
-                    .unwrap();
-                render.run(&mut render_app.world);
-            }
-        },
-    );
+                    // render
+                    let render = render_app
+                        .schedule
+                        .get_stage_mut::<SystemStage>(RenderExtractStage::BeforeIoAfterRendering)
+                        .unwrap();
+                    render.run(&mut render_app.world);
+                }
+            },
+        );
+    }
 }
 
 // Sets up the render thread and inserts resources into the main app used for controlling the render thread.
@@ -98,7 +102,7 @@ fn setup_rendering(app: &mut App) {
 
 // This function is used for synchronizing the main app with the render world.
 // Do not call this function if pipelined rendering is not setup.
-fn update_rendering(app_world: &mut World) {
+fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
     app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
         // we use a scope here to run any main thread tasks that the render world still needs to run
         // while we wait for the render world to be received.
