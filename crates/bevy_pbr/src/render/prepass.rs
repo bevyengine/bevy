@@ -47,7 +47,7 @@ use crate::{
 
 use std::{hash::Hash, marker::PhantomData};
 
-pub const PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+pub const PREPASS_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 pub const PREPASS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 921124473254008983);
@@ -277,7 +277,7 @@ where
                 conservative: false,
             },
             depth_stencil: Some(DepthStencilState {
-                format: PREPASS_FORMAT,
+                format: PREPASS_DEPTH_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
