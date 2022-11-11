@@ -62,12 +62,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn initialize(
-        &mut self,
-        row: usize,
-        data: OwningPtr<'_>,
-        tick: Tick,
-    ) {
+    pub(crate) unsafe fn initialize(&mut self, row: usize, data: OwningPtr<'_>, tick: Tick) {
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
         *self.added_ticks.get_unchecked_mut(row).get_mut() = tick;
