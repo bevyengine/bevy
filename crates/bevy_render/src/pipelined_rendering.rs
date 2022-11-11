@@ -59,7 +59,12 @@ impl Plugin for PipelinedRenderingPlugin {
         let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
         let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
 
-        let render_app = app.remove_sub_app(RenderApp).unwrap();
+        let mut render_app = app.remove_sub_app(RenderApp).unwrap();
+
+        // clone main thread executor to render world
+        let executor = app.world.get_resource::<MainThreadExecutor>().unwrap();
+        render_app.app.world.insert_resource(executor.clone());
+
         render_to_app_sender.send_blocking(render_app).unwrap();
 
         app.insert_resource(MainToRenderAppSender(app_to_render_sender));

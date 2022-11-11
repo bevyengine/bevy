@@ -4,8 +4,8 @@ use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
     schedule::{
-        IntoSystemDescriptor, MainThreadExecutor, Schedule, ShouldRun, Stage, StageLabel, State,
-        StateData, SystemSet, SystemStage,
+        IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
+        SystemStage,
     },
     system::Resource,
     world::World,
@@ -87,7 +87,8 @@ impl Debug for App {
 
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 pub struct SubApp {
-    app: App,
+    /// The [`SubApp`]'s instance of [`App`]
+    pub app: App,
     extract: Box<dyn Fn(&mut World, &mut App) + Send + Sync>, // Send + Sync bound is only required to make SubApp send sync
     runner: Box<dyn Fn(&mut App) + Send + Sync>, // this Send + Sync bound is required since we're running this function on another thread
 }
@@ -1013,13 +1014,13 @@ impl App {
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
-        mut app: App,
+        app: App,
         extract: impl Fn(&mut World, &mut App) + 'static + Send + Sync,
         runner: impl Fn(&mut App) + 'static + Send + Sync,
     ) -> &mut Self {
-        if let Some(executor) = self.world.get_resource::<MainThreadExecutor>() {
-            app.world.insert_resource(executor.clone());
-        }
+        // if let Some(executor) = self.world.get_resource::<MainThreadExecutor>() {
+        //     app.world.insert_resource(executor.clone());
+        // }
         self.sub_apps.insert(
             label.as_label(),
             SubApp {
