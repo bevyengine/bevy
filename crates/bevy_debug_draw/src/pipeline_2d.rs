@@ -16,7 +16,7 @@ use bevy_render::{
 use bevy_sprite::*;
 use bevy_utils::FloatOrd;
 
-use crate::{DebugDrawConfig, DebugDrawMesh, SHADER_HANDLE};
+use crate::{DebugDrawMesh, SHADER_HANDLE};
 
 #[derive(Resource)]
 pub(crate) struct DebugLinePipeline {
@@ -93,14 +93,13 @@ pub(crate) type DrawDebugLines = (
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue(
-    config: Res<DebugDrawConfig>,
     draw2d_functions: Res<DrawFunctions<Transparent2d>>,
     debug_line_pipeline: Res<DebugLinePipeline>,
     mut pipeline_cache: ResMut<PipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<DebugLinePipeline>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<(&Mesh2dUniform, &Mesh2dHandle), With<DebugDrawMesh>>,
+    material_meshes: Query<&Mesh2dHandle, With<DebugDrawMesh>>,
     mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
 ) {
     for (view, mut phase) in &mut views {
@@ -108,32 +107,26 @@ pub(crate) fn queue(
         let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &view.entities {
-            if let Ok((uniform, mesh_handle)) = material_meshes.get(*visible_entity) {
-                if let Some(mesh) = render_meshes.get(&mesh_handle.0) {
-                    let mesh_key = msaa_key
-                        | Mesh2dPipelineKey::from_primitive_topology(PrimitiveTopology::LineList);
-                    let mesh_z = if config.always_on_top {
-                        f32::MAX
-                    } else {
-                        uniform.transform.w_axis.z
-                    };
-                    let pipeline = specialized_pipelines
-                        .specialize(
-                            &mut pipeline_cache,
-                            &debug_line_pipeline,
-                            mesh_key,
-                            &mesh.layout,
-                        )
-                        .unwrap();
-                    phase.add(Transparent2d {
-                        entity: *visible_entity,
-                        draw_function: draw_mesh2d,
-                        pipeline,
-                        sort_key: FloatOrd(mesh_z),
-                        batch_range: None,
-                    });
-                }
-            }
+            let Ok(mesh_handle) = material_meshes.get(*visible_entity) else { continue; };
+            let Some(mesh) = render_meshes.get(&mesh_handle.0) else { continue; };
+
+            let mesh_key =
+                msaa_key | Mesh2dPipelineKey::from_primitive_topology(PrimitiveTopology::LineList);
+            let pipeline = specialized_pipelines
+                .specialize(
+                    &mut pipeline_cache,
+                    &debug_line_pipeline,
+                    mesh_key,
+                    &mesh.layout,
+                )
+                .unwrap();
+            phase.add(Transparent2d {
+                entity: *visible_entity,
+                draw_function: draw_mesh2d,
+                pipeline,
+                sort_key: FloatOrd(f32::MAX),
+                batch_range: None,
+            });
         }
     }
 }

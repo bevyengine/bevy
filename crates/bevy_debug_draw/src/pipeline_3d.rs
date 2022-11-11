@@ -45,7 +45,7 @@ impl SpecializedMeshPipeline for DebugLinePipeline {
         let mut shader_defs = Vec::new();
         shader_defs.push("DEBUG_LINES_3D".to_string());
         if depth_test {
-            shader_defs.push("DEPTH_TEST_ENABLED".to_string());
+            shader_defs.push("DEPTH_TEST".to_string());
         }
 
         let vertex_buffer_layout = layout.get_layout(&[

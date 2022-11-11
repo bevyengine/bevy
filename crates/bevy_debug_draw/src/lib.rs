@@ -45,7 +45,7 @@ impl Plugin for DebugDrawPlugin {
 
         app.init_resource::<DebugDraw>()
             .init_resource::<DebugDrawConfig>()
-            .add_system_to_stage(CoreStage::PostUpdate, update)
+            .add_system_to_stage(CoreStage::Last, update)
             .sub_app_mut(RenderApp)
             .add_system_to_stage(RenderStage::Extract, extract);
 
@@ -82,6 +82,8 @@ pub struct DebugDrawConfig {
     /// Defaults to `true`.
     pub enabled: bool,
     /// Whether debug drawing should ignore depth and draw on top of everything else.
+    /// 
+    /// This setting only affects 3D. In 2D, debug drawing is always on top.
     ///
     /// Defaults to `true`.
     pub always_on_top: bool,

@@ -33,7 +33,7 @@ fn vertex(in: VertexInput) -> VertexOutput {
 fn fragment(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
-#ifdef DEPTH_TEST_ENABLED
+#ifdef DEPTH_TEST
     out.depth = in.pos.z;
 #else
     out.depth = 1.0;
