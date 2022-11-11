@@ -185,7 +185,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             #[doc = "`], returned when iterating over query results."]
             #[automatically_derived]
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-                #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Item,)*
+                #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQuery>::Item<'__w>,)*
                 #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
 
@@ -195,27 +195,22 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             #[doc = "`], used to define the world data accessed by this query."]
             #[automatically_derived]
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-                #(#field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Fetch,)*
+                #(#field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w>,)*
                 #(#ignored_field_idents: #ignored_field_types,)*
             }
 
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
-
-            impl #user_impl_generics_with_world #path::query::WorldQueryGats<'__w>
-                for #struct_name #user_ty_generics #user_where_clauses {
-                    type Item = #item_struct_name #user_ty_generics_with_world;
-                    type Fetch = #fetch_struct_name #user_ty_generics_with_world;
-                }
-
             unsafe impl #user_impl_generics #path::query::WorldQuery
                 for #struct_name #user_ty_generics #user_where_clauses {
 
+                type Item<'__w> = #item_struct_name #user_ty_generics_with_world;
+                type Fetch<'__w> = #fetch_struct_name #user_ty_generics_with_world;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type State = #state_struct_name #user_ty_generics;
 
                 fn shrink<'__wlong: '__wshort, '__wshort>(
-                    item: <#struct_name #user_ty_generics as #path::query::WorldQueryGats<'__wlong>>::Item
-                ) -> <#struct_name #user_ty_generics as #path::query::WorldQueryGats<'__wshort>>::Item {
+                    item: <#struct_name #user_ty_generics as #path::query::WorldQuery>::Item<'__wlong>
+                ) -> <#struct_name #user_ty_generics as #path::query::WorldQuery>::Item<'__wshort> {
                     #item_struct_name {
                         #(
                             #field_idents: <#field_types>::shrink(item.#field_idents),
@@ -231,7 +226,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     state: &Self::State,
                     _last_change_tick: u32,
                     _change_tick: u32
-                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Fetch {
+                ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
                     #fetch_struct_name {
                         #(#field_idents:
                             <#field_types>::init_fetch(
@@ -246,8 +241,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 }
 
                 unsafe fn clone_fetch<'__w>(
-                    _fetch: &<Self as #path::query::WorldQueryGats<'__w>>::Fetch
-                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Fetch {
+                    _fetch: &<Self as #path::query::WorldQuery>::Fetch<'__w>
+                ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
                     #fetch_struct_name {
                         #(
                             #field_idents: <#field_types>::clone_fetch(& _fetch. #field_idents),
@@ -265,7 +260,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
                 #[inline]
                 unsafe fn set_archetype<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _state: &Self::State,
                     _archetype: &'__w #path::archetype::Archetype,
                     _table: &'__w #path::storage::Table
@@ -276,7 +271,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 /// SAFETY: we call `set_table` for each member that implements `Fetch`
                 #[inline]
                 unsafe fn set_table<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _state: &Self::State,
                     _table: &'__w #path::storage::Table
                 ) {
@@ -286,10 +281,10 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 /// SAFETY: we call `fetch` for each member that implements `Fetch`.
                 #[inline(always)]
                 unsafe fn fetch<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: Entity,
                     _table_row: usize
-                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Item {
+                ) -> <Self as #path::query::WorldQuery>::Item<'__w> {
                     Self::Item {
                         #(#field_idents: <#field_types>::fetch(&mut _fetch.#field_idents, _entity, _table_row),)*
                         #(#ignored_field_idents: Default::default(),)*
@@ -299,7 +294,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #[allow(unused_variables)]
                 #[inline(always)]
                 unsafe fn filter_fetch<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _entity: Entity,
                     _table_row: usize
                 ) -> bool {

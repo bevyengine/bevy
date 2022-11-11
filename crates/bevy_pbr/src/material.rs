@@ -536,8 +536,8 @@ fn prepare_materials<M: Material>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
 ) {
-    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.drain(..) {
+    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, material) in queued_assets.into_iter() {
         match prepare_material(
             &material,
             &render_device,

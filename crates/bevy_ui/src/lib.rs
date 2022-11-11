@@ -1,14 +1,16 @@
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
+//! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/>)
 mod flex;
 mod focus;
 mod geometry;
 mod render;
+mod stack;
 mod ui_node;
 
-pub mod entity;
+pub mod camera_config;
+pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
@@ -22,7 +24,10 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
+    pub use crate::{
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
+        UiScale,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -33,7 +38,9 @@ use bevy_ecs::{
 use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
-use update::{ui_z_system, update_clipping_system};
+use stack::ui_stack_system;
+pub use stack::UiStack;
+use update::update_clipping_system;
 
 use crate::prelude::UiCameraConfig;
 
@@ -48,6 +55,8 @@ pub enum UiSystem {
     Flex,
     /// After this label, input interactions with UI entities have been updated for this frame
     Focus,
+    /// After this label, the [`UiStack`] resource has been updated
+    Stack,
 }
 
 /// The current scale of the UI.
@@ -71,6 +80,7 @@ impl Plugin for UiPlugin {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
+            .init_resource::<UiStack>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
@@ -135,9 +145,7 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                ui_z_system
-                    .after(UiSystem::Flex)
-                    .before(TransformSystem::TransformPropagate),
+                ui_stack_system.label(UiSystem::Stack),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,

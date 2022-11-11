@@ -7,7 +7,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryItem;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
@@ -36,6 +36,8 @@ impl Plugin for TonemappingPlugin {
             "tonemapping_shared.wgsl",
             Shader::from_wgsl
         );
+
+        app.register_type::<Tonemapping>();
 
         app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
 
@@ -104,7 +106,8 @@ impl FromWorld for TonemappingPipeline {
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Clone, Reflect, Default)]
+#[reflect(Component)]
 pub struct Tonemapping {
     pub is_enabled: bool,
 }
