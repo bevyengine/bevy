@@ -75,7 +75,7 @@ impl Camera2dBundle {
             global_transform: Default::default(),
             camera: Camera::default(),
             camera_2d: Camera2d::default(),
-            tonemapping: Tonemapping { is_enabled: false },
+            tonemapping: Tonemapping::Disabled,
         }
     }
 }

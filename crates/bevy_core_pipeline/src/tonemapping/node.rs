@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::tonemapping::{Tonemapping, TonemappingPipeline};
+use crate::tonemapping::{TonemappingPipeline, ViewTonemappingPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
@@ -15,7 +15,7 @@ use bevy_render::{
 };
 
 pub struct TonemappingNode {
-    query: QueryState<(&'static ViewTarget, Option<&'static Tonemapping>), With<ExtractedView>>,
+    query: QueryState<(&'static ViewTarget, &'static ViewTonemappingPipeline), With<ExtractedView>>,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
@@ -54,14 +54,11 @@ impl Node for TonemappingNode {
             Err(_) => return Ok(()),
         };
 
-        let tonemapping_enabled = tonemapping.map_or(false, |t| t.is_enabled);
-        if !tonemapping_enabled || !target.is_hdr() {
+        if !target.is_hdr() {
             return Ok(());
         }
 
-        let pipeline = match pipeline_cache
-            .get_render_pipeline(tonemapping_pipeline.tonemapping_pipeline_id)
-        {
+        let pipeline = match pipeline_cache.get_render_pipeline(tonemapping.0) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
         };
