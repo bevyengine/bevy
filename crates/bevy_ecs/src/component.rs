@@ -582,7 +582,7 @@ impl ComponentTicks {
     #[inline]
     /// Returns `true` if the component was added after the system last ran.
     pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        self.changed.is_changed(last_change_tick, change_tick)
+        self.added.is_changed(last_change_tick, change_tick)
     }
 
     #[inline]

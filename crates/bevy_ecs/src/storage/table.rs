@@ -130,7 +130,7 @@ impl Column {
             // SAFETY: The row was length checked before this.
             let data = unsafe { self.data.swap_remove_and_forget_unchecked(row) };
             let added = self.added_ticks.swap_remove(row).into_inner();
-            let changed = self.added_ticks.swap_remove(row).into_inner();
+            let changed = self.changed_ticks.swap_remove(row).into_inner();
             (data, ComponentTicks { added, changed })
         })
     }
@@ -145,7 +145,7 @@ impl Column {
     ) -> (OwningPtr<'_>, ComponentTicks) {
         let data = self.data.swap_remove_and_forget_unchecked(row);
         let added = self.added_ticks.swap_remove(row).into_inner();
-        let changed = self.added_ticks.swap_remove(row).into_inner();
+        let changed = self.changed_ticks.swap_remove(row).into_inner();
         (data, ComponentTicks { added, changed })
     }
 
@@ -269,10 +269,10 @@ impl Column {
     #[inline]
     pub fn get_ticks(&self, row: usize) -> Option<ComponentTicks> {
         if row < self.data.len() {
-            None
-        } else {
             // SAFETY: The size of the column has already been checked.
             Some(unsafe { self.get_ticks_unchecked(row) })
+        } else {
+            None
         }
     }
 

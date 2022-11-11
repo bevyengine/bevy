@@ -1457,15 +1457,16 @@ impl World {
 
         let (ptr, added, changed) = self.get_resource_with_ticks(component_id)?;
 
-        // SAFE: This function has exclusive access to the world so nothing aliases `ticks`.
-        let ticks = Ticks {
-            // SAFETY:
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            added: unsafe { added.deref_mut() },
-            changed: unsafe { changed.deref_mut() },
-            last_change_tick: self.last_change_tick(),
-            change_tick: self.read_change_tick(),
+        // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
+        // - index is in-bounds because the column is initialized and non-empty
+        // - no other reference to the ticks of the same row can exist at the same time
+        let ticks = unsafe {
+            Ticks {
+                added: added.deref_mut(),
+                changed: changed.deref_mut(),
+                last_change_tick: self.last_change_tick(),
+                change_tick: self.read_change_tick(),
+            }
         };
 
         Some(MutUntyped {
