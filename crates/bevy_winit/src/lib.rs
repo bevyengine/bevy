@@ -4,7 +4,6 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
-use bevy_render::pipelined_rendering::setup_rendering;
 use winit::window::CursorGrabMode;
 pub use winit_config::*;
 pub use winit_windows::*;
@@ -368,8 +367,6 @@ pub fn winit_runner_with(mut app: App) {
         .insert_non_send_resource(event_loop.create_proxy());
 
     let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
-
-    setup_rendering(&mut app);
 
     trace!("Entering winit event loop");
 

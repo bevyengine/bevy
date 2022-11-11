@@ -38,12 +38,12 @@ pub mod prelude {
 
 use globals::GlobalsPlugin;
 pub use once_cell;
-use pipelined_rendering::update_rendering;
 use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
+    pipelined_rendering::build_pipelined_rendering,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     view::{ViewPlugin, WindowRenderPlugin},
@@ -138,10 +138,6 @@ pub mod main_graph {
 /// A Label for the rendering sub-app.
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderApp;
-
-/// A Label for the sub app that runs the parts of pipelined rendering that need to run on the main thread.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
-pub struct PipelinedRenderingApp;
 
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
@@ -344,14 +340,7 @@ impl Plugin for RenderPlugin {
             });
 
             if self.use_pipelined_rendering {
-                app.add_sub_app(
-                    PipelinedRenderingApp,
-                    App::new(),
-                    |app_world, _render_app| {
-                        update_rendering(app_world);
-                    },
-                    |_render_world| {},
-                );
+                build_pipelined_rendering(app);
             }
         }
 
