@@ -162,9 +162,11 @@ impl App {
     ///
     /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
     pub fn update(&mut self) {
-        #[cfg(feature = "trace")]
-        let _bevy_frame_update_span = info_span!("main app").entered();
-        self.schedule.run(&mut self.world);
+        {
+            #[cfg(feature = "trace")]
+            let _bevy_frame_update_span = info_span!("main app").entered();
+            self.schedule.run(&mut self.world);
+        }
         for sub_app in self.sub_apps.values_mut() {
             sub_app.extract(&mut self.world);
             sub_app.run();

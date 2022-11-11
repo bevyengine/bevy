@@ -2,7 +2,7 @@ use async_channel::{Receiver, Sender};
 
 use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_ecs::{
-    schedule::{MainThreadExecutor, Stage, StageLabel, SystemStage},
+    schedule::{MainThreadExecutor, StageLabel, SystemStage},
     system::Resource,
     world::{Mut, World},
 };
@@ -19,12 +19,12 @@ pub struct RenderExtractApp;
 pub enum RenderExtractStage {
     /// This stage runs after the render schedule starts, but before I/O processing and the main app schedule.
     /// This can be useful for something like frame pacing.
-    /// |-----------------------------------------------------------------|
-    /// |         | BeforeIoAfterRendering | winit events | main schedule |
-    /// | extract |-------------------------------------------------------|
-    /// |         | rendering schedule                                    |
-    /// |-----------------------------------------------------------------|
-    BeforeIoAfterRendering,
+    /// |-------------------------------------------------------------------|
+    /// |         | BeforeIoAfterRenderStart | winit events | main schedule |
+    /// | extract |---------------------------------------------------------|
+    /// |         | rendering schedule                                      |
+    /// |-------------------------------------------------------------------|
+    BeforeIoAfterRenderStart,
 }
 
 /// Resource for pipelined rendering to send the render app from the main thread to the rendering thread
@@ -41,32 +41,13 @@ impl Plugin for PipelinedRenderingPlugin {
     fn build(&self, app: &mut App) {
         let mut sub_app = App::new();
         app.set_setup(setup_rendering);
-        app.add_stage(
-            RenderExtractStage::BeforeIoAfterRendering,
+        sub_app.add_stage(
+            RenderExtractStage::BeforeIoAfterRenderStart,
             SystemStage::parallel(),
         );
-        sub_app.add_sub_app(
-            RenderExtractApp,
-            App::new(),
-            update_rendering,
-            |render_app| {
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span = bevy_utils::tracing::info_span!(
-                        "stage",
-                        name = "before_io_after_rendering"
-                    )
-                    .entered();
-
-                    // render
-                    let render = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderExtractStage::BeforeIoAfterRendering)
-                        .unwrap();
-                    render.run(&mut render_app.world);
-                }
-            },
-        );
+        app.add_sub_app(RenderExtractApp, sub_app, update_rendering, |render_app| {
+            render_app.run();
+        });
     }
 }
 
@@ -74,6 +55,7 @@ impl Plugin for PipelinedRenderingPlugin {
 // This should be called after plugins have all been built as it removes the rendering sub app from the main app.
 // This does nothing if pipelined rendering is not enabled.
 fn setup_rendering(app: &mut App) {
+    // skip setting up when headless
     if app.get_sub_app(RenderExtractApp).is_err() {
         return;
     }
