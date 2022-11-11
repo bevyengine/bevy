@@ -9,7 +9,7 @@ fn main() {
         .thread_name("Idle Behavior ThreadPool".to_string())
         .build();
 
-    pool.scope(None, |s| {
+    pool.scope(|s| {
         for i in 0..1 {
             s.spawn(async move {
                 println!("Blocking for 10 seconds");

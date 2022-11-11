@@ -34,7 +34,7 @@ where
     ///
     /// See [`Iterator::count()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.count)
     fn count(mut self, pool: &TaskPool) -> usize {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 s.spawn(async move { batch.count() });
             }
@@ -105,7 +105,7 @@ where
     where
         F: FnMut(BatchIter::Item) + Send + Clone + Sync,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move {
@@ -195,7 +195,7 @@ where
         C: std::iter::FromIterator<BatchIter::Item>,
         BatchIter::Item: Send + 'static,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 s.spawn(async move { batch.collect::<Vec<_>>() });
             }
@@ -216,7 +216,7 @@ where
         BatchIter::Item: Send + 'static,
     {
         let (mut a, mut b) = <(C, C)>::default();
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move { batch.partition::<Vec<_>, F>(newf) });
@@ -242,7 +242,7 @@ where
         F: FnMut(C, BatchIter::Item) -> C + Send + Sync + Clone,
         C: Clone + Send + Sync + 'static,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
                 let newi = init.clone();
@@ -260,7 +260,7 @@ where
     where
         F: FnMut(BatchIter::Item) -> bool + Send + Sync + Clone,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(mut batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move { batch.all(newf) });
@@ -279,7 +279,7 @@ where
     where
         F: FnMut(BatchIter::Item) -> bool + Send + Sync + Clone,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(mut batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move { batch.any(newf) });
@@ -299,7 +299,7 @@ where
     where
         F: FnMut(BatchIter::Item) -> bool + Send + Sync + Clone,
     {
-        let poses = pool.scope(None, |s| {
+        let poses = pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let mut newf = f.clone();
                 s.spawn(async move {
@@ -332,7 +332,7 @@ where
     where
         BatchIter::Item: Ord + Send + 'static,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 s.spawn(async move { batch.max() });
             }
@@ -349,7 +349,7 @@ where
     where
         BatchIter::Item: Ord + Send + 'static,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 s.spawn(async move { batch.min() });
             }
@@ -368,7 +368,7 @@ where
         F: FnMut(&BatchIter::Item) -> R + Send + Sync + Clone,
         BatchIter::Item: Send + 'static,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move { batch.max_by_key(newf) });
@@ -388,7 +388,7 @@ where
         F: FnMut(&BatchIter::Item, &BatchIter::Item) -> std::cmp::Ordering + Send + Sync + Clone,
         BatchIter::Item: Send + 'static,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move { batch.max_by(newf) });
@@ -408,7 +408,7 @@ where
         F: FnMut(&BatchIter::Item) -> R + Send + Sync + Clone,
         BatchIter::Item: Send + 'static,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move { batch.min_by_key(newf) });
@@ -428,7 +428,7 @@ where
         F: FnMut(&BatchIter::Item, &BatchIter::Item) -> std::cmp::Ordering + Send + Sync + Clone,
         BatchIter::Item: Send + 'static,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 let newf = f.clone();
                 s.spawn(async move { batch.min_by(newf) });
@@ -482,7 +482,7 @@ where
         S: std::iter::Sum<BatchIter::Item> + Send + 'static,
         R: std::iter::Sum<S>,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 s.spawn(async move { batch.sum() });
             }
@@ -499,7 +499,7 @@ where
         S: std::iter::Product<BatchIter::Item> + Send + 'static,
         R: std::iter::Product<S>,
     {
-        pool.scope(None, |s| {
+        pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
                 s.spawn(async move { batch.product() });
             }

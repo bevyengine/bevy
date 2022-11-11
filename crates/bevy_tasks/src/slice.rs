@@ -37,7 +37,7 @@ pub trait ParallelSlice<T: Sync>: AsRef<[T]> {
     {
         let slice = self.as_ref();
         let f = &f;
-        task_pool.scope(None, |scope| {
+        task_pool.scope(|scope| {
             for chunk in slice.chunks(chunk_size) {
                 scope.spawn(async move { f(chunk) });
             }
@@ -134,7 +134,7 @@ pub trait ParallelSliceMut<T: Send>: AsMut<[T]> {
     {
         let slice = self.as_mut();
         let f = &f;
-        task_pool.scope(None, |scope| {
+        task_pool.scope(|scope| {
             for chunk in slice.chunks_mut(chunk_size) {
                 scope.spawn(async move { f(chunk) });
             }

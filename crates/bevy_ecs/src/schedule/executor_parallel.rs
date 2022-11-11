@@ -148,7 +148,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             .get_resource::<MainThreadExecutor>()
             .map(|e| e.0.clone());
 
-        ComputeTaskPool::init(TaskPool::default).scope(thread_executor, |scope| {
+        ComputeTaskPool::init(TaskPool::default).scope_with_executor(thread_executor, |scope| {
             self.prepare_systems(scope, systems, world);
             if self.should_run.count_ones(..) == 0 {
                 return;

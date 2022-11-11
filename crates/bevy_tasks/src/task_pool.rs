@@ -158,11 +158,6 @@ impl TaskPool {
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     ///
-    /// The `thread_executor` optional parameter can be used to pass a [`ThreadExecutor`] to
-    /// spawn tasks on when calling `spawn_on_scope`. This can be useful for spawning tasks that
-    /// must run on the main thread. If `None` is passed then `spawn_on_scope` runs tasks on
-    /// the thread `scope` is run on.
-    ///
     /// # Example
     ///
     /// ```
@@ -170,7 +165,7 @@ impl TaskPool {
     ///
     /// let pool = TaskPool::new();
     /// let mut x = 0;
-    /// let results = pool.scope(None, |s| {
+    /// let results = pool.scope(|s| {
     ///     s.spawn(async {
     ///         // you can borrow the spawner inside a task and spawn tasks from within the task
     ///         s.spawn(async {
@@ -190,7 +185,7 @@ impl TaskPool {
     /// assert!(results.contains(&1));
     ///
     /// // The ordering is deterministic if you only spawn directly from the closure function.
-    /// let results = pool.scope(None, |s| {
+    /// let results = pool.scope(|s| {
     ///     s.spawn(async { 0  });
     ///     s.spawn(async { 1 });
     /// });
@@ -215,7 +210,7 @@ impl TaskPool {
     /// fn scope_escapes_closure() {
     ///     let pool = TaskPool::new();
     ///     let foo = Box::new(42);
-    ///     pool.scope(None, |scope| {
+    ///     pool.scope(|scope| {
     ///         std::thread::spawn(move || {
     ///             // UB. This could spawn on the scope after `.scope` returns and the internal Scope is dropped.
     ///             scope.spawn(async move {
@@ -230,7 +225,7 @@ impl TaskPool {
     /// use bevy_tasks::TaskPool;
     /// fn cannot_borrow_from_closure() {
     ///     let pool = TaskPool::new();
-    ///     pool.scope(None, |scope| {
+    ///     pool.scope(|scope| {
     ///         let x = 1;
     ///         let y = &x;
     ///         scope.spawn(async move {
@@ -238,8 +233,22 @@ impl TaskPool {
     ///         });
     ///     });
     /// }
-    ///
-    pub fn scope<'env, F, T>(&self, thread_executor: Option<Arc<ThreadExecutor>>, f: F) -> Vec<T>
+    pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
+    where
+        F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
+        T: Send + 'static,
+    {
+        self.scope_with_executor(None, f)
+    }
+
+    /// This allows passing an external executor to spawn tasks on. When you pass an external executor
+    /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`ThreadExecutor`] is being ticked on.
+    /// See [`Self::scope`] for more details in general about how scopes work.
+    pub fn scope_with_executor<'env, F, T>(
+        &self,
+        thread_executor: Option<Arc<ThreadExecutor>>,
+        f: F,
+    ) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
@@ -440,7 +449,7 @@ mod tests {
 
         let count = Arc::new(AtomicI32::new(0));
 
-        let outputs = pool.scope(None, |scope| {
+        let outputs = pool.scope(|scope| {
             for _ in 0..100 {
                 let count_clone = count.clone();
                 scope.spawn(async move {
@@ -472,7 +481,7 @@ mod tests {
         let local_count = Arc::new(AtomicI32::new(0));
         let non_local_count = Arc::new(AtomicI32::new(0));
 
-        let outputs = pool.scope(None, |scope| {
+        let outputs = pool.scope(|scope| {
             for i in 0..100 {
                 if i % 2 == 0 {
                     let count_clone = non_local_count.clone();
@@ -520,7 +529,7 @@ mod tests {
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             std::thread::spawn(move || {
-                inner_pool.scope(None, |scope| {
+                inner_pool.scope(|scope| {
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
@@ -553,7 +562,7 @@ mod tests {
 
         let count = Arc::new(AtomicI32::new(0));
 
-        let outputs: Vec<i32> = pool.scope(None, |scope| {
+        let outputs: Vec<i32> = pool.scope(|scope| {
             for _ in 0..10 {
                 let count_clone = count.clone();
                 scope.spawn(async move {
@@ -595,7 +604,7 @@ mod tests {
             let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             std::thread::spawn(move || {
-                inner_pool.scope(None, |scope| {
+                inner_pool.scope(|scope| {
                     let spawner = std::thread::current().id();
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
