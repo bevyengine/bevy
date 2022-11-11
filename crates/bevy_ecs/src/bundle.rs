@@ -9,7 +9,7 @@ use crate::{
         Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentId, Tick, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
@@ -397,7 +397,7 @@ impl BundleInfo {
                             column.initialize(
                                 table_row,
                                 component_ptr,
-                                ComponentTicks::new(change_tick),
+                                Tick::new(change_tick),
                             );
                         }
                         ComponentStatus::Mutated => {

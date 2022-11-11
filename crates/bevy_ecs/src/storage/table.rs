@@ -66,12 +66,12 @@ impl Column {
         &mut self,
         row: usize,
         data: OwningPtr<'_>,
-        ticks: ComponentTicks,
+        tick: Tick,
     ) {
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
-        *self.added_ticks.get_unchecked_mut(row).get_mut() = ticks.added;
-        *self.changed_ticks.get_unchecked_mut(row).get_mut() = ticks.changed;
+        *self.added_ticks.get_unchecked_mut(row).get_mut() = tick;
+        *self.changed_ticks.get_unchecked_mut(row).get_mut() = tick;
     }
 
     /// Writes component data to the column at given row.
