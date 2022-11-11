@@ -1,6 +1,6 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
+use crate::{component::Tick, ptr::PtrMut, system::Resource};
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -95,21 +95,21 @@ macro_rules! change_detection_impl {
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
-                    .component_ticks
-                    .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .added
+                    .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
                 self.ticks
-                    .component_ticks
+                    .changed
                     .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn set_changed(&mut self) {
                 self.ticks
-                    .component_ticks
+                    .changed
                     .set_changed(self.ticks.change_tick);
             }
 
@@ -224,7 +224,8 @@ macro_rules! impl_debug {
 }
 
 pub(crate) struct Ticks<'a> {
-    pub(crate) component_ticks: &'a mut ComponentTicks,
+    pub(crate) added: &'a mut Tick,
+    pub(crate) changed: &'a mut Tick,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
@@ -381,21 +382,21 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
-            .component_ticks
-            .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+            .added
+            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
-            .component_ticks
+            .changed
             .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn set_changed(&mut self) {
         self.ticks
-            .component_ticks
+            .changed
             .set_changed(self.ticks.change_tick);
     }
 

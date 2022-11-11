@@ -1,5 +1,5 @@
 use crate::archetype::ArchetypeComponentId;
-use crate::component::{ComponentId, ComponentTicks, Components};
+use crate::component::{ComponentId, ComponentTicks, Tick, Components};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
@@ -44,7 +44,7 @@ impl ResourceData {
     }
 
     #[inline]
-    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
         self.column.get(0)
     }
 

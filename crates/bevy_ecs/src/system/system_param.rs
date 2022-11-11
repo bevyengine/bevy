@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, Components},
+    component::{Component, ComponentId, ComponentTicks, Tick, Components},
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
@@ -273,7 +273,8 @@ pub trait Resource: Send + Sync + 'static {}
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
 pub struct Res<'w, T: Resource> {
     value: &'w T,
-    ticks: &'w ComponentTicks,
+    added: &'w Tick,
+    changed: &'w Tick,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -296,7 +297,8 @@ impl<'w, T: Resource> Res<'w, T> {
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,
-            ticks: this.ticks,
+            added: this.added,
+            changed: this.changed,
             last_change_tick: this.last_change_tick,
             change_tick: this.change_tick,
         }
@@ -304,12 +306,12 @@ impl<'w, T: Resource> Res<'w, T> {
 
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_change_tick, self.change_tick)
+        self.added.is_changed(self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
-        self.ticks
+        self.changed
             .is_changed(self.last_change_tick, self.change_tick)
     }
 
@@ -337,7 +339,8 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
     fn from(res: ResMut<'w, T>) -> Self {
         Self {
             value: res.value,
-            ticks: res.ticks.component_ticks,
+            added: res.ticks.added,
+            changed: res.ticks.changed,
             change_tick: res.ticks.change_tick,
             last_change_tick: res.ticks.last_change_tick,
         }
@@ -404,7 +407,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        let (ptr, ticks) = world
+        let (ptr, added, changed) = world
             .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -415,7 +418,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
             });
         Res {
             value: ptr.deref(),
-            ticks: ticks.deref(),
+            added: added.deref(),
+            changed: changed.deref(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -454,9 +458,10 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
     ) -> Self::Item {
         world
             .get_resource_with_ticks(state.0.component_id)
-            .map(|(ptr, ticks)| Res {
+            .map(|(ptr, added, changed)| Res {
                 value: ptr.deref(),
-                ticks: ticks.deref(),
+                added: added.deref(),
+                changed: changed.deref(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -526,7 +531,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
         ResMut {
             value: value.value,
             ticks: Ticks {
-                component_ticks: value.ticks.component_ticks,
+                added: value.ticks.added,
+                changed: value.ticks.changed,
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -566,7 +572,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
             .map(|value| ResMut {
                 value: value.value,
                 ticks: Ticks {
-                    component_ticks: value.ticks.component_ticks,
+                    added: value.ticks.added,
+                    changed: value.ticks.changed,
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },
@@ -938,7 +945,10 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     fn from(nsm: NonSendMut<'a, T>) -> Self {
         Self {
             value: nsm.value,
-            ticks: nsm.ticks.component_ticks.to_owned(),
+            ticks: ComponentTicks {
+                added: nsm.ticks.added.to_owned(),
+                changed: nsm.ticks.changed.to_owned(),
+            },
             change_tick: nsm.ticks.change_tick,
             last_change_tick: nsm.ticks.last_change_tick,
         }
@@ -996,7 +1006,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
-        let (ptr, ticks) = world
+        let (ptr, added, changed) = world
             .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1008,7 +1018,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 
         NonSend {
             value: ptr.deref(),
-            ticks: ticks.read(),
+            ticks: ComponentTicks {
+                added: added.read(),
+                changed: changed.read(),
+            },
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -1048,9 +1061,12 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
         world.validate_non_send_access::<T>();
         world
             .get_resource_with_ticks(state.0.component_id)
-            .map(|(ptr, ticks)| NonSend {
+            .map(|(ptr, added, changed)| NonSend {
                 value: ptr.deref(),
-                ticks: ticks.read(),
+                ticks: ComponentTicks {
+                    added: added.read(),
+                    changed: changed.read(),
+                },
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -1111,7 +1127,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
-        let (ptr, ticks) = world
+        let (ptr, added, changed) = world
             .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1123,7 +1139,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: Ticks {
-                component_ticks: ticks.deref_mut(),
+                added: added.deref_mut(),
+                changed: changed.deref_mut(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -1161,10 +1178,11 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
         world.validate_non_send_access::<T>();
         world
             .get_resource_with_ticks(state.0.component_id)
-            .map(|(ptr, ticks)| NonSendMut {
+            .map(|(ptr, added, changed)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: Ticks {
-                    component_ticks: ticks.deref_mut(),
+                    added: added.deref_mut(),
+                    changed: changed.deref_mut(),
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },

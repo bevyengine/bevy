@@ -227,11 +227,17 @@ impl Column {
     }
 
     #[inline]
-    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
         (row < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
-            .then(|| unsafe { (self.data.get_unchecked(row), self.ticks.get_unchecked(row)) })
+            .then(|| unsafe { 
+                (
+                    self.data.get_unchecked(row), 
+                    self.added_ticks.get_unchecked(row),
+                    self.changed_ticks.get_unchecked(row),
+                ) 
+            })
     }
 
     #[inline]
