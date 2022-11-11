@@ -159,7 +159,7 @@ impl Default for BloomSettings {
             threshold: 1.0,
             knee: 0.1,
             scale: 1.0,
-            intensity: 0.3,
+            intensity: 1.0,
         }
     }
 }
@@ -655,7 +655,7 @@ fn prepare_bloom_uniforms(
                 threshold: settings.threshold,
                 knee: settings.knee,
                 scale: settings.scale * scale,
-                intensity: settings.intensity,
+                intensity: settings.intensity / 3.0,
             };
             let index = bloom_uniforms.uniforms.push(uniform);
             Some((entity, (BloomUniformIndex(index))))
