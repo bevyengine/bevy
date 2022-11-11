@@ -5,7 +5,7 @@ mod scene;
 mod scene_loader;
 mod scene_spawner;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serialize")]
 pub mod serde;
 
 pub use bundle::*;
@@ -29,7 +29,7 @@ use bevy_ecs::prelude::*;
 #[derive(Default)]
 pub struct ScenePlugin;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serialize")]
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<DynamicScene>()
@@ -42,7 +42,7 @@ impl Plugin for ScenePlugin {
     }
 }
 
-#[cfg(not(feature = "serde"))]
+#[cfg(not(feature = "serialize"))]
 impl Plugin for ScenePlugin {
     fn build(&self, _: &mut App) {}
 }

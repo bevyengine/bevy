@@ -6,7 +6,7 @@ use bevy_ecs::world::{FromWorld, World};
 use bevy_reflect::TypeRegistryArc;
 use bevy_utils::BoxedFuture;
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serialize")]
 use serde::de::DeserializeSeed;
 
 #[derive(Debug)]
@@ -23,7 +23,7 @@ impl FromWorld for SceneLoader {
     }
 }
 
-#[cfg(feature = "serde")]
+#[cfg(feature = "serialize")]
 impl AssetLoader for SceneLoader {
     fn load<'a>(
         &'a self,
