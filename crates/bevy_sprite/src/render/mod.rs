@@ -514,14 +514,11 @@ pub fn queue_sprites(
 
         for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
-            if let Some(Tonemapping::Enabled {
-                is_deband_dither_enabled,
-            }) = tonemapping
-            {
+            if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
                 if !view.hdr {
                     view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
 
-                    if *is_deband_dither_enabled {
+                    if *deband_dither {
                         view_key |= SpritePipelineKey::DEBAND_DITHER;
                     }
                 }
