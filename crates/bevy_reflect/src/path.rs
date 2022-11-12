@@ -1,6 +1,6 @@
 use std::num::ParseIntError;
 
-use crate::{Array, Reflect, ReflectMut, ReflectRef};
+use crate::{Array, Reflect, ReflectMut, ReflectRef, VariantType};
 use thiserror::Error;
 
 /// An error returned from a failed path string query.
@@ -29,6 +29,8 @@ pub enum ReflectPathError<'a> {
     IndexParseError(#[from] ParseIntError),
     #[error("failed to downcast to the path result to the given type")]
     InvalidDowncast,
+    #[error("expected either a struct variant or tuple variant, but found a unit variant")]
+    InvalidVariantAccess { index: usize, accessor: &'a str },
 }
 
 /// A trait which allows nested values to be retrieved with path strings.
@@ -280,6 +282,29 @@ fn read_field<'r, 'p>(
                 },
             )?)
         }
+        ReflectRef::Enum(reflect_enum) => match reflect_enum.variant_type() {
+            VariantType::Struct => {
+                Ok(reflect_enum
+                    .field(field)
+                    .ok_or(ReflectPathError::InvalidField {
+                        index: current_index,
+                        field,
+                    })?)
+            }
+            VariantType::Tuple => {
+                let tuple_index = field.parse::<usize>()?;
+                Ok(reflect_enum
+                    .field_at(tuple_index)
+                    .ok_or(ReflectPathError::InvalidField {
+                        index: current_index,
+                        field,
+                    })?)
+            }
+            _ => Err(ReflectPathError::InvalidVariantAccess {
+                index: current_index,
+                accessor: field,
+            }),
+        },
         _ => Err(ReflectPathError::ExpectedStruct {
             index: current_index,
         }),
@@ -309,6 +334,29 @@ fn read_field_mut<'r, 'p>(
                 },
             )?)
         }
+        ReflectMut::Enum(reflect_enum) => match reflect_enum.variant_type() {
+            VariantType::Struct => {
+                Ok(reflect_enum
+                    .field_mut(field)
+                    .ok_or(ReflectPathError::InvalidField {
+                        index: current_index,
+                        field,
+                    })?)
+            }
+            VariantType::Tuple => {
+                let tuple_index = field.parse::<usize>()?;
+                Ok(reflect_enum.field_at_mut(tuple_index).ok_or(
+                    ReflectPathError::InvalidField {
+                        index: current_index,
+                        field,
+                    },
+                )?)
+            }
+            _ => Err(ReflectPathError::InvalidVariantAccess {
+                index: current_index,
+                accessor: field,
+            }),
+        },
         _ => Err(ReflectPathError::ExpectedStruct {
             index: current_index,
         }),
@@ -416,6 +464,9 @@ mod tests {
             x: B,
             y: Vec<C>,
             z: D,
+            unit_variant: F,
+            tuple_variant: F,
+            struct_variant: F,
         }
 
         #[derive(Reflect)]
@@ -435,6 +486,13 @@ mod tests {
         #[derive(Reflect)]
         struct E(f32, usize);
 
+        #[derive(Reflect, FromReflect, PartialEq, Debug)]
+        enum F {
+            Unit,
+            Tuple(u32, u32),
+            Struct { value: char },
+        }
+
         let mut a = A {
             w: 1,
             x: B {
@@ -443,6 +501,9 @@ mod tests {
             },
             y: vec![C { baz: 1.0 }, C { baz: 2.0 }],
             z: D(E(10.0, 42)),
+            unit_variant: F::Unit,
+            tuple_variant: F::Tuple(123, 321),
+            struct_variant: F::Struct { value: 'm' },
         };
 
         assert_eq!(*a.get_path::<usize>("w").unwrap(), 1);
@@ -451,14 +512,29 @@ mod tests {
         assert_eq!(*a.get_path::<f32>("y[1].baz").unwrap(), 2.0);
         assert_eq!(*a.get_path::<usize>("z.0.1").unwrap(), 42);
 
+        assert_eq!(*a.get_path::<F>("unit_variant").unwrap(), F::Unit);
+        assert_eq!(*a.get_path::<u32>("tuple_variant.1").unwrap(), 321);
+        assert_eq!(*a.get_path::<char>("struct_variant.value").unwrap(), 'm');
+
         *a.get_path_mut::<f32>("y[1].baz").unwrap() = 3.0;
         assert_eq!(a.y[1].baz, 3.0);
+
+        *a.get_path_mut::<u32>("tuple_variant.0").unwrap() = 1337;
+        assert_eq!(a.tuple_variant, F::Tuple(1337, 321));
 
         assert_eq!(
             a.path("x.notreal").err().unwrap(),
             ReflectPathError::InvalidField {
                 index: 2,
                 field: "notreal"
+            }
+        );
+
+        assert_eq!(
+            a.path("unit_variant.0").err().unwrap(),
+            ReflectPathError::InvalidVariantAccess {
+                index: 13,
+                accessor: "0"
             }
         );
 
