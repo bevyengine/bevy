@@ -23,7 +23,7 @@ pub trait ExtractResource: Resource {
 ///
 /// Therefore it sets up the [`RenderStage::Extract`](crate::RenderStage::Extract) step
 /// for the specified [`Resource`].
-pub struct ExtractResourcePlugin<R: ExtractResource>(PhantomData<R>);
+pub struct ExtractResourcePlugin<R: ExtractResource>(PhantomData<fn() -> R>);
 
 impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
     fn default() -> Self {
