@@ -55,6 +55,7 @@ git checkout v0.4.0
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
+  - [Widgets](#widgets)
   - [Window](#window)
 
 - [Tests](#tests)
@@ -318,6 +319,12 @@ Example | Description
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
+
+## Widgets
+
+Example | Description
+--- | ---
+[Progress Bar Widget](../examples/widgets/progress_bar.rs) | Illustrates how to use the progress bar widget
 
 ## Window
 

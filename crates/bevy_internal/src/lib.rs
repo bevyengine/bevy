@@ -161,6 +161,12 @@ pub mod ui {
     pub use bevy_ui::*;
 }
 
+#[cfg(feature = "bevy_widget")]
+pub mod widget {
+    //! User interface widgets.
+    pub use bevy_widget::*;
+}
+
 #[cfg(feature = "bevy_winit")]
 pub mod winit {
     //! Window creation, configuration, and handling

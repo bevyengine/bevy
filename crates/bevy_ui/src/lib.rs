@@ -30,6 +30,7 @@ pub mod prelude {
     };
 }
 
+use crate::prelude::UiCameraConfig;
 use bevy_app::prelude::*;
 use bevy_ecs::{
     schedule::{IntoSystemDescriptor, SystemLabel},
@@ -41,8 +42,6 @@ use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
-
-use crate::prelude::UiCameraConfig;
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
