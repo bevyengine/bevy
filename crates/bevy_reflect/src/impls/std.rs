@@ -396,7 +396,12 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
     }
 
     fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+        let mut from_reflect = None;
         key.downcast_ref::<K>()
+            .or_else(|| {
+                from_reflect = K::from_reflect(key);
+                from_reflect.as_ref()
+            })
             .and_then(|key| self.remove(key))
             .map(|value| Box::new(value) as Box<dyn Reflect>)
     }

@@ -253,15 +253,11 @@ impl Map for DynamicMap {
     }
 
     fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
-        match self.indices.entry(key.reflect_hash().expect(HASH_ERROR)) {
-            Entry::Occupied(entry) => {
-                let index = *entry.get();
-                entry.remove();
-                let (_key, value) = self.values.remove(index);
-                Some(value)
-            }
-            Entry::Vacant(_) => None,
-        }
+        let index = self
+            .indices
+            .remove(&key.reflect_hash().expect(HASH_ERROR))?;
+        let (_key, value) = self.values.remove(index);
+        Some(value)
     }
 
     fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
