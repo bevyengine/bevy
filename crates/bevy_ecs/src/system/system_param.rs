@@ -1019,10 +1019,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 
         NonSend {
             value: ptr.deref(),
-            ticks: ComponentTicks {
-                added: ticks.added.read(),
-                changed: ticks.changed.read(),
-            },
+            ticks: ticks.read(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -1064,10 +1061,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
             .get_resource_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
-                ticks: ComponentTicks {
-                    added: ticks.added.read(),
-                    changed: ticks.changed.read(),
-                },
+                ticks: ticks.read(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
