@@ -760,7 +760,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 }
             }
             StorageType::SparseSet => {
-                let (component, added, changed) = fetch
+                let (component, ticks) = fetch
                     .sparse_set
                     .debug_checked_unwrap()
                     .get_with_ticks(entity)
@@ -768,8 +768,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                 Mut {
                     value: component.assert_unique().deref_mut(),
                     ticks: Ticks {
-                        added: added.deref_mut(),
-                        changed: changed.deref_mut(),
+                        added: ticks.added.deref_mut(),
+                        changed: ticks.changed.deref_mut(),
                         change_tick: fetch.change_tick,
                         last_change_tick: fetch.last_change_tick,
                     },

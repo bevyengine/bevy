@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Tick},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
     storage::Column,
 };
@@ -168,7 +168,7 @@ impl ComponentSparseSet {
     pub fn get_with_ticks(
         &self,
         entity: Entity,
-    ) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
         let dense_index = *self.sparse.get(entity.index())? as usize;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index]);
@@ -176,8 +176,10 @@ impl ComponentSparseSet {
         unsafe {
             Some((
                 self.dense.get_data_unchecked(dense_index),
-                self.dense.get_added_ticks_unchecked(dense_index),
-                self.dense.get_changed_ticks_unchecked(dense_index),
+                TickCells {
+                    added: self.dense.get_added_ticks_unchecked(dense_index),
+                    changed: self.dense.get_changed_ticks_unchecked(dense_index),
+                }
             ))
         }
     }

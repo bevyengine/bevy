@@ -11,7 +11,7 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
-    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, Tick},
+    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells},
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
@@ -21,7 +21,6 @@ use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
-    cell::UnsafeCell,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -999,7 +998,7 @@ impl World {
     pub(crate) fn get_resource_with_ticks(
         &self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
         self.storages.resources.get(component_id)?.get_with_ticks()
     }
 
@@ -1269,12 +1268,12 @@ impl World {
         &self,
         component_id: ComponentId,
     ) -> Option<Mut<'_, R>> {
-        let (ptr, added, changed) = self.get_resource_with_ticks(component_id)?;
+        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
             ticks: Ticks {
-                added: added.deref_mut(),
-                changed: changed.deref_mut(),
+                added: ticks.added.deref_mut(),
+                changed: ticks.changed.deref_mut(),
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.read_change_tick(),
             },
@@ -1455,15 +1454,15 @@ impl World {
             self.validate_non_send_access_untyped(info.name());
         }
 
-        let (ptr, added, changed) = self.get_resource_with_ticks(component_id)?;
+        let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
         // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
         // - index is in-bounds because the column is initialized and non-empty
         // - no other reference to the ticks of the same row can exist at the same time
         let ticks = unsafe {
             Ticks {
-                added: added.deref_mut(),
-                changed: changed.deref_mut(),
+                added: ticks.added.deref_mut(),
+                changed: ticks.changed.deref_mut(),
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.read_change_tick(),
             }

@@ -5,6 +5,7 @@ use crate::{
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
+use std::cell::UnsafeCell;
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::OwningPtr;
 use std::{
@@ -570,6 +571,13 @@ impl Tick {
     pub fn set_changed(&mut self, change_tick: u32) {
         self.tick = change_tick;
     }
+}
+
+/// Wrapper around [`Tick`]s for a single component
+#[derive(Copy, Clone, Debug)]
+pub struct TickCells<'a> {
+    pub added: &'a UnsafeCell<Tick>,
+    pub changed: &'a UnsafeCell<Tick>,
 }
 
 /// Records when a component was added and when it was last mutably dereferenced (or added).

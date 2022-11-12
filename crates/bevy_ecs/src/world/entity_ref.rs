@@ -2,14 +2,14 @@ use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
     change_detection::{MutUntyped, Ticks},
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType, Tick},
+    component::{Component, ComponentId, ComponentTicks, Components, StorageType, TickCells},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::debug;
-use std::{any::TypeId, cell::UnsafeCell};
+use std::any::TypeId;
 
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
@@ -99,11 +99,11 @@ impl<'w> EntityRef<'w> {
         change_tick: u32,
     ) -> Option<Mut<'w, T>> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-            .map(|(value, added, changed)| Mut {
+            .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    added: added.deref_mut(),
-                    changed: changed.deref_mut(),
+                    added: ticks.added.deref_mut(),
+                    changed: ticks.changed.deref_mut(),
                     last_change_tick,
                     change_tick,
                 },
@@ -224,11 +224,11 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'_, T>> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
-            .map(|(value, added, changed)| Mut {
+            .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
                 ticks: Ticks {
-                    added: added.deref_mut(),
-                    changed: changed.deref_mut(),
+                    added: ticks.added.deref_mut(),
+                    changed: ticks.changed.deref_mut(),
                     last_change_tick: self.world.last_change_tick(),
                     change_tick: self.world.read_change_tick(),
                 },
@@ -631,7 +631,7 @@ unsafe fn get_component_and_ticks(
     component_id: ComponentId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
+) -> Option<(Ptr<'_>, TickCells<'_>)> {
     let archetype = &world.archetypes[location.archetype_id];
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
@@ -642,8 +642,10 @@ unsafe fn get_component_and_ticks(
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
             Some((
                 components.get_data_unchecked(table_row),
-                components.get_added_ticks_unchecked(table_row),
-                components.get_changed_ticks_unchecked(table_row),
+                TickCells {
+                    added: components.get_added_ticks_unchecked(table_row),
+                    changed: components.get_changed_ticks_unchecked(table_row),
+                }
             ))
         }
         StorageType::SparseSet => world
@@ -744,7 +746,7 @@ pub(crate) unsafe fn get_component_and_ticks_with_type(
     type_id: TypeId,
     entity: Entity,
     location: EntityLocation,
-) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
+) -> Option<(Ptr<'_>, TickCells<'_>)> {
     let component_id = world.components.get_id(type_id)?;
     get_component_and_ticks(world, component_id, entity, location)
 }
@@ -906,11 +908,11 @@ pub(crate) unsafe fn get_mut<T: Component>(
     let change_tick = world.change_tick();
     let last_change_tick = world.last_change_tick();
     get_component_and_ticks_with_type(world, TypeId::of::<T>(), entity, location).map(
-        |(value, added, changed)| Mut {
+        |(value, ticks)| Mut {
             value: value.assert_unique().deref_mut::<T>(),
             ticks: Ticks {
-                added: added.deref_mut(),
-                changed: changed.deref_mut(),
+                added: ticks.added.deref_mut(),
+                changed: ticks.changed.deref_mut(),
                 last_change_tick,
                 change_tick,
             },
@@ -927,12 +929,12 @@ pub(crate) unsafe fn get_mut_by_id(
     component_id: ComponentId,
 ) -> Option<MutUntyped> {
     // SAFETY: world access is unique, entity location and component_id required to be valid
-    get_component_and_ticks(world, component_id, entity, location).map(|(value, added, changed)| {
+    get_component_and_ticks(world, component_id, entity, location).map(|(value, ticks)| {
         MutUntyped {
             value: value.assert_unique(),
             ticks: Ticks {
-                added: added.deref_mut(),
-                changed: changed.deref_mut(),
+                added: ticks.added.deref_mut(),
+                changed: ticks.changed.deref_mut(),
                 last_change_tick: world.last_change_tick(),
                 change_tick: world.read_change_tick(),
             },

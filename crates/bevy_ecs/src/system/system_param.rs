@@ -408,7 +408,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        let (ptr, added, changed) = world
+        let (ptr, ticks) = world
             .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -419,8 +419,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
             });
         Res {
             value: ptr.deref(),
-            added: added.deref(),
-            changed: changed.deref(),
+            added: ticks.added.deref(),
+            changed: ticks.changed.deref(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -459,10 +459,10 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
     ) -> Self::Item {
         world
             .get_resource_with_ticks(state.0.component_id)
-            .map(|(ptr, added, changed)| Res {
+            .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
-                added: added.deref(),
-                changed: changed.deref(),
+                added: ticks.added.deref(),
+                changed: ticks.changed.deref(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -1007,7 +1007,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
-        let (ptr, added, changed) = world
+        let (ptr, ticks) = world
             .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1020,8 +1020,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         NonSend {
             value: ptr.deref(),
             ticks: ComponentTicks {
-                added: added.read(),
-                changed: changed.read(),
+                added: ticks.added.read(),
+                changed: ticks.changed.read(),
             },
             last_change_tick: system_meta.last_change_tick,
             change_tick,
@@ -1062,11 +1062,11 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
         world.validate_non_send_access::<T>();
         world
             .get_resource_with_ticks(state.0.component_id)
-            .map(|(ptr, added, changed)| NonSend {
+            .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ComponentTicks {
-                    added: added.read(),
-                    changed: changed.read(),
+                    added: ticks.added.read(),
+                    changed: ticks.changed.read(),
                 },
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
@@ -1128,7 +1128,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
-        let (ptr, added, changed) = world
+        let (ptr, ticks) = world
             .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
@@ -1140,8 +1140,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
             ticks: Ticks {
-                added: added.deref_mut(),
-                changed: changed.deref_mut(),
+                added: ticks.added.deref_mut(),
+                changed: ticks.changed.deref_mut(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -1179,11 +1179,11 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
         world.validate_non_send_access::<T>();
         world
             .get_resource_with_ticks(state.0.component_id)
-            .map(|(ptr, added, changed)| NonSendMut {
+            .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: Ticks {
-                    added: added.deref_mut(),
-                    changed: changed.deref_mut(),
+                    added: ticks.added.deref_mut(),
+                    changed: ticks.changed.deref_mut(),
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },

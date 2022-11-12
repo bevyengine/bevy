@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, SparseSet},
@@ -206,15 +206,17 @@ impl Column {
     }
 
     #[inline]
-    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<Tick>, &UnsafeCell<Tick>)> {
+    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, TickCells<'_>)> {
         (row < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
             .then(|| unsafe {
                 (
                     self.data.get_unchecked(row),
-                    self.added_ticks.get_unchecked(row),
-                    self.changed_ticks.get_unchecked(row),
+                    TickCells {
+                        added: self.added_ticks.get_unchecked(row),
+                        changed: self.changed_ticks.get_unchecked(row),
+                    }
                 )
             })
     }
