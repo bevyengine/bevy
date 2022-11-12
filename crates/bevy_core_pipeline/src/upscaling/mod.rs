@@ -31,7 +31,7 @@ impl Plugin for UpscalingPlugin {
             render_app
                 .init_resource::<UpscalingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<UpscalingPipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue_upscaling_bind_groups);
+                .add_system_to_stage(RenderStage::Queue, queue_view_upscaling_pipelines);
         }
     }
 }
@@ -110,11 +110,9 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
 }
 
 #[derive(Component)]
-pub struct UpscalingTarget {
-    pub pipeline: CachedRenderPipelineId,
-}
+pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
-fn queue_upscaling_bind_groups(
+fn queue_view_upscaling_pipelines(
     mut commands: Commands,
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
@@ -128,6 +126,8 @@ fn queue_upscaling_bind_groups(
         };
         let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
 
-        commands.entity(entity).insert(UpscalingTarget { pipeline });
+        commands
+            .entity(entity)
+            .insert(ViewUpscalingPipeline(pipeline));
     }
 }
