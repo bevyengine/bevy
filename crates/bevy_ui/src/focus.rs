@@ -124,10 +124,13 @@ pub fn ui_focus_system(
         })
         .filter_map(|window_id| windows.get(window_id))
         .filter(|window| window.is_focused())
-        .find_map(|window| window.cursor_position())
+        .find_map(|window| {
+            window.cursor_position().map(|mut cursor_pos| {
+                cursor_pos.y = window.height() - cursor_pos.y;
+                cursor_pos
+            })
+        })
         .or_else(|| touches_input.first_pressed_position());
-
-    let window_height = windows.primary().height();
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
@@ -167,7 +170,7 @@ pub fn ui_focus_system(
                 // clicking
                 let contains_cursor = if let Some(cursor_position) = cursor_position {
                     (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&(window_height - cursor_position.y))
+                        && (min.y..max.y).contains(&cursor_position.y)
                 } else {
                     false
                 };
