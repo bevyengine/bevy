@@ -997,10 +997,8 @@ impl<T: Component> ChangeTrackers<T> {
 #[doc(hidden)]
 pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
-    table_ticks: Option<(
-        ThinSlicePtr<'w, UnsafeCell<Tick>>, // Added
-        ThinSlicePtr<'w, UnsafeCell<Tick>>, // Changed
-    )>,
+    table_added: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+    table_changed: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
@@ -1036,7 +1034,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         change_tick: u32,
     ) -> ChangeTrackersFetch<'w, T> {
         ChangeTrackersFetch {
-            table_ticks: None,
+            table_added: None,
+            table_changed: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     .storages()
@@ -1052,7 +1051,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
 
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
         ChangeTrackersFetch {
-            table_ticks: fetch.table_ticks,
+            table_added: fetch.table_added,
+            table_changed: fetch.table_changed,
             sparse_set: fetch.sparse_set,
             marker: fetch.marker,
             last_change_tick: fetch.last_change_tick,
@@ -1079,10 +1079,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         table: &'w Table,
     ) {
         let column = table.get_column(id).debug_checked_unwrap();
-        fetch.table_ticks = Some((
-            column.get_added_ticks_slice().into(),
-            column.get_changed_ticks_slice().into(),
-        ));
+        fetch.table_added = Some(column.get_added_ticks_slice().into());
+        fetch.table_changed = Some(column.get_changed_ticks_slice().into());
     }
 
     #[inline(always)]
@@ -1094,10 +1092,17 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => ChangeTrackers {
                 component_ticks: {
-                    let (added, changed) = fetch.table_ticks.debug_checked_unwrap();
                     ComponentTicks {
-                        added: added.get(table_row).read(),
-                        changed: changed.get(table_row).read(),
+                        added: fetch
+                            .table_added
+                            .debug_checked_unwrap()
+                            .get(table_row)
+                            .read(),
+                        changed: fetch
+                            .table_changed
+                            .debug_checked_unwrap()
+                            .get(table_row)
+                            .read(),
                     }
                 },
                 marker: PhantomData,
