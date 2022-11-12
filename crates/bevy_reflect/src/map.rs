@@ -58,7 +58,7 @@ pub trait Map: Reflect {
         value: Box<dyn Reflect>,
     ) -> Option<Box<dyn Reflect>>;
 
-    /// Removes a key from the map.
+    /// Removes an entry from the map.
     ///
     /// If the map did not have this key present, `None` is returned.
     /// If the map did have this key present, the removed value is returned.
