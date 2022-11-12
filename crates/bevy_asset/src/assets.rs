@@ -443,6 +443,44 @@ macro_rules! load_internal_asset {
     }};
 }
 
+/// Loads an internal binary asset.
+///
+/// Internal binary assets (e.g. spir-v shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See `DebugAssetServerPlugin`.
+#[cfg(feature = "debug_asset_server")]
+#[macro_export]
+macro_rules! load_internal_binary_asset {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+        {
+            let mut debug_app = $app
+                .world
+                .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
+            $crate::debug_asset_server::register_handle_with_loader(
+                $loader,
+                &mut debug_app,
+                $handle,
+                file!(),
+                $path_str,
+            );
+        }
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+    }};
+}
+
+/// Loads an internal binary asset.
+///
+/// Internal binary assets (e.g. spir-v shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See `DebugAssetServerPlugin`.
+#[cfg(not(feature = "debug_asset_server"))]
+#[macro_export]
+macro_rules! load_internal_binary_asset {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_app::App;

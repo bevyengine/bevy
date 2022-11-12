@@ -65,6 +65,11 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
+            fn into_reflect(self: Box<Self>) -> Box<dyn #bevy_reflect_path::Reflect> {
+                self
+            }
+
+            #[inline]
             fn as_reflect(&self) -> &dyn #bevy_reflect_path::Reflect {
                 self
             }
