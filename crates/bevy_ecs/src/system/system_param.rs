@@ -307,13 +307,13 @@ impl<'w, T: Resource> Res<'w, T> {
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
         self.added
-            .is_changed(self.last_change_tick, self.change_tick)
+            .is_older_than(self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
         self.changed
-            .is_changed(self.last_change_tick, self.change_tick)
+            .is_older_than(self.last_change_tick, self.change_tick)
     }
 
     pub fn into_inner(self) -> &'w T {

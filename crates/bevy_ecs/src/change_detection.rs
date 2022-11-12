@@ -96,14 +96,14 @@ macro_rules! change_detection_impl {
             fn is_added(&self) -> bool {
                 self.ticks
                     .added
-                    .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
                 self.ticks
                     .changed
-                    .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
@@ -383,14 +383,14 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     fn is_added(&self) -> bool {
         self.ticks
             .added
-            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+            .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
             .changed
-            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+            .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
