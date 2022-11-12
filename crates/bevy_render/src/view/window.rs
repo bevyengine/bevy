@@ -239,14 +239,14 @@ pub fn prepare_windows(
 
         let not_already_configured = window_surfaces.configured_windows.insert(window.id);
 
+        let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
-            let no_new_surface_message = "Error configuring surface";
-            let surface = &surface_data.surface;
             render_device.configure_surface(surface, &surface_configuration);
-            let frame = surface.get_current_texture().expect(no_new_surface_message);
+            let frame = surface
+                .get_current_texture()
+                .expect("Error configuring surface");
             window.swap_chain_texture = Some(TextureView::from(frame));
         } else {
-            let surface = &surface_data.surface;
             match surface.get_current_texture() {
                 Ok(frame) => {
                     window.swap_chain_texture = Some(TextureView::from(frame));
