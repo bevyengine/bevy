@@ -60,10 +60,6 @@ impl Plugin for WinitPlugin {
     }
 }
 
-#[derive(Resource)]
-#[resource(is_sync = false)]
-pub struct EventLoopProxy<T: 'static>(pub winit::event_loop::EventLoopProxy<T>);
-
 fn change_window(
     mut winit_windows: NonSendMut<WinitWindows>,
     mut windows: ResMut<Windows>,
@@ -359,7 +355,7 @@ pub fn winit_runner_with(mut app: App) {
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
     let mut winit_state = WinitPersistentState::default();
     app.world
-        .insert_resource(EventLoopProxy(event_loop.create_proxy()));
+        .insert_non_send_resource(event_loop.create_proxy());
 
     let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
 
