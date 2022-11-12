@@ -90,13 +90,12 @@ pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
     extract: Box<dyn Fn(&mut World, &mut App) + Send + Sync>, // Send + Sync bound is only required to make SubApp send sync
-    runner: Box<dyn Fn(&mut App) + Send + Sync>, // this Send + Sync bound is required since we're running this function on another thread
 }
 
 impl SubApp {
     /// runs the `SubApp` with its runner
     pub fn run(&mut self) {
-        (self.runner)(&mut self.app);
+        self.app.schedule.run(&mut self.app.world);
     }
 
     /// extract data from main world to sub app
@@ -1016,17 +1015,12 @@ impl App {
         label: impl AppLabel,
         app: App,
         extract: impl Fn(&mut World, &mut App) + 'static + Send + Sync,
-        runner: impl Fn(&mut App) + 'static + Send + Sync,
     ) -> &mut Self {
-        // if let Some(executor) = self.world.get_resource::<MainThreadExecutor>() {
-        //     app.world.insert_resource(executor.clone());
-        // }
         self.sub_apps.insert(
             label.as_label(),
             SubApp {
                 app,
                 extract: Box::new(extract),
-                runner: Box::new(runner),
             },
         );
         self
