@@ -1,4 +1,4 @@
-use bevy_macro_utils::{get_lit_str, Symbol};
+use bevy_macro_utils::{get_lit_bool, get_lit_str, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
@@ -8,18 +8,74 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
-    ast.generics
-        .make_where_clause()
+    let attrs = match parse_resource_attr(&ast) {
+        Ok(attrs) => attrs,
+        Err(e) => return e.into_compile_error().into(),
+    };
+
+    let is_sync = attrs.is_sync;
+
+    let where_clause = ast.generics.make_where_clause();
+    where_clause
         .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
+        .push(parse_quote! { Self: Send + 'static });
+
+    // Add a bound to ensure that the `Sync`-ness is correct.
+    if is_sync {
+        where_clause.predicates.push(parse_quote! { Self: Sync });
+    }
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
+        // SAFETY: The trait bounds on this impl guarantee that the non-`Sync` types will not have `IS_SYNC = true`.
+        unsafe impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
+            const IS_SYNC: bool = #is_sync;
         }
     })
+}
+
+pub const RESOURCE: Symbol = Symbol("resource");
+pub const IS_SYNC: Symbol = Symbol("is_sync");
+
+struct ResourceAttrs {
+    is_sync: bool,
+}
+
+fn parse_resource_attr(ast: &DeriveInput) -> Result<ResourceAttrs> {
+    let meta_items = bevy_macro_utils::parse_attrs(ast, RESOURCE)?;
+
+    let mut attrs = ResourceAttrs { is_sync: true };
+
+    for meta in meta_items {
+        use syn::{
+            Meta::NameValue,
+            NestedMeta::{Lit, Meta},
+        };
+        match meta {
+            Meta(NameValue(m)) if m.path == IS_SYNC => {
+                attrs.is_sync = get_lit_bool(IS_SYNC, &m.lit)?;
+            }
+            Meta(meta_item) => {
+                return Err(Error::new_spanned(
+                    meta_item.path(),
+                    format!(
+                        "unknown resource attribute `{}`",
+                        meta_item.path().into_token_stream()
+                    ),
+                ));
+            }
+            Lit(lit) => {
+                return Err(Error::new_spanned(
+                    lit,
+                    "unexpected literal in resource attribute",
+                ))
+            }
+        }
+    }
+
+    Ok(attrs)
 }
 
 pub fn derive_component(input: TokenStream) -> TokenStream {
