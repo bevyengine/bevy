@@ -40,10 +40,10 @@ pub enum AxisSettingsError {
 /// Errors that occur when setting button settings for gamepad input.
 #[derive(Error, Debug, PartialEq)]
 pub enum ButtonSettingsError {
-    /// The given parameter was not in range 0.0..=2.0.
+    /// The given parameter was not in range 0.0..=1.0.
     #[error("invalid release_threshold {0}, expected value [0.0..=1.0]")]
     ReleaseThresholdOutOfRange(f32),
-    /// The given parameter was not in range 0.0..=2.0.
+    /// The given parameter was not in range 0.0..=1.0.
     #[error("invalid press_threshold {0}, expected [0.0..=1.0]")]
     PressThresholdOutOfRange(f32),
     /// Parameter `release_threshold` was not less than or equal to `press_threshold`.
