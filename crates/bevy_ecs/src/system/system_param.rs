@@ -258,7 +258,13 @@ impl_param_set!();
 /// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
 /// # schedule.run_once(&mut world);
 /// ```
-pub trait Resource: Send + Sync + 'static {}
+///
+/// # Safety
+///
+/// If [`Self::IS_SYNC`] == `true`, then `Self` must be [`Sync`].
+pub unsafe trait Resource: Send + 'static {
+    const IS_SYNC: bool;
+}
 
 /// Shared borrow of a [`Resource`].
 ///
@@ -364,7 +370,8 @@ where
 #[doc(hidden)]
 pub struct ResState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    // `fn() -> T` gives safe `Sync` impls.
+    marker: PhantomData<fn() -> T>,
 }
 
 impl<'a, T: Resource> SystemParam for Res<'a, T> {
@@ -375,6 +382,13 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
 // conflicts with any prior access, a panic will occur.
 unsafe impl<T: Resource> SystemParamState for ResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        // If the resource can't be shared between threads, make sure it runs on the main thread.
+        // FIXME: We should be able to register access as 'exclusive reads' to prevent shared access
+        // without forcing the system to run on the main thread.
+        if !T::IS_SYNC {
+            system_meta.set_non_send();
+        }
+
         let component_id = world.initialize_resource::<T>();
         let combined_access = system_meta.component_access_set.combined_access();
         assert!(
@@ -475,7 +489,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
 #[doc(hidden)]
 pub struct ResMutState<T> {
     component_id: ComponentId,
-    marker: PhantomData<T>,
+    marker: PhantomData<fn() -> T>,
 }
 
 impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
