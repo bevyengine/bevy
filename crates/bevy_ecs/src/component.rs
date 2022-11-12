@@ -5,9 +5,9 @@ use crate::{
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
-use std::cell::UnsafeCell;
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::OwningPtr;
+use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},

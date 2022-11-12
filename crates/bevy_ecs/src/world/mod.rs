@@ -11,13 +11,15 @@ use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
-    component::{Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells},
+    component::{
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
+    },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
@@ -1271,12 +1273,7 @@ impl World {
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks {
-                added: ticks.added.deref_mut(),
-                changed: ticks.changed.deref_mut(),
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.read_change_tick(),
-            },
+            ticks: Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick()),
         })
     }
 
@@ -1460,12 +1457,7 @@ impl World {
         // - index is in-bounds because the column is initialized and non-empty
         // - no other reference to the ticks of the same row can exist at the same time
         let ticks = unsafe {
-            Ticks {
-                added: ticks.added.deref_mut(),
-                changed: ticks.changed.deref_mut(),
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.read_change_tick(),
-            }
+            Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
         };
 
         Some(MutUntyped {

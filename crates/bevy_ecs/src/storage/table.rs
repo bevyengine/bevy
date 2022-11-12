@@ -216,7 +216,7 @@ impl Column {
                     TickCells {
                         added: self.added_ticks.get_unchecked(row),
                         changed: self.changed_ticks.get_unchecked(row),
-                    }
+                    },
                 )
             })
     }

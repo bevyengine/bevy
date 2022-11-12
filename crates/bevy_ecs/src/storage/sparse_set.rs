@@ -165,10 +165,7 @@ impl ComponentSparseSet {
     }
 
     #[inline]
-    pub fn get_with_ticks(
-        &self,
-        entity: Entity,
-    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
+    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, TickCells<'_>)> {
         let dense_index = *self.sparse.get(entity.index())? as usize;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index]);
@@ -179,7 +176,7 @@ impl ComponentSparseSet {
                 TickCells {
                     added: self.dense.get_added_ticks_unchecked(dense_index),
                     changed: self.dense.get_changed_ticks_unchecked(dense_index),
-                }
+                },
             ))
         }
     }

@@ -1,6 +1,11 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{component::Tick, ptr::PtrMut, system::Resource};
+use crate::{
+    component::{Tick, TickCells},
+    ptr::PtrMut,
+    system::Resource,
+};
+use bevy_ptr::UnsafeCellDeref;
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -228,6 +233,24 @@ pub(crate) struct Ticks<'a> {
     pub(crate) changed: &'a mut Tick,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
+}
+
+impl<'a> Ticks<'a> {
+    /// # Safety
+    /// This should never alias the underlying ticks. All access must be unique.
+    #[inline]
+    pub(crate) unsafe fn from_tick_cells(
+        cells: TickCells<'a>,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
+        Self {
+            added: cells.added.deref_mut(),
+            changed: cells.changed.deref_mut(),
+            last_change_tick,
+            change_tick,
+        }
+    }
 }
 
 /// Unique mutable borrow of a [`Resource`].

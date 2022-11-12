@@ -7,7 +7,7 @@ use crate::{
     storage::{SparseSet, Storages},
     world::{Mut, World},
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
@@ -101,12 +101,7 @@ impl<'w> EntityRef<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
-                ticks: Ticks {
-                    added: ticks.added.deref_mut(),
-                    changed: ticks.changed.deref_mut(),
-                    last_change_tick,
-                    change_tick,
-                },
+                ticks: Ticks::from_tick_cells(ticks, last_change_tick, change_tick),
             })
     }
 }
@@ -226,12 +221,11 @@ impl<'w> EntityMut<'w> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
-                ticks: Ticks {
-                    added: ticks.added.deref_mut(),
-                    changed: ticks.changed.deref_mut(),
-                    last_change_tick: self.world.last_change_tick(),
-                    change_tick: self.world.read_change_tick(),
-                },
+                ticks: Ticks::from_tick_cells(
+                    ticks,
+                    self.world.last_change_tick(),
+                    self.world.read_change_tick(),
+                ),
             })
     }
 
@@ -645,7 +639,7 @@ unsafe fn get_component_and_ticks(
                 TickCells {
                     added: components.get_added_ticks_unchecked(table_row),
                     changed: components.get_changed_ticks_unchecked(table_row),
-                }
+                },
             ))
         }
         StorageType::SparseSet => world
@@ -910,12 +904,7 @@ pub(crate) unsafe fn get_mut<T: Component>(
     get_component_and_ticks_with_type(world, TypeId::of::<T>(), entity, location).map(
         |(value, ticks)| Mut {
             value: value.assert_unique().deref_mut::<T>(),
-            ticks: Ticks {
-                added: ticks.added.deref_mut(),
-                changed: ticks.changed.deref_mut(),
-                last_change_tick,
-                change_tick,
-            },
+            ticks: Ticks::from_tick_cells(ticks, last_change_tick, change_tick),
         },
     )
 }
@@ -932,12 +921,11 @@ pub(crate) unsafe fn get_mut_by_id(
     get_component_and_ticks(world, component_id, entity, location).map(|(value, ticks)| {
         MutUntyped {
             value: value.assert_unique(),
-            ticks: Ticks {
-                added: ticks.added.deref_mut(),
-                changed: ticks.changed.deref_mut(),
-                last_change_tick: world.last_change_tick(),
-                change_tick: world.read_change_tick(),
-            },
+            ticks: Ticks::from_tick_cells(
+                ticks,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            ),
         }
     })
 }

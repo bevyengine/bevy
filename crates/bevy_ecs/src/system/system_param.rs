@@ -1139,12 +1139,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
             });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks {
-                added: ticks.added.deref_mut(),
-                changed: ticks.changed.deref_mut(),
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
-            },
+            ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
         }
     }
 }
@@ -1181,12 +1176,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
             .get_resource_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
-                ticks: Ticks {
-                    added: ticks.added.deref_mut(),
-                    changed: ticks.changed.deref_mut(),
-                    last_change_tick: system_meta.last_change_tick,
-                    change_tick,
-                },
+                ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
             })
     }
 }

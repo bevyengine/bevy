@@ -767,12 +767,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     .debug_checked_unwrap();
                 Mut {
                     value: component.assert_unique().deref_mut(),
-                    ticks: Ticks {
-                        added: ticks.added.deref_mut(),
-                        changed: ticks.changed.deref_mut(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
-                    },
+                    ticks: Ticks::from_tick_cells(ticks, fetch.change_tick, fetch.last_change_tick),
                 }
             }
         }
