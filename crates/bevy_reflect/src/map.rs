@@ -259,7 +259,7 @@ impl Map for DynamicMap {
                 entry.remove();
                 let (_key, value) = self.values.remove(index);
                 Some(value)
-            },
+            }
             Entry::Vacant(_) => None,
         }
     }
