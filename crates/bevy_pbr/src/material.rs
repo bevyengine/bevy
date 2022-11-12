@@ -4,6 +4,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
+use bevy_core::Name;
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
     tonemapping::Tonemapping,
@@ -12,7 +13,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    prelude::World,
+    prelude::{ChangeTrackers, World},
     schedule::IntoSystemDescriptor,
     system::{
         lifetimeless::{Read, SQuery, SRes},
@@ -23,7 +24,7 @@ use bevy_ecs::{
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{Mesh, MeshVertexAttribute, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
@@ -40,9 +41,9 @@ use bevy_render::{
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract, RenderApp, RenderStage,
 };
-use bevy_utils::{tracing::error, HashMap, HashSet};
-use std::hash::Hash;
-use std::marker::PhantomData;
+use bevy_utils::{hashbrown::hash_map::Entry, tracing::error, HashMap, HashSet};
+
+use std::{fmt::Write, hash::Hash, marker::PhantomData};
 
 /// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -150,6 +151,14 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
     ) -> Result<(), SpecializedMeshPipelineError> {
         Ok(())
     }
+
+    /// Returns a list of vertex attributes required by this `Material`.
+    ///
+    /// The default implementation of this method returns an empty slice.
+    #[inline]
+    fn required_vertex_attributes() -> &'static [MeshVertexAttribute] {
+        &[]
+    }
 }
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
@@ -168,7 +177,8 @@ where
 {
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
-            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
+            .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible())
+            .add_system(validate_material_mesh_attributes::<M>);
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
@@ -312,6 +322,104 @@ impl<M: Material, const I: usize> EntityRenderCommand for SetMaterialBindGroup<M
         let material = materials.into_inner().get(material_handle).unwrap();
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn validate_material_mesh_attributes<M: Material>(
+    material_meshes: Query<(
+        Entity,
+        &Handle<Mesh>,
+        ChangeTrackers<Handle<Mesh>>,
+        ChangeTrackers<Handle<M>>,
+    )>,
+    names: Query<&Name>,
+    meshes: Res<Assets<Mesh>>,
+    mut mesh_events: EventReader<AssetEvent<Mesh>>,
+
+    // Set of updated but not-yet-validated meshes.
+    mut updated_meshes: Local<HashSet<Handle<Mesh>>>,
+    // Set of validated meshes.
+    mut valid_meshes: Local<HashSet<Handle<Mesh>>>,
+    // Maps mesh handle to (first, len) in the `missing_attrs` array.
+    mut invalid_meshes: Local<HashMap<Handle<Mesh>, (usize, usize)>>,
+    // List of indices into the slice returned by `M::required_vertex_attributes()`.
+    mut missing_attrs: Local<Vec<usize>>,
+) {
+    let required_attributes = M::required_vertex_attributes();
+    let mat_name = std::any::type_name::<M>();
+
+    updated_meshes.clear();
+    valid_meshes.clear();
+    invalid_meshes.clear();
+    missing_attrs.clear();
+
+    for evt in mesh_events.iter() {
+        if let AssetEvent::Modified { handle } = evt {
+            updated_meshes.insert(handle.clone());
+        }
+    }
+
+    let mut ent_id_str = String::new();
+    for (ent, mesh_handle, mesh_changed, mat_changed) in material_meshes.iter() {
+        if valid_meshes.contains(mesh_handle) {
+            continue;
+        }
+
+        let (first, len) = match invalid_meshes.entry(mesh_handle.clone()) {
+            Entry::Occupied(o) => *o.get(),
+            Entry::Vacant(v) => {
+                // Only validate the mesh if the asset was updated or this entity's mesh or material
+                // handle changed.
+                if !updated_meshes.remove(mesh_handle)
+                    && !mesh_changed.is_changed()
+                    && !mat_changed.is_changed()
+                {
+                    continue;
+                }
+
+                let mesh = match meshes.get(mesh_handle) {
+                    Some(m) => m,
+                    None => {
+                        // If the mesh is gone, don't bother checking it again.
+                        valid_meshes.insert(mesh_handle.clone());
+                        continue;
+                    }
+                };
+
+                // Record the missing attributes.
+                let first = missing_attrs.len();
+                for (idx, attr) in required_attributes.iter().enumerate() {
+                    if !mesh.contains_attribute(attr.id()) {
+                        missing_attrs.push(idx);
+                    }
+                }
+                let len = missing_attrs.len() - first;
+
+                if len == 0 {
+                    valid_meshes.insert(mesh_handle.clone());
+                    continue;
+                }
+
+                *v.insert((first, len))
+            }
+        };
+
+        ent_id_str.clear();
+
+        let _ = match names.get(ent).ok() {
+            Some(n) => write!(&mut ent_id_str, "\"{n}\""),
+            None => write!(&mut ent_id_str, "{ent:?}"),
+        };
+
+        for &attr_idx in &missing_attrs[first..first + len] {
+            error!(
+                "Entity {ent_id_str}: mesh with ID `{:?}` is missing vertex attribute `{}`, \
+                     which is required by `{mat_name}`",
+                mesh_handle.id(),
+                required_attributes[attr_idx].name(),
+            );
+        }
     }
 }
 

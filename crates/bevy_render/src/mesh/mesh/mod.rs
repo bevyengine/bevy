@@ -423,6 +423,16 @@ impl MeshVertexAttribute {
     pub const fn at_shader_location(&self, shader_location: u32) -> VertexAttributeDescriptor {
         VertexAttributeDescriptor::new(shader_location, self.id, self.name)
     }
+
+    /// Returns the human-readable name of the attribute.
+    pub const fn name(&self) -> &'static str {
+        self.name
+    }
+
+    /// Returns the unique ID of the attribute.
+    pub const fn id(&self) -> MeshVertexAttributeId {
+        self.id
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Ord, PartialOrd, Hash)]
