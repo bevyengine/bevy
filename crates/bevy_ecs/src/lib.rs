@@ -52,6 +52,8 @@ pub use bevy_ecs_macros::all_tuples;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::schedule::{Stage, SystemStage};
+    use crate::system::Res;
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentId},
@@ -63,6 +65,7 @@ mod tests {
         world::{Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use std::sync::RwLock;
     use std::{
         any::TypeId,
         marker::PhantomData,
@@ -1192,6 +1195,63 @@ mod tests {
         })
         .join()
         .unwrap();
+    }
+
+    #[test]
+    fn non_sync_resource() {
+        #[derive(Resource, Default)]
+        #[resource(is_sync = false)]
+        struct SyncCounter(RwLock<()>, PhantomData<std::cell::Cell<()>>);
+
+        fn assert_non_sync(counter: Res<SyncCounter>) {
+            // Panic if multiple instances of this system try to access `counter` at once.
+            let _guard = counter
+                .0
+                .try_write()
+                .expect("shared access is not allowed for non-`Sync` resources");
+
+            // Make sure other systems have a chance to conflict with this one before dropping the guard.
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+
+        let mut world = World::default();
+        world.init_resource::<SyncCounter>();
+
+        let mut stage = SystemStage::parallel()
+            .with_system(assert_non_sync)
+            .with_system(assert_non_sync)
+            .with_system(assert_non_sync);
+
+        stage.run(&mut world);
+    }
+
+    #[test]
+    #[should_panic]
+    fn non_sync_resource_panic() {
+        #[derive(Resource, Default)]
+        #[resource(is_sync = true)] // This type *technically* is sync, but the system will panic if there's shared access.
+        struct SyncCounter(RwLock<()>);
+
+        fn assert_non_sync(counter: Res<SyncCounter>) {
+            // Panic if multiple instances of this system try to access `counter` at once.
+            let _guard = counter
+                .0
+                .try_write()
+                .expect("shared access is not allowed for non-`Sync` resources");
+
+            // Make sure other systems have a chance to conflict with this one before dropping the guard.
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+
+        let mut world = World::default();
+        world.init_resource::<SyncCounter>();
+
+        let mut stage = SystemStage::parallel()
+            .with_system(assert_non_sync)
+            .with_system(assert_non_sync)
+            .with_system(assert_non_sync);
+
+        stage.run(&mut world);
     }
 
     #[test]
