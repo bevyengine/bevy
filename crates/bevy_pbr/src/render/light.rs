@@ -773,8 +773,11 @@ pub fn prepare_lights(
     light_meta.view_gpu_lights.clear();
 
     // Pre-calculate for PointLights
-    let cube_face_projection =
-        Mat4::perspective_infinite_reverse_rh(core::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
+    let cube_face_projection = Mat4::perspective_infinite_reverse_rh(
+        core::f32::consts::FRAC_PI_2,
+        1.0,
+        POINT_LIGHT_NEAR_Z,
+    );
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))

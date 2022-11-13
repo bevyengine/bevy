@@ -41,8 +41,8 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
-use std::hash::Hash;
 use core::marker::PhantomData;
+use std::hash::Hash;
 
 /// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level

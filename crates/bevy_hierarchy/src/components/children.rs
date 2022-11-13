@@ -6,9 +6,9 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::Reflect;
+use core::ops::Deref;
 use core::slice;
 use smallvec::SmallVec;
-use core::ops::Deref;
 
 /// Contains references to the child entities of this entity.
 ///

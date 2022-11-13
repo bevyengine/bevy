@@ -8,8 +8,8 @@ use crate::{
 };
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
-pub use parallel_scope::*;
 use core::marker::PhantomData;
+pub use parallel_scope::*;
 
 use super::Resource;
 

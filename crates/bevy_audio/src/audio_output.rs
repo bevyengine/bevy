@@ -3,8 +3,8 @@ use bevy_asset::{Asset, Assets};
 use bevy_ecs::system::{NonSend, Res, ResMut};
 use bevy_reflect::TypeUuid;
 use bevy_utils::tracing::warn;
-use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 use core::marker::PhantomData;
+use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 
 /// Used internally to play audio on the current "audio device"
 pub struct AudioOutput<Source = AudioSource>

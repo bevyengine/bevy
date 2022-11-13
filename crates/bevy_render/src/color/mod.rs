@@ -5,8 +5,8 @@ pub use colorspace::*;
 use crate::color::{HslRepresentation, SrgbColorSpace};
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
-use serde::{Deserialize, Serialize};
 use core::ops::{Add, AddAssign, Mul, MulAssign};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]

@@ -21,8 +21,8 @@ use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
-use std::borrow::Cow;
 use core::ops::Range;
+use std::borrow::Cow;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_ecs::schedule::IntoSystemDescriptor;

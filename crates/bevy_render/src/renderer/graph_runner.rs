@@ -2,9 +2,9 @@ use bevy_ecs::world::World;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
-use smallvec::{smallvec, SmallVec};
 #[cfg(feature = "trace")]
 use core::ops::Deref;
+use smallvec::{smallvec, SmallVec};
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 

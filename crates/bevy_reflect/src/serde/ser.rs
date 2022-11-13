@@ -473,10 +473,10 @@ mod tests {
     use crate::serde::ReflectSerializer;
     use crate::{FromReflect, Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
+    use core::f32::consts::PI;
     use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;
     use serde::Serialize;
-    use core::f32::consts::PI;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {

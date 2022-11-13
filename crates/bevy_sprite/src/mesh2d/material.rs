@@ -36,8 +36,8 @@ use bevy_render::{
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
-use std::hash::Hash;
 use core::marker::PhantomData;
+use std::hash::Hash;
 
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform, SetMesh2dBindGroup,

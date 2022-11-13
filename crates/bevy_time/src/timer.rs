@@ -1,4 +1,6 @@
 use crate::Stopwatch;
+use alloc::boxed::Box;
+use alloc::string::ToString;
 use bevy_reflect::prelude::*;
 use bevy_utils::Duration;
 
