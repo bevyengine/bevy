@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
+    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectError, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, Typed,
 };
 
@@ -231,8 +231,8 @@ impl Reflect for DynamicList {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        list_apply(self, value);
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
+        list_apply(self, value)
     }
 
     #[inline]
@@ -308,7 +308,7 @@ impl IntoIterator for DynamicList {
 ///
 /// This function panics if `b` is not a list.
 #[inline]
-pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
+pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) -> Result<(), ReflectError> {
     if let ReflectRef::List(list_value) = b.reflect_ref() {
         for (i, value) in list_value.iter().enumerate() {
             if i < a.len() {
@@ -319,8 +319,10 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
                 List::push(a, value.clone_value());
             }
         }
+        return Ok(());
     } else {
-        panic!("Attempted to apply a non-list type to a list type.");
+        // panic!("Attempted to apply a non-list type to a list type.");
+        return Err(ReflectError::MismatchedTypes(String::from("list")));
     }
 }
 
