@@ -5,7 +5,7 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
+use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, ReflectError};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -288,8 +288,8 @@ impl Reflect for DynamicMap {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        map_apply(self, value);
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
+        map_apply(self, value)
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -436,7 +436,7 @@ pub fn map_debug(dyn_map: &dyn Map, f: &mut std::fmt::Formatter<'_>) -> std::fmt
 ///
 /// This function panics if `b` is not a reflected map.
 #[inline]
-pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
+pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) -> Result<(), ReflectError> {
     if let ReflectRef::Map(map_value) = b.reflect_ref() {
         for (key, b_value) in map_value.iter() {
             if let Some(a_value) = a.get_mut(key) {
@@ -445,8 +445,10 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
                 a.insert_boxed(key.clone_value(), b_value.clone_value());
             }
         }
+        return Ok(());
     } else {
-        panic!("Attempted to apply a non-map type to a map type.");
+        // panic!("Attempted to apply a non-map type to a map type.");
+        return Err(ReflectError::MismatchedTypes(String::from("map")));
     }
 }
 
