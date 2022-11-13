@@ -39,6 +39,10 @@ pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 pub struct PipelinedRenderingPlugin;
 impl Plugin for PipelinedRenderingPlugin {
     fn build(&self, app: &mut App) {
+        // Don't add RenderExtractApp if RenderApp isn't initialized.
+        if app.get_sub_app(RenderApp).is_err() {
+            return;
+        }
         let mut sub_app = App::new();
         sub_app.add_stage(
             RenderExtractStage::BeforeIoAfterRenderStart,

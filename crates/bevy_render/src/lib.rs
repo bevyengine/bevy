@@ -276,17 +276,17 @@ impl Plugin for RenderPlugin {
     }
 
     fn setup(&self, app: &mut App) {
-        // move stage to resource so render_app.run() doesn't run it.
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            // move stage to resource so render_app.run() doesn't run it.
+            let stage = render_app
+                .schedule
+                .remove_stage(RenderStage::Extract)
+                .unwrap()
+                .downcast::<SystemStage>()
+                .unwrap();
 
-        let stage = render_app
-            .schedule
-            .remove_stage(RenderStage::Extract)
-            .unwrap()
-            .downcast::<SystemStage>()
-            .unwrap();
-
-        render_app.world.insert_resource(ExtractStage(*stage));
+            render_app.world.insert_resource(ExtractStage(*stage));
+        }
     }
 }
 
