@@ -472,7 +472,7 @@ mod tests {
     }
 
     #[test]
-    fn test_mixed_spawn_on_main_and_spawn() {
+    fn test_mixed_spawn_on_scope_and_spawn() {
         let pool = TaskPool::new();
 
         let foo = Box::new(42);

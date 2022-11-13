@@ -1007,7 +1007,8 @@ impl App {
 
     /// Adds an [`App`] as a child of the current one.
     ///
-    /// The provided functions `extract` and `runner` are normally called by the [`update`](Self::update) method. The [`World`]
+    /// The provided function `extract` is normally called by the [`update`](Self::update) method.
+    /// After extract is called, the [`Schedule`] of the sub app is run. The [`World`]
     /// parameter represents the main app world, while the [`App`] parameter is just a mutable
     /// reference to the `SubApp` itself.
     pub fn add_sub_app(

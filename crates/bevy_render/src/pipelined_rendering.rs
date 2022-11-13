@@ -27,11 +27,11 @@ pub enum RenderExtractStage {
     BeforeIoAfterRenderStart,
 }
 
-/// Resource for pipelined rendering to send the render app from the main thread to the rendering thread
+/// Channel to send the render app from the main thread to the rendering thread
 #[derive(Resource)]
 pub struct MainToRenderAppSender(pub Sender<SubApp>);
 
-/// Resource for pipelined rendering to send the render app from the render thread to the main thread
+/// Channel to send the render app from the render thread to the main thread
 #[derive(Resource)]
 pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 
@@ -85,8 +85,8 @@ impl Plugin for PipelinedRenderingPlugin {
     }
 }
 
-// This function is used for synchronizing the main app with the render world.
-// Do not call this function if pipelined rendering is not setup.
+// This function is waits for the rendering world to be sent back,
+// runs extract, and then sends the rendering world back to the render thread.
 fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
     app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
         // we use a scope here to run any main thread tasks that the render world still needs to run
