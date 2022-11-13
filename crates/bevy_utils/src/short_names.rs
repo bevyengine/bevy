@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 /// Shortens a type name to remove all module paths.
 ///
 /// The short name of a type is its full name as returned by

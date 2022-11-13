@@ -1,6 +1,7 @@
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::utility::members_to_serialization_denylist;
+use alloc::vec::Vec;
 use bit_set::BitSet;
 use quote::quote;
 

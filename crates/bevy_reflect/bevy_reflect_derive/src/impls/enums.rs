@@ -1,6 +1,8 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::impls::impl_typed;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;

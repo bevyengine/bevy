@@ -1,6 +1,8 @@
 //! General-purpose utility functions for internal usage within this crate.
 
 use crate::field_attributes::ReflectIgnoreBehavior;
+use alloc::format;
+use alloc::vec::Vec;
 use bevy_macro_utils::BevyManifest;
 use bit_set::BitSet;
 use proc_macro2::{Ident, Span};

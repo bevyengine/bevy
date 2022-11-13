@@ -1,4 +1,5 @@
 use crate::container_attributes::ReflectTraits;
+use alloc::vec::Vec;
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
 use syn::token::{Paren, Where};

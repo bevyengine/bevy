@@ -5,6 +5,8 @@
 //! like [`Quat`].
 
 #![warn(missing_docs)]
+#![forbid(unsafe_code)]
+#![no_std]
 
 mod ray;
 mod rect;

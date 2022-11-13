@@ -3,6 +3,8 @@ use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
 use crate::{ReflectMeta, ReflectStruct};
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::quote;

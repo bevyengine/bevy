@@ -12,6 +12,10 @@
 //! [`TypeUuid`]: crate::derive_type_uuid
 //! [`reflect_trait`]: macro@reflect_trait
 
+#![no_std]
+#![forbid(unsafe_code)]
+
+extern crate alloc;
 extern crate proc_macro;
 
 mod container_attributes;

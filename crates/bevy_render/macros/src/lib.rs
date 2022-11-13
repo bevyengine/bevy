@@ -1,3 +1,8 @@
+#![no_std]
+#![forbid(unsafe_code)]
+
+extern crate alloc;
+
 mod as_bind_group;
 mod extract_resource;
 

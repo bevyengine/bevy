@@ -1,9 +1,14 @@
+#![no_std]
+#![forbid(unsafe_code)]
+
+extern crate alloc;
 extern crate proc_macro;
 
 mod component;
 mod fetch;
 
 use crate::fetch::derive_world_query_impl;
+use alloc::{format, string::String, vec, vec::Vec};
 use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;

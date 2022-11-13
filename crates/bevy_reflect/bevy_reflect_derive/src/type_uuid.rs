@@ -1,5 +1,6 @@
 extern crate proc_macro;
 
+use alloc::format;
 use bevy_macro_utils::BevyManifest;
 use quote::quote;
 use syn::*;

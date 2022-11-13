@@ -2,6 +2,9 @@ use crate::{
     derive_data::{EnumVariantFields, ReflectEnum},
     utility::ident_or_index,
 };
+use alloc::format;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use proc_macro2::Ident;
 use quote::{quote, ToTokens};
 

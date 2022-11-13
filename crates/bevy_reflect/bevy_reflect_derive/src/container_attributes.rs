@@ -6,6 +6,7 @@
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
 use crate::utility;
+use alloc::{string::ToString, vec::Vec};
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
 use syn::parse::{Parse, ParseStream};

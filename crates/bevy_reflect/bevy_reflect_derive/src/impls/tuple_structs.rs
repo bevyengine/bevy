@@ -1,5 +1,7 @@
 use crate::impls::impl_typed;
 use crate::ReflectStruct;
+use alloc::string::ToString;
+use alloc::vec::Vec;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{Index, Member};

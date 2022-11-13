@@ -1,3 +1,7 @@
+#![no_std]
+#![forbid(unsafe_code)]
+
+extern crate alloc;
 extern crate proc_macro;
 
 mod app_plugin;

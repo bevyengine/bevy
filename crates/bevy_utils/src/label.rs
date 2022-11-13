@@ -1,6 +1,6 @@
 //! Traits used by label implementations
 
-use std::{
+use core::{
     any::Any,
     hash::{Hash, Hasher},
 };
