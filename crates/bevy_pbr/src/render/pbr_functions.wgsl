@@ -23,9 +23,23 @@ fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f3
     return color;
 }
 
-// NOTE: This ensures that the world_normal is normalized and if
-// vertex tangents and normal maps then normal mapping may be applied.
-fn prepare_normal(
+fn prepare_world_normal(
+    world_normal: vec3<f32>,
+    double_sided: bool,
+    is_front: bool,
+) -> vec3<f32> {
+    var output: vec3<f32> = world_normal;
+#ifndef VERTEX_TANGENTS
+#ifndef STANDARDMATERIAL_NORMAL_MAP
+    // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
+    // material, the normal needs to be inverted. This is a branchless version of that.
+    output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
+#endif
+#endif
+    return output;
+}
+
+fn apply_normal_mapping(
     standard_material_flags: u32,
     world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
@@ -36,7 +50,6 @@ fn prepare_normal(
 #ifdef VERTEX_UVS
     uv: vec2<f32>,
 #endif
-    is_front: bool,
 ) -> vec3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
@@ -56,18 +69,6 @@ fn prepare_normal(
     var B: vec3<f32> = world_tangent.w * cross(N, T);
 #endif
 #endif
-
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
-        if (!is_front) {
-            N = -N;
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-            T = -T;
-            B = -B;
-#endif
-#endif
-        }
-    }
 
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_UVS
@@ -90,12 +91,12 @@ fn prepare_normal(
     // calculates the normal maps so there is no error introduced. Do not change this code
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
-    N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
+    N = Nt.x * T + Nt.y * B + Nt.z * N;
 #endif
 #endif
 #endif
 
-    return N;
+    return normalize(N);
 }
 
 // NOTE: Correctly calculates the view vector depending on whether
@@ -258,6 +259,12 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Gamma correction.
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
+}
+#endif
+
+#ifdef DEBAND_DITHER
+fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
+    return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
 }
 #endif
 

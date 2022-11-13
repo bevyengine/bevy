@@ -20,7 +20,7 @@ use crate::{
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use bevy_utils::tracing::debug;
+use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
     cell::UnsafeCell,
@@ -483,7 +483,7 @@ impl World {
         // SAFETY: entity index was just allocated
         self.entities
             .meta
-            .get_unchecked_mut(entity.id() as usize)
+            .get_unchecked_mut(entity.index() as usize)
             .location = location;
         EntityMut::new(self, entity, location)
     }
@@ -581,13 +581,13 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        debug!("Despawning entity {:?}", entity);
-        self.get_entity_mut(entity)
-            .map(|e| {
-                e.despawn();
-                true
-            })
-            .unwrap_or(false)
+        if let Some(entity) = self.get_entity_mut(entity) {
+            entity.despawn();
+            true
+        } else {
+            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", entity);
+            false
+        }
     }
 
     /// Clears component tracker state
@@ -1939,5 +1939,11 @@ mod tests {
         iterate_and_count_entities(&world, &mut entity_counters);
 
         assert_eq!(entity_counters.len(), 0);
+    }
+
+    #[test]
+    fn spawn_empty_bundle() {
+        let mut world = World::new();
+        world.spawn(());
     }
 }

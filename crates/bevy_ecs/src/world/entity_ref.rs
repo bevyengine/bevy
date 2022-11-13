@@ -8,6 +8,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::tracing::debug;
 use std::{any::TypeId, cell::UnsafeCell};
 
 /// A read-only reference to a particular [`Entity`] and all of its components
@@ -369,7 +370,7 @@ impl<'w> EntityMut<'w> {
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            entities.meta[swapped_entity.id as usize].location = old_location;
+            entities.meta[swapped_entity.index as usize].location = old_location;
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
@@ -403,7 +404,7 @@ impl<'w> EntityMut<'w> {
         };
 
         *self_location = new_location;
-        entities.meta[entity.id as usize].location = new_location;
+        entities.meta[entity.index as usize].location = new_location;
     }
 
     #[deprecated(
@@ -480,6 +481,7 @@ impl<'w> EntityMut<'w> {
     }
 
     pub fn despawn(self) {
+        debug!("Despawning entity {:?}", self.entity);
         let world = self.world;
         world.flush();
         let location = world
@@ -498,7 +500,7 @@ impl<'w> EntityMut<'w> {
             }
             let remove_result = archetype.swap_remove(location.index);
             if let Some(swapped_entity) = remove_result.swapped_entity {
-                world.entities.meta[swapped_entity.id as usize].location = location;
+                world.entities.meta[swapped_entity.index as usize].location = location;
             }
             table_row = remove_result.table_row;
 
@@ -526,7 +528,7 @@ impl<'w> EntityMut<'w> {
 
     /// Returns this `EntityMut`'s world.
     ///
-    /// See [`EntityMut::into_world_mut`] for a safe alternative.
+    /// See [`EntityMut::world_scope`] or [`EntityMut::into_world_mut`] for a safe alternative.
     ///
     /// # Safety
     /// Caller must not modify the world in a way that changes the current entity's location
@@ -541,6 +543,12 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn into_world_mut(self) -> &'w mut World {
         self.world
+    }
+
+    /// Gives mutable access to this `EntityMut`'s [`World`] in a temporary scope.
+    pub fn world_scope(&mut self, f: impl FnOnce(&mut World)) {
+        f(self.world);
+        self.update_location();
     }
 
     /// Updates the internal entity location to match the current location in the internal

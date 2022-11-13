@@ -10,6 +10,7 @@ pub mod graph {
         pub const MAIN_PASS: &str = "main_pass";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const UPSCALING: &str = "upscaling";
+        pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
     }
 }
 
@@ -24,7 +25,7 @@ use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
         EntityPhaseItem, PhaseItem, RenderPhase,
@@ -73,6 +74,7 @@ impl Plugin for Core3dPlugin {
         let mut draw_3d_graph = RenderGraph::default();
         draw_3d_graph.add_node(graph::node::MAIN_PASS, pass_node_3d);
         draw_3d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
+        draw_3d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
         draw_3d_graph.add_node(graph::node::UPSCALING, upscaling);
         let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
             graph::input::VIEW_ENTITY,
@@ -106,7 +108,16 @@ impl Plugin for Core3dPlugin {
             .add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING)
             .unwrap();
         draw_3d_graph
-            .add_node_edge(graph::node::TONEMAPPING, graph::node::UPSCALING)
+            .add_node_edge(
+                graph::node::TONEMAPPING,
+                graph::node::END_MAIN_PASS_POST_PROCESSING,
+            )
+            .unwrap();
+        draw_3d_graph
+            .add_node_edge(
+                graph::node::END_MAIN_PASS_POST_PROCESSING,
+                graph::node::UPSCALING,
+            )
             .unwrap();
         graph.add_sub_graph(graph::NAME, draw_3d_graph);
     }

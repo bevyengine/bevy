@@ -51,7 +51,7 @@ impl ExtractComponent for Camera3d {
     type Query = &'static Self;
     type Filter = With<Camera>;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
         item.clone()
     }
 }
@@ -74,7 +74,9 @@ impl Default for Camera3dBundle {
     fn default() -> Self {
         Self {
             camera_render_graph: CameraRenderGraph::new(crate::core_3d::graph::NAME),
-            tonemapping: Tonemapping { is_enabled: true },
+            tonemapping: Tonemapping::Enabled {
+                deband_dither: true,
+            },
             camera: Default::default(),
             projection: Default::default(),
             visible_entities: Default::default(),
