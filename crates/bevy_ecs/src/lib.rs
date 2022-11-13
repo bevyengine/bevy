@@ -1,8 +1,12 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
+#[no_std]
+
 #[cfg(target_pointer_width = "16")]
 compile_error!("bevy_ecs cannot safely compile for a 16-bit platform.");
+
+extern crate alloc;
 
 pub mod archetype;
 pub mod bundle;
