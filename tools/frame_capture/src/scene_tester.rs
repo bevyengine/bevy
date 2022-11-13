@@ -139,10 +139,10 @@ pub fn setup_test(
         render_target_image_handle.clone(),
         cpu_image_handle.clone(),
         size,
-        &render_device,
+        render_device,
     ));
 
-    commands.spawn(ImageToSave(cpu_image_handle.clone()));
+    commands.spawn(ImageToSave(cpu_image_handle));
 
     scene_controller.state = SceneState::Render(pre_roll_frames);
     scene_controller.name = scene_name;
@@ -157,7 +157,7 @@ fn update(
 ) {
     if let SceneState::Render(n) = scene_controller.state {
         if n > 0 {
-            scene_controller.state = SceneState::Render(n - 1)
+            scene_controller.state = SceneState::Render(n - 1);
         } else {
             for image in images_to_save.iter() {
                 let data = &images.get_mut(image).unwrap().data;
@@ -169,7 +169,7 @@ fn update(
                 if scene_controller.create_images {
                     image::save_buffer(
                         image_path,
-                        &data,
+                        data,
                         scene_controller.width,
                         scene_controller.height,
                         image::ColorType::Rgba8,

@@ -103,11 +103,11 @@ impl ImageCopier {
     }
 
     pub fn enable(&self) {
-        self.enabled.store(true, Ordering::Relaxed)
+        self.enabled.store(true, Ordering::Relaxed);
     }
 
     pub fn disable(&self) {
-        self.enabled.store(false, Ordering::Relaxed)
+        self.enabled.store(false, Ordering::Relaxed);
     }
 
     pub fn enabled(&self) -> bool {
