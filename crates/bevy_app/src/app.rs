@@ -1,7 +1,7 @@
+use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},

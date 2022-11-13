@@ -1,12 +1,12 @@
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use alloc::string::String;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_utils::AHasher;
-use std::{
-    borrow::Cow,
-    hash::{Hash, Hasher},
-    ops::Deref,
-};
+use core::ops::Deref;
+use std::hash::{Hash, Hasher};
 
 /// Component used to identify an entity. Stores a hash for faster comparisons
 /// The hash is eagerly re-computed upon each update to the name.

@@ -1,5 +1,5 @@
-use alloc::{vec, vec::Vec};
 use crate::{Children, HierarchyEvent, Parent};
+use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,

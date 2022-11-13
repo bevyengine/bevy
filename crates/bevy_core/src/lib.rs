@@ -1,11 +1,14 @@
 #![warn(missing_docs)]
 //! This crate provides core functionality for Bevy Engine.
 
+extern crate alloc;
+
 mod name;
 #[cfg(feature = "serialize")]
 mod serde;
 mod task_pool_options;
 
+use alloc::string::String;
 use bevy_ecs::system::Resource;
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
@@ -17,12 +20,12 @@ pub mod prelude {
     pub use crate::{CorePlugin, Name, TaskPoolOptions};
 }
 
+use alloc::borrow::Cow;
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
 use core::ops::Range;
-use std::borrow::Cow;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_ecs::schedule::IntoSystemDescriptor;

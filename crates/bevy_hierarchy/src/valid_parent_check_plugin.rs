@@ -1,6 +1,6 @@
-use core::marker::PhantomData;
 use alloc::borrow::ToOwned;
 use alloc::format;
+use core::marker::PhantomData;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_core::Name;
