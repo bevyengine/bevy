@@ -1,3 +1,4 @@
+use alloc::{vec, vec::Vec};
 use crate::{Children, HierarchyEvent, Parent};
 use bevy_ecs::{
     bundle::Bundle,
