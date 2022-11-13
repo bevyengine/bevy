@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+use alloc::string::ToString;
 use core::ops::Mul;
 
 use super::Transform;
@@ -38,13 +40,13 @@ pub struct GlobalTransform(Affine3A);
 
 macro_rules! impl_local_axis {
     ($pos_name: ident, $neg_name: ident, $axis: ident) => {
-        #[doc=std::concat!("Return the local ", std::stringify!($pos_name), " vector (", std::stringify!($axis) ,").")]
+        #[doc=core::concat!("Return the local ", core::stringify!($pos_name), " vector (", core::stringify!($axis) ,").")]
         #[inline]
         pub fn $pos_name(&self) -> Vec3 {
             (self.0.matrix3 * Vec3::$axis).normalize()
         }
 
-        #[doc=std::concat!("Return the local ", std::stringify!($neg_name), " vector (-", std::stringify!($axis) ,").")]
+        #[doc=core::concat!("Return the local ", core::stringify!($neg_name), " vector (-", core::stringify!($axis) ,").")]
         #[inline]
         pub fn $neg_name(&self) -> Vec3 {
             -self.$pos_name()

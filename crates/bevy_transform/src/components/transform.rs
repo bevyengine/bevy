@@ -1,4 +1,6 @@
 use super::GlobalTransform;
+use alloc::boxed::Box;
+use alloc::string::ToString;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
 use bevy_reflect::prelude::*;
