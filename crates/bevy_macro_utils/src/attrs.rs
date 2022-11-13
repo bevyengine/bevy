@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+use alloc::format;
 use syn::DeriveInput;
 
 use crate::symbol::Symbol;

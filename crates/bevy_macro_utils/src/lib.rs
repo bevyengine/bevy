@@ -1,4 +1,6 @@
+#![forbid(unsafe_code)]
 extern crate proc_macro;
+extern crate alloc;
 
 mod attrs;
 mod shape;
@@ -13,6 +15,8 @@ use quote::{quote, quote_spanned};
 use std::{env, path::PathBuf};
 use syn::spanned::Spanned;
 use toml::{map::Map, Value};
+use alloc::format;
+use alloc::string::{String, ToString};
 
 pub struct BevyManifest {
     manifest: Map<String, Value>,
