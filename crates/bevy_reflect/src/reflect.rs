@@ -10,6 +10,17 @@ use std::{
 
 use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum ReflectError {
+    #[error("Attempted to apply non-{0} type to {0} type.")]
+    MismatchedTypes(String),
+    #[error("Value is not a {0}.")]
+    WrongType(String),
+    #[error("Attempted to apply different sized {0} types.")]
+    DifferentSize(String)
+}
 
 /// An immutable enumeration of "kinds" of reflected type.
 ///
@@ -141,7 +152,7 @@ pub trait Reflect: Any + Send + Sync {
     /// - If `T` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
-    fn apply(&mut self, value: &dyn Reflect);
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError>;
 
     /// Performs a type-checked assignment of a reflected value to this value.
     ///
