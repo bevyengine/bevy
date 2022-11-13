@@ -4,7 +4,7 @@ use bevy_asset::{
 };
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
-use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
+use bevy_ecs::{entity::Entity, world::World};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
@@ -27,7 +27,6 @@ use bevy_render::{
     render_resource::{
         AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor, VertexFormat,
     },
-    renderer::RenderDevice,
     texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
     view::VisibleEntities,
 };
@@ -49,7 +48,7 @@ use gltf::{
 use std::{collections::VecDeque, path::Path};
 use thiserror::Error;
 
-use crate::{Gltf, GltfConfiguration, GltfNode};
+use crate::{Gltf, GltfNode};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -78,8 +77,8 @@ pub enum GltfError {
 
 /// Loads glTF files with all of their data as their corresponding bevy representations.
 pub struct GltfLoader {
-    supported_compressed_formats: CompressedImageFormats,
-    custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
+    pub(crate) supported_compressed_formats: CompressedImageFormats,
+    pub(crate) custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
 impl AssetLoader for GltfLoader {
@@ -93,24 +92,6 @@ impl AssetLoader for GltfLoader {
 
     fn extensions(&self) -> &[&str] {
         &["gltf", "glb"]
-    }
-}
-
-impl FromWorld for GltfLoader {
-    fn from_world(world: &mut World) -> Self {
-        let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-
-            None => CompressedImageFormats::all(),
-        };
-        let custom_vertex_attributes = match world.get_resource::<GltfConfiguration>() {
-            Some(config) => config.custom_vertex_attributes.clone(),
-            None => HashMap::new(),
-        };
-        Self {
-            supported_compressed_formats,
-            custom_vertex_attributes,
-        }
     }
 }
 

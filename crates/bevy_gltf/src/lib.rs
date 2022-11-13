@@ -7,55 +7,49 @@ pub use loader::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
-use bevy_ecs::{prelude::Component, reflect::ReflectComponent, system::Resource};
+use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::mesh::{Mesh, MeshVertexAttribute};
+use bevy_render::{
+    mesh::{Mesh, MeshVertexAttribute},
+    renderer::RenderDevice,
+    texture::CompressedImageFormats,
+};
 use bevy_scene::Scene;
 
 /// Adds support for glTF file loading to the app.
 #[derive(Default)]
-pub struct GltfPlugin;
-
-impl Plugin for GltfPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_asset_loader::<GltfLoader>()
-            .register_type::<GltfExtras>()
-            .add_asset::<Gltf>()
-            .add_asset::<GltfNode>()
-            .add_asset::<GltfPrimitive>()
-            .add_asset::<GltfMesh>();
-    }
-}
-
-/// Holds configuration data for the glTF loader
-#[derive(Default, Resource)]
-pub struct GltfConfiguration {
+pub struct GltfPlugin {
     custom_vertex_attributes: HashMap<String, MeshVertexAttribute>,
 }
 
-/// [`App`] extension methods for adding custom vertex attributes to the glTF loader.
-///
-/// This must be called before the `GltfPlugin` is added.
-pub trait AddCustomVertexAttributeExt {
-    fn add_gltf_custom_vertex_attribute(
-        &mut self,
-        name: String,
-        attribute: MeshVertexAttribute,
-    ) -> &mut Self;
-}
-
-impl AddCustomVertexAttributeExt for App {
-    fn add_gltf_custom_vertex_attribute(
+impl GltfPlugin {
+    pub fn add_custom_vertex_attribute(
         &mut self,
         name: String,
         attribute: MeshVertexAttribute,
     ) -> &mut Self {
-        let mut attrs = self
-            .world
-            .get_resource_or_insert_with(GltfConfiguration::default);
-        attrs.custom_vertex_attributes.insert(name, attribute);
+        self.custom_vertex_attributes.insert(name, attribute);
         self
+    }
+}
+
+impl Plugin for GltfPlugin {
+    fn build(&self, app: &mut App) {
+        let supported_compressed_formats = match app.world.get_resource::<RenderDevice>() {
+            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+
+            None => CompressedImageFormats::all(),
+        };
+        app.add_asset_loader::<GltfLoader>(GltfLoader {
+            supported_compressed_formats,
+            custom_vertex_attributes: self.custom_vertex_attributes.clone(),
+        })
+        .register_type::<GltfExtras>()
+        .add_asset::<Gltf>()
+        .add_asset::<GltfNode>()
+        .add_asset::<GltfPrimitive>()
+        .add_asset::<GltfMesh>();
     }
 }
 
