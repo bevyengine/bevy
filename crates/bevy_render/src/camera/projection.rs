@@ -235,7 +235,7 @@ impl CameraProjection for OrthographicProjection {
                 min_height,
             } => {
                 // Compare Pixels of current width and minimal height and Pixels of minimal width with current height.
-                // Then use bigger (min_heigth when true) as what it referres to (height when true) and calculate rest so it can't get under minimum.
+                // Then use bigger (min_height when true) as what it refers to (height when true) and calculate rest so it can't get under minimum.
                 if width * min_height > min_width * height {
                     (width * min_height / height, min_height)
                 } else {
