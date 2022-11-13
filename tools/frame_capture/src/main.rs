@@ -7,7 +7,7 @@ use frame_capture::{
 fn main() {
     // set create_images to true to create test image files
     // TODO use command line args?
-    let create_images = false;
+    let create_images = true;
 
     App::new()
         .insert_resource(SceneController::new(create_images))

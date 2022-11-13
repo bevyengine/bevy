@@ -5,7 +5,6 @@ use bevy::{
     log::LogPlugin,
     prelude::*,
     render::{camera::RenderTarget, renderer::RenderDevice},
-    window::ModifiesWindows,
     winit::WinitPlugin,
 };
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
@@ -20,39 +19,31 @@ pub struct CaptureCamera;
 #[derive(Component, Deref, DerefMut)]
 struct ImageToSave(Handle<Image>);
 
-fn modifies_windows() {}
-
 pub struct SceneTesterPlugin;
 impl Plugin for SceneTesterPlugin {
     fn build(&self, app: &mut App) {
-        app
-            // The render and camera plugin requires the Windows resource and events to exist.
-            // So we can't just disable the window plugin with: disable::<WinitPlugin>();
-            .add_plugins(
-                DefaultPlugins
-                    .build()
-                    .disable::<WinitPlugin>()
-                    // thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: SetLoggerError(())', crates\bevy_log\src\lib.rs:118:27
-                    .disable::<LogPlugin>()
-                    .set(WindowPlugin {
-                        add_primary_window: false,
-                        exit_on_all_closed: false,
-                        close_when_requested: true,
-                        ..default()
-                    }),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                modifies_windows.label(ModifiesWindows), // Cursed
-            )
-            .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-                1.0 / 60.0, //Don't run faster than 60fps
-            )))
-            .init_resource::<SceneController>()
-            .add_plugin(ScheduleRunnerPlugin)
-            .add_plugin(ImageCopyPlugin)
-            .add_event::<SceneController>()
-            .add_system_to_stage(CoreStage::PostUpdate, update);
+        app.add_plugins(
+            DefaultPlugins
+                .build()
+                .disable::<WinitPlugin>()
+                // multiple separate app runs with LogPlugin result in this error:
+                // thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: SetLoggerError(())', crates\bevy_log\src\lib.rs:118:27
+                .disable::<LogPlugin>()
+                .set(WindowPlugin {
+                    add_primary_window: false,
+                    exit_on_all_closed: false,
+                    close_when_requested: true,
+                    ..default()
+                }),
+        )
+        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+            1.0 / 60.0, //Don't run faster than 60fps
+        )))
+        .init_resource::<SceneController>()
+        .add_plugin(ScheduleRunnerPlugin)
+        .add_plugin(ImageCopyPlugin)
+        .add_event::<SceneController>()
+        .add_system_to_stage(CoreStage::PostUpdate, update);
     }
 }
 
