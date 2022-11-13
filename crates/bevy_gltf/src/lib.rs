@@ -25,11 +25,12 @@ pub struct GltfPlugin {
 
 impl GltfPlugin {
     pub fn add_custom_vertex_attribute(
-        &mut self,
-        name: String,
+        mut self,
+        name: &str,
         attribute: MeshVertexAttribute,
-    ) -> &mut Self {
-        self.custom_vertex_attributes.insert(name, attribute);
+    ) -> Self {
+        self.custom_vertex_attributes
+            .insert(name.to_string(), attribute);
         self
     }
 }
