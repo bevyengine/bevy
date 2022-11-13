@@ -338,7 +338,7 @@ impl Size {
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub fn new(width: Val, height: Val) -> Self {
+    pub const fn new(width: Val, height: Val) -> Self {
         Size { width, height }
     }
 
@@ -403,6 +403,13 @@ impl DivAssign<f32> for Size {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_size_new() {
+        let size: Size = (Val::Px(20.), Val::Px(30.)).into();
+
+        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(30.)));
+    }
 
     #[test]
     fn test_size_from() {
