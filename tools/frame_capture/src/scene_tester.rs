@@ -2,6 +2,7 @@ use std::{path::PathBuf, time::Duration};
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
+    log::LogPlugin,
     prelude::*,
     render::{camera::RenderTarget, renderer::RenderDevice},
     window::ModifiesWindows,
@@ -31,6 +32,8 @@ impl Plugin for SceneTesterPlugin {
                 DefaultPlugins
                     .build()
                     .disable::<WinitPlugin>()
+                    // thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: SetLoggerError(())', crates\bevy_log\src\lib.rs:118:27
+                    .disable::<LogPlugin>()
                     .set(WindowPlugin {
                         add_primary_window: false,
                         exit_on_all_closed: false,
