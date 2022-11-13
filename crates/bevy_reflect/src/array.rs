@@ -1,6 +1,6 @@
 use crate::{
     utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, Typed,
+    TypeInfo, Typed, ReflectError,
 };
 use std::{
     any::{Any, TypeId},
@@ -212,8 +212,8 @@ impl Reflect for DynamicArray {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        array_apply(self, value);
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
+        array_apply(self, value)
     }
 
     #[inline]
@@ -346,7 +346,7 @@ pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
 /// * Panics if the reflected value is not a [valid array](ReflectRef::Array).
 ///
 #[inline]
-pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
+pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) -> Result<(), ReflectError> {
     if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {
         if array.len() != reflect_array.len() {
             panic!("Attempted to apply different sized `Array` types.");
@@ -355,8 +355,10 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
             let v = array.get_mut(i).unwrap();
             v.apply(value);
         }
+        return Ok(());
     } else {
-        panic!("Attempted to apply a non-`Array` type to an `Array` type.");
+        // panic!("Attempted to apply a non-`Array` type to an `Array` type.");
+        return Err(ReflectError::MismatchedTypes(String::from("Array")));
     }
 }
 
