@@ -1,6 +1,6 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, ReflectError,
 };
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
@@ -439,7 +439,7 @@ impl Reflect for DynamicStruct {
         ReflectOwned::Struct(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
         if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
             for (i, value) in struct_value.iter_fields().enumerate() {
                 let name = struct_value.name_at(i).unwrap();
@@ -447,8 +447,10 @@ impl Reflect for DynamicStruct {
                     v.apply(value);
                 }
             }
+            return Ok(());
         } else {
-            panic!("Attempted to apply non-struct type to struct type.");
+            // panic!("Attempted to apply non-struct type to struct type.");
+            return Err(ReflectError::MismatchedTypes(String::from("struct")));
         }
     }
 
