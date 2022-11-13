@@ -1174,9 +1174,9 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
+        // If the resource isn't `Send`, validate that we are on the main thread, so that we can access it.
         let component_info = self.components().get_info(component_id).unwrap();
-        if !component_info.is_send_and_sync() {
+        if !component_info.is_send() {
             self.validate_non_send_access::<R>();
         }
 
@@ -1427,12 +1427,14 @@ impl World {
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
+    /// If the resource type is `!Send`, you must not share the returned pointer between threads.
+    ///
     /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
+        if !info.is_send() {
             self.validate_non_send_access_untyped(info.name());
         }
         self.storages.resources.get(component_id)?.get_data()
@@ -1447,7 +1449,7 @@ impl World {
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
         let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
+        if !info.is_send() {
             self.validate_non_send_access_untyped(info.name());
         }
 
@@ -1473,7 +1475,7 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
         let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
+        if !info.is_send() {
             self.validate_non_send_access_untyped(info.name());
         }
         // SAFETY: The underlying type is Send and Sync or we've already validated we're on the main thread

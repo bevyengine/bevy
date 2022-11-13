@@ -199,9 +199,16 @@ impl ComponentInfo {
         self.descriptor.storage_type
     }
 
+    /// Whether or not the underlying component type implements [`std::marker::Send`].
     #[inline]
-    pub fn is_send_and_sync(&self) -> bool {
-        self.descriptor.is_send_and_sync
+    pub fn is_send(&self) -> bool {
+        self.descriptor.is_send
+    }
+
+    /// Whether or not the underlying component type implements [`std::marker::Sync`].
+    #[inline]
+    pub fn is_sync(&self) -> bool {
+        self.descriptor.is_sync
     }
 
     fn new(id: ComponentId, descriptor: ComponentDescriptor) -> Self {
@@ -258,8 +265,11 @@ pub struct ComponentDescriptor {
     // associated rust component type if one exists.
     storage_type: StorageType,
     // SAFETY: This must remain private. It must only be set to "true" if this component is
-    // actually Send + Sync
-    is_send_and_sync: bool,
+    // actually Send
+    is_send: bool,
+    // SAFETY: This must remain private. It must only be set to "true" if this component is
+    // actually Sync
+    is_sync: bool,
     type_id: Option<TypeId>,
     layout: Layout,
     // SAFETY: this function must be safe to call with pointers pointing to items of the type
@@ -274,7 +284,8 @@ impl std::fmt::Debug for ComponentDescriptor {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
             .field("storage_type", &self.storage_type)
-            .field("is_send_and_sync", &self.is_send_and_sync)
+            .field("is_send", &self.is_send)
+            .field("is_sync", &self.is_sync)
             .field("type_id", &self.type_id)
             .field("layout", &self.layout)
             .finish()
@@ -292,7 +303,9 @@ impl ComponentDescriptor {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type: T::Storage::STORAGE_TYPE,
-            is_send_and_sync: true,
+            // All components are `Send + Sync` (for now).
+            is_send: true,
+            is_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
@@ -313,7 +326,8 @@ impl ComponentDescriptor {
         Self {
             name: name.into(),
             storage_type,
-            is_send_and_sync: true,
+            is_send: true,
+            is_sync: true,
             type_id: None,
             layout,
             drop,
@@ -329,7 +343,8 @@ impl ComponentDescriptor {
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
-            is_send_and_sync: true,
+            is_send: true,
+            is_sync: T::IS_SYNC,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
@@ -340,7 +355,8 @@ impl ComponentDescriptor {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type,
-            is_send_and_sync: false,
+            is_send: false,
+            is_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
