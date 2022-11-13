@@ -1249,6 +1249,9 @@ mod tests {
         let mut stage = SystemStage::parallel()
             .with_system(assert_non_sync)
             .with_system(assert_non_sync)
+            .with_system(assert_non_sync)
+            .with_system(assert_non_sync)
+            .with_system(assert_non_sync)
             .with_system(assert_non_sync);
 
         stage.run(&mut world);
