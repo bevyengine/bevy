@@ -4,7 +4,7 @@ use bevy::{
     app::{AppExit, ScheduleRunnerPlugin, ScheduleRunnerSettings},
     prelude::*,
     render::{camera::RenderTarget, renderer::RenderDevice},
-    window::{ModifiesWindows, WindowSettings},
+    window::ModifiesWindows,
     winit::WinitPlugin,
 };
 use wgpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
@@ -24,29 +24,32 @@ fn modifies_windows() {}
 pub struct SceneTesterPlugin;
 impl Plugin for SceneTesterPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(WindowSettings {
-            add_primary_window: false,
-            exit_on_all_closed: false,
-            close_when_requested: true,
-        })
-        .add_plugins_with(DefaultPlugins, |group| {
-            group.disable::<WinitPlugin>();
+        app
             // The render and camera plugin requires the Windows resource and events to exist.
-            // So we can't just disable the window plugin with: group.disable::<WindowPlugin>();
-            group
-        })
-        .add_system_to_stage(
-            CoreStage::PostUpdate,
-            modifies_windows.label(ModifiesWindows), // Cursed
-        )
-        .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
-            1.0 / 60.0, //Don't run faster than 60fps
-        )))
-        .init_resource::<SceneController>()
-        .add_plugin(ScheduleRunnerPlugin)
-        .add_plugin(ImageCopyPlugin)
-        .add_event::<SceneController>()
-        .add_system_to_stage(CoreStage::PostUpdate, update);
+            // So we can't just disable the window plugin with: disable::<WinitPlugin>();
+            .add_plugins(
+                DefaultPlugins
+                    .build()
+                    .disable::<WinitPlugin>()
+                    .set(WindowPlugin {
+                        add_primary_window: false,
+                        exit_on_all_closed: false,
+                        close_when_requested: true,
+                        ..default()
+                    }),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                modifies_windows.label(ModifiesWindows), // Cursed
+            )
+            .insert_resource(ScheduleRunnerSettings::run_loop(Duration::from_secs_f64(
+                1.0 / 60.0, //Don't run faster than 60fps
+            )))
+            .init_resource::<SceneController>()
+            .add_plugin(ScheduleRunnerPlugin)
+            .add_plugin(ImageCopyPlugin)
+            .add_event::<SceneController>()
+            .add_system_to_stage(CoreStage::PostUpdate, update);
     }
 }
 
@@ -109,7 +112,7 @@ pub fn setup_test(
             label: None,
             size,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
+            format: TextureFormat::Rgba8UnormSrgb,
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::COPY_SRC
@@ -128,7 +131,7 @@ pub fn setup_test(
             label: None,
             size,
             dimension: TextureDimension::D2,
-            format: TextureFormat::Bgra8UnormSrgb,
+            format: TextureFormat::Rgba8UnormSrgb,
             mip_level_count: 1,
             sample_count: 1,
             usage: TextureUsages::COPY_DST | TextureUsages::TEXTURE_BINDING,
@@ -152,19 +155,6 @@ pub fn setup_test(
     RenderTarget::Image(render_target_image_handle)
 }
 
-pub fn bgra_to_rgba(data: &mut Vec<u8>) {
-    for src in data.chunks_exact_mut(4) {
-        let r = src[2];
-        let g = src[1];
-        let b = src[0];
-        let a = src[3];
-        src[0] = r;
-        src[1] = g;
-        src[2] = b;
-        src[3] = a;
-    }
-}
-
 fn update(
     images_to_save: Query<&ImageToSave>,
     mut images: ResMut<Assets<Image>>,
@@ -176,9 +166,7 @@ fn update(
             scene_controller.state = SceneState::Render(n - 1)
         } else {
             for image in images_to_save.iter() {
-                //convert to rgba
-                let data = &mut images.get_mut(image).unwrap().data;
-                bgra_to_rgba(data);
+                let data = &images.get_mut(image).unwrap().data;
 
                 let images_path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("test_images");
                 let image_path = images_path.join(format!("{}.png", scene_controller.name));
