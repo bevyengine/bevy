@@ -20,7 +20,7 @@ fn grab_mouse(
     let window = windows.primary_mut();
     if mouse.just_pressed(MouseButton::Left) {
         window.set_cursor_visibility(false);
-        window.set_cursor_grab_mode(CursorGrabMode::Locked);
+        window.set_cursor_grab_mode(CursorGrabMode::Confined);
     }
     if key.just_pressed(KeyCode::Escape) {
         window.set_cursor_visibility(true);
