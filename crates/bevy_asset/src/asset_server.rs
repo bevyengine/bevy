@@ -151,7 +151,7 @@ impl AssetServer {
             .is_some()
         {
             panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
-                std::any::type_name::<T>(), T::TYPE_UUID);
+                core::any::type_name::<T>(), T::TYPE_UUID);
         }
         Assets::new(self.server.asset_ref_counter.channel.sender.clone())
     }

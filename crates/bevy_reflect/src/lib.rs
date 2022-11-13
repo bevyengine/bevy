@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+extern crate alloc;
+
 mod array;
 mod fields;
 mod list;
@@ -99,11 +101,11 @@ mod tests {
     use ::glam::{vec3, Vec3};
     use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
+    use core::fmt::{Debug, Formatter};
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use std::fmt::{Debug, Formatter};
 
     use super::prelude::*;
     use super::*;
@@ -569,17 +571,17 @@ mod tests {
     fn dynamic_names() {
         let list = Vec::<usize>::new();
         let dyn_list = List::clone_dynamic(&list);
-        assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
+        assert_eq!(dyn_list.type_name(), core::any::type_name::<Vec<usize>>());
 
         let array = [b'0'; 4];
         let dyn_array = Array::clone_dynamic(&array);
-        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
+        assert_eq!(dyn_array.type_name(), core::any::type_name::<[u8; 4]>());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
         assert_eq!(
             dyn_map.type_name(),
-            std::any::type_name::<HashMap<usize, String>>()
+            core::any::type_name::<HashMap<usize, String>>()
         );
 
         let tuple = (0usize, "1".to_string(), 2.0f32);
@@ -587,7 +589,7 @@ mod tests {
         dyn_tuple.insert::<usize>(3);
         assert_eq!(
             dyn_tuple.type_name(),
-            std::any::type_name::<(usize, String, f32, usize)>()
+            core::any::type_name::<(usize, String, f32, usize)>()
         );
 
         #[derive(Reflect)]
@@ -596,7 +598,7 @@ mod tests {
         }
         let struct_ = TestStruct { a: 0 };
         let dyn_struct = struct_.clone_dynamic();
-        assert_eq!(dyn_struct.type_name(), std::any::type_name::<TestStruct>());
+        assert_eq!(dyn_struct.type_name(), core::any::type_name::<TestStruct>());
 
         #[derive(Reflect)]
         struct TestTupleStruct(usize);
@@ -604,7 +606,7 @@ mod tests {
         let dyn_tuple_struct = tuple_struct.clone_dynamic();
         assert_eq!(
             dyn_tuple_struct.type_name(),
-            std::any::type_name::<TestTupleStruct>()
+            core::any::type_name::<TestTupleStruct>()
         );
     }
 
@@ -612,12 +614,12 @@ mod tests {
     fn reflect_type_info() {
         // TypeInfo
         let info = i32::type_info();
-        assert_eq!(std::any::type_name::<i32>(), info.type_name());
-        assert_eq!(std::any::TypeId::of::<i32>(), info.type_id());
+        assert_eq!(core::any::type_name::<i32>(), info.type_name());
+        assert_eq!(core::any::TypeId::of::<i32>(), info.type_id());
 
         // TypeInfo (unsized)
         assert_eq!(
-            std::any::TypeId::of::<dyn Reflect>(),
+            core::any::TypeId::of::<dyn Reflect>(),
             <dyn Reflect as Typed>::type_info().type_id()
         );
 
@@ -636,19 +638,19 @@ mod tests {
         let info = MyStruct::type_info();
         if let TypeInfo::Struct(info) = info {
             assert!(info.is::<MyStruct>());
-            assert_eq!(std::any::type_name::<MyStruct>(), info.type_name());
+            assert_eq!(core::any::type_name::<MyStruct>(), info.type_name());
             assert_eq!(
-                std::any::type_name::<i32>(),
+                core::any::type_name::<i32>(),
                 info.field("foo").unwrap().type_name()
             );
             assert_eq!(
-                std::any::TypeId::of::<i32>(),
+                core::any::TypeId::of::<i32>(),
                 info.field("foo").unwrap().type_id()
             );
             assert!(info.field("foo").unwrap().is::<i32>());
             assert_eq!("foo", info.field("foo").unwrap().name());
             assert_eq!(
-                std::any::type_name::<usize>(),
+                core::any::type_name::<usize>(),
                 info.field_at(1).unwrap().type_name()
             );
         } else {
@@ -670,16 +672,16 @@ mod tests {
         if let TypeInfo::Struct(info) = info {
             assert!(info.is::<MyGenericStruct<i32>>());
             assert_eq!(
-                std::any::type_name::<MyGenericStruct<i32>>(),
+                core::any::type_name::<MyGenericStruct<i32>>(),
                 info.type_name()
             );
             assert_eq!(
-                std::any::type_name::<i32>(),
+                core::any::type_name::<i32>(),
                 info.field("foo").unwrap().type_name()
             );
             assert_eq!("foo", info.field("foo").unwrap().name());
             assert_eq!(
-                std::any::type_name::<usize>(),
+                core::any::type_name::<usize>(),
                 info.field_at(1).unwrap().type_name()
             );
         } else {
@@ -700,9 +702,9 @@ mod tests {
         let info = MyTupleStruct::type_info();
         if let TypeInfo::TupleStruct(info) = info {
             assert!(info.is::<MyTupleStruct>());
-            assert_eq!(std::any::type_name::<MyTupleStruct>(), info.type_name());
+            assert_eq!(core::any::type_name::<MyTupleStruct>(), info.type_name());
             assert_eq!(
-                std::any::type_name::<i32>(),
+                core::any::type_name::<i32>(),
                 info.field_at(1).unwrap().type_name()
             );
             assert!(info.field_at(1).unwrap().is::<i32>());
@@ -716,9 +718,9 @@ mod tests {
         let info = MyTuple::type_info();
         if let TypeInfo::Tuple(info) = info {
             assert!(info.is::<MyTuple>());
-            assert_eq!(std::any::type_name::<MyTuple>(), info.type_name());
+            assert_eq!(core::any::type_name::<MyTuple>(), info.type_name());
             assert_eq!(
-                std::any::type_name::<f32>(),
+                core::any::type_name::<f32>(),
                 info.field_at(1).unwrap().type_name()
             );
         } else {
@@ -736,8 +738,8 @@ mod tests {
         if let TypeInfo::List(info) = info {
             assert!(info.is::<MyList>());
             assert!(info.item_is::<usize>());
-            assert_eq!(std::any::type_name::<MyList>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
+            assert_eq!(core::any::type_name::<MyList>(), info.type_name());
+            assert_eq!(core::any::type_name::<usize>(), info.item_type_name());
         } else {
             panic!("Expected `TypeInfo::List`");
         }
@@ -755,8 +757,8 @@ mod tests {
             if let TypeInfo::List(info) = info {
                 assert!(info.is::<MySmallVec>());
                 assert!(info.item_is::<String>());
-                assert_eq!(std::any::type_name::<MySmallVec>(), info.type_name());
-                assert_eq!(std::any::type_name::<String>(), info.item_type_name());
+                assert_eq!(core::any::type_name::<MySmallVec>(), info.type_name());
+                assert_eq!(core::any::type_name::<String>(), info.item_type_name());
             } else {
                 panic!("Expected `TypeInfo::List`");
             }
@@ -774,8 +776,8 @@ mod tests {
         if let TypeInfo::Array(info) = info {
             assert!(info.is::<MyArray>());
             assert!(info.item_is::<usize>());
-            assert_eq!(std::any::type_name::<MyArray>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.item_type_name());
+            assert_eq!(core::any::type_name::<MyArray>(), info.type_name());
+            assert_eq!(core::any::type_name::<usize>(), info.item_type_name());
             assert_eq!(3, info.capacity());
         } else {
             panic!("Expected `TypeInfo::Array`");
@@ -793,9 +795,9 @@ mod tests {
             assert!(info.is::<MyMap>());
             assert!(info.key_is::<usize>());
             assert!(info.value_is::<f32>());
-            assert_eq!(std::any::type_name::<MyMap>(), info.type_name());
-            assert_eq!(std::any::type_name::<usize>(), info.key_type_name());
-            assert_eq!(std::any::type_name::<f32>(), info.value_type_name());
+            assert_eq!(core::any::type_name::<MyMap>(), info.type_name());
+            assert_eq!(core::any::type_name::<usize>(), info.key_type_name());
+            assert_eq!(core::any::type_name::<f32>(), info.value_type_name());
         } else {
             panic!("Expected `TypeInfo::Map`");
         }
@@ -810,7 +812,7 @@ mod tests {
         let info = MyValue::type_info();
         if let TypeInfo::Value(info) = info {
             assert!(info.is::<MyValue>());
-            assert_eq!(std::any::type_name::<MyValue>(), info.type_name());
+            assert_eq!(core::any::type_name::<MyValue>(), info.type_name());
         } else {
             panic!("Expected `TypeInfo::Value`");
         }
@@ -825,7 +827,7 @@ mod tests {
         let info = MyDynamic::type_info();
         if let TypeInfo::Dynamic(info) = info {
             assert!(info.is::<MyDynamic>());
-            assert_eq!(std::any::type_name::<MyDynamic>(), info.type_name());
+            assert_eq!(core::any::type_name::<MyDynamic>(), info.type_name());
         } else {
             panic!("Expected `TypeInfo::Dynamic`");
         }
@@ -1057,7 +1059,7 @@ mod tests {
         #[reflect(Debug)]
         struct CustomDebug;
         impl Debug for CustomDebug {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
                 f.write_str("Cool debug!")
             }
         }
@@ -1125,7 +1127,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         struct Foo(i32);
 
         impl Debug for Foo {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
                 write!(f, "Foo")
             }
         }
@@ -1146,7 +1148,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         struct Foo(i32);
 
         impl Debug for Foo {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
                 write!(f, "Foo")
             }
         }

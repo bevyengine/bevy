@@ -2,9 +2,12 @@ use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
 };
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::any::{Any, TypeId};
+use core::fmt::{Debug, Formatter};
+use core::slice::Iter;
 
 /// A reflected Rust tuple struct.
 ///
@@ -70,7 +73,7 @@ impl TupleStructInfo {
     pub fn new<T: Reflect>(name: &'static str, fields: &[UnnamedField]) -> Self {
         Self {
             name,
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
@@ -110,7 +113,7 @@ impl TupleStructInfo {
 
     /// The [type name] of the tuple struct.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -363,7 +366,7 @@ impl Reflect for DynamicTupleStruct {
         tuple_struct_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTupleStruct(")?;
         tuple_struct_debug(self, f)?;
         write!(f, ")")
@@ -371,7 +374,7 @@ impl Reflect for DynamicTupleStruct {
 }
 
 impl Debug for DynamicTupleStruct {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -435,8 +438,8 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn Reflect) -> Option
 #[inline]
 pub fn tuple_struct_debug(
     dyn_tuple_struct: &dyn TupleStruct,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
+    f: &mut core::fmt::Formatter<'_>,
+) -> core::fmt::Result {
     let mut debug = f.debug_tuple(dyn_tuple_struct.type_name());
     for field in dyn_tuple_struct.iter_fields() {
         debug.field(&field as &dyn Debug);

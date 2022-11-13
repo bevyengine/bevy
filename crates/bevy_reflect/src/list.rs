@@ -1,5 +1,8 @@
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::any::{Any, TypeId};
+use core::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
@@ -42,9 +45,9 @@ impl ListInfo {
     /// Create a new [`ListInfo`].
     pub fn new<TList: List, TItem: FromReflect>() -> Self {
         Self {
-            type_name: std::any::type_name::<TList>(),
+            type_name: core::any::type_name::<TList>(),
             type_id: TypeId::of::<TList>(),
-            item_type_name: std::any::type_name::<TItem>(),
+            item_type_name: core::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -59,7 +62,7 @@ impl ListInfo {
 
     /// The [type name] of the list.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -76,7 +79,7 @@ impl ListInfo {
 
     /// The [type name] of the list item.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn item_type_name(&self) -> &'static str {
         self.item_type_name
     }
@@ -270,7 +273,7 @@ impl Reflect for DynamicList {
         list_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicList(")?;
         list_debug(self, f)?;
         write!(f, ")")
@@ -278,7 +281,7 @@ impl Reflect for DynamicList {
 }
 
 impl Debug for DynamicList {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -292,7 +295,7 @@ impl Typed for DynamicList {
 
 impl IntoIterator for DynamicList {
     type Item = Box<dyn Reflect>;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
@@ -370,7 +373,7 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
 /// // ]
 /// ```
 #[inline]
-pub fn list_debug(dyn_list: &dyn List, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn list_debug(dyn_list: &dyn List, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_list();
     for item in dyn_list.iter() {
         debug.entry(&item as &dyn Debug);

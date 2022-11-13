@@ -57,7 +57,7 @@ pub fn extract_resource<R: ExtractResource>(
             bevy_log::warn!(
                 "Removing resource {} from render world not expected, adding using `Commands`.
                 This may decrease performance",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             );
         }
         commands.insert_resource(R::extract_resource(&main_resource));

@@ -40,7 +40,7 @@ impl FromVertexAttributeError {
     fn new<T: 'static>(from: VertexAttributeValues) -> Self {
         Self {
             variant: from.enum_variant_name(),
-            into: std::any::type_name::<T>(),
+            into: core::any::type_name::<T>(),
             from,
         }
     }

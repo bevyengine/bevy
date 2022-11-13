@@ -53,7 +53,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
                     match #ref_value.variant_name() {
                         #(#variant_names => Some(#variant_constructors),)*
-                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, std::any::type_name::<Self>()),
+                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, core::any::type_name::<Self>()),
                     }
                 } else {
                     None

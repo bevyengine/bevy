@@ -3,7 +3,7 @@ use bevy_utils::tracing::{
     span::{Attributes, Record},
     Event, Id, Level, Subscriber,
 };
-use std::fmt::{Debug, Write};
+use core::fmt::{Debug, Write};
 use tracing_subscriber::{field::Visit, layer::Context, registry::LookupSpan, Layer};
 
 #[derive(Default)]

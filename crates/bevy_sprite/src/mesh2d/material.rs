@@ -475,7 +475,7 @@ fn prepare_materials_2d<M: Material2d>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<Material2dPipeline<M>>,
 ) {
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    let queued_assets = core::mem::take(&mut prepare_next_frame.assets);
     for (handle, material) in queued_assets {
         match prepare_material2d(
             &material,
@@ -493,11 +493,11 @@ fn prepare_materials_2d<M: Material2d>(
         }
     }
 
-    for removed in std::mem::take(&mut extracted_assets.removed) {
+    for removed in core::mem::take(&mut extracted_assets.removed) {
         render_materials.remove(&removed);
     }
 
-    for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
+    for (handle, material) in core::mem::take(&mut extracted_assets.extracted) {
         match prepare_material2d(
             &material,
             &render_device,

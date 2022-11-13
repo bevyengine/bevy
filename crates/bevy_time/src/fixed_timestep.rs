@@ -174,7 +174,7 @@ impl System for FixedTimestep {
     type Out = ShouldRun;
 
     fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<FixedTimestep>())
+        Cow::Borrowed(core::any::type_name::<FixedTimestep>())
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {

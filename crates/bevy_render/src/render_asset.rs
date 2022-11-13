@@ -186,7 +186,7 @@ fn prepare_assets<R: RenderAsset>(
     param: StaticSystemParam<<R as RenderAsset>::Param>,
 ) {
     let mut param = param.into_inner();
-    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    let queued_assets = core::mem::take(&mut prepare_next_frame.assets);
     for (handle, extracted_asset) in queued_assets {
         match R::prepare_asset(extracted_asset, &mut param) {
             Ok(prepared_asset) => {
@@ -198,11 +198,11 @@ fn prepare_assets<R: RenderAsset>(
         }
     }
 
-    for removed in std::mem::take(&mut extracted_assets.removed) {
+    for removed in core::mem::take(&mut extracted_assets.removed) {
         render_assets.remove(&removed);
     }
 
-    for (handle, extracted_asset) in std::mem::take(&mut extracted_assets.extracted) {
+    for (handle, extracted_asset) in core::mem::take(&mut extracted_assets.extracted) {
         match R::prepare_asset(extracted_asset, &mut param) {
             Ok(prepared_asset) => {
                 render_assets.insert(handle, prepared_asset);

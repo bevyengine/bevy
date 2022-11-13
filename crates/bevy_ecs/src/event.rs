@@ -41,7 +41,7 @@ impl<E: Event> fmt::Debug for EventId<E> {
         write!(
             f,
             "event<{}>#{}",
-            std::any::type_name::<E>().split("::").last().unwrap(),
+            core::any::type_name::<E>().split("::").last().unwrap(),
             self.id,
         )
     }
@@ -357,7 +357,7 @@ impl<E: Event> ManualEventReader<E> {
         let missed = self.missed_events(events);
         if missed > 0 {
             let plural = if missed == 1 { "event" } else { "events" };
-            let type_name = std::any::type_name::<E>();
+            let type_name = core::any::type_name::<E>();
             warn!("Missed {missed} `{type_name}` {plural}. Consider reading from the `EventReader` more often (generally the best solution) or calling Events::update() less frequently (normally this is called once per frame). This problem is most likely due to run criteria/fixed timesteps or consuming events conditionally. See the Events documentation for more information.");
         }
 
@@ -498,7 +498,7 @@ impl<E: Event> Events<E> {
     /// Swaps the event buffers and clears the oldest event buffer. In general, this should be
     /// called once per frame/update.
     pub fn update(&mut self) {
-        std::mem::swap(&mut self.events_a, &mut self.events_b);
+        core::mem::swap(&mut self.events_a, &mut self.events_b);
         self.events_b.clear();
         self.events_b.start_event_count = self.event_count;
         debug_assert_eq!(

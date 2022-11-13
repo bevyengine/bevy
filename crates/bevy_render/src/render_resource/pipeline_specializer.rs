@@ -120,7 +120,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                         {
                             let SpecializedMeshPipelineError::MissingVertexAttribute(err) =
                                 &mut err;
-                            err.pipeline_type = Some(std::any::type_name::<S>());
+                            err.pipeline_type = Some(core::any::type_name::<S>());
                         }
                         err
                     })?;
@@ -143,7 +143,7 @@ impl<S: SpecializedMeshPipeline> SpecializedMeshPipelines<S> {
                         if cfg!(debug_assertions) {
                             let stored_descriptor = cache.get_render_pipeline_descriptor(*entry.get());
                             if stored_descriptor != &descriptor {
-                                error!("The cached pipeline descriptor for {} is not equal to the generated descriptor for the given key. This means the SpecializePipeline implementation uses 'unused' MeshVertexBufferLayout information to specialize the pipeline. This is not allowed because it would invalidate the pipeline cache.", std::any::type_name::<S>());
+                                error!("The cached pipeline descriptor for {} is not equal to the generated descriptor for the given key. This means the SpecializePipeline implementation uses 'unused' MeshVertexBufferLayout information to specialize the pipeline. This is not allowed because it would invalidate the pipeline cache.", core::any::type_name::<S>());
                             }
                         }
                         *entry.into_mut()

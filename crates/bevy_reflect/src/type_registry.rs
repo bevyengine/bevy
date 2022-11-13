@@ -1,10 +1,13 @@
 use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::sync::Arc;
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
+use core::{any::TypeId, fmt::Debug};
 use downcast_rs::{impl_downcast, Downcast};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
-use std::{any::TypeId, fmt::Debug, sync::Arc};
 
 /// A registry of reflected types.
 pub struct TypeRegistry {
@@ -23,7 +26,7 @@ pub struct TypeRegistryArc {
 }
 
 impl Debug for TypeRegistryArc {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.internal.read().full_name_to_id.keys().fmt(f)
     }
 }
@@ -128,8 +131,8 @@ impl TypeRegistry {
         let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
-                T = std::any::type_name::<T>(),
-                D = std::any::type_name::<D>(),
+                T = core::any::type_name::<T>(),
+                D = core::any::type_name::<D>(),
             )
         });
         data.insert(D::from_type());
@@ -140,7 +143,7 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
-    /// [`TypeId`]: std::any::TypeId
+    /// [`TypeId`]: core::any::TypeId
     pub fn get(&self, type_id: TypeId) -> Option<&TypeRegistration> {
         self.registrations.get(&type_id)
     }
@@ -150,7 +153,7 @@ impl TypeRegistry {
     ///
     /// If the specified type has not been registered, returns `None`.
     ///
-    /// [`TypeId`]: std::any::TypeId
+    /// [`TypeId`]: core::any::TypeId
     pub fn get_mut(&mut self, type_id: TypeId) -> Option<&mut TypeRegistration> {
         self.registrations.get_mut(&type_id)
     }
@@ -277,7 +280,7 @@ pub struct TypeRegistration {
 }
 
 impl Debug for TypeRegistration {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("TypeRegistration")
             .field("short_name", &self.short_name)
             .field("type_info", &self.type_info)
@@ -288,7 +291,7 @@ impl Debug for TypeRegistration {
 impl TypeRegistration {
     /// Returns the [`TypeId`] of the type.
     ///
-    /// [`TypeId`]: std::any::TypeId
+    /// [`TypeId`]: core::any::TypeId
     #[inline]
     pub fn type_id(&self) -> TypeId {
         self.type_info.type_id()
@@ -328,7 +331,7 @@ impl TypeRegistration {
 
     /// Creates type registration information for `T`.
     pub fn of<T: Reflect + Typed>() -> Self {
-        let type_name = std::any::type_name::<T>();
+        let type_name = core::any::type_name::<T>();
         Self {
             data: HashMap::default(),
             short_name: bevy_utils::get_short_name(type_name),
@@ -345,7 +348,7 @@ impl TypeRegistration {
 
     /// Returns the [name] of the type.
     ///
-    /// [name]: std::any::type_name
+    /// [name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_info.type_name()
     }
@@ -404,7 +407,7 @@ impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
         ReflectSerialize {
             get_serializable: |value| {
                 let value = value.downcast_ref::<T>().unwrap_or_else(|| {
-                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.type_name(), std::any::type_name::<T>())
+                    panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.type_name(), core::any::type_name::<T>())
                 });
                 Serializable::Borrowed(value)
             },
@@ -477,7 +480,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// let mut value = Reflected("Hello world!".to_string());
 /// let value = unsafe { Ptr::new(NonNull::from(&mut value).cast()) };
 ///
-/// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
+/// let reflect_data = type_registry.get(core::any::TypeId::of::<Reflected>()).unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
 /// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
@@ -517,7 +520,7 @@ impl ReflectFromPtr {
 impl<T: Reflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
-            type_id: std::any::TypeId::of::<T>(),
+            type_id: core::any::TypeId::of::<T>(),
             to_reflect: |ptr| {
                 // SAFE: only called from `as_reflect`, where the `ptr` is guaranteed to be of type `T`,
                 // and `as_reflect_ptr`, where the caller promises to call it with type `T`
@@ -556,7 +559,7 @@ mod test {
         // not required in this situation because we no nobody messed with the TypeRegistry,
         // but in the general case somebody could have replaced the ReflectFromPtr with an
         // instance for another type, so then we'd need to check that the type is the expected one
-        assert_eq!(reflect_from_ptr.type_id(), std::any::TypeId::of::<Foo>());
+        assert_eq!(reflect_from_ptr.type_id(), core::any::TypeId::of::<Foo>());
 
         let mut value = Foo { a: 1.0 };
         {

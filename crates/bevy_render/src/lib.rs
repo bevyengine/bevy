@@ -353,14 +353,14 @@ fn extract(app_world: &mut World, render_app: &mut App) {
 
     // temporarily add the app world to the render world as a resource
     let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
-    let inserted_world = std::mem::replace(app_world, scratch_world.0);
+    let inserted_world = core::mem::replace(app_world, scratch_world.0);
     let running_world = &mut render_app.world;
     running_world.insert_resource(MainWorld(inserted_world));
 
     extract.run(running_world);
     // move the app world back, as if nothing happened.
     let inserted_world = running_world.remove_resource::<MainWorld>().unwrap();
-    let scratch_world = std::mem::replace(app_world, inserted_world.0);
+    let scratch_world = core::mem::replace(app_world, inserted_world.0);
     app_world.insert_resource(ScratchMainWorld(scratch_world));
 
     // Note: We apply buffers (read, Commands) after the `MainWorld` has been removed from the render app's world

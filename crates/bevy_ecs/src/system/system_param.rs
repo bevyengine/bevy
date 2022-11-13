@@ -156,8 +156,8 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         let state = QueryState::new(world);
         assert_component_access_compatibility(
             &system_meta.name,
-            std::any::type_name::<Q>(),
-            std::any::type_name::<F>(),
+            core::any::type_name::<Q>(),
+            core::any::type_name::<F>(),
             &system_meta.component_access_set,
             &state.component_access,
             world,
@@ -285,7 +285,7 @@ impl<'w, T: Resource> Debug for Res<'w, T>
 where
     T: Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("Res").field(&self.value).finish()
     }
 }
@@ -376,7 +376,7 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
         assert!(
             !combined_access.has_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
             system_meta.name,
         );
         combined_access.add_read(component_id);
@@ -410,7 +410,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
                 panic!(
                     "Resource requested by {} does not exist: {}",
                     system_meta.name,
-                    std::any::type_name::<T>()
+                    core::any::type_name::<T>()
                 )
             });
         Res {
@@ -483,11 +483,11 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
         if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(), system_meta.name);
         }
         combined_access.add_write(component_id);
 
@@ -520,7 +520,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
                 panic!(
                     "Resource requested by {} does not exist: {}",
                     system_meta.name,
-                    std::any::type_name::<T>()
+                    core::any::type_name::<T>()
                 )
             });
         ResMut {
@@ -710,7 +710,7 @@ impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
 where
     T: Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("Local").field(&self.0).finish()
     }
 }
@@ -826,14 +826,14 @@ pub struct RemovedComponents<'a, T: Component> {
 
 impl<'a, T: Component> RemovedComponents<'a, T> {
     /// Returns an iterator over the entities that had their `T` [`Component`] removed.
-    pub fn iter(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
+    pub fn iter(&self) -> std::iter::Cloned<core::slice::Iter<'_, Entity>> {
         self.world.removed_with_id(self.component_id)
     }
 }
 
 impl<'a, T: Component> IntoIterator for &'a RemovedComponents<'a, T> {
     type Item = Entity;
-    type IntoIter = std::iter::Cloned<std::slice::Iter<'a, Entity>>;
+    type IntoIter = std::iter::Cloned<core::slice::Iter<'a, Entity>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()
@@ -909,7 +909,7 @@ impl<'w, T> Debug for NonSend<'w, T>
 where
     T: Debug,
 {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("NonSend").field(&self.value).finish()
     }
 }
@@ -967,7 +967,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         assert!(
             !combined_access.has_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
             system_meta.name,
         );
         combined_access.add_read(component_id);
@@ -1002,7 +1002,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
                     system_meta.name,
-                    std::any::type_name::<T>()
+                    core::any::type_name::<T>()
                 )
             });
 
@@ -1079,11 +1079,11 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(), system_meta.name);
         } else if combined_access.has_read(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access.",
-                std::any::type_name::<T>(), system_meta.name);
+                core::any::type_name::<T>(), system_meta.name);
         }
         combined_access.add_write(component_id);
 
@@ -1117,7 +1117,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
                     system_meta.name,
-                    std::any::type_name::<T>()
+                    core::any::type_name::<T>()
                 )
             });
         NonSendMut {
@@ -1396,17 +1396,17 @@ impl<'s> From<SystemName<'s>> for &'s str {
     }
 }
 
-impl<'s> std::fmt::Debug for SystemName<'s> {
+impl<'s> core::fmt::Debug for SystemName<'s> {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         f.debug_tuple("SystemName").field(&self.name()).finish()
     }
 }
 
-impl<'s> std::fmt::Display for SystemName<'s> {
+impl<'s> core::fmt::Display for SystemName<'s> {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name(), f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Display::fmt(&self.name(), f)
     }
 }
 

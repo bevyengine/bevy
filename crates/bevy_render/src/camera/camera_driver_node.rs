@@ -37,7 +37,7 @@ impl Node for CameraDriverNode {
             .collect::<Vec<_>>();
         // sort by priority and ensure within a priority, RenderTargets of the same type are packed together
         sorted_cameras.sort_by(|(_, p1, t1), (_, p2, t2)| match p1.cmp(p2) {
-            std::cmp::Ordering::Equal => t1.cmp(t2),
+            core::cmp::Ordering::Equal => t1.cmp(t2),
             ord => ord,
         });
         let mut camera_windows = HashSet::new();

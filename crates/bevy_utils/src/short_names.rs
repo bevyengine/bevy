@@ -3,7 +3,7 @@ use alloc::string::String;
 /// Shortens a type name to remove all module paths.
 ///
 /// The short name of a type is its full name as returned by
-/// [`std::any::type_name`], but with the prefix of all paths removed. For
+/// [`core::any::type_name`], but with the prefix of all paths removed. For
 /// example, the short name of `alloc::vec::Vec<core::option::Option<u32>>`
 /// would be `Vec<Option<u32>>`.
 pub fn get_short_name(full_name: &str) -> String {

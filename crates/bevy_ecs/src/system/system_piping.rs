@@ -161,7 +161,7 @@ where
 /// A collection of common adapters for [piping](super::PipeSystem) the result of a system.
 pub mod adapter {
     use crate::system::In;
-    use std::fmt::Debug;
+    use core::fmt::Debug;
 
     /// Converts a regular function into a system adapter.
     ///
@@ -175,7 +175,7 @@ pub mod adapter {
     ///     .pipe(print);
     ///
     /// fn return1() -> u64 { 1 }
-    /// fn print(In(x): In<impl std::fmt::Debug>) {
+    /// fn print(In(x): In<impl core::fmt::Debug>) {
     ///     println!("{x:?}");
     /// }
     /// ```

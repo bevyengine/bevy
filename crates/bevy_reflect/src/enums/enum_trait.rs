@@ -1,7 +1,10 @@
 use crate::{DynamicEnum, Reflect, VariantInfo, VariantType};
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::string::String;
 use bevy_utils::HashMap;
-use std::any::{Any, TypeId};
-use std::slice::Iter;
+use core::any::{Any, TypeId};
+use core::slice::Iter;
 
 /// A trait representing a [reflected] enum.
 ///
@@ -161,7 +164,7 @@ impl EnumInfo {
 
         Self {
             name,
-            type_name: std::any::type_name::<TEnum>(),
+            type_name: core::any::type_name::<TEnum>(),
             type_id: TypeId::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
             variant_names,
@@ -232,7 +235,7 @@ impl EnumInfo {
 
     /// The [type name] of the enum.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }

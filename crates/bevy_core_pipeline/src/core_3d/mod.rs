@@ -14,7 +14,7 @@ pub mod graph {
     }
 }
 
-use std::cmp::Reverse;
+use core::cmp::Reverse;
 
 pub use camera_3d::*;
 pub use main_pass_3d_node::*;

@@ -6,15 +6,18 @@ use crate::{
     TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField,
     VariantInfo,
 };
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::any::TypeId;
+use core::fmt;
+use core::fmt::{Debug, Display, Formatter};
+use core::slice::Iter;
 use erased_serde::Deserializer;
 use serde::de::{
     self, DeserializeSeed, EnumAccess, Error, MapAccess, SeqAccess, VariantAccess, Visitor,
 };
 use serde::Deserialize;
-use std::any::TypeId;
-use std::fmt;
-use std::fmt::{Debug, Display, Formatter};
-use std::slice::Iter;
 
 pub trait DeserializeValue {
     fn deserialize(
@@ -233,7 +236,7 @@ impl<'de> Visitor<'de> for U32Visitor {
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [`DynamicList`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
-/// [type name]: std::any::type_name
+/// [type name]: core::any::type_name
 pub struct UntypedReflectDeserializer<'a> {
     registry: &'a TypeRegistry,
 }
@@ -264,7 +267,7 @@ struct UntypedReflectDeserializerVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     type Value = Box<dyn Reflect>;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("map containing `type` and `value` entries for the reflected value")
     }
 
@@ -445,7 +448,7 @@ struct StructVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
     type Value = DynamicStruct;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("reflected struct value")
     }
 
@@ -490,7 +493,7 @@ struct TupleStructVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
     type Value = DynamicTupleStruct;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("reflected tuple struct value")
     }
 
@@ -547,7 +550,7 @@ struct TupleVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
     type Value = DynamicTuple;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("reflected tuple value")
     }
 
@@ -567,7 +570,7 @@ struct ArrayVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
     type Value = DynamicArray;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("reflected array value")
     }
 
@@ -607,7 +610,7 @@ struct ListVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for ListVisitor<'a> {
     type Value = DynamicList;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("reflected list value")
     }
 
@@ -639,7 +642,7 @@ struct MapVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
     type Value = DynamicMap;
 
-    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut Formatter) -> core::fmt::Result {
         formatter.write_str("reflected map value")
     }
 
@@ -681,7 +684,7 @@ struct EnumVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
     type Value = DynamicEnum;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("reflected enum value")
     }
 
@@ -793,7 +796,7 @@ struct StructVariantVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
     type Value = DynamicStruct;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("reflected struct variant value")
     }
 
@@ -837,7 +840,7 @@ struct TupleVariantVisitor<'a> {
 impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
     type Value = DynamicTuple;
 
-    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> core::fmt::Result {
         formatter.write_str("reflected tuple variant value")
     }
 
@@ -988,7 +991,7 @@ fn get_registration<'a, E: Error>(
 #[cfg(test)]
 mod tests {
     use bincode::Options;
-    use std::any::TypeId;
+    use core::any::TypeId;
     use std::f32::consts::PI;
 
     use serde::de::DeserializeSeed;

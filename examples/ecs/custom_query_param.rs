@@ -13,7 +13,7 @@
 //! For more details on the `WorldQuery` derive macro, see the trait documentation.
 
 use bevy::{ecs::query::WorldQuery, prelude::*};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 fn main() {
     App::new()

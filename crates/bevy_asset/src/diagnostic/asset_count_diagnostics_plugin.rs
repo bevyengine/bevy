@@ -33,7 +33,7 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
 
     /// Registers the asset count diagnostic for the current application.
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
-        let asset_type_name = std::any::type_name::<T>();
+        let asset_type_name = core::any::type_name::<T>();
         let max_length = MAX_DIAGNOSTIC_NAME_WIDTH - "asset_count ".len();
         diagnostics.add(Diagnostic::new(
             Self::diagnostic_id(),

@@ -392,7 +392,7 @@ enum DataType {
     Sint,
 }
 
-// This can be obtained from std::mem::transmute::<f32, u32>(1.0f32). It is used for identifying
+// This can be obtained from core::mem::transmute::<f32, u32>(1.0f32). It is used for identifying
 // normalized sample types as in Unorm or Snorm.
 const F32_1_AS_U32: u32 = 1065353216;
 

@@ -226,7 +226,7 @@ impl ReflectTraits {
                 fn reflect_hash(&self) -> Option<u64> {
                     use std::hash::{Hash, Hasher};
                     let mut hasher = #bevy_reflect_path::ReflectHasher::default();
-                    Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+                    Hash::hash(&core::any::Any::type_id(self), &mut hasher);
                     Hash::hash(self, &mut hasher);
                     Some(hasher.finish())
                 }
@@ -252,7 +252,7 @@ impl ReflectTraits {
                 fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
                     let value = value.as_any();
                     if let Some(value) = value.downcast_ref::<Self>() {
-                        Some(std::cmp::PartialEq::eq(self, value))
+                        Some(core::cmp::PartialEq::eq(self, value))
                     } else {
                         Some(false)
                     }
@@ -273,12 +273,12 @@ impl ReflectTraits {
     pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {
         match &self.debug {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    std::fmt::Debug::fmt(self, f)
+                fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                    core::fmt::Debug::fmt(self, f)
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                     #impl_fn(self, f)
                 }
             }),

@@ -51,7 +51,7 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
             warn!(
                 "warning[B0004]: {name} with the {ty_name} component has a parent without {ty_name}.\n\
                 This will cause inconsistent behaviors! See https://bevyengine.org/learn/errors/#B0004",
-                ty_name = get_short_name(std::any::type_name::<T>()),
+                ty_name = get_short_name(core::any::type_name::<T>()),
                 name = name.map_or("An entity".to_owned(), |s| format!("The {s} entity")),
             );
         }

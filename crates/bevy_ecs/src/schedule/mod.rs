@@ -26,7 +26,7 @@ pub use system_container::*;
 pub use system_descriptor::*;
 pub use system_set::*;
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use crate::{system::IntoSystem, world::World};
 use bevy_utils::HashMap;

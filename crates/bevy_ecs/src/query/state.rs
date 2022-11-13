@@ -37,7 +37,7 @@ pub struct QueryState<Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     pub(crate) filter_state: F::State,
 }
 
-impl<Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for QueryState<Q, F> {
+impl<Q: WorldQuery, F: ReadOnlyWorldQuery> core::fmt::Debug for QueryState<Q, F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -149,7 +149,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         self.validate_world(world);
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let old_generation = core::mem::replace(&mut self.archetype_generation, new_generation);
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
@@ -162,7 +162,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         assert!(
             world.id() == self.world_id,
             "Attempted to use {} with a mismatched World. QueryStates can only be used with the World they were created from.",
-                std::any::type_name::<Self>(),
+                core::any::type_name::<Self>(),
         );
     }
 
@@ -1049,8 +1049,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                         #[cfg(feature = "trace")]
                         let span = bevy_utils::tracing::info_span!(
                             "par_for_each",
-                            query = std::any::type_name::<Q>(),
-                            filter = std::any::type_name::<F>(),
+                            query = core::any::type_name::<Q>(),
+                            filter = core::any::type_name::<F>(),
                             count = len,
                         );
                         #[cfg(feature = "trace")]
@@ -1112,8 +1112,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                         #[cfg(feature = "trace")]
                         let span = bevy_utils::tracing::info_span!(
                             "par_for_each",
-                            query = std::any::type_name::<Q>(),
-                            filter = std::any::type_name::<F>(),
+                            query = core::any::type_name::<Q>(),
+                            filter = core::any::type_name::<F>(),
                             count = len,
                         );
                         #[cfg(feature = "trace")]
@@ -1245,8 +1245,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
         match (first, extra) {
             (Some(r), false) => Ok(r),
-            (None, _) => Err(QuerySingleError::NoEntities(std::any::type_name::<Self>())),
-            (Some(_), _) => Err(QuerySingleError::MultipleEntities(std::any::type_name::<
+            (None, _) => Err(QuerySingleError::NoEntities(core::any::type_name::<Self>())),
+            (Some(_), _) => Err(QuerySingleError::MultipleEntities(core::any::type_name::<
                 Self,
             >())),
         }
@@ -1397,8 +1397,8 @@ pub enum QuerySingleError {
 
 impl std::error::Error for QuerySingleError {}
 
-impl std::fmt::Display for QuerySingleError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for QuerySingleError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             QuerySingleError::NoEntities(query) => write!(f, "No entities fit the query {query}"),
             QuerySingleError::MultipleEntities(query) => {

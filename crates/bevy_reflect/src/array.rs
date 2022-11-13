@@ -2,6 +2,9 @@ use crate::{
     utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
     TypeInfo, Typed,
 };
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
 use std::{
     any::{Any, TypeId},
     fmt::Debug,
@@ -63,9 +66,9 @@ impl ArrayInfo {
     ///
     pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
         Self {
-            type_name: std::any::type_name::<TArray>(),
+            type_name: core::any::type_name::<TArray>(),
             type_id: TypeId::of::<TArray>(),
-            item_type_name: std::any::type_name::<TItem>(),
+            item_type_name: core::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
             capacity,
             #[cfg(feature = "documentation")]
@@ -86,7 +89,7 @@ impl ArrayInfo {
 
     /// The [type name] of the array.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -103,7 +106,7 @@ impl ArrayInfo {
 
     /// The [type name] of the array item.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn item_type_name(&self) -> &'static str {
         self.item_type_name
     }
@@ -330,7 +333,7 @@ impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
     let mut hasher = crate::ReflectHasher::default();
-    std::any::Any::type_id(array).hash(&mut hasher);
+    core::any::Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
         hasher.write_u64(value.reflect_hash()?);
@@ -399,7 +402,7 @@ pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bo
 /// // ]
 /// ```
 #[inline]
-pub fn array_debug(dyn_array: &dyn Array, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn array_debug(dyn_array: &dyn Array, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_list();
     for item in dyn_array.iter() {
         debug.entry(&item as &dyn Debug);

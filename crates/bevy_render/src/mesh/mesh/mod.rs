@@ -769,8 +769,8 @@ impl Indices {
 
 /// An Iterator for the [`Indices`].
 enum IndicesIter<'a> {
-    U16(std::slice::Iter<'a, u16>),
-    U32(std::slice::Iter<'a, u32>),
+    U16(core::slice::Iter<'a, u16>),
+    U32(core::slice::Iter<'a, u32>),
 }
 
 impl Iterator for IndicesIter<'_> {

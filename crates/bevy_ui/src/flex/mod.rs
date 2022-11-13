@@ -13,7 +13,7 @@ use bevy_math::Vec2;
 use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
-use std::fmt;
+use core::fmt;
 use taffy::{number::Number, Taffy};
 
 #[derive(Resource)]

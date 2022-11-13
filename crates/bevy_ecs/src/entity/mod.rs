@@ -232,7 +232,7 @@ pub struct ReserveEntitiesIterator<'a> {
     meta: &'a [EntityMeta],
 
     // Reserved indices formerly in the freelist to hand out.
-    index_iter: std::slice::Iter<'a, u32>,
+    index_iter: core::slice::Iter<'a, u32>,
 
     // New Entity indices to hand out, outside the range of meta.len().
     index_range: std::ops::Range<u32>,

@@ -189,7 +189,7 @@ impl Default for LargeStruct {
 
 pub fn sized_commands_impl<T: Default + Command>(criterion: &mut Criterion) {
     let mut group =
-        criterion.benchmark_group(format!("sized_commands_{}_bytes", std::mem::size_of::<T>()));
+        criterion.benchmark_group(format!("sized_commands_{}_bytes", core::mem::size_of::<T>()));
     group.warm_up_time(std::time::Duration::from_millis(500));
     group.measurement_time(std::time::Duration::from_secs(4));
 

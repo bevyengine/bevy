@@ -1,4 +1,4 @@
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy_reflect::{DynamicStruct, GetField, Reflect, Struct};
 use criterion::{

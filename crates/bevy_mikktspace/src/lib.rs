@@ -1,5 +1,7 @@
+#![no_std]
 #![allow(clippy::all)]
 
+extern crate alloc;
 use glam::{Vec2, Vec3};
 
 mod generated;

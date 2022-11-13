@@ -213,7 +213,7 @@ use std::{cell::UnsafeCell, marker::PhantomData};
 /// }
 ///
 /// // This function statically checks that `T` implements `Debug`.
-/// fn assert_debug<T: std::fmt::Debug>() {}
+/// fn assert_debug<T: core::fmt::Debug>() {}
 ///
 /// assert_debug::<CustomQueryItem>();
 /// assert_debug::<CustomQueryReadOnlyItem>();
@@ -619,7 +619,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         assert!(
             !access.access().has_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                std::any::type_name::<T>(),
+                core::any::type_name::<T>(),
         );
         access.add_read(component_id);
     }
@@ -780,7 +780,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         assert!(
             !access.access().has_read(component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
-                std::any::type_name::<T>(),
+                core::any::type_name::<T>(),
         );
         access.add_write(component_id);
     }
@@ -965,8 +965,8 @@ impl<T: Component> Clone for ChangeTrackers<T> {
 }
 impl<T: Component> Copy for ChangeTrackers<T> {}
 
-impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<T: Component> core::fmt::Debug for ChangeTrackers<T> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ChangeTrackers")
             .field("component_ticks", &self.component_ticks)
             .field("last_change_tick", &self.last_change_tick)
@@ -1113,7 +1113,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         assert!(
             !access.access().has_write(id),
             "ChangeTrackers<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
-                std::any::type_name::<T>()
+                core::any::type_name::<T>()
         );
         access.add_read(id);
     }

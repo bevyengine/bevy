@@ -67,7 +67,7 @@ fn generic_bench<P: Copy>(
 
 fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, entity_count: u32) {
     group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        format!("{}_entities_{}", entity_count, core::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched(
                 || setup::<T>(entity_count),
@@ -107,7 +107,7 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
     entity_count: u32,
 ) {
     group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        format!("{}_entities_{}", entity_count, core::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched(
                 || {
@@ -157,7 +157,7 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
     let ratio_to_modify = 0.1;
     let amount_to_modify = (entity_count as f32 * ratio_to_modify) as usize;
     group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        format!("{}_entities_{}", entity_count, core::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched(
                 || {
@@ -205,7 +205,7 @@ fn none_changed_detection_generic<T: Component + Default>(
     entity_count: u32,
 ) {
     group.bench_function(
-        format!("{}_entities_{}", entity_count, std::any::type_name::<T>()),
+        format!("{}_entities_{}", entity_count, core::any::type_name::<T>()),
         |bencher| {
             bencher.iter_batched(
                 || {

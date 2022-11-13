@@ -63,7 +63,7 @@ mod tests {
     use crate::query::{ArchetypeFilter, QueryCombinationIter};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
-    use std::any::type_name;
+    use core::any::type_name;
     use std::collections::HashSet;
 
     #[derive(Component, Debug, Hash, Eq, PartialEq, Clone, Copy)]

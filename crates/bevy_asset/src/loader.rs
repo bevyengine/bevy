@@ -246,7 +246,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
         } else {
             panic!(
                 "Failed to downcast asset to {}.",
-                std::any::type_name::<T>()
+                core::any::type_name::<T>()
             );
         }
     }

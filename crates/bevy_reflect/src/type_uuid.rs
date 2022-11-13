@@ -23,9 +23,9 @@ where
 
     /// Returns the [type name] of this value's type.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     fn type_name(&self) -> &'static str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 }
 

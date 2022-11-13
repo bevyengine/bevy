@@ -286,8 +286,8 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     pub(crate) force_read_only_component_access: bool,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> core::fmt::Debug for Query<'w, 's, Q, F> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_change_tick: {}, change_tick: {} }}", self.iter().count(), self.world, self.state, self.last_change_tick, self.change_tick)
     }
 }
@@ -1431,8 +1431,8 @@ pub enum QueryComponentError {
 
 impl std::error::Error for QueryComponentError {}
 
-impl std::fmt::Display for QueryComponentError {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl core::fmt::Display for QueryComponentError {
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self {
             QueryComponentError::MissingReadAccess => {
                 write!(

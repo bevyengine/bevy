@@ -24,8 +24,8 @@ pub type Layer = u8;
 #[reflect(Component, Default, PartialEq)]
 pub struct RenderLayers(LayerMask);
 
-impl std::fmt::Debug for RenderLayers {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for RenderLayers {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("RenderLayers")
             .field(&self.iter().collect::<Vec<_>>())
             .finish()
@@ -47,7 +47,7 @@ impl Default for RenderLayers {
 
 impl RenderLayers {
     /// The total number of layers supported.
-    pub const TOTAL_LAYERS: usize = std::mem::size_of::<LayerMask>() * 8;
+    pub const TOTAL_LAYERS: usize = core::mem::size_of::<LayerMask>() * 8;
 
     /// Create a new `RenderLayers` belonging to the given layer.
     pub const fn layer(n: Layer) -> Self {

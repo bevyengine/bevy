@@ -788,7 +788,7 @@ fn compute_aabb_for_cluster(
 pub(crate) fn point_light_order(
     (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
     (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),
-) -> std::cmp::Ordering {
+) -> core::cmp::Ordering {
     is_spot_light_1
         .cmp(is_spot_light_2) // pointlights before spot lights
         .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
@@ -802,7 +802,7 @@ pub(crate) fn point_light_order(
 pub(crate) fn directional_light_order(
     (entity_1, shadows_enabled_1): (&Entity, &bool),
     (entity_2, shadows_enabled_2): (&Entity, &bool),
-) -> std::cmp::Ordering {
+) -> core::cmp::Ordering {
     shadows_enabled_2
         .cmp(shadows_enabled_1) // shadow casters before non-casters
         .then_with(|| entity_1.cmp(entity_2)) // stable

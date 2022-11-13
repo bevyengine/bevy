@@ -67,7 +67,7 @@ impl RunCriteriaLabel for DriverLabel {
 
 impl DriverLabel {
     fn of<T: 'static>() -> Self {
-        Self(TypeId::of::<T>(), std::any::type_name::<T>())
+        Self(TypeId::of::<T>(), core::any::type_name::<T>())
     }
 }
 
