@@ -432,7 +432,7 @@ impl Window {
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
             raw_handle,
-            focused: true,
+            focused: false,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
