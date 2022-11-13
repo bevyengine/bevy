@@ -1,5 +1,5 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
+use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned, ReflectError};
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
@@ -257,8 +257,8 @@ impl<T: FromReflect> Reflect for Vec<T> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        crate::list_apply(self, value);
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
+        crate::list_apply(self, value)
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -430,8 +430,8 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
-        map_apply(self, value);
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
+        map_apply(self, value)
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -568,8 +568,8 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
-        crate::array_apply(self, value);
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
+        crate::array_apply(self, value)
     }
 
     #[inline]
@@ -687,12 +687,14 @@ impl Reflect for Cow<'static, str> {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
+            return Ok(());
         } else {
-            panic!("Value is not a {}.", std::any::type_name::<Self>());
+            // panic!("Value is not a {}.", std::any::type_name::<Self>());
+            return Err(ReflectError::WrongType(String::from(std::any::type_name::<Self>())));
         }
     }
 
@@ -851,7 +853,7 @@ impl<T: FromReflect> Reflect for Option<T> {
     }
 
     #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
         if let ReflectRef::Enum(value) = value.reflect_ref() {
             if self.variant_name() == value.variant_name() {
                 // Same variant -> just update fields
@@ -860,6 +862,7 @@ impl<T: FromReflect> Reflect for Option<T> {
                         v.apply(field.value());
                     }
                 }
+                return Ok(());
             } else {
                 // New variant -> perform a switch
                 match value.variant_name() {
@@ -888,10 +891,13 @@ impl<T: FromReflect> Reflect for Option<T> {
                     "None" => {
                         *self = None;
                     }
-                    _ => panic!("Enum is not a {}.", std::any::type_name::<Self>()),
+                    // _ => panic!("Enum is not a {}.", std::any::type_name::<Self>()),
+                    _ => return Err(ReflectError::WrongType(String::from(std::any::type_name::<Self>()))),
                 }
             }
+            
         }
+        return Ok(());
     }
 
     #[inline]
