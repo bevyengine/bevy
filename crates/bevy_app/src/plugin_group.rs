@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 use crate::{App, AppError, Plugin};
 use bevy_utils::{tracing::debug, tracing::warn, HashMap};
 use core::any::TypeId;

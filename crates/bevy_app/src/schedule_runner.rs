@@ -1,3 +1,4 @@
+use alloc::borrow::ToOwned;
 use crate::{
     app::{App, AppExit},
     plugin::Plugin,
