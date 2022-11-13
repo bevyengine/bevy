@@ -247,7 +247,7 @@ impl CameraProjection for OrthographicProjection {
                 max_height,
             } => {
                 // Compare Pixels of current width and maximal height and Pixels of maximal width with current height.
-                // Then use smaller (max_heigth when true) as what it referres to (height when true) and calculate rest so it can't get over maximum.
+                // Then use smaller (max_height when true) as what it refers to (height when true) and calculate rest so it can't get over maximum.
                 if width * max_height < max_width * height {
                     (width * max_height / height, max_height)
                 } else {
