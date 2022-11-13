@@ -56,7 +56,7 @@ use std::any::{Any, TypeId};
 /// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
+/// #   fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> { todo!() }
 /// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
