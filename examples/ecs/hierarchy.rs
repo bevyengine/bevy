@@ -1,6 +1,6 @@
 //! Creates a hierarchy of parents and children entities.
 
-use std::f32::consts::*;
+use core::f32::consts::*;
 
 use bevy::prelude::*;
 

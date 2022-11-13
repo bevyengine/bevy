@@ -10,7 +10,7 @@ use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
-use std::cell::Cell;
+use core::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{

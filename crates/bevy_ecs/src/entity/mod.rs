@@ -235,7 +235,7 @@ pub struct ReserveEntitiesIterator<'a> {
     index_iter: core::slice::Iter<'a, u32>,
 
     // New Entity indices to hand out, outside the range of meta.len().
-    index_range: std::ops::Range<u32>,
+    index_range: core::ops::Range<u32>,
 }
 
 impl<'a> Iterator for ReserveEntitiesIterator<'a> {

@@ -1,7 +1,7 @@
 //! Skinned mesh example with mesh and joints data defined in code.
 //! Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
 
-use std::f32::consts::*;
+use core::f32::consts::*;
 
 use bevy::{
     pbr::AmbientLight,

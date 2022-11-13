@@ -1,7 +1,7 @@
 //! helper to extract span stats from a chrome trace file
 //! spec: <https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview#heading=h.puwqg050lyuy>
 
-use std::ops::Div;
+use core::ops::Div;
 
 use clap::Parser;
 use parse::read_trace;

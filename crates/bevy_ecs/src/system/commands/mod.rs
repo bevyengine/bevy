@@ -9,7 +9,7 @@ use crate::{
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use super::Resource;
 

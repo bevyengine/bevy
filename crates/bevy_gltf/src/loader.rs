@@ -838,7 +838,7 @@ fn load_node(
                             // NOTE: KHR_punctual_lights defines the intensity units for point lights in
                             // candela (lm/sr) which is luminous intensity and we need luminous power.
                             // For a point light, luminous power = 4 * pi * luminous intensity
-                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                            intensity: light.intensity() * core::f32::consts::PI * 4.0,
                             range: light.range().unwrap_or(20.0),
                             radius: light.range().unwrap_or(0.0),
                             ..Default::default()
@@ -864,7 +864,7 @@ fn load_node(
                             // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
                             // candela (lm/sr) which is luminous intensity and we need luminous power.
                             // For a spot light, we map luminous power = 4 * pi * luminous intensity
-                            intensity: light.intensity() * std::f32::consts::PI * 4.0,
+                            intensity: light.intensity() * core::f32::consts::PI * 4.0,
                             range: light.range().unwrap_or(20.0),
                             radius: light.range().unwrap_or(0.0),
                             inner_angle: inner_cone_angle,

@@ -6,7 +6,7 @@
 //! To measure performance realistically, be sure to run this in release mode.
 //! `cargo run --example many_animated_sprites --release`
 
-use std::time::Duration;
+use core::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},

@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
 use rand::Rng;
-use std::ops::Deref;
+use core::ops::Deref;
 
 // In this example we add a counter resource and increase it's value in one system,
 // while a different system prints the current count to the console.

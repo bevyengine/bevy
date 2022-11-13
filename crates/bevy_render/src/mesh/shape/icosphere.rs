@@ -64,8 +64,8 @@ impl From<Icosphere> for Mesh {
             let inclination = point.y.acos();
             let azimuth = point.z.atan2(point.x);
 
-            let norm_inclination = inclination / std::f32::consts::PI;
-            let norm_azimuth = 0.5 - (azimuth / std::f32::consts::TAU);
+            let norm_inclination = inclination / core::f32::consts::PI;
+            let norm_azimuth = 0.5 - (azimuth / core::f32::consts::TAU);
 
             [norm_azimuth, norm_inclination]
         });

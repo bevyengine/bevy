@@ -480,7 +480,7 @@ pub fn extract_lights(
                         // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
                         // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
                         // for details.
-                        intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+                        intensity: point_light.intensity / (4.0 * core::f32::consts::PI),
                         range: point_light.range,
                         radius: point_light.radius,
                         transform: *transform,
@@ -489,7 +489,7 @@ pub fn extract_lights(
                         // The factor of SQRT_2 is for the worst-case diagonal offset
                         shadow_normal_bias: point_light.shadow_normal_bias
                             * point_light_texel_size
-                            * std::f32::consts::SQRT_2,
+                            * core::f32::consts::SQRT_2,
                         spot_light_angles: None,
                     },
                     render_cubemap_visible_entities,
@@ -523,7 +523,7 @@ pub fn extract_lights(
                         // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
                         // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
                         // which seems least surprising for users
-                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                        intensity: spot_light.intensity / (4.0 * core::f32::consts::PI),
                         range: spot_light.range,
                         radius: spot_light.radius,
                         transform: *transform,
@@ -532,7 +532,7 @@ pub fn extract_lights(
                         // The factor of SQRT_2 is for the worst-case diagonal offset
                         shadow_normal_bias: spot_light.shadow_normal_bias
                             * texel_size
-                            * std::f32::consts::SQRT_2,
+                            * core::f32::consts::SQRT_2,
                         spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
                     },
                     render_visible_entities,
@@ -774,7 +774,7 @@ pub fn prepare_lights(
 
     // Pre-calculate for PointLights
     let cube_face_projection =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
+        Mat4::perspective_infinite_reverse_rh(core::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))

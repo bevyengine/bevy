@@ -1,7 +1,7 @@
 //! This example demonstrates the built-in 3d shapes in Bevy.
 //! The scene includes a patterned texture and a rotation for visualizing the normals and UVs.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     prelude::*,

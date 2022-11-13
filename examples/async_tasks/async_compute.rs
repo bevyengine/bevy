@@ -5,9 +5,9 @@ use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
+use core::time::{Duration, Instant};
 use futures_lite::future;
 use rand::Rng;
-use std::time::{Duration, Instant};
 
 fn main() {
     App::new()

@@ -34,7 +34,7 @@ mod test {
     use super::*;
     use crate as bevy_reflect;
     use bevy_reflect_derive::TypeUuid;
-    use std::marker::PhantomData;
+    use core::marker::PhantomData;
 
     #[derive(TypeUuid)]
     #[uuid = "af6466c2-a9f4-11eb-bcbc-0242ac130002"]

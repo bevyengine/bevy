@@ -97,7 +97,7 @@ use std::{
 /// use bevy_ecs::component::Component;
 ///
 /// // `Duration` is defined in the `std` crate.
-/// use std::time::Duration;
+/// use core::time::Duration;
 ///
 /// // It is not possible to implement `Component` for `Duration` from this position, as they are
 /// // both foreign items, defined in an external crate. However, nothing prevents to define a new
@@ -571,7 +571,7 @@ impl ComponentTicks {
 
     /// Manually sets the change tick.
     ///
-    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
+    /// This is normally done automatically via the [`DerefMut`](core::ops::DerefMut) implementation
     /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///

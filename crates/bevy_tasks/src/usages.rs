@@ -12,7 +12,7 @@
 
 use super::TaskPool;
 use once_cell::sync::OnceCell;
-use std::ops::Deref;
+use core::ops::Deref;
 
 static COMPUTE_TASK_POOL: OnceCell<ComputeTaskPool> = OnceCell::new();
 static ASYNC_COMPUTE_TASK_POOL: OnceCell<AsyncComputeTaskPool> = OnceCell::new();

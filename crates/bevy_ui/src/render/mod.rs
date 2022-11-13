@@ -31,7 +31,7 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
-use std::ops::Range;
+use core::ops::Range;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";

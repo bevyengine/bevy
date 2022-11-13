@@ -1,6 +1,6 @@
 //! Shows how to render to a texture. Useful for mirrors, UI, or exporting images.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,

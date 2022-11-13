@@ -243,8 +243,8 @@ mod test {
     use super::*;
     use bevy_ecs::prelude::*;
     use bevy_utils::Instant;
-    use std::ops::{Add, Mul};
-    use std::time::Duration;
+    use core::time::Duration;
+    use core::ops::{Add, Mul};
 
     #[derive(Resource)]
     struct Count(usize);

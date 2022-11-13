@@ -53,7 +53,7 @@ use std::{
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// use std::marker::PhantomData;
+/// use core::marker::PhantomData;
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]

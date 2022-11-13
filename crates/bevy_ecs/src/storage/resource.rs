@@ -2,7 +2,7 @@ use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use std::cell::UnsafeCell;
+use core::cell::UnsafeCell;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///

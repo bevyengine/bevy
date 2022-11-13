@@ -32,8 +32,8 @@ impl From<Torus> for Mesh {
         let mut normals: Vec<[f32; 3]> = Vec::with_capacity(n_vertices);
         let mut uvs: Vec<[f32; 2]> = Vec::with_capacity(n_vertices);
 
-        let segment_stride = 2.0 * std::f32::consts::PI / torus.subdivisions_segments as f32;
-        let side_stride = 2.0 * std::f32::consts::PI / torus.subdivisions_sides as f32;
+        let segment_stride = 2.0 * core::f32::consts::PI / torus.subdivisions_segments as f32;
+        let side_stride = 2.0 * core::f32::consts::PI / torus.subdivisions_sides as f32;
 
         for segment in 0..=torus.subdivisions_segments {
             let theta = segment_stride * segment as f32;

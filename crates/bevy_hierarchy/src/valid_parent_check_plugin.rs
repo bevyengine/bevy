@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_core::Name;

@@ -603,7 +603,7 @@ impl_tick_filter!(
     ///
     /// A common use for this filter is avoiding redundant work when values have not changed.
     ///
-    /// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](std::ops::DerefMut)).
+    /// **Note** that simply *mutably dereferencing* a component is considered a change ([`DerefMut`](core::ops::DerefMut)).
     /// Bevy does not compare components to their previous values.
     ///
     /// To retain all results without filtering but still check whether they were changed after the

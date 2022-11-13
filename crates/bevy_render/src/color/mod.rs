@@ -6,7 +6,7 @@ use crate::color::{HslRepresentation, SrgbColorSpace};
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
-use std::ops::{Add, AddAssign, Mul, MulAssign};
+use core::ops::{Add, AddAssign, Mul, MulAssign};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Reflect, FromReflect)]

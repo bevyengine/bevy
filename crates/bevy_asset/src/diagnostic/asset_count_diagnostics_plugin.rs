@@ -5,13 +5,13 @@ use bevy_ecs::system::{Res, ResMut};
 
 /// Adds an asset count diagnostic to an [`App`] for assets of type `T`.
 pub struct AssetCountDiagnosticsPlugin<T: Asset> {
-    marker: std::marker::PhantomData<T>,
+    marker: core::marker::PhantomData<T>,
 }
 
 impl<T: Asset> Default for AssetCountDiagnosticsPlugin<T> {
     fn default() -> Self {
         Self {
-            marker: std::marker::PhantomData,
+            marker: core::marker::PhantomData,
         }
     }
 }

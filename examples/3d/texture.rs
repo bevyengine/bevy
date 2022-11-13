@@ -1,6 +1,6 @@
 //! This example shows various ways to configure texture materials in 3D.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::prelude::*;
 

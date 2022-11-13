@@ -1,4 +1,4 @@
-use std::ops::Mul;
+use core::ops::Mul;
 
 use super::Transform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};

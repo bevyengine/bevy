@@ -992,7 +992,7 @@ fn get_registration<'a, E: Error>(
 mod tests {
     use bincode::Options;
     use core::any::TypeId;
-    use std::f32::consts::PI;
+    use core::f32::consts::PI;
 
     use serde::de::DeserializeSeed;
     use serde::Deserialize;

@@ -14,7 +14,7 @@ use bevy::{
     scene::InstanceId,
 };
 
-use std::f32::consts::*;
+use core::f32::consts::*;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct CameraControllerCheckSystem;

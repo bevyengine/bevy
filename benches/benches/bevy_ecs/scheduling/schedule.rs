@@ -33,8 +33,8 @@ pub fn schedule(c: &mut Criterion) {
     }
 
     let mut group = c.benchmark_group("schedule");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     group.bench_function("base", |b| {
         let mut world = World::default();
 
@@ -76,8 +76,8 @@ pub fn build_schedule(criterion: &mut Criterion) {
     }
 
     let mut group = criterion.benchmark_group("build_schedule");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(15));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(15));
 
     // Method: generate a set of `graph_size` systems which have a One True Ordering.
     // Add system to the stage with full constraints. Hopefully this should be maximimally

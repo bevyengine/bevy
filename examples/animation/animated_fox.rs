@@ -1,6 +1,6 @@
 //! Plays animations from a skinned glTF.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::prelude::*;
 

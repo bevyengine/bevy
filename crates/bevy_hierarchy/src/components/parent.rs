@@ -5,7 +5,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_reflect::Reflect;
-use std::ops::Deref;
+use core::ops::Deref;
 
 /// Holds a reference to the parent entity of this entity.
 /// This component should only be present on entities that actually have a parent entity.

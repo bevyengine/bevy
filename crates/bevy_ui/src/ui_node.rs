@@ -9,7 +9,7 @@ use bevy_render::{
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
 use serde::{Deserialize, Serialize};
-use std::ops::{Div, DivAssign, Mul, MulAssign};
+use core::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
 /// Describes the size of a UI node

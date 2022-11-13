@@ -1,6 +1,6 @@
 //! Shows multiple transformations of objects.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::prelude::*;
 

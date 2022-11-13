@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
 #[cfg(debug_assertions)]

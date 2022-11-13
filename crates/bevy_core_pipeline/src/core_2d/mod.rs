@@ -31,7 +31,7 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_utils::FloatOrd;
-use std::ops::Range;
+use core::ops::Range;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 

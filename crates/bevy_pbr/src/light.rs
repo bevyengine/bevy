@@ -133,7 +133,7 @@ impl Default for SpotLight {
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             inner_angle: 0.0,
-            outer_angle: std::f32::consts::FRAC_PI_4,
+            outer_angle: core::f32::consts::FRAC_PI_4,
         }
     }
 }
@@ -1502,7 +1502,7 @@ pub fn update_point_light_frusta(
     >,
 ) {
     let projection =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
+        Mat4::perspective_infinite_reverse_rh(core::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let view_rotations = CUBE_MAP_FACES
         .iter()
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))

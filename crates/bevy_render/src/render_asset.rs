@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::{HashMap, HashSet};
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 pub enum PrepareAssetError<E: Send + Sync + 'static> {
     RetryNextUpdate(E),

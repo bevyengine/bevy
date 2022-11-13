@@ -1,7 +1,7 @@
 use crate::storage::SparseSetIndex;
 use bevy_utils::HashSet;
 use fixedbitset::FixedBitSet;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Tracks read and write access to specific elements in a collection.
 ///

@@ -87,8 +87,8 @@ impl From<Capsule> for Mesh {
         let mut vts: Vec<Vec2> = vec![Vec2::ZERO; vert_len];
         let mut vns: Vec<Vec3> = vec![Vec3::ZERO; vert_len];
 
-        let to_theta = 2.0 * std::f32::consts::PI / longitudes as f32;
-        let to_phi = std::f32::consts::PI / latitudes as f32;
+        let to_theta = 2.0 * core::f32::consts::PI / longitudes as f32;
+        let to_phi = core::f32::consts::PI / latitudes as f32;
         let to_tex_horizontal = 1.0 / longitudes as f32;
         let to_tex_vertical = 1.0 / half_lats as f32;
 

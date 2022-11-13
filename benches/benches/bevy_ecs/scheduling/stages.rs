@@ -26,8 +26,8 @@ const ENTITY_BUNCH: usize = 5000;
 pub fn empty_systems(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("empty_systems");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     for amount in 0..5 {
         let mut stage = SystemStage::parallel();
@@ -79,8 +79,8 @@ pub fn busy_systems(criterion: &mut Criterion) {
     }
     let mut world = World::new();
     let mut group = criterion.benchmark_group("busy_systems");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     for entity_bunches in 1..6 {
         world.spawn_batch((0..4 * ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));
         world.spawn_batch((0..4 * ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0))));
@@ -131,8 +131,8 @@ pub fn contrived(criterion: &mut Criterion) {
     }
     let mut world = World::new();
     let mut group = criterion.benchmark_group("contrived");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     for entity_bunches in 1..6 {
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0), C(0.0), D(0.0))));
         world.spawn_batch((0..ENTITY_BUNCH).map(|_| (A(0.0), B(0.0))));

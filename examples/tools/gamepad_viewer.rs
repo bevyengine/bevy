@@ -1,6 +1,6 @@
 //! Shows a visualization of gamepad buttons, sticks, and triggers
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     input::gamepad::{GamepadButton, GamepadSettings},

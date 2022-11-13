@@ -476,7 +476,7 @@ mod tests {
     use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;
     use serde::Serialize;
-    use std::f32::consts::PI;
+    use core::f32::consts::PI;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {

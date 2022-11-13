@@ -1,6 +1,6 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     asset::LoadState,

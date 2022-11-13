@@ -41,7 +41,7 @@ impl BenchModify for Sparse {
     }
 }
 
-const RANGE_ENTITIES_TO_BENCH_COUNT: std::ops::Range<u32> = 5..7;
+const RANGE_ENTITIES_TO_BENCH_COUNT: core::ops::Range<u32> = 5..7;
 
 type BenchGroup<'a> = criterion::BenchmarkGroup<'a, criterion::measurement::WallTime>;
 
@@ -88,8 +88,8 @@ fn all_added_detection_generic<T: Component + Default>(group: &mut BenchGroup, e
 
 fn all_added_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_added_detection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
         generic_bench(
             &mut group,
@@ -136,8 +136,8 @@ fn all_changed_detection_generic<T: Component + Default + BenchModify>(
 
 fn all_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("all_changed_detection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
         generic_bench(
             &mut group,
@@ -186,8 +186,8 @@ fn few_changed_detection_generic<T: Component + Default + BenchModify>(
 
 fn few_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("few_changed_detection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
         generic_bench(
             &mut group,
@@ -230,8 +230,8 @@ fn none_changed_detection_generic<T: Component + Default>(
 
 fn none_changed_detection(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("none_changed_detection");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     for entity_count in RANGE_ENTITIES_TO_BENCH_COUNT.map(|i| i * 10_000) {
         generic_bench(
             &mut group,

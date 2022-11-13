@@ -1,7 +1,7 @@
 //! Illustrates different lights of various types and colors, some static, some moving over
 //! a simple scene.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::prelude::*;
 
