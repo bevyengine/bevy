@@ -2,7 +2,7 @@ use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
     Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, Typed,
-    VariantFieldIter, VariantType,
+    VariantFieldIter, VariantType, ReflectError,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -331,7 +331,7 @@ impl Reflect for DynamicEnum {
     }
 
     #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
         if let ReflectRef::Enum(value) = value.reflect_ref() {
             if Enum::variant_name(self) == value.variant_name() {
                 // Same variant -> just update fields
@@ -343,6 +343,7 @@ impl Reflect for DynamicEnum {
                                 v.apply(field.value());
                             }
                         }
+                        return Ok(());
                     }
                     VariantType::Tuple => {
                         for (index, field) in value.iter_fields().enumerate() {
@@ -350,8 +351,9 @@ impl Reflect for DynamicEnum {
                                 v.apply(field.value());
                             }
                         }
+                        return Ok(());
                     }
-                    _ => {}
+                    _ => Ok(())
                 }
             } else {
                 // New variant -> perform a switch
@@ -374,9 +376,11 @@ impl Reflect for DynamicEnum {
                     }
                 };
                 self.set_variant(value.variant_name(), dyn_variant);
+                return Ok(());
             }
         } else {
-            panic!("`{}` is not an enum", value.type_name());
+            // panic!("`{}` is not an enum", value.type_name());
+            return Err(ReflectError::WrongType(String::from("Enum")));
         }
     }
 
