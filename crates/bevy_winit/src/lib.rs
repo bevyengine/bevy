@@ -469,7 +469,7 @@ pub fn winit_runner_with(mut app: App) {
 
                         // On a mobile window, the start is from the top while on PC/Linux/OSX from
                         // bottom
-                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
+                        if cfg!(target_os = "ios") {
                             let window_height = windows.primary().height();
                             location.y = window_height - location.y;
                         }
