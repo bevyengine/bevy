@@ -202,7 +202,7 @@ pub mod adapter {
     /// // Building a new schedule/app...
     /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::single_threaded())
+    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // Panic if the load system returns an error.
@@ -246,7 +246,7 @@ pub mod adapter {
     /// // Building a new schedule/app...
     /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::single_threaded())
+    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // If the system fails, just move on and try again next frame.

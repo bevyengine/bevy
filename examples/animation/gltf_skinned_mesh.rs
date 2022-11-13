@@ -1,7 +1,7 @@
 //! Skinned mesh example with mesh and joints data loaded from a glTF file.
 //! Example taken from <https://github.com/KhronosGroup/glTF-Tutorials/blob/master/gltfTutorial/gltfTutorial_019_SimpleSkin.md>
 
-use std::f32::consts::PI;
+use std::f32::consts::*;
 
 use bevy::{pbr::AmbientLight, prelude::*, render::mesh::skinning::SkinnedMesh};
 
@@ -67,6 +67,6 @@ fn joint_animation(
         let mut second_joint_transform = transform_query.get_mut(second_joint_entity).unwrap();
 
         second_joint_transform.rotation =
-            Quat::from_rotation_z(PI / 2. * time.time_since_startup().as_secs_f32().sin());
+            Quat::from_rotation_z(FRAC_PI_2 * time.elapsed_seconds().sin());
     }
 }

@@ -73,7 +73,7 @@ fn generate_bodies(
             rng.gen_range(-1.0..1.0),
         )
         .normalize()
-            * rng.gen_range(0.2f32..1.0).powf(1. / 3.)
+            * rng.gen_range(0.2f32..1.0).cbrt()
             * 15.;
 
         commands.spawn(BodyBundle {

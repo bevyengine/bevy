@@ -1,4 +1,3 @@
-use bevy_ecs::system::Resource;
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
@@ -55,6 +54,36 @@ pub enum PresentMode {
     /// the current image. The framerate will be capped at the display refresh rate,
     /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
     Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
+}
+
+/// Specifies how the alpha channel of the textures should be handled during compositing.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+pub enum CompositeAlphaMode {
+    /// Chooses either `Opaque` or `Inherit` automatically，depending on the
+    /// `alpha_mode` that the current surface can support.
+    Auto = 0,
+    /// The alpha channel, if it exists, of the textures is ignored in the
+    /// compositing process. Instead, the textures is treated as if it has a
+    /// constant alpha of 1.0.
+    Opaque = 1,
+    /// The alpha channel, if it exists, of the textures is respected in the
+    /// compositing process. The non-alpha channels of the textures are
+    /// expected to already be multiplied by the alpha channel by the
+    /// application.
+    PreMultiplied = 2,
+    /// The alpha channel, if it exists, of the textures is respected in the
+    /// compositing process. The non-alpha channels of the textures are not
+    /// expected to already be multiplied by the alpha channel by the
+    /// application; instead, the compositor will multiply the non-alpha
+    /// channels of the texture by the alpha channel during compositing.
+    PostMultiplied = 3,
+    /// The alpha channel, if it exists, of the textures is unknown for processing
+    /// during compositing. Instead, the application is responsible for setting
+    /// the composite alpha blending mode using native WSI command. If not set,
+    /// then a platform-specific default will be used.
+    Inherit = 4,
 }
 
 impl WindowId {
@@ -264,6 +293,7 @@ pub struct Window {
     canvas: Option<String>,
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
+    alpha_mode: CompositeAlphaMode,
 }
 /// A command to be sent to a window.
 ///
@@ -407,6 +437,7 @@ impl Window {
             canvas: window_descriptor.canvas.clone(),
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
+            alpha_mode: window_descriptor.alpha_mode,
         }
     }
     /// Get the window's [`WindowId`].
@@ -614,6 +645,12 @@ impl Window {
     /// Get the window's [`PresentMode`].
     pub fn present_mode(&self) -> PresentMode {
         self.present_mode
+    }
+
+    #[inline]
+    /// Get the window's [`CompositeAlphaMode`].
+    pub fn alpha_mode(&self) -> CompositeAlphaMode {
+        self.alpha_mode
     }
 
     #[inline]
@@ -857,7 +894,7 @@ pub enum MonitorSelection {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Resource, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
@@ -914,10 +951,8 @@ pub struct WindowDescriptor {
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - macOS X: Not working as expected.
-    /// - Windows 11: Not working as expected
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
-    /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
+    /// - macOS: Not working as expected. See [Bevy #6330](https://github.com/bevyengine/bevy/issues/6330).
+    /// - Linux (Wayland): Not working as expected. See [Bevy #5779](https://github.com/bevyengine/bevy/issues/5779).
     pub transparent: bool,
     /// The "html canvas" element selector.
     ///
@@ -935,6 +970,8 @@ pub struct WindowDescriptor {
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
+    /// Specifies how the alpha channel of the textures should be handled during compositing.
+    pub alpha_mode: CompositeAlphaMode,
 }
 
 impl Default for WindowDescriptor {
@@ -956,6 +993,7 @@ impl Default for WindowDescriptor {
             transparent: false,
             canvas: None,
             fit_canvas_to_parent: false,
+            alpha_mode: CompositeAlphaMode::Auto,
         }
     }
 }

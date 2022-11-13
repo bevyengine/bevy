@@ -20,7 +20,7 @@ pub(crate) fn get_bevy_reflect_path() -> Path {
 /// assert_eq!("ReflectHash", reflected.to_string());
 /// ```
 pub(crate) fn get_reflect_ident(name: &str) -> Ident {
-    let reflected = format!("Reflect{}", name);
+    let reflected = format!("Reflect{name}");
     Ident::new(&reflected, Span::call_site())
 }
 

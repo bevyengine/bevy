@@ -238,6 +238,45 @@ mod tests {
                 b: B(2),
             }
         );
+
+        #[derive(Default, Component, PartialEq, Debug)]
+        struct Ignored;
+
+        #[derive(Bundle, PartialEq, Debug)]
+        struct BundleWithIgnored {
+            c: C,
+            #[bundle(ignore)]
+            ignored: Ignored,
+        }
+
+        let mut ids = Vec::new();
+        <BundleWithIgnored as Bundle>::component_ids(
+            &mut world.components,
+            &mut world.storages,
+            &mut |id| {
+                ids.push(id);
+            },
+        );
+
+        assert_eq!(ids, &[world.init_component::<C>(),]);
+
+        let e4 = world
+            .spawn(BundleWithIgnored {
+                c: C,
+                ignored: Ignored,
+            })
+            .id();
+
+        assert_eq!(world.get::<C>(e4).unwrap(), &C);
+        assert_eq!(world.get::<Ignored>(e4), None);
+
+        assert_eq!(
+            world.entity_mut(e4).remove::<BundleWithIgnored>().unwrap(),
+            BundleWithIgnored {
+                c: C,
+                ignored: Ignored,
+            }
+        );
     }
 
     #[test]
@@ -501,8 +540,8 @@ mod tests {
         let f = world
             .spawn((TableStored("def"), A(456), SparseStored(1)))
             .id();
-        // // this should be skipped
-        // SparseStored(1).spawn("abc");
+        // this should be skipped
+        // world.spawn(SparseStored(1));
         let ents = world
             .query::<(Entity, Option<&SparseStored>, &A)>()
             .iter(&world)
@@ -956,11 +995,7 @@ mod tests {
             .components()
             .get_resource_id(TypeId::of::<Num>())
             .unwrap();
-        let archetype_component_id = world
-            .archetypes()
-            .resource()
-            .get_archetype_component_id(resource_id)
-            .unwrap();
+        let archetype_component_id = world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(world.resource::<Num>().0, 123);
         assert!(world.contains_resource::<Num>());
@@ -1023,11 +1058,8 @@ mod tests {
             "resource id does not change after removing / re-adding"
         );
 
-        let current_archetype_component_id = world
-            .archetypes()
-            .resource()
-            .get_archetype_component_id(current_resource_id)
-            .unwrap();
+        let current_archetype_component_id =
+            world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(
             archetype_component_id, current_archetype_component_id,
@@ -1421,7 +1453,7 @@ mod tests {
             e4,
             Entity {
                 generation: 0,
-                id: 3,
+                index: 3,
             },
             "new entity is created immediately after world_a's max entity"
         );
@@ -1455,7 +1487,7 @@ mod tests {
 
         let e4_mismatched_generation = Entity {
             generation: 1,
-            id: 3,
+            index: 3,
         };
         assert!(
             world_b.get_or_spawn(e4_mismatched_generation).is_none(),
@@ -1474,7 +1506,7 @@ mod tests {
 
         let high_non_existent_entity = Entity {
             generation: 0,
-            id: 6,
+            index: 6,
         };
         world_b
             .get_or_spawn(high_non_existent_entity)
@@ -1488,7 +1520,7 @@ mod tests {
 
         let high_non_existent_but_reserved_entity = Entity {
             generation: 0,
-            id: 5,
+            index: 5,
         };
         assert!(
             world_b.get_entity(high_non_existent_but_reserved_entity).is_none(),
@@ -1507,19 +1539,19 @@ mod tests {
             vec![
                 Entity {
                     generation: 0,
-                    id: 5
+                    index: 5
                 },
                 Entity {
                     generation: 0,
-                    id: 4
+                    index: 4
                 },
                 Entity {
                     generation: 0,
-                    id: 7,
+                    index: 7,
                 },
                 Entity {
                     generation: 0,
-                    id: 8,
+                    index: 8,
                 },
             ],
             "space between original entities and high entities is used for new entity ids"
@@ -1571,7 +1603,7 @@ mod tests {
         let e2 = world.spawn_empty().id();
         let invalid_e2 = Entity {
             generation: 1,
-            id: e2.id,
+            index: e2.index,
         };
 
         let values = vec![(e0, (B(0), C)), (e1, (B(1), C)), (invalid_e2, (B(2), C))];

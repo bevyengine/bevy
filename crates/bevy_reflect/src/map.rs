@@ -5,7 +5,7 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
+use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -274,6 +274,11 @@ impl Reflect for DynamicMap {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -298,6 +303,10 @@ impl Reflect for DynamicMap {
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Map(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Map(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {
@@ -371,9 +380,7 @@ impl<'a> ExactSizeIterator for MapIter<'a> {}
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
-    let map = if let ReflectRef::Map(map) = b.reflect_ref() {
-        map
-    } else {
+    let ReflectRef::Map(map) = b.reflect_ref() else {
         return Some(false);
     };
 

@@ -55,7 +55,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
     #import bevy_sprite::mesh2d_vertex_output
 };
 

@@ -187,3 +187,15 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
         }
     }
 }
+
+impl<'a> From<String> for AssetPath<'a> {
+    fn from(asset_path: String) -> Self {
+        let mut parts = asset_path.splitn(2, '#');
+        let path = PathBuf::from(parts.next().expect("Path must be set."));
+        let label = parts.next().map(String::from);
+        AssetPath {
+            path: Cow::Owned(path),
+            label: label.map(Cow::Owned),
+        }
+    }
+}

@@ -41,6 +41,15 @@ impl<T> Task<T> {
     pub async fn cancel(self) -> Option<T> {
         self.0.cancel().await
     }
+
+    /// Returns `true` if the current task is finished.
+    ///
+    ///
+    /// Unlike poll, it doesn't resolve the final value, it just checks if the task has finished.
+    /// Note that in a multithreaded environment, this task can be finished immediately after calling this function.
+    pub fn is_finished(&self) -> bool {
+        self.0.is_finished()
+    }
 }
 
 impl<T> Future for Task<T> {

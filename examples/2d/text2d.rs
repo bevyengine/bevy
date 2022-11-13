@@ -96,8 +96,8 @@ fn animate_translation(
     mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
-        transform.translation.x = 100.0 * time.seconds_since_startup().sin() as f32 - 400.0;
-        transform.translation.y = 100.0 * time.seconds_since_startup().cos() as f32;
+        transform.translation.x = 100.0 * time.elapsed_seconds().sin() - 400.0;
+        transform.translation.y = 100.0 * time.elapsed_seconds().cos();
     }
 }
 
@@ -106,7 +106,7 @@ fn animate_rotation(
     mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32);
+        transform.rotation = Quat::from_rotation_z(time.elapsed_seconds().cos());
     }
 }
 
@@ -118,6 +118,6 @@ fn animate_scale(
     // rendered quad, resulting in a pixellated look.
     for mut transform in &mut query {
         transform.translation = Vec3::new(400.0, 0.0, 0.0);
-        transform.scale = Vec3::splat((time.seconds_since_startup().sin() as f32 + 1.1) * 2.0);
+        transform.scale = Vec3::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
     }
 }

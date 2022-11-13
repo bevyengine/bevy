@@ -237,11 +237,5 @@ impl_from_reflect_value!(Quat);
 impl_from_reflect_value!(DQuat);
 
 impl_reflect_value!(EulerRot(Debug, Default));
-
-// glam type aliases these to the non simd versions when there is no support (this breaks wasm builds for example)
-// ideally it shouldn't do that and there's an issue on glam for this
-// https://github.com/bitshifter/glam-rs/issues/306
-#[cfg(any(target_feature = "sse2", target_feature = "simd128"))]
-impl_reflect_value!(BVec3A(Debug, PartialEq, Default));
-#[cfg(any(target_feature = "sse2", target_feature = "simd128"))]
-impl_reflect_value!(BVec4A(Debug, PartialEq, Default));
+impl_reflect_value!(BVec3A(Debug, Default));
+impl_reflect_value!(BVec4A(Debug, Default));
