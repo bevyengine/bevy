@@ -45,7 +45,8 @@
     unused_variables
 )]
 
-use std::ptr::null_mut;
+use alloc::{vec, vec::Vec};
+use core::ptr::null_mut;
 
 use glam::Vec3;
 

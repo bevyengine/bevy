@@ -6,7 +6,7 @@ use bevy_ecs::{
         SystemParamItem, SystemParamState, SystemState,
     },
 };
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 
 /// A helper for accessing [`MainWorld`] content using a system parameter.
 ///

@@ -1,3 +1,4 @@
+use alloc::string::ToString;
 use proc_macro::{Span, TokenStream};
 use quote::quote;
 use syn::{parse_macro_input, Data, DeriveInput};

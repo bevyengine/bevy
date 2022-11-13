@@ -1,4 +1,7 @@
 use crate::Time;
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
 use bevy_ecs::{
     archetype::ArchetypeComponentId,
     component::ComponentId,
@@ -8,7 +11,6 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::HashMap;
-use std::borrow::Cow;
 
 /// The internal state of each [`FixedTimestep`].
 #[derive(Debug)]
@@ -174,7 +176,7 @@ impl System for FixedTimestep {
     type Out = ShouldRun;
 
     fn name(&self) -> Cow<'static, str> {
-        Cow::Borrowed(std::any::type_name::<FixedTimestep>())
+        Cow::Borrowed(core::any::type_name::<FixedTimestep>())
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
@@ -243,8 +245,8 @@ mod test {
     use super::*;
     use bevy_ecs::prelude::*;
     use bevy_utils::Instant;
-    use std::ops::{Add, Mul};
-    use std::time::Duration;
+    use core::ops::{Add, Mul};
+    use core::time::Duration;
 
     #[derive(Resource)]
     struct Count(usize);

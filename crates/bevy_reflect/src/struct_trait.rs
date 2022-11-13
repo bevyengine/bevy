@@ -2,8 +2,11 @@ use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
 use bevy_utils::{Entry, HashMap};
-use std::fmt::{Debug, Formatter};
+use core::fmt::{Debug, Formatter};
 use std::{
     any::{Any, TypeId},
     borrow::Cow,
@@ -100,7 +103,7 @@ impl StructInfo {
 
         Self {
             name,
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             field_names,
@@ -159,7 +162,7 @@ impl StructInfo {
 
     /// The [type name] of the struct.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -461,7 +464,7 @@ impl Reflect for DynamicStruct {
         struct_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicStruct(")?;
         struct_debug(self, f)?;
         write!(f, ")")
@@ -469,7 +472,7 @@ impl Reflect for DynamicStruct {
 }
 
 impl Debug for DynamicStruct {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -535,7 +538,10 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn struct_debug(dyn_struct: &dyn Struct, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn struct_debug(
+    dyn_struct: &dyn Struct,
+    f: &mut core::fmt::Formatter<'_>,
+) -> core::fmt::Result {
     let mut debug = f.debug_struct(dyn_struct.type_name());
     for field_index in 0..dyn_struct.field_len() {
         let field = dyn_struct.field_at(field_index).unwrap();

@@ -1,6 +1,6 @@
 //! Eat the cakes. Eat them all. An example 3D game.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{ecs::schedule::SystemSet, prelude::*};
 use rand::Rng;

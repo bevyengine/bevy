@@ -125,7 +125,7 @@ enum HandleType {
 }
 
 impl Debug for HandleType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             HandleType::Weak => f.write_str("Weak"),
             HandleType::Strong(_) => f.write_str("Strong"),
@@ -299,8 +299,8 @@ impl<T: Asset> Default for Handle<T> {
 }
 
 impl<T: Asset> Debug for Handle<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
-        let name = std::any::type_name::<T>().split("::").last().unwrap();
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::result::Result<(), core::fmt::Error> {
+        let name = core::any::type_name::<T>().split("::").last().unwrap();
         write!(f, "{:?}Handle<{name}>({:?})", self.handle_type, self.id)
     }
 }
@@ -419,7 +419,7 @@ impl Drop for HandleUntyped {
 
 impl<A: Asset> From<Handle<A>> for HandleUntyped {
     fn from(mut handle: Handle<A>) -> Self {
-        let handle_type = std::mem::replace(&mut handle.handle_type, HandleType::Weak);
+        let handle_type = core::mem::replace(&mut handle.handle_type, HandleType::Weak);
         HandleUntyped {
             id: handle.id,
             handle_type,

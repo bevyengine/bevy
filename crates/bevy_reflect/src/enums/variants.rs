@@ -1,6 +1,7 @@
 use crate::{NamedField, UnnamedField};
+use alloc::boxed::Box;
 use bevy_utils::HashMap;
-use std::slice::Iter;
+use core::slice::Iter;
 
 /// Describes the form of an enum variant.
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]

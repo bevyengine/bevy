@@ -692,7 +692,7 @@ impl World {
 
     /// Returns an iterator of entities that had components of type `T` removed
     /// since the last call to [`World::clear_trackers`].
-    pub fn removed<T: Component>(&self) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
+    pub fn removed<T: Component>(&self) -> std::iter::Cloned<core::slice::Iter<'_, Entity>> {
         if let Some(component_id) = self.components.get_id(TypeId::of::<T>()) {
             self.removed_with_id(component_id)
         } else {
@@ -705,7 +705,7 @@ impl World {
     pub fn removed_with_id(
         &self,
         component_id: ComponentId,
-    ) -> std::iter::Cloned<std::slice::Iter<'_, Entity>> {
+    ) -> std::iter::Cloned<core::slice::Iter<'_, Entity>> {
         if let Some(removed) = self.removed_components.get(component_id) {
             removed.iter().cloned()
         } else {
@@ -857,7 +857,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -881,7 +881,7 @@ impl World {
                 Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -942,7 +942,7 @@ impl World {
                 "Requested non-send resource {} does not exist in the `World`. 
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -962,7 +962,7 @@ impl World {
                 "Requested non-send resource {} does not exist in the `World`. 
                 Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
-                std::any::type_name::<R>()
+                core::any::type_name::<R>()
             ),
         }
     }
@@ -1174,7 +1174,7 @@ impl World {
         let component_id = self
             .components
             .get_resource_id(TypeId::of::<R>())
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
+            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
         // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
         let component_info = self.components().get_info(component_id).unwrap();
         if !component_info.is_send_and_sync() {
@@ -1187,7 +1187,7 @@ impl World {
             .get_mut(component_id)
             // SAFETY: The type R is Send and Sync or we've already validated that we're on the main thread.
             .and_then(|info| unsafe { info.remove() })
-            .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
+            .unwrap_or_else(|| panic!("resource does not exist: {}", core::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: pointer is of type R
         let mut value = unsafe { ptr.read::<R>() };
@@ -1203,7 +1203,7 @@ impl World {
         assert!(!self.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the FnOnce param is invoked.",
-            std::any::type_name::<R>());
+            core::any::type_name::<R>());
 
         OwningPtr::make(value, |ptr| {
             // SAFETY: pointer is of type R
@@ -1215,7 +1215,7 @@ impl World {
                     .unwrap_or_else(|| {
                         panic!(
                             "No resource of type {} exists in the World.",
-                            std::any::type_name::<R>()
+                            core::any::type_name::<R>()
                         )
                     });
             }
@@ -1243,7 +1243,7 @@ impl World {
             Some(mut events_resource) => events_resource.extend(events),
             None => bevy_utils::tracing::error!(
                     "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
-                    std::any::type_name::<E>()
+                    core::any::type_name::<E>()
                 ),
         }
     }
@@ -1360,7 +1360,7 @@ impl World {
         assert!(
             self.main_thread_validator.is_main_thread(),
             "attempted to access NonSend resource {} off of the main thread",
-            std::any::type_name::<T>(),
+            core::any::type_name::<T>(),
         );
     }
 
@@ -1734,7 +1734,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .get_resource_id(core::any::TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -1750,7 +1750,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .get_resource_id(core::any::TypeId::of::<TestResource>())
             .unwrap();
 
         {

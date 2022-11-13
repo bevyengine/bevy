@@ -82,10 +82,10 @@ impl TextPipeline {
             return Ok(TextLayoutInfo::default());
         }
 
-        let mut min_x: f32 = std::f32::MAX;
-        let mut min_y: f32 = std::f32::MAX;
-        let mut max_x: f32 = std::f32::MIN;
-        let mut max_y: f32 = std::f32::MIN;
+        let mut min_x: f32 = core::f32::MAX;
+        let mut min_y: f32 = core::f32::MAX;
+        let mut max_x: f32 = core::f32::MIN;
+        let mut max_y: f32 = core::f32::MIN;
 
         for sg in &section_glyphs {
             let scaled_font = scaled_fonts[sg.section_index];

@@ -247,7 +247,7 @@ pub fn get_fitting_videomode(
     }
 
     modes.sort_by(|a, b| {
-        use std::cmp::Ordering::*;
+        use core::cmp::Ordering::*;
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
                 match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
@@ -267,7 +267,7 @@ pub fn get_fitting_videomode(
 pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::monitor::VideoMode {
     let mut modes = monitor.video_modes().collect::<Vec<_>>();
     modes.sort_by(|a, b| {
-        use std::cmp::Ordering::*;
+        use core::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
                 Equal => b

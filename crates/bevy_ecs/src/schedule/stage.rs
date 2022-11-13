@@ -27,7 +27,7 @@ pub trait Stage: Downcast + Send + Sync {
 }
 
 impl Debug for dyn Stage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let Some(as_systemstage) = self.as_any().downcast_ref::<SystemStage>() {
             write!(f, "{as_systemstage:?}")
         } else if let Some(as_schedule) = self.as_any().downcast_ref::<Schedule>() {
@@ -446,7 +446,7 @@ impl SystemStage {
                 && self.uninitialized_before_commands.is_empty()
                 && self.uninitialized_at_end.is_empty()
         );
-        fn unwrap_dependency_cycle_error<Node: GraphNode, Output, Labels: std::fmt::Debug>(
+        fn unwrap_dependency_cycle_error<Node: GraphNode, Output, Labels: core::fmt::Debug>(
             result: Result<Output, DependencyGraphError<Labels>>,
             nodes: &[Node],
             nodes_description: &'static str,
@@ -454,7 +454,7 @@ impl SystemStage {
             match result {
                 Ok(output) => output,
                 Err(DependencyGraphError::GraphCycles(cycle)) => {
-                    use std::fmt::Write;
+                    use core::fmt::Write;
                     let mut message = format!("Found a dependency cycle in {nodes_description}:");
                     writeln!(message).unwrap();
                     for (index, labels) in &cycle {
@@ -602,8 +602,8 @@ impl SystemStage {
         &self,
         name: &str,
         v: &Vec<SystemContainer>,
-        f: &mut std::fmt::Formatter<'_>,
-    ) -> std::fmt::Result {
+        f: &mut core::fmt::Formatter<'_>,
+    ) -> core::fmt::Result {
         write!(f, "{name}: ")?;
         if v.len() > 1 {
             writeln!(f, "[")?;
@@ -617,8 +617,8 @@ impl SystemStage {
     }
 }
 
-impl std::fmt::Debug for SystemStage {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for SystemStage {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "SystemStage: {{ ")?;
         write!(
             f,

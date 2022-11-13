@@ -1,3 +1,4 @@
+use alloc::{format, vec, vec::Vec};
 use bevy_macro_utils::{get_lit_bool, get_lit_str, BevyManifest, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};

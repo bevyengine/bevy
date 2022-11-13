@@ -2,7 +2,7 @@
 
 #![warn(missing_docs)]
 
-use std::ops::Deref;
+use core::ops::Deref;
 
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};

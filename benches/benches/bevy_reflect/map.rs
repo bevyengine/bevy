@@ -1,4 +1,4 @@
-use std::{fmt::Write, iter, time::Duration};
+use core::{fmt::Write, iter, time::Duration};
 
 use bevy_reflect::{DynamicMap, Map};
 use bevy_utils::HashMap;

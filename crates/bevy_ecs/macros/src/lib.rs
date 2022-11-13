@@ -1,9 +1,14 @@
+#![no_std]
+#![forbid(unsafe_code)]
+
+extern crate alloc;
 extern crate proc_macro;
 
 mod component;
 mod fetch;
 
 use crate::fetch::derive_world_query_impl;
+use alloc::{format, string::String, vec, vec::Vec};
 use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -411,14 +416,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             #[doc(hidden)]
             #fetch_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
                 state: TSystemParamState,
-                marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
+                marker: core::marker::PhantomData<fn()->(#punctuated_generic_idents)>
             }
 
             unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {
                 fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
                     Self {
                         state: TSystemParamState::init(world, system_meta),
-                        marker: std::marker::PhantomData,
+                        marker: core::marker::PhantomData,
                     }
                 }
 

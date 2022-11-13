@@ -1,7 +1,7 @@
 //! Demonstrates how reflection is used with generic Rust types.
 
 use bevy::prelude::*;
-use std::any::TypeId;
+use core::any::TypeId;
 
 fn main() {
     App::new()

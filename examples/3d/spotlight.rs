@@ -1,4 +1,4 @@
-use std::f32::consts::*;
+use core::f32::consts::*;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},

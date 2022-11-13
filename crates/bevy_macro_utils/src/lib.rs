@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+extern crate alloc;
 extern crate proc_macro;
 
 mod attrs;
@@ -8,6 +10,8 @@ pub use attrs::*;
 pub use shape::*;
 pub use symbol::*;
 
+use alloc::format;
+use alloc::string::{String, ToString};
 use proc_macro::TokenStream;
 use quote::{quote, quote_spanned};
 use std::{env, path::PathBuf};

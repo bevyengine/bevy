@@ -2,6 +2,7 @@ use crate::{
     app::{App, AppExit},
     plugin::Plugin,
 };
+use alloc::borrow::ToOwned;
 use bevy_ecs::event::{Events, ManualEventReader};
 use bevy_ecs::prelude::Resource;
 use bevy_utils::{Duration, Instant};

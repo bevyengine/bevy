@@ -7,7 +7,7 @@ use crate::{
     },
 };
 use bevy_utils::tracing::trace;
-use std::ops::Range;
+use core::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
 
 /// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.

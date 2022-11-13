@@ -3,9 +3,13 @@ use crate::{
     DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
     TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
-use std::slice::Iter;
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::any::{Any, TypeId};
+use core::fmt::{Debug, Formatter};
+use core::slice::Iter;
 
 /// A reflected Rust tuple.
 ///
@@ -147,7 +151,7 @@ impl TupleInfo {
     ///
     pub fn new<T: Reflect>(fields: &[UnnamedField]) -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
             #[cfg(feature = "documentation")]
@@ -178,7 +182,7 @@ impl TupleInfo {
 
     /// The [type name] of the tuple.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -364,7 +368,7 @@ impl Reflect for DynamicTuple {
         tuple_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicTuple(")?;
         tuple_debug(self, f)?;
         write!(f, ")")
@@ -442,7 +446,7 @@ pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
 /// // )
 /// ```
 #[inline]
-pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_tuple("");
     for field in dyn_tuple.iter_fields() {
         debug.field(&field as &dyn Debug);
@@ -506,7 +510,7 @@ macro_rules! impl_reflect_tuple {
 
         impl<$($name: Reflect),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
+                core::any::type_name::<Self>()
             }
 
             fn get_type_info(&self) -> &'static TypeInfo {

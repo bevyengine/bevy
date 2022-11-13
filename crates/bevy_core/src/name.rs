@@ -1,12 +1,12 @@
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use alloc::string::String;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_utils::AHasher;
-use std::{
-    borrow::Cow,
-    hash::{Hash, Hasher},
-    ops::Deref,
-};
+use core::ops::Deref;
+use std::hash::{Hash, Hasher};
 
 /// Component used to identify an entity. Stores a hash for faster comparisons
 /// The hash is eagerly re-computed upon each update to the name.
@@ -69,10 +69,10 @@ impl Name {
     }
 }
 
-impl std::fmt::Display for Name {
+impl core::fmt::Display for Name {
     #[inline(always)]
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        std::fmt::Display::fmt(&self.name, f)
+    fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
+        core::fmt::Display::fmt(&self.name, f)
     }
 }
 
@@ -132,13 +132,13 @@ impl PartialEq for Name {
 impl Eq for Name {}
 
 impl PartialOrd for Name {
-    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+    fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
         self.name.partial_cmp(&other.name)
     }
 }
 
 impl Ord for Name {
-    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+    fn cmp(&self, other: &Self) -> core::cmp::Ordering {
         self.name.cmp(&other.name)
     }
 }

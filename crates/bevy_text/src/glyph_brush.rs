@@ -77,9 +77,9 @@ impl GlyphBrush {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mut min_x = std::f32::MAX;
-        let mut min_y = std::f32::MAX;
-        let mut max_y = std::f32::MIN;
+        let mut min_x = core::f32::MAX;
+        let mut min_y = core::f32::MAX;
+        let mut max_y = core::f32::MIN;
         for sg in &glyphs {
             let glyph = &sg.glyph;
 

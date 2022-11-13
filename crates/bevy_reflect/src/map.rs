@@ -1,5 +1,8 @@
-use std::any::{Any, TypeId};
-use std::fmt::{Debug, Formatter};
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
+use core::any::{Any, TypeId};
+use core::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
@@ -76,11 +79,11 @@ impl MapInfo {
     /// Create a new [`MapInfo`].
     pub fn new<TMap: Map, TKey: Hash + Reflect, TValue: Reflect>() -> Self {
         Self {
-            type_name: std::any::type_name::<TMap>(),
+            type_name: core::any::type_name::<TMap>(),
             type_id: TypeId::of::<TMap>(),
-            key_type_name: std::any::type_name::<TKey>(),
+            key_type_name: core::any::type_name::<TKey>(),
             key_type_id: TypeId::of::<TKey>(),
-            value_type_name: std::any::type_name::<TValue>(),
+            value_type_name: core::any::type_name::<TValue>(),
             value_type_id: TypeId::of::<TValue>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -95,7 +98,7 @@ impl MapInfo {
 
     /// The [type name] of the map.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -112,7 +115,7 @@ impl MapInfo {
 
     /// The [type name] of the key.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn key_type_name(&self) -> &'static str {
         self.key_type_name
     }
@@ -129,7 +132,7 @@ impl MapInfo {
 
     /// The [type name] of the value.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn value_type_name(&self) -> &'static str {
         self.value_type_name
     }
@@ -235,7 +238,7 @@ impl Map for DynamicMap {
         match self.indices.entry(key.reflect_hash().expect(HASH_ERROR)) {
             Entry::Occupied(entry) => {
                 let (_old_key, old_value) = self.values.get_mut(*entry.get()).unwrap();
-                std::mem::swap(old_value, &mut value);
+                core::mem::swap(old_value, &mut value);
                 Some(value)
             }
             Entry::Vacant(entry) => {
@@ -317,7 +320,7 @@ impl Reflect for DynamicMap {
         map_partial_eq(self, value)
     }
 
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicMap(")?;
         map_debug(self, f)?;
         write!(f, ")")
@@ -325,7 +328,7 @@ impl Reflect for DynamicMap {
 }
 
 impl Debug for DynamicMap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -360,7 +363,7 @@ impl<'a> Iterator for MapIter<'a> {
 
 impl IntoIterator for DynamicMap {
     type Item = (Box<dyn Reflect>, Box<dyn Reflect>);
-    type IntoIter = std::vec::IntoIter<Self::Item>;
+    type IntoIter = alloc::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.values.into_iter()
@@ -420,7 +423,7 @@ pub fn map_partial_eq<M: Map>(a: &M, b: &dyn Reflect) -> Option<bool> {
 /// // }
 /// ```
 #[inline]
-pub fn map_debug(dyn_map: &dyn Map, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+pub fn map_debug(dyn_map: &dyn Map, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
     let mut debug = f.debug_map();
     for (key, value) in dyn_map.iter() {
         debug.entry(&key as &dyn Debug, &value as &dyn Debug);

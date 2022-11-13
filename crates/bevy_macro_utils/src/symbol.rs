@@ -1,4 +1,4 @@
-use std::fmt::{self, Display};
+use core::fmt::{self, Display};
 use syn::{Ident, Path};
 
 #[derive(Copy, Clone)]

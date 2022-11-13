@@ -1,7 +1,7 @@
 use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
 };
-use std::any::{Any, TypeId};
+use core::any::{Any, TypeId};
 
 /// A static accessor to compile-time type information.
 ///
@@ -22,7 +22,7 @@ use std::any::{Any, TypeId};
 /// # Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use core::any::Any;
 /// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
@@ -93,8 +93,8 @@ pub trait Typed: Reflect {
 ///
 /// [`Reflect::get_type_info`]: crate::Reflect::get_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
-/// [`TypeId`]: std::any::TypeId
-/// [type name]: std::any::type_name
+/// [`TypeId`]: core::any::TypeId
+/// [type name]: core::any::type_name
 #[derive(Debug, Clone)]
 pub enum TypeInfo {
     Struct(StructInfo),
@@ -129,7 +129,7 @@ impl TypeInfo {
 
     /// The [name] of the underlying type.
     ///
-    /// [name]: std::any::type_name
+    /// [name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         match self {
             Self::Struct(info) => info.type_name(),
@@ -185,7 +185,7 @@ pub struct ValueInfo {
 impl ValueInfo {
     pub fn new<T: Reflect + ?Sized>() -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -200,7 +200,7 @@ impl ValueInfo {
 
     /// The [type name] of the value.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -241,7 +241,7 @@ pub struct DynamicInfo {
 impl DynamicInfo {
     pub fn new<T: Reflect>() -> Self {
         Self {
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -256,7 +256,7 @@ impl DynamicInfo {
 
     /// The [type name] of the dynamic value.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }

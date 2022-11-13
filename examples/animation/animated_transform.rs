@@ -1,6 +1,6 @@
 //! Create and play an animation defined by code that operates on the `Transform` component.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::prelude::*;
 

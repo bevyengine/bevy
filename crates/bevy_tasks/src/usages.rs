@@ -11,8 +11,8 @@
 //! for consumption. (likely via channels)
 
 use super::TaskPool;
+use core::ops::Deref;
 use once_cell::sync::OnceCell;
-use std::ops::Deref;
 
 static COMPUTE_TASK_POOL: OnceCell<ComputeTaskPool> = OnceCell::new();
 static ASYNC_COMPUTE_TASK_POOL: OnceCell<AsyncComputeTaskPool> = OnceCell::new();

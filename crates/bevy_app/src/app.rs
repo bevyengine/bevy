@@ -1,4 +1,7 @@
 use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
+use alloc::boxed::Box;
+use alloc::string::{String, ToString};
+use alloc::vec::Vec;
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},
@@ -11,7 +14,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -76,7 +79,7 @@ pub struct App {
 }
 
 impl Debug for App {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "App {{ sub_apps: ")?;
         f.debug_map()
             .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
@@ -92,7 +95,7 @@ struct SubApp {
 }
 
 impl Debug for SubApp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "SubApp {{ app: ")?;
         f.debug_map()
             .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
@@ -163,8 +166,8 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
-        let mut app = std::mem::replace(self, App::empty());
-        let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
+        let mut app = core::mem::replace(self, App::empty());
+        let runner = core::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
 
@@ -418,7 +421,7 @@ impl App {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        use std::any::TypeId;
+        use core::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
             "use `add_startup_system_to_stage` instead of `add_system_to_stage` to add a system to a StartupStage"
@@ -453,7 +456,7 @@ impl App {
         stage_label: impl StageLabel,
         system_set: SystemSet,
     ) -> &mut Self {
-        use std::any::TypeId;
+        use core::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
             "use `add_startup_system_set_to_stage` instead of `add_system_set_to_stage` to add system sets to a StartupStage"

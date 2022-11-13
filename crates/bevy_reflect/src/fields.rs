@@ -1,5 +1,5 @@
 use crate::Reflect;
-use std::any::{Any, TypeId};
+use core::any::{Any, TypeId};
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
@@ -16,7 +16,7 @@ impl NamedField {
     pub fn new<T: Reflect>(name: &'static str) -> Self {
         Self {
             name,
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -36,7 +36,7 @@ impl NamedField {
 
     /// The [type name] of the field.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }
@@ -72,7 +72,7 @@ impl UnnamedField {
     pub fn new<T: Reflect>(index: usize) -> Self {
         Self {
             index,
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             #[cfg(feature = "documentation")]
             docs: None,
@@ -92,7 +92,7 @@ impl UnnamedField {
 
     /// The [type name] of the field.
     ///
-    /// [type name]: std::any::type_name
+    /// [type name]: core::any::type_name
     pub fn type_name(&self) -> &'static str {
         self.type_name
     }

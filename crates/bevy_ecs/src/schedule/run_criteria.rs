@@ -154,7 +154,7 @@ impl GraphNode for RunCriteriaContainer {
 
     fn labels(&self) -> &[RunCriteriaLabelId] {
         if let Some(ref label) = self.label {
-            std::slice::from_ref(label)
+            core::slice::from_ref(label)
         } else {
             &[]
         }
@@ -356,7 +356,7 @@ impl RunCriteria {
 }
 
 impl Debug for dyn System<In = (), Out = ShouldRun> + 'static {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "System {} with In=(), Out=ShouldRun: {{{}}}",
@@ -379,7 +379,7 @@ impl Debug for dyn System<In = (), Out = ShouldRun> + 'static {
 }
 
 impl Debug for dyn System<In = ShouldRun, Out = ShouldRun> + 'static {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(
             f,
             "System {} with In=ShouldRun, Out=ShouldRun: {{{}}}",

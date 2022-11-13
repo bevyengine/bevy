@@ -1,10 +1,11 @@
 //! Helpers for working with Bevy reflection.
 
 use crate::TypeInfo;
+use alloc::boxed::Box;
 use bevy_utils::HashMap;
+use core::any::{Any, TypeId};
 use once_cell::race::OnceBox;
 use parking_lot::RwLock;
-use std::any::{Any, TypeId};
 
 /// A container for [`TypeInfo`] over non-generic types, allowing instances to be stored statically.
 ///
@@ -15,7 +16,7 @@ use std::any::{Any, TypeId};
 /// ## Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use core::any::Any;
 /// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
@@ -80,7 +81,7 @@ impl NonGenericTypeInfoCell {
 /// ## Example
 ///
 /// ```
-/// # use std::any::Any;
+/// # use core::any::Any;
 /// # use bevy_reflect::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///

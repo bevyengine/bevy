@@ -15,8 +15,8 @@ enum Always {
 pub fn run_criteria_yes(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_criteria/yes");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     fn always_yes() -> ShouldRun {
         ShouldRun::Yes
@@ -47,8 +47,8 @@ pub fn run_criteria_yes(criterion: &mut Criterion) {
 pub fn run_criteria_no(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_criteria/no");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     fn always_no() -> ShouldRun {
         ShouldRun::No
@@ -78,8 +78,8 @@ pub fn run_criteria_no(criterion: &mut Criterion) {
 pub fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_criteria/yes_with_labels");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     fn always_yes() -> ShouldRun {
         ShouldRun::Yes
@@ -110,8 +110,8 @@ pub fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
 pub fn run_criteria_no_with_labels(criterion: &mut Criterion) {
     let mut world = World::new();
     let mut group = criterion.benchmark_group("run_criteria/no_with_labels");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     fn always_no() -> ShouldRun {
         ShouldRun::No
@@ -146,8 +146,8 @@ pub fn run_criteria_yes_with_query(criterion: &mut Criterion) {
     let mut world = World::new();
     world.spawn(TestBool(true));
     let mut group = criterion.benchmark_group("run_criteria/yes_using_query");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     fn yes_with_query(query: Query<&TestBool>) -> ShouldRun {
         query.single().0.into()
@@ -178,8 +178,8 @@ pub fn run_criteria_yes_with_resource(criterion: &mut Criterion) {
     let mut world = World::new();
     world.insert_resource(TestBool(true));
     let mut group = criterion.benchmark_group("run_criteria/yes_using_resource");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(3));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(3));
     fn empty() {}
     fn yes_with_resource(res: Res<TestBool>) -> ShouldRun {
         res.0.into()

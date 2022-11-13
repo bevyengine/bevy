@@ -97,7 +97,7 @@ use std::{
 /// use bevy_ecs::component::Component;
 ///
 /// // `Duration` is defined in the `std` crate.
-/// use std::time::Duration;
+/// use core::time::Duration;
 ///
 /// // It is not possible to implement `Component` for `Duration` from this position, as they are
 /// // both foreign items, defined in an external crate. However, nothing prevents to define a new
@@ -268,8 +268,8 @@ pub struct ComponentDescriptor {
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
-impl std::fmt::Debug for ComponentDescriptor {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for ComponentDescriptor {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("ComponentDescriptor")
             .field("name", &self.name)
             .field("storage_type", &self.storage_type)
@@ -289,7 +289,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for the type `T`.
     pub fn new<T: Component>() -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             storage_type: T::Storage::STORAGE_TYPE,
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
@@ -324,7 +324,7 @@ impl ComponentDescriptor {
     /// The [`StorageType`] for resources is always [`TableStorage`].
     pub fn new_resource<T: Resource>() -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             // PERF: `SparseStorage` may actually be a more
             // reasonable choice as `storage_type` for resources.
             storage_type: StorageType::Table,
@@ -337,7 +337,7 @@ impl ComponentDescriptor {
 
     fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
         Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
+            name: Cow::Borrowed(core::any::type_name::<T>()),
             storage_type,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
@@ -571,7 +571,7 @@ impl ComponentTicks {
 
     /// Manually sets the change tick.
     ///
-    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
+    /// This is normally done automatically via the [`DerefMut`](core::ops::DerefMut) implementation
     /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
     /// However, components and resources that make use of interior mutability might require manual updates.
     ///

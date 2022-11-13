@@ -24,8 +24,8 @@ pub(super) struct BlobVec {
 }
 
 // We want to ignore the `drop` field in our `Debug` impl
-impl std::fmt::Debug for BlobVec {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for BlobVec {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("BlobVec")
             .field("item_layout", &self.item_layout)
             .field("capacity", &self.capacity)
@@ -306,7 +306,7 @@ impl BlobVec {
     /// The type `T` must be the type of the items in this [`BlobVec`].
     pub unsafe fn get_slice<T>(&self) -> &[UnsafeCell<T>] {
         // SAFETY: the inner data will remain valid for as long as 'self.
-        std::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
+        core::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len)
     }
 
     pub fn clear(&mut self) {

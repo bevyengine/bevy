@@ -35,7 +35,7 @@ use std::num::NonZeroU64;
 pub struct MeshRenderPlugin;
 
 const MAX_JOINTS: usize = 256;
-const JOINT_SIZE: usize = std::mem::size_of::<Mat4>();
+const JOINT_SIZE: usize = core::mem::size_of::<Mat4>();
 pub(crate) const JOINT_BUFFER_SIZE: usize = MAX_JOINTS * JOINT_SIZE;
 
 pub const MESH_VERTEX_OUTPUT: HandleUntyped =
@@ -213,7 +213,7 @@ impl SkinnedMeshJoints {
     }
 
     pub fn to_buffer_index(mut self) -> Self {
-        self.index *= std::mem::size_of::<Mat4>() as u32;
+        self.index *= core::mem::size_of::<Mat4>() as u32;
         self
     }
 }

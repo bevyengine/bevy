@@ -1,3 +1,5 @@
+use alloc::format;
+use alloc::string::ToString;
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::quote;

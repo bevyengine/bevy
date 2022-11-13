@@ -1,6 +1,6 @@
 use bevy_ecs::prelude::*;
+use core::ops::Deref;
 use rand::Rng;
-use std::ops::Deref;
 
 // In this example we will simulate a population of entities. In every tick we will:
 // 1. spawn a new entity with a certain possibility

@@ -1,3 +1,6 @@
+#![no_std]
+#![forbid(unsafe_code)]
+
 use bevy_macro_utils::BevyManifest;
 use encase_derive_impl::{implement, syn};
 

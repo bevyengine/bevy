@@ -42,7 +42,7 @@ impl<T: Pod> BufferVec<T> {
             values: Vec::new(),
             buffer: None,
             capacity: 0,
-            item_size: std::mem::size_of::<T>(),
+            item_size: core::mem::size_of::<T>(),
             buffer_usage,
             label: None,
             label_changed: false,
@@ -90,7 +90,7 @@ impl<T: Pod> BufferVec<T> {
     }
 
     /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`RenderDevice`](crate::renderer::RenderDevice) with size
-    /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
+    /// at least `core::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
     ///
     /// If a [`Buffer`](crate::render_resource::Buffer) exists, but is too small, references to it will be discarded,
     /// and a new [`Buffer`](crate::render_resource::Buffer) will be created. Any previously created [`Buffer`](crate::render_resource::Buffer)s

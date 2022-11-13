@@ -89,7 +89,7 @@ use std::{any::TypeId, collections::HashMap};
 ///
 /// If you want to add `PhantomData` to your `Bundle` you have to mark it with `#[bundle(ignore)]`.
 /// ```
-/// # use std::marker::PhantomData;
+/// # use core::marker::PhantomData;
 /// use bevy_ecs::{component::Component, bundle::Bundle};
 ///
 /// #[derive(Component)]
@@ -713,7 +713,7 @@ impl Bundles {
             let id = BundleId(bundle_infos.len());
             // SAFETY: T::component_id ensures info was created
             let bundle_info = unsafe {
-                initialize_bundle(std::any::type_name::<T>(), component_ids, id, components)
+                initialize_bundle(core::any::type_name::<T>(), component_ids, id, components)
             };
             bundle_infos.push(bundle_info);
             id

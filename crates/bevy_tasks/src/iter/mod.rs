@@ -385,7 +385,7 @@ where
     /// See [`Iterator::max_by()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.max_by)
     fn max_by<F>(mut self, pool: &TaskPool, f: F) -> Option<BatchIter::Item>
     where
-        F: FnMut(&BatchIter::Item, &BatchIter::Item) -> std::cmp::Ordering + Send + Sync + Clone,
+        F: FnMut(&BatchIter::Item, &BatchIter::Item) -> core::cmp::Ordering + Send + Sync + Clone,
         BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
@@ -425,7 +425,7 @@ where
     /// See [`Iterator::min_by()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.min_by)
     fn min_by<F>(mut self, pool: &TaskPool, f: F) -> Option<BatchIter::Item>
     where
-        F: FnMut(&BatchIter::Item, &BatchIter::Item) -> std::cmp::Ordering + Send + Sync + Clone,
+        F: FnMut(&BatchIter::Item, &BatchIter::Item) -> core::cmp::Ordering + Send + Sync + Clone,
         BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {

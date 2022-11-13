@@ -133,7 +133,7 @@ impl Default for SpotLight {
             shadow_depth_bias: Self::DEFAULT_SHADOW_DEPTH_BIAS,
             shadow_normal_bias: Self::DEFAULT_SHADOW_NORMAL_BIAS,
             inner_angle: 0.0,
-            outer_angle: std::f32::consts::FRAC_PI_4,
+            outer_angle: core::f32::consts::FRAC_PI_4,
         }
     }
 }
@@ -788,7 +788,7 @@ fn compute_aabb_for_cluster(
 pub(crate) fn point_light_order(
     (entity_1, shadows_enabled_1, is_spot_light_1): (&Entity, &bool, &bool),
     (entity_2, shadows_enabled_2, is_spot_light_2): (&Entity, &bool, &bool),
-) -> std::cmp::Ordering {
+) -> core::cmp::Ordering {
     is_spot_light_1
         .cmp(is_spot_light_2) // pointlights before spot lights
         .then_with(|| shadows_enabled_2.cmp(shadows_enabled_1)) // shadow casters before non-casters
@@ -802,7 +802,7 @@ pub(crate) fn point_light_order(
 pub(crate) fn directional_light_order(
     (entity_1, shadows_enabled_1): (&Entity, &bool),
     (entity_2, shadows_enabled_2): (&Entity, &bool),
-) -> std::cmp::Ordering {
+) -> core::cmp::Ordering {
     shadows_enabled_2
         .cmp(shadows_enabled_1) // shadow casters before non-casters
         .then_with(|| entity_1.cmp(entity_2)) // stable
@@ -1501,8 +1501,11 @@ pub fn update_point_light_frusta(
         Or<(Changed<GlobalTransform>, Changed<PointLight>)>,
     >,
 ) {
-    let projection =
-        Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
+    let projection = Mat4::perspective_infinite_reverse_rh(
+        core::f32::consts::FRAC_PI_2,
+        1.0,
+        POINT_LIGHT_NEAR_Z,
+    );
     let view_rotations = CUBE_MAP_FACES
         .iter()
         .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))

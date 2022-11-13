@@ -98,7 +98,7 @@ pub(crate) fn check_system_change_tick(
 }
 
 impl Debug for dyn System<In = (), Out = ()> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "System {}: {{{}}}", self.name(), {
             if self.is_send() {
                 if self.is_exclusive() {

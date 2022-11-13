@@ -1,6 +1,9 @@
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
+#![forbid(unsafe_code)]
 #![warn(missing_docs)]
+
+extern crate alloc;
 
 mod app;
 mod plugin;

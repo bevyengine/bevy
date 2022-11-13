@@ -5,6 +5,7 @@
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
 use crate::REFLECT_ATTRIBUTE_NAME;
+use alloc::format;
 use quote::ToTokens;
 use syn::spanned::Spanned;
 use syn::{Attribute, Lit, Meta, NestedMeta};

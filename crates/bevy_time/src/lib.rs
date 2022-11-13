@@ -1,3 +1,7 @@
+#![no_std]
+
+extern crate alloc;
+
 mod fixed_timestep;
 mod stopwatch;
 #[allow(clippy::module_inception)]

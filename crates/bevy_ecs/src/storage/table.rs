@@ -559,7 +559,7 @@ impl Tables {
         *value
     }
 
-    pub fn iter(&self) -> std::slice::Iter<'_, Table> {
+    pub fn iter(&self) -> core::slice::Iter<'_, Table> {
         self.tables.iter()
     }
 

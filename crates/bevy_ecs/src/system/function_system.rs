@@ -29,7 +29,7 @@ pub struct SystemMeta {
 impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
         Self {
-            name: std::any::type_name::<T>().into(),
+            name: core::any::type_name::<T>().into(),
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
             is_send: true,
@@ -200,7 +200,7 @@ impl<Param: SystemParam> SystemState<Param> {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let old_generation = core::mem::replace(&mut self.archetype_generation, new_generation);
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
@@ -439,7 +439,7 @@ where
         assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
         let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
+        let old_generation = core::mem::replace(&mut self.archetype_generation, new_generation);
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
@@ -469,14 +469,14 @@ pub struct SystemTypeIdLabel<T: 'static>(pub(crate) PhantomData<fn() -> T>);
 impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
     #[inline]
     fn as_str(&self) -> &'static str {
-        std::any::type_name::<T>()
+        core::any::type_name::<T>()
     }
 }
 
 impl<T> Debug for SystemTypeIdLabel<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("SystemTypeIdLabel")
-            .field(&std::any::type_name::<T>())
+            .field(&core::any::type_name::<T>())
             .finish()
     }
 }

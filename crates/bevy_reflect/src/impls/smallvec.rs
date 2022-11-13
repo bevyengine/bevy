@@ -1,5 +1,7 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use core::any::Any;
 use smallvec::SmallVec;
-use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
@@ -71,7 +73,7 @@ where
     T::Item: FromReflect,
 {
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     fn get_type_info(&self) -> &'static TypeInfo {

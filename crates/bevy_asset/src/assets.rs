@@ -10,8 +10,8 @@ use bevy_ecs::{
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
+use core::fmt::Debug;
 use crossbeam_channel::Sender;
-use std::fmt::Debug;
 
 /// Events that involve assets of type `T`.
 ///
@@ -27,26 +27,26 @@ pub enum AssetEvent<T: Asset> {
 }
 
 impl<T: Asset> Debug for AssetEvent<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             AssetEvent::Created { handle } => f
                 .debug_struct(&format!(
                     "AssetEvent<{}>::Created",
-                    std::any::type_name::<T>()
+                    core::any::type_name::<T>()
                 ))
                 .field("handle", &handle.id())
                 .finish(),
             AssetEvent::Modified { handle } => f
                 .debug_struct(&format!(
                     "AssetEvent<{}>::Modified",
-                    std::any::type_name::<T>()
+                    core::any::type_name::<T>()
                 ))
                 .field("handle", &handle.id())
                 .finish(),
             AssetEvent::Removed { handle } => f
                 .debug_struct(&format!(
                     "AssetEvent<{}>::Removed",
-                    std::any::type_name::<T>()
+                    core::any::type_name::<T>()
                 ))
                 .field("handle", &handle.id())
                 .finish(),

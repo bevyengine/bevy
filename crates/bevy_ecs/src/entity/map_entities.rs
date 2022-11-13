@@ -1,6 +1,6 @@
 use crate::entity::Entity;
 use bevy_utils::{Entry, HashMap};
-use std::fmt;
+use core::fmt;
 
 #[derive(Debug)]
 pub enum MapEntitiesError {

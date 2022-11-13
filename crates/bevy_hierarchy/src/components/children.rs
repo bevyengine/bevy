@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+use alloc::string::ToString;
 use bevy_ecs::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
@@ -6,9 +8,9 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::Reflect;
+use core::ops::Deref;
 use core::slice;
 use smallvec::SmallVec;
-use std::ops::Deref;
 
 /// Contains references to the child entities of this entity.
 ///

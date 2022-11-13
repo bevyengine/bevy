@@ -1,6 +1,6 @@
 //! Demonstrates how shadow biases affect shadows in a 3d scene.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{input::mouse::MouseMotion, prelude::*};
 

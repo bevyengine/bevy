@@ -81,7 +81,7 @@ impl SystemStage {
     /// The output may be incorrect if this stage has not been initialized with `world`.
     pub fn report_ambiguities(&self, world: &World) {
         debug_assert!(!self.systems_modified);
-        use std::fmt::Write;
+        use core::fmt::Write;
         let ambiguities = self.ambiguities(world);
         if !ambiguities.is_empty() {
             let mut string = "Execution order ambiguities detected, you might want to \

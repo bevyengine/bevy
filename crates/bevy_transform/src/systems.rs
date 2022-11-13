@@ -343,7 +343,7 @@ mod test {
         app.world
             .spawn(TransformBundle::IDENTITY)
             .push_children(&[child]);
-        std::mem::swap(
+        core::mem::swap(
             &mut *app.world.get_mut::<Parent>(child).unwrap(),
             &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
         );

@@ -2,6 +2,7 @@ use crate::{
     Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
+use alloc::boxed::Box;
 use serde::ser::{
     Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
     SerializeTupleVariant,
@@ -70,7 +71,7 @@ fn get_type_info<E: Error>(
 /// 1. `type`: The _full_ [type name]
 /// 2. `value`: The serialized value of the reflected type
 ///
-/// [type name]: std::any::type_name
+/// [type name]: core::any::type_name
 pub struct ReflectSerializer<'a> {
     pub value: &'a dyn Reflect,
     pub registry: &'a TypeRegistry,
@@ -472,10 +473,10 @@ mod tests {
     use crate::serde::ReflectSerializer;
     use crate::{FromReflect, Reflect, ReflectSerialize, TypeRegistry};
     use bevy_utils::HashMap;
+    use core::f32::consts::PI;
     use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;
     use serde::Serialize;
-    use std::f32::consts::PI;
 
     #[derive(Reflect, Debug, PartialEq)]
     struct MyStruct {

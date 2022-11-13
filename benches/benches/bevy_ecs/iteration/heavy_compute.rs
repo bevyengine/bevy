@@ -17,8 +17,8 @@ pub fn heavy_compute(c: &mut Criterion) {
     struct Transform(Mat4);
 
     let mut group = c.benchmark_group("heavy_compute");
-    group.warm_up_time(std::time::Duration::from_millis(500));
-    group.measurement_time(std::time::Duration::from_secs(4));
+    group.warm_up_time(core::time::Duration::from_millis(500));
+    group.measurement_time(core::time::Duration::from_secs(4));
     group.bench_function("base", |b| {
         ComputeTaskPool::init(TaskPool::default);
 

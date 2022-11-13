@@ -1,4 +1,4 @@
-use std::any::{Any, TypeId};
+use core::any::{Any, TypeId};
 
 use bevy_ecs::world::World;
 use bevy_reflect::{FromReflect, FromType, Reflect, Uuid};
@@ -255,7 +255,7 @@ impl<A: Asset> FromType<Handle<A>> for ReflectHandle {
 
 #[cfg(test)]
 mod tests {
-    use std::any::TypeId;
+    use core::any::TypeId;
 
     use bevy_app::{App, AppTypeRegistry};
     use bevy_reflect::{FromReflect, Reflect, ReflectMut, TypeUuid};

@@ -3,7 +3,8 @@ use crate::{
     tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
     ValueInfo,
 };
-use std::{
+use alloc::boxed::Box;
+use core::{
     any::{self, Any, TypeId},
     fmt::Debug,
 };
@@ -70,7 +71,7 @@ pub enum ReflectOwned {
 /// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
 /// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
 pub trait Reflect: Any + Send + Sync {
-    /// Returns the [type name][std::any::type_name] of the underlying type.
+    /// Returns the [type name][core::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
 
     /// Returns the [`TypeInfo`] of the underlying type.
@@ -83,13 +84,13 @@ pub trait Reflect: Any + Send + Sync {
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_type_info(&self) -> &'static TypeInfo;
 
-    /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+    /// Returns the value as a [`Box<dyn Any>`][core::any::Any].
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
-    /// Returns the value as a [`&dyn Any`][std::any::Any].
+    /// Returns the value as a [`&dyn Any`][core::any::Any].
     fn as_any(&self) -> &dyn Any;
 
-    /// Returns the value as a [`&mut dyn Any`][std::any::Any].
+    /// Returns the value as a [`&mut dyn Any`][core::any::Any].
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a boxed reflected value.
@@ -194,7 +195,7 @@ pub trait Reflect: Any + Send + Sync {
     /// where `type_name` is the [type name] of the underlying type.
     ///
     /// [type name]: Self::type_name
-    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.reflect_ref() {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
             ReflectRef::TupleStruct(dyn_tuple_struct) => tuple_struct_debug(dyn_tuple_struct, f),
@@ -231,7 +232,7 @@ pub trait FromReflect: Reflect + Sized {
 }
 
 impl Debug for dyn Reflect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }

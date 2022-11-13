@@ -7,24 +7,27 @@ use crate::{
     TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
     VariantInfo, VariantType,
 };
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::vec::Vec;
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
+use alloc::borrow::Cow;
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
-#[cfg(any(unix, windows))]
-use std::ffi::OsString;
-use std::{
+use core::{
     any::Any,
-    borrow::Cow,
     hash::{Hash, Hasher},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
     ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
-    path::PathBuf,
 };
+#[cfg(any(unix, windows))]
+use std::ffi::OsString;
+use std::path::PathBuf;
 
 impl_reflect_value!(bool(
     Debug,
@@ -226,7 +229,7 @@ impl<T: FromReflect> List for Vec<T> {
 
 impl<T: FromReflect> Reflect for Vec<T> {
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     fn get_type_info(&self) -> &'static TypeInfo {
@@ -398,7 +401,7 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
 
 impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     fn get_type_info(&self) -> &'static TypeInfo {
@@ -530,7 +533,7 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
 impl<T: Reflect, const N: usize> Reflect for [T; N] {
     #[inline]
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     fn get_type_info(&self) -> &'static TypeInfo {
@@ -656,7 +659,7 @@ impl_array_get_type_registration! {
 
 impl Reflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     fn get_type_info(&self) -> &'static TypeInfo {
@@ -692,7 +695,7 @@ impl Reflect for Cow<'static, str> {
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
         } else {
-            panic!("Value is not a {}.", std::any::type_name::<Self>());
+            panic!("Value is not a {}.", core::any::type_name::<Self>());
         }
     }
 
@@ -719,7 +722,7 @@ impl Reflect for Cow<'static, str> {
 
     fn reflect_hash(&self) -> Option<u64> {
         let mut hasher = crate::ReflectHasher::default();
-        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(&core::any::Any::type_id(self), &mut hasher);
         Hash::hash(self, &mut hasher);
         Some(hasher.finish())
     }
@@ -727,7 +730,7 @@ impl Reflect for Cow<'static, str> {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
+            Some(core::cmp::PartialEq::eq(self, value))
         } else {
             Some(false)
         }
@@ -814,7 +817,7 @@ impl<T: FromReflect> Enum for Option<T> {
 impl<T: FromReflect> Reflect for Option<T> {
     #[inline]
     fn type_name(&self) -> &str {
-        std::any::type_name::<Self>()
+        core::any::type_name::<Self>()
     }
 
     #[inline]
@@ -869,7 +872,7 @@ impl<T: FromReflect> Reflect for Option<T> {
                             .unwrap_or_else(|| {
                                 panic!(
                                     "Field in `Some` variant of {} should exist",
-                                    std::any::type_name::<Option<T>>()
+                                    core::any::type_name::<Option<T>>()
                                 )
                             })
                             .clone_value()
@@ -878,8 +881,8 @@ impl<T: FromReflect> Reflect for Option<T> {
                                 T::from_reflect(&*value).unwrap_or_else(|| {
                                     panic!(
                                         "Field in `Some` variant of {} should be of type {}",
-                                        std::any::type_name::<Option<T>>(),
-                                        std::any::type_name::<T>()
+                                        core::any::type_name::<Option<T>>(),
+                                        core::any::type_name::<T>()
                                     )
                                 })
                             });
@@ -888,7 +891,7 @@ impl<T: FromReflect> Reflect for Option<T> {
                     "None" => {
                         *self = None;
                     }
-                    _ => panic!("Enum is not a {}.", std::any::type_name::<Self>()),
+                    _ => panic!("Enum is not a {}.", core::any::type_name::<Self>()),
                 }
             }
         }
@@ -936,7 +939,7 @@ impl<T: FromReflect> FromReflect for Option<T> {
                         .unwrap_or_else(|| {
                             panic!(
                                 "Field in `Some` variant of {} should exist",
-                                std::any::type_name::<Option<T>>()
+                                core::any::type_name::<Option<T>>()
                             )
                         })
                         .clone_value()
@@ -945,8 +948,8 @@ impl<T: FromReflect> FromReflect for Option<T> {
                             T::from_reflect(&*value).unwrap_or_else(|| {
                                 panic!(
                                     "Field in `Some` variant of {} should be of type {}",
-                                    std::any::type_name::<Option<T>>(),
-                                    std::any::type_name::<T>()
+                                    core::any::type_name::<Option<T>>(),
+                                    core::any::type_name::<T>()
                                 )
                             })
                         });
@@ -956,7 +959,7 @@ impl<T: FromReflect> FromReflect for Option<T> {
                 name => panic!(
                     "variant with name `{}` does not exist on enum `{}`",
                     name,
-                    std::any::type_name::<Self>()
+                    core::any::type_name::<Self>()
                 ),
             }
         } else {
@@ -1017,7 +1020,7 @@ mod tests {
     };
     use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
-    use std::f32::consts::{PI, TAU};
+    use core::f32::consts::{PI, TAU};
 
     #[test]
     fn can_serialize_duration() {
@@ -1025,7 +1028,7 @@ mod tests {
         type_registry.register::<Duration>();
 
         let reflect_serialize = type_registry
-            .get_type_data::<ReflectSerialize>(std::any::TypeId::of::<Duration>())
+            .get_type_data::<ReflectSerialize>(core::any::TypeId::of::<Duration>())
             .unwrap();
         let _serializable = reflect_serialize.get_serializable(&Duration::ZERO);
     }
@@ -1204,11 +1207,11 @@ mod tests {
     }
     #[test]
     fn nonzero_usize_impl_reflect_from_reflect() {
-        let a: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
-        let b: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
+        let a: &dyn Reflect = &core::num::NonZeroUsize::new(42).unwrap();
+        let b: &dyn Reflect = &core::num::NonZeroUsize::new(42).unwrap();
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
-        let forty_two: std::num::NonZeroUsize = crate::FromReflect::from_reflect(a).unwrap();
-        assert_eq!(forty_two, std::num::NonZeroUsize::new(42).unwrap());
+        let forty_two: core::num::NonZeroUsize = crate::FromReflect::from_reflect(a).unwrap();
+        assert_eq!(forty_two, core::num::NonZeroUsize::new(42).unwrap());
     }
 
     #[test]

@@ -8,8 +8,8 @@ use bevy_render::{
     color::Color,
     texture::{Image, DEFAULT_IMAGE_HANDLE},
 };
+use core::ops::{Div, DivAssign, Mul, MulAssign};
 use serde::{Deserialize, Serialize};
-use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
 /// Describes the size of a UI node

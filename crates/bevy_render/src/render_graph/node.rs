@@ -218,7 +218,7 @@ pub struct NodeState {
 }
 
 impl Debug for NodeState {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         writeln!(f, "{:?} ({:?})", self.id, self.name)
     }
 }
@@ -236,7 +236,7 @@ impl NodeState {
             input_slots: node.input().into(),
             output_slots: node.output().into(),
             node: Box::new(node),
-            type_name: std::any::type_name::<T>(),
+            type_name: core::any::type_name::<T>(),
             edges: Edges {
                 id,
                 input_edges: Vec::new(),

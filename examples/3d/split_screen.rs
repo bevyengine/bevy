@@ -1,6 +1,6 @@
 //! Renders two cameras to the same window to accomplish "split screen".
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,

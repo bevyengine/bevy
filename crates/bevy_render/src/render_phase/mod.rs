@@ -35,7 +35,7 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
     /// Batches the compatible [`BatchedPhaseItem`]s of this render phase
     pub fn batch(&mut self) {
         // TODO: this could be done in-place
-        let mut items = std::mem::take(&mut self.items).into_iter();
+        let mut items = core::mem::take(&mut self.items).into_iter();
 
         self.items.reserve(items.len());
 
@@ -74,7 +74,7 @@ pub fn batch_phase_system<I: BatchedPhaseItem>(mut render_phases: Query<&mut Ren
 
 #[cfg(test)]
 mod tests {
-    use std::ops::Range;
+    use core::ops::Range;
 
     use bevy_ecs::entity::Entity;
 
@@ -102,11 +102,11 @@ mod tests {
             }
         }
         impl BatchedPhaseItem for TestPhaseItem {
-            fn batch_range(&self) -> &Option<std::ops::Range<u32>> {
+            fn batch_range(&self) -> &Option<core::ops::Range<u32>> {
                 &self.batch_range
             }
 
-            fn batch_range_mut(&mut self) -> &mut Option<std::ops::Range<u32>> {
+            fn batch_range_mut(&mut self) -> &mut Option<core::ops::Range<u32>> {
                 &mut self.batch_range
             }
         }

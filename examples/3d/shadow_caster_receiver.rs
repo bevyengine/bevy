@@ -1,6 +1,6 @@
 //! Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene.
 
-use std::f32::consts::PI;
+use core::f32::consts::PI;
 
 use bevy::{
     pbr::{NotShadowCaster, NotShadowReceiver},

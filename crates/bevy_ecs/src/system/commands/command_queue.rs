@@ -1,4 +1,4 @@
-use std::mem::{ManuallyDrop, MaybeUninit};
+use core::mem::{ManuallyDrop, MaybeUninit};
 
 use super::Command;
 use crate::world::World;
@@ -42,7 +42,7 @@ impl CommandQueue {
             command.write(world);
         }
 
-        let size = std::mem::size_of::<C>();
+        let size = core::mem::size_of::<C>();
         let old_len = self.bytes.len();
 
         self.metas.push(CommandMeta {

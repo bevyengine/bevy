@@ -1,6 +1,6 @@
 //! Loads and renders a glTF file as a scene.
 
-use std::f32::consts::*;
+use core::f32::consts::*;
 
 use bevy::prelude::*;
 
