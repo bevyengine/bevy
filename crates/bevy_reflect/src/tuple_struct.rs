@@ -1,6 +1,6 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
+    DynamicInfo, Reflect, ReflectError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -342,15 +342,17 @@ impl Reflect for DynamicTupleStruct {
         ReflectOwned::TupleStruct(self)
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn Reflect) -> Result<(), ReflectError> {
         if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
             for (i, value) in tuple_struct.iter_fields().enumerate() {
                 if let Some(v) = self.field_mut(i) {
                     v.apply(value);
                 }
             }
+            return Ok(());
         } else {
-            panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
+            // panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");
+            return Err(ReflectError::MismatchedTypes(String::from("TupleStruct")));
         }
     }
 
