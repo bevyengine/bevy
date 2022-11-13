@@ -184,7 +184,7 @@ impl<'a> OwningPtr<'a> {
         let mut temp = ManuallyDrop::new(val);
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
-        f(unsafe { PtrMut::from(&mut temp).promote() })
+        f(unsafe { PtrMut::from(&mut *temp).promote() })
     }
 
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
