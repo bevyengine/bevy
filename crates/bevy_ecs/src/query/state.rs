@@ -449,7 +449,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) -> Result<[ROQueryItem<'w, Q>; N], QueryEntityError> {
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
-        for (value, entity) in std::iter::zip(&mut values, entities) {
+        for (value, entity) in core::iter::zip(&mut values, entities) {
             // SAFETY: fetch is read-only
             // and world must be validated
             let item = self.as_readonly().get_unchecked_manual(
@@ -493,7 +493,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
         let mut values = [(); N].map(|_| MaybeUninit::uninit());
 
-        for (value, entity) in std::iter::zip(&mut values, entities) {
+        for (value, entity) in core::iter::zip(&mut values, entities) {
             let item = self.get_unchecked_manual(world, entity, last_change_tick, change_tick)?;
             *value = MaybeUninit::new(item);
         }

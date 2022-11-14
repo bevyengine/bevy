@@ -1,3 +1,5 @@
+extern crate alloc;
+
 mod bundle;
 mod dynamic_scene;
 mod dynamic_scene_builder;

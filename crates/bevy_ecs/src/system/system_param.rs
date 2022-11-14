@@ -826,14 +826,14 @@ pub struct RemovedComponents<'a, T: Component> {
 
 impl<'a, T: Component> RemovedComponents<'a, T> {
     /// Returns an iterator over the entities that had their `T` [`Component`] removed.
-    pub fn iter(&self) -> std::iter::Cloned<core::slice::Iter<'_, Entity>> {
+    pub fn iter(&self) -> core::iter::Cloned<core::slice::Iter<'_, Entity>> {
         self.world.removed_with_id(self.component_id)
     }
 }
 
 impl<'a, T: Component> IntoIterator for &'a RemovedComponents<'a, T> {
     type Item = Entity;
-    type IntoIter = std::iter::Cloned<core::slice::Iter<'a, Entity>>;
+    type IntoIter = core::iter::Cloned<core::slice::Iter<'a, Entity>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.iter()

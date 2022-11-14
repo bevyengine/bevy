@@ -1,8 +1,9 @@
+use alloc::vec::Vec;
+use alloc::collections::BTreeMap;
 use crate::{DynamicEntity, DynamicScene};
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{prelude::Entity, reflect::ReflectComponent, world::World};
 use bevy_utils::default;
-use std::collections::BTreeMap;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities.
 ///
@@ -68,7 +69,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// Re-extracting an entity that was already extracted will have no effect.
     pub fn extract_entity(&mut self, entity: Entity) -> &mut Self {
-        self.extract_entities(std::iter::once(entity))
+        self.extract_entities(core::iter::once(entity))
     }
 
     /// Extract entities from the builder's [`World`].

@@ -30,13 +30,13 @@ pub struct Map<P, F> {
     pub(crate) f: F,
 }
 
-impl<B, U, T, F> ParallelIterator<std::iter::Map<B, F>> for Map<U, F>
+impl<B, U, T, F> ParallelIterator<core::iter::Map<B, F>> for Map<U, F>
 where
     B: Iterator + Send,
     U: ParallelIterator<B>,
     F: FnMut(B::Item) -> T + Send + Clone,
 {
-    fn next_batch(&mut self) -> Option<std::iter::Map<B, F>> {
+    fn next_batch(&mut self) -> Option<core::iter::Map<B, F>> {
         self.iter.next_batch().map(|b| b.map(self.f.clone()))
     }
 }
@@ -47,13 +47,13 @@ pub struct Filter<P, F> {
     pub(crate) predicate: F,
 }
 
-impl<B, P, F> ParallelIterator<std::iter::Filter<B, F>> for Filter<P, F>
+impl<B, P, F> ParallelIterator<core::iter::Filter<B, F>> for Filter<P, F>
 where
     B: Iterator + Send,
     P: ParallelIterator<B>,
     F: FnMut(&B::Item) -> bool + Send + Clone,
 {
-    fn next_batch(&mut self) -> Option<std::iter::Filter<B, F>> {
+    fn next_batch(&mut self) -> Option<core::iter::Filter<B, F>> {
         self.iter
             .next_batch()
             .map(|b| b.filter(self.predicate.clone()))
@@ -66,13 +66,13 @@ pub struct FilterMap<P, F> {
     pub(crate) f: F,
 }
 
-impl<B, P, R, F> ParallelIterator<std::iter::FilterMap<B, F>> for FilterMap<P, F>
+impl<B, P, R, F> ParallelIterator<core::iter::FilterMap<B, F>> for FilterMap<P, F>
 where
     B: Iterator + Send,
     P: ParallelIterator<B>,
     F: FnMut(B::Item) -> Option<R> + Send + Clone,
 {
-    fn next_batch(&mut self) -> Option<std::iter::FilterMap<B, F>> {
+    fn next_batch(&mut self) -> Option<core::iter::FilterMap<B, F>> {
         self.iter.next_batch().map(|b| b.filter_map(self.f.clone()))
     }
 }
@@ -83,7 +83,7 @@ pub struct FlatMap<P, F> {
     pub(crate) f: F,
 }
 
-impl<B, P, U, F> ParallelIterator<std::iter::FlatMap<B, U, F>> for FlatMap<P, F>
+impl<B, P, U, F> ParallelIterator<core::iter::FlatMap<B, U, F>> for FlatMap<P, F>
 where
     B: Iterator + Send,
     P: ParallelIterator<B>,
@@ -93,7 +93,7 @@ where
 {
     // This extends each batch using the flat map. The other option is
     // to turn each IntoIter into its own batch.
-    fn next_batch(&mut self) -> Option<std::iter::FlatMap<B, U, F>> {
+    fn next_batch(&mut self) -> Option<core::iter::FlatMap<B, U, F>> {
         self.iter.next_batch().map(|b| b.flat_map(self.f.clone()))
     }
 }
@@ -103,7 +103,7 @@ pub struct Flatten<P> {
     pub(crate) iter: P,
 }
 
-impl<B, P> ParallelIterator<std::iter::Flatten<B>> for Flatten<P>
+impl<B, P> ParallelIterator<core::iter::Flatten<B>> for Flatten<P>
 where
     B: Iterator + Send,
     P: ParallelIterator<B>,
@@ -112,7 +112,7 @@ where
 {
     // This extends each batch using the flatten. The other option is to
     // turn each IntoIter into its own batch.
-    fn next_batch(&mut self) -> Option<std::iter::Flatten<B>> {
+    fn next_batch(&mut self) -> Option<core::iter::Flatten<B>> {
         self.iter.next_batch().map(|b| b.flatten())
     }
 }
@@ -144,13 +144,13 @@ pub struct Inspect<P, F> {
     pub(crate) f: F,
 }
 
-impl<B, P, F> ParallelIterator<std::iter::Inspect<B, F>> for Inspect<P, F>
+impl<B, P, F> ParallelIterator<core::iter::Inspect<B, F>> for Inspect<P, F>
 where
     B: Iterator + Send,
     P: ParallelIterator<B>,
     F: FnMut(&B::Item) + Send + Clone,
 {
-    fn next_batch(&mut self) -> Option<std::iter::Inspect<B, F>> {
+    fn next_batch(&mut self) -> Option<core::iter::Inspect<B, F>> {
         self.iter.next_batch().map(|b| b.inspect(self.f.clone()))
     }
 }
@@ -160,13 +160,13 @@ pub struct Copied<P> {
     pub(crate) iter: P,
 }
 
-impl<'a, B, P, T> ParallelIterator<std::iter::Copied<B>> for Copied<P>
+impl<'a, B, P, T> ParallelIterator<core::iter::Copied<B>> for Copied<P>
 where
     B: Iterator<Item = &'a T> + Send,
     P: ParallelIterator<B>,
     T: 'a + Copy,
 {
-    fn next_batch(&mut self) -> Option<std::iter::Copied<B>> {
+    fn next_batch(&mut self) -> Option<core::iter::Copied<B>> {
         self.iter.next_batch().map(|b| b.copied())
     }
 }
@@ -176,13 +176,13 @@ pub struct Cloned<P> {
     pub(crate) iter: P,
 }
 
-impl<'a, B, P, T> ParallelIterator<std::iter::Cloned<B>> for Cloned<P>
+impl<'a, B, P, T> ParallelIterator<core::iter::Cloned<B>> for Cloned<P>
 where
     B: Iterator<Item = &'a T> + Send,
     P: ParallelIterator<B>,
     T: 'a + Copy,
 {
-    fn next_batch(&mut self) -> Option<std::iter::Cloned<B>> {
+    fn next_batch(&mut self) -> Option<core::iter::Cloned<B>> {
         self.iter.next_batch().map(|b| b.cloned())
     }
 }

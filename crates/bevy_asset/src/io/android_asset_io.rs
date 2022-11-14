@@ -45,7 +45,7 @@ impl AssetIo for AndroidAssetIo {
         &self,
         _path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
-        Ok(Box::new(std::iter::empty::<PathBuf>()))
+        Ok(Box::new(core::iter::empty::<PathBuf>()))
     }
 
     fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {

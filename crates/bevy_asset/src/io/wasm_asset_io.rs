@@ -53,7 +53,7 @@ impl AssetIo for WasmAssetIo {
         _path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
         bevy_log::warn!("Loading folders is not supported in WASM");
-        Ok(Box::new(std::iter::empty::<PathBuf>()))
+        Ok(Box::new(core::iter::empty::<PathBuf>()))
     }
 
     fn watch_path_for_changes(&self, _path: &Path) -> Result<(), AssetIoError> {

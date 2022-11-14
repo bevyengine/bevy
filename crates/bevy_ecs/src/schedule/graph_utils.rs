@@ -115,7 +115,7 @@ pub fn topological_order<Labels: Clone>(
             let last_window = [*current.last().unwrap(), current[0]];
             let mut windows = current
                 .windows(2)
-                .chain(std::iter::once(&last_window as &[usize]));
+                .chain(core::iter::once(&last_window as &[usize]));
             while let Some(&[dependant, dependency]) = windows.next() {
                 cycle.push((dependant, graph[&dependant][&dependency].clone()));
             }

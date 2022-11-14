@@ -1032,7 +1032,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 - [Make Remove Command's fields public][2449]
 - [bevy_utils: Re-introduce `with_capacity()`.][2393]
 - [Update rodio requirement from 0.13 to 0.14][2244]
-- [Optimize Events::extend and impl std::iter::Extend][2207]
+- [Optimize Events::extend and impl core::iter::Extend][2207]
 - [Bump winit to 0.25][2186]
 - [Improve legibility of RunOnce::run_unsafe param][2181]
 - [Update gltf requirement from 0.15.2 to 0.16.0][2196]

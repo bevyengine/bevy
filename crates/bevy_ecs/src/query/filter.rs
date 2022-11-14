@@ -637,7 +637,7 @@ impl_tick_filter!(
 
 /// A marker trait to indicate that the filter works at an archetype level.
 ///
-/// This is needed to implement [`ExactSizeIterator`](std::iter::ExactSizeIterator) for
+/// This is needed to implement [`ExactSizeIterator`](core::iter::ExactSizeIterator) for
 /// [`QueryIter`](crate::query::QueryIter) that contains archetype-level filters.
 ///
 /// The trait must only be implement for filters where its corresponding [`WorldQuery::IS_ARCHETYPAL`](crate::query::WorldQuery::IS_ARCHETYPAL)

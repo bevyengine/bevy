@@ -1,3 +1,6 @@
+use alloc::vec::Vec;
+use alloc::format;
+use alloc::boxed::Box;
 use crate::{DynamicEntity, DynamicScene};
 use anyhow::Result;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
@@ -156,7 +159,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         formatter.write_str("scene struct")
     }
 
-    fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+    fn visit_map<A>(self, mut map: A) -> core::result::Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {
@@ -273,7 +276,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
         formatter.write_str("entities")
     }
 
-    fn visit_seq<A>(self, mut seq: A) -> std::result::Result<Self::Value, A::Error>
+    fn visit_seq<A>(self, mut seq: A) -> core::result::Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
@@ -346,7 +349,7 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
         formatter.write_str("map of components")
     }
 
-    fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
+    fn visit_map<A>(self, mut map: A) -> core::result::Result<Self::Value, A::Error>
     where
         A: MapAccess<'de>,
     {

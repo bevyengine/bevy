@@ -1117,7 +1117,7 @@ pub(crate) fn assign_lights_to_clusters(
 
         // initialize empty cluster bounding spheres
         cluster_aabb_spheres.clear();
-        cluster_aabb_spheres.extend(std::iter::repeat(None).take(cluster_count));
+        cluster_aabb_spheres.extend(core::iter::repeat(None).take(cluster_count));
 
         // Calculate the x/y/z cluster frustum planes in view space
         let mut x_planes = Vec::with_capacity(clusters.dimensions.x as usize + 1);

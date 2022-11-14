@@ -3,7 +3,7 @@ use crate::TaskPool;
 mod adapters;
 pub use adapters::*;
 
-/// [`ParallelIterator`] closely emulates the `std::iter::Iterator`
+/// [`ParallelIterator`] closely emulates the `core::iter::Iterator`
 /// interface. However, it uses `bevy_task` to compute batches in parallel.
 ///
 /// Note that the overhead of [`ParallelIterator`] is high relative to some
@@ -192,7 +192,7 @@ where
     // TODO: Investigate optimizations for less copying
     fn collect<C>(mut self, pool: &TaskPool) -> C
     where
-        C: std::iter::FromIterator<BatchIter::Item>,
+        C: core::iter::FromIterator<BatchIter::Item>,
         BatchIter::Item: Send + 'static,
     {
         pool.scope(|s| {
@@ -479,8 +479,8 @@ where
     /// See [`Iterator::sum()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.sum)
     fn sum<S, R>(mut self, pool: &TaskPool) -> R
     where
-        S: std::iter::Sum<BatchIter::Item> + Send + 'static,
-        R: std::iter::Sum<S>,
+        S: core::iter::Sum<BatchIter::Item> + Send + 'static,
+        R: core::iter::Sum<S>,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {
@@ -496,8 +496,8 @@ where
     /// See [`Iterator::product()`](https://doc.rust-lang.org/std/iter/trait.Iterator.html#method.product)
     fn product<S, R>(mut self, pool: &TaskPool) -> R
     where
-        S: std::iter::Product<BatchIter::Item> + Send + 'static,
-        R: std::iter::Product<S>,
+        S: core::iter::Product<BatchIter::Item> + Send + 'static,
+        R: core::iter::Product<S>,
     {
         pool.scope(|s| {
             while let Some(batch) = self.next_batch() {

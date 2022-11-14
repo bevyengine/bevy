@@ -299,7 +299,7 @@ impl<T: Asset> Default for Handle<T> {
 }
 
 impl<T: Asset> Debug for Handle<T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::result::Result<(), core::fmt::Error> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::result::Result<(), core::fmt::Error> {
         let name = core::any::type_name::<T>().split("::").last().unwrap();
         write!(f, "{:?}Handle<{name}>({:?})", self.handle_type, self.id)
     }

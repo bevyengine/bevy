@@ -3,7 +3,7 @@ use crate::{
     entity::Entity,
     world::World,
 };
-use std::iter::FusedIterator;
+use core::iter::FusedIterator;
 
 pub struct SpawnBatchIter<'w, I>
 where

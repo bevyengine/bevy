@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
+use alloc::string::String;
 use crate::{serde::SceneSerializer, DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;

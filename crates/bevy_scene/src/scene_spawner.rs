@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+use alloc::string::String;
 use crate::{DynamicScene, Scene};
 use bevy_app::AppTypeRegistry;
 use bevy_asset::{AssetEvent, Assets, Handle};
