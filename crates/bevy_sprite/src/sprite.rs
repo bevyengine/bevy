@@ -1,4 +1,4 @@
-use crate::{BorderRect, Rect};
+use crate::TextureSlicer;
 use bevy_ecs::component::Component;
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;
@@ -21,27 +21,27 @@ pub struct Sprite {
     pub rect: Option<Rect>,
     /// [`Anchor`] point of the sprite in the world
     pub anchor: Anchor,
+    /// Define how the Sprite scales when its dimensions change
+    pub draw_mode: SpriteDrawMode,
 }
 
-/// Defines how the non corner sections of a [`SpriteSlice`] are scaled.
-#[derive(Debug, Copy, Clone, Default, Reflect)]
-pub enum SliceScaleMode {
-    /// The sections will stretch
+#[derive(Debug, Default, Clone, Reflect)]
+pub enum SpriteDrawMode {
+    /// The entire texture scales when its dimensions change. This is the default option.
     #[default]
-    Stretch,
-    /// The sections will repeat
-    Tile,
-}
-
-/// Component for [9-sliced](https://en.wikipedia.org/wiki/9-slice_scaling) sprites.
-///
-/// When resizing a 9-sliced sprite the corners will remain unscaled while the other sections will be scaled or tiled
-#[derive(Component, Debug, Clone, Default, Reflect)]
-pub struct SpriteSlice {
-    /// The sprite borders, defining the 9 sections of the image
-    pub border: BorderRect,
-    /// How do the the non corner sections scale
-    pub scale_mode: SliceScaleMode,
+    Simple,
+    /// The texture will be cut in 9 slices, keeping the texture in proportions on resize
+    Sliced(TextureSlicer),
+    /// The texture will be repeated if stretched beyond `stretched_value`
+    Tiled {
+        /// Should the image repeat horizontally
+        tile_x: bool,
+        /// Should the image repeat vertically
+        tile_y: bool,
+        /// The texture will repeat when the ratio between the *drawing dimensions* of texture and the
+        /// *original texture size* are above this value
+        stretch_value: f32,
+    },
 }
 
 /// How a sprite is positioned relative to its [`Transform`](bevy_transform::components::Transform).
@@ -64,62 +64,9 @@ pub enum Anchor {
     Custom(Vec2),
 }
 
-impl SpriteSlice {
-    /// Computes the 9 [`Rect`] and size values for a [`Sprite`] given its `image_size`
-    pub fn slice_rects(&self, image_size: Vec2) -> [Rect; 9] {
-        // corners
-        let bl_corner = Rect {
-            min: Vec2::ZERO,
-            max: Vec2::new(self.border.left, self.border.bottom),
-        };
-        let br_corner = Rect {
-            min: Vec2::new(image_size.x - self.border.right, 0.0),
-            max: Vec2::new(image_size.x, self.border.bottom),
-        };
-        let tl_corner = Rect {
-            min: Vec2::new(0.0, image_size.y - self.border.top),
-            max: Vec2::new(self.border.left, image_size.y),
-        };
-        let tr_corner = Rect {
-            min: Vec2::new(
-                image_size.x - self.border.right,
-                image_size.y - self.border.top,
-            ),
-            max: Vec2::new(image_size.x, image_size.y),
-        };
-        // Sides
-        let left_side = Rect {
-            min: Vec2::new(0.0, self.border.bottom),
-            max: Vec2::new(self.border.left, image_size.y - self.border.top),
-        };
-        let right_side = Rect {
-            min: Vec2::new(image_size.x - self.border.right, self.border.bottom),
-            max: Vec2::new(image_size.x, image_size.y - self.border.top),
-        };
-        let bot_side = Rect {
-            min: Vec2::new(self.border.left, 0.0),
-            max: Vec2::new(image_size.x - self.border.right, self.border.bottom),
-        };
-        let top_side = Rect {
-            min: Vec2::new(self.border.left, image_size.y - self.border.top),
-            max: Vec2::new(image_size.x - self.border.right, image_size.y),
-        };
-        // Center
-        let center = Rect {
-            min: Vec2::new(self.border.left, self.border.bottom),
-            max: Vec2::new(
-                image_size.x - self.border.right,
-                image_size.y - self.border.top,
-            ),
-        };
-        [
-            bl_corner, br_corner, tl_corner, tr_corner, left_side, right_side, bot_side, top_side,
-            center,
-        ]
-    }
-}
-
 impl Anchor {
+    #[inline]
+    #[must_use]
     pub fn as_vec(&self) -> Vec2 {
         match self {
             Anchor::Center => Vec2::ZERO,

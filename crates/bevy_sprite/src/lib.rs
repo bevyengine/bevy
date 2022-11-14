@@ -5,6 +5,7 @@ mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
+mod texture_slice;
 
 pub mod collide_aabb;
 
@@ -12,9 +13,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
-        rect::{BorderRect, Rect},
-        sprite::Sprite,
+        sprite::{Sprite, SpriteDrawMode},
         texture_atlas::{TextureAtlas, TextureAtlasSprite},
+        texture_slice::{BorderRect, SliceScaleMode, TextureSlicer},
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }
@@ -26,6 +27,7 @@ pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
+pub use texture_slice::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, HandleUntyped};

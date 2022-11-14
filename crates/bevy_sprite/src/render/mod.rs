@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
-    Rect, Sprite, SpriteSlice, SPRITE_SHADER_HANDLE,
+    Sprite, SpriteDrawMode, TextureSlice, SPRITE_SHADER_HANDLE,
 };
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
@@ -30,7 +30,7 @@ use bevy_render::{
     },
     Extract,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
@@ -324,7 +324,6 @@ pub fn extract_sprites(
             &Sprite,
             &GlobalTransform,
             &Handle<Image>,
-            Option<&SpriteSlice>
         )>,
     >,
     atlas_query: Extract<
@@ -338,48 +337,72 @@ pub fn extract_sprites(
     >,
 ) {
     extracted_sprites.sprites.clear();
-    for (entity, visibility, sprite, transform, handle, slice) in sprite_query.iter() {
+    for (entity, visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible() {
             continue;
         }
-        if let Some(slice) = slice {
-            let image_size = match images.get(handle) {
-                None => continue,
-                Some(i) => Vec2::new(
-                    i.texture_descriptor.size.width as f32,
-                    i.texture_descriptor.size.height as f32,
-                ),
-            };
-            // TODO: remove
-            let slice: &SpriteSlice = slice;
-            //
-            for rect in slice.slice_rects(image_size) {
-                extracted_sprites.sprites.alloc().init(ExtractedSprite {
-                    entity,
-                    color: sprite.color,
-                    transform: *transform,
-                    rect: Some(rect),
-                    // Pass the custom size
-                    custom_size: None,
-                    flip_x: sprite.flip_x,
-                    flip_y: sprite.flip_y,
-                    image_handle_id: handle.id,
-                    anchor: sprite.anchor.as_vec(),
-                });
-            }
-        } else {
+        if let SpriteDrawMode::Simple = sprite.draw_mode {
             // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
-            extracted_sprites.sprites.alloc().init(ExtractedSprite {
+            extracted_sprites.sprites.push(ExtractedSprite {
                 entity,
                 color: sprite.color,
                 transform: *transform,
                 // Use the full texture
                 rect: None,
-                // Pass the custom size
                 custom_size: sprite.custom_size,
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
-                image_handle_id: handle.id,
+                image_handle_id: handle.id(),
+                anchor: sprite.anchor.as_vec(),
+            });
+            continue;
+        }
+        let image_size = match images.get(handle) {
+            None => continue,
+            Some(i) => Vec2::new(
+                i.texture_descriptor.size.width as f32,
+                i.texture_descriptor.size.height as f32,
+            ),
+        };
+
+        let slices = match &sprite.draw_mode {
+            SpriteDrawMode::Sliced(slicer) => slicer.compute_slices(
+                Rect {
+                    min: Vec2::ZERO,
+                    max: image_size,
+                },
+                sprite.custom_size,
+            ),
+            SpriteDrawMode::Tiled {
+                tile_x,
+                tile_y,
+                stretch_value,
+            } => {
+                let slice = TextureSlice {
+                    texture_rect: Rect {
+                        min: Vec2::ZERO,
+                        max: image_size,
+                    },
+                    draw_size: sprite.custom_size.unwrap_or(image_size),
+                    offset: Vec2::ZERO,
+                };
+                slice.tiled(*stretch_value, (*tile_x, *tile_y))
+            }
+            SpriteDrawMode::Simple => unreachable!(),
+        };
+        for slice in slices {
+            let mut transform: GlobalTransform = *transform;
+            transform =
+                transform.mul_transform(Transform::from_translation(slice.offset.extend(0.0)));
+            extracted_sprites.sprites.push(ExtractedSprite {
+                entity,
+                color: sprite.color,
+                transform,
+                rect: Some(slice.texture_rect),
+                custom_size: Some(slice.draw_size),
+                flip_x: sprite.flip_x,
+                flip_y: sprite.flip_y,
+                image_handle_id: handle.id(),
                 anchor: sprite.anchor.as_vec(),
             });
         }
@@ -575,7 +598,7 @@ pub fn queue_sprites(
             };
             let mut current_batch_entity = Entity::from_raw(u32::MAX);
             let mut current_image_size = Vec2::ZERO;
-            // Add a phase item for each sprite, and detect when succesive items can be batched.
+            // Add a phase item for each sprite, and detect when successive items can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
