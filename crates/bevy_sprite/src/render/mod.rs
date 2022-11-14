@@ -347,8 +347,8 @@ pub fn extract_sprites(
                 entity,
                 color: sprite.color,
                 transform: *transform,
-                // Use the full texture
-                rect: None,
+                rect: sprite.rect,
+                // Pass the custom size
                 custom_size: sprite.custom_size,
                 flip_x: sprite.flip_x,
                 flip_y: sprite.flip_y,
@@ -367,10 +367,10 @@ pub fn extract_sprites(
 
         let slices = match &sprite.draw_mode {
             SpriteDrawMode::Sliced(slicer) => slicer.compute_slices(
-                Rect {
+                sprite.rect.unwrap_or(Rect {
                     min: Vec2::ZERO,
                     max: image_size,
-                },
+                }),
                 sprite.custom_size,
             ),
             SpriteDrawMode::Tiled {
@@ -379,10 +379,10 @@ pub fn extract_sprites(
                 stretch_value,
             } => {
                 let slice = TextureSlice {
-                    texture_rect: Rect {
+                    texture_rect: sprite.rect.unwrap_or(Rect {
                         min: Vec2::ZERO,
                         max: image_size,
-                    },
+                    }),
                     draw_size: sprite.custom_size.unwrap_or(image_size),
                     offset: Vec2::ZERO,
                 };
