@@ -1228,8 +1228,8 @@ mod tests {
     #[test]
     #[should_panic]
     fn non_sync_resource_panic() {
+        // We aren't marking the type as !Sync, so the systems will confict and panic.
         #[derive(Resource, Default)]
-        #[resource(is_sync = true)] // This type *technically* is sync, but the system will panic if there's shared access.
         struct SyncCounter(RwLock<()>);
 
         fn assert_non_sync(counter: Res<SyncCounter>) {
