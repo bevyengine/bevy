@@ -72,7 +72,8 @@ impl WinitWindows {
             }
             .with_resizable(window_descriptor.resizable)
             .with_decorations(window_descriptor.decorations)
-            .with_transparent(window_descriptor.transparent),
+            .with_transparent(window_descriptor.transparent)
+            .with_always_on_top(window_descriptor.always_on_top),
         };
 
         let constraints = window_descriptor.resize_constraints.check_constraints();
