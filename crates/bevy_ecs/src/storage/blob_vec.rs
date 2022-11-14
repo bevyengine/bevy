@@ -390,9 +390,6 @@ mod tests {
     use crate::ptr::OwningPtr;
 
     use super::BlobVec;
-    #[cfg(miri)]
-    use std::alloc::Layout;
-    #[cfg(not(miri))]
     use std::{alloc::Layout, cell::RefCell, rc::Rc};
 
     // SAFETY: The pointer points to a valid value of type `T` and it is safe to drop this value.
@@ -449,13 +446,10 @@ mod tests {
         // FIXME: Miri cannot support tracking pointers in piecewise swaps.
         // Remove when https://github.com/rust-lang/miri/issues/2181 is resolved
         // and live in nightly.
-        #[cfg(not(miri))]
         b: String,
-        #[cfg(not(miri))]
         drop_counter: Rc<RefCell<usize>>,
     }
 
-    #[cfg(not(miri))]
     impl Drop for Foo {
         fn drop(&mut self) {
             *self.drop_counter.borrow_mut() += 1;
@@ -464,8 +458,6 @@ mod tests {
 
     #[test]
     fn blob_vec() {
-        // Remove these when https://github.com/rust-lang/miri/issues/2181 is resolved.
-        #[cfg(not(miri))]
         let drop_counter = Rc::new(RefCell::new(0));
         {
             let item_layout = Layout::new::<Foo>();
@@ -479,9 +471,7 @@ mod tests {
             unsafe {
                 let foo1 = Foo {
                     a: 42,
-                    #[cfg(not(miri))]
                     b: "abc".to_string(),
-                    #[cfg(not(miri))]
                     drop_counter: drop_counter.clone(),
                 };
                 push(&mut blob_vec, foo1.clone());
@@ -490,9 +480,7 @@ mod tests {
 
                 let mut foo2 = Foo {
                     a: 7,
-                    #[cfg(not(miri))]
                     b: "xyz".to_string(),
-                    #[cfg(not(miri))]
                     drop_counter: drop_counter.clone(),
                 };
                 push::<Foo>(&mut blob_vec, foo2.clone());
@@ -506,9 +494,7 @@ mod tests {
 
                 let foo3 = Foo {
                     a: 16,
-                    #[cfg(not(miri))]
                     b: "123".to_string(),
-                    #[cfg(not(miri))]
                     drop_counter: drop_counter.clone(),
                 };
 
@@ -533,7 +519,6 @@ mod tests {
             }
         }
 
-        #[cfg(not(miri))]
         assert_eq!(*drop_counter.borrow(), 6);
     }
 

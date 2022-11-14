@@ -122,8 +122,8 @@ mod tests {
         assert_eq!(world.get::<SparseStored>(f).unwrap().0, 456);
 
         // test archetype get_mut()
-        world.get_mut::<TableStored>(e).unwrap().0 = "ghi";
-        assert_eq!(world.get::<TableStored>(e).unwrap().0, "ghi");
+        world.get_mut::<TableStored>(e).unwrap().0 = "xyz";
+        assert_eq!(world.get::<TableStored>(e).unwrap().0, "xyz");
 
         // test sparse set get_mut()
         world.get_mut::<SparseStored>(f).unwrap().0 = 42;
@@ -570,7 +570,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(miri))]
     fn add_remove_components() {
         let mut world = World::new();
         let e1 = world.spawn((A(1), B(3), TableStored("abc"))).id();
