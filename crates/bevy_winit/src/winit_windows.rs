@@ -1,5 +1,5 @@
-use alloc::vec::Vec;
 use crate::converters::convert_cursor_grab_mode;
+use alloc::vec::Vec;
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
 use bevy_window::{

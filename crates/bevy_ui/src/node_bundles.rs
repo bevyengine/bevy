@@ -1,10 +1,10 @@
 //! This module contains basic node bundles used to build UIs
 
-use alloc::string::String;
 use crate::{
     widget::{Button, ImageMode},
     BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
 };
+use alloc::string::String;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     prelude::{Color, ComputedVisibility},

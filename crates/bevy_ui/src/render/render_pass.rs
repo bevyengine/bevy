@@ -1,6 +1,6 @@
-use alloc::{vec, vec::Vec};
 use super::{UiBatch, UiImageBindGroups, UiMeta};
 use crate::{prelude::UiCameraConfig, DefaultCameraView};
+use alloc::{vec, vec::Vec};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},

@@ -1,3 +1,6 @@
+use alloc::boxed::Box;
+use alloc::string::String;
+use alloc::{vec, vec::Vec};
 use bevy_asset::Handle;
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::*, FromReflect};

@@ -21,7 +21,7 @@ use std::borrow::Cow;
 /// # Examples
 ///
 /// ```
-/// use std::num::ParseIntError;
+/// use core::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
 ///

@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,

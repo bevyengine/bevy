@@ -502,7 +502,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// To create something like [`PipeSystem`], but in entirely safe code.
 ///
 /// ```rust
-/// use std::num::ParseIntError;
+/// use core::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::{SystemParam, SystemParamItem};

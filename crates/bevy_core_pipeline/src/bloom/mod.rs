@@ -23,7 +23,7 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
-use std::num::NonZeroU32;
+use core::num::NonZeroU32;
 
 pub mod draw_3d_graph {
     pub mod node {

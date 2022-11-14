@@ -1,5 +1,6 @@
 use crate::{error::TextError, Font, FontAtlas, TextSettings};
 use ab_glyph::{GlyphId, OutlinedGlyph, Point};
+use alloc::{vec, vec::Vec};
 use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;

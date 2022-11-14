@@ -1,3 +1,5 @@
+extern crate alloc;
+
 mod error;
 mod font;
 mod font_atlas;
@@ -8,6 +10,7 @@ mod pipeline;
 mod text;
 mod text2d;
 
+use alloc::vec::Vec;
 pub use error::*;
 pub use font::*;
 pub use font_atlas::*;
@@ -32,7 +35,7 @@ use bevy_ecs::{schedule::IntoSystemDescriptor, system::Resource};
 use bevy_render::{camera::CameraUpdateSystem, RenderApp, RenderStage};
 use bevy_sprite::SpriteSystem;
 use bevy_window::ModifiesWindows;
-use std::num::NonZeroUsize;
+use core::num::NonZeroUsize;
 
 #[derive(Default)]
 pub struct TextPlugin;

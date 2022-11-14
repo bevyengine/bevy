@@ -1,10 +1,10 @@
+use alloc::boxed::Box;
 use alloc::string::{String, ToString};
 use alloc::vec::Vec;
-use alloc::boxed::Box;
-use core::hash::Hash;
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
 use bevy_reflect::{FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
+use core::hash::Hash;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
 #[reflect_value(PartialEq, Hash)]

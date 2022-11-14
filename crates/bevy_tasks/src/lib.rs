@@ -35,7 +35,7 @@ pub mod prelude {
     };
 }
 
-use std::num::NonZeroUsize;
+use core::num::NonZeroUsize;
 
 /// Gets the logical CPU core count available to the current process.
 ///

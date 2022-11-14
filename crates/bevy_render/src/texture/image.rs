@@ -647,13 +647,13 @@ impl RenderAsset for Image {
                 ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
+                        core::num::NonZeroU32::new(
                             image.texture_descriptor.size.width * format_size as u32,
                         )
                         .unwrap(),
                     ),
                     rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
+                        core::num::NonZeroU32::new(image.texture_descriptor.size.height)
                     } else {
                         None
                     },

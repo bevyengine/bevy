@@ -1,4 +1,5 @@
 use ab_glyph::{PxScale, ScaleFont};
+use alloc::vec::Vec;
 use bevy_asset::{Assets, Handle, HandleId};
 use bevy_ecs::component::Component;
 use bevy_ecs::system::Resource;

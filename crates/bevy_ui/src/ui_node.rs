@@ -1,5 +1,5 @@
-use alloc::boxed::Box;
 use crate::{Size, UiRect};
+use alloc::boxed::Box;
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};

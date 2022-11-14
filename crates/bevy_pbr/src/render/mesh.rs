@@ -29,7 +29,7 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
-use std::num::NonZeroU64;
+use core::num::NonZeroU64;
 
 #[derive(Default)]
 pub struct MeshRenderPlugin;
@@ -458,7 +458,7 @@ impl FromWorld for MeshPipeline {
                 ImageDataLayout {
                     offset: 0,
                     bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
+                        core::num::NonZeroU32::new(
                             image.texture_descriptor.size.width * format_size as u32,
                         )
                         .unwrap(),

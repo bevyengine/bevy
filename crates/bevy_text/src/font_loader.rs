@@ -1,4 +1,5 @@
 use crate::Font;
+use alloc::boxed::Box;
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_utils::BoxedFuture;
