@@ -1,4 +1,4 @@
-use std::{f32::consts::TAU, mem};
+use std::{f32::consts::TAU, iter};
 
 use bevy_asset::Handle;
 use bevy_ecs::system::Resource;
@@ -9,22 +9,28 @@ use bevy_render::prelude::{Color, Mesh};
 /// Useful for visual debugging.
 #[derive(Resource)]
 pub struct DebugDraw {
-    positions: Vec<[f32; 3]>,
-    colors: Vec<[f32; 4]>,
-    pub(crate) mesh_handle: Option<Handle<Mesh>>,
+    pub(crate) list_mesh_handle: Option<Handle<Mesh>>,
+    pub(crate) list_positions: Vec<[f32; 3]>,
+    pub(crate) list_colors: Vec<[f32; 4]>,
+    pub(crate) strip_mesh_handle: Option<Handle<Mesh>>,
+    pub(crate) strip_positions: Vec<[f32; 3]>,
+    pub(crate) strip_colors: Vec<[f32; 4]>,
     /// The amount of line segments to use when drawing a circle.
     ///
-    /// Defaults to `24`.
+    /// Defaults to `32`.
     pub circle_segments: u32,
 }
 
 impl Default for DebugDraw {
     fn default() -> Self {
         DebugDraw {
-            positions: Vec::new(),
-            colors: Vec::new(),
-            mesh_handle: None,
-            circle_segments: 24,
+            list_mesh_handle: None,
+            list_positions: Vec::new(),
+            list_colors: Vec::new(),
+            strip_mesh_handle: None,
+            strip_positions: Vec::new(),
+            strip_colors: Vec::new(),
+            circle_segments: 32,
         }
     }
 }
@@ -39,8 +45,9 @@ impl DebugDraw {
     /// Draw a line from `start` to `end`.
     #[inline]
     pub fn line_gradient(&mut self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
-        self.positions.extend([start.to_array(), end.to_array()]);
-        self.colors.extend([
+        self.list_positions
+            .extend([start.to_array(), end.to_array()]);
+        self.list_colors.extend([
             start_color.as_linear_rgba_f32(),
             end_color.as_linear_rgba_f32(),
         ]);
@@ -49,7 +56,7 @@ impl DebugDraw {
     /// Draw a line from `start` to `start + vector`.
     #[inline]
     pub fn ray(&mut self, start: Vec3, vector: Vec3, color: Color) {
-        self.ray_gradient(start, vector, color, color);
+        self.line(start, start + vector, color);
     }
 
     /// Draw a line from `start` to `start + vector`.
@@ -68,25 +75,23 @@ impl DebugDraw {
     #[inline]
     pub fn circle(&mut self, position: Vec3, normal: Vec3, radius: f32, color: Color) {
         let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-        self.positions
-            .extend((0..self.circle_segments).into_iter().flat_map(|i| {
-                let mut angle = i as f32 * TAU / self.circle_segments as f32;
-                let start = rotation * (Vec2::from(angle.sin_cos()) * radius).extend(0.) + position;
 
-                angle += TAU / self.circle_segments as f32;
-                let end = rotation * (Vec2::from(angle.sin_cos()) * radius).extend(0.) + position;
+        let positions = self
+            .circle_inner(radius)
+            .map(|vec2| (rotation * vec2.extend(0.) + position).to_array())
+            .chain(iter::once(Vec3::NAN.to_array()));
 
-                [start.to_array(), end.to_array()]
-            }));
-
-        self.colors.extend(
-            std::iter::repeat(color.as_linear_rgba_f32()).take(self.circle_segments as usize * 2),
-        );
+        self.strip_positions.extend(positions);
+        self.add_strip_color(color, (self.circle_segments + 1) as usize);
     }
 
     /// Draw a sphere.
     #[inline]
     pub fn sphere(&mut self, position: Vec3, radius: f32, color: Color) {
+        self.strip_colors
+            .reserve((self.circle_segments + 1) as usize * 3);
+        self.strip_positions
+            .reserve((self.circle_segments + 1) as usize * 3);
         self.circle(position, Vec3::X, radius, color);
         self.circle(position, Vec3::Y, radius, color);
         self.circle(position, Vec3::Z, radius, color);
@@ -100,9 +105,10 @@ impl DebugDraw {
         let tr = (position + rotation * vec3(half_size.x, half_size.y, 0.)).to_array();
         let bl = (position + rotation * vec3(-half_size.x, -half_size.y, 0.)).to_array();
         let br = (position + rotation * vec3(half_size.x, -half_size.y, 0.)).to_array();
-        self.positions.extend([tl, tr, tr, br, br, bl, bl, tl]);
-        self.colors
-            .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(8));
+
+        self.strip_positions
+            .extend([tl, tr, br, bl, tl, [f32::NAN; 3]]);
+        self.add_strip_color(color, 5);
     }
 
     /// Draw a box.
@@ -119,19 +125,19 @@ impl DebugDraw {
         let trb = (position + rotation * vec3(half_size.x, half_size.y, -half_size.z)).to_array();
         let blb = (position + rotation * vec3(-half_size.x, -half_size.y, -half_size.z)).to_array();
         let brb = (position + rotation * vec3(half_size.x, -half_size.y, -half_size.z)).to_array();
-        self.positions.extend([
+
+        self.list_positions.extend([
             tlf, trf, trf, brf, brf, blf, blf, tlf, // Front
             tlb, trb, trb, brb, brb, blb, blb, tlb, // Back
             tlf, tlb, trf, trb, brf, brb, blf, blb, // Front to back
         ]);
-        self.colors
-            .extend(std::iter::repeat(color.as_linear_rgba_f32()).take(24));
+        self.add_list_color(color, 24);
     }
 
     /// Draw a line from `start` to `end`.
     #[inline]
     pub fn line_2d(&mut self, start: Vec2, end: Vec2, color: Color) {
-        self.line_gradient_2d(start, end, color, color);
+        self.line(start.extend(0.), end.extend(0.), color);
     }
 
     /// Draw a line from `start` to `end`.
@@ -149,7 +155,7 @@ impl DebugDraw {
     /// Draw a line from `start` to `start + vector`.
     #[inline]
     pub fn ray_2d(&mut self, start: Vec2, vector: Vec2, color: Color) {
-        self.ray_gradient_2d(start, vector, color, color);
+        self.line_2d(start, start + vector, color);
     }
 
     /// Draw a line from `start` to `start + vector`.
@@ -167,7 +173,13 @@ impl DebugDraw {
     // Draw a circle.
     #[inline]
     pub fn circle_2d(&mut self, position: Vec2, radius: f32, color: Color) {
-        self.circle(position.extend(0.), Vec3::Z, radius, color);
+        let positions = self
+            .circle_inner(radius)
+            .map(|vec2| (vec2 + position).extend(0.).to_array())
+            .chain(iter::once([f32::NAN; 3]));
+
+        self.strip_positions.extend(positions);
+        self.add_strip_color(color, (self.circle_segments + 1) as usize);
     }
 
     /// Draw a rectangle.
@@ -181,17 +193,35 @@ impl DebugDraw {
         );
     }
 
+    #[inline]
+    fn add_strip_color(&mut self, color: Color, amount: usize) {
+        self.strip_colors.extend(
+            iter::repeat(color.as_linear_rgba_f32())
+                .take(amount)
+                .chain(iter::once([f32::NAN; 4])),
+        );
+    }
+
+    #[inline]
+    fn add_list_color(&mut self, color: Color, amount: usize) {
+        self.list_colors
+            .extend(iter::repeat(color.as_linear_rgba_f32()).take(amount));
+    }
+
+    fn circle_inner(&self, radius: f32) -> impl Iterator<Item = Vec2> {
+        let circle_segments = self.circle_segments;
+        (0..(circle_segments + 1)).into_iter().map(move |i| {
+            let angle = i as f32 * TAU / circle_segments as f32;
+            Vec2::from(angle.sin_cos()) * radius
+        })
+    }
+
     /// Clear everything drawn up to this point, this frame.
     #[inline]
     pub fn clear(&mut self) {
-        self.positions.clear();
-        self.colors.clear();
-    }
-
-    /// Take the positions and colors data from `self` and overwrite the `mesh`'s vertex positions and colors.
-    #[inline]
-    pub(crate) fn update_mesh(&mut self, mesh: &mut Mesh) {
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mem::take(&mut self.positions));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, mem::take(&mut self.colors));
+        self.list_positions.clear();
+        self.list_colors.clear();
+        self.strip_positions.clear();
+        self.strip_colors.clear();
     }
 }

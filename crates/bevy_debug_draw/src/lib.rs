@@ -1,9 +1,10 @@
+use std::mem;
+
 use bevy_app::{CoreStage, Plugin};
-use bevy_asset::{load_internal_asset, Assets, HandleUntyped};
+use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    query::With,
     system::{Commands, Query, Res, ResMut, Resource},
 };
 use bevy_reflect::TypeUuid;
@@ -102,8 +103,10 @@ impl Default for DebugDrawConfig {
     }
 }
 
-#[derive(Component)]
-struct DebugDrawMesh;
+#[derive(Component, Clone, Copy)]
+struct DebugDrawMesh {
+    topology: PrimitiveTopology,
+}
 
 fn update(
     config: Res<DebugDrawConfig>,
@@ -111,54 +114,88 @@ fn update(
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
 ) {
-    let mesh = debug_draw
-        .mesh_handle
-        .as_ref()
-        .and_then(|handle| meshes.get_mut(handle));
-    match mesh {
-        Some(mesh) => {
-            if config.enabled {
-                debug_draw.update_mesh(mesh);
-            } else {
-                debug_draw.clear();
-                mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION);
-                mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR);
+    let mut f = |handle: &mut Option<Handle<Mesh>>,
+                 positions: &mut Vec<[f32; 3]>,
+                 colors: &mut Vec<[f32; 4]>,
+                 topology: PrimitiveTopology| {
+        let mesh = handle.as_ref().and_then(|handle| meshes.get_mut(handle));
+        match mesh {
+            Some(mesh) => {
+                if config.enabled {
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mem::take(positions));
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, mem::take(colors));
+                } else {
+                    positions.clear();
+                    colors.clear();
+                    mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION);
+                    mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR);
+                }
+            }
+            None => {
+                if config.enabled {
+                    let mut mesh = Mesh::new(topology);
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mem::take(positions));
+                    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, mem::take(colors));
+                    let mesh_handle = meshes.add(mesh);
+                    commands.spawn((
+                        SpatialBundle::VISIBLE_IDENTITY,
+                        DebugDrawMesh { topology },
+                        #[cfg(feature = "bevy_pbr")]
+                        (
+                            mesh_handle.clone_weak(),
+                            NotShadowCaster,
+                            NotShadowReceiver,
+                            NoFrustumCulling,
+                        ),
+                        #[cfg(feature = "bevy_sprite")]
+                        Mesh2dHandle(mesh_handle.clone_weak()),
+                    ));
+                    *handle = Some(mesh_handle);
+                } else {
+                    positions.clear();
+                    colors.clear();
+                }
             }
         }
-        None => {
-            if config.enabled {
-                let mut mesh = Mesh::new(PrimitiveTopology::LineList);
-                debug_draw.update_mesh(&mut mesh);
-                let mesh_handle = meshes.add(mesh);
-                commands.spawn((
-                    SpatialBundle::VISIBLE_IDENTITY,
-                    DebugDrawMesh,
-                    #[cfg(feature = "bevy_pbr")]
-                    (
-                        mesh_handle.clone_weak(),
-                        NotShadowCaster,
-                        NotShadowReceiver,
-                        NoFrustumCulling,
-                    ),
-                    #[cfg(feature = "bevy_sprite")]
-                    Mesh2dHandle(mesh_handle.clone_weak()),
-                ));
-                debug_draw.mesh_handle = Some(mesh_handle);
-            } else {
-                debug_draw.clear();
-            }
-        }
-    }
+    };
+
+    let DebugDraw {
+        list_mesh_handle,
+        list_positions,
+        list_colors,
+        ..
+    } = &mut *debug_draw;
+
+    f(
+        list_mesh_handle,
+        list_positions,
+        list_colors,
+        PrimitiveTopology::LineList,
+    );
+
+    let DebugDraw {
+        strip_mesh_handle,
+        strip_positions,
+        strip_colors,
+        ..
+    } = &mut *debug_draw;
+
+    f(
+        strip_mesh_handle,
+        strip_positions,
+        strip_colors,
+        PrimitiveTopology::LineStrip,
+    );
 }
 
 /// Move the [`DebugDrawMesh`] marker Component and the [`DebugDrawConfig`] Resource to the render context.
 fn extract(
     mut commands: Commands,
-    query: Extract<Query<Entity, With<DebugDrawMesh>>>,
+    query: Extract<Query<(Entity, &DebugDrawMesh)>>,
     config: Extract<Res<DebugDrawConfig>>,
 ) {
-    for entity in &query {
-        commands.get_or_spawn(entity).insert(DebugDrawMesh);
+    for (entity, debug_draw) in &query {
+        commands.get_or_spawn(entity).insert(*debug_draw);
     }
 
     if config.is_changed() {

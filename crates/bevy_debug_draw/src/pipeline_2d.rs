@@ -1,7 +1,6 @@
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
-    query::With,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -70,7 +69,7 @@ impl SpecializedMeshPipeline for DebugLinePipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: PrimitiveTopology::LineList,
+                topology: key.primitive_topology(),
                 strip_index_format: None,
             },
             depth_stencil: None,
@@ -99,7 +98,7 @@ pub(crate) fn queue(
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<DebugLinePipeline>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<&Mesh2dHandle, With<DebugDrawMesh>>,
+    material_meshes: Query<(&Mesh2dHandle, &DebugDrawMesh)>,
     mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
 ) {
     for (view, mut phase) in &mut views {
@@ -107,11 +106,11 @@ pub(crate) fn queue(
         let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &view.entities {
-            let Ok(mesh_handle) = material_meshes.get(*visible_entity) else { continue; };
+            let Ok((mesh_handle, debug_draw)) = material_meshes.get(*visible_entity) else { continue; };
             let Some(mesh) = render_meshes.get(&mesh_handle.0) else { continue; };
 
             let mesh_key =
-                msaa_key | Mesh2dPipelineKey::from_primitive_topology(PrimitiveTopology::LineList);
+                msaa_key | Mesh2dPipelineKey::from_primitive_topology(debug_draw.topology);
             let pipeline = specialized_pipelines
                 .specialize(
                     &mut pipeline_cache,

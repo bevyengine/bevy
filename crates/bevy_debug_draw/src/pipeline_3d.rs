@@ -2,7 +2,6 @@ use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{
     entity::Entity,
-    query::With,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -92,7 +91,7 @@ impl SpecializedMeshPipeline for DebugLinePipeline {
                 unclipped_depth: false,
                 polygon_mode: PolygonMode::Fill,
                 conservative: false,
-                topology: PrimitiveTopology::LineList,
+                topology: key.primitive_topology(),
                 strip_index_format: None,
             },
             depth_stencil: Some(DepthStencilState {
@@ -136,7 +135,7 @@ pub(crate) fn queue(
     mut pipeline_cache: ResMut<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<DebugDrawMesh>>,
+    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>, &DebugDrawMesh)>,
     config: Res<DebugDrawConfig>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
 ) {
@@ -148,7 +147,8 @@ pub(crate) fn queue(
     for (view, mut phase) in &mut views {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
-        for (entity, mesh_uniform, mesh_handle) in &material_meshes {
+        for (entity, mesh_uniform, mesh_handle, debug_draw) in &material_meshes {
+            let key = key | MeshPipelineKey::from_primitive_topology(debug_draw.topology);
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let pipeline = pipelines
                     .specialize(
