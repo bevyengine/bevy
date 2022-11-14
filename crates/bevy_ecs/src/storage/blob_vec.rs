@@ -50,9 +50,10 @@ impl BlobVec {
         capacity: usize,
     ) -> BlobVec {
         if item_layout.size() == 0 {
+            let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
             BlobVec {
                 swap_scratch: NonNull::dangling(),
-                data: NonNull::dangling(),
+                data: bevy_ptr::dangling_with_align(align),
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
