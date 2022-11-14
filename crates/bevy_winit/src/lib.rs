@@ -1,9 +1,14 @@
+#![no_std]
+
+extern crate alloc;
+
 mod converters;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;
 mod winit_config;
 mod winit_windows;
 
+use alloc::vec::Vec;
 use converters::convert_cursor_grab_mode;
 pub use winit_config::*;
 pub use winit_windows::*;
@@ -66,7 +71,7 @@ fn change_window(
     mut window_dpi_changed_events: EventWriter<WindowScaleFactorChanged>,
     mut window_close_events: EventWriter<WindowClosed>,
 ) {
-    let mut removed_windows = vec![];
+    let mut removed_windows = Vec::new();
     for bevy_window in windows.iter_mut() {
         let id = bevy_window.id();
         for command in bevy_window.drain_commands() {

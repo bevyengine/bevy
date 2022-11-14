@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use crate::converters::convert_cursor_grab_mode;
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
