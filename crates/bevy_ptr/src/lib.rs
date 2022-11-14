@@ -3,7 +3,7 @@
 #![warn(missing_docs)]
 
 use core::{
-    cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, ptr::NonNull,
+    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
 };
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
@@ -98,6 +98,9 @@ macro_rules! impl_ptr {
 }
 
 impl_ptr!(Ptr);
+impl_ptr!(PtrMut);
+impl_ptr!(OwningPtr);
+
 impl<'a> Ptr<'a> {
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
@@ -127,7 +130,16 @@ impl<'a> Ptr<'a> {
         self.0.as_ptr()
     }
 }
-impl_ptr!(PtrMut);
+
+impl<'a, T> From<&'a T> for Ptr<'a> {
+    #[inline]
+    fn from(val: &'a T) -> Self {
+        // SAFETY: The returned pointer has the same lifetime as the passed reference.
+        // Access is immutable.
+        unsafe { Self::new(NonNull::from(val).cast()) }
+    }
+}
+
 impl<'a> PtrMut<'a> {
     /// Transforms this [`PtrMut`] into an [`OwningPtr`]
     ///
@@ -157,15 +169,24 @@ impl<'a> PtrMut<'a> {
         self.0.as_ptr()
     }
 }
-impl_ptr!(OwningPtr);
+
+impl<'a, T> From<&'a mut T> for PtrMut<'a> {
+    #[inline]
+    fn from(val: &'a mut T) -> Self {
+        // SAFETY: The returned pointer has the same lifetime as the passed reference.
+        // The reference is mutable, and thus will not alias.
+        unsafe { Self::new(NonNull::from(val).cast()) }
+    }
+}
+
 impl<'a> OwningPtr<'a> {
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
-        let mut temp = MaybeUninit::new(val);
-        // SAFETY: `temp.as_mut_ptr()` is a reference to a local value on the stack, so it cannot be null
-        let ptr = unsafe { NonNull::new_unchecked(temp.as_mut_ptr().cast::<u8>()) };
-        f(Self(ptr, PhantomData))
+        let mut temp = ManuallyDrop::new(val);
+        // SAFETY: The value behind the pointer will not get dropped or observed later,
+        // so it's safe to promote it to an owning pointer.
+        f(unsafe { PtrMut::from(&mut *temp).promote() })
     }
 
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
