@@ -16,6 +16,8 @@ use bevy_render::{
 
 #[cfg(feature = "bevy_pbr")]
 use bevy_pbr::{NotShadowCaster, NotShadowReceiver};
+#[cfg(feature = "bevy_pbr")]
+use bevy_render::view::NoFrustumCulling;
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::Mesh2dHandle;
 
@@ -109,33 +111,43 @@ fn update(
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
 ) {
-    if let Some(mesh) = debug_draw
+    let mesh = debug_draw
         .mesh_handle
         .as_ref()
-        .and_then(|handle| meshes.get_mut(handle))
-    {
-        if config.enabled {
-            debug_draw.update_mesh(mesh);
-        } else {
-            debug_draw.clear();
-            mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION);
-            mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR);
+        .and_then(|handle| meshes.get_mut(handle));
+    match mesh {
+        Some(mesh) => {
+            if config.enabled {
+                debug_draw.update_mesh(mesh);
+            } else {
+                debug_draw.clear();
+                mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION);
+                mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR);
+            }
         }
-    } else if config.enabled {
-        let mut mesh = Mesh::new(PrimitiveTopology::LineList);
-        debug_draw.update_mesh(&mut mesh);
-        let mesh_handle = meshes.add(mesh);
-        commands.spawn((
-            SpatialBundle::VISIBLE_IDENTITY,
-            DebugDrawMesh,
-            #[cfg(feature = "bevy_pbr")]
-            (mesh_handle.clone_weak(), NotShadowCaster, NotShadowReceiver),
-            #[cfg(feature = "bevy_sprite")]
-            Mesh2dHandle(mesh_handle.clone_weak()),
-        ));
-        debug_draw.mesh_handle = Some(mesh_handle);
-    } else {
-        debug_draw.clear();
+        None => {
+            if config.enabled {
+                let mut mesh = Mesh::new(PrimitiveTopology::LineList);
+                debug_draw.update_mesh(&mut mesh);
+                let mesh_handle = meshes.add(mesh);
+                commands.spawn((
+                    SpatialBundle::VISIBLE_IDENTITY,
+                    DebugDrawMesh,
+                    #[cfg(feature = "bevy_pbr")]
+                    (
+                        mesh_handle.clone_weak(),
+                        NotShadowCaster,
+                        NotShadowReceiver,
+                        NoFrustumCulling,
+                    ),
+                    #[cfg(feature = "bevy_sprite")]
+                    Mesh2dHandle(mesh_handle.clone_weak()),
+                ));
+                debug_draw.mesh_handle = Some(mesh_handle);
+            } else {
+                debug_draw.clear();
+            }
+        }
     }
 }
 
