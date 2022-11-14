@@ -137,11 +137,10 @@ impl ReflectTraits {
                 // Handles `#[reflect( Hash, Default, ... )]`
                 NestedMeta::Meta(Meta::Path(path)) => {
                     // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
-                    let ident = if let Some(segment) = path.segments.iter().next() {
-                        &segment.ident
-                    } else {
+                    let Some(segment) = path.segments.iter().next() else {
                         continue;
                     };
+                    let ident = &segment.ident;
                     let ident_name = ident.to_string();
 
                     // Track the span where the trait is implemented for future errors
@@ -172,11 +171,11 @@ impl ReflectTraits {
                 // Handles `#[reflect( Hash(custom_hash_fn) )]`
                 NestedMeta::Meta(Meta::List(list)) => {
                     // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
-                    let ident = if let Some(segment) = list.path.segments.iter().next() {
-                        segment.ident.to_string()
-                    } else {
+                    let Some(segment) = list.path.segments.iter().next() else {
                         continue;
                     };
+
+                    let ident = segment.ident.to_string();
 
                     // Track the span where the trait is implemented for future errors
                     let span = ident.span();

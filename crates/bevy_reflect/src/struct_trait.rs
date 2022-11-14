@@ -1,5 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
+use crate::{
+    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{
@@ -403,6 +405,11 @@ impl Reflect for DynamicStruct {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -425,6 +432,11 @@ impl Reflect for DynamicStruct {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Struct(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Struct(self)
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
@@ -480,9 +492,7 @@ impl Typed for DynamicStruct {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
-        struct_value
-    } else {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref()  else {
         return Some(false);
     };
 

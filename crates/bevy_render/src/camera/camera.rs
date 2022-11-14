@@ -236,11 +236,13 @@ impl Camera {
         let target_size = self.logical_viewport_size()?;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
-        let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
-        // Using EPSILON because passing an ndc with Z = 0 returns NaNs.
-        let world_far_plane = self.ndc_to_world(camera_transform, ndc.extend(f32::EPSILON))?;
+        let ndc_to_world =
+            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+        let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
+        // Using EPSILON because an ndc with Z = 0 returns NaNs.
+        let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
-        Some(Ray {
+        (!world_near_plane.is_nan() && !world_far_plane.is_nan()).then_some(Ray {
             origin: world_near_plane,
             direction: (world_far_plane - world_near_plane).normalize(),
         })
@@ -289,9 +291,16 @@ impl Camera {
 pub struct CameraRenderGraph(Cow<'static, str>);
 
 impl CameraRenderGraph {
+    /// Creates a new [`CameraRenderGraph`] from any string-like type.
     #[inline]
     pub fn new<T: Into<Cow<'static, str>>>(name: T) -> Self {
         Self(name.into())
+    }
+
+    #[inline]
+    /// Sets the graph name.
+    pub fn set<T: Into<Cow<'static, str>>>(&mut self, name: T) {
+        self.0 = name.into();
     }
 }
 

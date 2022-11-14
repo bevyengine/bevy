@@ -87,6 +87,10 @@ impl TypeRegistry {
 
     /// Registers the type described by `registration`.
     pub fn add_registration(&mut self, registration: TypeRegistration) {
+        if self.registrations.contains_key(&registration.type_id()) {
+            return;
+        }
+
         let short_name = registration.short_name.to_string();
         if self.short_name_to_id.contains_key(&short_name)
             || self.ambiguous_names.contains(&short_name)

@@ -11,6 +11,7 @@ use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped}
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
+use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
     color::Color,
@@ -117,7 +118,7 @@ pub fn build_ui_render(app: &mut App) {
             .unwrap();
         graph_2d
             .add_node_edge(
-                bevy_core_pipeline::core_2d::graph::node::TONEMAPPING,
+                bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 draw_ui_graph::node::UI_PASS,
             )
             .unwrap();
@@ -143,7 +144,7 @@ pub fn build_ui_render(app: &mut App) {
             .unwrap();
         graph_3d
             .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
+                bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 draw_ui_graph::node::UI_PASS,
             )
             .unwrap();
@@ -209,7 +210,7 @@ pub fn extract_uinodes(
             &Node,
             &GlobalTransform,
             &BackgroundColor,
-            &UiImage,
+            Option<&UiImage>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
@@ -218,11 +219,19 @@ pub fn extract_uinodes(
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok((uinode, transform, color, image, visibility, clip)) = uinode_query.get(*entity) {
+        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+            uinode_query.get(*entity)
+        {
             if !visibility.is_visible() {
                 continue;
             }
-            let image = image.0.clone_weak();
+
+            let image = if let Some(image) = maybe_image {
+                image.0.clone_weak()
+            } else {
+                DEFAULT_IMAGE_HANDLE.typed().clone_weak()
+            };
+
             // Skip loading images
             if !images.contains(&image) {
                 continue;
@@ -231,6 +240,7 @@ pub fn extract_uinodes(
             if color.0.a() == 0.0 {
                 continue;
             }
+
             extracted_uinodes.uinodes.push(ExtractedUiNode {
                 stack_index,
                 transform: transform.compute_matrix(),
@@ -349,7 +359,7 @@ pub fn extract_text_uinodes(
                     .get(&text_glyph.atlas_info.texture_atlas)
                     .unwrap();
                 let texture = atlas.texture.clone_weak();
-                let index = text_glyph.atlas_info.glyph_index as usize;
+                let index = text_glyph.atlas_info.glyph_index;
                 let rect = atlas.textures[index];
                 let atlas_size = Some(atlas.size);
 
