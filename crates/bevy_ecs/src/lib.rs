@@ -709,7 +709,7 @@ mod tests {
 
     #[test]
     fn query_get_works_across_sparse_removal() {
-        // Regresssion test for: https://github.com/bevyengine/bevy/issues/6623
+        // Regression test for: https://github.com/bevyengine/bevy/issues/6623
         let mut world = World::new();
         let a = world.spawn((TableStored("abc"), SparseStored(123))).id();
         let b = world.spawn((TableStored("def"), SparseStored(456))).id();
