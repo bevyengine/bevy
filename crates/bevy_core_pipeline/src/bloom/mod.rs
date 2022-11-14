@@ -175,9 +175,9 @@ pub struct BloomNode {
 }
 
 impl BloomNode {
-    const IN_VIEW: &'static str = "view";
+    pub const IN_VIEW: &'static str = "view";
 
-    fn new(world: &mut World) -> Self {
+    pub fn new(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
         }
