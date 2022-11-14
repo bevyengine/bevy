@@ -137,6 +137,11 @@ impl Resources {
         self.resources.len()
     }
 
+    /// Iterate over all resources that have been initialized, i.e. given a [`ComponentId`]
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData)> {
+        self.resources.iter().map(|(id, data)| (*id, data))
+    }
+
     /// Returns true if there are no resources stored in the [`World`],
     /// false otherwise.
     ///
