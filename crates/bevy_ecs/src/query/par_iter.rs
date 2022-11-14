@@ -2,7 +2,7 @@ use crate::world::World;
 use bevy_tasks::ComputeTaskPool;
 use std::ops::Range;
 
-use super::{QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem, WorldQuery};
+use super::{QueryItem, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery};
 
 /// Dictates how a parallel query chunks up large tables/archetypes
 /// during iteration.
@@ -67,26 +67,13 @@ impl BatchingStrategy {
 ///
 /// This struct is created by the [`Query::par_iter`](crate::system::Query::iter) and
 /// [`Query::par_iter_mut`](crate::system::Query::iter_mut) methods.
-pub struct QueryParIter<'w, 's, Q: WorldQuery, QF: Fetch<'w, State = Q::State>, F: WorldQuery> {
+pub struct QueryParIter<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     pub(crate) world: &'w World,
     pub(crate) state: &'s QueryState<Q, F>,
     pub(crate) batching_strategy: BatchingStrategy,
-    pub(crate) marker_: std::marker::PhantomData<fn() -> QF>,
 }
 
-impl<'w, 's, Q: WorldQuery, QF, F: WorldQuery> QueryParIter<'w, 's, Q, QF, F>
-where
-    QF: Fetch<'w, State = Q::State>,
-{
-    /// Changes the batching strategy used when iterating.
-    ///
-    /// For more information on how this affects the resultant iteration, see
-    /// [`BatchingStrategy`].
-    pub fn batching_strategy(mut self, strategy: BatchingStrategy) -> Self {
-        self.batching_strategy = strategy;
-        self
-    }
-
+impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     /// Runs `func` on each query result in parallel.
     ///
     /// This can only be called for read-only queries, see [`Self::for_each_mut`] for
@@ -103,15 +90,25 @@ where
         let batch_size = self.get_batch_size().max(1);
         // SAFETY: query is read only
         unsafe {
-            self.state
-                .par_for_each_unchecked_manual::<ROQueryFetch<Q>, FN>(
-                    self.world,
-                    batch_size,
-                    func,
-                    self.world.last_change_tick(),
-                    self.world.read_change_tick(),
-                );
+            self.state.par_for_each_unchecked_manual(
+                self.world,
+                batch_size,
+                func,
+                self.world.last_change_tick(),
+                self.world.read_change_tick(),
+            );
         }
+    }
+}
+
+impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
+    /// Changes the batching strategy used when iterating.
+    ///
+    /// For more information on how this affects the resultant iteration, see
+    /// [`BatchingStrategy`].
+    pub fn batching_strategy(mut self, strategy: BatchingStrategy) -> Self {
+        self.batching_strategy = strategy;
+        self
     }
 
     /// Runs `func` on each query result in parallel.
@@ -127,14 +124,13 @@ where
         let batch_size = self.get_batch_size().max(1);
         // SAFETY: query has unique world access
         unsafe {
-            self.state
-                .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
-                    self.world,
-                    batch_size,
-                    func,
-                    self.world.last_change_tick(),
-                    self.world.read_change_tick(),
-                );
+            self.state.par_for_each_unchecked_manual(
+                self.world,
+                batch_size,
+                func,
+                self.world.last_change_tick(),
+                self.world.read_change_tick(),
+            );
         }
     }
 
@@ -157,14 +153,13 @@ where
     ) {
         // Need a batch size of at least 1.
         let batch_size = self.get_batch_size().max(1);
-        self.state
-            .par_for_each_unchecked_manual::<QueryFetch<Q>, FN>(
-                self.world,
-                batch_size,
-                func,
-                self.world.last_change_tick(),
-                self.world.read_change_tick(),
-            );
+        self.state.par_for_each_unchecked_manual(
+            self.world,
+            batch_size,
+            func,
+            self.world.last_change_tick(),
+            self.world.read_change_tick(),
+        );
     }
 
     fn get_batch_size(&self) -> usize {
@@ -177,12 +172,12 @@ where
             thread_count > 0,
             "Attempted to run parallel iteration over a query with an empty TaskPool"
         );
-        let max_size = if QF::IS_DENSE && <QueryFetch<'static, F>>::IS_DENSE {
+        let max_size = if Q::IS_DENSE && F::IS_DENSE {
             let tables = &self.world.storages().tables;
             self.state
                 .matched_table_ids
                 .iter()
-                .map(|id| tables[*id].len())
+                .map(|id| tables[*id].entity_count())
                 .max()
                 .unwrap_or(0)
         } else {

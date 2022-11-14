@@ -4,8 +4,8 @@ use crate::{
     entity::Entity,
     prelude::FromWorld,
     query::{
-        Access, BatchingStrategy,  DebugCheckedUnwrap, FilteredAccess, 
-        QueryCombinationIter, QueryIter, QueryParIter, WorldQuery, QueryFetch
+        Access, BatchingStrategy, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter,
+        QueryIter, QueryParIter, WorldQuery,
     },
     storage::TableId,
     world::{World, WorldId},
@@ -839,16 +839,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// [`par_iter_mut`]: Self::par_iter_mut
     #[inline]
-    pub fn par_iter<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-    ) -> QueryParIter<'w, 's, Q, ROQueryFetch<'w, Q>, F> {
+    pub fn par_iter<'w, 's>(&'s mut self, world: &'w World) -> QueryParIter<'w, 's, Q, F> {
         self.update_archetypes(world);
         QueryParIter {
             world,
             state: self,
             batching_strategy: BatchingStrategy::new(),
-            marker_: std::marker::PhantomData,
         }
     }
 
@@ -858,16 +854,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ///
     /// [`par_iter`]: Self::par_iter
     #[inline]
-    pub fn par_iter_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> QueryParIter<'w, 's, Q, QueryFetch<'w, Q>, F> {
+    pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, Q, F> {
         self.update_archetypes(world);
         QueryParIter {
             world,
             state: self,
             batching_strategy: BatchingStrategy::new(),
-            marker_: std::marker::PhantomData,
         }
     }
 
