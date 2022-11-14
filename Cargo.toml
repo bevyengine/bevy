@@ -203,6 +203,16 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "custom_gltf_2d"
+path = "examples/2d/custom_gltf_2d.rs"
+
+[package.metadata.example.custom_gltf_2d]
+name = "Custom glTF vertex attribute 2D"
+description = "Renders a glTF mesh in 2D with a custom vertex attribute"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "sprite"
 path = "examples/2d/sprite.rs"
 
