@@ -54,10 +54,13 @@ fn generate_bodies(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Mesh::from(shape::Icosphere {
-        radius: 1.0,
-        subdivisions: 3,
-    }));
+    let mesh = meshes.add(
+        Mesh::try_from(shape::Icosphere {
+            radius: 1.0,
+            subdivisions: 3,
+        })
+        .unwrap(),
+    );
 
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
@@ -114,10 +117,13 @@ fn generate_bodies(
             BodyBundle {
                 pbr: PbrBundle {
                     transform: Transform::from_scale(Vec3::splat(star_radius)),
-                    mesh: meshes.add(Mesh::from(shape::Icosphere {
-                        radius: 1.0,
-                        subdivisions: 5,
-                    })),
+                    mesh: meshes.add(
+                        Mesh::try_from(shape::Icosphere {
+                            radius: 1.0,
+                            subdivisions: 5,
+                        })
+                        .unwrap(),
+                    ),
                     material: materials.add(StandardMaterial {
                         base_color: Color::ORANGE_RED,
                         emissive: (Color::ORANGE_RED * 2.),

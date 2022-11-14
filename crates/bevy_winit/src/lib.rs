@@ -146,9 +146,12 @@ fn change_window(
                 }
                 bevy_window::WindowCommand::SetCursorPosition { position } => {
                     let window = winit_windows.get_window(id).unwrap();
-
+                    let inner_size = window.inner_size().to_logical::<f32>(window.scale_factor());
                     window
-                        .set_cursor_position(LogicalPosition::new(position.x, position.y))
+                        .set_cursor_position(LogicalPosition::new(
+                            position.x,
+                            inner_size.height - position.y,
+                        ))
                         .unwrap_or_else(|e| error!("Unable to set cursor position: {}", e));
                 }
                 bevy_window::WindowCommand::SetMaximized { maximized } => {
@@ -222,6 +225,10 @@ fn change_window(
                     if constraints.max_width.is_finite() && constraints.max_height.is_finite() {
                         window.set_max_inner_size(Some(max_inner_size));
                     }
+                }
+                bevy_window::WindowCommand::SetAlwaysOnTop { always_on_top } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_always_on_top(always_on_top);
                 }
                 bevy_window::WindowCommand::Close => {
                     // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
@@ -417,7 +424,13 @@ pub fn winit_runner_with(mut app: App) {
                         world.send_event(converters::convert_keyboard_input(input));
                     }
                     WindowEvent::CursorMoved { position, .. } => {
-                        let physical_position = DVec2::new(position.x, position.y);
+                        let winit_window = winit_windows.get_window(window_id).unwrap();
+                        let inner_size = winit_window.inner_size();
+
+                        // move origin to bottom left
+                        let y_position = inner_size.height as f64 - position.y;
+
+                        let physical_position = DVec2::new(position.x, y_position);
                         window
                             .update_cursor_physical_position_from_backend(Some(physical_position));
 
