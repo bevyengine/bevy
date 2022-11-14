@@ -475,11 +475,12 @@ macro_rules! impl_tick_filter {
                 &component_id: &ComponentId,
                 table: &'w Table
             ) {
-                let column = table
-                    .get_column(component_id)
-                    .debug_checked_unwrap();
                 fetch.table_ticks = Some(
-                    $get_slice(&column).into(),
+                    $get_slice(
+                        &table
+                            .get_column(component_id)
+                            .debug_checked_unwrap()
+                    ).into(),
                 );
             }
 
