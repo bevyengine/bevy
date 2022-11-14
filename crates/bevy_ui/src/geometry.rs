@@ -405,13 +405,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_size_new() {
-        let size: Size = (Val::Px(20.), Val::Px(30.)).into();
-
-        assert_eq!(size, Size::new(Val::Px(20.), Val::Px(30.)));
-    }
-
-    #[test]
     fn test_size_from() {
         let size: Size = (Val::Px(20.), Val::Px(30.)).into();
 
