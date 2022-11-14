@@ -86,17 +86,9 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, 
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each<FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(&self, func: FN) {
-        // Need a batch size of at least 1.
-        let batch_size = self.get_batch_size().max(1);
         // SAFETY: query is read only
         unsafe {
-            self.state.par_for_each_unchecked_manual(
-                self.world,
-                batch_size,
-                func,
-                self.world.last_change_tick(),
-                self.world.read_change_tick(),
-            );
+            self.for_each_unchecked(func);
         }
     }
 }
@@ -120,17 +112,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
     /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
     #[inline]
     pub fn for_each_mut<FN: Fn(QueryItem<'w, Q>) + Send + Sync + Clone>(&mut self, func: FN) {
-        // Need a batch size of at least 1.
-        let batch_size = self.get_batch_size().max(1);
         // SAFETY: query has unique world access
         unsafe {
-            self.state.par_for_each_unchecked_manual(
-                self.world,
-                batch_size,
-                func,
-                self.world.last_change_tick(),
-                self.world.read_change_tick(),
-            );
+            self.for_each_unchecked(func);
         }
     }
 
@@ -151,23 +135,32 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
         &self,
         func: FN,
     ) {
-        // Need a batch size of at least 1.
-        let batch_size = self.get_batch_size().max(1);
-        self.state.par_for_each_unchecked_manual(
-            self.world,
-            batch_size,
-            func,
-            self.world.last_change_tick(),
-            self.world.read_change_tick(),
-        );
+        let thread_count = ComputeTaskPool::get().thread_num();
+        if thread_count <= 1 {
+            self.state.for_each_unchecked_manual(
+                self.world,
+                func,
+                self.world.last_change_tick(),
+                self.world.read_change_tick(),
+            );
+        } else {
+            // Need a batch size of at least 1.
+            let batch_size = self.get_batch_size(thread_count).max(1);
+            self.state.par_for_each_unchecked_manual(
+                self.world,
+                batch_size,
+                func,
+                self.world.last_change_tick(),
+                self.world.read_change_tick(),
+            );
+        }
     }
 
-    fn get_batch_size(&self) -> usize {
+    fn get_batch_size(&self, thread_count: usize) -> usize {
         if self.batching_strategy.batch_size_limits.is_empty() {
             return self.batching_strategy.batch_size_limits.start;
         }
 
-        let thread_count = ComputeTaskPool::get().thread_num();
         assert!(
             thread_count > 0,
             "Attempted to run parallel iteration over a query with an empty TaskPool"
