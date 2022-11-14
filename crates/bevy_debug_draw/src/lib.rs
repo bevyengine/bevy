@@ -24,9 +24,9 @@ use bevy_sprite::Mesh2dHandle;
 pub mod debug_draw;
 
 #[cfg(feature = "bevy_sprite")]
-pub mod pipeline_2d;
+mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
-pub mod pipeline_3d;
+mod pipeline_3d;
 
 use crate::debug_draw::DebugDraw;
 
@@ -36,7 +36,7 @@ pub mod prelude {
     pub use crate::{debug_draw::DebugDraw, DebugDrawConfig, DebugDrawPlugin};
 }
 
-pub const SHADER_HANDLE: HandleUntyped =
+const SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7414812689238026784);
 
 pub struct DebugDrawPlugin;

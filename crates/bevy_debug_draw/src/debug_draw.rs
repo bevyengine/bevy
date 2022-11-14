@@ -190,7 +190,7 @@ impl DebugDraw {
 
     /// Take the positions and colors data from `self` and overwrite the `mesh`'s vertex positions and colors.
     #[inline]
-    pub fn update_mesh(&mut self, mesh: &mut Mesh) {
+    pub(crate) fn update_mesh(&mut self, mesh: &mut Mesh) {
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mem::take(&mut self.positions));
         mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, mem::take(&mut self.colors));
     }
