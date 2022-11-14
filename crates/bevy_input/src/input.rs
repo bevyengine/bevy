@@ -1,7 +1,7 @@
 use bevy_ecs::system::Resource;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
-use std::hash::Hash;
+use core::hash::Hash;
 
 // unused import, but needed for intra doc link to work
 #[allow(unused_imports)]

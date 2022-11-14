@@ -1,6 +1,6 @@
 use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
-use std::hash::Hash;
+use core::hash::Hash;
 
 /// Stores the position data of the input devices of type `T`.
 ///

@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+use alloc::{vec, vec::Vec};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_math::Vec4;

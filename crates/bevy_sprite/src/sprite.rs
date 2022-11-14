@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use bevy_ecs::component::Component;
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Reflect;

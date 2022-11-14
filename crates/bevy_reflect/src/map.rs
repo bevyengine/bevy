@@ -3,7 +3,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use core::any::{Any, TypeId};
 use core::fmt::{Debug, Formatter};
-use std::hash::Hash;
+use core::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 

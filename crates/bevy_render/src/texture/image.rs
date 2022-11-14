@@ -16,7 +16,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
-use std::hash::Hash;
+use core::hash::Hash;
 use thiserror::Error;
 use wgpu::{
     Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,

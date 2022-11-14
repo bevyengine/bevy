@@ -42,7 +42,7 @@ use bevy_render::{
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use core::marker::PhantomData;
-use std::hash::Hash;
+use core::hash::Hash;
 
 /// Materials are used alongside [`MaterialPlugin`] and [`MaterialMeshBundle`](crate::MaterialMeshBundle)
 /// to spawn entities that are rendered with a specific [`Material`] type. They serve as an easy to use high level
@@ -221,7 +221,7 @@ impl<M: Material> Hash for MaterialPipelineKey<M>
 where
     M::Data: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
     }

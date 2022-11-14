@@ -1,3 +1,4 @@
+use alloc::{vec, vec::Vec};
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
@@ -37,7 +38,7 @@ use bevy_render::{
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
 use core::marker::PhantomData;
-use std::hash::Hash;
+use core::hash::Hash;
 
 use crate::{
     DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform, SetMesh2dBindGroup,
@@ -212,7 +213,7 @@ impl<M: Material2d> Hash for Material2dKey<M>
 where
     M::Data: Hash,
 {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.mesh_key.hash(state);
         self.bind_group_data.hash(state);
     }

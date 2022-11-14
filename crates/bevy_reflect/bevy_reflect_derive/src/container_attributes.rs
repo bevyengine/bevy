@@ -137,7 +137,7 @@ impl ReflectTraits {
             match nested_meta {
                 // Handles `#[reflect( Hash, Default, ... )]`
                 NestedMeta::Meta(Meta::Path(path)) => {
-                    // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
+                    // Get the first ident in the path (hopefully the path only contains one and not `core::hash::Hash`)
                     let Some(segment) = path.segments.iter().next() else {
                         continue;
                     };
@@ -171,7 +171,7 @@ impl ReflectTraits {
                 }
                 // Handles `#[reflect( Hash(custom_hash_fn) )]`
                 NestedMeta::Meta(Meta::List(list)) => {
-                    // Get the first ident in the path (hopefully the path only contains one and not `std::hash::Hash`)
+                    // Get the first ident in the path (hopefully the path only contains one and not `core::hash::Hash`)
                     let Some(segment) = list.path.segments.iter().next() else {
                         continue;
                     };
@@ -224,7 +224,7 @@ impl ReflectTraits {
         match &self.hash {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
                 fn reflect_hash(&self) -> Option<u64> {
-                    use std::hash::{Hash, Hasher};
+                    use core::hash::{Hash, Hasher};
                     let mut hasher = #bevy_reflect_path::ReflectHasher::default();
                     Hash::hash(&core::any::Any::type_id(self), &mut hasher);
                     Hash::hash(self, &mut hasher);
