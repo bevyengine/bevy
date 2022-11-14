@@ -282,7 +282,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #[inline(always)]
                 unsafe fn fetch<'__w>(
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
-                    _entity: Entity,
+                    _entity: #path::entity::Entity,
                     _table_row: usize
                 ) -> <Self as #path::query::WorldQuery>::Item<'__w> {
                     Self::Item {
@@ -295,7 +295,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #[inline(always)]
                 unsafe fn filter_fetch<'__w>(
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
-                    _entity: Entity,
+                    _entity: #path::entity::Entity,
                     _table_row: usize
                 ) -> bool {
                     true #(&& <#field_types>::filter_fetch(&mut _fetch.#field_idents, _entity, _table_row))*
