@@ -8,7 +8,7 @@ use std::{io::Cursor, sync::Arc};
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
 pub struct AudioSource {
-    /// Raw data of the audio source
+    /// Raw data of the audio source, which must be in one of the file formats supported by Bevy (wav, ogg, flac or mp3).
     pub bytes: Arc<[u8]>,
 }
 
