@@ -1,3 +1,4 @@
+use alloc::{vec, vec::Vec};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::*,

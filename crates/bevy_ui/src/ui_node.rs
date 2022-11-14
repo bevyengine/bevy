@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
 use bevy_derive::{Deref, DerefMut};

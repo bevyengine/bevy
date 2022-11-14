@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use bevy_ecs::prelude::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::std_traits::ReflectDefault;

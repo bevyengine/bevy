@@ -1,5 +1,6 @@
 //! This module contains the systems that update the stored UI nodes stack
 
+use alloc::vec::Vec;
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::prelude::*;
 

@@ -1,6 +1,7 @@
 mod pipeline;
 mod render_pass;
 
+use alloc::{vec, vec::Vec};
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;

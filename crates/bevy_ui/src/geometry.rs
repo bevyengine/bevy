@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use crate::Val;
 use bevy_reflect::Reflect;
 use core::ops::{Div, DivAssign, Mul, MulAssign};

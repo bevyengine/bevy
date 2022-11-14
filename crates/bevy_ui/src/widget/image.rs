@@ -1,3 +1,4 @@
+use alloc::boxed::Box;
 use crate::{CalculatedSize, Size, UiImage, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{

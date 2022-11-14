@@ -1,5 +1,6 @@
 //! This module contains basic node bundles used to build UIs
 
+use alloc::string::String;
 use crate::{
     widget::{Button, ImageMode},
     BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,

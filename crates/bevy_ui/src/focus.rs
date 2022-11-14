@@ -1,3 +1,5 @@
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
 use bevy_ecs::{
     entity::Entity,

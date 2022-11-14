@@ -1,5 +1,7 @@
 mod convert;
 
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     entity::Entity,

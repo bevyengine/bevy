@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use crate::{CalculatedSize, Size, Style, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
