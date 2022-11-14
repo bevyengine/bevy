@@ -9,6 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+trace = []
 wayland = ["winit/wayland"]
 x11 = ["winit/x11"]
 
