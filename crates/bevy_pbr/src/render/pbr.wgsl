@@ -70,14 +70,14 @@ fn fragment(
         pbr_input.world_normal = pbr_functions::prepare_world_normal(
             mesh.world_normal,
             (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
-            in.is_front,
+            is_front,
         );
 
         pbr_input.is_orthographic = bevy_pbr::mesh_view_bindings::view.projection[3].w == 1.0;
 
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
-            pbr_meshput.world_normal,
+            pbr_input.world_normal,
 #ifdef VERTEX_TANGENTS
     #ifdef STANDARDMATERIAL_NORMAL_MAP
             mesh.world_tangent,
@@ -97,7 +97,7 @@ fn fragment(
         output_color = pbr_functions::tone_mapping(output_color);
 #endif
 #ifdef DEBAND_DITHER
-        output_color = pbr_functions::dither(output_color, in.frag_coord.xy);
+        output_color = pbr_functions::dither(output_color, mesh.clip_position.xy);
 #endif
     return output_color;
 }

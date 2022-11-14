@@ -1,6 +1,7 @@
 #import bevy_pbr::mesh_vertex_output
 #import bevy_pbr::pbr_functions
 #import bevy_pbr::mesh_view_bindings
+#import bevy_pbr::pbr_types
 
 @group(1) @binding(0)
 var my_array_texture: texture_2d_array<f32>;
@@ -27,13 +28,13 @@ fn fragment(
     pbr_input.world_position = mesh.world_position;
     pbr_input.world_normal = bevy_pbr::pbr_functions::prepare_world_normal(
         mesh.world_normal,
-        (pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
-        in.is_front,
+        (pbr_input.material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+        is_front,
     );
 
     pbr_input.is_orthographic = bevy_pbr::mesh_view_bindings::view.projection[3].w == 1.0;
 
-    pbr_input.N = abevy_pbr::pbr_functions::apply_normal_mapping(
+    pbr_input.N = bevy_pbr::pbr_functions::apply_normal_mapping(
         pbr_input.material.flags,
         mesh.world_normal,
 #ifdef VERTEX_TANGENTS

@@ -32,7 +32,7 @@ fn vertex(vertex: Vertex) -> bevy_pbr::mesh_vertex_output::MeshVertexOutput {
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
 #else
-    var model = mesh.model;
+    var model = bevy_pbr::mesh_bindings::mesh.model;
 #endif
 
 #ifdef VERTEX_NORMALS

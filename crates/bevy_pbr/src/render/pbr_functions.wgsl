@@ -264,7 +264,7 @@ fn pbr(
 #ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // tone_mapping
-    return vec4<f32>(lighting::reinhard_luminance(in.rgb), in.a);
+    return vec4<f32>(bevy_core_pipeline::tonemapping::reinhard_luminance(in.rgb), in.a);
 
     // Gamma correction.
     // Not needed with sRGB buffer
@@ -274,7 +274,7 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
 
 #ifdef DEBAND_DITHER
 fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
-    return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
+    return vec4<f32>(color.rgb + bevy_core_pipeline::tonemapping::screen_space_dither(pos.xy), color.a);
 }
 #endif
 

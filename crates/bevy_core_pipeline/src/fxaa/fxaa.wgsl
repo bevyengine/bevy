@@ -75,7 +75,7 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
 
 // Performs FXAA post-process anti-aliasing as described in the Nvidia FXAA white paper and the associated shader code.
 @fragment
-fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(in: bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let resolution = vec2<f32>(textureDimensions(screenTexture));
     let fragCoord = in.position.xy;
     let inverseScreenSize = 1.0 / resolution.xy;
