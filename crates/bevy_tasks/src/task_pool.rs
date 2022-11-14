@@ -489,37 +489,48 @@ mod tests {
         let counter = Arc::new(AtomicI32::new(0));
         let start_counter = counter.clone();
         {
+            let barrier = Arc::new(Barrier::new(11));
+            let last_barrier = barrier.clone();
             // Build and immediately drop to terminate
-            TaskPoolBuilder::new()
+            let _pool = TaskPoolBuilder::new()
                 .num_threads(10)
                 .on_thread_spawn(move || {
                     start_counter.fetch_add(1, Ordering::Relaxed);
+                    barrier.clone().wait();
                 })
                 .build();
+            last_barrier.wait();
+            assert_eq!(10, counter.load(Ordering::Relaxed));
         }
         assert_eq!(10, counter.load(Ordering::Relaxed));
         let end_counter = counter.clone();
         {
-            TaskPoolBuilder::new()
+            let _pool = TaskPoolBuilder::new()
                 .num_threads(20)
                 .on_thread_destroy(move || {
                     end_counter.fetch_sub(1, Ordering::Relaxed);
                 })
                 .build();
+            assert_eq!(10, counter.load(Ordering::Relaxed));
         }
         assert_eq!(-10, counter.load(Ordering::Relaxed));
         let start_counter = counter.clone();
         let end_counter = counter.clone();
         {
-            TaskPoolBuilder::new()
+            let barrier = Arc::new(Barrier::new(6));
+            let last_barrier = barrier.clone();
+            let _pool = TaskPoolBuilder::new()
                 .num_threads(5)
                 .on_thread_spawn(move || {
                     start_counter.fetch_add(1, Ordering::Relaxed);
+                    barrier.wait();
                 })
                 .on_thread_destroy(move || {
                     end_counter.fetch_sub(1, Ordering::Relaxed);
                 })
                 .build();
+            last_barrier.wait();
+            assert_eq!(-5, counter.load(Ordering::Relaxed));
         }
         assert_eq!(-10, counter.load(Ordering::Relaxed));
     }
