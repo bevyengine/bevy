@@ -2,7 +2,9 @@
 #![no_std]
 #![warn(missing_docs)]
 
-use core::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use core::{
+    cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, num::NonZeroUsize, ptr::NonNull,
+};
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
@@ -241,6 +243,14 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
             _marker: PhantomData,
         }
     }
+}
+
+/// Creates a dangling pointer with specified alignment.
+/// See [`NonNull::dangling`].
+pub fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
+    // SAFETY: The pointer will not be null, since it was created
+    // from the address of a `NonZeroUsize`.
+    unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
 }
 
 mod private {
