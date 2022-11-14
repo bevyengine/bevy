@@ -263,7 +263,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
     }
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct ExtractedSprite {
     pub entity: Entity,
     pub transform: GlobalTransform,
@@ -335,7 +335,6 @@ pub fn extract_sprites(
         )>,
     >,
 ) {
-    extracted_sprites.sprites.clear();
     for (entity, visibility, sprite, transform, handle) in sprite_query.iter() {
         if !visibility.is_visible() {
             continue;
@@ -377,6 +376,96 @@ pub fn extract_sprites(
     }
 }
 
+const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
+    Vec2::new(-0.5, -0.5),
+    Vec2::new(0.5, -0.5),
+    Vec2::new(0.5, 0.5),
+    Vec2::new(-0.5, 0.5),
+];
+
+const QUAD_UVS: [Vec2; 4] = [
+    Vec2::new(0., 1.),
+    Vec2::new(1., 1.),
+    Vec2::new(1., 0.),
+    Vec2::new(0., 0.),
+];
+
+pub struct PreparedSprite {
+    /// The main world associated entity
+    entity: Entity,
+    vertex_positions: [[f32; 3]; 4],
+    vertex_uvs: [[f32; 2]; 4],
+    image_handle_id: HandleId,
+    color: [f32; 4],
+    sort_key: f32,
+}
+
+#[derive(Resource, Default)]
+pub struct PreparedSprites {
+    pub sprites: Vec<PreparedSprite>,
+}
+
+pub fn prepare_sprites(
+    mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut prepared_sprites: ResMut<PreparedSprites>,
+    gpu_images: Res<RenderAssets<Image>>,
+) {
+    prepared_sprites.sprites.clear();
+    for extracted_sprite in extracted_sprites.sprites.drain(..) {
+        let current_image_size =
+            match gpu_images.get(&Handle::weak(extracted_sprite.image_handle_id)) {
+                None => continue,
+                Some(img) => img.size,
+            };
+
+        // Calculate vertex data for this item
+
+        let mut uvs = QUAD_UVS;
+        if extracted_sprite.flip_x {
+            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+        }
+        if extracted_sprite.flip_y {
+            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+        }
+
+        // By default, the size of the quad is the size of the texture
+        let mut quad_size = current_image_size;
+
+        // If a rect is specified, adjust UVs and the size of the quad
+        if let Some(rect) = extracted_sprite.rect {
+            let rect_size = rect.size();
+            for uv in &mut uvs {
+                *uv = (rect.min + *uv * rect_size) / current_image_size;
+            }
+            quad_size = rect_size;
+        }
+
+        // Override the size if a custom one is specified
+        if let Some(custom_size) = extracted_sprite.custom_size {
+            quad_size = custom_size;
+        }
+
+        // Apply size and global transform
+        let vertex_positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
+            extracted_sprite
+                .transform
+                .transform_point(((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.))
+                .into()
+        });
+
+        let sort_key = extracted_sprite.transform.translation().z;
+
+        prepared_sprites.sprites.push(PreparedSprite {
+            entity: extracted_sprite.entity,
+            vertex_positions,
+            vertex_uvs: uvs.map(Into::into),
+            color: extracted_sprite.color.as_linear_rgba_f32(),
+            image_handle_id: extracted_sprite.image_handle_id,
+            sort_key,
+        })
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone, Pod, Zeroable)]
 struct SpriteVertex {
@@ -411,20 +500,6 @@ impl Default for SpriteMeta {
 
 const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 
-const QUAD_VERTEX_POSITIONS: [Vec2; 4] = [
-    Vec2::new(-0.5, -0.5),
-    Vec2::new(0.5, -0.5),
-    Vec2::new(0.5, 0.5),
-    Vec2::new(-0.5, 0.5),
-];
-
-const QUAD_UVS: [Vec2; 4] = [
-    Vec2::new(0., 1.),
-    Vec2::new(1., 1.),
-    Vec2::new(1., 0.),
-    Vec2::new(0., 0.),
-];
-
 #[derive(Component, Eq, PartialEq, Copy, Clone)]
 pub struct SpriteBatch {
     image_handle_id: HandleId,
@@ -451,7 +526,7 @@ pub fn queue_sprites(
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
-    mut extracted_sprites: ResMut<ExtractedSprites>,
+    mut prepared_sprites: ResMut<PreparedSprites>,
     mut views: Query<(
         &mut RenderPhase<Transparent2d>,
         &VisibleEntities,
@@ -496,19 +571,12 @@ pub fn queue_sprites(
 
         // FIXME: VisibleEntities is ignored
 
-        let extracted_sprites = &mut extracted_sprites.sprites;
+        let prepared_sprites = &mut prepared_sprites.sprites;
         // Sort sprites by z for correct transparency and then by handle to improve batching
         // NOTE: This can be done independent of views by reasonably assuming that all 2D views look along the negative-z axis in world space
-        extracted_sprites.sort_unstable_by(|a, b| {
-            match a
-                .transform
-                .translation()
-                .z
-                .partial_cmp(&b.transform.translation().z)
-            {
-                Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
-                Some(other) => other,
-            }
+        prepared_sprites.sort_unstable_by(|a, b| match a.sort_key.partial_cmp(&b.sort_key) {
+            Some(Ordering::Equal) | None => a.image_handle_id.cmp(&b.image_handle_id),
+            Some(other) => other,
         });
         let image_bind_groups = &mut *image_bind_groups;
 
@@ -536,7 +604,7 @@ pub fn queue_sprites(
 
             view_entities.clear();
             view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
-            transparent_phase.items.reserve(extracted_sprites.len());
+            transparent_phase.items.reserve(prepared_sprites.len());
 
             // Impossible starting values that will be replaced on the first iteration
             let mut current_batch = SpriteBatch {
@@ -544,19 +612,18 @@ pub fn queue_sprites(
                 colored: false,
             };
             let mut current_batch_entity = Entity::PLACEHOLDER;
-            let mut current_image_size = Vec2::ZERO;
             // Add a phase item for each sprite, and detect when succesive items can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
             // Compatible items share the same entity.
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
             // by any other phase item (and they can interrupt other items from batching).
-            for extracted_sprite in extracted_sprites.iter() {
-                if !view_entities.contains(extracted_sprite.entity.index() as usize) {
+            for prepared_sprite in prepared_sprites.iter() {
+                if !view_entities.contains(prepared_sprite.entity.index() as usize) {
                     continue;
                 }
                 let new_batch = SpriteBatch {
-                    image_handle_id: extracted_sprite.image_handle_id,
-                    colored: extracted_sprite.color != Color::WHITE,
+                    image_handle_id: prepared_sprite.image_handle_id,
+                    colored: prepared_sprite.color != [1.0; 4],
                 };
                 if new_batch != current_batch {
                     // Set-up a new possible batch
@@ -564,7 +631,6 @@ pub fn queue_sprites(
                         gpu_images.get(&Handle::weak(new_batch.image_handle_id))
                     {
                         current_batch = new_batch;
-                        current_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
                         current_batch_entity = commands.spawn(current_batch).id();
 
                         image_bind_groups
@@ -594,53 +660,16 @@ pub fn queue_sprites(
                     }
                 }
 
-                // Calculate vertex data for this item
-
-                let mut uvs = QUAD_UVS;
-                if extracted_sprite.flip_x {
-                    uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
-                }
-                if extracted_sprite.flip_y {
-                    uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
-                }
-
-                // By default, the size of the quad is the size of the texture
-                let mut quad_size = current_image_size;
-
-                // If a rect is specified, adjust UVs and the size of the quad
-                if let Some(rect) = extracted_sprite.rect {
-                    let rect_size = rect.size();
-                    for uv in &mut uvs {
-                        *uv = (rect.min + *uv * rect_size) / current_image_size;
-                    }
-                    quad_size = rect_size;
-                }
-
-                // Override the size if a custom one is specified
-                if let Some(custom_size) = extracted_sprite.custom_size {
-                    quad_size = custom_size;
-                }
-
-                // Apply size and global transform
-                let positions = QUAD_VERTEX_POSITIONS.map(|quad_pos| {
-                    extracted_sprite
-                        .transform
-                        .transform_point(
-                            ((quad_pos - extracted_sprite.anchor) * quad_size).extend(0.),
-                        )
-                        .into()
-                });
-
                 // These items will be sorted by depth with other phase items
-                let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
+                let sort_key = FloatOrd(prepared_sprite.sort_key);
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {
                     for i in QUAD_INDICES {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
-                            position: positions[i],
-                            uv: uvs[i].into(),
-                            color: extracted_sprite.color.as_linear_rgba_f32(),
+                            position: prepared_sprite.vertex_positions[i],
+                            uv: prepared_sprite.vertex_uvs[i],
+                            color: prepared_sprite.color,
                         });
                     }
                     let item_start = colored_index;
@@ -657,8 +686,8 @@ pub fn queue_sprites(
                 } else {
                     for i in QUAD_INDICES {
                         sprite_meta.vertices.push(SpriteVertex {
-                            position: positions[i],
-                            uv: uvs[i].into(),
+                            position: prepared_sprite.vertex_positions[i],
+                            uv: prepared_sprite.vertex_uvs[i],
                         });
                     }
                     let item_start = index;
