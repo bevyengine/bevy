@@ -29,23 +29,23 @@ fn system(mut draw: ResMut<DebugDraw>, time: Res<Time>) {
     draw.rect(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),
-        Vec2::ONE * 2.,
+        Vec2::splat(2.),
         Color::GREEN,
     );
 
     draw.sphere(Vec3::new(1., 0.5, 0.), 0.5, Color::RED);
     let vector = Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.);
-    draw.ray(Vec3::new(1., 0., 0.), vector, Color::BLUE);
-    draw.ray(Vec3::new(1., 0.5, 0.), vector, Color::BLUE);
-    draw.ray(Vec3::new(1., 1., 0.), vector, Color::BLUE);
+    for f in [0., 0.5, 1.] {
+        draw.ray(Vec3::new(1., f, 0.), vector, Color::BLUE);
+    }
 
-    // The circles have 24 line-segments by default.
+    // The circles have 32 line-segments by default.
     draw.circle(Vec3::ZERO, Vec3::Y, 3., Color::BLACK);
-    // You may want to increase this for larger circles/spheres.
+    // You may want to increase this for larger circles or spheres.
     draw.circle_segments = 64;
     draw.circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY);
     draw.sphere(Vec3::ZERO, 3.2, Color::BLACK);
-    draw.circle_segments = 24;
+    draw.circle_segments = 32;
 }
 
 fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {

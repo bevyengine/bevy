@@ -53,6 +53,36 @@ impl DebugDraw {
         ]);
     }
 
+    #[inline]
+    pub fn linestrip(&mut self, positions: impl IntoIterator<Item = Vec3>, color: Color) {
+        let mut count = 0;
+        let positions = positions
+            .into_iter()
+            .map(|value| {
+                count += 1;
+                value.to_array()
+            })
+            .chain(iter::once([f32::NAN; 3]));
+
+        self.strip_positions.extend(positions);
+        self.add_strip_color(color, count);
+    }
+
+    #[inline]
+    pub fn linestrip_gradient(&mut self, points: impl IntoIterator<Item = (Vec3, Color)>) {
+        let points = points.into_iter();
+        let (lower, _) = points.size_hint();
+        self.strip_colors.reserve(lower + 1);
+        self.strip_positions.reserve(lower + 1);
+
+        for (position, color) in points {
+            self.strip_positions.push(position.to_array());
+            self.strip_colors.push(color.as_linear_rgba_f32());
+        }
+        self.strip_positions.push([f32::NAN; 3]);
+        self.strip_colors.push([f32::NAN; 4]);
+    }
+
     /// Draw a line from `start` to `start + vector`.
     #[inline]
     pub fn ray(&mut self, start: Vec3, vector: Vec3, color: Color) {
@@ -150,6 +180,20 @@ impl DebugDraw {
         end_color: Color,
     ) {
         self.line_gradient(start.extend(0.), end.extend(0.), start_color, end_color);
+    }
+
+    #[inline]
+    pub fn linestrip_2d(&mut self, positions: impl IntoIterator<Item = Vec2>, color: Color) {
+        self.linestrip(positions.into_iter().map(|vec2| vec2.extend(0.)), color);
+    }
+
+    #[inline]
+    pub fn linestrip_gradient_2d(&mut self, positions: impl IntoIterator<Item = (Vec2, Color)>) {
+        self.linestrip_gradient(
+            positions
+                .into_iter()
+                .map(|(vec2, color)| (vec2.extend(0.), color)),
+        );
     }
 
     /// Draw a line from `start` to `start + vector`.

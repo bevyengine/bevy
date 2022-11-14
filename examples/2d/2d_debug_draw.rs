@@ -15,19 +15,28 @@ fn setup(mut commands: Commands) {
 }
 
 fn system(mut draw: ResMut<DebugDraw>, time: Res<Time>) {
-    draw.line_2d(Vec2::ZERO, Vec2::new(-200., 300.), Color::RED);
-    draw.line_2d(Vec2::ZERO, Vec2::ONE * 300., Color::GREEN);
+    let sin = time.elapsed_seconds().sin() * 50.;
+    draw.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
+    draw.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
+
+    // Triangle
+    draw.linestrip_gradient_2d([
+        (Vec2::Y * 300., Color::BLUE),
+        (Vec2::new(-255., -155.), Color::RED),
+        (Vec2::new(255., -155.), Color::GREEN),
+        (Vec2::Y * 300., Color::BLUE),
+    ]);
 
     draw.rect_2d(
         Vec2::ZERO,
-        time.elapsed_seconds(),
-        Vec2::ONE * 300.,
+        time.elapsed_seconds() / 3.,
+        Vec2::splat(300.),
         Color::BLACK,
     );
-    // The circles have 24 line-segments by default.
+    // The circles have 32 line-segments by default.
     draw.circle_2d(Vec2::ZERO, 120., Color::BLACK);
     // You may want to increase this for larger circles.
     draw.circle_segments = 64;
-    draw.circle_2d(Vec2::ZERO, 250., Color::NAVY);
-    draw.circle_segments = 24;
+    draw.circle_2d(Vec2::ZERO, 300., Color::NAVY);
+    draw.circle_segments = 32;
 }
