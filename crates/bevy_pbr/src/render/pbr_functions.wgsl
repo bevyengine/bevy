@@ -262,3 +262,9 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
 }
 #endif
 
+#ifdef DEBAND_DITHER
+fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
+    return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
+}
+#endif
+
