@@ -1,7 +1,7 @@
-use alloc::vec::Vec;
-use alloc::format;
-use alloc::boxed::Box;
 use crate::{DynamicEntity, DynamicScene};
+use alloc::boxed::Box;
+use alloc::format;
+use alloc::vec::Vec;
 use anyhow::Result;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{serde::UntypedReflectDeserializer, Reflect, TypeRegistry, TypeRegistryArc};

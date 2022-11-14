@@ -1,5 +1,5 @@
-use alloc::boxed::Box;
 use crate::serde::SceneDeserializer;
+use alloc::boxed::Box;
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};

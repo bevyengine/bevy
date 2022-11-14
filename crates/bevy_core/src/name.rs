@@ -5,8 +5,8 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_utils::AHasher;
-use core::ops::Deref;
 use core::hash::{Hash, Hasher};
+use core::ops::Deref;
 
 /// Component used to identify an entity. Stores a hash for faster comparisons
 /// The hash is eagerly re-computed upon each update to the name.

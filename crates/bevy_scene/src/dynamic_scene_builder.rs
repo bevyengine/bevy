@@ -1,6 +1,6 @@
-use alloc::vec::Vec;
-use alloc::collections::BTreeMap;
 use crate::{DynamicEntity, DynamicScene};
+use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{prelude::Entity, reflect::ReflectComponent, world::World};
 use bevy_utils::default;

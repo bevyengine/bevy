@@ -1,6 +1,6 @@
+use alloc::boxed::Box;
 use alloc::string::String;
 use alloc::{vec, vec::Vec};
-use alloc::boxed::Box;
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{

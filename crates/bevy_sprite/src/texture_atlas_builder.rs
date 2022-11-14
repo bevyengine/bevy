@@ -1,5 +1,5 @@
-use alloc::{vec, vec::Vec};
 use alloc::collections::BTreeMap;
+use alloc::{vec, vec::Vec};
 use bevy_asset::{Assets, Handle};
 use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, Vec2};
