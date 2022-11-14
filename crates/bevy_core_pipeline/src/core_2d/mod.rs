@@ -8,6 +8,7 @@ pub mod graph {
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
+        pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const UPSCALING: &str = "upscaling";
         pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
