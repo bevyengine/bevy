@@ -1,9 +1,4 @@
-mod node;
-
-use crate::{
-    core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state,
-    fxaa::node::FxaaNode,
-};
+use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
@@ -19,6 +14,10 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     RenderApp, RenderStage,
 };
+
+mod node;
+
+pub use node::FxaaNode;
 
 #[derive(Eq, PartialEq, Hash, Clone, Copy)]
 pub enum Sensitivity {

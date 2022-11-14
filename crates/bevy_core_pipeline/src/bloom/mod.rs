@@ -164,7 +164,7 @@ impl Default for BloomSettings {
     }
 }
 
-struct BloomNode {
+pub struct BloomNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
         &'static ViewTarget,
