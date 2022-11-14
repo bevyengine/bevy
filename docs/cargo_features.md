@@ -5,9 +5,11 @@
 |feature name|description|
 |-|-|
 |animation|Animation support and glTF animation loading.|
+|bevy_asset|Provides asset functionality for Bevy Engine.|
 |bevy_audio|Audio support. Support for all audio formats depends on this.|
 |bevy_gilrs|Adds gamepad support.|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support.|
+|bevy_scene|Provides scene functionality for Bevy Engine.|
 |bevy_winit|GUI support.|
 |render|The render pipeline and all render related plugins.|
 |png|PNG picture format support.|

@@ -153,7 +153,7 @@ impl<T: SparseSetIndex> Access<T> {
 /// `with` access.
 ///
 /// For example consider `Query<Option<&T>>` this only has a `read` of `T` as doing
-/// otherwise would allow for queriess to be considered disjoint that actually arent:
+/// otherwise would allow for queries to be considered disjoint that actually aren't:
 /// - `Query<(&mut T, Option<&U>)>` read/write `T`, read `U`, with `U`
 /// - `Query<&mut T, Without<U>>` read/write `T`, without `U`
 /// from this we could reasonably conclude that the queries are disjoint but they aren't.
