@@ -92,7 +92,7 @@ impl WindowId {
         WindowId(Uuid::new_v4())
     }
     /// The [`WindowId`] for the primary window.
-    pub fn primary() -> Self {
+    pub const fn primary() -> Self {
         WindowId(Uuid::from_u128(0))
     }
     /// Get whether or not this [`WindowId`] is for the primary window.
