@@ -1,4 +1,4 @@
-use crate::{Window, WindowCloseRequested, WindowFocused, WindowId, Windows};
+use crate::{Window, WindowCloseRequested, Windows};
 
 use bevy_app::AppExit;
 use bevy_ecs::prelude::*;
@@ -36,22 +36,10 @@ pub fn close_when_requested(
 /// Close the focused window whenever the escape key (<kbd>Esc</kbd>) is pressed
 ///
 /// This is useful for examples or prototyping.
-pub fn close_on_esc(
-    mut focused: Local<Option<WindowId>>,
-    mut focused_events: EventReader<WindowFocused>,
-    mut windows: ResMut<Windows>,
-    input: Res<Input<KeyCode>>,
-) {
-    // TODO: Track this in e.g. a resource to ensure consistent behaviour across similar systems
-    for event in focused_events.iter() {
-        *focused = event.focused.then_some(event.id);
-    }
-
-    if let Some(focused) = &*focused {
-        if input.just_pressed(KeyCode::Escape) {
-            if let Some(window) = windows.get_mut(*focused) {
-                window.close();
-            }
+pub fn close_on_esc(mut windows: ResMut<Windows>, input: Res<Input<KeyCode>>) {
+    if input.just_pressed(KeyCode::Escape) {
+        if let Some(window) = windows.get_focused_mut() {
+            window.close();
         }
     }
 }
