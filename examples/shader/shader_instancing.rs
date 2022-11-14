@@ -129,7 +129,7 @@ fn queue_custom(
                     entity,
                     pipeline,
                     draw_function: draw_custom,
-                    distance: rangefinder.distance(&mesh_uniform.transform),
+                    distance: rangefinder.distance(&mesh_uniform.model),
                 });
             }
         }

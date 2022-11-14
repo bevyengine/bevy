@@ -405,7 +405,7 @@ pub fn queue_material_meshes<M: Material>(
                             }
                         };
 
-                        let distance = rangefinder.distance(&mesh_uniform.transform)
+                        let distance = rangefinder.distance(&mesh_uniform.model)
                             + material.properties.depth_bias;
                         match alpha_mode {
                             AlphaMode::Opaque => {

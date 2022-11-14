@@ -110,7 +110,7 @@ impl Plugin for Mesh2dRenderPlugin {
 
 #[derive(Component, ShaderType, Clone)]
 pub struct Mesh2dUniform {
-    pub transform: Mat4,
+    pub model: Mat4,
     pub inverse_model: Mat4,
     pub inverse_transpose_model: Mat4,
     pub flags: u32,
@@ -143,7 +143,7 @@ pub fn extract_mesh2d(
                 Mesh2dHandle(handle.0.clone_weak()),
                 Mesh2dUniform {
                     flags: MeshFlags::empty().bits,
-                    transform,
+                    model: transform,
                     inverse_model: inverse_transform,
                     inverse_transpose_model: inverse_transform.transpose(),
                 },

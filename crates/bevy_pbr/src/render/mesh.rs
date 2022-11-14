@@ -108,7 +108,7 @@ impl Plugin for MeshRenderPlugin {
 
 #[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
-    pub transform: Mat4,
+    pub model: Mat4,
     pub inverse_model: Mat4,
     pub inverse_transpose_model: Mat4,
     pub flags: u32,
@@ -159,7 +159,7 @@ pub fn extract_meshes(
         }
         let uniform = MeshUniform {
             flags: flags.bits,
-            transform,
+            model: transform,
             inverse_model: transform_inverse,
             inverse_transpose_model: transform_inverse.transpose(),
         };
