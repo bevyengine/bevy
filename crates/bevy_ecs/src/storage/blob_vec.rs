@@ -443,9 +443,6 @@ mod tests {
     #[derive(Debug, Eq, PartialEq, Clone)]
     struct Foo {
         a: u8,
-        // FIXME: Miri cannot support tracking pointers in piecewise swaps.
-        // Remove when https://github.com/rust-lang/miri/issues/2181 is resolved
-        // and live in nightly.
         b: String,
         drop_counter: Rc<RefCell<usize>>,
     }
