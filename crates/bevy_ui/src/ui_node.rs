@@ -1,6 +1,5 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -452,19 +451,39 @@ impl From<Color> for BackgroundColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiImage(pub Handle<Image>);
+pub struct UiImage {
+    /// Handle to the texture
+    pub texture: Handle<Image>,
+    /// Whether the image should be flipped along its x-axis
+    pub flip_x: bool,
+    /// Whether the image should be flipped along its y-axis
+    pub flip_y: bool,
+}
 
 impl Default for UiImage {
-    fn default() -> Self {
-        Self(DEFAULT_IMAGE_HANDLE.typed())
+    fn default() -> UiImage {
+        UiImage {
+            texture: DEFAULT_IMAGE_HANDLE.typed(),
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+}
+
+impl UiImage {
+    pub fn new(texture: Handle<Image>) -> Self {
+        Self {
+            texture,
+            ..Default::default()
+        }
     }
 }
 
 impl From<Handle<Image>> for UiImage {
-    fn from(handle: Handle<Image>) -> Self {
-        Self(handle)
+    fn from(texture: Handle<Image>) -> Self {
+        Self::new(texture)
     }
 }
 
