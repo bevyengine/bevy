@@ -10,18 +10,57 @@ pub use filter::*;
 pub use iter::*;
 pub use state::*;
 
-#[allow(unreachable_code)]
-pub(crate) unsafe fn debug_checked_unreachable() -> ! {
-    #[cfg(debug_assertions)]
-    unreachable!();
-    std::hint::unreachable_unchecked();
+/// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
+/// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
+/// equivalent to `Option::unwrap_uncheched` or `Result::unwrap_unchecked`
+/// in release mode.
+pub(crate) trait DebugCheckedUnwrap {
+    type Item;
+    /// # Panics
+    /// Panics if the value is `None` or `Err`, only in debug mode.
+    ///
+    /// # Safety
+    /// This must never be called on a `None` or `Err` value. This can
+    /// only be called on `Some` or `Ok` values.
+    unsafe fn debug_checked_unwrap(self) -> Self::Item;
+}
+
+// Thes two impls are explicitly split to ensure that the unreachable! macro
+// does not cause inlining to fail when compiling in release mode.
+#[cfg(debug_assertions)]
+impl<T> DebugCheckedUnwrap for Option<T> {
+    type Item = T;
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn debug_checked_unwrap(self) -> Self::Item {
+        if let Some(inner) = self {
+            inner
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+#[cfg(not(debug_assertions))]
+impl<T> DebugCheckedUnwrap for Option<T> {
+    type Item = T;
+
+    #[inline(always)]
+    unsafe fn debug_checked_unwrap(self) -> Self::Item {
+        if let Some(inner) = self {
+            inner
+        } else {
+            std::hint::unreachable_unchecked()
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{ReadOnlyWorldQuery, WorldQuery};
     use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, QueryCombinationIter, QueryFetch};
+    use crate::query::{ArchetypeFilter, QueryCombinationIter};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
@@ -88,8 +127,6 @@ mod tests {
             Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter(world);
@@ -99,8 +136,8 @@ mod tests {
 
         let mut world = World::new();
         world.spawn((A(1), B(1)));
-        world.spawn((A(2),));
-        world.spawn((A(3),));
+        world.spawn(A(2));
+        world.spawn(A(3));
 
         assert_all_sizes_equal::<&A, With<B>>(&mut world, 1);
         assert_all_sizes_equal::<&A, Without<B>>(&mut world, 2);
@@ -112,10 +149,10 @@ mod tests {
         world.spawn((A(4), C(4)));
         world.spawn((A(5), C(5)));
         world.spawn((A(6), C(6)));
-        world.spawn((A(7),));
-        world.spawn((A(8),));
-        world.spawn((A(9),));
-        world.spawn((A(10),));
+        world.spawn(A(7));
+        world.spawn(A(8));
+        world.spawn(A(9));
+        world.spawn(A(10));
 
         // With/Without for B and C
         assert_all_sizes_equal::<&A, With<B>>(&mut world, 3);
@@ -166,8 +203,6 @@ mod tests {
             Q: WorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter_combinations::<K>(world);
@@ -179,8 +214,6 @@ mod tests {
             Q: WorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
             let iter = query.iter(world);
@@ -450,7 +483,7 @@ mod tests {
     fn query_iter_combinations_sparse() {
         let mut world = World::new();
 
-        world.spawn_batch((1..=4).map(|i| (Sparse(i),)));
+        world.spawn_batch((1..=4).map(Sparse));
 
         let mut query = world.query::<&mut Sparse>();
         let mut combinations = query.iter_combinations_mut(&mut world);

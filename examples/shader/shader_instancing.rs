@@ -2,7 +2,10 @@
 
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
-    ecs::system::{lifetimeless::*, SystemParamItem},
+    ecs::{
+        query::QueryItem,
+        system::{lifetimeless::*, SystemParamItem},
+    },
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
@@ -67,7 +70,7 @@ impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
     type Filter = ();
 
-    fn extract_component(item: bevy::ecs::query::QueryItem<Self::Query>) -> Self {
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
         InstanceMaterialData(item.0.clone())
     }
 }
@@ -113,11 +116,12 @@ fn queue_custom(
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
     for (view, mut transparent_phase) in &mut views {
+        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for (entity, mesh_uniform, mesh_handle) in &material_meshes {
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
-                    msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
                     .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
                     .unwrap();

@@ -237,9 +237,9 @@ pub fn flex_node_system(
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
     if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
-        update_changed(&mut *flex_surface, scale_factor, full_node_query);
+        update_changed(&mut flex_surface, scale_factor, full_node_query);
     } else {
-        update_changed(&mut *flex_surface, scale_factor, node_query);
+        update_changed(&mut flex_surface, scale_factor, node_query);
     }
 
     fn update_changed<F: ReadOnlyWorldQuery>(

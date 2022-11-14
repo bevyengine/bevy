@@ -29,12 +29,16 @@ struct Vertex {
 fn vertex(vertex: Vertex) -> bevy_pbr::mesh_vertex_output::MeshVertexOutput {
     var out: bevy_pbr::mesh_vertex_output::MeshVertexOutput;
 
-#ifdef VERTEX_NORMALS
 #ifdef SKINNED
     var model = bevy_pbr::skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+#else
+    var model = mesh.model;
+#endif
+
+#ifdef VERTEX_NORMALS
+#ifdef SKINNED
     out.world_normal = bevy_pbr::skinning::skin_normals(model, vertex.normal);
 #else
-    var model = bevy_pbr::mesh_bindings::mesh.model;
     out.world_normal = mesh_functions::mesh_normal_local_to_world(vertex.normal);
 #endif
 #endif
@@ -61,7 +65,6 @@ fn vertex(vertex: Vertex) -> bevy_pbr::mesh_vertex_output::MeshVertexOutput {
 
 @fragment
 fn fragment(
-    @builtin(front_facing) is_front: bool,
     mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS

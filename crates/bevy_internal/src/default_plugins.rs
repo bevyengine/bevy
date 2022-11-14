@@ -26,7 +26,7 @@ pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
     fn build(self) -> PluginGroupBuilder {
-        let mut group = PluginGroupBuilder::default();
+        let mut group = PluginGroupBuilder::start::<Self>();
         group = group
             .add(bevy_log::LogPlugin::default())
             .add(bevy_core::CorePlugin::default())
@@ -127,7 +127,7 @@ pub struct MinimalPlugins;
 
 impl PluginGroup for MinimalPlugins {
     fn build(self) -> PluginGroupBuilder {
-        PluginGroupBuilder::default()
+        PluginGroupBuilder::start::<Self>()
             .add(bevy_core::CorePlugin::default())
             .add(bevy_time::TimePlugin::default())
             .add(bevy_app::ScheduleRunnerPlugin::default())

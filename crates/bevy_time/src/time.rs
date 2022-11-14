@@ -120,7 +120,7 @@ impl Time {
     ///     world.insert_resource(time);
     ///     world.insert_resource(Health { health_value: 0.2 });
     ///
-    ///     let mut update_stage = SystemStage::single_threaded();
+    ///     let mut update_stage = SystemStage::parallel();
     ///     update_stage.add_system(health_system);
     ///
     ///     // Simulate that 30 ms have passed
@@ -442,6 +442,9 @@ mod tests {
     }
 
     #[test]
+    // Don't run on a m1 as they have a 41ns precision
+    // https://github.com/rust-lang/rust/issues/91417
+    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn update_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
@@ -574,6 +577,9 @@ mod tests {
     }
 
     #[test]
+    // Don't run on a m1 as they have a 41ns precision
+    // https://github.com/rust-lang/rust/issues/91417
+    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn relative_speed_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);
@@ -676,6 +682,9 @@ mod tests {
     }
 
     #[test]
+    // Don't run on a m1 as they have a 41ns precision
+    // https://github.com/rust-lang/rust/issues/91417
+    #[cfg(not(all(target_arch = "aarch64", target_vendor = "apple")))]
     fn pause_test() {
         let start_instant = Instant::now();
         let mut time = Time::new(start_instant);

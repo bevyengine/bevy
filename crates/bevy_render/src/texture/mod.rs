@@ -86,7 +86,8 @@ impl Plugin for ImagePlugin {
         app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
             PrepareAssetLabel::PreAssetPrepare,
         ))
-        .add_asset::<Image>();
+        .add_asset::<Image>()
+        .register_asset_reflect::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
@@ -111,11 +112,6 @@ pub trait BevyDefault {
 
 impl BevyDefault for wgpu::TextureFormat {
     fn bevy_default() -> Self {
-        if cfg!(target_os = "android") || cfg!(target_arch = "wasm32") {
-            // Bgra8UnormSrgb texture missing on some Android devices
-            wgpu::TextureFormat::Rgba8UnormSrgb
-        } else {
-            wgpu::TextureFormat::Bgra8UnormSrgb
-        }
+        wgpu::TextureFormat::Rgba8UnormSrgb
     }
 }

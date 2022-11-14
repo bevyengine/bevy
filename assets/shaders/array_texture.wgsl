@@ -25,11 +25,15 @@ fn fragment(
 
     pbr_input.frag_coord = mesh.clip_position;
     pbr_input.world_position = mesh.world_position;
-    pbr_input.world_normal = mesh.world_normal;
+    pbr_input.world_normal = bevy_pbr::pbr_functions::prepare_world_normal(
+        mesh.world_normal,
+        (pbr_input.material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+        in.is_front,
+    );
 
     pbr_input.is_orthographic = bevy_pbr::mesh_view_bindings::view.projection[3].w == 1.0;
 
-    pbr_input.N = bevy_pbr::pbr_functions::prepare_normal(
+    pbr_input.N = abevy_pbr::pbr_functions::apply_normal_mapping(
         pbr_input.material.flags,
         mesh.world_normal,
 #ifdef VERTEX_TANGENTS
@@ -38,7 +42,6 @@ fn fragment(
 #endif
 #endif
         mesh.uv,
-        is_front,
     );
     pbr_input.V = bevy_pbr::pbr_functions::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 

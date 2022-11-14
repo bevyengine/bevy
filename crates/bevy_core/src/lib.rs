@@ -2,6 +2,8 @@
 //! This crate provides core functionality for Bevy Engine.
 
 mod name;
+#[cfg(feature = "serialize")]
+mod serde;
 mod task_pool_options;
 
 use bevy_ecs::system::Resource;
@@ -46,11 +48,6 @@ impl Plugin for CorePlugin {
         );
 
         app.register_type::<Entity>().register_type::<Name>();
-        app.register_type::<Entity>()
-            .register_type::<Name>()
-            .register_type::<Range<f32>>()
-            .register_type_data::<Range<f32>, ReflectSerialize>()
-            .register_type_data::<Range<f32>, ReflectDeserialize>();
 
         register_rust_types(app);
         register_math_types(app);
@@ -61,6 +58,8 @@ impl Plugin for CorePlugin {
 
 fn register_rust_types(app: &mut App) {
     app.register_type::<Range<f32>>()
+        .register_type_data::<Range<f32>, ReflectSerialize>()
+        .register_type_data::<Range<f32>, ReflectDeserialize>()
         .register_type::<String>()
         .register_type::<HashSet<String>>()
         .register_type::<Option<String>>()

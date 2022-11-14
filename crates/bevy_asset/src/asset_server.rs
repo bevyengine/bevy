@@ -147,10 +147,7 @@ impl AssetServer {
             .server
             .asset_lifecycles
             .write()
-            .insert(
-                T::TYPE_UUID,
-                Box::new(AssetLifecycleChannel::<T>::default()),
-            )
+            .insert(T::TYPE_UUID, Box::<AssetLifecycleChannel<T>>::default())
             .is_some()
         {
             panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
@@ -788,7 +785,7 @@ mod test {
 
     fn create_dir_and_file(file: impl AsRef<Path>) -> tempfile::TempDir {
         let asset_dir = tempfile::tempdir().unwrap();
-        std::fs::write(asset_dir.path().join(file), &[]).unwrap();
+        std::fs::write(asset_dir.path().join(file), []).unwrap();
         asset_dir
     }
 

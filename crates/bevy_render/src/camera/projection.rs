@@ -19,6 +19,9 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
     }
 }
 
+/// Label for [`camera_system<T>`], shared accross all `T`.
+///
+/// [`camera_system<T>`]: crate::camera::camera_system
 #[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
@@ -27,13 +30,22 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
         app.register_type::<T>()
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                crate::camera::camera_system::<T>,
+                crate::camera::camera_system::<T>
+                    .label(CameraUpdateSystem)
+                    // We assume that each camera will only have one projection,
+                    // so we can ignore ambiguities with all other monomorphizations.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(CameraUpdateSystem),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
-                    .after(ModifiesWindows),
+                    .after(ModifiesWindows)
+                    // We assume that each camera will only have one projection,
+                    // so we can ignore ambiguities with all other monomorphizations.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(CameraUpdateSystem),
             );
     }
 }

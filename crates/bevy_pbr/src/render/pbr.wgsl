@@ -67,13 +67,17 @@ fn fragment(
 
         pbr_input.frag_coord = mesh.clip_position;
         pbr_input.world_position = mesh.world_position;
-        pbr_input.world_normal = mesh.world_normal;
+        pbr_input.world_normal = pbr_functions::prepare_world_normal(
+            mesh.world_normal,
+            (pbr_bindings::material.flags & pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+            in.is_front,
+        );
 
         pbr_input.is_orthographic = bevy_pbr::mesh_view_bindings::view.projection[3].w == 1.0;
 
-        pbr_input.N = pbr_functions::prepare_normal(
+        pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
-            mesh.world_normal,
+            pbr_meshput.world_normal,
 #ifdef VERTEX_TANGENTS
     #ifdef STANDARDMATERIAL_NORMAL_MAP
             mesh.world_tangent,
@@ -82,14 +86,18 @@ fn fragment(
 #ifdef VERTEX_UVS
             mesh.uv,
 #endif
-            is_front,
         );
         pbr_input.V = pbr_functions::calculate_view(mesh.world_position, pbr_input.is_orthographic);
-
-        output_color = pbr_functions::tone_mapping(pbr_functions::pbr(pbr_input));
+        output_color = pbr_functions::pbr(pbr_input);
     } else {
         output_color = pbr_functions::alpha_discard(pbr_bindings::material, output_color);
     }
 
+#ifdef TONEMAP_IN_SHADER
+        output_color = pbr_functions::tone_mapping(output_color);
+#endif
+#ifdef DEBAND_DITHER
+        output_color = pbr_functions::dither(output_color, in.frag_coord.xy);
+#endif
     return output_color;
 }
