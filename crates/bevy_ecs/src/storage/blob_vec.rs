@@ -549,6 +549,8 @@ mod tests {
 
     #[test]
     fn aligned_zst() {
+        // NOTE: This test is explicitly for uncovering potential UB with miri.
+
         #[derive(Component)]
         #[repr(align(32))]
         struct Zst;
