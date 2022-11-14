@@ -1,3 +1,4 @@
+#![no_std]
 #![warn(missing_docs)]
 //! This crate provides logging functions and configuration for [Bevy](https://bevyengine.org)
 //! apps, and automatically configures platform specific log handlers (i.e. WASM or Android).
@@ -11,8 +12,10 @@
 //! For more fine-tuned control over logging behavior, set up the [`LogPlugin`] or
 //! `DefaultPlugins` during app initialization.
 
+extern crate alloc;
+
 #[cfg(feature = "trace")]
-use std::panic;
+use core::panic;
 
 #[cfg(target_os = "android")]
 mod android_tracing;
@@ -30,6 +33,8 @@ pub use bevy_utils::tracing::{
     Level,
 };
 
+use alloc::format;
+use alloc::string::{String, ToString};
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
