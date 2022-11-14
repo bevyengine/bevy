@@ -2,7 +2,7 @@ use crate::world::World;
 use bevy_tasks::ComputeTaskPool;
 use std::ops::Range;
 
-use super::{Fetch, QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem, WorldQuery};
+use super::{QueryFetch, QueryItem, QueryState, ROQueryFetch, ROQueryItem, WorldQuery};
 
 /// Dictates how a parallel query chunks up large tables/archetypes
 /// during iteration.

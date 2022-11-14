@@ -16,7 +16,6 @@ use std::{
 
 /// A data type that can be used to store data for an [entity].
 ///
-///
 /// `Component` is a [derivable trait]: this means that a data type can implement it by applying a `#[derive(Component)]` attribute to it.
 /// However, components must always satisfy the `Send + Sync + 'static` trait bounds.
 ///
@@ -146,19 +145,14 @@ mod sealed {
 /// #[component(storage = "SparseSet")]
 /// struct A;
 /// ```
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 pub enum StorageType {
     /// Provides fast and cache-friendly iteration, but slower addition and removal of components.
     /// This is the default storage type.
+    #[default]
     Table,
     /// Provides fast addition and removal of components, but slower iteration.
     SparseSet,
-}
-
-impl Default for StorageType {
-    fn default() -> Self {
-        StorageType::Table
-    }
 }
 
 #[derive(Debug)]
@@ -214,6 +208,23 @@ impl ComponentInfo {
     }
 }
 
+/// A semi-opaque value which uniquely identifies the type of a [`Component`] within a
+/// [`World`](crate::world::World).
+///
+/// Each time a new `Component` type is registered within a `World` using
+/// [`World::init_component`](crate::world::World::init_component) or
+/// [`World::init_component_with_descriptor`](crate::world::World::init_component_with_descriptor),
+/// a corresponding `ComponentId` is created to track it.
+///
+/// While the distinction between `ComponentId` and [`TypeId`] may seem superficial, breaking them
+/// into two separate but related concepts allows components to exist outside of Rust's type system.
+/// Each Rust type registered as a `Component` will have a corresponding `ComponentId`, but additional
+/// `ComponentId`s may exist in a `World` to track components which cannot be
+/// represented as Rust types for scripting or other advanced use-cases.
+///
+/// A `ComponentId` is tightly coupled to its parent `World`. Attempting to use a `ComponentId` from
+/// one `World` to access the metadata of a `Component` in a different `World` is undefined behaviour
+/// and must not be attempted.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct ComponentId(usize);
 
@@ -283,7 +294,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -320,7 +331,7 @@ impl ComponentDescriptor {
             is_send_and_sync: true,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -331,7 +342,7 @@ impl ComponentDescriptor {
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then(|| Self::drop_ptr::<T> as _),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
     }
 
@@ -422,9 +433,36 @@ impl Components {
         self.components.get_unchecked(id.0)
     }
 
+    /// Type-erased equivalent of [`Components::component_id`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.indices.get(&type_id).map(|index| ComponentId(*index))
+    }
+
+    /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
+    ///
+    /// The returned `ComponentId` is specific to the `Components` instance
+    /// it was retrieved from and should not be used with another `Components`
+    /// instance.
+    ///
+    /// Returns [`None`] if the `Component` type has not
+    /// yet been initialized using [`Components::init_component`].
+    ///
+    /// ```rust
+    /// use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// #[derive(Component)]
+    /// struct ComponentA;
+    ///
+    /// let component_a_id = world.init_component::<ComponentA>();
+    ///
+    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
+    /// ```
+    #[inline]
+    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
+        self.get_id(TypeId::of::<T>())
     }
 
     #[inline]
@@ -436,7 +474,7 @@ impl Components {
 
     #[inline]
     pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_resource::<T>()
@@ -446,7 +484,7 @@ impl Components {
 
     #[inline]
     pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFE: The [`ComponentDescriptor`] matches the [`TypeId`]
+        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_non_send::<T>(StorageType::default())

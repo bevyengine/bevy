@@ -7,7 +7,7 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
-glam = "0.20"
+glam = "0.22"
 rand = "0.8"
 rand_chacha = "0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
@@ -17,39 +17,18 @@ bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
 
+[profile.release]
+opt-level = 3
+lto = true
+
 [[bench]]
-name = "archetype_updates"
-path = "benches/bevy_ecs/archetype_updates.rs"
+name = "change_detection"
+path = "benches/bevy_ecs/change_detection.rs"
 harness = false
 
 [[bench]]
-name = "ecs_bench_suite"
-path = "benches/bevy_ecs/ecs_bench_suite/mod.rs"
-harness = false
-
-[[bench]]
-name = "run_criteria"
-path = "benches/bevy_ecs/run_criteria.rs"
-harness = false
-
-[[bench]]
-name = "commands"
-path = "benches/bevy_ecs/commands.rs"
-harness = false
-
-[[bench]]
-name = "system_stage"
-path = "benches/bevy_ecs/stages.rs"
-harness = false
-
-[[bench]]
-name = "world_get"
-path = "benches/bevy_ecs/world_get.rs"
-harness = false
-
-[[bench]]
-name = "schedule"
-path = "benches/bevy_ecs/schedule.rs"
+name = "ecs"
+path = "benches/bevy_ecs/benches.rs"
 harness = false
 
 [[bench]]

@@ -1,4 +1,4 @@
-use crate::clear_color::ClearColorConfig;
+use crate::{clear_color::ClearColorConfig, tonemapping::Tonemapping};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{
@@ -23,7 +23,7 @@ pub struct Camera3d {
 
 /// The depth clear operation to perform for the main 3d pass.
 #[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
-#[reflect_value(Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
 pub enum Camera3dDepthLoadOp {
     /// Clear with a specified value.
     /// Note that 0.0 is the far plane due to bevy's use of reverse-z projections.
@@ -51,7 +51,7 @@ impl ExtractComponent for Camera3d {
     type Query = &'static Self;
     type Filter = With<Camera>;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
         item.clone()
     }
 }
@@ -66,6 +66,7 @@ pub struct Camera3dBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub camera_3d: Camera3d,
+    pub tonemapping: Tonemapping,
 }
 
 // NOTE: ideally Perspective and Orthographic defaults can share the same impl, but sadly it breaks rust's type inference
@@ -73,6 +74,9 @@ impl Default for Camera3dBundle {
     fn default() -> Self {
         Self {
             camera_render_graph: CameraRenderGraph::new(crate::core_3d::graph::NAME),
+            tonemapping: Tonemapping::Enabled {
+                deband_dither: true,
+            },
             camera: Default::default(),
             projection: Default::default(),
             visible_entities: Default::default(),
