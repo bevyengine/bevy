@@ -462,7 +462,7 @@ pub fn prepare_sprites(
             color: extracted_sprite.color.as_linear_rgba_f32(),
             image_handle_id: extracted_sprite.image_handle_id,
             sort_key,
-        })
+        });
     }
 }
 
