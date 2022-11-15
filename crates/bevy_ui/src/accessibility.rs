@@ -1,6 +1,6 @@
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_ecs::{
-    prelude::Entity,
+    prelude::{Entity, EventReader},
     query::Changed,
     system::{Commands, NonSend, Query},
 };
@@ -10,7 +10,9 @@ use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::default;
 use bevy_winit::{
     accessibility::{AccessKitEntityExt, AccessibilityNode, Adapters},
-    accesskit::{kurbo::Rect, DefaultActionVerb, Node as AccessKitNode, Role, TreeUpdate},
+    accesskit::{
+        kurbo::Rect, ActionRequest, DefaultActionVerb, Node as AccessKitNode, Role, TreeUpdate,
+    },
 };
 
 use crate::{
@@ -129,6 +131,12 @@ fn update_focus(
     }
 }
 
+fn action_requested(mut events: EventReader<ActionRequest>) {
+    for action in events.iter() {
+        println!("AT action request: {:?}", action);
+    }
+}
+
 pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
@@ -136,6 +144,7 @@ impl Plugin for AccessibilityPlugin {
         app.add_system_to_stage(CoreStage::PreUpdate, button_changed)
             .add_system_to_stage(CoreStage::PreUpdate, image_changed)
             .add_system_to_stage(CoreStage::PreUpdate, label_changed)
-            .add_system_to_stage(CoreStage::PreUpdate, update_focus);
+            .add_system_to_stage(CoreStage::PreUpdate, update_focus)
+            .add_system_to_stage(CoreStage::PreUpdate, action_requested);
     }
 }
