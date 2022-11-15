@@ -42,11 +42,11 @@ impl ActionHandler for WinitActionHandler {
     }
 }
 
-trait EntityExt {
+pub trait AccessKitEntityExt {
     fn to_node_id(&self) -> NodeId;
 }
 
-impl EntityExt for Entity {
+impl AccessKitEntityExt for Entity {
     fn to_node_id(&self) -> NodeId {
         let id = NonZeroU128::new((self.to_bits() + 1) as u128);
         NodeId(id.unwrap().into())

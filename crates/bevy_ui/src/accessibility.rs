@@ -2,20 +2,20 @@ use bevy_app::{App, CoreStage, Plugin};
 use bevy_ecs::{
     prelude::Entity,
     query::Changed,
-    system::{Commands, Query},
+    system::{Commands, NonSend, Query},
 };
 use bevy_hierarchy::Children;
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::default;
 use bevy_winit::{
-    accessibility::AccessibilityNode,
-    accesskit::{kurbo::Rect, DefaultActionVerb, Node as AccessKitNode, Role},
+    accessibility::{AccessKitEntityExt, AccessibilityNode, Adapters},
+    accesskit::{kurbo::Rect, DefaultActionVerb, Node as AccessKitNode, Role, TreeUpdate},
 };
 
 use crate::{
     prelude::{Button, Label},
-    Node, UiImage,
+    Interaction, Node, UiImage,
 };
 
 fn calc_name(texts: &Query<&Text>, children: &Children) -> Option<Box<str>> {
@@ -109,12 +109,33 @@ fn label_changed(
     }
 }
 
+fn update_focus(
+    adapters: NonSend<Adapters>,
+    interactions: Query<(Entity, &Interaction), Changed<Interaction>>,
+) {
+    let mut focus = None;
+    let mut ran = false;
+    for (entity, interaction) in &interactions {
+        ran = true;
+        if *interaction == Interaction::Hovered {
+            focus = Some(entity.to_node_id());
+            break;
+        }
+    }
+    if ran {
+        if let Some(adapter) = adapters.get_primary_adapter() {
+            adapter.update(TreeUpdate { focus, ..default() });
+        }
+    }
+}
+
 pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_to_stage(CoreStage::PreUpdate, button_changed)
             .add_system_to_stage(CoreStage::PreUpdate, image_changed)
-            .add_system_to_stage(CoreStage::PostUpdate, label_changed);
+            .add_system_to_stage(CoreStage::PreUpdate, label_changed)
+            .add_system_to_stage(CoreStage::PreUpdate, update_focus);
     }
 }
