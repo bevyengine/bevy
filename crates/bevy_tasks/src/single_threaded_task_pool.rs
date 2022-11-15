@@ -77,7 +77,7 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        self.scope_with_executor(None, f)
+        self.scope_with_executor(false, None, f)
     }
 
     /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
@@ -87,6 +87,7 @@ impl TaskPool {
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope_with_executor<'env, F, T>(
         &self,
+        _tick_task_pool_executor: bool,
         _thread_executor: Option<Arc<ThreadExecutor>>,
         f: F,
     ) -> Vec<T>
