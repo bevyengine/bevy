@@ -45,6 +45,8 @@ impl Plugin for PipelinedRenderingPlugin {
         if app.get_sub_app(RenderApp).is_err() {
             return;
         }
+        app.insert_resource(MainThreadExecutor::new());
+
         let mut sub_app = App::new();
         sub_app.add_stage(
             RenderExtractStage::BeforeIoAfterRenderStart,
@@ -63,7 +65,9 @@ impl Plugin for PipelinedRenderingPlugin {
         let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
         let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
 
-        let mut render_app = app.remove_sub_app(RenderApp).unwrap();
+        let mut render_app = app
+            .remove_sub_app(RenderApp)
+            .expect("Unable to get RenderApp. Another plugin may have remove the RenderApp before PipelinedRenderingPlugin");
 
         // clone main thread executor to render world
         let executor = app.world.get_resource::<MainThreadExecutor>().unwrap();
