@@ -7,6 +7,8 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_tasks::ComputeTaskPool;
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::Instrument;
 
 use crate::RenderApp;
 
@@ -72,16 +74,20 @@ impl Plugin for PipelinedRenderingPlugin {
         app.insert_resource(MainToRenderAppSender(app_to_render_sender));
         app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
 
-        ComputeTaskPool::get()
-            .spawn(async move {
-                loop {
-                    let recv_task = app_to_render_receiver.recv();
-                    let mut sub_app = recv_task.await.unwrap();
-                    sub_app.run();
-                    render_to_app_sender.send(sub_app).await.unwrap();
-                }
-            })
-            .detach();
+        let render_task = async move {
+            loop {
+                let recv_task = app_to_render_receiver.recv();
+                let mut sub_app = recv_task.await.unwrap();
+                sub_app.run();
+                render_to_app_sender.send(sub_app).await.unwrap();
+            }
+        };
+        #[cfg(feature = "trace")]
+        let span = bevy_utils::tracing::info_span!("render app");
+        #[cfg(feature = "trace")]
+        let render_task = render_task.instrument(span);
+
+        ComputeTaskPool::get().spawn(render_task).detach();
     }
 }
 
