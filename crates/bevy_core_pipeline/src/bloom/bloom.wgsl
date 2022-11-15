@@ -16,7 +16,7 @@ var<uniform> uniforms: BloomUniforms;
 @group(0) @binding(3)
 var up: texture_2d<f32>;
 
-fn quadratic_threshold(color: vec4<f32>, threshold: f32, curve: vec3<f32>) -> vec4<f32> {
+fn quadratic_threshold(color: vec3<f32>, threshold: f32, curve: vec3<f32>) -> vec3<f32> {
     let br = max(max(color.r, color.g), color.b);
 
     var rq: f32 = clamp(br - curve.x, 0.0, curve.y);
@@ -62,7 +62,7 @@ fn sample_13_tap(uv: vec2<f32>, scale: vec2<f32>) -> vec4<f32> {
     o = o + (f + g + l + k) * div.y;
     o = o + (g + h + m + l) * div.y;
 
-    return o;
+    return vec4<f32>(o.rgb, g.a);
 }
 
 // Samples original using a 3x3 tent filter.
@@ -71,19 +71,23 @@ fn sample_13_tap(uv: vec2<f32>, scale: vec2<f32>) -> vec4<f32> {
 fn sample_original_3x3_tent(uv: vec2<f32>, scale: vec2<f32>) -> vec4<f32> {
     let d = vec4<f32>(1.0, 1.0, -1.0, 0.0);
 
+    let o = textureSample(original, original_sampler, uv);
+
     var s: vec4<f32> = textureSample(original, original_sampler, uv - d.xy * scale);
     s = s + textureSample(original, original_sampler, uv - d.wy * scale) * 2.0;
     s = s + textureSample(original, original_sampler, uv - d.zy * scale);
 
     s = s + textureSample(original, original_sampler, uv + d.zw * scale) * 2.0;
-    s = s + textureSample(original, original_sampler, uv) * 4.0;
+    s = s + o * 4.0;
     s = s + textureSample(original, original_sampler, uv + d.xw * scale) * 2.0;
 
     s = s + textureSample(original, original_sampler, uv + d.zy * scale);
     s = s + textureSample(original, original_sampler, uv + d.wy * scale) * 2.0;
     s = s + textureSample(original, original_sampler, uv + d.xy * scale);
 
-    return s / 16.0;
+    s /= 16.0;
+
+    return vec4<f32>(s.rgb, o.a);
 }
 
 @fragment
@@ -100,10 +104,10 @@ fn downsample_prefilter(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     var o: vec4<f32> = sample_13_tap(uv, scale);
 
-    o = quadratic_threshold(o, uniforms.threshold, curve);
-    o = max(o, vec4<f32>(0.00001));
+    var q = quadratic_threshold(o.rgb, uniforms.threshold, curve);
+    q = max(q, vec3<f32>(0.00001));
 
-    return o;
+    return vec4<f32>(q, o.a);
 }
 
 @fragment
