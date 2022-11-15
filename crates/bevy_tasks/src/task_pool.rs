@@ -11,7 +11,7 @@ use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, FutureExt};
 
 use crate::Task;
-use crate::{main_thread_executor::ThreadSpawner, ThreadExecutor};
+use crate::{thread_executor::ThreadSpawner, ThreadExecutor};
 
 /// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
@@ -238,7 +238,7 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        self.scope_with_executor(None, f)
+        self.scope_with_executor(true, None, f)
     }
 
     /// This allows passing an external executor to spawn tasks on. When you pass an external executor
@@ -246,6 +246,7 @@ impl TaskPool {
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(
         &self,
+        tick_task_pool_executor: bool,
         thread_executor: Option<Arc<ThreadExecutor>>,
         f: F,
     ) -> Vec<T>
@@ -297,14 +298,20 @@ impl TaskPool {
                     results
                 };
 
-                if let Some(main_thread_ticker) = thread_executor.ticker() {
+                if let Some(thread_ticker) = thread_executor.ticker() {
                     let tick_forever = async move {
                         loop {
-                            main_thread_ticker.tick().await;
+                            thread_ticker.tick().await;
                         }
                     };
 
-                    tick_forever.or(get_results).await
+                    if tick_task_pool_executor {
+                        executor.run(tick_forever).or(get_results).await
+                    } else {
+                        tick_forever.or(get_results).await
+                    }
+                } else if tick_task_pool_executor {
+                    executor.run(get_results).await
                 } else {
                     get_results.await
                 }

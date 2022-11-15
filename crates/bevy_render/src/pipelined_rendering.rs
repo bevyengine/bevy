@@ -7,8 +7,6 @@ use bevy_ecs::{
     world::{Mut, World},
 };
 use bevy_tasks::ComputeTaskPool;
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::Instrument;
 
 use crate::RenderApp;
 
@@ -47,7 +45,7 @@ impl Plugin for PipelinedRenderingPlugin {
         }
         app.insert_resource(MainThreadExecutor::new());
 
-        let mut sub_app = App::new();
+        let mut sub_app = App::empty();
         sub_app.add_stage(
             RenderExtractStage::BeforeIoAfterRenderStart,
             SystemStage::parallel(),
@@ -78,20 +76,24 @@ impl Plugin for PipelinedRenderingPlugin {
         app.insert_resource(MainToRenderAppSender(app_to_render_sender));
         app.insert_resource(RenderToMainAppReceiver(render_to_app_receiver));
 
-        let render_task = async move {
-            loop {
-                let recv_task = app_to_render_receiver.recv();
-                let mut sub_app = recv_task.await.unwrap();
-                sub_app.run();
-                render_to_app_sender.send(sub_app).await.unwrap();
-            }
-        };
-        #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!("render app");
-        #[cfg(feature = "trace")]
-        let render_task = render_task.instrument(span);
+        std::thread::spawn(move || {
+            #[cfg(feature = "trace")]
+            let _span = bevy_utils::tracing::info_span!("render thread").entered();
 
-        ComputeTaskPool::get().spawn(render_task).detach();
+            loop {
+                // run a scope here to allow main world to use this thread while it's waiting for the render app
+                let mut render_app = ComputeTaskPool::get()
+                    .scope(|s| {
+                        s.spawn(async { app_to_render_receiver.recv().await.unwrap() });
+                    })
+                    .pop()
+                    .unwrap();
+                #[cfg(feature = "trace")]
+                let _span = bevy_utils::tracing::info_span!("render app").entered();
+                render_app.run();
+                render_to_app_sender.send_blocking(render_app).unwrap();
+            }
+        });
     }
 }
 
@@ -102,7 +104,7 @@ fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
         // we use a scope here to run any main thread tasks that the render world still needs to run
         // while we wait for the render world to be received.
         let mut render_app = ComputeTaskPool::get()
-            .scope_with_executor(Some(main_thread_executor.0.clone()), |s| {
+            .scope_with_executor(true, Some(main_thread_executor.0.clone()), |s| {
                 s.spawn(async {
                     let receiver = world.get_resource::<RenderToMainAppReceiver>().unwrap();
                     receiver.0.recv().await.unwrap()

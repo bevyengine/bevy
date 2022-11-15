@@ -29,13 +29,13 @@ impl ThreadExecutor {
         Self::default()
     }
 
-    /// Gets the `[MainThreadSpawner]` for the thread executor.
+    /// Gets the `[ThreadSpawner]` for the thread executor.
     /// Use this to spawn tasks that run on the thread this was instatiated on.
     pub fn spawner(&self) -> ThreadSpawner<'static> {
         ThreadSpawner(self.executor.clone())
     }
 
-    /// Gets the `[MainThreadTicker]` for this executor.
+    /// Gets the `[ThreadTicker]` for this executor.
     /// Use this to tick the executor.
     /// It only returns the ticker if it's on the thread the executor was created on
     /// and returns `None` otherwise.

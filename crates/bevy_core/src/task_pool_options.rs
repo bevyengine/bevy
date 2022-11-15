@@ -57,14 +57,14 @@ impl Default for TaskPoolOptions {
             min_total_threads: 1,
             max_total_threads: std::usize::MAX,
 
-            // Use 10% of cores for IO, at least 1, no more than 4
+            // Use 25% of cores for IO, at least 1, no more than 4
             io: TaskPoolThreadAssignmentPolicy {
                 min_threads: 1,
                 max_threads: 4,
                 percent: 0.25,
             },
 
-            // Use 10% of cores for async compute, at least 1, no more than 4
+            // Use 25% of cores for async compute, at least 1, no more than 4
             async_compute: TaskPoolThreadAssignmentPolicy {
                 min_threads: 1,
                 max_threads: 4,

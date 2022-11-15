@@ -148,40 +148,44 @@ impl ParallelSystemExecutor for ParallelExecutor {
             .get_resource::<MainThreadExecutor>()
             .map(|e| e.0.clone());
 
-        ComputeTaskPool::init(TaskPool::default).scope_with_executor(thread_executor, |scope| {
-            self.prepare_systems(scope, systems, world);
-            if self.should_run.count_ones(..) == 0 {
-                return;
-            }
-            let parallel_executor = async {
-                // All systems have been ran if there are no queued or running systems.
-                while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
-                    self.process_queued_systems();
-                    // Avoid deadlocking if no systems were actually started.
-                    if self.running.count_ones(..) != 0 {
-                        // Wait until at least one system has finished.
-                        let index = self
-                            .finish_receiver
-                            .recv()
-                            .await
-                            .unwrap_or_else(|error| unreachable!("{}", error));
-                        self.process_finished_system(index);
-                        // Gather other systems than may have finished.
-                        while let Ok(index) = self.finish_receiver.try_recv() {
-                            self.process_finished_system(index);
-                        }
-                        // At least one system has finished, so active access is outdated.
-                        self.rebuild_active_access();
-                    }
-                    self.update_counters_and_queue_systems();
+        ComputeTaskPool::init(TaskPool::default).scope_with_executor(
+            false,
+            thread_executor,
+            |scope| {
+                self.prepare_systems(scope, systems, world);
+                if self.should_run.count_ones(..) == 0 {
+                    return;
                 }
-            };
-            #[cfg(feature = "trace")]
-            let span = bevy_utils::tracing::info_span!("parallel executor");
-            #[cfg(feature = "trace")]
-            let parallel_executor = parallel_executor.instrument(span);
-            scope.spawn(parallel_executor);
-        });
+                let parallel_executor = async {
+                    // All systems have been ran if there are no queued or running systems.
+                    while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
+                        self.process_queued_systems();
+                        // Avoid deadlocking if no systems were actually started.
+                        if self.running.count_ones(..) != 0 {
+                            // Wait until at least one system has finished.
+                            let index = self
+                                .finish_receiver
+                                .recv()
+                                .await
+                                .unwrap_or_else(|error| unreachable!("{}", error));
+                            self.process_finished_system(index);
+                            // Gather other systems than may have finished.
+                            while let Ok(index) = self.finish_receiver.try_recv() {
+                                self.process_finished_system(index);
+                            }
+                            // At least one system has finished, so active access is outdated.
+                            self.rebuild_active_access();
+                        }
+                        self.update_counters_and_queue_systems();
+                    }
+                };
+                #[cfg(feature = "trace")]
+                let span = bevy_utils::tracing::info_span!("parallel executor");
+                #[cfg(feature = "trace")]
+                let parallel_executor = parallel_executor.instrument(span);
+                scope.spawn(parallel_executor);
+            },
+        );
     }
 }
 
