@@ -415,7 +415,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Itera
             }
             let k = k.min(n - k);
             let ks = 1..=k;
-            let ns = (n + 1 - k..=n).rev();
+            let ns = (n - k + 1..=n).rev();
             ks.zip(ns)
                 .try_fold(1_usize, |acc, (k, n)| Some(acc.checked_mul(n)? / k))
         }
