@@ -98,5 +98,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef TONEMAP_IN_SHADER
         output_color = tone_mapping(output_color);
 #endif
+#ifdef DEBAND_DITHER
+        output_color = dither(output_color, in.frag_coord.xy);
+#endif
     return output_color;
 }

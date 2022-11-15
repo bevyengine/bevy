@@ -92,7 +92,7 @@ impl WindowId {
         WindowId(Uuid::new_v4())
     }
     /// The [`WindowId`] for the primary window.
-    pub fn primary() -> Self {
+    pub const fn primary() -> Self {
         WindowId(Uuid::from_u128(0))
     }
     /// Get whether or not this [`WindowId`] is for the primary window.
@@ -294,6 +294,7 @@ pub struct Window {
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
     alpha_mode: CompositeAlphaMode,
+    always_on_top: bool,
 }
 /// A command to be sent to a window.
 ///
@@ -369,6 +370,10 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
+    /// Set whether the window is always on top.
+    SetAlwaysOnTop {
+        always_on_top: bool,
+    },
     Close,
 }
 
@@ -432,12 +437,13 @@ impl Window {
             cursor_icon: CursorIcon::Default,
             physical_cursor_position: None,
             raw_handle,
-            focused: true,
+            focused: false,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
             alpha_mode: window_descriptor.alpha_mode,
+            always_on_top: window_descriptor.always_on_top,
         }
     }
     /// Get the window's [`WindowId`].
@@ -796,6 +802,18 @@ impl Window {
             resolution: UVec2::new(self.physical_width, self.physical_height),
         });
     }
+    /// Get whether or not the window is always on top.
+    #[inline]
+    pub fn always_on_top(&self) -> bool {
+        self.always_on_top
+    }
+
+    /// Set whether of not the window is always on top.
+    pub fn set_always_on_top(&mut self, always_on_top: bool) {
+        self.always_on_top = always_on_top;
+        self.command_queue
+            .push(WindowCommand::SetAlwaysOnTop { always_on_top });
+    }
     /// Close the operating system window corresponding to this [`Window`].
     ///  
     /// This will also lead to this [`Window`] being removed from the
@@ -972,6 +990,12 @@ pub struct WindowDescriptor {
     pub fit_canvas_to_parent: bool,
     /// Specifies how the alpha channel of the textures should be handled during compositing.
     pub alpha_mode: CompositeAlphaMode,
+    /// Sets the window to always be on top of other windows.
+    ///
+    /// ## Platform-specific
+    /// - iOS / Android / Web: Unsupported.
+    /// - Linux (Wayland): Unsupported.
+    pub always_on_top: bool,
 }
 
 impl Default for WindowDescriptor {
@@ -994,6 +1018,7 @@ impl Default for WindowDescriptor {
             canvas: None,
             fit_canvas_to_parent: false,
             alpha_mode: CompositeAlphaMode::Auto,
+            always_on_top: false,
         }
     }
 }

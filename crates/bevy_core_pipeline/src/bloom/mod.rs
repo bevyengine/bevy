@@ -149,7 +149,7 @@ pub struct BloomSettings {
     /// Scale used when upsampling (default: 1.0).
     pub scale: f32,
 
-    /// Intensity of the bloom effect (default: 1.0).
+    /// Intensity of the bloom effect (default: 0.3).
     pub intensity: f32,
 }
 
@@ -159,7 +159,7 @@ impl Default for BloomSettings {
             threshold: 1.0,
             knee: 0.1,
             scale: 1.0,
-            intensity: 1.0,
+            intensity: 0.3,
         }
     }
 }
@@ -805,5 +805,5 @@ fn queue_bloom_bind_groups(
 }
 
 fn calculate_mip_count(min_view: u32) -> u32 {
-    ((min_view as f32).log2().round() as u32 - 1).max(1)
+    ((min_view as f32).log2().round() as i32 - 3).max(1) as u32
 }

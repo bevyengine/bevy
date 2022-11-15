@@ -8,6 +8,7 @@ use crate::{
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::tracing::debug;
 use std::{any::TypeId, cell::UnsafeCell};
 
 /// A read-only reference to a particular [`Entity`] and all of its components
@@ -480,6 +481,7 @@ impl<'w> EntityMut<'w> {
     }
 
     pub fn despawn(self) {
+        debug!("Despawning entity {:?}", self.entity);
         let world = self.world;
         world.flush();
         let location = world

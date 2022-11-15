@@ -32,6 +32,7 @@ impl<T> DebugCheckedUnwrap for Option<T> {
     type Item = T;
 
     #[inline(always)]
+    #[track_caller]
     unsafe fn debug_checked_unwrap(self) -> Self::Item {
         if let Some(inner) = self {
             inner
