@@ -31,7 +31,6 @@ impl Storages {
     ///
     /// # Safety
     /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
-    /// - `component_id` must be valid
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
@@ -46,6 +45,7 @@ impl Storages {
         location: EntityLocation,
     ) -> Option<(Ptr<'_>, TickCells<'_>)> {
         let component_id = components.get_id(type_id)?;
+        // SAFETY: component_id is valid, the rest is deferred to caller
         self.get_component_and_ticks(archetypes, component_id, storage_type, entity, location)
     }
 
@@ -89,6 +89,7 @@ impl Storages {
     /// # Safety
     /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
     /// the archetype
+    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
@@ -102,6 +103,7 @@ impl Storages {
         location: EntityLocation,
     ) -> Option<Ptr<'_>> {
         let component_id = components.get_id(type_id)?;
+        // SAFETY: component_id is valid, the rest is deferred to caller
         self.get_component(archetypes, component_id, storage_type, entity, location)
     }
 
@@ -140,6 +142,7 @@ impl Storages {
     /// # Safety
     /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
     /// the archetype
+    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
@@ -153,6 +156,7 @@ impl Storages {
         location: EntityLocation,
     ) -> Option<ComponentTicks> {
         let component_id = components.get_id(type_id)?;
+        // SAFETY: component_id is valid, the rest is deferred to caller
         self.get_ticks(archetypes, component_id, storage_type, entity, location)
     }
 
