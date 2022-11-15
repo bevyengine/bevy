@@ -37,10 +37,13 @@ fn setup(
         perceptual_roughness: 1.0,
         ..default()
     });
-    let sphere_handle = meshes.add(Mesh::from(shape::Icosphere {
-        radius: sphere_radius,
-        ..default()
-    }));
+    let sphere_handle = meshes.add(
+        Mesh::try_from(shape::Icosphere {
+            radius: sphere_radius,
+            ..default()
+        })
+        .unwrap(),
+    );
 
     // sphere - initially a caster
     commands.spawn(PbrBundle {
