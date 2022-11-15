@@ -67,7 +67,7 @@ pub struct App {
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
-    pub runner: Box<dyn Fn(App) + Send + Sync>, // Send + Sync bound is only required to make App Send + Sync
+    pub runner: Box<dyn Fn(App) + Send>, // Send + Sync bound is only required to make App Send
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
@@ -89,7 +89,7 @@ impl Debug for App {
 pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
-    extract: Box<dyn Fn(&mut World, &mut App) + Send + Sync>, // Send + Sync bound is only required to make SubApp send sync
+    extract: Box<dyn Fn(&mut World, &mut App) + Send>, // Send bound is only required to make SubApp send
 }
 
 impl SubApp {
@@ -823,7 +823,7 @@ impl App {
     /// App::new()
     ///     .set_runner(my_runner);
     /// ```
-    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static + Send + Sync) -> &mut Self {
+    pub fn set_runner(&mut self, run_fn: impl Fn(App) + 'static + Send) -> &mut Self {
         self.runner = Box::new(run_fn);
         self
     }
@@ -1015,7 +1015,7 @@ impl App {
         &mut self,
         label: impl AppLabel,
         app: App,
-        extract: impl Fn(&mut World, &mut App) + 'static + Send + Sync,
+        extract: impl Fn(&mut World, &mut App) + 'static + Send,
     ) -> &mut Self {
         self.sub_apps.insert(
             label.as_label(),
