@@ -58,7 +58,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
     })
 }
 
-/// Generates an implementation of [`TypeUuid`]. If the there any generics, the `TYPE_UUID` will be a composite of the generic types' `TYPE_UUID`.
+/// Generates an implementation of [`TypeUuid`]. If there any generics, the `TYPE_UUID` will be a composite of the generic types' `TYPE_UUID`.
 pub(crate) fn gen_impl_type_uuid(def: TypeUuidDef) -> proc_macro::TokenStream {
     let uuid = def.uuid;
     let mut generics = def.generics;

@@ -127,5 +127,6 @@ mod test {
     fn test_primitive_generic_uuid() {
         test_impl_type_uuid(&true);
         test_impl_type_uuid(&Some(true));
+        test_impl_type_uuid(&TestDeriveStruct::<bool> { _value: true });
     }
 }
