@@ -133,16 +133,15 @@ impl TaskPool {
             for i in 0..count {
                 let shutdown = Arc::clone(&shutdown);
                 let executor = executor.clone();
-                let thread = make_thread_builder(&builder, name, i)
-                    .spawn(move || loop {
-                        let shutdown_listener = shutdown.listen();
-                        let res = std::panic::catch_unwind(|| {
-                            future::block_on(executor.run(priority, i, shutdown_listener));
-                        });
-                        if res.is_ok() {
-                            break;
-                        }
+                let thread = make_thread_builder(&builder, name, i).spawn(move || loop {
+                    let shutdown_listener = shutdown.listen();
+                    let res = std::panic::catch_unwind(|| {
+                        future::block_on(executor.run(priority, i, shutdown_listener));
                     });
+                    if res.is_ok() {
+                        break;
+                    }
+                });
                 threads.push(thread.expect("Failed to spawn thread."));
             }
         }
