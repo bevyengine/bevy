@@ -65,7 +65,6 @@ mod tests {
         world::{Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
-    use std::sync::RwLock;
     use std::{
         any::TypeId,
         marker::PhantomData,
@@ -1201,13 +1200,13 @@ mod tests {
     fn non_sync_resource() {
         #[derive(Resource, Default)]
         #[resource(is_sync = false)]
-        struct SyncCounter(RwLock<()>, PhantomData<std::cell::Cell<()>>);
+        struct SyncCounter(Mutex<()>, PhantomData<std::cell::Cell<()>>);
 
         fn assert_non_sync(counter: Res<SyncCounter>) {
             // Panic if multiple instances of this system try to access `counter` at once.
             let _guard = counter
                 .0
-                .try_write()
+                .try_lock()
                 .expect("shared access is not allowed for non-`Sync` resources");
 
             // Make sure other systems have a chance to conflict with this one before dropping the guard.
@@ -1230,13 +1229,13 @@ mod tests {
     fn non_sync_resource_panic() {
         // We aren't marking the type as !Sync, so the systems will confict and panic.
         #[derive(Resource, Default)]
-        struct SyncCounter(RwLock<()>);
+        struct SyncCounter(Mutex<()>);
 
         fn assert_non_sync(counter: Res<SyncCounter>) {
             // Panic if multiple instances of this system try to access `counter` at once.
             let _guard = counter
                 .0
-                .try_write()
+                .try_lock()
                 .expect("shared access is not allowed for non-`Sync` resources");
 
             // Make sure other systems have a chance to conflict with this one before dropping the guard.
