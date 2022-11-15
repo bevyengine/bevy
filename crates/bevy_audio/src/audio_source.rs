@@ -8,7 +8,15 @@ use std::{io::Cursor, sync::Arc};
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
 pub struct AudioSource {
-    /// Raw data of the audio source, which must be in one of the file formats supported by Bevy (wav, ogg, flac or mp3). wav, flac and mp3 require their respective flags to be enabled so that they can be decoded, as `Rodio::Decode` (which Bevy uses internally for audio) compiles specific functions for each format depending on the enabled feature.  
+    /// Raw data of the audio source. 
+   	/// 
+   	/// The data must be one of the file formats supported by Bevy (`wav`, `ogg`, `flac`, or `mp3`).
+   	/// It is decoded using [`rodio::decoder::Decoder`].
+   	///
+   	/// The decoder has conditionally compiled methods
+   	/// depending on the features enabled.
+   	/// If the format used is not enabled,
+   	/// then this will panic with an `UnrecognizedFormat` error.
     pub bytes: Arc<[u8]>,
 }
 
