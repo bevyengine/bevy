@@ -31,23 +31,23 @@ impl Plugin for UpscalingPlugin {
             render_app
                 .init_resource::<UpscalingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<UpscalingPipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue_upscaling_bind_groups);
+                .add_system_to_stage(RenderStage::Queue, queue_view_upscaling_pipelines);
         }
     }
 }
 
 #[derive(Resource)]
 pub struct UpscalingPipeline {
-    ldr_texture_bind_group: BindGroupLayout,
+    texture_bind_group: BindGroupLayout,
 }
 
 impl FromWorld for UpscalingPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.resource::<RenderDevice>();
 
-        let ldr_texture_bind_group =
+        let texture_bind_group =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("upscaling_ldr_texture_bind_group_layout"),
+                label: Some("upscaling_texture_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
@@ -68,9 +68,7 @@ impl FromWorld for UpscalingPipeline {
                 ],
             });
 
-        UpscalingPipeline {
-            ldr_texture_bind_group,
-        }
+        UpscalingPipeline { texture_bind_group }
     }
 }
 
@@ -92,7 +90,7 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         RenderPipelineDescriptor {
             label: Some("upscaling pipeline".into()),
-            layout: Some(vec![self.ldr_texture_bind_group.clone()]),
+            layout: Some(vec![self.texture_bind_group.clone()]),
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: UPSCALING_SHADER_HANDLE.typed(),
@@ -112,11 +110,9 @@ impl SpecializedRenderPipeline for UpscalingPipeline {
 }
 
 #[derive(Component)]
-pub struct UpscalingTarget {
-    pub pipeline: CachedRenderPipelineId,
-}
+pub struct ViewUpscalingPipeline(CachedRenderPipelineId);
 
-fn queue_upscaling_bind_groups(
+fn queue_view_upscaling_pipelines(
     mut commands: Commands,
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UpscalingPipeline>>,
@@ -126,10 +122,12 @@ fn queue_upscaling_bind_groups(
     for (entity, view_target) in view_targets.iter() {
         let key = UpscalingPipelineKey {
             upscaling_mode: UpscalingMode::Filtering,
-            texture_format: view_target.out_texture_format,
+            texture_format: view_target.out_texture_format(),
         };
         let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
 
-        commands.entity(entity).insert(UpscalingTarget { pipeline });
+        commands
+            .entity(entity)
+            .insert(ViewUpscalingPipeline(pipeline));
     }
 }

@@ -518,6 +518,7 @@ bitflags::bitflags! {
         const TRANSPARENT_MAIN_PASS       = (1 << 0);
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
+        const DEBAND_DITHER               = (1 << 3);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -636,6 +637,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".to_string());
+
+            // Debanding is tied to tonemapping in the shader, cannot run without it.
+            if key.contains(MeshPipelineKey::DEBAND_DITHER) {
+                shader_defs.push("DEBAND_DITHER".to_string());
+            }
         }
 
         let format = match key.contains(MeshPipelineKey::HDR) {

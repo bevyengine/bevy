@@ -1,29 +1,24 @@
 mod node;
 
-use bevy_ecs::query::QueryItem;
-use bevy_render::camera::Camera;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 pub use node::TonemappingNode;
 
+use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
+use bevy_ecs::query::QueryItem;
+use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::camera::Camera;
+use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
-use bevy_render::texture::BevyDefault;
-use bevy_render::{render_resource::*, RenderApp};
-
-use bevy_reflect::TypeUuid;
-
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use bevy_render::view::ViewTarget;
+use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
 const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
 
 const TONEMAPPING_SHARED_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2499430578245347910);
-
-const BLIT_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 2982361071241723543);
 
 pub struct TonemappingPlugin;
 
@@ -41,21 +36,57 @@ impl Plugin for TonemappingPlugin {
             "tonemapping_shared.wgsl",
             Shader::from_wgsl
         );
-        load_internal_asset!(app, BLIT_SHADER_HANDLE, "blit.wgsl", Shader::from_wgsl);
+
+        app.register_type::<Tonemapping>();
 
         app.add_plugin(ExtractComponentPlugin::<Tonemapping>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<TonemappingPipeline>();
+            render_app
+                .init_resource::<TonemappingPipeline>()
+                .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
+                .add_system_to_stage(RenderStage::Queue, queue_view_tonemapping_pipelines);
         }
     }
 }
 
 #[derive(Resource)]
 pub struct TonemappingPipeline {
-    hdr_texture_bind_group: BindGroupLayout,
-    tonemapping_pipeline_id: CachedRenderPipelineId,
-    blit_pipeline_id: CachedRenderPipelineId,
+    texture_bind_group: BindGroupLayout,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub struct TonemappingPipelineKey {
+    deband_dither: bool,
+}
+
+impl SpecializedRenderPipeline for TonemappingPipeline {
+    type Key = TonemappingPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let mut shader_defs = Vec::new();
+        if key.deband_dither {
+            shader_defs.push("DEBAND_DITHER".to_string());
+        }
+        RenderPipelineDescriptor {
+            label: Some("tonemapping pipeline".into()),
+            layout: Some(vec![self.texture_bind_group.clone()]),
+            vertex: fullscreen_shader_vertex_state(),
+            fragment: Some(FragmentState {
+                shader: TONEMAPPING_SHADER_HANDLE.typed(),
+                shader_defs,
+                entry_point: "fragment".into(),
+                targets: vec![Some(ColorTargetState {
+                    format: ViewTarget::TEXTURE_FORMAT_HDR,
+                    blend: None,
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: MultisampleState::default(),
+        }
+    }
 }
 
 impl FromWorld for TonemappingPipeline {
@@ -84,55 +115,50 @@ impl FromWorld for TonemappingPipeline {
                 ],
             });
 
-        let tonemap_descriptor = RenderPipelineDescriptor {
-            label: Some("tonemapping pipeline".into()),
-            layout: Some(vec![tonemap_texture_bind_group.clone()]),
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: TONEMAPPING_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
-                entry_point: "fs_main".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-        };
-
-        let blit_descriptor = RenderPipelineDescriptor {
-            label: Some("blit pipeline".into()),
-            layout: Some(vec![tonemap_texture_bind_group.clone()]),
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: BLIT_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
-                entry_point: "fs_main".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-        };
-        let mut cache = render_world.resource_mut::<PipelineCache>();
         TonemappingPipeline {
-            hdr_texture_bind_group: tonemap_texture_bind_group,
-            tonemapping_pipeline_id: cache.queue_render_pipeline(tonemap_descriptor),
-            blit_pipeline_id: cache.queue_render_pipeline(blit_descriptor),
+            texture_bind_group: tonemap_texture_bind_group,
         }
     }
 }
 
-#[derive(Component, Clone)]
-pub struct Tonemapping {
-    pub is_enabled: bool,
+#[derive(Component)]
+pub struct ViewTonemappingPipeline(CachedRenderPipelineId);
+
+pub fn queue_view_tonemapping_pipelines(
+    mut commands: Commands,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<TonemappingPipeline>>,
+    upscaling_pipeline: Res<TonemappingPipeline>,
+    view_targets: Query<(Entity, &Tonemapping)>,
+) {
+    for (entity, tonemapping) in view_targets.iter() {
+        if let Tonemapping::Enabled { deband_dither } = tonemapping {
+            let key = TonemappingPipelineKey {
+                deband_dither: *deband_dither,
+            };
+            let pipeline = pipelines.specialize(&mut pipeline_cache, &upscaling_pipeline, key);
+
+            commands
+                .entity(entity)
+                .insert(ViewTonemappingPipeline(pipeline));
+        }
+    }
+}
+
+#[derive(Component, Clone, Reflect, Default)]
+#[reflect(Component)]
+pub enum Tonemapping {
+    #[default]
+    Disabled,
+    Enabled {
+        deband_dither: bool,
+    },
+}
+
+impl Tonemapping {
+    pub fn is_enabled(&self) -> bool {
+        matches!(self, Tonemapping::Enabled { .. })
+    }
 }
 
 impl ExtractComponent for Tonemapping {

@@ -151,6 +151,7 @@ bitflags::bitflags! {
         const COLORED                     = (1 << 0);
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
+        const DEBAND_DITHER               = (1 << 3);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
     }
 }
@@ -212,6 +213,11 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".to_string());
+
+            // Debanding is tied to tonemapping in the shader, cannot run without it.
+            if key.contains(SpritePipelineKey::DEBAND_DITHER) {
+                shader_defs.push("DEBAND_DITHER".to_string());
+            }
         }
 
         let format = match key.contains(SpritePipelineKey::HDR) {
@@ -508,9 +514,13 @@ pub fn queue_sprites(
 
         for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
-            if let Some(tonemapping) = tonemapping {
-                if tonemapping.is_enabled && !view.hdr {
+            if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+                if !view.hdr {
                     view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+
+                    if *deband_dither {
+                        view_key |= SpritePipelineKey::DEBAND_DITHER;
+                    }
                 }
             }
             let pipeline = pipelines.specialize(
@@ -525,7 +535,7 @@ pub fn queue_sprites(
             );
 
             view_entities.clear();
-            view_entities.extend(visible_entities.entities.iter().map(|e| e.id() as usize));
+            view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
             transparent_phase.items.reserve(extracted_sprites.len());
 
             // Impossible starting values that will be replaced on the first iteration
@@ -541,7 +551,7 @@ pub fn queue_sprites(
             // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
             // by any other phase item (and they can interrupt other items from batching).
             for extracted_sprite in extracted_sprites.iter() {
-                if !view_entities.contains(extracted_sprite.entity.id() as usize) {
+                if !view_entities.contains(extracted_sprite.entity.index() as usize) {
                     continue;
                 }
                 let new_batch = SpriteBatch {

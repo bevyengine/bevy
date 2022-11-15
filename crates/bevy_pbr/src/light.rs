@@ -167,6 +167,43 @@ impl Default for SpotLight {
 /// | 32,000–100,000    | Direct sunlight                                |
 ///
 /// Source: [Wikipedia](https://en.wikipedia.org/wiki/Lux)
+///
+/// ## Shadows
+///
+/// To enable shadows, set the `shadows_enabled` property to `true`.
+///
+/// While directional lights contribute to the illumination of meshes regardless
+/// of their (or the meshes') positions, currently only a limited region of the scene
+/// (the _shadow volume_) can cast and receive shadows for any given directional light.
+///
+/// The shadow volume is a _rectangular cuboid_, with left/right/bottom/top/near/far
+/// planes controllable via the `shadow_projection` field. It is affected by the
+/// directional light entity's [`GlobalTransform`], and as such can be freely repositioned in the
+/// scene, (or even scaled!) without affecting illumination in any other way, by simply
+/// moving (or scaling) the entity around. The shadow volume is always oriented towards the
+/// light entity's forward direction.
+///
+/// For smaller scenes, a static directional light with a preset volume is typically
+/// sufficient. For larger scenes with movable cameras, you might want to introduce
+/// a system that dynamically repositions and scales the light entity (and therefore
+/// its shadow volume) based on the scene subject's position (e.g. a player character)
+/// and its relative distance to the camera.
+///
+/// Shadows are produced via [shadow mapping](https://en.wikipedia.org/wiki/Shadow_mapping).
+/// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
+///
+/// ```
+/// # use bevy_app::prelude::*;
+/// # use bevy_pbr::DirectionalLightShadowMap;
+/// App::new()
+///     .insert_resource(DirectionalLightShadowMap { size: 2048 });
+/// ```
+///
+/// **Note:** Very large shadow map resolutions (> 4K) can have non-negligible performance and
+/// memory impact, and not work properly under mobile or lower-end hardware. To improve the visual
+/// fidelity of shadow maps, it's typically advisable to first reduce the `shadow_projection`
+/// left/right/top/bottom to a scene-appropriate size, before ramping up the shadow map
+/// resolution.
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct DirectionalLight {
@@ -174,6 +211,7 @@ pub struct DirectionalLight {
     /// Illuminance in lux
     pub illuminance: f32,
     pub shadows_enabled: bool,
+    /// A projection that controls the volume in which shadow maps are rendered
     pub shadow_projection: OrthographicProjection,
     pub shadow_depth_bias: f32,
     /// A bias applied along the direction of the fragment's surface normal. It is scaled to the
@@ -208,6 +246,7 @@ impl DirectionalLight {
     pub const DEFAULT_SHADOW_NORMAL_BIAS: f32 = 0.6;
 }
 
+/// Controls the resolution of [`DirectionalLight`] shadow maps.
 #[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource)]
 pub struct DirectionalLightShadowMap {
@@ -269,7 +308,7 @@ pub enum SimulationLightSystems {
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
 /// rendering
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
 pub enum ClusterFarZMode {
     /// Calculate the required maximum z-depth based on currently visible lights.
     /// Makes better use of available clusters, speeding up GPU lighting operations
@@ -281,7 +320,8 @@ pub enum ClusterFarZMode {
 }
 
 /// Configure the depth-slicing strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
+#[reflect(Default)]
 pub struct ClusterZConfig {
     /// Far `Z` plane of the first depth slice
     pub first_slice_depth: f32,
@@ -299,7 +339,8 @@ impl Default for ClusterZConfig {
 }
 
 /// Configuration of the clustering strategy for clustered forward rendering
-#[derive(Debug, Copy, Clone, Component)]
+#[derive(Debug, Copy, Clone, Component, Reflect)]
+#[reflect(Component)]
 pub enum ClusterConfig {
     /// Disable light cluster calculations for this view
     None,
@@ -754,6 +795,19 @@ pub(crate) fn point_light_order(
         .then_with(|| entity_1.cmp(entity_2)) // stable
 }
 
+// Sort lights by
+// - those with shadows enabled first, so that the index can be used to render at most `directional_light_shadow_maps_count`
+//   directional light shadows
+// - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
+pub(crate) fn directional_light_order(
+    (entity_1, shadows_enabled_1): (&Entity, &bool),
+    (entity_2, shadows_enabled_2): (&Entity, &bool),
+) -> std::cmp::Ordering {
+    shadows_enabled_2
+        .cmp(shadows_enabled_1) // shadow casters before non-casters
+        .then_with(|| entity_1.cmp(entity_2)) // stable
+}
+
 #[derive(Clone, Copy)]
 // data required for assigning lights to clusters
 pub(crate) struct PointLightAssignmentData {
@@ -918,9 +972,7 @@ pub(crate) fn assign_lights_to_clusters(
             continue;
         }
 
-        let screen_size = if let Some(screen_size) = camera.physical_viewport_size() {
-            screen_size
-        } else {
+        let Some(screen_size) = camera.physical_viewport_size() else {
             clusters.clear();
             continue;
         };
@@ -1557,6 +1609,22 @@ pub fn check_light_mesh_visibility(
         (Without<NotShadowCaster>, Without<DirectionalLight>),
     >,
 ) {
+    fn shrink_entities(visible_entities: &mut VisibleEntities) {
+        // Check that visible entities capacity() is no more than two times greater than len()
+        let capacity = visible_entities.entities.capacity();
+        let reserved = capacity
+            .checked_div(visible_entities.entities.len())
+            .map_or(0, |reserve| {
+                if reserve > 2 {
+                    capacity / (reserve / 2)
+                } else {
+                    capacity
+                }
+            });
+
+        visible_entities.entities.shrink_to(reserved);
+    }
+
     // Directional lights
     for (
         directional_light,
@@ -1598,8 +1666,7 @@ pub fn check_light_mesh_visibility(
             visible_entities.entities.push(entity);
         }
 
-        // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-        // to prevent holding unneeded memory
+        shrink_entities(&mut visible_entities);
     }
 
     for visible_lights in &visible_point_lights {
@@ -1670,11 +1737,12 @@ pub fn check_light_mesh_visibility(
                     }
                 }
 
-                // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-                // to prevent holding unneeded memory
+                for visible_entities in cubemap_visible_entities.iter_mut() {
+                    shrink_entities(visible_entities);
+                }
             }
 
-            // spot lights
+            // Spot lights
             if let Ok((point_light, transform, frustum, mut visible_entities, maybe_view_mask)) =
                 spot_lights.get_mut(light_entity)
             {
@@ -1726,8 +1794,7 @@ pub fn check_light_mesh_visibility(
                     }
                 }
 
-                // TODO: check for big changes in visible entities len() vs capacity() (ex: 2x) and resize
-                // to prevent holding unneeded memory
+                shrink_entities(&mut visible_entities);
             }
         }
     }

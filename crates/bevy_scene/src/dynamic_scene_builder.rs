@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 ///
 /// # Entity Order
 ///
-/// Extracted entities will always be stored in ascending order based on their [id](Entity::id).
+/// Extracted entities will always be stored in ascending order based on their [id](Entity::index).
 /// This means that inserting `Entity(1v0)` then `Entity(0v0)` will always result in the entities
 /// being ordered as `[Entity(0v0), Entity(1v0)]`.
 ///
@@ -100,14 +100,14 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            let id = entity.id();
+            let index = entity.index();
 
-            if self.entities.contains_key(&id) {
+            if self.entities.contains_key(&index) {
                 continue;
             }
 
             let mut entry = DynamicEntity {
-                entity: id,
+                entity: index,
                 components: Vec::new(),
             };
 
@@ -125,8 +125,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                     }
                 }
             }
-
-            self.entities.insert(id, entry);
+            self.entities.insert(index, entry);
         }
 
         drop(type_registry);
@@ -167,7 +166,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -188,7 +187,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -212,7 +211,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
         assert!(scene.entities[0].components[1].represents::<ComponentB>());
@@ -239,10 +238,10 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_d.id(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_a.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_b.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_c.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_d.index(), entities.next().map(|e| e.entity).unwrap());
     }
 
     #[test]
@@ -269,6 +268,6 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b.id(), entity_a.id()]);
+        assert_eq!(scene_entities, [entity_a_b.index(), entity_a.index()]);
     }
 }

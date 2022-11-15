@@ -38,7 +38,7 @@ pub trait ExtractComponent: Component {
     /// Filters the entities with additional constraints.
     type Filter: WorldQuery + ReadOnlyWorldQuery;
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<Self::Query>) -> Self;
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU
@@ -174,7 +174,7 @@ impl<T: Asset> ExtractComponent for Handle<T> {
     type Filter = ();
 
     #[inline]
-    fn extract_component(handle: QueryItem<Self::Query>) -> Self {
+    fn extract_component(handle: QueryItem<'_, Self::Query>) -> Self {
         handle.clone_weak()
     }
 }

@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
-use bevy_utils::tracing::{error, info, warn};
+use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
@@ -820,9 +820,7 @@ pub struct Despawn {
 
 impl Command for Despawn {
     fn write(self, world: &mut World) {
-        if !world.despawn(self.entity) {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", self.entity);
-        }
+        world.despawn(self.entity);
     }
 }
 

@@ -5,12 +5,13 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage};
+use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
+use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
     camera::Camera,
     color::Color,
@@ -117,7 +118,7 @@ pub fn build_ui_render(app: &mut App) {
             .unwrap();
         graph_2d
             .add_node_edge(
-                bevy_core_pipeline::core_2d::graph::node::TONEMAPPING,
+                bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 draw_ui_graph::node::UI_PASS,
             )
             .unwrap();
@@ -143,7 +144,7 @@ pub fn build_ui_render(app: &mut App) {
             .unwrap();
         graph_3d
             .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
+                bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
                 draw_ui_graph::node::UI_PASS,
             )
             .unwrap();
@@ -184,12 +185,15 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 }
 
 pub struct ExtractedUiNode {
+    pub stack_index: usize,
     pub transform: Mat4,
     pub background_color: Color,
     pub rect: Rect,
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub flip_x: bool,
+    pub flip_y: bool,
     pub scale_factor: f32,
 }
 
@@ -201,13 +205,14 @@ pub struct ExtractedUiNodes {
 pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
+    ui_stack: Extract<Res<UiStack>>,
     windows: Extract<Res<Windows>>,
     uinode_query: Extract<
         Query<(
             &Node,
             &GlobalTransform,
             &BackgroundColor,
-            &UiImage,
+            Option<&UiImage>,
             &ComputedVisibility,
             Option<&CalculatedClip>,
         )>,
@@ -215,31 +220,43 @@ pub fn extract_uinodes(
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
-    for (uinode, transform, color, image, visibility, clip) in uinode_query.iter() {
-        if !visibility.is_visible() {
-            continue;
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
+            uinode_query.get(*entity)
+        {
+            if !visibility.is_visible() {
+                continue;
+            }
+            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                (image.texture.clone_weak(), image.flip_x, image.flip_y)
+            } else {
+                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+            };
+            // Skip loading images
+            if !images.contains(&image) {
+                continue;
+            }
+            // Skip completely transparent nodes
+            if color.0.a() == 0.0 {
+                continue;
+            }
+
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                stack_index,
+                transform: transform.compute_matrix(),
+                background_color: color.0,
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.calculated_size,
+                },
+                image,
+                atlas_size: None,
+                clip: clip.map(|clip| clip.clip),
+                flip_x,
+                flip_y,
+                scale_factor,
+            });
         }
-        let image = image.0.clone_weak();
-        // Skip loading images
-        if !images.contains(&image) {
-            continue;
-        }
-        // Skip completely transparent nodes
-        if color.0.a() == 0.0 {
-            continue;
-        }
-        extracted_uinodes.uinodes.push(ExtractedUiNode {
-            transform: transform.compute_matrix(),
-            background_color: color.0,
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: uinode.calculated_size,
-            },
-            image,
-            atlas_size: None,
-            clip: clip.map(|clip| clip.clip),
-            scale_factor,
-        });
     }
 }
 
@@ -303,6 +320,7 @@ pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Res<Windows>>,
+    ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -315,52 +333,58 @@ pub fn extract_text_uinodes(
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
-    for (uinode, global_transform, text, text_layout_info, visibility, clip) in uinode_query.iter()
-    {
-        if !visibility.is_visible() {
-            continue;
-        }
-        // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
-        if uinode.calculated_size == Vec2::ZERO {
-            continue;
-        }
-        let text_glyphs = &text_layout_info.glyphs;
-        let alignment_offset = (uinode.calculated_size / -2.0).extend(0.0);
-
-        let mut color = Color::WHITE;
-        let mut current_section = usize::MAX;
-        for text_glyph in text_glyphs {
-            if text_glyph.section_index != current_section {
-                color = text.sections[text_glyph.section_index]
-                    .style
-                    .color
-                    .as_rgba_linear();
-                current_section = text_glyph.section_index;
+    for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok((uinode, global_transform, text, text_layout_info, visibility, clip)) =
+            uinode_query.get(*entity)
+        {
+            if !visibility.is_visible() {
+                continue;
             }
-            let atlas = texture_atlases
-                .get(&text_glyph.atlas_info.texture_atlas)
-                .unwrap();
-            let texture = atlas.texture.clone_weak();
-            let index = text_glyph.atlas_info.glyph_index;
-            let rect = atlas.textures[index];
-            let atlas_size = Some(atlas.size);
+            // Skip if size is set to zero (e.g. when a parent is set to `Display::None`)
+            if uinode.size() == Vec2::ZERO {
+                continue;
+            }
+            let text_glyphs = &text_layout_info.glyphs;
+            let alignment_offset = (uinode.size() / -2.0).extend(0.0);
 
-            // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
-            let extracted_transform = global_transform.compute_matrix()
-                * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
-                * Mat4::from_translation(
-                    alignment_offset * scale_factor + text_glyph.position.extend(0.),
-                );
+            let mut color = Color::WHITE;
+            let mut current_section = usize::MAX;
+            for text_glyph in text_glyphs {
+                if text_glyph.section_index != current_section {
+                    color = text.sections[text_glyph.section_index]
+                        .style
+                        .color
+                        .as_rgba_linear();
+                    current_section = text_glyph.section_index;
+                }
+                let atlas = texture_atlases
+                    .get(&text_glyph.atlas_info.texture_atlas)
+                    .unwrap();
+                let texture = atlas.texture.clone_weak();
+                let index = text_glyph.atlas_info.glyph_index;
+                let rect = atlas.textures[index];
+                let atlas_size = Some(atlas.size);
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                transform: extracted_transform,
-                background_color: color,
-                rect,
-                image: texture,
-                atlas_size,
-                clip: clip.map(|clip| clip.clip),
-                scale_factor,
-            });
+                // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
+                let extracted_transform = global_transform.compute_matrix()
+                    * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
+                    * Mat4::from_translation(
+                        alignment_offset * scale_factor + text_glyph.position.extend(0.),
+                    );
+
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    stack_index,
+                    transform: extracted_transform,
+                    background_color: color,
+                    rect,
+                    image: texture,
+                    atlas_size,
+                    clip: clip.map(|clip| clip.clip),
+                    flip_x: false,
+                    flip_y: false,
+                    scale_factor,
+                });
+            }
         }
     }
 }
@@ -413,10 +437,10 @@ pub fn prepare_uinodes(
 ) {
     ui_meta.vertices.clear();
 
-    // sort by increasing z for correct transparency
+    // sort by ui stack index, starting from the deepest node
     extracted_uinodes
         .uinodes
-        .sort_by(|a, b| FloatOrd(a.transform.w_axis[2]).cmp(&FloatOrd(b.transform.w_axis[2])));
+        .sort_by_key(|node| node.stack_index);
 
     let mut start = 0;
     let mut end = 0;
@@ -492,7 +516,7 @@ pub fn prepare_uinodes(
         }
 
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-        let uvs = [
+        let mut uvs = [
             Vec2::new(
                 uinode_rect.min.x + positions_diff[0].x * extracted_uinode.scale_factor,
                 uinode_rect.min.y + positions_diff[0].y * extracted_uinode.scale_factor,
@@ -511,6 +535,13 @@ pub fn prepare_uinodes(
             ),
         ]
         .map(|pos| pos / atlas_extent);
+
+        if extracted_uinode.flip_x {
+            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+        }
+        if extracted_uinode.flip_y {
+            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+        }
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
@@ -553,7 +584,7 @@ pub fn queue_uinodes(
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<&mut RenderPhase<TransparentUi>>,
+    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -576,8 +607,12 @@ pub fn queue_uinodes(
             layout: &ui_pipeline.view_layout,
         }));
         let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
-        let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, UiPipelineKey {});
-        for mut transparent_phase in &mut views {
+        for (view, mut transparent_phase) in &mut views {
+            let pipeline = pipelines.specialize(
+                &mut pipeline_cache,
+                &ui_pipeline,
+                UiPipelineKey { hdr: view.hdr },
+            );
             for (entity, batch) in &ui_batches {
                 image_bind_groups
                     .values

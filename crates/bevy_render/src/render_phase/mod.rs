@@ -35,8 +35,7 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
     /// Batches the compatible [`BatchedPhaseItem`]s of this render phase
     pub fn batch(&mut self) {
         // TODO: this could be done in-place
-        let mut items = std::mem::take(&mut self.items);
-        let mut items = items.drain(..);
+        let mut items = std::mem::take(&mut self.items).into_iter();
 
         self.items.reserve(items.len());
 
