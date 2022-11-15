@@ -439,7 +439,7 @@ impl<'w> EntityMut<'w> {
                 let component_id = bundle_components.next().unwrap();
                 // SAFETY:
                 // - entity location is valid
-                // - table row is removed below
+                // - table row is removed below, without dropping the contents
                 // - `components` comes from the same world as `storages`
                 storages.take_component(
                     components,
