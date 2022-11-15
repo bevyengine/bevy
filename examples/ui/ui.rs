@@ -55,7 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             // text
-                            parent.spawn(
+                            parent.spawn((
                                 TextBundle::from_section(
                                     "Text Example",
                                     TextStyle {
@@ -68,7 +68,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     margin: UiRect::all(Val::Px(5.0)),
                                     ..default()
                                 }),
-                            );
+                                Label,
+                            ));
                         });
                 });
             // right vertical fill
@@ -85,7 +86,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // Title
-                    parent.spawn(
+                    parent.spawn((
                         TextBundle::from_section(
                             "Scrolling list",
                             TextStyle {
@@ -103,7 +104,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             },
                             ..default()
                         }),
-                    );
+                        Label,
+                    ));
                     // List with hidden overflow
                     parent
                         .spawn(NodeBundle {
@@ -135,7 +137,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .with_children(|parent| {
                                     // List items
                                     for i in 0..30 {
-                                        parent.spawn(
+                                        parent.spawn((
                                             TextBundle::from_section(
                                                 format!("Item {i}"),
                                                 TextStyle {
@@ -155,7 +157,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 },
                                                 ..default()
                                             }),
-                                        );
+                                            Label,
+                                        ));
                                     }
                                 });
                         });
@@ -282,14 +285,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-                    parent.spawn(ImageBundle {
-                        style: Style {
-                            size: Size::new(Val::Px(500.0), Val::Auto),
+                    parent
+                        .spawn(ImageBundle {
+                            style: Style {
+                                size: Size::new(Val::Px(500.0), Val::Auto),
+                                ..default()
+                            },
+                            image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
                             ..default()
-                        },
-                        image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
-                        ..default()
-                    });
+                        })
+                        .with_children(|parent| {
+                            // alt text
+                            parent
+                                .spawn(TextBundle::from_section("Bevy logo", TextStyle::default()));
+                        });
                 });
         });
 }

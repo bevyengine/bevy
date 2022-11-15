@@ -1,4 +1,4 @@
-mod accessibility;
+pub mod accessibility;
 mod converters;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;

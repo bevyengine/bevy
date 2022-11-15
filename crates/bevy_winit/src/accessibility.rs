@@ -1,12 +1,13 @@
-use std::num::NonZeroU128;
+use std::{num::NonZeroU128, sync::Arc};
 
-use accesskit::{ActionHandler, ActionRequest, Node, NodeId, TreeUpdate};
+use accesskit::{ActionHandler, ActionRequest, Node, NodeId, Role, TreeUpdate};
 use accesskit_winit::Adapter;
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{Component, Entity, EventReader, EventWriter},
-    system::{NonSend, NonSendMut, Res, ResMut, Resource},
+    query::{Changed, With},
+    system::{NonSend, NonSendMut, Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_utils::{default, HashMap};
 use bevy_window::{WindowClosed, WindowFocused, WindowId};
@@ -83,6 +84,60 @@ fn poll_receivers(receivers: Res<Receivers>, mut actions: EventWriter<ActionRequ
     }
 }
 
+fn update_accessibility_nodes(
+    adapters: NonSend<Adapters>,
+    query: Query<(Entity, &AccessibilityNode), Changed<AccessibilityNode>>,
+) {
+    let mut nodes = vec![];
+    for (entity, node) in &query {
+        nodes.push((entity.to_node_id(), Arc::new((**node).clone())));
+    }
+    if let Some(adapter) = adapters.get_primary_adapter() {
+        if !nodes.is_empty() {
+            let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
+            let children = nodes.iter().map(|v| v.0).collect::<Vec<NodeId>>();
+            let window_update = (
+                root_id,
+                Arc::new(Node {
+                    role: Role::Window,
+                    children,
+                    ..default()
+                }),
+            );
+            nodes.insert(0, window_update);
+            adapter.update(TreeUpdate { nodes, ..default() });
+        }
+    }
+}
+
+fn remove_accessibility_nodes(
+    adapters: NonSend<Adapters>,
+    removed: RemovedComponents<AccessibilityNode>,
+    remaining_nodes: Query<Entity, With<AccessibilityNode>>,
+) {
+    if removed.iter().len() != 0 {
+        if let Some(adapter) = adapters.get_primary_adapter() {
+            let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
+            let children = remaining_nodes
+                .iter()
+                .map(|v| v.to_node_id())
+                .collect::<Vec<NodeId>>();
+            let window_update = (
+                root_id,
+                Arc::new(Node {
+                    role: Role::Window,
+                    children,
+                    ..default()
+                }),
+            );
+            adapter.update(TreeUpdate {
+                nodes: vec![window_update],
+                ..default()
+            });
+        }
+    }
+}
+
 pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
@@ -92,6 +147,8 @@ impl Plugin for AccessibilityPlugin {
             .add_event::<ActionRequest>()
             .add_system_to_stage(CoreStage::PreUpdate, handle_focus)
             .add_system_to_stage(CoreStage::PreUpdate, window_closed)
-            .add_system_to_stage(CoreStage::PreUpdate, poll_receivers);
+            .add_system_to_stage(CoreStage::PreUpdate, poll_receivers)
+            .add_system_to_stage(CoreStage::PreUpdate, update_accessibility_nodes)
+            .add_system_to_stage(CoreStage::PostUpdate, remove_accessibility_nodes);
     }
 }

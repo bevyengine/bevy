@@ -9,6 +9,7 @@ mod render;
 mod stack;
 mod ui_node;
 
+mod accessibility;
 pub mod camera_config;
 pub mod node_bundles;
 pub mod update;
@@ -25,8 +26,7 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
-        UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::*, Interaction, UiScale,
     };
 }
 
@@ -104,6 +104,8 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
+            .register_type::<widget::Label>()
+            .add_plugin(accessibility::AccessibilityPlugin)
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
