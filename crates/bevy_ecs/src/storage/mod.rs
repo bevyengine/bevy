@@ -30,8 +30,8 @@ impl Storages {
     /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
     ///
     /// # Safety
-    /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
+    /// - `location` must refer to an archetype that contains `entity`
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
@@ -52,7 +52,7 @@ impl Storages {
     /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
     ///
     /// # Safety
-    /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+    /// - `location` must refer to an archetype that contains `entity`
     /// - `component_id` must be valid
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
@@ -87,7 +87,7 @@ impl Storages {
     /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
     ///
     /// # Safety
-    /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+    /// - `location` must refer to an archetype that contains `entity`
     /// the archetype
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
@@ -110,7 +110,7 @@ impl Storages {
     /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
     ///
     /// # Safety
-    /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+    /// - `location` must refer to an archetype that contains `entity`
     /// the archetype
     /// - `component_id`
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
@@ -140,7 +140,7 @@ impl Storages {
     /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`], identified by the component's [`TypeId`]
     ///
     /// # Safety
-    /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+    /// - `location` must refer to an archetype that contains `entity`
     /// the archetype
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
@@ -163,7 +163,7 @@ impl Storages {
     /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`]
     ///
     /// # Safety
-    /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+    /// - `location` must refer to an archetype that contains `entity`
     /// the archetype
     /// - `component_id` must be valid
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
