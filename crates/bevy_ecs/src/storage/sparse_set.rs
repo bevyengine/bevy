@@ -322,6 +322,10 @@ macro_rules! impl_sparse_set {
                 self.dense.iter_mut()
             }
 
+            pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
+                self.indices.iter().zip(self.dense.iter())
+            }
+
             pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
                 self.indices.iter().zip(self.dense.iter_mut())
             }
@@ -406,10 +410,6 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             }
             value
         })
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
-        self.indices.iter().zip(self.dense.iter())
     }
 
     pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
