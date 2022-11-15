@@ -119,64 +119,33 @@ impl TaskPool {
         thread_counts[TaskGroup::IO.to_priority()] = groups.io;
         thread_counts[TaskGroup::AsyncCompute.to_priority()] = groups.async_compute;
         let executor = Arc::new(Executor::new(&thread_counts));
+        let thread_groups = [
+            (groups.compute, "Compute", TaskGroup::Compute.to_priority()),
+            (groups.io, "IO", TaskGroup::IO.to_priority()),
+            (
+                groups.async_compute,
+                "Async Compute",
+                TaskGroup::AsyncCompute.to_priority(),
+            ),
+        ];
         let mut threads = Vec::with_capacity(total_threads);
-        threads.extend((0..groups.compute).map(|i| {
-            let shutdown = Arc::clone(&shutdown);
-            let executor = executor.clone();
-            make_thread_builder(&builder, "Compute", i)
-                .spawn(move || loop {
-                    let shutdown_listener = shutdown.listen();
-                    let res = std::panic::catch_unwind(|| {
-                        future::block_on(executor.run(
-                            TaskGroup::Compute.to_priority(),
-                            i,
-                            shutdown_listener,
-                        ));
+        for (count, name, priority) in thread_groups {
+            for i in 0..count {
+                let shutdown = Arc::clone(&shutdown);
+                let executor = executor.clone();
+                let thread = make_thread_builder(&builder, name, i)
+                    .spawn(move || loop {
+                        let shutdown_listener = shutdown.listen();
+                        let res = std::panic::catch_unwind(|| {
+                            future::block_on(executor.run(priority, i, shutdown_listener));
+                        });
+                        if res.is_ok() {
+                            break;
+                        }
                     });
-                    if res.is_ok() {
-                        break;
-                    }
-                })
-                .expect("Failed to spawn thread.")
-        }));
-        threads.extend((0..groups.io).map(|i| {
-            let shutdown = Arc::clone(&shutdown);
-            let executor = executor.clone();
-            make_thread_builder(&builder, "IO", i)
-                .spawn(move || loop {
-                    let shutdown_listener = shutdown.listen();
-                    let res = std::panic::catch_unwind(|| {
-                        future::block_on(executor.run(
-                            TaskGroup::IO.to_priority(),
-                            i,
-                            shutdown_listener,
-                        ));
-                    });
-                    if res.is_ok() {
-                        break;
-                    }
-                })
-                .expect("Failed to spawn thread.")
-        }));
-        threads.extend((0..groups.async_compute).map(|i| {
-            let shutdown = Arc::clone(&shutdown);
-            let executor = executor.clone();
-            make_thread_builder(&builder, "Async Compute", i)
-                .spawn(move || loop {
-                    let shutdown_listener = shutdown.listen();
-                    let res = std::panic::catch_unwind(|| {
-                        future::block_on(executor.run(
-                            TaskGroup::AsyncCompute.to_priority(),
-                            i,
-                            shutdown_listener,
-                        ));
-                    });
-                    if res.is_ok() {
-                        break;
-                    }
-                })
-                .expect("Failed to spawn thread.")
-        }));
+                threads.push(thread.expect("Failed to spawn thread."));
+            }
+        }
 
         Self {
             executor,
@@ -302,7 +271,8 @@ impl TaskPool {
         let executor: &Executor = &self.executor;
         let executor: &'env Executor = unsafe { mem::transmute(executor) };
         let task_scope_executor = &SimpleExecutor::new();
-        let task_scope_executor: &'env SimpleExecutor = unsafe { mem::transmute(task_scope_executor) };
+        let task_scope_executor: &'env SimpleExecutor =
+            unsafe { mem::transmute(task_scope_executor) };
         let spawned: ConcurrentQueue<async_task::Task<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<async_task::Task<T>> =
             unsafe { mem::transmute(&spawned) };
