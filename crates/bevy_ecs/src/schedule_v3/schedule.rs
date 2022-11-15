@@ -11,7 +11,6 @@ use bevy_utils::{
 };
 
 use fixedbitset::FixedBitSet;
-use petgraph::graph::Node;
 use petgraph::{algo::tarjan_scc, prelude::*};
 
 use crate::component::ComponentId;
