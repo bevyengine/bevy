@@ -5,7 +5,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{SparseArray, SparseSet, SparseSetIndex, TableId},
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
 use std::{
     collections::HashMap,
@@ -182,7 +182,7 @@ pub struct Archetype {
     table_id: TableId,
     edges: Edges,
     entities: Vec<ArchetypeEntity>,
-    components: SparseSet<ComponentId, ArchetypeComponentInfo>,
+    components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
 }
 
 impl Archetype {
@@ -217,8 +217,8 @@ impl Archetype {
         Self {
             id,
             table_id,
-            components,
-            entities: Default::default(),
+            entities: Vec::new(),
+            components: components.into_immutable(),
             edges: Default::default(),
         }
     }

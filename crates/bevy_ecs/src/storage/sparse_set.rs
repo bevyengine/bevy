@@ -14,6 +14,14 @@ pub(crate) struct SparseArray<I, V = I> {
     marker: PhantomData<I>,
 }
 
+/// A space-optimized version of [`SparseArray`] that cannot be changed
+/// after construction.
+#[derive(Debug)]
+pub(crate) struct ImmutableSparseArray<I, V = I> {
+    values: Box<[Option<V>]>,
+    marker: PhantomData<I>,
+}
+
 impl<I: SparseSetIndex, V> Default for SparseArray<I, V> {
     fn default() -> Self {
         Self::new()
@@ -30,6 +38,27 @@ impl<I, V> SparseArray<I, V> {
     }
 }
 
+macro_rules! impl_sparse_array {
+    ($ty:ident) => {
+        impl<I: SparseSetIndex, V> $ty<I, V> {
+            #[inline]
+            pub fn contains(&self, index: I) -> bool {
+                let index = index.sparse_set_index();
+                self.values.get(index).map(|v| v.is_some()).unwrap_or(false)
+            }
+
+            #[inline]
+            pub fn get(&self, index: I) -> Option<&V> {
+                let index = index.sparse_set_index();
+                self.values.get(index).map(|v| v.as_ref()).unwrap_or(None)
+            }
+        }
+    };
+}
+
+impl_sparse_array!(SparseArray);
+impl_sparse_array!(ImmutableSparseArray);
+
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
     #[inline]
     pub fn insert(&mut self, index: I, value: V) {
@@ -38,18 +67,6 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
             self.values.resize_with(index + 1, || None);
         }
         self.values[index] = Some(value);
-    }
-
-    #[inline]
-    pub fn contains(&self, index: I) -> bool {
-        let index = index.sparse_set_index();
-        self.values.get(index).map(|v| v.is_some()).unwrap_or(false)
-    }
-
-    #[inline]
-    pub fn get(&self, index: I) -> Option<&V> {
-        let index = index.sparse_set_index();
-        self.values.get(index).map(|v| v.as_ref()).unwrap_or(None)
     }
 
     #[inline]
@@ -69,6 +86,13 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 
     pub fn clear(&mut self) {
         self.values.clear();
+    }
+
+    pub(crate) fn into_immutable(self) -> ImmutableSparseArray<I, V> {
+        ImmutableSparseArray {
+            values: self.values.into_boxed_slice(),
+            marker: PhantomData,
+        }
     }
 }
 
@@ -249,11 +273,75 @@ pub struct SparseSet<I, V: 'static> {
     sparse: SparseArray<I, usize>,
 }
 
+/// A space-optimized version of [`SparseSet`] that cannot be changed
+/// after construction.
+#[derive(Debug)]
+pub(crate) struct ImmutableSparseSet<I, V: 'static> {
+    dense: Box<[V]>,
+    indices: Box<[I]>,
+    sparse: ImmutableSparseArray<I, usize>,
+}
+
+macro_rules! impl_sparse_set {
+    ($ty:ident) => {
+        impl<I: SparseSetIndex, V> $ty<I, V> {
+            #[inline]
+            pub fn len(&self) -> usize {
+                self.dense.len()
+            }
+
+            #[inline]
+            pub fn contains(&self, index: I) -> bool {
+                self.sparse.contains(index)
+            }
+
+            pub fn get(&self, index: I) -> Option<&V> {
+                self.sparse.get(index).map(|dense_index| {
+                    // SAFETY: if the sparse index points to something in the dense vec, it exists
+                    unsafe { self.dense.get_unchecked(*dense_index) }
+                })
+            }
+
+            pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
+                let dense = &mut self.dense;
+                self.sparse.get(index).map(move |dense_index| {
+                    // SAFETY: if the sparse index points to something in the dense vec, it exists
+                    unsafe { dense.get_unchecked_mut(*dense_index) }
+                })
+            }
+
+            pub fn indices(&self) -> impl Iterator<Item = I> + '_ {
+                self.indices.iter().cloned()
+            }
+
+            pub fn values(&self) -> impl Iterator<Item = &V> {
+                self.dense.iter()
+            }
+
+            pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
+                self.dense.iter_mut()
+            }
+
+            pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
+                self.indices.iter().zip(self.dense.iter())
+            }
+
+            pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
+                self.indices.iter().zip(self.dense.iter_mut())
+            }
+        }
+    };
+}
+
+impl_sparse_set!(SparseSet);
+impl_sparse_set!(ImmutableSparseSet);
+
 impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
     fn default() -> Self {
         Self::new()
     }
 }
+
 impl<I, V> SparseSet<I, V> {
     pub const fn new() -> Self {
         Self {
@@ -307,33 +395,8 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 
     #[inline]
-    pub fn len(&self) -> usize {
-        self.dense.len()
-    }
-
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.dense.len() == 0
-    }
-
-    #[inline]
-    pub fn contains(&self, index: I) -> bool {
-        self.sparse.contains(index)
-    }
-
-    pub fn get(&self, index: I) -> Option<&V> {
-        self.sparse.get(index).map(|dense_index| {
-            // SAFETY: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.get_unchecked(*dense_index) }
-        })
-    }
-
-    pub fn get_mut(&mut self, index: I) -> Option<&mut V> {
-        let dense = &mut self.dense;
-        self.sparse.get(index).map(move |dense_index| {
-            // SAFETY: if the sparse index points to something in the dense vec, it exists
-            unsafe { dense.get_unchecked_mut(*dense_index) }
-        })
     }
 
     pub fn remove(&mut self, index: I) -> Option<V> {
@@ -349,24 +412,12 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         })
     }
 
-    pub fn indices(&self) -> impl Iterator<Item = I> + '_ {
-        self.indices.iter().cloned()
-    }
-
-    pub fn values(&self) -> impl Iterator<Item = &V> {
-        self.dense.iter()
-    }
-
-    pub fn values_mut(&mut self) -> impl Iterator<Item = &mut V> {
-        self.dense.iter_mut()
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&I, &V)> {
-        self.indices.iter().zip(self.dense.iter())
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = (&I, &mut V)> {
-        self.indices.iter().zip(self.dense.iter_mut())
+    pub(crate) fn into_immutable(self) -> ImmutableSparseSet<I, V> {
+        ImmutableSparseSet {
+            dense: self.dense.into_boxed_slice(),
+            indices: self.indices.into_boxed_slice(),
+            sparse: self.sparse.into_immutable(),
+        }
     }
 }
 
