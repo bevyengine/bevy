@@ -7,7 +7,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::*;
 use uuid::Uuid;
 
-/// Parses input from a derive of [`TypeUuid`].
+/// Parses input from a derive of [`TypeUuid`][crate::TypeUuid].
 pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
@@ -58,7 +58,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
     })
 }
 
-/// Generates an implementation of [`TypeUuid`]. If there any generics, the `TYPE_UUID` will be a composite of the generic types' `TYPE_UUID`.
+/// Generates an implementation of [`TypeUuid`][crate::TypeUuid]. If there any generics, the `TYPE_UUID` will be a composite of the generic types' `TYPE_UUID`.
 pub(crate) fn gen_impl_type_uuid(def: TypeUuidDef) -> proc_macro::TokenStream {
     let uuid = def.uuid;
     let mut generics = def.generics;
@@ -96,13 +96,13 @@ pub(crate) fn gen_impl_type_uuid(def: TypeUuidDef) -> proc_macro::TokenStream {
     gen.into()
 }
 
-/// A struct containing the data required to generate an implementation of [`TypeUuid`].
+/// A struct containing the data required to generate an implementation of [`TypeUuid`][crate::TypeUuid].
 pub(crate) struct TypeUuidDef {
     pub type_name: Ident,
     pub generics: Generics,
     pub uuid: Uuid,
 }
-/// Parses the data to be passed into [`crate::impl_type_uuid`]. This should be in the format of `[Type]<[Generic Params]>, [Uuid as a literal u128]`
+/// Parses the data to be passed into [`impl_type_uuid!`][crate::impl_type_uuid!]. This should be in the format of `[Type]<[Generic Params]>, [Uuid as a literal u128]`
 impl Parse for TypeUuidDef {
     fn parse(input: ParseStream) -> Result<Self> {
         let type_name = input.parse::<Ident>()?;
