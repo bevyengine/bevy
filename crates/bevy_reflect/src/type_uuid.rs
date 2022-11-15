@@ -122,4 +122,10 @@ mod test {
 
         assert_eq!(uuid_a, uuid_b);
     }
+
+    #[test]
+    fn test_primitive_generic_uuid() {
+        test_impl_type_uuid(&true);
+        test_impl_type_uuid(&Some(true));
+    }
 }
