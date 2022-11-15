@@ -2,7 +2,7 @@ mod entity_ref;
 mod spawn_batch;
 mod world_cell;
 
-pub use crate::change_detection::{Mut, Ref};
+pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
 pub use entity_ref::{EntityMut, EntityRef};
 pub use spawn_batch::*;
 pub use world_cell::*;
@@ -64,6 +64,8 @@ pub struct World {
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
+    pub(crate) last_check_tick: u32,
+    main_thread_validator: MainThreadValidator,
 }
 
 impl Default for World {
@@ -81,6 +83,7 @@ impl Default for World {
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: 0,
+            last_check_tick: 0,
         }
     }
 }
@@ -1583,9 +1586,14 @@ impl World {
         self.last_change_tick
     }
 
+    /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
+    /// This prevents overflow and thus prevents false positives.
+    ///
+    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
+    /// times since the previous pass.
+    // TODO: perf
     pub fn check_change_ticks(&mut self) {
-        // Iterate over all component change ticks, clamping their age to max age
-        // PERF: parallelize
+        let last_check_tick = self.last_check_tick;
         let change_tick = self.change_tick();
         let Storages {
             ref mut tables,
@@ -1593,10 +1601,21 @@ impl World {
             ref mut resources,
             ref mut non_send_resources,
         } = self.storages;
-        tables.check_change_ticks(change_tick);
-        sparse_sets.check_change_ticks(change_tick);
-        resources.check_change_ticks(change_tick);
-        non_send_resources.check_change_ticks(change_tick);
+
+        if change_tick.wrapping_sub(last_check_tick) >= CHECK_TICK_THRESHOLD {
+            #[cfg(feature = "trace")]
+            let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
+            tables.check_change_ticks(change_tick);
+            sparse_sets.check_change_ticks(change_tick);
+            resources.check_change_ticks(change_tick);
+            non_send_resources.check_change_ticks(change_tick);
+
+            if let Some(mut schedules) = self.get_resource_mut::<crate::schedule_v3::Schedules>() {
+                schedules.check_change_ticks(change_tick, last_check_tick);
+            }
+
+            self.last_check_tick = change_tick;
+        }
     }
 
     pub fn clear_entities(&mut self) {

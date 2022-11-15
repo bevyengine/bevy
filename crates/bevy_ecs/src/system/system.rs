@@ -64,6 +64,10 @@ pub trait System: Send + Sync + 'static {
     fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
+    /// Returns the system's default [system sets](crate::schedule_v3::SystemSet).
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+        Vec::new()
+    }
     /// Gets the system's last change tick
     fn get_last_change_tick(&self) -> u32;
     /// Sets the system's last change tick

@@ -28,6 +28,8 @@ fxhash = "0.2"
 downcast-rs = "1.2"
 serde = { version = "1", features = ["derive"] }
 
+petgraph = "0.6"
+
 [dev-dependencies]
 rand = "0.8"
 
