@@ -517,13 +517,12 @@ mod tests {
         world.insert_resource(Tls::new(NotSend1(std::rc::Rc::new(0))));
 
         fn sys(
-            op: MainThread<Option<Res<Tls<NotSend1>>>>,
-            mut _op2: MainThread<Option<ResMut<Tls<NotSend2>>>>,
+            _marker: MainThread,
+            op: Option<Res<Tls<NotSend1>>>,
+            mut _op2: Option<ResMut<Tls<NotSend2>>>,
             mut system_ran: ResMut<SystemRan>,
         ) {
-            // TODO: need to fix this. Probably should just implement SystemPAram
-            // for Option<MainThread<T>>
-            let MainThread(Some(_op)) = op else {panic!("blah");};
+            op.expect("op to exist");
             *system_ran = SystemRan::Yes;
         }
 
@@ -544,8 +543,9 @@ mod tests {
         world.insert_resource(Tls::new(NotSend2(std::rc::Rc::new(2))));
 
         fn sys(
-            _op: MainThread<Res<Tls<NotSend1>>>,
-            mut _op2: MainThread<ResMut<Tls<NotSend2>>>,
+            _marker: MainThread,
+            _op: Res<Tls<NotSend1>>,
+            mut _op2: ResMut<Tls<NotSend2>>,
             mut system_ran: ResMut<SystemRan>,
         ) {
             *system_ran = SystemRan::Yes;

@@ -537,7 +537,7 @@ mod tests {
         use std::thread;
         let mut world = World::new();
         world.insert_resource(Tls::new(thread::current().id()));
-        fn non_send(thread_id: MainThread<Res<Tls<thread::ThreadId>>>) {
+        fn non_send(_marker: MainThread, thread_id: Res<Tls<thread::ThreadId>>) {
             thread_id.get(|thread_id| {
                 assert_eq!(thread::current().id(), *thread_id);
             });

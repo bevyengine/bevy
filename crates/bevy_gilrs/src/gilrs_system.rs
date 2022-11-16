@@ -6,7 +6,8 @@ use bevy_input::{gamepad::GamepadEventRaw, prelude::*};
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
 
 pub fn gilrs_event_startup_system(
-    gilrs: MainThread<Res<Tls<Gilrs>>>,
+    _marker: MainThread,
+    gilrs: Res<Tls<Gilrs>>,
     mut events: EventWriter<GamepadEventRaw>,
 ) {
     gilrs.get(|gilrs| {
@@ -24,7 +25,8 @@ pub fn gilrs_event_startup_system(
 }
 
 pub fn gilrs_event_system(
-    mut gilrs: MainThread<ResMut<Tls<Gilrs>>>,
+    _marker: MainThread,
+    mut gilrs: ResMut<Tls<Gilrs>>,
     mut events: EventWriter<GamepadEventRaw>,
 ) {
     gilrs.get_mut(|mut gilrs| {

@@ -62,7 +62,8 @@ impl Plugin for WinitPlugin {
 }
 
 fn change_window(
-    mut winit_windows: MainThread<ResMut<Tls<WinitWindows>>>,
+    _marker: MainThread,
+    mut winit_windows: ResMut<Tls<WinitWindows>>,
     mut windows: ResMut<Windows>,
     mut window_dpi_changed_events: EventWriter<WindowScaleFactorChanged>,
     mut window_close_events: EventWriter<WindowClosed>,

@@ -84,7 +84,8 @@ where
 
 /// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
 pub fn play_queued_audio_system<Source: Asset + Decodable>(
-    audio_output: MainThread<Res<Tls<AudioOutput<Source>>>>,
+    _marker: MainThread,
+    audio_output: Res<Tls<AudioOutput<Source>>>,
     audio_sources: Option<Res<Assets<Source>>>,
     mut audio: ResMut<Audio<Source>>,
     mut sinks: ResMut<Assets<AudioSink>>,
