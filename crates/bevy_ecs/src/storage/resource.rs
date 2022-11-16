@@ -3,8 +3,8 @@ use crate::component::{ComponentId, ComponentTicks, Components};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
-use std::thread::ThreadId;
 use std::mem::ManuallyDrop;
+use std::thread::ThreadId;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
@@ -22,9 +22,11 @@ impl Drop for ResourceData {
             self.validate_access();
         }
         // SAFETY: Drop is only called once upon dropping the ResourceData
-        // and is inaccessible after this as the parent ResourceData has 
+        // and is inaccessible after this as the parent ResourceData has
         // been dropped.
-        unsafe { ManuallyDrop::drop(&mut self.column); }
+        unsafe {
+            ManuallyDrop::drop(&mut self.column);
+        }
     }
 }
 
@@ -98,7 +100,7 @@ impl ResourceData {
 
     /// Inserts a value into the resource. If a value is already present
     /// it will be replaced.
-    /// 
+    ///
     /// # Panics
     /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
@@ -118,7 +120,7 @@ impl ResourceData {
 
     /// Inserts a value into the resource with a pre-existing change tick. If a
     /// value is already present it will be replaced.
-    /// 
+    ///
     /// # Panics
     /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
@@ -142,7 +144,7 @@ impl ResourceData {
     }
 
     /// Removes a value from the resource, if present.
-    /// 
+    ///
     /// # Panics
     /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
@@ -161,7 +163,7 @@ impl ResourceData {
     }
 
     /// Removes a value from the resource, if present, and drops it.
-    /// 
+    ///
     /// # Panics
     /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
