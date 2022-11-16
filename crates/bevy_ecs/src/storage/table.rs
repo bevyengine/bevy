@@ -2,7 +2,7 @@ use crate::{
     component::{ComponentId, ComponentInfo, ComponentTicks, Components},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, SparseSet},
+    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::HashMap;
@@ -262,29 +262,66 @@ impl Column {
     }
 }
 
-pub struct Table {
+/// A builder type for constructing [`Table`]s.
+///
+///  - Use [`with_capacity`] to initialize the builder.
+///  - Repeatedly call [`add_column`] to add columns for components.
+///  - Finalize with [`build`] to get the constructed [`Table`].
+///
+/// [`with_capacity`]: Self::with_capacity
+/// [`add_column`]: Self::add_column
+/// [`build`]: Self::build
+pub(crate) struct TableBuilder {
     columns: SparseSet<ComponentId, Column>,
+    capacity: usize,
+}
+
+impl TableBuilder {
+    /// Creates a blank [`Table`], allocating space for `column_capacity` columns
+    /// with the capacity to hold `capacity` entities worth of components each.
+    pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
+        Self {
+            columns: SparseSet::with_capacity(column_capacity),
+            capacity,
+        }
+    }
+
+    pub fn add_column(&mut self, component_info: &ComponentInfo) {
+        self.columns.insert(
+            component_info.id(),
+            Column::with_capacity(component_info, self.capacity),
+        );
+    }
+
+    pub fn build(self) -> Table {
+        Table {
+            columns: self.columns.into_immutable(),
+            entities: Vec::with_capacity(self.capacity),
+        }
+    }
+}
+
+/// A column-oriented [structure-of-arrays] based storage for [`Component`]s of entities
+/// in a [`World`].
+///
+/// Conceptually, a `Table` can be thought of as an `HashMap<ComponentId, Column>`, where
+/// each `Column` is a type-erased `Vec<T: Component>`. Each row corresponds to a single entity
+/// (i.e. index 3 in Column A and index 3 in Column B point to different components on the same
+/// entity). Fetching components from a table involves fetching the associated column for a
+/// component type (via it's [`ComponentId`]), then fetching the entity's row within that column.
+///
+/// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
+/// [`Component`]: crate::component::Component
+/// [`World`]: crate::world::World
+pub struct Table {
+    columns: ImmutableSparseSet<ComponentId, Column>,
     entities: Vec<Entity>,
 }
 
 impl Table {
-    pub(crate) fn with_capacity(capacity: usize, column_capacity: usize) -> Table {
-        Self {
-            columns: SparseSet::with_capacity(column_capacity),
-            entities: Vec::with_capacity(capacity),
-        }
-    }
-
     #[inline]
     pub fn entities(&self) -> &[Entity] {
         &self.entities
-    }
-
-    pub(crate) fn add_column(&mut self, component_info: &ComponentInfo) {
-        self.columns.insert(
-            component_info.id(),
-            Column::with_capacity(component_info, self.entities.capacity()),
-        );
     }
 
     /// Removes the entity at the given row and returns the entity swapped in to replace it (if an
@@ -458,11 +495,6 @@ impl Table {
     }
 
     #[inline]
-    pub fn component_capacity(&self) -> usize {
-        self.columns.capacity()
-    }
-
-    #[inline]
     pub fn is_empty(&self) -> bool {
         self.entities.is_empty()
     }
@@ -495,7 +527,7 @@ pub struct Tables {
 
 impl Default for Tables {
     fn default() -> Self {
-        let empty_table = Table::with_capacity(0, 0);
+        let empty_table = TableBuilder::with_capacity(0, 0).build();
         Tables {
             tables: vec![empty_table],
             table_ids: HashMap::default(),
@@ -548,11 +580,11 @@ impl Tables {
             .raw_entry_mut()
             .from_key(component_ids)
             .or_insert_with(|| {
-                let mut table = Table::with_capacity(0, component_ids.len());
+                let mut table = TableBuilder::with_capacity(0, component_ids.len());
                 for component_id in component_ids {
                     table.add_column(components.get_info_unchecked(*component_id));
                 }
-                tables.push(table);
+                tables.push(table.build());
                 (component_ids.to_vec(), TableId(tables.len() - 1))
             });
 
@@ -601,7 +633,7 @@ mod tests {
     use crate::{
         component::{ComponentTicks, Components},
         entity::Entity,
-        storage::Table,
+        storage::TableBuilder,
     };
     #[derive(Component)]
     struct W<T>(T);
@@ -612,8 +644,9 @@ mod tests {
         let mut storages = Storages::default();
         let component_id = components.init_component::<W<usize>>(&mut storages);
         let columns = &[component_id];
-        let mut table = Table::with_capacity(0, columns.len());
-        table.add_column(components.get_info(component_id).unwrap());
+        let mut builder = TableBuilder::with_capacity(0, columns.len());
+        builder.add_column(components.get_info(component_id).unwrap());
+        let mut table = builder.build();
         let entities = (0..200).map(Entity::from_raw).collect::<Vec<_>>();
         for entity in &entities {
             // SAFETY: we allocate and immediately set data afterwards
