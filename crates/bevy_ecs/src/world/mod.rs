@@ -1427,7 +1427,7 @@ impl World {
     /// The returned pointer must not be used to modify the resource, and must not be
     /// dereferenced after the immutable borrow of the [`World`] ends.
     ///
-    /// If the resource type is `!Send`, you must not share the returned pointer between threads.
+    /// If the resource type is `!Sync`, you must not share the returned pointer between threads.
     ///
     /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
