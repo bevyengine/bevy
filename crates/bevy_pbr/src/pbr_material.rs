@@ -299,6 +299,9 @@ bitflags::bitflags! {
         const ALPHA_MODE_OPAQUE          = (0b000 << 6);
         const ALPHA_MODE_MASK            = (0b001 << 6);
         const ALPHA_MODE_BLEND           = (0b010 << 6);
+        const ALPHA_MODE_PREMULTIPLIED   = (0b011 << 6);
+        const ALPHA_MODE_ADD             = (0b100 << 6);
+        const ALPHA_MODE_MULTIPLY        = (0b101 << 6);
         const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
         const FLIP_NORMAL_MAP_Y          = (1 << 10);
         const NONE                       = 0;
@@ -378,6 +381,9 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
                 flags |= StandardMaterialFlags::ALPHA_MODE_MASK;
             }
             AlphaMode::Blend => flags |= StandardMaterialFlags::ALPHA_MODE_BLEND,
+            AlphaMode::Premultiplied => flags |= StandardMaterialFlags::ALPHA_MODE_PREMULTIPLIED,
+            AlphaMode::Add => flags |= StandardMaterialFlags::ALPHA_MODE_ADD,
+            AlphaMode::Multiply => flags |= StandardMaterialFlags::ALPHA_MODE_MULTIPLY,
         };
 
         StandardMaterialUniform {

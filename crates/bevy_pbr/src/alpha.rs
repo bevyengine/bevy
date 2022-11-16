@@ -23,6 +23,9 @@ pub enum AlphaMode {
     /// Standard alpha-blending is used to blend the fragment's color
     /// with the color behind it.
     Blend,
+    Premultiplied,
+    Add,
+    Multiply,
 }
 
 impl Eq for AlphaMode {}

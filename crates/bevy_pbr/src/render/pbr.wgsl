@@ -101,5 +101,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef DEBAND_DITHER
         output_color = dither(output_color, in.frag_coord.xy);
 #endif
+
+    output_color = premultiply_alpha(material.flags, output_color);
+
     return output_color;
 }

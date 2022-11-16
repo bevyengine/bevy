@@ -515,10 +515,13 @@ bitflags::bitflags! {
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
-        const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const HDR                         = (1 << 1);
-        const TONEMAP_IN_SHADER           = (1 << 2);
-        const DEBAND_DITHER               = (1 << 3);
+        const BLEND_BITS                  = (0b11 << 0);
+        const BLEND_OPAQUE                = (0b00 << 0);
+        const BLEND_PREMULTIPLIED_ALPHA   = (0b01 << 0);
+        const BLEND_MULTIPLY              = (0b10 << 0);
+        const HDR                         = (1 << 2);
+        const TONEMAP_IN_SHADER           = (1 << 3);
+        const DEBAND_DITHER               = (1 << 4);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -620,10 +623,24 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
-        if key.contains(MeshPipelineKey::TRANSPARENT_MAIN_PASS) {
-            label = "transparent_mesh_pipeline".into();
-            blend = Some(BlendState::ALPHA_BLENDING);
+        let pass = key.intersection(MeshPipelineKey::BLEND_BITS);
+        if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
+            label = "premultiplied_alpha_mesh_pipeline".into();
+            blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
             // For the transparent pass, fragments that are closer will be alpha blended
+            // but their depth is not written to the depth buffer
+            depth_write_enabled = false;
+        } else if pass == MeshPipelineKey::BLEND_MULTIPLY {
+            label = "multiply_mesh_pipeline".into();
+            blend = Some(BlendState {
+                color: BlendComponent {
+                    src_factor: BlendFactor::Dst,
+                    dst_factor: BlendFactor::OneMinusSrcAlpha,
+                    operation: BlendOperation::Add,
+                },
+                alpha: BlendComponent::OVER,
+            });
+            // For the multiply pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
         } else {
