@@ -187,6 +187,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     ))
 }
 
+/// Derives `TypeUuid` for the given type. This is used internally to implement `TypeUuid` on foreign types, such as those in the std. This macro should be used in the format of `<[Generic Params]> [Type (Path)], [Uuid (String Literal)]`.
 #[proc_macro]
 pub fn impl_type_uuid(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as TypeUuidDef);

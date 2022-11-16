@@ -128,5 +128,6 @@ mod test {
         test_impl_type_uuid(&true);
         test_impl_type_uuid(&Some(true));
         test_impl_type_uuid(&TestDeriveStruct::<bool> { _value: true });
+        assert_ne!(Option::<bool>::TYPE_UUID, Option::<f32>::TYPE_UUID);
     }
 }
