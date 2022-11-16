@@ -43,22 +43,44 @@ impl ActionHandler for WinitActionHandler {
 }
 
 pub trait AccessKitEntityExt {
+    fn from_node_id(id: &NodeId) -> Entity {
+        Entity::from_bits((id.0.get() - 1) as u64)
+    }
+
     fn to_node_id(&self) -> NodeId;
 }
 
 impl AccessKitEntityExt for Entity {
     fn to_node_id(&self) -> NodeId {
         let id = NonZeroU128::new((self.to_bits() + 1) as u128);
-        NodeId(id.unwrap().into())
+        NodeId(id.unwrap())
     }
 }
 
-fn handle_focus(adapters: NonSend<Adapters>, mut focus: EventReader<WindowFocused>) {
-    let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct LastFocus(Option<NodeId>);
+
+impl LastFocus {
+    pub fn from_entity(&mut self, entity: Option<Entity>) {
+        **self = entity.map(|v| v.to_node_id());
+    }
+
+    pub fn entity(&self) -> Option<Entity> {
+        self.0.as_ref().map(|v| <Entity>::from_node_id(v))
+    }
+}
+
+fn handle_focus(
+    last_focus: Res<LastFocus>,
+    adapters: NonSend<Adapters>,
+    mut focus: EventReader<WindowFocused>,
+) {
+    let focus_id = (*last_focus)
+        .unwrap_or_else(|| NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap()));
     for event in focus.iter() {
         if let Some(adapter) = adapters.get_primary_adapter() {
             adapter.update(TreeUpdate {
-                focus: if event.focused { Some(root_id) } else { None },
+                focus: if event.focused { Some(focus_id) } else { None },
                 ..default()
             });
         }
@@ -112,10 +134,19 @@ fn update_accessibility_nodes(
 
 fn remove_accessibility_nodes(
     adapters: NonSend<Adapters>,
+    mut last_focus: ResMut<LastFocus>,
     removed: RemovedComponents<AccessibilityNode>,
     remaining_nodes: Query<Entity, With<AccessibilityNode>>,
 ) {
     if removed.iter().len() != 0 {
+        if let Some(last_focused_entity) = last_focus.entity() {
+            for entity in removed.iter() {
+                if entity == last_focused_entity {
+                    **last_focus = None;
+                    break;
+                }
+            }
+        }
         if let Some(adapter) = adapters.get_primary_adapter() {
             let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
             let children = remaining_nodes
@@ -130,8 +161,10 @@ fn remove_accessibility_nodes(
                     ..default()
                 }),
             );
+            let focus = (**last_focus).unwrap_or(root_id);
             adapter.update(TreeUpdate {
                 nodes: vec![window_update],
+                focus: Some(focus),
                 ..default()
             });
         }
@@ -144,6 +177,7 @@ impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<Adapters>()
             .init_resource::<Receivers>()
+            .init_resource::<LastFocus>()
             .add_event::<ActionRequest>()
             .add_system_to_stage(CoreStage::PreUpdate, handle_focus)
             .add_system_to_stage(CoreStage::PreUpdate, window_closed)

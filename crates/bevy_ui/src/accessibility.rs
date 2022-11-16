@@ -1,22 +1,26 @@
 use bevy_app::{App, CoreStage, Plugin};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{Entity, EventReader},
-    query::Changed,
-    system::{Commands, NonSend, Query},
+    query::{Changed, Without},
+    system::{Commands, NonSend, Query, RemovedComponents, ResMut, Resource},
 };
 use bevy_hierarchy::Children;
+use bevy_render::{camera::RenderTarget, prelude::Camera};
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::default;
+use bevy_utils::{default, HashMap};
+use bevy_window::Windows;
 use bevy_winit::{
     accessibility::{AccessKitEntityExt, AccessibilityNode, Adapters},
     accesskit::{
-        kurbo::Rect, ActionRequest, DefaultActionVerb, Node as AccessKitNode, Role, TreeUpdate,
+        kurbo::Rect, Action, ActionRequest, DefaultActionVerb, Node as AccessKitNode, Role,
+        TreeUpdate,
     },
 };
 
 use crate::{
-    prelude::{Button, Label},
+    prelude::{Button, Label, UiCameraConfig},
     Interaction, Node, UiImage,
 };
 
@@ -66,7 +70,7 @@ fn button_changed(
 
 fn image_changed(
     mut commands: Commands,
-    query: Query<(Entity, &GlobalTransform, &Node, &Children), Changed<UiImage>>,
+    query: Query<(Entity, &GlobalTransform, &Node, &Children), (Changed<UiImage>, Without<Button>)>,
     texts: Query<&Text>,
 ) {
     for (entity, transform, node, children) in &query {
@@ -111,28 +115,91 @@ fn label_changed(
     }
 }
 
-fn update_focus(
+#[derive(Resource, Default, Deref, DerefMut)]
+struct InteractionCache(HashMap<Entity, Interaction>);
+
+fn interaction_changed(
+    mut cache: ResMut<InteractionCache>,
     adapters: NonSend<Adapters>,
-    interactions: Query<(Entity, &Interaction), Changed<Interaction>>,
+    query: Query<(Entity, &Interaction), Changed<Interaction>>,
 ) {
-    let mut focus = None;
-    let mut ran = false;
-    for (entity, interaction) in &interactions {
-        ran = true;
-        if *interaction == Interaction::Hovered {
-            focus = Some(entity.to_node_id());
-            break;
-        }
-    }
-    if ran {
+    for (entity, interaction) in &query {
         if let Some(adapter) = adapters.get_primary_adapter() {
-            adapter.update(TreeUpdate { focus, ..default() });
+            if *interaction == Interaction::Hovered {
+                let focus = Some(entity.to_node_id());
+                adapter.update(TreeUpdate { focus, ..default() });
+            } else if let Some(old_interaction) = cache.get(&entity) {
+                if *old_interaction == Interaction::Hovered {
+                    adapter.update(TreeUpdate {
+                        focus: None,
+                        ..default()
+                    });
+                }
+            }
         }
+        cache.insert(entity, interaction.clone());
     }
 }
 
-fn action_requested(mut events: EventReader<ActionRequest>) {
+fn interaction_removed(
+    mut cache: ResMut<InteractionCache>,
+    adapters: NonSend<Adapters>,
+    removed: RemovedComponents<Interaction>,
+) {
+    for entity in removed.iter() {
+        if let Some(old_interaction) = cache.get(&entity) {
+            if *old_interaction == Interaction::Hovered {
+                if let Some(adapter) = adapters.get_primary_adapter() {
+                    adapter.update(TreeUpdate {
+                        focus: None,
+                        ..default()
+                    });
+                }
+            }
+        }
+        cache.remove(&entity);
+    }
+}
+
+fn action_requested(
+    mut events: EventReader<ActionRequest>,
+    transforms: Query<&GlobalTransform>,
+    camera: Query<(&Camera, Option<&UiCameraConfig>)>,
+    mut windows: ResMut<Windows>,
+) {
     for action in events.iter() {
+        let target = <Entity as AccessKitEntityExt>::from_node_id(&action.target);
+        match action.action {
+            Action::Focus => {
+                if let Ok(transform) = transforms.get(target) {
+                    let is_ui_disabled = |camera_ui| {
+                        matches!(camera_ui, Some(&UiCameraConfig { show_ui: false, .. }))
+                    };
+                    let window_id = camera
+                        .iter()
+                        .filter(|(_, camera_ui)| !is_ui_disabled(*camera_ui))
+                        .filter_map(|(camera, _)| {
+                            if let RenderTarget::Window(window_id) = camera.target {
+                                Some(window_id)
+                            } else {
+                                None
+                            }
+                        })
+                        .next();
+                    if let Some(window_id) = window_id {
+                        if let Some(window) = windows.get_mut(window_id) {
+                            if window.is_focused() {
+                                let position = transform.translation().truncate();
+                                window.set_cursor_position(position);
+                            }
+                        }
+                    }
+                }
+            }
+            _ => {
+                println!("Unsupported: {:?}", action);
+            }
+        };
         println!("AT action request: {:?}", action);
     }
 }
@@ -141,10 +208,12 @@ pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_to_stage(CoreStage::PreUpdate, button_changed)
+        app.init_resource::<InteractionCache>()
+            .add_system_to_stage(CoreStage::PreUpdate, button_changed)
             .add_system_to_stage(CoreStage::PreUpdate, image_changed)
             .add_system_to_stage(CoreStage::PreUpdate, label_changed)
-            .add_system_to_stage(CoreStage::PreUpdate, update_focus)
+            .add_system_to_stage(CoreStage::PreUpdate, interaction_changed)
+            .add_system_to_stage(CoreStage::PostUpdate, interaction_removed)
             .add_system_to_stage(CoreStage::PreUpdate, action_requested);
     }
 }
