@@ -81,7 +81,7 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     /// Run only if the [`Condition`] is `true` at the time of execution.
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
     /// Suppress warnings and errors that would result from "ambiguities" with members of `set`.
-    fn ambiguous_with(self, set: impl SystemSet) -> SystemSetConfig;
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
     /// Suppress warnings and errors that would result from any "ambiguities".
     fn ambiguous_with_all(self) -> SystemSetConfig;
 }
@@ -110,7 +110,7 @@ where
         new_set(self.dyn_clone()).run_if(condition)
     }
 
-    fn ambiguous_with(self, set: impl SystemSet) -> SystemSetConfig {
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
         new_set(self.dyn_clone()).ambiguous_with(set)
     }
 
@@ -140,7 +140,7 @@ impl IntoSystemSetConfig for BoxedSystemSet {
         new_set(self).run_if(condition)
     }
 
-    fn ambiguous_with(self, set: impl SystemSet) -> SystemSetConfig {
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
         new_set(self).ambiguous_with(set)
     }
 
@@ -180,8 +180,8 @@ impl IntoSystemSetConfig for SystemSetConfig {
         self
     }
 
-    fn ambiguous_with(mut self, set: impl SystemSet) -> Self {
-        assert!(!set.is_system_type(), "invalid use of system type set");
+    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
         match &mut self.graph_info.ambiguous_with {
             detection @ Ambiguity::Check => {
                 let mut ambiguous_with = HashSet::new();
@@ -220,7 +220,7 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     /// Only run if the [`Condition`] is `true` at the time of execution.
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig;
     /// Suppress warnings and errors that would result from "ambiguities" with members of `set`.
-    fn ambiguous_with(self, set: impl SystemSet) -> SystemConfig;
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
     /// Suppress warnings and errors that would result from any "ambiguities".
     fn ambiguous_with_all(self) -> SystemConfig;
 }
@@ -249,7 +249,7 @@ where
         new_system(Box::new(IntoSystem::into_system(self))).run_if(condition)
     }
 
-    fn ambiguous_with(self, set: impl SystemSet) -> SystemConfig {
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
         new_system(Box::new(IntoSystem::into_system(self))).ambiguous_with(set)
     }
 
@@ -279,7 +279,7 @@ impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
         new_system(self).run_if(condition)
     }
 
-    fn ambiguous_with(self, set: impl SystemSet) -> SystemConfig {
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
         new_system(self).ambiguous_with(set)
     }
 
@@ -319,8 +319,8 @@ impl IntoSystemConfig<()> for SystemConfig {
         self
     }
 
-    fn ambiguous_with(mut self, set: impl SystemSet) -> SystemConfig {
-        assert!(!set.is_system_type(), "invalid use of system type set");
+    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
         match &mut self.graph_info.ambiguous_with {
             detection @ Ambiguity::Check => {
                 let mut ambiguous_with = HashSet::new();

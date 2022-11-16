@@ -73,7 +73,7 @@ pub(crate) struct CheckGraphResults<V> {
     // Pairs of nodes that have a path connecting them.
     pub(crate) connected: HashSet<(V, V)>,
     // Pairs of nodes that don't have a path connecting them.
-    pub(crate) not_connected: HashSet<(V, V)>,
+    pub(crate) disconnected: HashSet<(V, V)>,
     // Edges that are redundant because a longer path exists.
     pub(crate) transitive_edges: Vec<(V, V)>,
     // Boolean reachability matrix for the graph.
@@ -88,7 +88,7 @@ impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
     fn default() -> Self {
         Self {
             connected: HashSet::new(),
-            not_connected: HashSet::new(),
+            disconnected: HashSet::new(),
             transitive_edges: Vec::new(),
             reachable: FixedBitSet::new(),
             tred: DiGraphMap::new(),
@@ -125,7 +125,7 @@ where
     let mut tcls = DiGraphMap::<V, ()>::new();
 
     let mut connected = HashSet::new();
-    let mut not_connected = HashSet::new();
+    let mut disconnected = HashSet::new();
     let mut transitive_edges = Vec::new();
 
     let mut visited = FixedBitSet::with_capacity(n);
@@ -176,7 +176,7 @@ where
             let (a, b) = row_col(index, n);
             let pair = (topological_order[a], topological_order[b]);
             if !reachable[index] {
-                not_connected.insert(pair);
+                disconnected.insert(pair);
             } else {
                 connected.insert(pair);
             }
@@ -190,7 +190,7 @@ where
 
     CheckGraphResults {
         connected,
-        not_connected,
+        disconnected,
         transitive_edges,
         reachable,
         tred,

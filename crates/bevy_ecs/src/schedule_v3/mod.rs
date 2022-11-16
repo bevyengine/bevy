@@ -78,7 +78,6 @@ mod tests {
     #[test]
     #[should_panic]
     fn dependency_loop() {
-        // TODO: error on cross dependencies to avoid loops after flattening
         let mut world = World::new();
         let mut schedule = Schedule::new();
 
@@ -143,13 +142,23 @@ mod tests {
 
         // There's only one `foo`, so it's fine.
         let result = schedule.initialize(&mut world);
-        assert!(matches!(result, Ok(())));
+        assert!(result.is_ok());
 
         // Schedule another `foo`.
         schedule.add_system(foo);
 
         // When there are multiple instances of `foo`, dependencies on
         // `foo` are no longer allowed. Too much ambiguity.
+        let result = schedule.initialize(&mut world);
+        assert!(matches!(result, Err(BuildError::SystemTypeSetAmbiguity(_))));
+
+        // same goes for `ambiguous_with`
+        let mut schedule = Schedule::new();
+        schedule.add_system(foo);
+        schedule.add_system(bar.ambiguous_with(foo));
+        let result = schedule.initialize(&mut world);
+        assert!(result.is_ok());
+        schedule.add_system(foo);
         let result = schedule.initialize(&mut world);
         assert!(matches!(result, Err(BuildError::SystemTypeSetAmbiguity(_))));
     }

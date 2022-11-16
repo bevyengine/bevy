@@ -535,6 +535,7 @@ impl ScheduleMeta {
 
         self.dependency.topsort = dep_scc.into_iter().flatten().rev().collect::<Vec<_>>();
 
+        // nodes can have dependent XOR hierarchical relationship
         let dep_results = check_graph(&self.dependency.graph, &self.dependency.topsort);
         for &(a, b) in dep_results.connected.iter() {
             if hier_results.connected.contains(&(a, b)) || hier_results.connected.contains(&(b, a))
@@ -573,22 +574,22 @@ impl ScheduleMeta {
             }
         }
 
-        // system type sets with multiple members cannot be used in dependencies
+        // system type sets with multiple members cannot be related to
         for (&set, systems) in systems.iter() {
             if self.system_sets[&set].is_system_type() {
-                let mut dep_count = 0;
-                dep_count += self
+                let ambiguities = self.ambiguous_with.edges(set).count();
+                let mut dependencies = 0;
+                dependencies += self
                     .dependency
                     .graph
                     .edges_directed(set, Direction::Incoming)
                     .count();
-                dep_count += self
+                dependencies += self
                     .dependency
                     .graph
                     .edges_directed(set, Direction::Outgoing)
                     .count();
-
-                if systems.len() > 1 && dep_count > 0 {
+                if systems.len() > 1 && (ambiguities > 0 || dependencies > 0) {
                     let type_set = self.system_sets[&set].0.dyn_clone();
                     return Err(BuildError::SystemTypeSetAmbiguity(type_set));
                 }
@@ -602,7 +603,6 @@ impl ScheduleMeta {
                 dependency_flattened.add_node(id);
             }
         }
-
         for (lhs, rhs, _) in self.dependency.graph.all_edges() {
             match (lhs, rhs) {
                 (NodeId::System(_), NodeId::System(_)) => {
@@ -644,7 +644,7 @@ impl ScheduleMeta {
             &self.dependency_flattened.topsort,
         );
 
-        // flatten ambiguities
+        // flatten allowed ambiguities
         let mut ambiguous_with_flattened = UnGraphMap::new();
         for (lhs, rhs, _) in self.ambiguous_with.all_edges() {
             match (lhs, rhs) {
@@ -673,8 +673,9 @@ impl ScheduleMeta {
 
         self.ambiguous_with_flattened = ambiguous_with_flattened;
 
+        // check for conflicts
         let mut conflicting_systems = Vec::new();
-        for &(a, b) in flat_results.not_connected.iter() {
+        for &(a, b) in flat_results.disconnected.iter() {
             if self.ambiguous_with_flattened.contains_edge(a, b)
                 || self.ambiguous_with_all.contains(&a)
                 || self.ambiguous_with_all.contains(&b)
@@ -997,7 +998,7 @@ pub enum BuildError {
     DependencyCycle,
     #[error("`{0:?}` and `{1:?}` can have a hierarchical OR dependent relationship, not both")]
     CrossDependency(String, String),
-    #[error("ambiguous dependency on `{0:?}`, multiple instances of this system exist")]
+    #[error("ambiguous relationship with `{0:?}`, multiple instances of this system exist")]
     SystemTypeSetAmbiguity(BoxedSystemSet),
     #[error("systems with conflicting access have indeterminate execution order")]
     Ambiguity,
