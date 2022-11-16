@@ -995,7 +995,6 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
             .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
@@ -1045,7 +1044,6 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.validate_non_send_access::<T>();
         world
             .get_resource_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSend {
@@ -1110,7 +1108,6 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
             .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
@@ -1158,7 +1155,6 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        world.validate_non_send_access::<T>();
         world
             .get_resource_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSendMut {

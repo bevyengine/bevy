@@ -3,6 +3,7 @@ use crate::component::{ComponentId, ComponentTicks, Components};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::tracing::error;
+use std::borrow::Cow;
 use std::cell::UnsafeCell;
 use std::thread::ThreadId;
 
@@ -11,27 +12,46 @@ use std::thread::ThreadId;
 /// [`World`]: crate::world::World
 pub struct ResourceData {
     column: Column,
+    type_name: String,
     id: ArchetypeComponentId,
     origin_thread_id: Option<ThreadId>,
 }
 
 impl Drop for ResourceData {
     fn drop(&mut self) {
-        self.validate_drop();
+        if self.is_present() {
+            self.validate_access();
+        }
     }
 }
 
 impl ResourceData {
     #[inline]
-    fn validate_drop(&self) {
+    fn validate_access(&self) {
+        #[cfg(test)]
+        if std::thread::panicking() {
+            return;
+        }
         if let Some(origin_thread_id) = self.origin_thread_id {
             if origin_thread_id != std::thread::current().id() {
-                error!(
-                    "Attempted to drop non-send resource from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                // Panic in tests, as testing for aborting is nearly impossible
+                #[cfg(test)]
+                panic!(
+                    "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                    self.type_name,
                     origin_thread_id,
                     std::thread::current().id()
                 );
-                std::process::abort();
+                #[cfg(not(test))]
+                {
+                    error!(
+                        "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                        self.type_name,
+                        origin_thread_id,
+                        std::thread::current().id()
+                    );
+                    std::process::abort();
+                }
             }
         }
     }
@@ -51,7 +71,10 @@ impl ResourceData {
     /// Gets a read-only pointer to the underlying resource, if available.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
-        self.column.get_data(0)
+        self.column.get_data(0).map(|res| {
+            self.validate_access();
+            res
+        })
     }
 
     /// Gets a read-only reference to the change ticks of the underlying resource, if available.
@@ -68,7 +91,10 @@ impl ResourceData {
 
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
-        self.column.get(0)
+        self.column.get(0).map(|res| {
+            self.validate_access();
+            res
+        })
     }
 
     /// Inserts a value into the resource. If a value is already present
@@ -83,12 +109,11 @@ impl ResourceData {
     /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
-        if self.origin_thread_id.is_some() {
-            self.origin_thread_id = Some(std::thread::current().id());
-        }
         if self.is_present() {
+            self.validate_access();
             self.column.replace(0, value, change_tick);
         } else {
+            self.origin_thread_id = self.origin_thread_id.map(|_| std::thread::current().id());
             self.column.push(value, ComponentTicks::new(change_tick));
         }
     }
@@ -110,9 +135,11 @@ impl ResourceData {
         change_ticks: ComponentTicks,
     ) {
         if self.is_present() {
+            self.validate_access();
             self.column.replace_untracked(0, value);
             *self.column.get_ticks_unchecked(0).deref_mut() = change_ticks;
         } else {
+            self.origin_thread_id = self.origin_thread_id.map(|_| std::thread::current().id());
             self.column.push(value, change_ticks);
         }
     }
@@ -129,7 +156,9 @@ impl ResourceData {
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        self.column.swap_remove_and_forget(0)
+        self.is_present()
+            .then(|| self.validate_access())
+            .and_then(|_| self.column.swap_remove_and_forget(0))
     }
 
     /// Removes a value from the resource, if present, and drops it.
@@ -141,8 +170,10 @@ impl ResourceData {
     /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     pub(crate) unsafe fn remove_and_drop(&mut self) {
-        self.validate_drop();
-        self.column.clear();
+        if self.is_present() {
+            self.validate_access();
+            self.column.clear();
+        }
     }
 }
 
@@ -203,6 +234,7 @@ impl Resources {
             let component_info = components.get_info(component_id).unwrap();
             ResourceData {
                 column: Column::with_capacity(component_info, 1),
+                type_name: String::from(component_info.name()),
                 id: f(),
                 origin_thread_id: (!is_send).then(|| std::thread::current().id()),
             }

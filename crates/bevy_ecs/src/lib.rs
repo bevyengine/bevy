@@ -1311,7 +1311,7 @@ mod tests {
 
     #[test]
     #[should_panic(
-        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSendA off of the main thread"
+        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendA from thread"
     )]
     fn non_send_resource_scope_from_different_thread() {
         let mut world = World::default();
@@ -1323,6 +1323,25 @@ mod tests {
             world.resource_scope(|_: &mut World, mut value: Mut<NonSendA>| {
                 value.0 += 1;
             });
+        });
+
+        if let Err(err) = thread.join() {
+            std::panic::resume_unwind(err);
+        }
+    }
+
+    #[test]
+    #[should_panic(
+        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendA from thread"
+    )]
+    fn non_send_resource_drop_from_different_thread() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+
+        let thread = std::thread::spawn(move || {
+            // Dropping the non-send resource on a different thread
+            // Should result in a panic
+            drop(world);
         });
 
         if let Err(err) = thread.join() {
