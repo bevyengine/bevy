@@ -234,6 +234,57 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 }
 
+impl<Param: SystemParam> SystemState<Param> {
+    /// [`System::name`]
+    #[inline]
+    pub fn name(&self) -> Cow<'static, str> {
+        self.meta.name.clone()
+    }
+
+    /// [`System::component_access`]
+    #[inline]
+    pub fn component_access(&self) -> &Access<ComponentId> {
+        self.meta.component_access_set.combined_access()
+    }
+
+    /// [`System::archetype_component_access`]
+    #[inline]
+    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.meta.archetype_component_access
+    }
+
+    /// [`System::is_send`]
+    #[inline]
+    pub fn is_send(&self) -> bool {
+        self.meta.is_send
+    }
+
+    /// [`System::update_archetype_component_access`]
+    pub fn update_archetype_component_access(&mut self, world: &World) {
+        self.validate_world_and_update_archetypes(world);
+    }
+
+    /// [`System::check_change_tick`]
+    pub fn check_change_tick(&mut self, change_tick: u32) {
+        check_system_change_tick(
+            &mut self.meta.last_change_tick,
+            change_tick,
+            &self.meta.name,
+        );
+    }
+
+    /// [`System::get_last_change_tick`]
+    #[inline]
+    pub fn get_last_change_tick(&self) -> u32 {
+        self.meta.last_change_tick
+    }
+
+    /// [`System::set_last_change_tick`]
+    pub fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.meta.last_change_tick = last_change_tick;
+    }
+}
+
 impl<Param: SystemParam> FromWorld for SystemState<Param> {
     fn from_world(world: &mut World) -> Self {
         Self::new(world)

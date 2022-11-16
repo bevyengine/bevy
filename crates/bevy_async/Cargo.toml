@@ -1,0 +1,18 @@
+[package]
+name = "bevy_async"
+version = "0.9.0"
+edition = "2021"
+description = "Async system support for Bevy Engine's entity component system"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["ecs", "game", "bevy"]
+categories = ["game-engines", "data-structures"]
+
+[features]
+
+[dependencies]
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0", default-features = false }
+bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
+futures-lite = "1.12.0"
+pin-project-lite = "0.2.9"
