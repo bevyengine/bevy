@@ -22,7 +22,7 @@ pub enum RenderExtractStage {
     /// |-------------------------------------------------------------------|
     /// |         | BeforeIoAfterRenderStart | winit events | main schedule |
     /// | extract |---------------------------------------------------------|
-    /// |         | rendering schedule                                      |
+    /// |         | extract commands | rendering schedule                   |
     /// |-------------------------------------------------------------------|
     BeforeIoAfterRenderStart,
 }
@@ -88,6 +88,7 @@ impl Plugin for PipelinedRenderingPlugin {
                     })
                     .pop()
                     .unwrap();
+
                 #[cfg(feature = "trace")]
                 let _span = bevy_utils::tracing::info_span!("render app").entered();
                 render_app.run();

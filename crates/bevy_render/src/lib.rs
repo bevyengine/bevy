@@ -70,6 +70,9 @@ pub enum RenderStage {
     /// running the next frame while rendering the current frame.
     Extract,
 
+    /// A stage for applying the commands from the [`Extract`] stage
+    ExtractCommands,
+
     /// Prepare render resources from the extracted data for the GPU.
     Prepare,
 
@@ -192,11 +195,12 @@ impl Plugin for RenderPlugin {
             // after access to the main world is removed
             // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
-            fn clear_entities(world: &mut World) {
-                world.clear_entities();
-            }
+
+            let mut extract_commands_stage = SystemStage::parallel();
+            extract_commands_stage.add_system(extract_commands.at_start());
             render_app
                 .add_stage(RenderStage::Extract, extract_stage)
+                .add_stage(RenderStage::ExtractCommands, extract_commands_stage)
                 .add_stage(RenderStage::Prepare, SystemStage::parallel())
                 .add_stage(RenderStage::Queue, SystemStage::parallel())
                 .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
@@ -312,10 +316,17 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     let scratch_world = std::mem::replace(app_world, inserted_world.0);
     app_world.insert_resource(ScratchMainWorld(scratch_world));
 
-    // Note: We apply buffers (read, Commands) after the `MainWorld` has been removed from the render app's world
-    // so that in future, pipelining will be able to do this too without any code relying on it.
-    // see <https://github.com/bevyengine/bevy/issues/5082>
-    extract.0.apply_buffers(running_world);
-
     render_app.world.insert_resource(extract);
+}
+
+// system for render app to apply the extract commands
+fn extract_commands(world: &mut World) {
+    world.resource_scope(|world, mut extract_stage: Mut<ExtractStage>| {
+        extract_stage.0.apply_buffers(world);
+    });
+}
+
+// system for render app to clear entities
+fn clear_entities(world: &mut World) {
+    world.clear_entities();
 }
