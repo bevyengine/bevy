@@ -34,6 +34,7 @@ impl_type_uuid!(PathBuf, "aa79933abd1743698583a3acad3b8989");
 impl_type_uuid!(<T> Vec, "ab98f5408b974475b643662247fb3886");
 impl_type_uuid!(<K, V> HashMap,"f37bfad9ca8c4f6ea7448f1c39e05f98");
 impl_type_uuid!(<T> Option, "8d5ba9a9031347078955fba01ff439f0");
+#[cfg(feature = "smallvec")]
 impl_type_uuid!(
     <T: smallvec::Array> smallvec::SmallVec,
     "26fd5c1bed7144fbb8d1546c02ba255a"
