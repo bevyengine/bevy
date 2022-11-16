@@ -707,29 +707,6 @@ impl App {
         self
     }
 
-    /// Inserts a non-send resource to the app.
-    ///
-    /// You usually want to use [`insert_resource`](Self::insert_resource),
-    /// but there are some special cases when a resource cannot be sent across threads.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::prelude::*;
-    /// # use bevy_ecs::prelude::*;
-    /// #
-    /// struct MyCounter {
-    ///     counter: usize,
-    /// }
-    ///
-    /// App::new()
-    ///     .insert_non_send_resource(MyCounter { counter: 0 });
-    /// ```
-    pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world.insert_non_send_resource(resource);
-        self
-    }
-
     /// Initialize a [`Resource`] with standard starting values by adding it to the [`World`].
     ///
     /// If the [`Resource`] already exists, nothing happens.
@@ -762,16 +739,6 @@ impl App {
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
         self.world.init_resource::<R>();
-        self
-    }
-
-    /// Initialize a non-send [`Resource`] with standard starting values by adding it to the [`World`].
-    ///
-    /// The [`Resource`] must implement the [`FromWorld`] trait.
-    /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
-    /// the [`Default::default`] method to initialize the [`Resource`].
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.world.init_non_send_resource::<R>();
         self
     }
 

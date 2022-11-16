@@ -108,6 +108,7 @@ mod tests {
 
     use crate::prelude::StageLabel;
 
+    use crate::system::{MainThread, Tls};
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
@@ -118,8 +119,8 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
-            RemovedComponents, Res, ResMut, Resource, System, SystemState,
+            Commands, IntoSystem, Local, ParamSet, Query, QueryComponentError, RemovedComponents,
+            Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -513,14 +514,16 @@ mod tests {
         world.insert_resource(SystemRan::No);
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
+        world.insert_resource(Tls::new(NotSend1(std::rc::Rc::new(0))));
 
         fn sys(
-            op: Option<NonSend<NotSend1>>,
-            mut _op2: Option<NonSendMut<NotSend2>>,
+            op: MainThread<Option<Res<Tls<NotSend1>>>>,
+            mut _op2: MainThread<Option<ResMut<Tls<NotSend2>>>>,
             mut system_ran: ResMut<SystemRan>,
         ) {
-            op.expect("NonSend should exist");
+            // TODO: need to fix this. Probably should just implement SystemPAram
+            // for Option<MainThread<T>>
+            let MainThread(Some(_op)) = op else {panic!("blah");};
             *system_ran = SystemRan::Yes;
         }
 
@@ -537,12 +540,12 @@ mod tests {
         struct NotSend1(std::rc::Rc<i32>);
         struct NotSend2(std::rc::Rc<i32>);
 
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
+        world.insert_resource(Tls::new(NotSend1(std::rc::Rc::new(1))));
+        world.insert_resource(Tls::new(NotSend2(std::rc::Rc::new(2))));
 
         fn sys(
-            _op: NonSend<NotSend1>,
-            mut _op2: NonSendMut<NotSend2>,
+            _op: MainThread<Res<Tls<NotSend1>>>,
+            mut _op2: MainThread<ResMut<Tls<NotSend2>>>,
             mut system_ran: ResMut<SystemRan>,
         ) {
             *system_ran = SystemRan::Yes;

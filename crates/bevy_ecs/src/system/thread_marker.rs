@@ -105,6 +105,7 @@ impl<T> Tls<T> {
                 )))
     }
 
+    // this takes an &mut self to trigger change detection when we get a mutable value out of the tls
     pub fn get_mut<F, R>(&mut self, f: F) -> R
     where
         F: FnOnce(&mut T) -> R,

@@ -2,7 +2,7 @@ mod converter;
 mod gilrs_system;
 
 use bevy_app::{App, CoreStage, Plugin, StartupStage};
-use bevy_ecs::schedule::IntoSystemDescriptor;
+use bevy_ecs::{schedule::IntoSystemDescriptor, system::Tls};
 use bevy_input::InputSystem;
 use bevy_utils::tracing::error;
 use gilrs::GilrsBuilder;
@@ -19,7 +19,7 @@ impl Plugin for GilrsPlugin {
             .build()
         {
             Ok(gilrs) => {
-                app.insert_non_send_resource(gilrs)
+                app.insert_resource(Tls::new(gilrs))
                     .add_startup_system_to_stage(
                         StartupStage::PreStartup,
                         gilrs_event_startup_system,

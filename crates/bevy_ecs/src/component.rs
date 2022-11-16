@@ -7,12 +7,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::OwningPtr;
-use std::{
-    alloc::Layout,
-    any::{Any, TypeId},
-    borrow::Cow,
-    mem::needs_drop,
-};
+use std::{alloc::Layout, any::TypeId, borrow::Cow, mem::needs_drop};
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -335,17 +330,6 @@ impl ComponentDescriptor {
         }
     }
 
-    fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
-        Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
-            storage_type,
-            is_send_and_sync: false,
-            type_id: Some(TypeId::of::<T>()),
-            layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-        }
-    }
-
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.storage_type
@@ -478,16 +462,6 @@ impl Components {
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
                 ComponentDescriptor::new_resource::<T>()
-            })
-        }
-    }
-
-    #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
-        // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
-        unsafe {
-            self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
             })
         }
     }

@@ -4,7 +4,7 @@ use crate::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::MainThread};
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
@@ -166,7 +166,7 @@ pub struct WindowSurfaces {
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS s
-    _marker: NonSend<NonSendMarker>,
+    _marker: MainThread<Res<NonSendMarker>>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,

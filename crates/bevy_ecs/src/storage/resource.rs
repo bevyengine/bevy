@@ -53,11 +53,6 @@ impl ResourceData {
     ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
-    ///
-    /// The underlying type must be [`Send`] or be inserted from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
@@ -72,11 +67,6 @@ impl ResourceData {
     ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
-    ///
-    /// The underlying type must be [`Send`] or be inserted from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     pub(crate) unsafe fn insert_with_ticks(
         &mut self,
@@ -94,12 +84,7 @@ impl ResourceData {
     /// Removes a value from the resource, if present.
     ///
     /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// The removed value must be used or dropped.
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
+    /// The underlying type must be [`Send`].
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
@@ -109,10 +94,7 @@ impl ResourceData {
     /// Removes a value from the resource, if present, and drops it.
     ///
     /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
+    /// The underlying type must be [`Send`].
     #[inline]
     pub(crate) unsafe fn remove_and_drop(&mut self) {
         self.column.clear();

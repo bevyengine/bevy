@@ -282,6 +282,7 @@ mod tests {
     use crate as bevy_ecs;
     use crate::event::Events;
     use crate::prelude::*;
+    use crate::system::MainThread;
 
     #[derive(Resource)]
     struct R;
@@ -298,8 +299,8 @@ mod tests {
     fn empty_system() {}
     fn res_system(_res: Res<R>) {}
     fn resmut_system(_res: ResMut<R>) {}
-    fn nonsend_system(_ns: NonSend<R>) {}
-    fn nonsendmut_system(_ns: NonSendMut<R>) {}
+    fn nonsend_system(_ns: MainThread<Res<R>>) {}
+    fn nonsendmut_system(_ns: MainThread<ResMut<R>>) {}
     fn read_component_system(_query: Query<&A>) {}
     fn write_component_system(_query: Query<&mut A>) {}
     fn with_filtered_component_system(_query: Query<&mut A, With<B>>) {}
