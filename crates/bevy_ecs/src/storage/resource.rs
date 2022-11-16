@@ -2,7 +2,9 @@ use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+#[allow(unused_imports)]
 use bevy_utils::tracing::error;
+#[allow(unused_imports)]
 use std::borrow::Cow;
 use std::cell::UnsafeCell;
 use std::thread::ThreadId;
@@ -28,6 +30,7 @@ impl Drop for ResourceData {
 impl ResourceData {
     #[inline]
     fn validate_access(&self) {
+        // Avoid aborting due to double panicking on the same thread.
         #[cfg(test)]
         if std::thread::panicking() {
             return;
@@ -100,13 +103,13 @@ impl ResourceData {
     /// Inserts a value into the resource. If a value is already present
     /// it will be replaced.
     ///
+    /// # Aborts
+    /// This will abort the process if a value is present, the underlying type is
+    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This function will panic instead in tests.
+    ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
-    ///
-    /// The underlying type must be [`Send`] or be inserted from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
@@ -121,13 +124,13 @@ impl ResourceData {
     /// Inserts a value into the resource with a pre-existing change tick. If a
     /// value is already present it will be replaced.
     ///
+    /// # Aborts
+    /// This will abort the process if a value is present, the underlying type is
+    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This function will panic instead in tests.
+    ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
-    ///
-    /// The underlying type must be [`Send`] or be inserted from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     pub(crate) unsafe fn insert_with_ticks(
         &mut self,
@@ -146,13 +149,16 @@ impl ResourceData {
 
     /// Removes a value from the resource, if present.
     ///
+    /// # Aborts
+    /// This will abort the process if a value is present, the underlying type is
+    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This function will panic instead in tests.
+    ///
     /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
+    /// The underlying type must be [`Send`] or be removed from the thread it was
+    /// inserted from.
     ///
     /// The removed value must be used or dropped.
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
@@ -163,11 +169,14 @@ impl ResourceData {
 
     /// Removes a value from the resource, if present, and drops it.
     ///
-    /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
+    /// # Aborts
+    /// This will abort the process if a value is present, the underlying type is
+    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This function will panic instead in tests.
     ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
+    /// # Safety
+    /// The underlying type must be [`Send`] or be removed from the thread it was
+    /// inserted from.
     #[inline]
     pub(crate) unsafe fn remove_and_drop(&mut self) {
         if self.is_present() {
