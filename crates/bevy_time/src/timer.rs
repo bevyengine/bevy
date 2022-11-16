@@ -155,7 +155,7 @@ impl Timer {
         self.duration = duration;
     }
 
-    /// Returns `true` if the timer is repeating.
+    /// Returns the mode of the timer.
     ///
     /// # Examples
     /// ```
@@ -168,7 +168,7 @@ impl Timer {
         self.mode
     }
 
-    /// Sets whether the timer is repeating or not.
+    /// Sets the mode of the timer.
     ///
     /// # Examples
     /// ```
