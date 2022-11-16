@@ -515,10 +515,10 @@ bitflags::bitflags! {
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
-        const BLEND_BITS                  = (0b11 << 0);
-        const BLEND_OPAQUE                = (0b00 << 0);
-        const BLEND_PREMULTIPLIED_ALPHA   = (0b01 << 0);
-        const BLEND_MULTIPLY              = (0b10 << 0);
+        const BLEND_BITS                  = 0b11;
+        const BLEND_OPAQUE                = 0b00;
+        const BLEND_PREMULTIPLIED_ALPHA   = 0b01;
+        const BLEND_MULTIPLY              = 0b10;
         const HDR                         = (1 << 2);
         const TONEMAP_IN_SHADER           = (1 << 3);
         const DEBAND_DITHER               = (1 << 4);
