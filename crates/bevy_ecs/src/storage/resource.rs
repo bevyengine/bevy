@@ -2,18 +2,15 @@ use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-#[allow(unused_imports)]
-use bevy_utils::tracing::error;
-#[allow(unused_imports)]
-use std::borrow::Cow;
 use std::cell::UnsafeCell;
 use std::thread::ThreadId;
+use std::mem::ManuallyDrop;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
 /// [`World`]: crate::world::World
 pub struct ResourceData {
-    column: Column,
+    column: ManuallyDrop<Column>,
     type_name: String,
     id: ArchetypeComponentId,
     origin_thread_id: Option<ThreadId>,
@@ -24,6 +21,10 @@ impl Drop for ResourceData {
         if self.is_present() {
             self.validate_access();
         }
+        // SAFETY: Drop is only called once upon dropping the ResourceData
+        // and is inaccessible after this as the parent ResourceData has 
+        // been dropped.
+        unsafe { ManuallyDrop::drop(&mut self.column); }
     }
 }
 
@@ -31,30 +32,18 @@ impl ResourceData {
     #[inline]
     fn validate_access(&self) {
         // Avoid aborting due to double panicking on the same thread.
-        #[cfg(test)]
         if std::thread::panicking() {
             return;
         }
         if let Some(origin_thread_id) = self.origin_thread_id {
             if origin_thread_id != std::thread::current().id() {
                 // Panic in tests, as testing for aborting is nearly impossible
-                #[cfg(test)]
                 panic!(
                     "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
                     self.type_name,
                     origin_thread_id,
                     std::thread::current().id()
                 );
-                #[cfg(not(test))]
-                {
-                    error!(
-                        "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
-                        self.type_name,
-                        origin_thread_id,
-                        std::thread::current().id()
-                    );
-                    std::process::abort();
-                }
             }
         }
     }
@@ -72,6 +61,10 @@ impl ResourceData {
     }
 
     /// Gets a read-only pointer to the underlying resource, if available.
+    ///
+    /// # Panics
+    /// This will panic if a value is present, the underlying type is
+    /// `!Send`, and is not accessed from the original thread it was inserted in.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
         self.column.get_data(0).map(|res| {
@@ -92,6 +85,9 @@ impl ResourceData {
             .map(|ticks| unsafe { ticks.deref() })
     }
 
+    /// # Panics
+    /// This will panic if a value is present, the underlying type is
+    /// `!Send`, and is not accessed from the original thread it was inserted in.
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
         self.column.get(0).map(|res| {
@@ -102,11 +98,10 @@ impl ResourceData {
 
     /// Inserts a value into the resource. If a value is already present
     /// it will be replaced.
-    ///
-    /// # Aborts
-    /// This will abort the process if a value is present, the underlying type is
+    /// 
+    /// # Panics
+    /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
-    /// This function will panic instead in tests.
     ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
@@ -123,11 +118,10 @@ impl ResourceData {
 
     /// Inserts a value into the resource with a pre-existing change tick. If a
     /// value is already present it will be replaced.
-    ///
-    /// # Aborts
-    /// This will abort the process if a value is present, the underlying type is
+    /// 
+    /// # Panics
+    /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
-    /// This function will panic instead in tests.
     ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
@@ -148,11 +142,10 @@ impl ResourceData {
     }
 
     /// Removes a value from the resource, if present.
-    ///
-    /// # Aborts
-    /// This will abort the process if a value is present, the underlying type is
+    /// 
+    /// # Panics
+    /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
-    /// This function will panic instead in tests.
     ///
     /// # Safety
     /// The underlying type must be [`Send`] or be removed from the thread it was
@@ -168,11 +161,10 @@ impl ResourceData {
     }
 
     /// Removes a value from the resource, if present, and drops it.
-    ///
-    /// # Aborts
-    /// This will abort the process if a value is present, the underlying type is
+    /// 
+    /// # Panics
+    /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
-    /// This function will panic instead in tests.
     ///
     /// # Safety
     /// The underlying type must be [`Send`] or be removed from the thread it was
@@ -242,7 +234,7 @@ impl Resources {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
             ResourceData {
-                column: Column::with_capacity(component_info, 1),
+                column: ManuallyDrop::new(Column::with_capacity(component_info, 1)),
                 type_name: String::from(component_info.name()),
                 id: f(),
                 origin_thread_id: (!is_send).then(|| std::thread::current().id()),
