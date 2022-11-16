@@ -50,9 +50,10 @@ impl BlobVec {
         capacity: usize,
     ) -> BlobVec {
         if item_layout.size() == 0 {
+            let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
             BlobVec {
                 swap_scratch: NonNull::dangling(),
-                data: NonNull::dangling(),
+                data: bevy_ptr::dangling_with_align(align),
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
@@ -405,7 +406,8 @@ const fn padding_needed_for(layout: &Layout, align: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use crate::ptr::OwningPtr;
+    use crate as bevy_ecs; // required for derive macros
+    use crate::{component::Component, ptr::OwningPtr, world::World};
 
     use super::BlobVec;
     use std::{alloc::Layout, cell::RefCell, rc::Rc};
@@ -543,5 +545,29 @@ mod tests {
         let drop = drop_ptr::<Foo>;
         // SAFETY: drop is able to drop a value of its `item_layout`
         let _ = unsafe { BlobVec::new(item_layout, Some(drop), 0) };
+    }
+
+    #[test]
+    fn aligned_zst() {
+        // NOTE: This test is explicitly for uncovering potential UB with miri.
+
+        #[derive(Component)]
+        #[repr(align(32))]
+        struct Zst;
+
+        let mut world = World::default();
+        world.spawn(Zst);
+        world.spawn(Zst);
+        world.spawn(Zst);
+        world.spawn_empty();
+
+        let mut count = 0;
+
+        let mut q = world.query::<&Zst>();
+        for &Zst in q.iter(&world) {
+            count += 1;
+        }
+
+        assert_eq!(count, 3);
     }
 }
