@@ -41,6 +41,7 @@ pub use rodio::Sample;
 
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
+use bevy_ecs::system::Tls;
 
 /// Adds support for audio playback to a Bevy Application
 ///
@@ -50,7 +51,8 @@ pub struct AudioPlugin;
 
 impl Plugin for AudioPlugin {
     fn build(&self, app: &mut App) {
-        app.init_non_send_resource::<AudioOutput<AudioSource>>()
+        let audio_output = Tls::new(AudioOutput::<AudioSource>::default());
+        app.insert_resource(audio_output)
             .add_asset::<AudioSource>()
             .add_asset::<AudioSink>()
             .init_resource::<Audio<AudioSource>>()
