@@ -192,6 +192,8 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub flip_x: bool,
+    pub flip_y: bool,
     pub scale_factor: f32,
 }
 
@@ -225,13 +227,11 @@ pub fn extract_uinodes(
             if !visibility.is_visible() {
                 continue;
             }
-
-            let image = if let Some(image) = maybe_image {
-                image.0.clone_weak()
+            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
-                DEFAULT_IMAGE_HANDLE.typed().clone_weak()
+                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
-
             // Skip loading images
             if !images.contains(&image) {
                 continue;
@@ -252,6 +252,8 @@ pub fn extract_uinodes(
                 image,
                 atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
+                flip_x,
+                flip_y,
                 scale_factor,
             });
         }
@@ -378,6 +380,8 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
+                    flip_x: false,
+                    flip_y: false,
                     scale_factor,
                 });
             }
@@ -512,7 +516,7 @@ pub fn prepare_uinodes(
         }
 
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-        let uvs = [
+        let mut uvs = [
             Vec2::new(
                 uinode_rect.min.x + positions_diff[0].x * extracted_uinode.scale_factor,
                 uinode_rect.min.y + positions_diff[0].y * extracted_uinode.scale_factor,
@@ -531,6 +535,13 @@ pub fn prepare_uinodes(
             ),
         ]
         .map(|pos| pos / atlas_extent);
+
+        if extracted_uinode.flip_x {
+            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+        }
+        if extracted_uinode.flip_y {
+            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+        }
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {

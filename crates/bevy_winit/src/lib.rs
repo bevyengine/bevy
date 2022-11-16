@@ -226,6 +226,10 @@ fn change_window(
                         window.set_max_inner_size(Some(max_inner_size));
                     }
                 }
+                bevy_window::WindowCommand::SetAlwaysOnTop { always_on_top } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_always_on_top(always_on_top);
+                }
                 bevy_window::WindowCommand::Close => {
                     // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
                     // Add the removal requests to a queue to solve this
@@ -356,6 +360,8 @@ pub fn winit_runner_with(mut app: App) {
     let event_handler = move |event: Event<()>,
                               event_loop: &EventLoopWindowTarget<()>,
                               control_flow: &mut ControlFlow| {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("winit event_handler").entered();
         match event {
             event::Event::NewEvents(start) => {
                 let winit_config = app.world.resource::<WinitSettings>();

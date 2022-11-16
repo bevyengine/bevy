@@ -1,4 +1,4 @@
-use crate::{serde::SceneSerializer, DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
@@ -7,6 +7,10 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
+
+#[cfg(feature = "serialize")]
+use crate::serde::SceneSerializer;
+#[cfg(feature = "serialize")]
 use serde::Serialize;
 
 /// A collection of serializable dynamic entities, each with its own run-time defined set of components.
@@ -116,12 +120,14 @@ impl DynamicScene {
 
     // TODO: move to AssetSaver when it is implemented
     /// Serialize this dynamic scene into rust object notation (ron).
+    #[cfg(feature = "serialize")]
     pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
 
 /// Serialize a given Rust data structure into rust object notation (ron).
+#[cfg(feature = "serialize")]
 pub fn serialize_ron<S>(serialize: S) -> Result<String, ron::Error>
 where
     S: Serialize,
