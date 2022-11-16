@@ -302,21 +302,20 @@ struct ScratchMainWorld(World);
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
 fn extract(app_world: &mut World, render_app: &mut App) {
-    let mut extract = render_app.world.remove_resource::<ExtractStage>().unwrap();
+    render_app
+        .world
+        .resource_scope(|render_world, mut extract_stage: Mut<ExtractStage>| {
+            // temporarily add the app world to the render world as a resource
+            let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
+            let inserted_world = std::mem::replace(app_world, scratch_world.0);
+            render_world.insert_resource(MainWorld(inserted_world));
 
-    // temporarily add the app world to the render world as a resource
-    let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
-    let inserted_world = std::mem::replace(app_world, scratch_world.0);
-    let running_world = &mut render_app.world;
-    running_world.insert_resource(MainWorld(inserted_world));
-
-    extract.0.run(running_world);
-    // move the app world back, as if nothing happened.
-    let inserted_world = running_world.remove_resource::<MainWorld>().unwrap();
-    let scratch_world = std::mem::replace(app_world, inserted_world.0);
-    app_world.insert_resource(ScratchMainWorld(scratch_world));
-
-    render_app.world.insert_resource(extract);
+            extract_stage.0.run(render_world);
+            // move the app world back, as if nothing happened.
+            let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
+            let scratch_world = std::mem::replace(app_world, inserted_world.0);
+            app_world.insert_resource(ScratchMainWorld(scratch_world));
+        });
 }
 
 // system for render app to apply the extract commands
