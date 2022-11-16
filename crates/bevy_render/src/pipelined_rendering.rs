@@ -98,7 +98,7 @@ impl Plugin for PipelinedRenderingPlugin {
     }
 }
 
-// This function is waits for the rendering world to be sent back,
+// This function waits for the rendering world to be sent back,
 // runs extract, and then sends the rendering world back to the render thread.
 fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
     app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {

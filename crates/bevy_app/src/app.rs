@@ -67,7 +67,7 @@ pub struct App {
     /// the application's event loop and advancing the [`Schedule`].
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
-    pub runner: Box<dyn Fn(App) + Send>, // Send + Sync bound is only required to make App Send
+    pub runner: Box<dyn Fn(App) + Send>, // Send bound is required to make App Send
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
@@ -93,7 +93,7 @@ pub struct SubApp {
 }
 
 impl SubApp {
-    /// runs the `SubApp` with its runner
+    /// run the `SubApp`'s schedule
     pub fn run(&mut self) {
         self.app.schedule.run(&mut self.app.world);
     }

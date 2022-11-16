@@ -281,7 +281,7 @@ impl Plugin for RenderPlugin {
 
     fn setup(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            // move stage to resource so render_app.run() doesn't run it.
+            // move the extract stage to a resource so render_app.run() does not run it.
             let stage = render_app
                 .schedule
                 .remove_stage(RenderStage::Extract)

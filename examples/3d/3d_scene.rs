@@ -1,16 +1,10 @@
 //! A simple 3D scene with light shining over a cube sitting on a plane.
 
-use bevy::{prelude::*, window::PresentMode};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                present_mode: PresentMode::AutoNoVsync,
-                ..default()
-            },
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .run();
 }
