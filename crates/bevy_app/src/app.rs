@@ -89,7 +89,7 @@ impl Debug for App {
 pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
-    extract: Box<dyn Fn(&mut World, &mut App) + Send>, // Send bound is only required to make SubApp send
+    extract: Box<dyn Fn(&mut World, &mut App) + Send>,
 }
 
 impl SubApp {
