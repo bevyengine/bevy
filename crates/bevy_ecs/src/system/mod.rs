@@ -77,6 +77,7 @@ mod query;
 mod system;
 mod system_param;
 mod system_piping;
+mod thread_marker;
 
 pub use commands::*;
 pub use exclusive_function_system::*;
@@ -86,6 +87,7 @@ pub use query::*;
 pub use system::*;
 pub use system_param::*;
 pub use system_piping::*;
+pub use thread_marker::*;
 
 /// Ensure that a given function is a system
 ///
