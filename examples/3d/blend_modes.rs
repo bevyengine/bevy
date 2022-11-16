@@ -111,7 +111,7 @@ fn setup(
     // Multiply
     commands.spawn((
         PbrBundle {
-            mesh: icosphere_mesh.clone(),
+            mesh: icosphere_mesh,
             material: materials.add(StandardMaterial {
                 base_color,
                 alpha_mode: AlphaMode::Multiply,
@@ -230,12 +230,10 @@ fn example_control_system(
         let mut material = materials.get_mut(material_handle).unwrap();
         material.base_color.set_a(state.alpha);
 
-        if controls.color {
-            if randomize_colors {
-                material.base_color.set_r(random());
-                material.base_color.set_g(random());
-                material.base_color.set_b(random());
-            }
+        if controls.color && randomize_colors {
+            material.base_color.set_r(random());
+            material.base_color.set_g(random());
+            material.base_color.set_b(random());
         }
         if controls.unlit {
             material.unlit = state.unlit;
