@@ -421,6 +421,11 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 }
 
+/// Represents something that can be stored in a [`SparseSet`] as an integer.
+///
+/// Ideally, the `usize` values should be very small (ie: incremented starting from
+/// zero), as the number of bits needed to represent a `SparseSetIndex` in a `FixedBitSet`
+/// is proportional to the **value** of those `usize`.
 pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
     fn sparse_set_index(&self) -> usize;
     fn get_sparse_set_index(value: usize) -> Self;
