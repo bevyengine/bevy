@@ -295,9 +295,10 @@ bitflags::bitflags! {
         const OCCLUSION_TEXTURE          = (1 << 3);
         const DOUBLE_SIDED               = (1 << 4);
         const UNLIT                      = (1 << 5);
-        const ALPHA_MODE_OPAQUE          = (1 << 6);
-        const ALPHA_MODE_MASK            = (1 << 7);
-        const ALPHA_MODE_BLEND           = (1 << 8);
+        const ALPHA_MODE_BITS            = (0b111 << 6);
+        const ALPHA_MODE_OPAQUE          = (0b000 << 6);
+        const ALPHA_MODE_MASK            = (0b001 << 6);
+        const ALPHA_MODE_BLEND           = (0b010 << 6);
         const TWO_COMPONENT_NORMAL_MAP   = (1 << 9);
         const FLIP_NORMAL_MAP_Y          = (1 << 10);
         const NONE                       = 0;

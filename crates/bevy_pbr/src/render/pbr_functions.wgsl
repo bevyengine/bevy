@@ -7,10 +7,11 @@
 
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
     var color = output_color;
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+    let alpha_mode = (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BITS);
+    if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
+    } else if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) {
         if (color.a >= material.alpha_cutoff) {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
