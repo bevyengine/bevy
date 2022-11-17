@@ -895,8 +895,6 @@ fn get_sampler_binding_type_value(lit_str: &LitStr) -> Result<SamplerBindingType
 }
 
 const READ_ONLY: Symbol = Symbol("read_only");
-const TRUE: &str = "true";
-const FALSE: &str = "false";
 
 #[derive(Default)]
 struct StorageAttrs {
