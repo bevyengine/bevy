@@ -129,7 +129,7 @@ impl Material for CustomMaterial {
 #[uuid = "f57038b7-5b14-4abd-896c-cf4748ba80f8"]
 pub struct CustomMaterial {
     // read only storage buffer
-    #[storage(0, read_only = true)]
+    #[storage(0, read_only)]
     color: Buffer,
 
     // writable storage buffer (default)

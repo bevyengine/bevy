@@ -917,8 +917,8 @@ fn get_storage_attrs(metas: Vec<NestedMeta>) -> Result<StorageAttrs> {
                 visibility = get_visibility_flag_value(&m.nested)?;
             }
             // Parse #[storage(0, read_only)].
-            Meta(NameValue(m)) if m.path == READ_ONLY => {
-                read_only = get_lit_bool(READ_ONLY, &m.lit)?;
+            Meta(syn::Meta::Path(path)) if path == READ_ONLY => {
+                read_only = true;
             }
             Meta(NameValue(m)) => {
                 return Err(Error::new_spanned(
