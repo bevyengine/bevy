@@ -6,6 +6,7 @@
 //! |:-------------------|:------------------------------------|
 //! | `Up` / `Down`      | Increase / Decrease Alpha           |
 //! | `Left` / `Right`   | Rotate Camera                       |
+//! | `H` / `S`          | Toggle Between HDR / SDR            |
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
@@ -183,7 +184,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nSpacebar — Toggle Unlit\nC — Randomize Colors",
+            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH / S - Toggle Between HDR / SDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
             text_style.clone(),
         )
         .with_style(Style {
@@ -268,7 +269,7 @@ impl Default for ExampleState {
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
-    mut camera: Query<(&Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
+    mut camera: Query<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Style, &ExampleLabel)>,
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
@@ -301,7 +302,13 @@ fn example_control_system(
         }
     }
 
-    let (camera, mut camera_transform, camera_global_transform) = camera.single_mut();
+    let (mut camera, mut camera_transform, camera_global_transform) = camera.single_mut();
+
+    if input.just_pressed(KeyCode::H) {
+        camera.hdr = true;
+    } else if input.just_pressed(KeyCode::S) {
+        camera.hdr = false;
+    }
 
     let rotation = if input.pressed(KeyCode::Left) {
         time.delta_seconds()
