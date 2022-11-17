@@ -108,7 +108,7 @@ macro_rules! change_detection_impl {
 
             #[inline]
             fn set_changed(&mut self) {
-                if $enabled {
+                if $enabled && core::mem::size_of::<Self>() != 0 {
                     self.ticks
                         .component_ticks
                         .set_changed(self.ticks.change_tick);

@@ -44,7 +44,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-            const CHANGE_DETECTION_ENABLED: bool = #change_detection_enabled && ::core::mem::size_of::<Self>() != 0;
+            const CHANGE_DETECTION_ENABLED: bool = #change_detection_enabled;
             type Storage = #storage;
         }
     })
