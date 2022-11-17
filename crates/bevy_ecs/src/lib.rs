@@ -116,7 +116,7 @@ mod tests {
     fn change_detection_toggle() {
         assert!(<A as Component>::CHANGE_DETECTION_ENABLED);
         assert!(<B as Component>::CHANGE_DETECTION_ENABLED);
-        assert!(!<C as Component>::CHANGE_DETECTION_ENABLED);
+        assert!(<C as Component>::CHANGE_DETECTION_ENABLED);
         assert!(!<ChangeDetectionLess as Component>::CHANGE_DETECTION_ENABLED);
     }
 
