@@ -113,15 +113,6 @@ mod tests {
     struct SparseStored(u32);
 
     #[test]
-    #[allow(clippy::assertions_on_constants)]
-    fn change_detection_toggle() {
-        assert!(<A as Component>::CHANGE_DETECTION_ENABLED);
-        assert!(<B as Component>::CHANGE_DETECTION_ENABLED);
-        assert!(<C as Component>::CHANGE_DETECTION_ENABLED);
-        assert!(!<ChangeDetectionLess as Component>::CHANGE_DETECTION_ENABLED);
-    }
-
-    #[test]
     fn random_access() {
         let mut world = World::new();
 

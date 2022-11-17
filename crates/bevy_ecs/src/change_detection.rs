@@ -433,8 +433,6 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs_macros::Resource;
-
     use crate::{
         self as bevy_ecs,
         change_detection::{
@@ -442,7 +440,7 @@ mod tests {
         },
         component::Component,
         query::ChangeTrackers,
-        system::{IntoSystem, Query, System},
+        system::{IntoSystem, Query, Resource, System},
         world::World,
     };
 
@@ -451,6 +449,20 @@ mod tests {
 
     #[derive(Resource)]
     struct R;
+
+    #[derive(Component, Resource)]
+    #[component(change_detection = false)]
+    #[resource(change_detection = false)]
+    struct ChangeDetectionless;
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn change_detection_toggle() {
+        assert!(<C as Component>::CHANGE_DETECTION_ENABLED);
+        assert!(<R as Resource>::CHANGE_DETECTION_ENABLED);
+        assert!(!<ChangeDetectionless as Component>::CHANGE_DETECTION_ENABLED);
+        assert!(!<ChangeDetectionless as Resource>::CHANGE_DETECTION_ENABLED);
+    }
 
     #[test]
     fn change_expiration() {
