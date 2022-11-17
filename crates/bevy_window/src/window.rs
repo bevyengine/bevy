@@ -286,6 +286,7 @@ pub struct Window {
     cursor_icon: CursorIcon,
     cursor_visible: bool,
     cursor_grab_mode: CursorGrabMode,
+    hittest: bool,
     physical_cursor_position: Option<DVec2>,
     raw_handle: Option<RawHandleWrapper>,
     focused: bool,
@@ -350,6 +351,10 @@ pub enum WindowCommand {
     /// Set the cursor's position.
     SetCursorPosition {
         position: Vec2,
+    },
+    /// Set whether or not mouse events within *this* window are captured, or fall through to the Window below.
+    SetCursorHitTest {
+        hittest: bool,
     },
     /// Set whether or not the window is maximized.
     SetMaximized {
@@ -435,6 +440,7 @@ impl Window {
             cursor_visible: window_descriptor.cursor_visible,
             cursor_grab_mode: window_descriptor.cursor_grab_mode,
             cursor_icon: CursorIcon::Default,
+            hittest: true,
             physical_cursor_position: None,
             raw_handle,
             focused: false,
@@ -723,6 +729,12 @@ impl Window {
         self.cursor_grab_mode = grab_mode;
         self.command_queue
             .push(WindowCommand::SetCursorGrabMode { grab_mode });
+    }
+    /// Modifies whether the window catches cursor events.
+    ///
+    /// If true, the window will catch the cursor events. If false, events are passed through the window such that any other window behind it receives them. By default hittest is enabled.
+    pub fn set_cursor_hittest(&mut self, hittest: bool) {
+        self.hittest = hittest;
     }
     /// Get whether or not the cursor is visible.
     ///

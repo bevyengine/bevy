@@ -237,6 +237,10 @@ fn change_window(
                     // No need to run any further commands - this drops the rest of the commands, although the `bevy_window::Window` will be dropped later anyway
                     break;
                 }
+                bevy_window::WindowCommand::SetCursorHitTest { hittest } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_hittest(hittest).unwrap();
+                }
             }
         }
     }
