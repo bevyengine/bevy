@@ -502,7 +502,7 @@ macro_rules! impl_tick_filter {
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        $is_detected(&*(
+                        T::CHANGE_DETECTION_ENABLED && $is_detected(&*(
                             fetch.table_ticks
                             .debug_checked_unwrap()
                                  .get(table_row))
@@ -512,13 +512,17 @@ macro_rules! impl_tick_filter {
                         )
                     }
                     StorageType::SparseSet => {
-                        let ticks = &*fetch
-                            .sparse_set
-                            .debug_checked_unwrap()
-                            .get_ticks(entity)
-                            .debug_checked_unwrap()
-                            .get();
-                        $is_detected(ticks, fetch.last_change_tick, fetch.change_tick)
+                        if T::CHANGE_DETECTION_ENABLED {
+                            let ticks = &*fetch
+                                .sparse_set
+                                .debug_checked_unwrap()
+                                .get_ticks(entity)
+                                .debug_checked_unwrap()
+                                .get();
+                            $is_detected(ticks, fetch.last_change_tick, fetch.change_tick)
+                        } else {
+                            false
+                        }
                     }
                 }
             }
