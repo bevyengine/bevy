@@ -245,6 +245,11 @@ impl AssetServer {
     }
 
     /// Gets the source info of an asset from the provided handle.
+    ///
+    /// The source info is located behind a lock, and isn't completely cheap
+    /// to clone.  Because of that, this method returns an `impl Deref`,
+    /// allowing access by reference while holding the (read) lock, which will
+    /// be released when the reference is dropped.
     pub fn get_source_info<H: Into<HandleId>>(
         &self,
         handle: H,
