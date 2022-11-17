@@ -133,6 +133,12 @@ impl From<&str> for ShaderDefVal {
     }
 }
 
+impl From<String> for ShaderDefVal {
+    fn from(key: String) -> Self {
+        ShaderDefVal::Bool(key, true)
+    }
+}
+
 impl ShaderCache {
     fn get(
         &mut self,

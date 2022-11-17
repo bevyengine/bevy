@@ -641,11 +641,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
-            shader_defs.push("TONEMAP_IN_SHADER".to_string());
+            shader_defs.push("TONEMAP_IN_SHADER".into());
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(MeshPipelineKey::DEBAND_DITHER) {
-                shader_defs.push("DEBAND_DITHER".to_string());
+                shader_defs.push("DEBAND_DITHER".into());
             }
         }
 
