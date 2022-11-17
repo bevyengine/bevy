@@ -7,7 +7,7 @@
 
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
     var color = output_color;
-    let alpha_mode = (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BITS);
+    let alpha_mode = (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS);
     if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
@@ -279,7 +279,7 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
     // For `BlendState::PREMULTIPLIED_ALPHA_BLENDING` the blend function is:
     //
     //     result = 1 * src_color + (1 - src_alpha) * dst_color
-    let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BITS;
+    let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_RESERVED_BITS;
     if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) {
         // Here, we premultiply `src_color` by `src_alpha` (ahead of time, here in the shader)
         //

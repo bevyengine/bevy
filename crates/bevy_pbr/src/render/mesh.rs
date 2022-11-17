@@ -515,7 +515,7 @@ bitflags::bitflags! {
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
         const NONE                        = 0;
-        const BLEND_BITS                  = 0b11; // ← Bitmask reserving two bits for the blend state
+        const BLEND_RESERVED_BITS         = 0b11; // ← Bitmask reserving two bits for the blend state
         const BLEND_OPAQUE                = 0;    // ← Values are just sequential within the mask, and can range from 0 to 3
         const BLEND_PREMULTIPLIED_ALPHA   = 1;    //
         const BLEND_MULTIPLY              = 2;    // ← We still have room for one more value without adding more bits
@@ -623,7 +623,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let (label, blend, depth_write_enabled);
-        let pass = key.intersection(MeshPipelineKey::BLEND_BITS);
+        let pass = key.intersection(MeshPipelineKey::BLEND_RESERVED_BITS);
         if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             label = "premultiplied_alpha_mesh_pipeline".into();
             blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);

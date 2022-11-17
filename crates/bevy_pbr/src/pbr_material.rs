@@ -295,7 +295,7 @@ bitflags::bitflags! {
         const OCCLUSION_TEXTURE          = (1 << 3);
         const DOUBLE_SIDED               = (1 << 4);
         const UNLIT                      = (1 << 5);
-        const ALPHA_MODE_BITS            = (0b111 << 6); // ← Bitmask reserving three bits for the `AlphaMode`
+        const ALPHA_MODE_RESERVED_BITS   = (0b111 << 6); // ← Bitmask reserving three bits for the `AlphaMode`
         const ALPHA_MODE_OPAQUE          = (0 << 6);     // ← Values are just sequential values bitshifted into
         const ALPHA_MODE_MASK            = (1 << 6);     //   the bitmask, and can range from 0 to 7.
         const ALPHA_MODE_BLEND           = (2 << 6);     //
