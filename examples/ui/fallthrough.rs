@@ -7,6 +7,7 @@ const WIDTH: f32 = 1920.;
 const HEIGHT: f32 = 1080.;
 
 fn main() {
+    // Set the window's parameters, note we're setting always_on_top to be true.
     let window_desc = WindowDescriptor {
         width: WIDTH,
         height: HEIGHT,
@@ -15,6 +16,7 @@ fn main() {
         always_on_top: true,
         ..default()
     };
+
     App::new()
         .insert_resource(ClearColor(Color::NONE)) // Use a transparent window, to make effects obvious.
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -53,6 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         }),
     ));
 }
+// A simple system to handle some keyboard input and toggle on/off the hittest.
 fn toggle_mouse_passthrough(keyboard_input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     if keyboard_input.just_pressed(KeyCode::P) {
         let window = windows.primary_mut();
