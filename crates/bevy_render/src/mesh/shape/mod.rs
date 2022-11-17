@@ -50,7 +50,10 @@ impl Box {
         }
     }
 
-    pub fn from_min_max(min: Vec3, max: Vec3) -> Box {
+    /// Creates a new box given the coordinates of two opposing corners.
+    pub fn from_corners(a: Vec3, b: Vec3) -> Box {
+        let max = a.max(b);
+        let min = a.min(b);
         Box {
             max_x: max.x,
             min_x: min.x,
