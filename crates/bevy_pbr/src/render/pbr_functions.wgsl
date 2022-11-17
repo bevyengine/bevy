@@ -269,6 +269,7 @@ fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
 }
 #endif
 
+#ifdef PREMULTIPLY_ALPHA
 fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32> {
     let alpha_mode = standard_material_flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BITS;
     if (alpha_mode == STANDARD_MATERIAL_FLAGS_ALPHA_MODE_BLEND) {
@@ -282,3 +283,4 @@ fn premultiply_alpha(standard_material_flags: u32, color: vec4<f32>) -> vec4<f32
     }
     return color.rgba;
 }
+#endif

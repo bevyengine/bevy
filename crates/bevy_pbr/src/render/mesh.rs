@@ -627,6 +627,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             label = "premultiplied_alpha_mesh_pipeline".into();
             blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
+            shader_defs.push("PREMULTIPLY_ALPHA".to_string());
             // For the transparent pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
@@ -640,6 +641,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 },
                 alpha: BlendComponent::OVER,
             });
+            shader_defs.push("PREMULTIPLY_ALPHA".to_string());
             // For the multiply pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
