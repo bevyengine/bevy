@@ -2,7 +2,7 @@ use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
+use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, LitBool, Path, Result};
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -31,6 +31,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
+    let change_detection_enabled = LitBool::new(attrs.change_detection_enabled, Span::call_site());
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
     ast.generics
@@ -43,16 +44,18 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-            const CHANGE_DETECTION_ENABLED: bool = ::core::mem::size_of::<Self>() != 0;
+            const CHANGE_DETECTION_ENABLED: bool = #change_detection_enabled && ::core::mem::size_of::<Self>() != 0;
             type Storage = #storage;
         }
     })
 }
 
 pub const COMPONENT: Symbol = Symbol("component");
+pub const CHANGED_DETECTION: Symbol = Symbol("change_detection");
 pub const STORAGE: Symbol = Symbol("storage");
 
 struct Attrs {
+    change_detection_enabled: bool,
     storage: StorageTy,
 }
 
@@ -70,6 +73,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
     let meta_items = bevy_macro_utils::parse_attrs(ast, COMPONENT)?;
 
     let mut attrs = Attrs {
+        change_detection_enabled: true,
         storage: StorageTy::Table,
     };
 
@@ -90,6 +94,17 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                                 "Invalid storage type `{}`, expected '{}' or '{}'.",
                                 s, TABLE, SPARSE_SET
                             ),
+                        ))
+                    }
+                };
+            }
+            Meta(NameValue(m)) if m.path == CHANGED_DETECTION => {
+                attrs.change_detection_enabled = match m.lit {
+                    syn::Lit::Bool(value) => value.value,
+                    s => {
+                        return Err(Error::new_spanned(
+                            s,
+                            "Change detection must be a bool, expected 'true' or 'false'.",
                         ))
                     }
                 };
