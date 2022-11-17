@@ -160,6 +160,11 @@ impl FontAtlasSet {
 
     fn update_last_used(&mut self, font_size_key: &FontSizeKey) {
         if let Some(pos) = self.queue.iter().position(|i| *i == *font_size_key) {
+            // Already at the front, nothing to be done.
+            if pos == 0 {
+                return;
+            }
+
             if let Some(key) = self.queue.remove(pos) {
                 self.queue.push_front(key);
             }
