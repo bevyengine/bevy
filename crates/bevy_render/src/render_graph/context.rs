@@ -207,11 +207,11 @@ impl<'a> RenderGraphContext<'a> {
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum RunSubGraphError {
-    #[error("tried to run a non-existent sub-graph")]
+    #[error("attempted to run sub-graph `{0}`, but it does not exist")]
     MissingSubGraph(Cow<'static, str>),
-    #[error("passed in inputs, but this sub-graph doesn't have any")]
+    #[error("attempted to pass inputs to sub-graph `{0}`, which has no input slots")]
     SubGraphHasNoInputs(Cow<'static, str>),
-    #[error("sub graph (name: '{graph_name:?}') could not be run because slot '{slot_name}' at index {slot_index} has no value")]
+    #[error("sub graph (name: `{graph_name:?}`) could not be run because slot `{slot_name}` at index {slot_index} has no value")]
     MissingInput {
         slot_index: usize,
         slot_name: Cow<'static, str>,
@@ -229,9 +229,9 @@ pub enum RunSubGraphError {
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum OutputSlotError {
-    #[error("slot does not exist")]
+    #[error("output slot `{0:?}` does not exist")]
     InvalidSlot(SlotLabel),
-    #[error("attempted to assign the wrong type to slot")]
+    #[error("attempted to output a value of type `{actual}` to output slot `{label:?}`, which has type `{expected}`")]
     MismatchedSlotType {
         label: SlotLabel,
         expected: SlotType,
@@ -241,9 +241,9 @@ pub enum OutputSlotError {
 
 #[derive(Error, Debug, Eq, PartialEq)]
 pub enum InputSlotError {
-    #[error("slot does not exist")]
+    #[error("input slot `{0:?}` does not exist")]
     InvalidSlot(SlotLabel),
-    #[error("attempted to retrieve the wrong type from input slot")]
+    #[error("attempted to retrieve a value of type `{actual}` from input slot `{label:?}`, which has type `{expected}`")]
     MismatchedSlotType {
         label: SlotLabel,
         expected: SlotType,

@@ -1,19 +1,17 @@
 use crate::schedule::{
-    AmbiguitySetLabel, BoxedAmbiguitySetLabel, BoxedSystemLabel, IntoRunCriteria,
-    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel,
+    IntoRunCriteria, IntoSystemDescriptor, RunCriteriaDescriptorOrLabel, State, StateData,
+    SystemDescriptor, SystemLabel, SystemLabelId,
 };
-
-use super::IntoSystemDescriptor;
+use crate::system::AsSystemLabel;
 
 /// A builder for describing several systems at the same time.
 #[derive(Default)]
 pub struct SystemSet {
     pub(crate) systems: Vec<SystemDescriptor>,
     pub(crate) run_criteria: Option<RunCriteriaDescriptorOrLabel>,
-    pub(crate) labels: Vec<BoxedSystemLabel>,
-    pub(crate) before: Vec<BoxedSystemLabel>,
-    pub(crate) after: Vec<BoxedSystemLabel>,
-    pub(crate) ambiguity_sets: Vec<BoxedAmbiguitySetLabel>,
+    pub(crate) labels: Vec<SystemLabelId>,
+    pub(crate) before: Vec<SystemLabelId>,
+    pub(crate) after: Vec<SystemLabelId>,
 }
 
 impl SystemSet {
@@ -70,33 +68,33 @@ impl SystemSet {
         Self::new().with_run_criteria(State::<T>::on_resume(s))
     }
 
-    pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
-        self.ambiguity_sets.push(Box::new(set));
-        self
-    }
-
+    #[must_use]
     pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.systems.push(system.into_descriptor());
         self
     }
 
+    #[must_use]
     pub fn with_run_criteria<Marker>(mut self, run_criteria: impl IntoRunCriteria<Marker>) -> Self {
         self.run_criteria = Some(run_criteria.into());
         self
     }
 
+    #[must_use]
     pub fn label(mut self, label: impl SystemLabel) -> Self {
-        self.labels.push(Box::new(label));
+        self.labels.push(label.as_label());
         self
     }
 
-    pub fn before(mut self, label: impl SystemLabel) -> Self {
-        self.before.push(Box::new(label));
+    #[must_use]
+    pub fn before<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> Self {
+        self.before.push(label.as_system_label().as_label());
         self
     }
 
-    pub fn after(mut self, label: impl SystemLabel) -> Self {
-        self.after.push(Box::new(label));
+    #[must_use]
+    pub fn after<Marker>(mut self, label: impl AsSystemLabel<Marker>) -> Self {
+        self.after.push(label.as_system_label().as_label());
         self
     }
 
@@ -107,27 +105,11 @@ impl SystemSet {
             labels,
             before,
             after,
-            ambiguity_sets,
         } = self;
         for descriptor in &mut systems {
-            match descriptor {
-                SystemDescriptor::Parallel(descriptor) => {
-                    descriptor.labels.extend(labels.iter().cloned());
-                    descriptor.before.extend(before.iter().cloned());
-                    descriptor.after.extend(after.iter().cloned());
-                    descriptor
-                        .ambiguity_sets
-                        .extend(ambiguity_sets.iter().cloned());
-                }
-                SystemDescriptor::Exclusive(descriptor) => {
-                    descriptor.labels.extend(labels.iter().cloned());
-                    descriptor.before.extend(before.iter().cloned());
-                    descriptor.after.extend(after.iter().cloned());
-                    descriptor
-                        .ambiguity_sets
-                        .extend(ambiguity_sets.iter().cloned());
-                }
-            }
+            descriptor.labels.extend(labels.iter().cloned());
+            descriptor.before.extend(before.iter().cloned());
+            descriptor.after.extend(after.iter().cloned());
         }
         (run_criteria, systems)
     }

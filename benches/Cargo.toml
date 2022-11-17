@@ -7,22 +7,43 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
-criterion = "0.3"
-bevy = { path = ".." }
+glam = "0.22"
+rand = "0.8"
+rand_chacha = "0.3"
+criterion = { version = "0.3", features = ["html_reports"] }
+bevy_app = { path = "../crates/bevy_app" }
+bevy_ecs = { path = "../crates/bevy_ecs" }
+bevy_reflect = { path = "../crates/bevy_reflect" }
+bevy_tasks = { path = "../crates/bevy_tasks" }
+bevy_utils = { path = "../crates/bevy_utils" }
+
+[profile.release]
+opt-level = 3
+lto = true
 
 [[bench]]
-name = "system_stage"
-path = "benches/bevy_ecs/stages.rs"
+name = "change_detection"
+path = "benches/bevy_ecs/change_detection.rs"
 harness = false
 
 [[bench]]
-name = "commands"
-path = "benches/bevy_ecs/commands.rs"
+name = "ecs"
+path = "benches/bevy_ecs/benches.rs"
 harness = false
 
 [[bench]]
-name = "world_get"
-path = "benches/bevy_ecs/world_get.rs"
+name = "reflect_list"
+path = "benches/bevy_reflect/list.rs"
+harness = false
+
+[[bench]]
+name = "reflect_map"
+path = "benches/bevy_reflect/map.rs"
+harness = false
+
+[[bench]]
+name = "reflect_struct"
+path = "benches/bevy_reflect/struct.rs"
 harness = false
 
 [[bench]]

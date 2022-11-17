@@ -6,7 +6,9 @@
 
 ## What is Bevy ECS?
 
-Bevy ECS is an Entity Component System custom-built for the [Bevy][bevy] game engine. It aims to be simple to use, ergonomic, fast, massively parallel, opinionated, and featureful. It was created specifically for Bevy's needs, but it can easily be used as a standalone crate in other projects.
+Bevy ECS is an Entity Component System custom-built for the [Bevy][bevy] game engine.
+It aims to be simple to use, ergonomic, fast, massively parallel, opinionated, and featureful.
+It was created specifically for Bevy's needs, but it can easily be used as a standalone crate in other projects.
 
 ## ECS
 
@@ -25,6 +27,9 @@ Bevy ECS is Bevy's implementation of the ECS pattern. Unlike other Rust ECS impl
 Components are normal Rust structs. They are data stored in a `World` and specific instances of Components correlate to Entities.
 
 ```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Component)]
 struct Position { x: f32, y: f32 }
 ```
 
@@ -33,6 +38,8 @@ struct Position { x: f32, y: f32 }
 Entities, Components, and Resources are stored in a `World`. Worlds, much like Rust std collections like HashSet and Vec, expose operations to insert, read, write, and remove the data they store.
 
 ```rust
+use bevy_ecs::world::World;
+
 let world = World::default();
 ```
 
@@ -41,9 +48,17 @@ let world = World::default();
 Entities are unique identifiers that correlate to zero or more Components.
 
 ```rust
-let entity = world.spawn()
-    .insert(Position { x: 0.0, y: 0.0 })
-    .insert(Velocity { x: 1.0, y: 0.0 })
+use bevy_ecs::prelude::*;
+
+#[derive(Component)]
+struct Position { x: f32, y: f32 }
+#[derive(Component)]
+struct Velocity { x: f32, y: f32 }
+
+let mut world = World::new();
+
+let entity = world
+    .spawn((Position { x: 0.0, y: 0.0 }, Velocity { x: 1.0, y: 0.0 }))
     .id();
 
 let entity_ref = world.entity(entity);
@@ -56,8 +71,13 @@ let velocity = entity_ref.get::<Velocity>().unwrap();
 Systems are normal Rust functions. Thanks to the Rust type system, Bevy ECS can use function parameter types to determine what data needs to be sent to the system. It also uses this "data access" information to determine what Systems can run in parallel with each other.
 
 ```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Component)]
+struct Position { x: f32, y: f32 }
+
 fn print_position(query: Query<(Entity, &Position)>) {
-    for (entity, position) in query.iter() {
+    for (entity, position) in &query {
         println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
     }
 }
@@ -68,10 +88,14 @@ fn print_position(query: Query<(Entity, &Position)>) {
 Apps often require unique resources, such as asset collections, renderers, audio servers, time, etc. Bevy ECS makes this pattern a first class citizen. `Resource` is a special kind of component that does not belong to any entity. Instead, it is identified uniquely by its type:
 
 ```rust
-#[derive(Default)]
+use bevy_ecs::prelude::*;
+
+#[derive(Resource, Default)]
 struct Time {
     seconds: f32,
 }
+
+let mut world = World::new();
 
 world.insert_resource(Time::default());
 
@@ -98,19 +122,14 @@ Bevy ECS should feel very natural for those familiar with Rust syntax:
 ```rust
 use bevy_ecs::prelude::*;
 
-struct Velocity {
-    x: f32,
-    y: f32,
-}
-
-struct Position {
-    x: f32,
-    y: f32,
-}
+#[derive(Component)]
+struct Position { x: f32, y: f32 }
+#[derive(Component)]
+struct Velocity { x: f32, y: f32 }
 
 // This system moves each entity with a Position and Velocity component
-fn movement(query: Query<(&mut Position, &Velocity)>) {
-    for (mut position, velocity) in query.iter_mut() {
+fn movement(mut query: Query<(&mut Position, &Velocity)>) {
+    for (mut position, velocity) in &mut query {
         position.x += velocity.x;
         position.y += velocity.y;
     }
@@ -121,16 +140,21 @@ fn main() {
     let mut world = World::new();
 
     // Spawn an entity with Position and Velocity components
-    world.spawn()
-        .insert(Position { x: 0.0, y: 0.0 })
-        .insert(Velocity { x: 1.0, y: 0.0 });
+    world.spawn((
+        Position { x: 0.0, y: 0.0 },
+        Velocity { x: 1.0, y: 0.0 },
+    ));
 
     // Create a new Schedule, which defines an execution strategy for Systems
     let mut schedule = Schedule::default();
 
+    // Define a unique public name for a new Stage.
+    #[derive(StageLabel)]
+    pub struct UpdateLabel;
+
     // Add a Stage to our schedule. Each Stage in a schedule runs all of its systems
     // before moving on to the next Stage
-    schedule.add_stage("update", SystemStage::parallel()
+    schedule.add_stage(UpdateLabel, SystemStage::parallel()
         .with_system(movement)
     );
 
@@ -144,9 +168,19 @@ fn main() {
 ### Query Filters
 
 ```rust
-// Gets the Position component of all Entities with Player component and without the RedTeam component
-fn system(query: Query<&Position, (With<Player>, Without<RedTeam>)>) {
-    for position in query.iter() {
+use bevy_ecs::prelude::*;
+
+#[derive(Component)]
+struct Position { x: f32, y: f32 }
+#[derive(Component)]
+struct Player;
+#[derive(Component)]
+struct Alive;
+
+// Gets the Position component of all Entities with Player component and without the Alive
+// component. 
+fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
+    for position in &query {
     }
 }
 ```
@@ -158,15 +192,22 @@ Bevy ECS tracks _all_ changes to Components and Resources.
 Queries can filter for changed Components:
 
 ```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Component)]
+struct Position { x: f32, y: f32 }
+#[derive(Component)]
+struct Velocity { x: f32, y: f32 }
+
 // Gets the Position component of all Entities whose Velocity has changed since the last run of the System
-fn system(query: Query<&Position, Changed<Velocity>>) {
-    for position in query.iter() {
+fn system_changed(query: Query<&Position, Changed<Velocity>>) {
+    for position in &query {
     }
 }
 
 // Gets the Position component of all Entities that had a Velocity component added since the last run of the System
-fn system(query: Query<&Position, Added<Velocity>>) {
-    for position in query.iter() {
+fn system_added(query: Query<&Position, Added<Velocity>>) {
+    for position in &query {
     }
 }
 ```
@@ -174,6 +215,11 @@ fn system(query: Query<&Position, Added<Velocity>>) {
 Resources also expose change state:
 
 ```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Resource)]
+struct Time(f32);
+
 // Prints "time changed!" if the Time resource has changed since the last run of the System
 fn system(time: Res<Time>) {
     if time.is_changed() {
@@ -195,7 +241,9 @@ Components can be stored in:
 
 Component storage types are configurable, and they default to table storage if the storage is not manually defined.
 
-```rs
+```rust
+use bevy_ecs::prelude::*;
+
 #[derive(Component)]
 struct TableStoredComponent;
 
@@ -209,6 +257,15 @@ struct SparseStoredComponent;
 Define sets of Components that should be added together.
 
 ```rust
+use bevy_ecs::prelude::*;
+
+#[derive(Default, Component)]
+struct Player;
+#[derive(Default, Component)]
+struct Position { x: f32, y: f32 }
+#[derive(Default, Component)]
+struct Velocity { x: f32, y: f32 }
+
 #[derive(Bundle, Default)]
 struct PlayerBundle {
     player: Player,
@@ -216,11 +273,13 @@ struct PlayerBundle {
     velocity: Velocity,
 }
 
+let mut world = World::new();
+
 // Spawn a new entity and insert the default PlayerBundle
-world.spawn().insert_bundle(PlayerBundle::default());
+world.spawn(PlayerBundle::default());
 
 // Bundles play well with Rust's struct update syntax
-world.spawn().insert_bundle(PlayerBundle {
+world.spawn(PlayerBundle {
     position: Position { x: 1.0, y: 1.0 },
     ..Default::default()
 });
@@ -231,6 +290,8 @@ world.spawn().insert_bundle(PlayerBundle {
 Events offer a communication channel between one or more systems. Events can be sent using the system parameter `EventWriter` and received with `EventReader`.
 
 ```rust
+use bevy_ecs::prelude::*;
+
 struct MyEvent {
     message: String,
 }

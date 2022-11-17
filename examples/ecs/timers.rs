@@ -1,15 +1,21 @@
+//! Illustrates how `Timer`s can be used both as resources and components.
+
 use bevy::{log::info, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .init_resource::<Countdown>()
-        .add_startup_system(setup_system)
-        .add_system(countdown_system)
-        .add_system(timer_system)
+        .add_startup_system(setup)
+        .add_system(countdown)
+        .add_system(print_when_completed)
         .run();
 }
 
+#[derive(Component, Deref, DerefMut)]
+pub struct PrintOnCompletionTimer(Timer);
+
+#[derive(Resource)]
 pub struct Countdown {
     pub percent_trigger: Timer,
     pub main_timer: Timer,
@@ -18,8 +24,8 @@ pub struct Countdown {
 impl Countdown {
     pub fn new() -> Self {
         Self {
-            percent_trigger: Timer::from_seconds(4.0, true),
-            main_timer: Timer::from_seconds(20.0, false),
+            percent_trigger: Timer::from_seconds(4.0, TimerMode::Repeating),
+            main_timer: Timer::from_seconds(20.0, TimerMode::Once),
         }
     }
 }
@@ -30,24 +36,27 @@ impl Default for Countdown {
     }
 }
 
-fn setup_system(mut commands: Commands) {
+fn setup(mut commands: Commands) {
     // Add an entity to the world with a timer
-    commands.spawn().insert(Timer::from_seconds(5.0, false));
+    commands.spawn(PrintOnCompletionTimer(Timer::from_seconds(
+        5.0,
+        TimerMode::Once,
+    )));
 }
 
 /// This system ticks all the `Timer` components on entities within the scene
 /// using bevy's `Time` resource to get the delta between each update.
-fn timer_system(time: Res<Time>, mut query: Query<&mut Timer>) {
-    for mut timer in query.iter_mut() {
+fn print_when_completed(time: Res<Time>, mut query: Query<&mut PrintOnCompletionTimer>) {
+    for mut timer in &mut query {
         if timer.tick(time.delta()).just_finished() {
-            info!("Entity timer just finished")
+            info!("Entity timer just finished");
         }
     }
 }
 
 /// This system controls ticking the timer within the countdown resource and
 /// handling its state.
-fn countdown_system(time: Res<Time>, mut countdown: ResMut<Countdown>) {
+fn countdown(time: Res<Time>, mut countdown: ResMut<Countdown>) {
     countdown.main_timer.tick(time.delta());
 
     // The API encourages this kind of timer state checking (if you're only checking for one value)
@@ -63,7 +72,7 @@ fn countdown_system(time: Res<Time>, mut countdown: ResMut<Countdown>) {
         } else {
             // The timer has finished so we pause the percent output timer
             countdown.percent_trigger.pause();
-            info!("Paused percent trigger timer")
+            info!("Paused percent trigger timer");
         }
     }
 }

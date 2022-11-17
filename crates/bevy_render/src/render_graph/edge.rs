@@ -6,8 +6,8 @@ use super::NodeId;
 /// They are used to describe the ordering (which node has to run first)
 /// and may be of two kinds: [`NodeEdge`](Self::NodeEdge) and [`SlotEdge`](Self::SlotEdge).
 ///
-/// Edges are added via the render_graph::add_node_edge(output_node, input_node) and the
-/// render_graph::add_slot_edge(output_node, output_slot, input_node, input_slot) methode.
+/// Edges are added via the `render_graph::add_node_edge(output_node, input_node)` and the
+/// `render_graph::add_slot_edge(output_node, output_slot, input_node, input_slot)` methods.
 ///
 /// The former simply states that the `output_node` has to be run before the `input_node`,
 /// while the later connects an output slot of the `output_node`
@@ -32,19 +32,23 @@ pub enum Edge {
 }
 
 impl Edge {
-    /// Returns the id of the 'input_node'.
+    /// Returns the id of the `input_node`.
     pub fn get_input_node(&self) -> NodeId {
         match self {
-            Edge::SlotEdge { input_node, .. } => *input_node,
-            Edge::NodeEdge { input_node, .. } => *input_node,
+            Edge::SlotEdge { input_node, .. } | Edge::NodeEdge { input_node, .. } => *input_node,
         }
     }
 
-    /// Returns the id of the 'output_node'.
+    /// Returns the id of the `output_node`.
     pub fn get_output_node(&self) -> NodeId {
         match self {
-            Edge::SlotEdge { output_node, .. } => *output_node,
-            Edge::NodeEdge { output_node, .. } => *output_node,
+            Edge::SlotEdge { output_node, .. } | Edge::NodeEdge { output_node, .. } => *output_node,
         }
     }
+}
+
+#[derive(PartialEq, Eq)]
+pub enum EdgeExistence {
+    Exists,
+    DoesNotExist,
 }

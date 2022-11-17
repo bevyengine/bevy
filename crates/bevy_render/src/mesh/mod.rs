@@ -15,6 +15,8 @@ pub struct MeshPlugin;
 impl Plugin for MeshPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Mesh>()
+            .add_asset::<skinning::SkinnedMeshInverseBindposes>()
+            .register_type::<skinning::SkinnedMesh>()
             .add_plugin(RenderAssetPlugin::<Mesh>::default());
     }
 }

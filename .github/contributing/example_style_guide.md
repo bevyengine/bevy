@@ -11,8 +11,8 @@ For more advice on writing examples, see the [relevant section](../../CONTRIBUTI
    1. Imports
    2. A `fn main()` block
    3. Example logic
-   4. \[Optional\] Tests
 5. Try to structure app / plugin construction in the same fashion as the actual code.
+6. Examples should typically not have tests, as they are not directly reusable by the Bevy user.
 
 ## Stylistic preferences
 
@@ -36,7 +36,7 @@ For more advice on writing examples, see the [relevant section](../../CONTRIBUTI
 2. Prefer `for` loops over `.for_each`. The latter is faster (for now), but it is less clear for beginners, less idiomatic, and less flexible.
 3. Use `.single` and `.single_mut` where appropriate.
 4. In Queries, prefer `With<T>` filters over actually fetching unused data with `&T`.
-5. Prefer disjoint queries using `With` and `Without` over query sets when you need more than one query in a single system.
+5. Prefer disjoint queries using `With` and `Without` over param sets when you need more than one query in a single system.
 6. Prefer structs with named fields over tuple structs except in the case of single-field wrapper types.
 7. Use enum-labels over string-labels for system / stage / etc. labels.
 

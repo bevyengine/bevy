@@ -1,5 +1,6 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_utils::AHasher;
 use std::{
     borrow::Cow,
@@ -8,8 +9,13 @@ use std::{
 };
 
 /// Component used to identify an entity. Stores a hash for faster comparisons
-#[derive(Component, Debug, Clone, Reflect)]
-#[reflect(Component)]
+/// The hash is eagerly re-computed upon each update to the name.
+///
+/// [`Name`] should not be treated as a globally unique identifier for entities,
+/// as multiple entities can have the same name.  [`bevy_ecs::entity::Entity`] should be
+/// used instead as the default unique identifier.
+#[derive(Reflect, FromReflect, Component, Debug, Clone)]
+#[reflect(Component, Default)]
 pub struct Name {
     hash: u64, // TODO: Shouldn't be serialized
     name: Cow<'static, str>,
@@ -22,6 +28,9 @@ impl Default for Name {
 }
 
 impl Name {
+    /// Creates a new [`Name`] from any string-like type.
+    ///
+    /// The internal hash will be computed immediately.
     pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
         let name = name.into();
         let mut name = Name { name, hash: 0 };
@@ -29,17 +38,25 @@ impl Name {
         name
     }
 
+    /// Sets the entity's name.
+    ///
+    /// The internal hash will be re-computed.
     #[inline(always)]
     pub fn set(&mut self, name: impl Into<Cow<'static, str>>) {
         *self = Name::new(name);
     }
 
+    /// Updates the name of the entity in place.
+    ///
+    /// This will allocate a new string if the name was previously
+    /// created from a borrow.
     #[inline(always)]
     pub fn mutate<F: FnOnce(&mut String)>(&mut self, f: F) {
         f(self.name.to_mut());
         self.update_hash();
     }
 
+    /// Gets the name of the entity as a `&str`.
     #[inline(always)]
     pub fn as_str(&self) -> &str {
         &self.name
@@ -52,10 +69,46 @@ impl Name {
     }
 }
 
+impl std::fmt::Display for Name {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Display::fmt(&self.name, f)
+    }
+}
+
+/* Conversions from strings */
+
 impl From<&str> for Name {
     #[inline(always)]
     fn from(name: &str) -> Self {
         Name::new(name.to_owned())
+    }
+}
+impl From<String> for Name {
+    #[inline(always)]
+    fn from(name: String) -> Self {
+        Name::new(name)
+    }
+}
+
+/* Conversions to strings */
+
+impl AsRef<str> for Name {
+    #[inline(always)]
+    fn as_ref(&self) -> &str {
+        &self.name
+    }
+}
+impl From<&Name> for String {
+    #[inline(always)]
+    fn from(val: &Name) -> String {
+        val.as_str().to_owned()
+    }
+}
+impl From<Name> for String {
+    #[inline(always)]
+    fn from(val: Name) -> String {
+        val.name.into_owned()
     }
 }
 
@@ -91,9 +144,9 @@ impl Ord for Name {
 }
 
 impl Deref for Name {
-    type Target = Cow<'static, str>;
+    type Target = str;
 
     fn deref(&self) -> &Self::Target {
-        &self.name
+        self.name.as_ref()
     }
 }

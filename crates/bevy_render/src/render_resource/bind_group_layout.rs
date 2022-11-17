@@ -10,6 +10,12 @@ pub struct BindGroupLayout {
     value: Arc<wgpu::BindGroupLayout>,
 }
 
+impl PartialEq for BindGroupLayout {
+    fn eq(&self, other: &Self) -> bool {
+        self.id == other.id
+    }
+}
+
 impl BindGroupLayout {
     #[inline]
     pub fn id(&self) -> BindGroupLayoutId {
