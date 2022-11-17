@@ -119,7 +119,7 @@ impl FontAtlasSet {
 
         if text_settings.allow_dynamic_font_size {
             // Clear last space in queue to make room for new font size
-            while self.queue.len() >= text_settings.max_font_atlases.get() - 1 {
+            while self.queue.len() > text_settings.max_font_atlases.get() {
                 if let Some(font_size_key) = self.queue.pop_back() {
                     self.font_atlases.remove(&font_size_key);
                 }
