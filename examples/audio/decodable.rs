@@ -47,9 +47,7 @@ impl Iterator for SineDecoder {
     fn next(&mut self) -> Option<Self::Item> {
         self.current_progress += self.progress_per_frame;
         // we loop back round to 0 to avoid floating point inaccuracies
-        if self.current_progress > 1. {
-            self.current_progress -= 1.;
-        }
+        self.current_progress %= 1.;
         Some(f32::sin(self.period * self.current_progress))
     }
 }
