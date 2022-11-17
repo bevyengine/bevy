@@ -1,6 +1,8 @@
-use crate as bevy_reflect;
+use crate::TypeUuid;
+use crate::{self as bevy_reflect, __macro_exports::generate_composite_uuid};
 use bevy_reflect_derive::impl_type_uuid;
-use bevy_utils::{Duration, HashMap, HashSet, Instant};
+use bevy_utils::{Duration, HashMap, HashSet, Instant, Uuid};
+
 #[cfg(any(unix, windows))]
 use std::ffi::OsString;
 use std::{
@@ -11,7 +13,12 @@ use std::{
     ops::{RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
     path::PathBuf,
 };
-
+impl<T: TypeUuid, const N: usize> TypeUuid for [T; N] {
+    const TYPE_UUID: Uuid = generate_composite_uuid(
+        Uuid::from_u128(0x18d33c78e63c47b9bbf8f095008ab693),
+        generate_composite_uuid(Uuid::from_u128(N as u128), T::TYPE_UUID),
+    );
+}
 impl_type_uuid!(bool, "eb1ad0ee2dff473285bc54ebbdef682c");
 impl_type_uuid!(char, "45a4710278ba48f8b31f0d72ff7f9d46");
 impl_type_uuid!(u8, "fdf1a88a3e0543ca9f51ad5978ca519f");
