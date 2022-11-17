@@ -1446,6 +1446,11 @@ wasm = true
 name = "fallthrough"
 path = "examples/ui/fallthrough.rs"
 
+[package.metadata.example.fallthrough]
+name = "Fallthrough"
+description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
+category = "UI (User Interface)"
+
 [[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
