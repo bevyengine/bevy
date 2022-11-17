@@ -1,7 +1,5 @@
 //! This example illustrates how have a mouse's clicks/wheel/movement etc fall through the spawned transparent window to a window below.
-//!
 //! If you build this, and hit 'P' it should toggle on/off the mouse's passthrough.
-//!
 
 use bevy::prelude::*;
 
