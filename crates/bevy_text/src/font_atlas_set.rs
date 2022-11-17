@@ -51,6 +51,7 @@ impl FontAtlasSet {
 
     pub fn add_glyph_to_atlas(
         &mut self,
+        font_size: f32,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
         outlined_glyph: OutlinedGlyph,
@@ -59,7 +60,6 @@ impl FontAtlasSet {
         let glyph = outlined_glyph.glyph();
         let glyph_id = glyph.id;
         let glyph_position = glyph.position;
-        let font_size = glyph.scale.y;
         let font_size_key = FloatOrd(font_size);
 
         self.update_last_used(&font_size_key);

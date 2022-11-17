@@ -115,6 +115,7 @@ impl GlyphBrush {
                     .map(Ok)
                     .unwrap_or_else(|| {
                         font_atlas_set.add_glyph_to_atlas(
+                            section_data.2,
                             texture_atlases,
                             textures,
                             outlined_glyph,
