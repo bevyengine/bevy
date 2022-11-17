@@ -6,7 +6,7 @@
 //! |:-------------------|:------------------------------------|
 //! | `Up` / `Down`      | Increase / Decrease Alpha           |
 //! | `Left` / `Right`   | Rotate Camera                       |
-//! | `H` / `S`          | Toggle Between HDR / SDR            |
+//! | `H`                | Toggle HDR                          |
 //! | `Spacebar`         | Toggle Unlit                        |
 //! | `C`                | Randomize Colors                    |
 
@@ -171,7 +171,7 @@ fn setup(
 
     // Camera
     commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 2.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        transform: Transform::from_xyz(0.0, 2.5, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
@@ -182,9 +182,15 @@ fn setup(
         color: Color::BLACK,
     };
 
+    let label_text_style = TextStyle {
+        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font_size: 25.0,
+        color: Color::ORANGE,
+    };
+
     commands.spawn(
         TextBundle::from_section(
-            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH / S - Toggle Between HDR / SDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
+            "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nH - Toggle HDR\nSpacebar — Toggle Unlit\nC — Randomize Colors",
             text_style.clone(),
         )
         .with_style(Style {
@@ -199,15 +205,30 @@ fn setup(
     );
 
     commands.spawn((
-        TextBundle::from_section("┌─ Opaque\n│", text_style.clone()).with_style(Style {
+        TextBundle::from_section("", text_style).with_style(Style {
             position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(10.0),
+                right: Val::Px(10.0),
+                ..default()
+            },
             ..default()
         }),
+        ExampleDisplay,
+    ));
+
+    commands.spawn((
+        TextBundle::from_section("┌─ Opaque\n│\n│\n│\n│", label_text_style.clone()).with_style(
+            Style {
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+        ),
         ExampleLabel { entity: opaque },
     ));
 
     commands.spawn((
-        TextBundle::from_section("┌─ Blend\n│", text_style.clone()).with_style(Style {
+        TextBundle::from_section("┌─ Blend\n│\n│\n│", label_text_style.clone()).with_style(Style {
             position_type: PositionType::Absolute,
             ..default()
         }),
@@ -215,17 +236,19 @@ fn setup(
     ));
 
     commands.spawn((
-        TextBundle::from_section("┌─ Premultiplied\n│", text_style.clone()).with_style(Style {
-            position_type: PositionType::Absolute,
-            ..default()
-        }),
+        TextBundle::from_section("┌─ Premultiplied\n│\n│", label_text_style.clone()).with_style(
+            Style {
+                position_type: PositionType::Absolute,
+                ..default()
+            },
+        ),
         ExampleLabel {
             entity: premultiplied,
         },
     ));
 
     commands.spawn((
-        TextBundle::from_section("┌─ Add\n│", text_style.clone()).with_style(Style {
+        TextBundle::from_section("┌─ Add\n│", label_text_style.clone()).with_style(Style {
             position_type: PositionType::Absolute,
             ..default()
         }),
@@ -233,7 +256,7 @@ fn setup(
     ));
 
     commands.spawn((
-        TextBundle::from_section("┌─ Multiply\n│", text_style).with_style(Style {
+        TextBundle::from_section("┌─ Multiply", label_text_style).with_style(Style {
             position_type: PositionType::Absolute,
             ..default()
         }),
@@ -257,10 +280,13 @@ struct ExampleState {
     unlit: bool,
 }
 
+#[derive(Component)]
+struct ExampleDisplay;
+
 impl Default for ExampleState {
     fn default() -> Self {
         ExampleState {
-            alpha: 1.0,
+            alpha: 0.9,
             unlit: false,
         }
     }
@@ -272,6 +298,7 @@ fn example_control_system(
     controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
     mut camera: Query<(&mut Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
     mut labels: Query<(&mut Style, &ExampleLabel)>,
+    mut display: Query<&mut Text, With<ExampleDisplay>>,
     labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
@@ -306,9 +333,7 @@ fn example_control_system(
     let (mut camera, mut camera_transform, camera_global_transform) = camera.single_mut();
 
     if input.just_pressed(KeyCode::H) {
-        camera.hdr = true;
-    } else if input.just_pressed(KeyCode::S) {
-        camera.hdr = false;
+        camera.hdr = !camera.hdr;
     }
 
     let rotation = if input.pressed(KeyCode::Left) {
@@ -335,4 +360,12 @@ fn example_control_system(
         style.position.bottom = Val::Px(viewport_position.y);
         style.position.left = Val::Px(viewport_position.x);
     }
+
+    let mut display = display.single_mut();
+    display.sections[0].value = format!(
+        "  HDR: {}\nAlpha: {:.2}",
+        if camera.hdr { "ON " } else { "OFF" },
+        state.alpha
+    )
+    .into();
 }
