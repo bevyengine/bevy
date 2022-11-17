@@ -84,6 +84,21 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Disabling Change Detection
+///
+/// By default, Bevy will track every mutative access made to a given component. 
+/// This may incur a performance cost on types that do not need it.
+/// To disable tracking these changes, add an additional `#[component(change_detection = false)]` 
+/// attribute to the derive one. Bevy will never track the changes of zero-size types ([ZSTs]).
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(change_detection = false)]
+/// struct ComponentB;
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
