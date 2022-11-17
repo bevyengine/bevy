@@ -1237,6 +1237,16 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "storage_buffer"
+path = "examples/shader/storage_buffer.rs"
+
+[package.metadata.example.storage_buffer]
+name = "Storage Buffer"
+description = "A shader that uses storage buffer"
+category = "Shaders"
+wasm = false
+
+[[example]]
 name = "animate_shader"
 path = "examples/shader/animate_shader.rs"
 

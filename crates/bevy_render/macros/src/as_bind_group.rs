@@ -11,6 +11,7 @@ use syn::{
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
 const TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("texture");
 const SAMPLER_ATTRIBUTE_NAME: Symbol = Symbol("sampler");
+const STORAGE_ATTRIBUTE_NAME: Symbol = Symbol("storage");
 const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
 
 #[derive(Copy, Clone, Debug)]
@@ -18,6 +19,7 @@ enum BindingType {
     Uniform,
     Texture,
     Sampler,
+    Storage,
 }
 
 #[derive(Clone)]
@@ -126,6 +128,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 BindingType::Texture
             } else if attr_ident == SAMPLER_ATTRIBUTE_NAME {
                 BindingType::Sampler
+            } else if attr_ident == STORAGE_ATTRIBUTE_NAME {
+                BindingType::Storage
             } else {
                 continue;
             };
@@ -252,6 +256,34 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             binding: #binding_index,
                             visibility: #visibility,
                             ty: #render_path::render_resource::BindingType::Sampler(#render_path::render_resource::#sampler_binding_type),
+                            count: None,
+                        }
+                    });
+                }
+                BindingType::Storage => {
+                    let StorageAttrs {
+                        read_only,
+                        visibility,
+                    } = get_storage_attrs(nested_meta_items)?;
+
+                    let visibility =
+                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
+                    binding_impls.push(quote! {
+                        #render_path::render_resource::OwnedBindingResource::Buffer({
+                            self.#field_name.clone()
+                        })
+                    });
+
+                    binding_layouts.push(quote! {
+                        #render_path::render_resource::BindGroupLayoutEntry {
+                            binding: #binding_index,
+                            visibility: #visibility,
+                            ty: #render_path::render_resource::BindingType::Buffer {
+                                ty: #render_path::render_resource::BufferBindingType::Storage { read_only: #read_only },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
                             count: None,
                         }
                     });
@@ -860,4 +892,53 @@ fn get_sampler_binding_type_value(lit_str: &LitStr) -> Result<SamplerBindingType
             "Not a valid dimension. Must be `filtering`, `non_filtering`, or `comparison`.",
         )),
     }
+}
+
+const READ_ONLY: Symbol = Symbol("read_only");
+const TRUE: &str = "true";
+const FALSE: &str = "false";
+
+#[derive(Default)]
+struct StorageAttrs {
+    read_only: bool,
+    visibility: ShaderStageVisibility,
+}
+
+fn get_storage_attrs(metas: Vec<NestedMeta>) -> Result<StorageAttrs> {
+    let mut visibility = ShaderStageVisibility::vertex_fragment();
+    let mut read_only = false;
+
+    for meta in metas {
+        use syn::{
+            Meta::{List, NameValue},
+            NestedMeta::Meta,
+        };
+        match meta {
+            // Parse #[storage(0, visibility(...))].
+            Meta(List(m)) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m.nested)?;
+            }
+            // Parse #[storage(0, read_only)].
+            Meta(NameValue(m)) if m.path == READ_ONLY => {
+                read_only = get_lit_bool(READ_ONLY, &m.lit)?;
+            }
+            Meta(NameValue(m)) => {
+                return Err(Error::new_spanned(
+                    m.path,
+                    "Not a valid name. Available attributes: `visibility, read_only`.",
+                ));
+            }
+            _ => {
+                return Err(Error::new_spanned(
+                    meta,
+                    "Not a name value pair: `foo = \"...\"`",
+                ));
+            }
+        }
+    }
+
+    Ok(StorageAttrs {
+        read_only,
+        visibility,
+    })
 }
