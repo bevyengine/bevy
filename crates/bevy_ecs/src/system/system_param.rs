@@ -258,7 +258,24 @@ impl_param_set!();
 /// # schedule.add_system_to_stage("update", write_resource_system.after("first"));
 /// # schedule.run_once(&mut world);
 /// ```
-pub trait Resource: Send + Sync + 'static {}
+///
+/// # Disabling Change Detection
+///
+/// By default, Bevy will track every mutative access made to a given resource.
+/// This may incur a performance cost on types that do not need it.
+/// To disable tracking these changes, add an additional `#[resource(change_detection = false)]`
+/// attribute to the derive one.
+///
+/// ```
+/// # use bevy_ecs::prelude::Resource;
+/// #
+/// #[derive(Resource)]
+/// #[resource(change_detection = false)]
+/// struct YourResource { value: u32 };
+/// ```
+pub trait Resource: Send + Sync + 'static {
+    const CHANGE_DETECTION_ENABLED: bool;
+}
 
 /// Shared borrow of a [`Resource`].
 ///

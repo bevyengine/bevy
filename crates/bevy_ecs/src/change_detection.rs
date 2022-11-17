@@ -278,7 +278,7 @@ where
     }
 }
 
-change_detection_impl!(ResMut<'a, T>, T, true, Resource);
+change_detection_impl!(ResMut<'a, T>, T, T::CHANGE_DETECTION_ENABLED, Resource);
 impl_methods!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
