@@ -76,12 +76,10 @@ impl FontAtlasSet {
             )]
         });
 
-        if !text_settings.allow_dynamic_font_size {
-            if len > text_settings.max_font_atlases.get() {
-                return Err(TextError::ExceedMaxTextAtlases(
-                    text_settings.max_font_atlases.get(),
-                ));
-            }
+        if !text_settings.allow_dynamic_font_size && len > text_settings.max_font_atlases.get() {
+            return Err(TextError::ExceedMaxTextAtlases(
+                text_settings.max_font_atlases.get(),
+            ));
         }
 
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
