@@ -505,7 +505,7 @@ impl<'w> EntityMut<'w> {
             table_row = remove_result.table_row;
 
             for component_id in archetype.sparse_set_components() {
-                let sparse_set = world.storages.sparse_sets.get_mut(*component_id).unwrap();
+                let sparse_set = world.storages.sparse_sets.get_mut(component_id).unwrap();
                 sparse_set.remove(self.entity);
             }
             // SAFETY: table rows stored in archetypes always exist
@@ -843,8 +843,8 @@ unsafe fn remove_bundle_from_archetype(
             // components are already sorted
             removed_table_components.sort();
             removed_sparse_set_components.sort();
-            next_table_components = current_archetype.table_components().to_vec();
-            next_sparse_set_components = current_archetype.sparse_set_components().to_vec();
+            next_table_components = current_archetype.table_components().collect();
+            next_sparse_set_components = current_archetype.sparse_set_components().collect();
             sorted_remove(&mut next_table_components, &removed_table_components);
             sorted_remove(
                 &mut next_sparse_set_components,
