@@ -75,6 +75,16 @@ macro_rules! render_resource_wrapper {
                 }
             }
         }
+
+        // Arc<Box<()>> and Arc<()> will be Sync and Send even when $wgpu_type is not Sync or Send.
+        // We ensure correctness by checking that $wgpu_type does implement Send and Sync.
+        // If in future there is a case where a wrapper is required for a non-send/sync type
+        // we can implement a macro variant that also does `impl !Send for $wrapper_type {}` and
+        // `impl !Sync for $wrapper_type {}`
+        const _: () = {
+            trait AssertSendSyncBound: Send + Sync {}
+            impl AssertSendSyncBound for $wgpu_type {}
+        };
     };
 }
 
@@ -102,6 +112,11 @@ macro_rules! render_resource_wrapper {
                 self.0.as_ref()
             }
         }
+
+        const _: () = {
+            trait AssertSendSyncBound: Send + Sync {}
+            impl AssertSendSyncBound for $wgpu_type {}
+        };
     };
 }
 
