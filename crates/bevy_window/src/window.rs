@@ -789,7 +789,7 @@ impl Window {
     pub fn set_cursor_hittest(&mut self, hittest: bool) {
         self.hittest = hittest;
         self.command_queue
-            .push(WindowCommand::SetCursorHitTest { hittest })
+            .push(WindowCommand::SetCursorHitTest { hittest });
     }
     /// Get whether or not the hittest is active.
     #[inline]
