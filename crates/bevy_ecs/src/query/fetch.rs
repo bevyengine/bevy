@@ -978,14 +978,18 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
 impl<T: Component> ChangeTrackers<T> {
     /// Returns true if this component has been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
-        self.component_ticks
-            .is_added(self.last_change_tick, self.change_tick)
+        T::CHANGE_DETECTION_ENABLED
+            && self
+                .component_ticks
+                .is_added(self.last_change_tick, self.change_tick)
     }
 
     /// Returns true if this component has been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
-        self.component_ticks
-            .is_changed(self.last_change_tick, self.change_tick)
+        T::CHANGE_DETECTION_ENABLED
+            && self
+                .component_ticks
+                .is_changed(self.last_change_tick, self.change_tick)
     }
 }
 

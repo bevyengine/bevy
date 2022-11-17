@@ -89,7 +89,7 @@ pub trait DetectChanges {
 
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $enabled:expr, $($traits:ident)?) => {
-        impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
+        impl<$($generics),* : Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             type Inner = $target;
 
             #[inline]
@@ -108,7 +108,7 @@ macro_rules! change_detection_impl {
 
             #[inline]
             fn set_changed(&mut self) {
-                if $enabled && core::mem::size_of::<Self>() != 0 {
+                if $enabled && core::mem::size_of::<$target>() != 0 {
                     self.ticks
                         .component_ticks
                         .set_changed(self.ticks.change_tick);
@@ -146,7 +146,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),* : ?Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
+        impl<$($generics),* : Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
@@ -172,7 +172,7 @@ macro_rules! change_detection_impl {
 
 macro_rules! impl_methods {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
+        impl<$($generics),* : Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
             /// contained value while marking `self` as "changed".
             #[inline]
@@ -433,6 +433,7 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
+    use super::DetectChanges;
     use crate::{
         self as bevy_ecs,
         change_detection::{
@@ -445,10 +446,13 @@ mod tests {
     };
 
     #[derive(Component)]
-    struct C;
+    struct C(usize);
 
     #[derive(Resource)]
-    struct R;
+    struct R(usize);
+
+    #[derive(Component, Resource)]
+    struct ZST;
 
     #[derive(Component, Resource)]
     #[component(change_detection = false)]
@@ -465,6 +469,36 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn zst_change_detection() {
+        fn change_detected(query: Query<ChangeTrackers<ZST>>) -> bool {
+            query.single().is_changed()
+        }
+
+        fn change_expired(query: Query<ChangeTrackers<ZST>>) -> bool {
+            query.single().is_changed()
+        }
+
+        let mut world = World::new();
+
+        let entity = world.spawn(ZST).id();
+
+        let mut change_detected_system = IntoSystem::into_system(change_detected);
+        let mut change_expired_system = IntoSystem::into_system(change_expired);
+        change_detected_system.initialize(&mut world);
+        change_expired_system.initialize(&mut world);
+
+        assert!(change_detected_system.run((), &mut world));
+        *world.change_tick.get_mut() += 1;
+        world
+            .entity_mut(entity)
+            .get_mut::<ZST>()
+            .unwrap()
+            .set_changed();
+        assert!(!change_detected_system.run((), &mut world));
+    }
+
+    #[test]
     fn change_expiration() {
         fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
             query.single().is_changed()
@@ -477,7 +511,7 @@ mod tests {
         let mut world = World::new();
 
         // component added: 1, changed: 1
-        world.spawn(C);
+        world.spawn(C(0));
 
         let mut change_detected_system = IntoSystem::into_system(change_detected);
         let mut change_expired_system = IntoSystem::into_system(change_expired);
@@ -510,7 +544,7 @@ mod tests {
         *world.change_tick.get_mut() = 0;
 
         // component added: 0, changed: 0
-        world.spawn(C);
+        world.spawn(C(0));
 
         // system last ran: u32::MAX
         let mut change_detected_system = IntoSystem::into_system(change_detected);
@@ -526,7 +560,7 @@ mod tests {
         let mut world = World::new();
 
         // component added: 1, changed: 1
-        world.spawn(C);
+        world.spawn(C(0));
 
         // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
@@ -562,7 +596,7 @@ mod tests {
             last_change_tick: 3,
             change_tick: 4,
         };
-        let mut res = R {};
+        let mut res = R(0);
         let res_mut = ResMut {
             value: &mut res,
             ticks,
@@ -586,7 +620,7 @@ mod tests {
             last_change_tick: 3,
             change_tick: 4,
         };
-        let mut res = R {};
+        let mut res = R(0);
         let non_send_mut = NonSendMut {
             value: &mut res,
             ticks,
