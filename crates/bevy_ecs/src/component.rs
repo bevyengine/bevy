@@ -110,6 +110,7 @@ use std::{
 /// [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type
 /// [newtype pattern]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
 pub trait Component: Send + Sync + 'static {
+    const CHANGE_DETECTION_ENABLED: bool;
     type Storage: ComponentStorage;
 }
 

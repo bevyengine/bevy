@@ -88,39 +88,47 @@ pub trait DetectChanges {
 }
 
 macro_rules! change_detection_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $enabled:expr, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             type Inner = $target;
 
             #[inline]
             fn is_added(&self) -> bool {
-                self.ticks
+                $enabled && self.ticks
                     .component_ticks
                     .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
-                self.ticks
+                $enabled && self.ticks
                     .component_ticks
                     .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn set_changed(&mut self) {
-                self.ticks
-                    .component_ticks
-                    .set_changed(self.ticks.change_tick);
+                if $enabled {
+                    self.ticks
+                        .component_ticks
+                        .set_changed(self.ticks.change_tick);
+                }
             }
 
             #[inline]
             fn last_changed(&self) -> u32 {
-                self.ticks.last_change_tick
+                if $enabled {
+                    self.ticks.last_change_tick
+                } else {
+                    0
+                }
             }
 
             #[inline]
             fn set_last_changed(&mut self, last_change_tick: u32) {
-                self.ticks.last_change_tick = last_change_tick
+                if $enabled {
+                    self.ticks.last_change_tick = last_change_tick
+                }
             }
 
             #[inline]
@@ -270,7 +278,7 @@ where
     }
 }
 
-change_detection_impl!(ResMut<'a, T>, T, Resource);
+change_detection_impl!(ResMut<'a, T>, T, true, Resource);
 impl_methods!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
@@ -302,7 +310,7 @@ pub struct NonSendMut<'a, T: ?Sized + 'static> {
     pub(crate) ticks: Ticks<'a>,
 }
 
-change_detection_impl!(NonSendMut<'a, T>, T,);
+change_detection_impl!(NonSendMut<'a, T>, T, true,);
 impl_methods!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
@@ -348,7 +356,7 @@ where
     }
 }
 
-change_detection_impl!(Mut<'a, T>, T,);
+change_detection_impl!(Mut<'a, T>, T, true,);
 impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
