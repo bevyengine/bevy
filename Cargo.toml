@@ -1443,6 +1443,10 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "fallthrough"
+path = "examples/ui/fallthrough.rs"
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
