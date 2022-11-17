@@ -90,10 +90,10 @@ use std::{
 /// This will most commonly occur when working with `SystemParam`s generically, as the requirement
 /// has not been proven to the compiler.
 pub trait SystemParam: Sized {
-    type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
+    type State: SystemParamState;
 }
 
-pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamFetch<'w, 's>>::Item;
+pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::State as SystemParamState>::Item<'w, 's>;
 
 /// The state of a [`SystemParam`].
 ///
@@ -109,27 +109,25 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
     #[inline]
     fn apply(&mut self, _world: &mut World) {}
+
+    type Item<'world, 'state>: SystemParam<State = Self>;
+    /// # Safety
+    ///
+    /// This call might access any of the input parameters in an unsafe way. Make sure the data
+    /// access is safe in the context of the system scheduler.
+    unsafe fn get_param<'world, 'state>(
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Self::Item<'world, 'state>;
 }
 
 /// A [`SystemParamFetch`] that only reads a given [`World`].
 ///
 /// # Safety
-/// This must only be implemented for [`SystemParamFetch`] impls that exclusively read the World passed in to [`SystemParamFetch::get_param`]
+/// This must only be implemented for [`SystemParamState`] impls that exclusively read the World passed in to [`SystemParamState::get_param`]
 pub unsafe trait ReadOnlySystemParamFetch {}
-
-pub trait SystemParamFetch<'world, 'state>: SystemParamState {
-    type Item: SystemParam<Fetch = Self>;
-    /// # Safety
-    ///
-    /// This call might access any of the input parameters in an unsafe way. Make sure the data
-    /// access is safe in the context of the system scheduler.
-    unsafe fn get_param(
-        state: &'state mut Self,
-        system_meta: &SystemMeta,
-        world: &'world World,
-        change_tick: u32,
-    ) -> Self::Item;
-}
 
 impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
     for Query<'w, 's, Q, F>
