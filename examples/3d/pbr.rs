@@ -72,7 +72,11 @@ fn setup(
     // camera
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
-        projection: OrthographicProjection::new().scale(0.01).into(),
+        projection: OrthographicProjection {
+            scale: 0.01,
+            ..default()
+        }
+        .into(),
         ..default()
     });
 }

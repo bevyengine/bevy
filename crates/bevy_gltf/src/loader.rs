@@ -719,10 +719,14 @@ fn load_node(
         let projection = match camera.projection() {
             gltf::camera::Projection::Orthographic(orthographic) => {
                 let xmag = orthographic.xmag();
-                let orthographic_projection = OrthographicProjection::new()
-                    .clipping_plane(orthographic.znear(), orthographic.zfar())
-                    .scaling_mode(ScalingMode::FixedHorizontal(1.0))
-                    .scale(xmag);
+
+                let orthographic_projection = OrthographicProjection {
+                    near: orthographic.znear(),
+                    far: orthographic.zfar(),
+                    scaling_mode: ScalingMode::FixedHorizontal(1.0),
+                    scale: xmag,
+                    ..Default::default()
+                };
 
                 Projection::Orthographic(orthographic_projection)
             }
