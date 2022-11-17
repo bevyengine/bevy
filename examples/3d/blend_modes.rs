@@ -366,6 +366,5 @@ fn example_control_system(
         "  HDR: {}\nAlpha: {:.2}",
         if camera.hdr { "ON " } else { "OFF" },
         state.alpha
-    )
-    .into();
+    );
 }
