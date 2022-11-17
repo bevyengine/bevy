@@ -86,9 +86,9 @@ use std::{
 ///
 /// # Disabling Change Detection
 ///
-/// By default, Bevy will track every mutative access made to a given component. 
+/// By default, Bevy will track every mutative access made to a given component.
 /// This may incur a performance cost on types that do not need it.
-/// To disable tracking these changes, add an additional `#[component(change_detection = false)]` 
+/// To disable tracking these changes, add an additional `#[component(change_detection = false)]`
 /// attribute to the derive one.
 ///
 /// ```
