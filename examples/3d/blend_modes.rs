@@ -37,94 +37,104 @@ fn setup(
     );
 
     // Opaque
-    commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                base_color,
-                alpha_mode: AlphaMode::Opaque,
+    let opaque = commands
+        .spawn((
+            PbrBundle {
+                mesh: icosphere_mesh.clone(),
+                material: materials.add(StandardMaterial {
+                    base_color,
+                    alpha_mode: AlphaMode::Opaque,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(-4.0, 0.0, 0.0),
                 ..default()
-            }),
-            transform: Transform::from_xyz(-4.0, 0.0, 0.0),
-            ..default()
-        },
-        ExampleControls {
-            unlit: true,
-            color: true,
-        },
-    ));
+            },
+            ExampleControls {
+                unlit: true,
+                color: true,
+            },
+        ))
+        .id();
 
     // Blend
-    commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                base_color,
-                alpha_mode: AlphaMode::Blend,
+    let blend = commands
+        .spawn((
+            PbrBundle {
+                mesh: icosphere_mesh.clone(),
+                material: materials.add(StandardMaterial {
+                    base_color,
+                    alpha_mode: AlphaMode::Blend,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(-2.0, 0.0, 0.0),
                 ..default()
-            }),
-            transform: Transform::from_xyz(-2.0, 0.0, 0.0),
-            ..default()
-        },
-        ExampleControls {
-            unlit: true,
-            color: true,
-        },
-    ));
+            },
+            ExampleControls {
+                unlit: true,
+                color: true,
+            },
+        ))
+        .id();
 
     // Premultiplied
-    commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                base_color,
-                alpha_mode: AlphaMode::Premultiplied,
+    let premultiplied = commands
+        .spawn((
+            PbrBundle {
+                mesh: icosphere_mesh.clone(),
+                material: materials.add(StandardMaterial {
+                    base_color,
+                    alpha_mode: AlphaMode::Premultiplied,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0),
                 ..default()
-            }),
-            transform: Transform::from_xyz(0.0, 0.0, 0.0),
-            ..default()
-        },
-        ExampleControls {
-            unlit: true,
-            color: true,
-        },
-    ));
+            },
+            ExampleControls {
+                unlit: true,
+                color: true,
+            },
+        ))
+        .id();
 
     // Add
-    commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                base_color,
-                alpha_mode: AlphaMode::Add,
+    let add = commands
+        .spawn((
+            PbrBundle {
+                mesh: icosphere_mesh.clone(),
+                material: materials.add(StandardMaterial {
+                    base_color,
+                    alpha_mode: AlphaMode::Add,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(2.0, 0.0, 0.0),
                 ..default()
-            }),
-            transform: Transform::from_xyz(2.0, 0.0, 0.0),
-            ..default()
-        },
-        ExampleControls {
-            unlit: true,
-            color: true,
-        },
-    ));
+            },
+            ExampleControls {
+                unlit: true,
+                color: true,
+            },
+        ))
+        .id();
 
     // Multiply
-    commands.spawn((
-        PbrBundle {
-            mesh: icosphere_mesh,
-            material: materials.add(StandardMaterial {
-                base_color,
-                alpha_mode: AlphaMode::Multiply,
+    let multiply = commands
+        .spawn((
+            PbrBundle {
+                mesh: icosphere_mesh,
+                material: materials.add(StandardMaterial {
+                    base_color,
+                    alpha_mode: AlphaMode::Multiply,
+                    ..default()
+                }),
+                transform: Transform::from_xyz(4.0, 0.0, 0.0),
                 ..default()
-            }),
-            transform: Transform::from_xyz(4.0, 0.0, 0.0),
-            ..default()
-        },
-        ExampleControls {
-            unlit: true,
-            color: true,
-        },
-    ));
+            },
+            ExampleControls {
+                unlit: true,
+                color: true,
+            },
+        ))
+        .id();
 
     // Chessboard Plane
     let black_material = materials.add(Color::BLACK.into());
@@ -165,14 +175,16 @@ fn setup(
     });
 
     // Controls Text
+    let text_style = TextStyle {
+        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font_size: 18.0,
+        color: Color::BLACK,
+    };
+
     commands.spawn(
         TextBundle::from_section(
             "Up / Down — Increase / Decrease Alpha\nLeft / Right — Rotate Camera\nSpacebar — Toggle Unlit\nC — Randomize Colors",
-            TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 18.0,
-                color: Color::BLACK,
-            },
+            text_style.clone(),
         )
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -184,12 +196,59 @@ fn setup(
             ..default()
         }),
     );
+
+    commands.spawn((
+        TextBundle::from_section("┌─ Opaque\n│", text_style.clone()).with_style(Style {
+            position_type: PositionType::Absolute,
+            ..default()
+        }),
+        ExampleLabel { entity: opaque },
+    ));
+
+    commands.spawn((
+        TextBundle::from_section("┌─ Blend\n│", text_style.clone()).with_style(Style {
+            position_type: PositionType::Absolute,
+            ..default()
+        }),
+        ExampleLabel { entity: blend },
+    ));
+
+    commands.spawn((
+        TextBundle::from_section("┌─ Premultiplied\n│", text_style.clone()).with_style(Style {
+            position_type: PositionType::Absolute,
+            ..default()
+        }),
+        ExampleLabel {
+            entity: premultiplied,
+        },
+    ));
+
+    commands.spawn((
+        TextBundle::from_section("┌─ Add\n│", text_style.clone()).with_style(Style {
+            position_type: PositionType::Absolute,
+            ..default()
+        }),
+        ExampleLabel { entity: add },
+    ));
+
+    commands.spawn((
+        TextBundle::from_section("┌─ Multiply\n│", text_style).with_style(Style {
+            position_type: PositionType::Absolute,
+            ..default()
+        }),
+        ExampleLabel { entity: multiply },
+    ));
 }
 
 #[derive(Component)]
 struct ExampleControls {
     unlit: bool,
     color: bool,
+}
+
+#[derive(Component)]
+struct ExampleLabel {
+    entity: Entity,
 }
 
 struct ExampleState {
@@ -209,7 +268,9 @@ impl Default for ExampleState {
 fn example_control_system(
     mut materials: ResMut<Assets<StandardMaterial>>,
     controllable: Query<(&Handle<StandardMaterial>, &ExampleControls)>,
-    mut camera: Query<&mut Transform, With<Camera3d>>,
+    mut camera: Query<(&Camera, &mut Transform, &GlobalTransform), With<Camera3d>>,
+    mut labels: Query<(&mut Style, &ExampleLabel)>,
+    labelled: Query<&GlobalTransform>,
     mut state: Local<ExampleState>,
     time: Res<Time>,
     input: Res<Input<KeyCode>>,
@@ -240,7 +301,7 @@ fn example_control_system(
         }
     }
 
-    let mut camera_transform = camera.single_mut();
+    let (camera, mut camera_transform, camera_global_transform) = camera.single_mut();
 
     let rotation = if input.pressed(KeyCode::Left) {
         time.delta_seconds()
@@ -254,4 +315,16 @@ fn example_control_system(
         Vec3::ZERO,
         Quat::from_euler(EulerRot::XYZ, 0.0, rotation, 0.0),
     );
+
+    for (mut style, label) in &mut labels {
+        let world_position =
+            labelled.get(label.entity).unwrap().translation() + Vec3::new(0.0, 1.0, 0.0);
+
+        let viewport_position = camera
+            .world_to_viewport(camera_global_transform, world_position)
+            .unwrap();
+
+        style.position.bottom = Val::Px(viewport_position.y);
+        style.position.left = Val::Px(viewport_position.x);
+    }
 }
