@@ -7,6 +7,7 @@ use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
+use bevy_utils::tracing::info;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 
@@ -61,8 +62,6 @@ impl FontAtlasSet {
         let glyph_id = glyph.id;
         let glyph_position = glyph.position;
         let font_size_key = FloatOrd(font_size);
-
-        self.update_last_used(&font_size_key);
 
         let mut len = self.font_atlases.len();
 
@@ -120,8 +119,8 @@ impl FontAtlasSet {
         if text_settings.allow_dynamic_font_size {
             // Clear last space in queue to make room for new font size
             while self.queue.len() > text_settings.max_font_atlases.get() {
-                if let Some(font_size_key) = self.queue.pop_back() {
-                    self.font_atlases.remove(&font_size_key);
+                if let Some(removed_font_size_key) = self.queue.pop_back() {
+                    self.font_atlases.remove(&removed_font_size_key);
                 }
             }
         }
@@ -138,8 +137,6 @@ impl FontAtlasSet {
         position: Point,
     ) -> Option<GlyphAtlasInfo> {
         let font_size_key = FloatOrd(font_size);
-
-        self.update_last_used(&font_size_key);
 
         self.font_atlases
             .get(&font_size_key)
@@ -158,9 +155,10 @@ impl FontAtlasSet {
             })
     }
 
-    fn update_last_used(&mut self, font_size_key: &FontSizeKey) {
-        if let Some(pos) = self.queue.iter().position(|i| *i == *font_size_key) {
-            // Already at the front, nothing to be done.
+    pub fn update_last_used(&mut self, font_size: f32) {
+        let font_size_key = FloatOrd(font_size);
+
+        if let Some(pos) = self.queue.iter().position(|i| *i == font_size_key) {
             if pos == 0 {
                 return;
             }
@@ -169,7 +167,7 @@ impl FontAtlasSet {
                 self.queue.push_front(key);
             }
         } else {
-            self.queue.push_front(*font_size_key);
+            self.queue.push_front(font_size_key);
         }
     }
 }

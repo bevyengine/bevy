@@ -110,6 +110,8 @@ impl GlyphBrush {
                 let font_atlas_set = font_atlas_set_storage
                     .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
+                font_atlas_set.update_last_used(section_data.2);
+
                 let atlas_info = font_atlas_set
                     .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
                     .map(Ok)
