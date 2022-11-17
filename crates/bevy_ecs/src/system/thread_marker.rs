@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use thread_local_object::ThreadLocal;
 
-use crate as bevy_ecs;
 use crate::prelude::World;
+use crate::{self as bevy_ecs, prelude::Component};
 
 use super::{Resource, SystemMeta, SystemParam, SystemParamFetch, SystemParamState};
 
@@ -36,7 +36,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for MainThreadState {
     }
 }
 
-#[derive(Resource)]
+#[derive(Resource, Component)]
 pub struct Tls<T: 'static>(Arc<ThreadLocal<T>>);
 
 impl<T> Tls<T> {
