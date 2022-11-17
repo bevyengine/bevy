@@ -79,6 +79,10 @@ mod tests {
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
 
+    #[derive(Component)]
+    #[component(change_detection = false)]
+    struct ChangeDetectionLess(usize);
+
     #[derive(Default)]
     struct NonSendA(usize, PhantomData<*mut ()>);
 
@@ -107,6 +111,14 @@ mod tests {
     #[derive(Component, Copy, Clone, PartialEq, Eq, Debug)]
     #[component(storage = "SparseSet")]
     struct SparseStored(u32);
+
+    #[test]
+    fn change_detection_toggle() {
+        assert!(<A as Component>::CHANGE_DETECTION_ENABLED);
+        assert!(<B as Component>::CHANGE_DETECTION_ENABLED);
+        assert!(!<C as Component>::CHANGE_DETECTION_ENABLED);
+        assert!(!<ChangeDetectionLess as Component>::CHANGE_DETECTION_ENABLED);
+    }
 
     #[test]
     fn random_access() {
