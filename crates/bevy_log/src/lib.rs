@@ -31,6 +31,8 @@ pub use bevy_utils::tracing::{
 };
 
 use bevy_app::{App, Plugin};
+#[cfg(feature = "tracing-chrome")]
+use bevy_ecs::system::Tls;
 use tracing_log::LogTracer;
 #[cfg(feature = "tracing-chrome")]
 use tracing_subscriber::fmt::{format::DefaultFields, FormattedFields};
@@ -146,7 +148,8 @@ impl Plugin for LogPlugin {
                         }
                     }))
                     .build();
-                app.world.insert_non_send_resource(guard);
+                // TODO: Test that this still works. shoving it in a tls might break the feature.
+                app.world.insert_resource(Tls::new(guard));
                 chrome_layer
             };
 

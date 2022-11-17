@@ -367,9 +367,11 @@ impl AddAsset for App {
             self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
             let mut app = self
                 .world
-                .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
-            app.add_asset::<T>()
-                .init_resource::<crate::debug_asset_server::HandleMap<T>>();
+                .resource_mut::<bevy_ecs::system::Tls<crate::debug_asset_server::DebugAssetApp>>();
+            app.get_mut(|app| {
+                app.add_asset::<T>()
+                    .init_resource::<crate::debug_asset_server::HandleMap<T>>();
+            });
         }
         self
     }
@@ -390,8 +392,10 @@ impl AddAsset for App {
         {
             let mut app = self
                 .world
-                .non_send_resource_mut::<crate::debug_asset_server::DebugAssetApp>();
-            app.init_asset_loader::<T>();
+                .resource_mut::<bevy_ecs::system::Tls<crate::debug_asset_server::DebugAssetApp>>();
+            app.get_mut(|app| {
+                app.init_asset_loader::<T>();
+            });
         }
         self
     }
@@ -416,14 +420,16 @@ macro_rules! load_internal_asset {
         {
             let mut debug_app = $app
                 .world
-                .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
-                $loader,
-                &mut debug_app,
-                $handle,
-                file!(),
-                $path_str,
-            );
+                .resource_mut::<bevy_ecs::system::Tls<$crate::debug_asset_server::DebugAssetApp>>();
+            debug_app.get_mut(|debug_app| {
+                $crate::debug_asset_server::register_handle_with_loader(
+                    $loader,
+                    debug_app,
+                    $handle,
+                    file!(),
+                    $path_str,
+                );
+            });
         }
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
         assets.set_untracked($handle, ($loader)(include_str!($path_str)));
@@ -454,14 +460,16 @@ macro_rules! load_internal_binary_asset {
         {
             let mut debug_app = $app
                 .world
-                .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
-                $loader,
-                &mut debug_app,
-                $handle,
-                file!(),
-                $path_str,
-            );
+                .resource_mut::<bevy_ecs::system::Tls<$crate::debug_asset_server::DebugAssetApp>>();
+            debug_app.get_mut(|debug_app| {
+                $crate::debug_asset_server::register_handle_with_loader(
+                    $loader,
+                    debug_app,
+                    $handle,
+                    file!(),
+                    $path_str,
+                );
+            });
         }
         let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
         assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));

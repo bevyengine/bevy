@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
     schedule::SystemLabel,
-    system::{NonSendMut, Res, ResMut, Resource, SystemState},
+    system::{MainThread, Res, ResMut, Resource, SystemState, Tls},
 };
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
@@ -78,37 +78,42 @@ impl Plugin for DebugAssetServerPlugin {
             asset_folder: "crates".to_string(),
             watch_for_changes: true,
         });
-        app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
+        app.insert_resource(Tls::new(DebugAssetApp(debug_asset_app)));
         app.add_system(run_debug_asset_app);
     }
 }
 
-fn run_debug_asset_app(mut debug_asset_app: NonSendMut<DebugAssetApp>) {
-    debug_asset_app.0.update();
+fn run_debug_asset_app(_marker: MainThread, mut debug_asset_app: ResMut<Tls<DebugAssetApp>>) {
+    debug_asset_app.get_mut(|debug_asset_app| {
+        debug_asset_app.0.update();
+    });
 }
 
 pub(crate) fn sync_debug_assets<T: Asset + Clone>(
-    mut debug_asset_app: NonSendMut<DebugAssetApp>,
+    _marker: MainThread,
+    mut debug_asset_app: ResMut<Tls<DebugAssetApp>>,
     mut assets: ResMut<Assets<T>>,
 ) {
-    let world = &mut debug_asset_app.0.world;
-    let mut state = SystemState::<(
-        Res<Events<AssetEvent<T>>>,
-        Res<HandleMap<T>>,
-        Res<Assets<T>>,
-    )>::new(world);
-    let (changed_shaders, handle_map, debug_assets) = state.get_mut(world);
-    for changed in changed_shaders.iter_current_update_events() {
-        let debug_handle = match changed {
-            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
-            AssetEvent::Removed { .. } => continue,
-        };
-        if let Some(handle) = handle_map.handles.get(debug_handle) {
-            if let Some(debug_asset) = debug_assets.get(debug_handle) {
-                assets.set_untracked(handle, debug_asset.clone());
+    debug_asset_app.get_mut(|debug_asset_app| {
+        let world = &mut debug_asset_app.0.world;
+        let mut state = SystemState::<(
+            Res<Events<AssetEvent<T>>>,
+            Res<HandleMap<T>>,
+            Res<Assets<T>>,
+        )>::new(world);
+        let (changed_shaders, handle_map, debug_assets) = state.get_mut(world);
+        for changed in changed_shaders.iter_current_update_events() {
+            let debug_handle = match changed {
+                AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
+                AssetEvent::Removed { .. } => continue,
+            };
+            if let Some(handle) = handle_map.handles.get(debug_handle) {
+                if let Some(debug_asset) = debug_assets.get(debug_handle) {
+                    assets.set_untracked(handle, debug_asset.clone());
+                }
             }
         }
-    }
+    });
 }
 
 /// Uses the return type of the given loader to register the given handle with the appropriate type

@@ -55,8 +55,7 @@
 //! - [`Local`]
 //! - [`EventReader`](crate::event::EventReader)
 //! - [`EventWriter`](crate::event::EventWriter)
-//! - [`NonSend`] and `Option<NonSend>`
-//! - [`NonSendMut`] and `Option<NonSendMut>`
+//! - [`MainThread`]
 //! - [`&World`](crate::world::World)
 //! - [`RemovedComponents`]
 //! - [`SystemName`]

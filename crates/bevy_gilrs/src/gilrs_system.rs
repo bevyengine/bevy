@@ -29,11 +29,8 @@ pub fn gilrs_event_system(
     mut gilrs: ResMut<Tls<Gilrs>>,
     mut events: EventWriter<GamepadEventRaw>,
 ) {
-    gilrs.get_mut(|mut gilrs| {
-        while let Some(gilrs_event) = gilrs
-            .next_event()
-            .filter_ev(&axis_dpad_to_button, &mut gilrs)
-        {
+    gilrs.get_mut(|gilrs| {
+        while let Some(gilrs_event) = gilrs.next_event().filter_ev(&axis_dpad_to_button, gilrs) {
             gilrs.update(&gilrs_event);
 
             match gilrs_event.event {

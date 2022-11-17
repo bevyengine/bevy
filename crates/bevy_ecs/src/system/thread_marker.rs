@@ -98,7 +98,9 @@ impl<T: 'static> Drop for Tls<T> {
     }
 }
 
-// pretty sure this is safe as ThreadLocal just wraps a usize and a phatom data
-// the usize is only written to on the call to ThreadLocal::new()
+// SAFETY: pretty sure this is safe as ThreadLocal just wraps a usize and a phantom data
+// and the usize is only written to on the call to ThreadLocal::new()
 unsafe impl<T> Send for Tls<T> {}
+// SAFETY: pretty sure this is safe as ThreadLocal just wraps a usize and a phantom data
+// and the usize is only written to on the call to ThreadLocal::new()
 unsafe impl<T> Sync for Tls<T> {}
