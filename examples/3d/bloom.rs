@@ -1,4 +1,4 @@
-//! Illustrates bloom configuration using HDR and emissive materials.
+//! Illustrates bloom post-processing using HDR and emissive materials.
 
 use bevy::{core_pipeline::bloom::BloomSettings, prelude::*};
 use std::{
@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
-        .add_system(update_bloom_settings)
+        // .add_system(update_bloom_settings)
         .add_system(bounce_spheres)
         .run();
 }
@@ -98,62 +98,62 @@ fn setup_scene(
 
 // ------------------------------------------------------------------------------------------------
 
-fn update_bloom_settings(
-    mut camera: Query<&mut BloomSettings>,
-    mut text: Query<&mut Text>,
-    keycode: Res<Input<KeyCode>>,
-    time: Res<Time>,
-) {
-    let mut bloom_settings = camera.single_mut();
-    let mut text = text.single_mut();
-    let text = &mut text.sections[0].value;
+// fn update_bloom_settings(
+//     mut camera: Query<&mut BloomSettings>,
+//     mut text: Query<&mut Text>,
+//     keycode: Res<Input<KeyCode>>,
+//     time: Res<Time>,
+// ) {
+//     let mut bloom_settings = camera.single_mut();
+//     let mut text = text.single_mut();
+//     let text = &mut text.sections[0].value;
 
-    *text = "BloomSettings\n".to_string();
-    text.push_str("-------------\n");
-    text.push_str(&format!("Threshold: {}\n", bloom_settings.threshold));
-    text.push_str(&format!("Knee: {}\n", bloom_settings.knee));
-    text.push_str(&format!("Scale: {}\n", bloom_settings.scale));
-    text.push_str(&format!("Intensity: {}\n", bloom_settings.intensity));
+//     *text = "BloomSettings\n".to_string();
+//     text.push_str("-------------\n");
+//     text.push_str(&format!("Threshold: {}\n", bloom_settings.threshold));
+//     text.push_str(&format!("Knee: {}\n", bloom_settings.knee));
+//     text.push_str(&format!("Scale: {}\n", bloom_settings.scale));
+//     text.push_str(&format!("Intensity: {}\n", bloom_settings.intensity));
 
-    text.push_str("\n\n");
+//     text.push_str("\n\n");
 
-    text.push_str("Controls (-/+)\n");
-    text.push_str("---------------\n");
-    text.push_str("Q/W - Threshold\n");
-    text.push_str("E/R - Knee\n");
-    text.push_str("A/S - Scale\n");
-    text.push_str("D/F - Intensity\n");
+//     text.push_str("Controls (-/+)\n");
+//     text.push_str("---------------\n");
+//     text.push_str("Q/W - Threshold\n");
+//     text.push_str("E/R - Knee\n");
+//     text.push_str("A/S - Scale\n");
+//     text.push_str("D/F - Intensity\n");
 
-    let dt = time.delta_seconds();
+//     let dt = time.delta_seconds();
 
-    if keycode.pressed(KeyCode::Q) {
-        bloom_settings.threshold -= dt;
-    }
-    if keycode.pressed(KeyCode::W) {
-        bloom_settings.threshold += dt;
-    }
+//     if keycode.pressed(KeyCode::Q) {
+//         bloom_settings.threshold -= dt;
+//     }
+//     if keycode.pressed(KeyCode::W) {
+//         bloom_settings.threshold += dt;
+//     }
 
-    if keycode.pressed(KeyCode::E) {
-        bloom_settings.knee -= dt;
-    }
-    if keycode.pressed(KeyCode::R) {
-        bloom_settings.knee += dt;
-    }
+//     if keycode.pressed(KeyCode::E) {
+//         bloom_settings.knee -= dt;
+//     }
+//     if keycode.pressed(KeyCode::R) {
+//         bloom_settings.knee += dt;
+//     }
 
-    if keycode.pressed(KeyCode::A) {
-        bloom_settings.scale -= dt;
-    }
-    if keycode.pressed(KeyCode::S) {
-        bloom_settings.scale += dt;
-    }
+//     if keycode.pressed(KeyCode::A) {
+//         bloom_settings.scale -= dt;
+//     }
+//     if keycode.pressed(KeyCode::S) {
+//         bloom_settings.scale += dt;
+//     }
 
-    if keycode.pressed(KeyCode::D) {
-        bloom_settings.intensity -= dt;
-    }
-    if keycode.pressed(KeyCode::F) {
-        bloom_settings.intensity += dt;
-    }
-}
+//     if keycode.pressed(KeyCode::D) {
+//         bloom_settings.intensity -= dt;
+//     }
+//     if keycode.pressed(KeyCode::F) {
+//         bloom_settings.intensity += dt;
+//     }
+// }
 
 #[derive(Component)]
 struct Bouncing;
