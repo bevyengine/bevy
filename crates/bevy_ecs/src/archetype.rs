@@ -15,23 +15,23 @@ use std::{
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
-pub struct ArchetypeId(usize);
+pub struct ArchetypeId(u32);
 
 impl ArchetypeId {
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
     /// # Safety:
     ///
     /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
-    pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
+    pub const INVALID: ArchetypeId = ArchetypeId(u32::MAX);
 
     #[inline]
     pub const fn new(index: usize) -> Self {
-        ArchetypeId(index)
+        ArchetypeId(index as u32)
     }
 
     #[inline]
     pub fn index(self) -> usize {
-        self.0
+        self.0 as usize
     }
 }
 
@@ -493,7 +493,7 @@ impl Archetypes {
             .archetype_ids
             .entry(archetype_identity)
             .or_insert_with(move || {
-                let id = ArchetypeId(archetypes.len());
+                let id = ArchetypeId::new(archetypes.len());
                 let table_start = *archetype_component_count;
                 *archetype_component_count += table_components.len();
                 let table_archetype_components =
