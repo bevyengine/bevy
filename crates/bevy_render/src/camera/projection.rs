@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy_app::{App, CoreSchedule, CoreSet, Plugin, StartupSet};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
-use bevy_math::Mat4;
+use bevy_math::{Mat4, Rect, Vec2};
 use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
     ReflectSerialize,
@@ -222,38 +222,26 @@ pub struct OrthographicProjection {
     /// Consequently, this is pivot point when scaling. With a bottom left pivot, the projection will expand
     /// upwards and to the right. With a top right pivot, the projection will expand downwards and to the left.
     /// Values in between will caused the projection to scale proportionally on each axis.
-    pub viewport_origin: (f32, f32),
+    pub viewport_origin: Vec2,
     /// How the projection will scale when the viewport is resized.
     pub scaling_mode: ScalingMode,
     /// Scales the projection in world units.
     ///
     /// As scale increases, the apparent size of objects decreases, and vice versa.
     pub scale: f32,
-    /// The distance of the left side of the projection from `viewport_origin` in world units.
+    /// The area that the projection covers.
     ///
     /// This value is automatically updated and shouldn't be manually modified.
-    pub left: f32,
-    /// The distance of the right side of the projection from `viewport_origin` in world units.
-    ///
-    /// This value is automatically updated and shouldn't be manually modified.
-    pub right: f32,
-    /// The distance of the bottom side of the projection from `viewport_origin` in world units.
-    ///
-    /// This value is automatically updated and shouldn't be manually modified.
-    pub bottom: f32,
-    /// The distance of the top side of the projection from `viewport_origin` in world units.
-    ///
-    /// This value is automatically updated and shouldn't be manually modified.
-    pub top: f32,
+    pub area: Rect,
 }
 
 impl CameraProjection for OrthographicProjection {
     fn get_projection_matrix(&self) -> Mat4 {
         Mat4::orthographic_rh(
-            self.left,
-            self.right,
-            self.bottom,
-            self.top,
+            self.area.min.x,
+            self.area.max.x,
+            self.area.min.y,
+            self.area.max.y,
             // NOTE: near and far are swapped to invert the depth range from [0,1] to [1,0]
             // This is for interoperability with pipelines using infinite reverse perspective projections.
             self.far,
@@ -297,13 +285,15 @@ impl CameraProjection for OrthographicProjection {
             ScalingMode::Fixed { width, height } => (width, height),
         };
 
-        let origin_x = projection_width * self.viewport_origin.0;
-        let origin_y = projection_height * self.viewport_origin.1;
+        let origin_x = projection_width * self.viewport_origin.x;
+        let origin_y = projection_height * self.viewport_origin.y;
 
-        self.left = -origin_x * self.scale;
-        self.bottom = -origin_y * self.scale;
-        self.right = (projection_width - origin_x) * self.scale;
-        self.top = (projection_height - origin_y) * self.scale;
+        self.area = Rect::new(
+            self.scale * -origin_x,
+            self.scale * -origin_y,
+            self.scale * projection_width - origin_x,
+            self.scale * projection_height - origin_y,
+        );
     }
 
     fn far(&self) -> f32 {
@@ -314,15 +304,12 @@ impl CameraProjection for OrthographicProjection {
 impl Default for OrthographicProjection {
     fn default() -> Self {
         OrthographicProjection {
-            left: -1.0,
-            right: 1.0,
-            bottom: -1.0,
-            top: 1.0,
             scale: 1.0,
             near: 0.0,
             far: 1000.0,
-            viewport_origin: (0.5, 0.5),
+            viewport_origin: Vec2::new(0.5, 0.5),
             scaling_mode: ScalingMode::WindowSize(1.0),
+            area: Rect::new(-1.0, -1.0, 1.0, 1.0),
         }
     }
 }
