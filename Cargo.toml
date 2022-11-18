@@ -1443,7 +1443,7 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "fallthrough"
+name = "window_fallthrough"
 path = "examples/ui/fallthrough.rs"
 
 [package.metadata.example.fallthrough]
