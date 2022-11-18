@@ -13,17 +13,19 @@ use std::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TableId(usize);
+pub struct TableId(u32);
 
 impl TableId {
+    pub(crate) const INVALID: TableId = TableId(u32::MAX);
+
     #[inline]
     pub fn new(index: usize) -> Self {
-        TableId(index)
+        TableId(index as u32)
     }
 
     #[inline]
     pub fn index(self) -> usize {
-        self.0
+        self.0 as usize
     }
 
     #[inline]
@@ -585,7 +587,7 @@ impl Tables {
                     table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
-                (component_ids.to_vec(), TableId(tables.len() - 1))
+                (component_ids.to_vec(), TableId::new(tables.len() - 1))
             });
 
         *value

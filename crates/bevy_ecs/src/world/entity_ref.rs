@@ -266,7 +266,7 @@ impl<'w> EntityMut<'w> {
         );
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         unsafe {
-            self.location = bundle_inserter.insert(self.entity, self.location.index, bundle);
+            self.location = bundle_inserter.insert(self.entity, self.location, bundle);
         }
 
         self
@@ -368,7 +368,7 @@ impl<'w> EntityMut<'w> {
         new_archetype_id: ArchetypeId,
     ) {
         let old_archetype = &mut archetypes[old_archetype_id];
-        let remove_result = old_archetype.swap_remove(old_location.index);
+        let remove_result = old_archetype.swap_remove(old_location.archetype_index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
             entities.meta[swapped_entity.index as usize].location = old_location;
         }
@@ -397,7 +397,7 @@ impl<'w> EntityMut<'w> {
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
                 archetypes[swapped_location.archetype_id]
-                    .set_entity_table_row(swapped_location.index, old_table_row);
+                    .set_entity_table_row(swapped_location.archetype_index, old_table_row);
             }
 
             new_location
@@ -498,7 +498,7 @@ impl<'w> EntityMut<'w> {
                     .get_or_insert_with(component_id, Vec::new);
                 removed_components.push(self.entity);
             }
-            let remove_result = archetype.swap_remove(location.index);
+            let remove_result = archetype.swap_remove(location.archetype_index);
             if let Some(swapped_entity) = remove_result.swapped_entity {
                 world.entities.meta[swapped_entity.index as usize].location = location;
             }
@@ -517,7 +517,7 @@ impl<'w> EntityMut<'w> {
         if let Some(moved_entity) = moved_entity {
             let moved_location = world.entities.get(moved_entity).unwrap();
             world.archetypes[moved_location.archetype_id]
-                .set_entity_table_row(moved_location.index, table_row);
+                .set_entity_table_row(moved_location.archetype_index, table_row);
         }
     }
 
@@ -610,11 +610,10 @@ pub(crate) unsafe fn get_component(
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
-            let table = &world.storages.tables[archetype.table_id()];
+            let table = &world.storages.tables[location.table_id];
             let components = table.get_column(component_id)?;
-            let table_row = archetype.entity_table_row(location.index);
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_data_unchecked(table_row))
+            Some(components.get_data_unchecked(location.table_row as usize))
         }
         StorageType::SparseSet => world
             .storages
@@ -640,13 +639,12 @@ unsafe fn get_component_and_ticks(
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
-            let table = &world.storages.tables[archetype.table_id()];
+            let table = &world.storages.tables[location.table_id];
             let components = table.get_column(component_id)?;
-            let table_row = archetype.entity_table_row(location.index);
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
             Some((
-                components.get_data_unchecked(table_row),
-                components.get_ticks_unchecked(table_row),
+                components.get_data_unchecked(location.table_row as usize),
+                components.get_ticks_unchecked(location.table_row as usize),
             ))
         }
         StorageType::SparseSet => world
@@ -668,11 +666,10 @@ unsafe fn get_ticks(
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
-            let table = &world.storages.tables[archetype.table_id()];
+            let table = &world.storages.tables[location.table_id];
             let components = table.get_column(component_id)?;
-            let table_row = archetype.entity_table_row(location.index);
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_ticks_unchecked(table_row))
+            Some(components.get_ticks_unchecked(location.table_row as usize))
         }
         StorageType::SparseSet => world
             .storages
@@ -708,12 +705,13 @@ unsafe fn take_component<'a>(
     removed_components.push(entity);
     match component_info.storage_type() {
         StorageType::Table => {
-            let table = &mut storages.tables[archetype.table_id()];
+            let table = &mut storages.tables[location.table_id];
             // SAFETY: archetypes will always point to valid columns
             let components = table.get_column_mut(component_id).unwrap();
-            let table_row = archetype.entity_table_row(location.index);
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            components.get_data_unchecked_mut(table_row).promote()
+            components
+                .get_data_unchecked_mut(location.table_row as usize)
+                .promote()
         }
         StorageType::SparseSet => storages
             .sparse_sets

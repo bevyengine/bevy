@@ -176,12 +176,15 @@ where
                 table,
             );
 
-            let table_row = archetype.entity_table_row(location.index);
             // SAFETY: set_archetype was called prior.
             // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::filter_fetch(&mut self.filter, entity, table_row) {
+            if F::filter_fetch(&mut self.filter, entity, location.table_row as usize) {
                 // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
-                return Some(Q::fetch(&mut self.fetch, entity, table_row));
+                return Some(Q::fetch(
+                    &mut self.fetch,
+                    entity,
+                    location.table_row as usize,
+                ));
             }
         }
         None

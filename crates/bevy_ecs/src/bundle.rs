@@ -528,13 +528,9 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
     pub unsafe fn insert<T: Bundle>(
         &mut self,
         entity: Entity,
-        archetype_index: usize,
+        location: EntityLocation,
         bundle: T,
     ) -> EntityLocation {
-        let location = EntityLocation {
-            index: archetype_index,
-            archetype_id: self.archetype.id(),
-        };
         match &mut self.result {
             InsertBundleResult::SameArchetype => {
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
@@ -548,14 +544,14 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     self.sparse_sets,
                     add_bundle,
                     entity,
-                    self.archetype.entity_table_row(archetype_index),
+                    location.table_row as usize,
                     self.change_tick,
                     bundle,
                 );
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
-                let result = self.archetype.swap_remove(location.index);
+                let result = self.archetype.swap_remove(location.archetype_index);
                 if let Some(swapped_entity) = result.swapped_entity {
                     self.entities.meta[swapped_entity.index as usize].location = location;
                 }
@@ -583,7 +579,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 new_archetype,
                 new_table,
             } => {
-                let result = self.archetype.swap_remove(location.index);
+                let result = self.archetype.swap_remove(location.archetype_index);
                 if let Some(swapped_entity) = result.swapped_entity {
                     self.entities.meta[swapped_entity.index as usize].location = location;
                 }
@@ -611,7 +607,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     };
 
                     swapped_archetype
-                        .set_entity_table_row(swapped_location.index, result.table_row);
+                        .set_entity_table_row(swapped_location.archetype_index, result.table_row);
                 }
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)

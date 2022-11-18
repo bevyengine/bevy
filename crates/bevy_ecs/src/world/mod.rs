@@ -1091,7 +1091,7 @@ impl World {
                             if location.archetype_id == archetype =>
                         {
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.index, bundle) };
+                            unsafe { inserter.insert(entity, location, bundle) };
                         }
                         _ => {
                             let mut inserter = bundle_info.get_bundle_inserter(
@@ -1103,7 +1103,7 @@ impl World {
                                 change_tick,
                             );
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.index, bundle) };
+                            unsafe { inserter.insert(entity, location, bundle) };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
                         }
