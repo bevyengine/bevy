@@ -232,7 +232,7 @@ fn change_window(
                 }
                 bevy_window::WindowCommand::SetCursorHitTest { hittest } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    _ = window.set_cursor_hittest(!hittest).unwrap();
+                    window.set_cursor_hittest(!hittest).unwrap();
                 }
                 bevy_window::WindowCommand::Close => {
                     // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
