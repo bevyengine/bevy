@@ -124,12 +124,34 @@ mod test {
     }
 
     #[test]
+    fn test_multiple_generic_uuid() {
+        #[derive(TypeUuid)]
+        #[uuid = "35c8a7d3-d4b3-4bd7-b847-1118dc78092f"]
+        struct TestGeneric<A, B> {
+            _value_a: A,
+            _value_b: B,
+        }
+        assert_ne!(
+            TestGeneric::<f32, bool>::TYPE_UUID,
+            TestGeneric::<bool, f32>::TYPE_UUID
+        );
+    }
+
+    #[test]
     fn test_primitive_generic_uuid() {
         test_impl_type_uuid(&true);
         test_impl_type_uuid(&Some(true));
         test_impl_type_uuid(&TestDeriveStruct::<bool> { _value: true });
+
         assert_ne!(Option::<bool>::TYPE_UUID, Option::<f32>::TYPE_UUID);
+
         assert_ne!(<[bool; 0]>::TYPE_UUID, <[bool; 1]>::TYPE_UUID);
         assert_ne!(<[bool; 0]>::TYPE_UUID, <[f32; 0]>::TYPE_UUID);
+
+        assert_ne!(
+            <(bool, bool)>::TYPE_UUID,
+            <(bool, bool, bool, bool)>::TYPE_UUID
+        );
+        assert_ne!(<(bool, f32)>::TYPE_UUID, <(f32, bool)>::TYPE_UUID);
     }
 }

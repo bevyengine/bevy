@@ -68,3 +68,21 @@ impl_type_uuid!(NonZeroU8, "635ee104ef7947fb9d7f79dad47255a3");
 impl_type_uuid!(NonZeroI8, "2d3f1570b7f64779826d44da5c7ba069");
 #[cfg(any(unix, windows))]
 impl_type_uuid!(OsString, "809e7b3c1ea240979ecd832f91eb842a");
+
+macro_rules! impl_tuple {
+    ( $($name: ident)+ ) => {
+        impl_type_uuid!(< $($name),+ > ( $($name),+ ), "35c8a7d3d4b34bd7b8471118dc78092f");
+    };
+}
+
+impl_tuple!(A B);
+impl_tuple!(A B C);
+impl_tuple!(A B C D);
+impl_tuple!(A B C D E);
+impl_tuple!(A B C D E F);
+impl_tuple!(A B C D E F G);
+impl_tuple!(A B C D E F G H);
+impl_tuple!(A B C D E F G H I);
+impl_tuple!(A B C D E F G H I J);
+impl_tuple!(A B C D E F G H I J K);
+impl_tuple!(A B C D E F G H I J K L);
