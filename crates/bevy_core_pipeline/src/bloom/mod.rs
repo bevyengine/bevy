@@ -1,4 +1,4 @@
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex_state};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
@@ -24,19 +24,6 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
 use std::num::NonZeroU32;
-
-pub mod draw_3d_graph {
-    pub mod node {
-        /// Label for the bloom render node.
-        pub const BLOOM: &str = "bloom_3d";
-    }
-}
-pub mod draw_2d_graph {
-    pub mod node {
-        /// Label for the bloom render node.
-        pub const BLOOM: &str = "bloom_2d";
-    }
-}
 
 const BLOOM_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 929599476923908);
@@ -68,12 +55,12 @@ impl Plugin for BloomPlugin {
             let draw_3d_graph = graph
                 .get_sub_graph_mut(crate::core_3d::graph::NAME)
                 .unwrap();
-            draw_3d_graph.add_node(draw_3d_graph::node::BLOOM, bloom_node);
+            draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
             draw_3d_graph
                 .add_slot_edge(
                     draw_3d_graph.input_node().unwrap().id,
                     crate::core_3d::graph::input::VIEW_ENTITY,
-                    draw_3d_graph::node::BLOOM,
+                    core_3d::graph::node::BLOOM,
                     BloomNode::IN_VIEW,
                 )
                 .unwrap();
@@ -81,12 +68,12 @@ impl Plugin for BloomPlugin {
             draw_3d_graph
                 .add_node_edge(
                     crate::core_3d::graph::node::MAIN_PASS,
-                    draw_3d_graph::node::BLOOM,
+                    core_3d::graph::node::BLOOM,
                 )
                 .unwrap();
             draw_3d_graph
                 .add_node_edge(
-                    draw_3d_graph::node::BLOOM,
+                    core_3d::graph::node::BLOOM,
                     crate::core_3d::graph::node::TONEMAPPING,
                 )
                 .unwrap();
@@ -98,12 +85,12 @@ impl Plugin for BloomPlugin {
             let draw_2d_graph = graph
                 .get_sub_graph_mut(crate::core_2d::graph::NAME)
                 .unwrap();
-            draw_2d_graph.add_node(draw_2d_graph::node::BLOOM, bloom_node);
+            draw_2d_graph.add_node(core_2d::graph::node::BLOOM, bloom_node);
             draw_2d_graph
                 .add_slot_edge(
                     draw_2d_graph.input_node().unwrap().id,
                     crate::core_2d::graph::input::VIEW_ENTITY,
-                    draw_2d_graph::node::BLOOM,
+                    core_2d::graph::node::BLOOM,
                     BloomNode::IN_VIEW,
                 )
                 .unwrap();
@@ -111,12 +98,12 @@ impl Plugin for BloomPlugin {
             draw_2d_graph
                 .add_node_edge(
                     crate::core_2d::graph::node::MAIN_PASS,
-                    draw_2d_graph::node::BLOOM,
+                    core_2d::graph::node::BLOOM,
                 )
                 .unwrap();
             draw_2d_graph
                 .add_node_edge(
-                    draw_2d_graph::node::BLOOM,
+                    core_2d::graph::node::BLOOM,
                     crate::core_2d::graph::node::TONEMAPPING,
                 )
                 .unwrap();
@@ -164,7 +151,7 @@ impl Default for BloomSettings {
     }
 }
 
-struct BloomNode {
+pub struct BloomNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
         &'static ViewTarget,
@@ -175,9 +162,9 @@ struct BloomNode {
 }
 
 impl BloomNode {
-    const IN_VIEW: &'static str = "view";
+    pub const IN_VIEW: &'static str = "view";
 
-    fn new(world: &mut World) -> Self {
+    pub fn new(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
         }
