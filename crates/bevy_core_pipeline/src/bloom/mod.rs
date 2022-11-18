@@ -132,7 +132,8 @@ impl Plugin for BloomPlugin {
 ///
 /// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive`.
 ///
-/// Should be used along with a tonemapping function that maps each RGB component separately, such as ACES Filmic.
+/// Bloom is best used alongside a tonemapping function that desaturates bright colors,
+/// such as ACES Filmic (Bevy's default).
 ///
 /// ## Note
 ///
