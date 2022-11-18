@@ -17,9 +17,9 @@ use std::{
 /// Can be used with [`Tables::get`] to fetch the corresponding
 /// table.
 ///
-/// Each [`Archetype`] always points to a table via [`Archetype::table_id`]. 
-/// Multiple archetypes can point to the same table so long as the components 
-/// stored in the table are identical, but do not share the same sparse set 
+/// Each [`Archetype`] always points to a table via [`Archetype::table_id`].
+/// Multiple archetypes can point to the same table so long as the components
+/// stored in the table are identical, but do not share the same sparse set
 /// components.
 ///
 /// [`World`]: crate::world::World
