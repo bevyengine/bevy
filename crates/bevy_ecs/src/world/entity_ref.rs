@@ -593,8 +593,8 @@ impl<'w> EntityMut<'w> {
 /// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
-/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
-/// the archetype
+/// - location` must be within bounds of the given archetype and table and `entity` must exist inside
+/// the archetype and table
 /// - `component_id` must be valid
 #[inline]
 pub(crate) unsafe fn get_component(
@@ -624,7 +624,8 @@ pub(crate) unsafe fn get_component(
 /// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] on a particular [`Entity`] in the provided [World].
 ///
 /// # Safety
-/// Caller must ensure that `component_id` is valid
+///  - Caller must ensure that `component_id` is valid
+///  - Caller must ensure that `location` is valid for `entity`.
 #[inline]
 unsafe fn get_component_and_ticks(
     world: &World,
@@ -682,7 +683,8 @@ unsafe fn get_ticks(
 /// Caller is responsible to drop component data behind returned pointer.
 ///
 /// # Safety
-/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside the archetype
+/// - `location` must be within bounds of the given archetype and table and `entity` must exist inside the archetype
+///   and table.
 /// - `component_id` must be valid
 /// - The relevant table row **must be removed** by the caller once all components are taken
 #[inline]
