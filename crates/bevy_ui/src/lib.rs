@@ -126,7 +126,7 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::image_node_system
+                widget::update_image_calculated_size_system
                     .before(UiSystem::Flex)
                     // Potential conflicts: `Assets<Image>`
                     // They run independently since `widget::image_node_system` will only ever observe

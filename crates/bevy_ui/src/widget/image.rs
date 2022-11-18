@@ -8,7 +8,7 @@ use bevy_render::texture::Image;
 use bevy_text::Text;
 
 /// Updates calculated size of the node based on the image provided
-pub fn image_node_system(
+pub fn update_image_calculated_size_system(
     textures: Res<Assets<Image>>,
     mut query: Query<(&mut CalculatedSize, &UiImage), Without<Text>>,
 ) {
