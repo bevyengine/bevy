@@ -7,7 +7,7 @@
 
 struct BloomSettings {
     intensity: f32,
-    filter: vec4<f32>,
+    t: vec4<f32>,
 };
 
 @group(0) @binding(0)
@@ -22,10 +22,10 @@ var main_pass_texture: texture_2d<f32>;
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
-    var hardness = brightness - settings.filter.y;
-    hardness = clamp(hardness, 0.0, settings.filter.z);
-    hardness = hardness * hardness * settings.filter.w;
-    var contribution = max(brightness - settings.filter.x, hardness);
+    var hardness = brightness - settings.t.y;
+    hardness = clamp(hardness, 0.0, settings.t.z);
+    hardness = hardness * hardness * settings.t.w;
+    var contribution = max(brightness - settings.t.x, hardness);
     contribution /= max(brightness, 0.00001); // prevent division by 0
     return color * contribution;
 }
