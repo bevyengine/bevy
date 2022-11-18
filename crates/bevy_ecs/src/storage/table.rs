@@ -13,8 +13,18 @@ use std::{
 };
 
 /// An opaque unique ID for a [`Table`] within a [`World`].
-/// 
+///
+/// Can be used with [`Tables::get`] to fetch the corresponding
+/// table.
+///
+/// Each [`Archetype`] always points to a table via [`Archetype::table_id`]. 
+/// Multiple archetypes can point to the same table so long as the components 
+/// stored in the table are identical, but do not share the same sparse set 
+/// components.
+///
 /// [`World`]: crate::world::World
+/// [`Archetype`]: crate::archetype::Archetype
+/// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TableId(u32);
 
