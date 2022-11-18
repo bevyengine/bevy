@@ -10,18 +10,12 @@ use uuid::Uuid;
 pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     // Construct a representation of Rust code as a syntax tree
     // that we can manipulate
-    let mut ast: DeriveInput = syn::parse(input).unwrap();
-    let bevy_reflect_path: Path = BevyManifest::default().get_path("bevy_reflect");
+    let ast: DeriveInput = syn::parse(input).unwrap();
     // Build the trait implementation
     let name = ast.ident;
     let path = Path::from(name);
     let type_path = TypePath { qself: None, path };
     let r#type = Type::Path(type_path);
-    ast.generics.type_params_mut().for_each(|param| {
-        param
-            .bounds
-            .push(syn::parse_quote!(#bevy_reflect_path::TypeUuid));
-    });
 
     let mut uuid = None;
     for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
