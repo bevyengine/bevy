@@ -243,7 +243,7 @@ impl Node for BloomNode {
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
-                            resource: BindingResource::TextureView(&view_target.source),
+                            resource: BindingResource::TextureView(view_target.source),
                         },
                         BindGroupEntry {
                             binding: 1,
@@ -276,7 +276,7 @@ impl Node for BloomNode {
                         },
                         BindGroupEntry {
                             binding: 3,
-                            resource: BindingResource::TextureView(&view_target.source),
+                            resource: BindingResource::TextureView(view_target.source),
                         },
                     ],
                 });
@@ -368,7 +368,7 @@ impl Node for BloomNode {
                     &RenderPassDescriptor {
                         label: Some("bloom_upsampling_final_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
-                            view: &view_target.destination,
+                            view: view_target.destination,
                             resolve_target: None,
                             ops: Operations::default(),
                         })],
