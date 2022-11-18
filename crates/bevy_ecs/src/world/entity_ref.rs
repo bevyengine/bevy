@@ -310,7 +310,6 @@ impl<'w> EntityMut<'w> {
             return None;
         }
 
-        let old_archetype = &mut archetypes[old_location.archetype_id];
         let mut bundle_components = bundle_info.component_ids.iter().cloned();
         let entity = self.entity;
         // SAFETY: bundle components are iterated in order, which guarantees that the component type
@@ -322,7 +321,6 @@ impl<'w> EntityMut<'w> {
                 take_component(
                     components,
                     storages,
-                    old_archetype,
                     removed_components,
                     component_id,
                     entity,
@@ -605,7 +603,6 @@ pub(crate) unsafe fn get_component(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<Ptr<'_>> {
-    let archetype = &world.archetypes[location.archetype_id];
     // SAFETY: component_id exists and is therefore valid
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
@@ -635,7 +632,6 @@ unsafe fn get_component_and_ticks(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
-    let archetype = &world.archetypes[location.archetype_id];
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
@@ -662,7 +658,6 @@ unsafe fn get_ticks(
     entity: Entity,
     location: EntityLocation,
 ) -> Option<&UnsafeCell<ComponentTicks>> {
-    let archetype = &world.archetypes[location.archetype_id];
     let component_info = world.components.get_info_unchecked(component_id);
     match component_info.storage_type() {
         StorageType::Table => {
@@ -694,7 +689,6 @@ unsafe fn get_ticks(
 unsafe fn take_component<'a>(
     components: &Components,
     storages: &'a mut Storages,
-    archetype: &Archetype,
     removed_components: &mut SparseSet<ComponentId, Vec<Entity>>,
     component_id: ComponentId,
     entity: Entity,
