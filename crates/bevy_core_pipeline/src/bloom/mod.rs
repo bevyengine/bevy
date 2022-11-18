@@ -507,7 +507,7 @@ impl FromWorld for BloomPipelines {
                 vertex: fullscreen_shader_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                    shader_defs: vec![],
+                    shader_defs: vec!["FIRST_DOWNSAMPLE".into()],
                     entry_point: "downsample_first".into(),
                     targets: vec![Some(ColorTargetState {
                         format: TextureFormat::Rg11b10Float,

@@ -3,6 +3,7 @@
 // * https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
+#import bevy_core_pipeline::tonemapping
 
 struct BloomSettings {
     intensity: f32,
@@ -28,6 +29,11 @@ fn quadratic_threshold(color: vec3<f32>, threshold: f32, curve: vec3<f32>) -> ve
     return color * max(rq, br - threshold) / max(br, 0.0001);
 }
 
+fn karis_average(color: vec3<f32>) -> f32 {
+    let luma = tonemapping_luminance(rgb_to_srgb(color)) / 4.0;
+    return 1.0 / (1.0 + luma);
+}
+
 // "Next Generation Post Processing in Call of Duty: Advanced Warfare" slide 100
 fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     let texel_size = 1.0 / vec2<f32>(textureDimensions(input_texture));
@@ -51,11 +57,26 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
     let l = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y - y)).rgb;
     let m = textureSample(input_texture, s, vec2<f32>(uv.x + x, uv.y - y)).rgb;
 
+#ifdef FIRST_DOWNSAMPLE
+    // "Next Generation Post Processing in Call of Duty: Advanced Warfare" slide 112
+    var group0 = (a + b + d + e) * (0.125f / 4.0f);
+    var group1 = (b + c + e + f) * (0.125f / 4.0f);
+    var group2 = (d + e + g + h) * (0.125f / 4.0f);
+    var group3 = (e + f + h + i) * (0.125f / 4.0f);
+    var group4 = (j + k + l + m) * (0.5f / 4.0f);
+    group0 *= karis_average(group0);
+    group1 *= karis_average(group1);
+    group2 *= karis_average(group2);
+    group3 *= karis_average(group3);
+    group4 *= karis_average(group4);
+    return group0 + group1 + group2 + group3 + group4;
+#else
     var sample = e * 0.125;
     sample += (a + c + g + i) * 0.03125;
     sample += (b + d + f + h) * 0.0625;
     sample += (j + k + l + m) * 0.125;
     return sample;
+#endif
 }
 
 // "Next Generation Post Processing in Call of Duty: Advanced Warfare" slide 109
@@ -86,7 +107,6 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 @fragment
 fn downsample_first(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     // TODO: Threshold
-    // TODO: Karis average
     return vec4<f32>(sample_input_13_tap(uv), 1.0);
 }
 
