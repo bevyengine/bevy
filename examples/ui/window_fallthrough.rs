@@ -3,14 +3,9 @@
 
 use bevy::prelude::*;
 
-const WIDTH: f32 = 1920.;
-const HEIGHT: f32 = 1080.;
-
 fn main() {
     // Set the window's parameters, note we're setting always_on_top to be true.
     let window_desc = WindowDescriptor {
-        width: WIDTH,
-        height: HEIGHT,
         transparent: true,
         decorations: true,
         always_on_top: true,
@@ -47,8 +42,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_style(Style {
             position_type: PositionType::Absolute,
             position: UiRect {
-                bottom: Val::Px(HEIGHT / 4.),
-                right: Val::Px(WIDTH / 4.),
+                bottom: Val::Px(5.),
+                right: Val::Px(10.),
                 ..default()
             },
             ..default()
@@ -59,14 +54,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn toggle_mouse_passthrough(keyboard_input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     if keyboard_input.just_pressed(KeyCode::P) {
         let window = windows.primary_mut();
-
         let hittest: bool = window.hittest();
-        if hittest {
-            info!("Hittesting the window.");
-        } else {
-            info!("Hittesting off.");
-        }
-
         window.set_cursor_hittest(!hittest);
     }
 }

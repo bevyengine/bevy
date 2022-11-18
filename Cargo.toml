@@ -1444,7 +1444,7 @@ wasm = true
 
 [[example]]
 name = "window_fallthrough"
-path = "examples/ui/fallthrough.rs"
+path = "examples/ui/window_fallthrough.rs"
 
 [package.metadata.example.fallthrough]
 name = "Fallthrough"
