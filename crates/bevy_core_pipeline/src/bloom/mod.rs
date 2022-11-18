@@ -126,8 +126,6 @@ impl Plugin for BloomPlugin {
     }
 }
 
-/// ## Usage
-///
 /// Applies a bloom effect to a HDR-enabled 2d or 3d camera.
 ///
 /// Bloom causes bright objects to "glow", emitting a halo of light around them.
