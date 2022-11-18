@@ -372,16 +372,10 @@ fn extract(app_world: &mut World, render_app: &mut App) {
 pub struct FrameCountPlugin;
 impl Plugin for FrameCountPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_system(update_frame_count);
-
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_system_to_stage(RenderStage::Extract, extract_frame_count);
         }
     }
-}
-
-fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
-    frame_count.0 = frame_count.0.wrapping_add(1);
 }
 
 fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCount>>) {
