@@ -101,6 +101,8 @@ impl<'w> EntityRef<'w> {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Option<Mut<'w, T>> {
+        // SAFETY: entity location is valid and returned component is of type T. Caller guarentees that
+        // this reference will not alias.
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
                 value: value.assert_unique().deref_mut::<T>(),
@@ -125,7 +127,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.world.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY: location is valid, component_id is valid as checked by the line above
         unsafe { get_component(self.world, component_id, self.entity, self.location) }
     }
 }
@@ -192,7 +194,8 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
-        // SAFETY: lifetimes enforce correct usage of returned borrow
+        // SAFETY: lifetimes enforce correct usage of returned borrow. entity location is valid and
+        // returned component is of type T.
         unsafe {
             get_component_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
                 .map(|value| value.deref::<T>())
