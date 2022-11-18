@@ -129,8 +129,8 @@ fn update_bloom_settings(
                 bloom_settings.threshold_base
             ));
             text.push_str(&format!(
-                "(D/F) Threshold Hardness: {}",
-                bloom_settings.threshold_hardness
+                "(D/F) Threshold Softness: {}",
+                bloom_settings.threshold_softness
             ));
 
             if keycode.just_pressed(KeyCode::Space) {
@@ -154,10 +154,10 @@ fn update_bloom_settings(
             }
 
             if keycode.pressed(KeyCode::D) {
-                bloom_settings.threshold_hardness -= dt / 10.0;
+                bloom_settings.threshold_softness -= dt / 5.0;
             }
             if keycode.pressed(KeyCode::F) {
-                bloom_settings.threshold_hardness += dt / 10.0;
+                bloom_settings.threshold_softness += dt / 5.0;
             }
         }
 

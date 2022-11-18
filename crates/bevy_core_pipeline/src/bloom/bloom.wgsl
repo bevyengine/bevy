@@ -22,10 +22,10 @@ var main_pass_texture: texture_2d<f32>;
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
-    var hardness = brightness - settings.t.y;
-    hardness = clamp(hardness, 0.0, settings.t.z);
-    hardness = hardness * hardness * settings.t.w;
-    var contribution = max(brightness - settings.t.x, hardness);
+    var softness = brightness - settings.t.y;
+    softness = clamp(softness, 0.0, settings.t.z);
+    softness = softness * softness * settings.t.w;
+    var contribution = max(brightness - settings.t.x, softness);
     contribution /= max(brightness, 0.00001); // prevent division by 0
     return color * contribution;
 }
