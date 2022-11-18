@@ -291,8 +291,8 @@ impl CameraProjection for OrthographicProjection {
         self.area = Rect::new(
             self.scale * -origin_x,
             self.scale * -origin_y,
-            self.scale * projection_width - origin_x,
-            self.scale * projection_height - origin_y,
+            self.scale * (projection_width - origin_x),
+            self.scale * (projection_height - origin_y),
         );
     }
 
