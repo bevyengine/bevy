@@ -145,7 +145,6 @@ impl ShaderCache {
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
-        shader_defs: &[String],
         shader_defs: &[ShaderDefVal],
     ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
