@@ -120,10 +120,7 @@ impl Parse for TypeUuidDef {
         input.parse::<Token![,]>()?;
         let uuid = input.parse::<LitStr>()?.value();
         let uuid = Uuid::parse_str(&uuid).map_err(|err| input.error(format!("{}", err)))?;
-        let include_type_generics = match r#type {
-            Type::Path(_) => true,
-            _ => false,
-        };
+        let include_type_generics = matches!(r#type, Type::Path(_));
 
         Ok(Self {
             r#type,
