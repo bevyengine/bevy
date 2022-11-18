@@ -475,18 +475,12 @@ mod tests {
             query.single().is_changed()
         }
 
-        fn change_expired(query: Query<ChangeTrackers<ZST>>) -> bool {
-            query.single().is_changed()
-        }
-
         let mut world = World::new();
 
         let entity = world.spawn(ZST).id();
 
         let mut change_detected_system = IntoSystem::into_system(change_detected);
-        let mut change_expired_system = IntoSystem::into_system(change_expired);
         change_detected_system.initialize(&mut world);
-        change_expired_system.initialize(&mut world);
 
         assert!(change_detected_system.run((), &mut world));
         *world.change_tick.get_mut() += 1;
