@@ -456,6 +456,8 @@ impl From<Color> for BackgroundColor {
 pub struct UiImage {
     /// Handle to the texture
     pub texture: Handle<Image>,
+    /// Whether to rotate the texture 90 degrees counterclockwise
+    pub rotate: bool,
     /// Whether the image should be flipped along its x-axis
     pub flip_x: bool,
     /// Whether the image should be flipped along its y-axis
@@ -466,6 +468,7 @@ impl Default for UiImage {
     fn default() -> UiImage {
         UiImage {
             texture: DEFAULT_IMAGE_HANDLE.typed(),
+            rotate: false,
             flip_x: false,
             flip_y: false,
         }

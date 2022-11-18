@@ -192,6 +192,7 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub rotate: bool,
     pub flip_x: bool,
     pub flip_y: bool,
     pub scale_factor: f32,
@@ -227,10 +228,20 @@ pub fn extract_uinodes(
             if !visibility.is_visible() {
                 continue;
             }
-            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
-                (image.texture.clone_weak(), image.flip_x, image.flip_y)
+            let (image, rotate, flip_x, flip_y) = if let Some(image) = maybe_image {
+                (
+                    image.texture.clone_weak(),
+                    image.rotate,
+                    image.flip_x,
+                    image.flip_y,
+                )
             } else {
-                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
+                (
+                    DEFAULT_IMAGE_HANDLE.typed().clone_weak(),
+                    false,
+                    false,
+                    false,
+                )
             };
             // Skip loading images
             if !images.contains(&image) {
@@ -252,6 +263,7 @@ pub fn extract_uinodes(
                 image,
                 atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
+                rotate,
                 flip_x,
                 flip_y,
                 scale_factor,
@@ -380,6 +392,7 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
+                    rotate: false,
                     flip_x: false,
                     flip_y: false,
                     scale_factor,
@@ -536,6 +549,9 @@ pub fn prepare_uinodes(
         ]
         .map(|pos| pos / atlas_extent);
 
+        if extracted_uinode.rotate {
+            uvs = [uvs[1], uvs[2], uvs[3], uvs[0]];
+        }
         if extracted_uinode.flip_x {
             uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
         }

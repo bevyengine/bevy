@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Size, UiImage, Val};
+use crate::{CalculatedSize, UiImage, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     query::Without,
@@ -14,10 +14,15 @@ pub fn update_image_calculated_size_system(
 ) {
     for (mut calculated_size, image) in &mut query {
         if let Some(texture) = textures.get(&image.texture) {
-            let size = Size {
-                width: Val::Px(texture.texture_descriptor.size.width as f32),
-                height: Val::Px(texture.texture_descriptor.size.height as f32),
-            };
+            let width = Val::Px(texture.texture_descriptor.size.width as f32);
+            let height = Val::Px(texture.texture_descriptor.size.height as f32);
+            let size = if image.rotate {
+                (height, width)
+            } else {
+                (width, height)
+            }
+            .into();
+
             // Update only if size has changed to avoid needless layout calculations
             if size != calculated_size.size {
                 calculated_size.size = size;

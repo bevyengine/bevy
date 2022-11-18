@@ -1453,6 +1453,10 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "image_symmetries"
+path = "examples/ui/image_symmetries.rs"
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 
