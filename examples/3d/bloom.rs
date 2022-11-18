@@ -121,29 +121,29 @@ fn update_bloom_settings(
 
     match bloom_settings {
         (entity, Some(mut bloom_settings)) => {
-            *text = "BloomSettings (Space)\n".to_string();
-            text.push_str("-----------------------\n");
+            *text = "BloomSettings (Toggle: Space)\n".to_string();
+            text.push_str("-----------------------------\n");
             text.push_str(&format!("(Q/W) Intensity: {}\n", bloom_settings.intensity));
             text.push_str(&format!(
                 "(A/S) Threshold Base: {}\n",
                 bloom_settings.threshold_base
             ));
             text.push_str(&format!(
-                "(D/F) Threshold Knee: {}",
-                bloom_settings.threshold_knee
+                "(D/F) Threshold Hardness: {}",
+                bloom_settings.threshold_hardness
             ));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<BloomSettings>();
             }
 
-            let dt = time.delta_seconds() / 10.0;
+            let dt = time.delta_seconds();
 
             if keycode.pressed(KeyCode::Q) {
-                bloom_settings.intensity -= dt;
+                bloom_settings.intensity -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::W) {
-                bloom_settings.intensity += dt;
+                bloom_settings.intensity += dt / 10.0;
             }
 
             if keycode.pressed(KeyCode::A) {
@@ -154,15 +154,15 @@ fn update_bloom_settings(
             }
 
             if keycode.pressed(KeyCode::D) {
-                bloom_settings.threshold_knee -= dt;
+                bloom_settings.threshold_hardness -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::F) {
-                bloom_settings.threshold_knee += dt;
+                bloom_settings.threshold_hardness += dt / 10.0;
             }
         }
 
         (entity, None) => {
-            *text = "Bloom: Off (Space)\n".to_string();
+            *text = "Bloom: Off (Toggle: Space)\n".to_string();
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).insert(BloomSettings::default());

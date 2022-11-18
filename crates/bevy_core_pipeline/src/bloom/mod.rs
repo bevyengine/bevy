@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::UVec2;
+use bevy_math::{UVec2, Vec4};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -137,7 +137,7 @@ impl Plugin for BloomPlugin {
 /// such as ACES Filmic (Bevy's default).
 ///
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
-#[derive(Component, ShaderType, Reflect, Clone)]
+#[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
     /// Intensity of the bloom effect (default: 0.04).
     pub intensity: f32,
@@ -148,8 +148,9 @@ pub struct BloomSettings {
     /// Using a threshold is not physically accurate, but may fit better with your artistic direction.
     pub threshold_base: f32,
 
-    /// Knee of the threshold curve (default: 0.0).
-    pub threshold_knee: f32,
+    /// Controls how much to blend between the thresholded and
+    /// non-thresholded colors (default: 0.5, min: 0.0, max: 1.0).
+    pub threshold_hardness: f32,
 }
 
 impl Default for BloomSettings {
@@ -157,7 +158,7 @@ impl Default for BloomSettings {
         Self {
             intensity: 0.04,
             threshold_base: 0.0,
-            threshold_knee: 0.0,
+            threshold_hardness: 0.5,
         }
     }
 }
@@ -437,7 +438,7 @@ impl FromWorld for BloomPipelines {
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: true,
-                            min_binding_size: Some(BloomSettings::min_size()),
+                            min_binding_size: Some(BloomUniform::min_size()),
                         },
                         visibility: ShaderStages::FRAGMENT,
                         count: None,
@@ -473,7 +474,7 @@ impl FromWorld for BloomPipelines {
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: true,
-                            min_binding_size: Some(BloomSettings::min_size()),
+                            min_binding_size: Some(BloomUniform::min_size()),
                         },
                         visibility: ShaderStages::FRAGMENT,
                         count: None,
@@ -665,9 +666,15 @@ fn prepare_bloom_textures(
     }
 }
 
+#[derive(ShaderType)]
+struct BloomUniform {
+    intensity: f32,
+    filter: Vec4,
+}
+
 #[derive(Resource, Default)]
 struct BloomUniforms {
-    buffer: DynamicUniformBuffer<BloomSettings>,
+    buffer: DynamicUniformBuffer<BloomUniform>,
 }
 
 #[derive(Component)]
@@ -685,7 +692,18 @@ fn prepare_bloom_uniforms(
     let entities = bloom_query
         .iter()
         .map(|(entity, settings)| {
-            let index = bloom_uniforms.buffer.push(settings.clone());
+            let knee = settings.threshold_base * settings.threshold_hardness;
+            let uniform = BloomUniform {
+                intensity: settings.intensity,
+                filter: Vec4::new(
+                    settings.threshold_base,
+                    settings.threshold_base - knee,
+                    2.0 * knee,
+                    0.25 / (knee + 0.00001),
+                ),
+            };
+
+            let index = bloom_uniforms.buffer.push(uniform);
             (entity, (BloomUniformIndex(index)))
         })
         .collect::<Vec<_>>();

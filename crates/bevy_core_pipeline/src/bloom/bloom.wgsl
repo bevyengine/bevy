@@ -7,8 +7,7 @@
 
 struct BloomSettings {
     intensity: f32,
-    threshold_base: f32,
-    threshold_knee: f32,
+    filter: vec4<f32>,
 };
 
 @group(0) @binding(0)
@@ -20,15 +19,18 @@ var<uniform> settings: BloomSettings;
 @group(0) @binding(3)
 var main_pass_texture: texture_2d<f32>;
 
-fn quadratic_threshold(color: vec3<f32>, threshold: f32, curve: vec3<f32>) -> vec3<f32> {
-    let br = max(max(color.r, color.g), color.b);
-
-    var rq: f32 = clamp(br - curve.x, 0.0, curve.y);
-    rq = curve.z * rq * rq;
-
-    return color * max(rq, br - threshold) / max(br, 0.0001);
+// https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
+fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
+    let brightness = max(color.r, max(color.g, color.b));
+    var hardness = brightness - settings.filter.y;
+    hardness = clamp(hardness, 0.0, settings.filter.z);
+    hardness = hardness * hardness * settings.filter.w;
+    var contribution = max(brightness - settings.filter.x, hardness);
+    contribution /= max(brightness, 0.00001); // prevent division by 0
+    return color * contribution;
 }
 
+// http://graphicrants.blogspot.com/2013/12/tone-mapping.html
 fn karis_average(color: vec3<f32>) -> f32 {
     let luma = tonemapping_luminance(rgb_to_srgb(color)) / 4.0;
     return 1.0 / (1.0 + luma);
@@ -106,8 +108,11 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 
 @fragment
 fn downsample_first(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    // TODO: Threshold
-    return vec4<f32>(sample_input_13_tap(uv), 1.0);
+    var sample = sample_input_13_tap(uv);
+
+    sample = soft_threshold(sample);
+
+    return vec4<f32>(sample, 1.0);
 }
 
 @fragment
