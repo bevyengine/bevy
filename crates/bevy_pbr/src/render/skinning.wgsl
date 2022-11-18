@@ -1,8 +1,21 @@
-// If using this WGSL snippet as an #import, a dedicated
-// "joint_matricies" uniform of type SkinnedMesh must be added in the
-// main shader.
-
 #define_import_path bevy_pbr::skinning
+
+#import bevy_pbr::mesh_types
+
+#ifdef SKINNED
+
+#ifdef MESH_BINDGROUP_1
+
+    @group(1) @binding(1)
+    var<uniform> joint_matrices: bevy_pbr::mesh_types::SkinnedMesh;
+
+#else 
+
+    @group(2) @binding(1)
+    var<uniform> joint_matrices: bevy_pbr::mesh_types::SkinnedMesh;
+
+#endif
+
 
 fn skin_model(
     indexes: vec4<u32>,
@@ -40,3 +53,5 @@ fn skin_normals(
         ) * normal
     );
 }
+
+#endif

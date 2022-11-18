@@ -31,8 +31,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     let speed = 2.0;
     // The globals binding contains various global values like time
     // which is the time since startup in seconds
-    let t_1 = sin(globals.time * speed) * 0.5 + 0.5;
-    let t_2 = cos(globals.time * speed);
+    let t_1 = sin(bevy_pbr::mesh_view_bindings::globals.time * speed) * 0.5 + 0.5;
+    let t_2 = cos(bevy_pbr::mesh_view_bindings::globals.time * speed);
 
     let distance_to_center = distance(in.uv, vec2<f32>(0.5)) * 1.4;
 
