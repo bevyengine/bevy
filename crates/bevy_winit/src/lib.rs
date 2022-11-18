@@ -471,15 +471,7 @@ pub fn winit_runner_with(mut app: App) {
                         }
                     },
                     WindowEvent::Touch(touch) => {
-                        let mut location = touch.location.to_logical(window.scale_factor());
-
-                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
-                        // bottom
-                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            let window_height = windows.primary().height();
-                            location.y = window_height - location.y;
-                        }
-
+                        let location = touch.location.to_logical(window.scale_factor());
                         world.send_event(converters::convert_touch_input(touch, location));
                     }
                     WindowEvent::ReceivedCharacter(c) => {
