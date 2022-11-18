@@ -12,6 +12,9 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+/// An opaque unique ID for a [`Table`] within a [`World`].
+/// 
+/// [`World`]: crate::world::World
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TableId(u32);
 
