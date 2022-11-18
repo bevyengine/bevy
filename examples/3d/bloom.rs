@@ -10,7 +10,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
-        // .add_system(update_bloom_settings)
+        .add_system(update_bloom_settings)
         .add_system(bounce_spheres)
         .run();
 }
@@ -33,8 +33,16 @@ fn setup_scene(
         BloomSettings::default(), // 2. Enable bloom for the camera
     ));
 
-    let material_emissive = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(5.2, 1.2, 0.8), // 3. Set StandardMaterial::emissive using Color::rgb_linear, for entities we want to apply bloom to
+    let material_emissive1 = materials.add(StandardMaterial {
+        emissive: Color::rgb_linear(5.2, 1.2, 0.8), // 3. Set StandardMaterial::emissive using Color::rgb_linear, for entities we want to glow
+        ..default()
+    });
+    let material_emissive2 = materials.add(StandardMaterial {
+        emissive: Color::rgb_linear(1.2, 5.2, 0.8),
+        ..default()
+    });
+    let material_emissive3 = materials.add(StandardMaterial {
+        emissive: Color::rgb_linear(1.2, 0.8, 5.2), // 3.
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
@@ -55,12 +63,14 @@ fn setup_scene(
         for z in -10..10 {
             let mut hasher = DefaultHasher::new();
             (x, z).hash(&mut hasher);
-            let rand = hasher.finish() % 2 == 0;
+            let rand = (hasher.finish() - 2) % 6;
 
-            let material = if rand {
-                material_emissive.clone()
-            } else {
-                material_non_emissive.clone()
+            let material = match rand {
+                0 => material_emissive1.clone(),
+                1 => material_emissive2.clone(),
+                2 => material_emissive3.clone(),
+                3 | 4 | 5 => material_non_emissive.clone(),
+                _ => unreachable!(),
             };
 
             commands.spawn((
@@ -87,7 +97,7 @@ fn setup_scene(
         .with_style(Style {
             position_type: PositionType::Absolute,
             position: UiRect {
-                top: Val::Px(10.0),
+                bottom: Val::Px(10.0),
                 left: Val::Px(10.0),
                 ..default()
             },
@@ -98,62 +108,68 @@ fn setup_scene(
 
 // ------------------------------------------------------------------------------------------------
 
-// fn update_bloom_settings(
-//     mut camera: Query<&mut BloomSettings>,
-//     mut text: Query<&mut Text>,
-//     keycode: Res<Input<KeyCode>>,
-//     time: Res<Time>,
-// ) {
-//     let mut bloom_settings = camera.single_mut();
-//     let mut text = text.single_mut();
-//     let text = &mut text.sections[0].value;
+fn update_bloom_settings(
+    mut camera: Query<(Entity, Option<&mut BloomSettings>), With<Camera>>,
+    mut text: Query<&mut Text>,
+    mut commands: Commands,
+    keycode: Res<Input<KeyCode>>,
+    time: Res<Time>,
+) {
+    let bloom_settings = camera.single_mut();
+    let mut text = text.single_mut();
+    let text = &mut text.sections[0].value;
 
-//     *text = "BloomSettings\n".to_string();
-//     text.push_str("-------------\n");
-//     text.push_str(&format!("Threshold: {}\n", bloom_settings.threshold));
-//     text.push_str(&format!("Knee: {}\n", bloom_settings.knee));
-//     text.push_str(&format!("Scale: {}\n", bloom_settings.scale));
-//     text.push_str(&format!("Intensity: {}\n", bloom_settings.intensity));
+    match bloom_settings {
+        (entity, Some(mut bloom_settings)) => {
+            *text = "BloomSettings (Space)\n".to_string();
+            text.push_str("-----------------------\n");
+            text.push_str(&format!("(Q/W) Intensity: {}\n", bloom_settings.intensity));
+            text.push_str(&format!(
+                "(A/S) Threshold Base: {}\n",
+                bloom_settings.threshold_base
+            ));
+            text.push_str(&format!(
+                "(D/F) Threshold Knee: {}",
+                bloom_settings.threshold_knee
+            ));
 
-//     text.push_str("\n\n");
+            if keycode.just_pressed(KeyCode::Space) {
+                commands.entity(entity).remove::<BloomSettings>();
+            }
 
-//     text.push_str("Controls (-/+)\n");
-//     text.push_str("---------------\n");
-//     text.push_str("Q/W - Threshold\n");
-//     text.push_str("E/R - Knee\n");
-//     text.push_str("A/S - Scale\n");
-//     text.push_str("D/F - Intensity\n");
+            let dt = time.delta_seconds() / 10.0;
 
-//     let dt = time.delta_seconds();
+            if keycode.pressed(KeyCode::Q) {
+                bloom_settings.intensity -= dt;
+            }
+            if keycode.pressed(KeyCode::W) {
+                bloom_settings.intensity += dt;
+            }
 
-//     if keycode.pressed(KeyCode::Q) {
-//         bloom_settings.threshold -= dt;
-//     }
-//     if keycode.pressed(KeyCode::W) {
-//         bloom_settings.threshold += dt;
-//     }
+            if keycode.pressed(KeyCode::A) {
+                bloom_settings.threshold_base -= dt;
+            }
+            if keycode.pressed(KeyCode::S) {
+                bloom_settings.threshold_base += dt;
+            }
 
-//     if keycode.pressed(KeyCode::E) {
-//         bloom_settings.knee -= dt;
-//     }
-//     if keycode.pressed(KeyCode::R) {
-//         bloom_settings.knee += dt;
-//     }
+            if keycode.pressed(KeyCode::D) {
+                bloom_settings.threshold_knee -= dt;
+            }
+            if keycode.pressed(KeyCode::F) {
+                bloom_settings.threshold_knee += dt;
+            }
+        }
 
-//     if keycode.pressed(KeyCode::A) {
-//         bloom_settings.scale -= dt;
-//     }
-//     if keycode.pressed(KeyCode::S) {
-//         bloom_settings.scale += dt;
-//     }
+        (entity, None) => {
+            *text = "Bloom: Off (Space)\n".to_string();
 
-//     if keycode.pressed(KeyCode::D) {
-//         bloom_settings.intensity -= dt;
-//     }
-//     if keycode.pressed(KeyCode::F) {
-//         bloom_settings.intensity += dt;
-//     }
-// }
+            if keycode.just_pressed(KeyCode::Space) {
+                commands.entity(entity).insert(BloomSettings::default());
+            }
+        }
+    }
+}
 
 #[derive(Component)]
 struct Bouncing;
