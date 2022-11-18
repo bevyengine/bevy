@@ -177,6 +177,7 @@ impl Timer {
     /// timer.set_mode(TimerMode::Once);
     /// assert_eq!(timer.mode(), TimerMode::Once);
     /// ```
+    #[doc(alias = "repeating")]
     #[inline]
     pub fn set_mode(&mut self, mode: TimerMode) {
         if self.mode != TimerMode::Repeating && mode == TimerMode::Repeating && self.finished {
