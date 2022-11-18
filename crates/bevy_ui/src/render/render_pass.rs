@@ -1,5 +1,5 @@
 use super::{UiBatch, UiImageBindGroups, UiMeta};
-use crate::{prelude::UiCameraConfig, DefaultCameraView};
+use crate::{prelude::UiCameraConfig, DefaultCameraView, UiNodeType, UiParamsBindGroups};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
@@ -55,8 +55,8 @@ impl Node for UiPassNode {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
         let Ok((transparent_phase, target, camera_ui)) =
-                self.ui_view_query.get_manual(world, input_view_entity)
-             else {
+            self.ui_view_query.get_manual(world, input_view_entity)
+            else {
                 return Ok(());
             };
         if transparent_phase.items.is_empty() {
@@ -140,10 +140,12 @@ pub type DrawUi = (
     SetItemPipeline,
     SetUiViewBindGroup<0>,
     SetUiTextureBindGroup<1>,
+    SetUiParamsBindGroup<2>,
     DrawUiNode,
 );
 
 pub struct SetUiViewBindGroup<const I: usize>;
+
 impl<const I: usize> EntityRenderCommand for SetUiViewBindGroup<I> {
     type Param = (SRes<UiMeta>, SQuery<Read<ViewUniformOffset>>);
 
@@ -162,7 +164,9 @@ impl<const I: usize> EntityRenderCommand for SetUiViewBindGroup<I> {
         RenderCommandResult::Success
     }
 }
+
 pub struct SetUiTextureBindGroup<const I: usize>;
+
 impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
     type Param = (SRes<UiImageBindGroups>, SQuery<Read<UiBatch>>);
 
@@ -179,7 +183,30 @@ impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
         RenderCommandResult::Success
     }
 }
+
+pub struct SetUiParamsBindGroup<const I: usize>;
+
+impl<const I: usize> EntityRenderCommand for SetUiParamsBindGroup<I> {
+    type Param = (SRes<UiParamsBindGroups>, SQuery<Read<UiBatch>>);
+
+    fn render<'w>(
+        _view: Entity,
+        item: Entity,
+        (params_bind_groups, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let batch = query_batch.get(item).unwrap();
+        let params_bind_groups = params_bind_groups.into_inner();
+
+        let key: UiNodeType = batch.node_type;
+
+        pass.set_bind_group(I, params_bind_groups.values.get(&key).unwrap(), &[]);
+        RenderCommandResult::Success
+    }
+}
+
 pub struct DrawUiNode;
+
 impl EntityRenderCommand for DrawUiNode {
     type Param = (SRes<UiMeta>, SQuery<Read<UiBatch>>);
 

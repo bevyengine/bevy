@@ -6,10 +6,35 @@ use bevy_render::{
     view::{ViewTarget, ViewUniform},
 };
 
+/// When drawing text, we need to sample color from a grayscale font atlas.
+/// So, it is a bit different from drawing regular sprites.
+#[derive(Copy, Clone, Hash, Eq, PartialEq)]
+pub enum UiNodeType {
+    Sprite = 0,
+    Text = 1,
+}
+
+/// Extra parameters used in the UI shader.
+#[derive(Clone, ShaderType)]
+pub(crate) struct UiParamsUniform {
+    /// Flag indicating UI node type.
+    pub(crate) node_type: u32,
+    pub(crate) pad0: u32,
+    pub(crate) pad1: u32,
+    pub(crate) pad2: u32,
+}
+
+/// Uniform buffer for the extra parameters.
+#[derive(Resource, Default)]
+pub(crate) struct UiParamsUniforms {
+    pub(crate) uniforms: DynamicUniformBuffer<UiParamsUniform>,
+}
+
 #[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    pub params_layout: BindGroupLayout,
 }
 
 impl FromWorld for UiPipeline {
@@ -28,6 +53,20 @@ impl FromWorld for UiPipeline {
                 count: None,
             }],
             label: Some("ui_view_layout"),
+        });
+
+        let params_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::FRAGMENT,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: Some(UiParamsUniform::min_size()),
+                },
+                count: None,
+            }],
+            label: Some("ui_params_layout"),
         });
 
         let image_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -55,6 +94,7 @@ impl FromWorld for UiPipeline {
         UiPipeline {
             view_layout,
             image_layout,
+            params_layout,
         }
     }
 }
@@ -102,7 +142,11 @@ impl SpecializedRenderPipeline for UiPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
+            layout: Some(vec![
+                self.view_layout.clone(),
+                self.image_layout.clone(),
+                self.params_layout.clone(),
+            ]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

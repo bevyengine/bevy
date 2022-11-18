@@ -67,6 +67,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<UiPipeline>()
         .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
         .init_resource::<UiImageBindGroups>()
+        .init_resource::<UiParamsBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
@@ -177,6 +178,7 @@ pub struct ExtractedUiNode {
     pub flip_x: bool,
     pub flip_y: bool,
     pub scale_factor: f32,
+    pub node_type: UiNodeType,
 }
 
 #[derive(Resource, Default)]
@@ -237,6 +239,7 @@ pub fn extract_uinodes(
                 flip_x,
                 flip_y,
                 scale_factor,
+                node_type: UiNodeType::Sprite,
             });
         }
     }
@@ -365,6 +368,7 @@ pub fn extract_text_uinodes(
                     flip_x: false,
                     flip_y: false,
                     scale_factor,
+                    node_type: UiNodeType::Text,
                 });
             }
         }
@@ -383,6 +387,10 @@ struct UiVertex {
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
     view_bind_group: Option<BindGroup>,
+    /// Uniform buffer of extra parameters for drawing sprites.
+    sprite_params_uniforms: Option<UiParamsUniforms>,
+    /// Uniform buffer of extra parameters for drawing text.
+    text_params_uniforms: Option<UiParamsUniforms>,
 }
 
 impl Default for UiMeta {
@@ -390,6 +398,8 @@ impl Default for UiMeta {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
             view_bind_group: None,
+            sprite_params_uniforms: None,
+            text_params_uniforms: None,
         }
     }
 }
@@ -407,6 +417,7 @@ const QUAD_INDICES: [usize; 6] = [0, 2, 3, 0, 1, 2];
 pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
+    pub node_type: UiNodeType,
     pub z: f32,
 }
 
@@ -419,7 +430,33 @@ pub fn prepare_uinodes(
 ) {
     ui_meta.vertices.clear();
 
-    // sort by ui stack index, starting from the deepest node
+    if ui_meta.sprite_params_uniforms.is_none() {
+        let mut uniforms = DynamicUniformBuffer::default();
+        uniforms.push(UiParamsUniform {
+            node_type: 0,
+            pad0: 0,
+            pad1: 0,
+            pad2: 0,
+        });
+        uniforms.set_label(Some("ui_sprite_params_buffer"));
+        uniforms.write_buffer(&render_device, &render_queue);
+        ui_meta.sprite_params_uniforms = Some(UiParamsUniforms { uniforms });
+    }
+
+    if ui_meta.text_params_uniforms.is_none() {
+        let mut uniforms = DynamicUniformBuffer::default();
+        uniforms.push(UiParamsUniform {
+            node_type: 1,
+            pad0: 0,
+            pad1: 0,
+            pad2: 0,
+        });
+        uniforms.set_label(Some("ui_text_params_buffer"));
+        uniforms.write_buffer(&render_device, &render_queue);
+        ui_meta.text_params_uniforms = Some(UiParamsUniforms { uniforms });
+    }
+
+    // Sort by UI stack index, starting from the deepest node.
     extracted_uinodes
         .uinodes
         .sort_by_key(|node| node.stack_index);
@@ -427,18 +464,25 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_handle = Default::default();
+    let mut current_node_type = UiNodeType::Sprite;
     let mut last_z = 0.0;
+
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
+        if current_batch_handle != extracted_uinode.image
+            || current_node_type != extracted_uinode.node_type
+        {
             if start != end {
                 commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
+                    node_type: current_node_type,
                     z: last_z,
                 });
+
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
+            current_node_type = extracted_uinode.node_type;
         }
 
         let uinode_rect = extracted_uinode.rect;
@@ -537,11 +581,12 @@ pub fn prepare_uinodes(
         end += QUAD_INDICES.len() as u32;
     }
 
-    // if start != end, there is one last batch to process
+    // If start != end, there is one last batch to process.
     if start != end {
         commands.spawn(UiBatch {
             range: start..end,
             image: current_batch_handle,
+            node_type: current_node_type,
             z: last_z,
         });
     }
@@ -554,6 +599,12 @@ pub struct UiImageBindGroups {
     pub values: HashMap<Handle<Image>, BindGroup>,
 }
 
+/// Uniform buffer bind groups for drawing UI nodes of different types.
+#[derive(Resource, Default)]
+pub struct UiParamsBindGroups {
+    pub values: HashMap<UiNodeType, BindGroup>,
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
@@ -564,6 +615,7 @@ pub fn queue_uinodes(
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     mut image_bind_groups: ResMut<UiImageBindGroups>,
+    mut params_bind_groups: ResMut<UiParamsBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
@@ -616,6 +668,26 @@ pub fn queue_uinodes(
                             layout: &ui_pipeline.image_layout,
                         })
                     });
+
+                params_bind_groups
+                    .values
+                    .entry(batch.node_type)
+                    .or_insert_with(|| {
+                        let uniforms = &match batch.node_type {
+                            UiNodeType::Sprite => ui_meta.sprite_params_uniforms.as_ref(),
+                            UiNodeType::Text => ui_meta.text_params_uniforms.as_ref(),
+                        };
+
+                        render_device.create_bind_group(&BindGroupDescriptor {
+                            entries: &[BindGroupEntry {
+                                binding: 0,
+                                resource: uniforms.unwrap().uniforms.binding().unwrap(),
+                            }],
+                            label: Some("ui_params_bind_group"),
+                            layout: &ui_pipeline.params_layout,
+                        })
+                    });
+
                 transparent_phase.add(TransparentUi {
                     draw_function: draw_ui_function,
                     pipeline,

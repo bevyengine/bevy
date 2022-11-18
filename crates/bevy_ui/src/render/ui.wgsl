@@ -1,3 +1,7 @@
+// UI node type.
+let NODE_TYPE_SPRITE : u32 = 0u;
+let NODE_TYPE_TEXT : u32 = 1u;
+
 struct View {
     view_proj: mat4x4<f32>,
     inverse_view_proj: mat4x4<f32>,
@@ -36,9 +40,24 @@ var sprite_texture: texture_2d<f32>;
 @group(1) @binding(1)
 var sprite_sampler: sampler;
 
+struct Params {
+    node_type: u32,
+    pad0: u32,
+    pad1: u32,
+    pad2: u32,
+}
+@group(2) @binding(0)
+var<uniform> params: Params;
+
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
-    color = in.color * color;
+
+    if ((params.node_type & NODE_TYPE_TEXT) > 0u) {
+        color = in.color * color.r;
+    } else {
+        color = in.color * color;
+    }
+
     return color;
 }
