@@ -128,19 +128,13 @@ impl Plugin for BloomPlugin {
 
 /// Applies a bloom effect to a HDR-enabled 2d or 3d camera.
 ///
-/// Bloom causes bright objects to "glow", emitting a halo of light around them.
+/// Bloom emulates an effect found in real cameras and the human eye,
+/// causing halos to appear around very bright objects.
 ///
 /// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive`.
 ///
 /// Bloom is best used alongside a tonemapping function that desaturates bright colors,
 /// such as ACES Filmic (Bevy's default).
-///
-/// ## Note
-///
-/// This light is not "real" in the way directional or point lights are.
-///
-/// Bloom will not cast shadows or bend around other objects - it is purely a post-processing
-/// effect overlaid on top of the already-rendered scene.
 ///
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, ShaderType, Reflect, Clone)]
