@@ -14,6 +14,8 @@ type FontSizeKey = FloatOrd;
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
 pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
+    // TODO unused, remove
+    #[allow(dead_code)]
     queue: Vec<FontSizeKey>,
 }
 
@@ -67,7 +69,7 @@ impl FontAtlasSet {
                     Vec2::splat(512.0),
                 )]
             });
-        self.queue.insert(0, FloatOrd(font_size));
+
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
             atlas.add_glyph(
