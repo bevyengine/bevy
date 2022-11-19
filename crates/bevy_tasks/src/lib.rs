@@ -12,15 +12,10 @@ mod task_pool;
 #[cfg(all(not(target_arch = "wasm32"), not(feature = "single-threaded")))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
-#[cfg(all(not(target_arch = "wasm32"), feature = "single-threaded"))]
+#[cfg(any(not(target_arch = "wasm32"), feature = "single-threaded"))]
 mod single_threaded_task_pool;
-#[cfg(all(not(target_arch = "wasm32"), feature = "single-threaded"))]
+#[cfg(any(not(target_arch = "wasm32"), feature = "single-threaded"))]
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
-
-#[cfg(target_arch = "wasm32")]
-mod single_threaded_task_pool;
-#[cfg(target_arch = "wasm32")]
-pub use wasm_single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;
 #[cfg(not(target_arch = "wasm32"))]

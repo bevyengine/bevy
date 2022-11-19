@@ -1,6 +1,7 @@
 use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
 thread_local! {
+    #[cfg(not(target_arch = "wasm32"))]
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
 }
 
@@ -56,7 +57,7 @@ impl TaskPool {
         1
     }
 
-    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// Allows spawning non-'static futures on the thread pool. The function takes a callback,
     /// passing a scope object into it. The scope object provided to the callback can be used
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
@@ -104,11 +105,19 @@ impl TaskPool {
     where
         T: 'static,
     {
-        LOCAL_EXECUTOR.with(|executor| {
-            let _task = executor.spawn(future);
-            // Loop until all tasks are done
-            while executor.try_tick() {}
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(async move {
+            future.await;
         });
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            LOCAL_EXECUTOR.with(|executor| {
+                let _task = executor.spawn(future);
+                // Loop until all tasks are done
+                while executor.try_tick() {}
+            });
+        }
 
         FakeTask
     }
