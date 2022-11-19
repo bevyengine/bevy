@@ -373,6 +373,19 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }
 
     let generics = ast.generics;
+
+    // Emit an error if there's any unrecognized lifetime names.
+    for lt in generics.lifetimes() {
+        let ident = &lt.lifetime.ident;
+        let w = format_ident!("w");
+        let s = format_ident!("s");
+        if ident != &w && ident != &s {
+            return syn::Error::new_spanned(lt, "invalid lifetime name: expected `'w` or `'s`")
+                .into_compile_error()
+                .into();
+        }
+    }
+
     let (_impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let lifetimeless_generics: Vec<_> = generics
