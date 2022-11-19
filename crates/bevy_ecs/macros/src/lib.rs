@@ -373,7 +373,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }
 
     let generics = ast.generics;
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let (_impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let lifetimeless_generics: Vec<_> = generics
         .params
