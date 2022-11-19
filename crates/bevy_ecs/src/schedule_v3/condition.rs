@@ -4,8 +4,10 @@ use crate::system::BoxedSystem;
 
 pub type BoxedCondition = BoxedSystem<(), bool>;
 
-/// Functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
-/// trait objects and have [read-only](crate::system::ReadOnlySystemParamFetch) parameters.
+/// A system that determines if one or more scheduled systems should run.
+///
+/// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
+/// with [read-only](crate::system::ReadOnlySystemParamFetch) parameters.
 pub trait Condition<Params>: sealed::Condition<Params> {}
 
 impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
@@ -28,6 +30,7 @@ mod sealed {
 }
 
 pub mod helper {
+    use crate::event::{Event, EventReader};
     use crate::schedule_v3::{State, Statelike};
     use crate::system::{Res, Resource};
 
@@ -55,6 +58,8 @@ pub mod helper {
 
     /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the resource exists and is equal to `value`.
+    ///
+    /// The condition will return `false` if the resource does not exist.
     pub fn resource_exists_and_equals<T>(value: T) -> impl FnMut(Option<Res<T>>) -> bool
     where
         T: Resource + PartialEq,
@@ -83,6 +88,8 @@ pub mod helper {
 
     /// Generates a [`Condition`]-satisfying closure that returns `true`
     /// if the state machine exists and is currently in `state`.
+    ///
+    /// The condition will return `false` if the state does not exist.
     pub fn state_exists_and_equals<S: Statelike>(
         state: S,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool {

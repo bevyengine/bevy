@@ -37,7 +37,9 @@ pub(super) fn new_set_unchecked(set: BoxedSystemSet) -> SystemSetConfig {
 }
 
 fn new_set(set: BoxedSystemSet) -> SystemSetConfig {
-    assert!(!set.is_system_type());
+    // system type sets are automatically populated
+    // to avoid unintentionally broad changes, they cannot be configured
+    assert!(!set.is_system_type(), "invalid use of system type set");
     new_set_unchecked(set)
 }
 
@@ -59,7 +61,7 @@ fn new_condition<P>(condition: impl Condition<P>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
     assert!(
         condition_system.is_send(),
-        "condition accesses thread-local resources (currently not supported)"
+        "Condition accesses thread-local resources. This is not currently supported."
     );
 
     Box::new(condition_system)
@@ -72,17 +74,22 @@ pub trait IntoSystemSetConfig: sealed::IntoSystemSetConfig {
     /// Convert into a [`SystemSetConfig`].
     #[doc(hidden)]
     fn into_config(self) -> SystemSetConfig;
-    /// Add to `set` membership.
+    /// Add to the provided `set`.
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig;
-    /// Run before all members of `set`.
+    /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
-    /// Run after all members of `set`.
+    /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
-    /// Run only if the [`Condition`] is `true` at the time of execution.
+    /// Run the systems in this set only if the [`Condition`] is `true`.
+    ///
+    /// The `Condition` will be evaluated at most once (per schedule run),
+    /// the first time a system in this set prepares to run.
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig;
-    /// Suppress warnings and errors that would result from "ambiguities" with members of `set`.
+    /// Suppress warnings and errors that would result from systems in this set having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig;
-    /// Suppress warnings and errors that would result from any "ambiguities".
+    /// Suppress warnings and errors that would result from systems in this set having ambiguities
+    /// (conflicting access but indeterminate order) with any other system.
     fn ambiguous_with_all(self) -> SystemSetConfig;
 }
 
@@ -213,15 +220,20 @@ pub trait IntoSystemConfig<Params>: sealed::IntoSystemConfig<Params> {
     fn into_config(self) -> SystemConfig;
     /// Add to `set` membership.
     fn in_set(self, set: impl SystemSet) -> SystemConfig;
-    /// Run before all members of `set`.
+    /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
-    /// Run after all members of `set`.
+    /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
-    /// Only run if the [`Condition`] is `true` at the time of execution.
+    /// Run only if the [`Condition`] is `true`.
+    ///
+    /// The `Condition` will be evaluated at most once (per schedule run),
+    /// when the system prepares to run.
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig;
-    /// Suppress warnings and errors that would result from "ambiguities" with members of `set`.
+    /// Suppress warnings and errors that would result from this system having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig;
-    /// Suppress warnings and errors that would result from any "ambiguities".
+    /// Suppress warnings and errors that would result from this system having ambiguities
+    /// (conflicting access but indeterminate order) with any other system.
     fn ambiguous_with_all(self) -> SystemConfig;
 }
 
@@ -371,6 +383,7 @@ mod sealed {
 /// A collection of [`SystemConfig`].
 pub struct SystemConfigs {
     pub(super) systems: Vec<SystemConfig>,
+    /// If `true`, adds `before -> after` ordering constraints between the successive elements.
     pub(super) chained: bool,
 }
 
@@ -383,24 +396,24 @@ where
     #[doc(hidden)]
     fn into_configs(self) -> SystemConfigs;
 
-    /// Add to `set` membership.
+    /// Add these systems to the provided `set`.
     fn in_set(self, set: impl SystemSet) -> SystemConfigs {
         self.into_configs().in_set(set)
     }
 
-    /// Run before all members of `set`.
+    /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().before(set)
     }
 
-    /// Run after all members of `set`.
+    /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
         self.into_configs().after(set)
     }
 
-    /// Treat this collection as a sequence.
+    /// Treat this collection as a sequence of systems.
     ///
-    /// Ordering constraints will be applied between the successive collection elements.
+    /// Ordering constraints will be applied between the successive elements.
     fn chain(self) -> SystemConfigs {
         self.into_configs().chain()
     }
@@ -453,6 +466,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 /// A collection of [`SystemSetConfig`].
 pub struct SystemSetConfigs {
     pub(super) sets: Vec<SystemSetConfig>,
+    /// If `true`, adds `before -> after` ordering constraints between the successive elements.
     pub(super) chained: bool,
 }
 
@@ -465,24 +479,24 @@ where
     #[doc(hidden)]
     fn into_configs(self) -> SystemSetConfigs;
 
-    /// Add to `set` membership.
+    /// Add these system sets to the provided `set`.
     fn in_set(self, set: impl SystemSet) -> SystemSetConfigs {
         self.into_configs().in_set(set)
     }
 
-    /// Run before all members of `set`.
+    /// Run before all systems in `set`.
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().before(set)
     }
 
-    /// Run after all members of `set`.
+    /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after(set)
     }
 
-    /// Treat this collection as a sequence.
+    /// Treat this collection as a sequence of system sets.
     ///
-    /// Ordering constraints will be applied between the successive collection elements.
+    /// Ordering constraints will be applied between the successive elements.
     fn chain(self) -> SystemSetConfigs {
         self.into_configs().chain()
     }
