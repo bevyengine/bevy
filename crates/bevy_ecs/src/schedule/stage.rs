@@ -6,12 +6,14 @@ use crate::{
     schedule::{
         graph_utils::{self, DependencyGraphError},
         BoxedRunCriteria, DuplicateLabelStrategy, ExclusiveInsertionPoint, GraphNode,
-        ParallelExecutor, ParallelSystemExecutor, RunCriteriaContainer, RunCriteriaDescriptor,
+        ParallelSystemExecutor, RunCriteriaContainer, RunCriteriaDescriptor,
         RunCriteriaDescriptorOrLabel, RunCriteriaInner, RunCriteriaLabelId, ShouldRun,
         SingleThreadedExecutor, SystemContainer, SystemDescriptor, SystemLabelId, SystemSet,
     },
     world::{World, WorldId},
 };
+#[cfg(not(feature = "single-threaded"))]
+use crate::schedule::ParallelExecutor;
 use bevy_ecs_macros::Resource;
 use bevy_utils::{tracing::warn, HashMap, HashSet};
 use core::fmt::Debug;
@@ -136,7 +138,14 @@ impl SystemStage {
     }
 
     pub fn parallel() -> Self {
-        Self::new(Box::<ParallelExecutor>::default())
+        #[cfg(not(feature = "single-threaded"))]
+        {
+            Self::new(Box::<ParallelExecutor>::default())
+        }
+        #[cfg(feature = "single-threaded")]
+        {
+            Self::single_threaded()
+        }
     }
 
     pub fn get_executor<T: ParallelSystemExecutor>(&self) -> Option<&T> {

@@ -833,6 +833,28 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         );
     }
 
+    #[inline]
+    #[cfg(feature = "single-threaded")]
+    pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
+        &mut self,
+        world: &'w World,
+        _batch_size: usize,
+        func: FN,
+    ) {
+        self.for_each(world, func);
+    }
+
+    #[inline]
+    #[cfg(feature = "single-threaded")]
+    pub fn par_for_each_mut<'w, FN: Fn(Q::Item<'w>) + Send + Sync + Clone>(
+        &mut self,
+        world: &'w mut World,
+        _batch_size: usize,
+        func: FN,
+    ) {
+        self.for_each_mut(world, func);
+    }
+
     /// Runs `func` on each query result in parallel.
     ///
     /// This can only be called for read-only queries, see [`Self::par_for_each_mut`] for
@@ -842,6 +864,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
+    #[cfg(not(feature = "single-threaded"))]
     pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w World,
@@ -867,6 +890,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
+    #[cfg(not(feature = "single-threaded"))]
     pub fn par_for_each_mut<'w, FN: Fn(Q::Item<'w>) + Send + Sync + Clone>(
         &mut self,
         world: &'w mut World,

@@ -11,6 +11,7 @@ categories = ["game-engines", "data-structures"]
 
 [features]
 trace = []
+single-threaded = []
 default = ["bevy_reflect"]
 
 [dependencies]
