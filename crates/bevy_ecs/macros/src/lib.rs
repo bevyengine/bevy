@@ -238,10 +238,10 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type State = ParamSetState<(#(#param::State,)*)>;
             }
 
-            // SAFETY: All parameters are constrained to ReadOnlyFetch, so World is only read
+            // SAFETY: All parameters are constrained to ReadOnlyState, so World is only read
 
-            unsafe impl<#(#param_state: SystemParamState,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_state,)*)>
-            where #(#param_state: ReadOnlySystemParamFetch,)*
+            unsafe impl<#(#param_state: SystemParamState,)*> ReadOnlySystemParamState for ParamSetState<(#(#param_state,)*)>
+            where #(#param_state: ReadOnlySystemParamState,)*
             { }
 
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
@@ -466,8 +466,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
             }
 
-            // Safety: The `ParamState` is `ReadOnlySystemParamFetch`, so this can only read from the `World`
-            unsafe impl<TSystemParamState: #path::system::SystemParamState + #path::system::ReadOnlySystemParamFetch, #punctuated_generics> #path::system::ReadOnlySystemParamFetch for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {}
+            // Safety: The `ParamState` is `ReadOnlySystemParamState`, so this can only read from the `World`
+            unsafe impl<TSystemParamState: #path::system::SystemParamState + #path::system::ReadOnlySystemParamState, #punctuated_generics> #path::system::ReadOnlySystemParamState for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {}
         };
     })
 }

@@ -6,7 +6,7 @@ use crate::{
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamItem,
+        check_system_change_tick, ReadOnlySystemParamState, System, SystemParam, SystemParamItem,
         SystemParamState,
     },
     world::{World, WorldId},
@@ -165,7 +165,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
     ) -> <Param::State as SystemParamState>::Item<'w, 's>
     where
-        Param::State: ReadOnlySystemParamFetch,
+        Param::State: ReadOnlySystemParamState,
     {
         self.validate_world_and_update_archetypes(world);
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.

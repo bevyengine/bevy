@@ -123,11 +123,11 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     ) -> Self::Item<'world, 'state>;
 }
 
-/// A [`SystemParamFetch`] that only reads a given [`World`].
+/// A [`SystemParamState`] that only reads a given [`World`].
 ///
 /// # Safety
 /// This must only be implemented for [`SystemParamState`] impls that exclusively read the World passed in to [`SystemParamState::get_param`]
-pub unsafe trait ReadOnlySystemParamFetch {}
+pub unsafe trait ReadOnlySystemParamState {}
 
 impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
     for Query<'w, 's, Q, F>
@@ -136,7 +136,7 @@ impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPar
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> ReadOnlySystemParamFetch
+unsafe impl<Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> ReadOnlySystemParamState
     for QueryState<Q, F>
 {
 }
@@ -270,7 +270,7 @@ pub struct Res<'w, T: Resource> {
 }
 
 // SAFETY: Res only reads a single World resource
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for ResState<T> {}
+unsafe impl<T: Resource> ReadOnlySystemParamState for ResState<T> {}
 
 impl<'w, T: Resource> Debug for Res<'w, T>
 where
@@ -427,7 +427,7 @@ impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
 }
 
 // SAFETY: Only reads a single World resource
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for OptionResState<T> {}
+unsafe impl<T: Resource> ReadOnlySystemParamState for OptionResState<T> {}
 
 // SAFETY: this impl defers to `ResState`, which initializes
 // and validates the correct world access
@@ -573,7 +573,7 @@ impl<'w, 's> SystemParam for Commands<'w, 's> {
 }
 
 // SAFETY: Commands only accesses internal state
-unsafe impl ReadOnlySystemParamFetch for CommandQueue {}
+unsafe impl ReadOnlySystemParamState for CommandQueue {}
 
 // SAFETY: only local state is accessed
 unsafe impl SystemParamState for CommandQueue {
@@ -599,7 +599,7 @@ unsafe impl SystemParamState for CommandQueue {
 }
 
 /// SAFETY: only reads world
-unsafe impl ReadOnlySystemParamFetch for WorldState {}
+unsafe impl ReadOnlySystemParamState for WorldState {}
 
 /// The [`SystemParamState`] of [`&World`](crate::world::World).
 #[doc(hidden)]
@@ -695,7 +695,7 @@ unsafe impl SystemParamState for WorldState {
 pub struct Local<'a, T: FromWorld + Send + 'static>(pub(crate) &'a mut T);
 
 // SAFETY: Local only accesses internal state
-unsafe impl<T: Send + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
+unsafe impl<T: Send + 'static> ReadOnlySystemParamState for LocalState<T> {}
 
 impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
 where
@@ -830,7 +830,7 @@ impl<'a, T: Component> IntoIterator for &'a RemovedComponents<'a, T> {
 }
 
 // SAFETY: Only reads World components
-unsafe impl<T: Component> ReadOnlySystemParamFetch for RemovedComponentsState<T> {}
+unsafe impl<T: Component> ReadOnlySystemParamState for RemovedComponentsState<T> {}
 
 /// The [`SystemParamState`] of [`RemovedComponents<T>`].
 #[doc(hidden)]
@@ -890,7 +890,7 @@ pub struct NonSend<'w, T: 'static> {
 }
 
 // SAFETY: Only reads a single World non-send resource
-unsafe impl<T> ReadOnlySystemParamFetch for NonSendState<T> {}
+unsafe impl<T> ReadOnlySystemParamState for NonSendState<T> {}
 
 impl<'w, T> Debug for NonSend<'w, T>
 where
@@ -1015,7 +1015,7 @@ impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
 }
 
 // SAFETY: Only reads a single non-send resource
-unsafe impl<T: 'static> ReadOnlySystemParamFetch for OptionNonSendState<T> {}
+unsafe impl<T: 'static> ReadOnlySystemParamState for OptionNonSendState<T> {}
 
 // SAFETY: this impl defers to `NonSendState`, which initializes
 // and validates the correct world access
@@ -1155,7 +1155,7 @@ impl<'a> SystemParam for &'a Archetypes {
 }
 
 // SAFETY: Only reads World archetypes
-unsafe impl ReadOnlySystemParamFetch for ArchetypesState {}
+unsafe impl ReadOnlySystemParamState for ArchetypesState {}
 
 /// The [`SystemParamState`] of [`Archetypes`].
 #[doc(hidden)]
@@ -1185,7 +1185,7 @@ impl<'a> SystemParam for &'a Components {
 }
 
 // SAFETY: Only reads World components
-unsafe impl ReadOnlySystemParamFetch for ComponentsState {}
+unsafe impl ReadOnlySystemParamState for ComponentsState {}
 
 /// The [`SystemParamState`] of [`Components`].
 #[doc(hidden)]
@@ -1215,7 +1215,7 @@ impl<'a> SystemParam for &'a Entities {
 }
 
 // SAFETY: Only reads World entities
-unsafe impl ReadOnlySystemParamFetch for EntitiesState {}
+unsafe impl ReadOnlySystemParamState for EntitiesState {}
 
 /// The [`SystemParamState`] of [`Entities`].
 #[doc(hidden)]
@@ -1245,7 +1245,7 @@ impl<'a> SystemParam for &'a Bundles {
 }
 
 // SAFETY: Only reads World bundles
-unsafe impl ReadOnlySystemParamFetch for BundlesState {}
+unsafe impl ReadOnlySystemParamState for BundlesState {}
 
 /// The [`SystemParamState`] of [`Bundles`].
 #[doc(hidden)]
@@ -1300,7 +1300,7 @@ impl SystemChangeTick {
 }
 
 // SAFETY: Only reads internal system state
-unsafe impl ReadOnlySystemParamFetch for SystemChangeTickState {}
+unsafe impl ReadOnlySystemParamState for SystemChangeTickState {}
 
 impl SystemParam for SystemChangeTick {
     type State = SystemChangeTickState;
@@ -1383,7 +1383,7 @@ impl<'s> SystemParam for SystemName<'s> {
 }
 
 // SAFETY: Only reads internal system state
-unsafe impl ReadOnlySystemParamFetch for SystemNameState {}
+unsafe impl ReadOnlySystemParamState for SystemNameState {}
 
 /// The [`SystemParamState`] of [`SystemName`].
 #[doc(hidden)]
@@ -1420,8 +1420,8 @@ macro_rules! impl_system_param_tuple {
             type State = ($($param::State,)*);
         }
 
-        // SAFETY: tuple consists only of ReadOnlySystemParamFetches
-        unsafe impl<$($param: ReadOnlySystemParamFetch),*> ReadOnlySystemParamFetch for ($($param,)*) {}
+        // SAFETY: tuple consists only of ReadOnlySystemParamStates
+        unsafe impl<$($param: ReadOnlySystemParamState),*> ReadOnlySystemParamState for ($($param,)*) {}
 
 
         // SAFETY: implementors of each `SystemParamState` in the tuple have validated their impls
@@ -1556,7 +1556,7 @@ impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
 pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
 
 // SAFETY: This doesn't add any more reads, and the delegated fetch confirms it
-unsafe impl<S: ReadOnlySystemParamFetch, P> ReadOnlySystemParamFetch
+unsafe impl<S: ReadOnlySystemParamState, P> ReadOnlySystemParamState
     for StaticSystemParamState<S, P>
 {
 }
