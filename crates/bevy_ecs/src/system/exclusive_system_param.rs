@@ -15,10 +15,8 @@ pub type ExclusiveSystemParamItem<'s, P> =
     <<P as ExclusiveSystemParam>::State as ExclusiveSystemParamState>::Item<'s>;
 
 /// The state of a [`SystemParam`].
-pub trait ExclusiveSystemParamState: Send + Sync {
-    type Item<'s>: ExclusiveSystemParam<State = Self>
-    where
-        Self: 's;
+pub trait ExclusiveSystemParamState: Send + Sync + 'static {
+    type Item<'s>: ExclusiveSystemParam<State = Self>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self;
     #[inline]
@@ -88,7 +86,7 @@ macro_rules! impl_exclusive_system_param_tuple {
         #[allow(unused_variables)]
         #[allow(non_snake_case)]
         impl<$($param: ExclusiveSystemParamState),*> ExclusiveSystemParamState for ($($param,)*) {
-            type Item<'s> = ($($param::Item<'s>,)*) where Self: 's;
+            type Item<'s> = ($($param::Item<'s>,)*);
 
             #[inline]
             fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
