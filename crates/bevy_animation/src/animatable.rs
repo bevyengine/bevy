@@ -36,7 +36,7 @@ pub trait Animatable: Reflect + Sized + Send + Sync + 'static {
 macro_rules! impl_float_animatable {
     ($ty: ty, $base: ty) => {
         impl Animatable for $ty {
-            #[inline(always)]
+            #[inline]
             fn interpolate(a: &Self, b: &Self, t: f32) -> Self {
                 let t = <$base>::from(t);
                 (*a) * (1.0 - t) + (*b) * t
