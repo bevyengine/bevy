@@ -5,9 +5,8 @@ use crate::{
     query::Access,
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamFetch,
-        ExclusiveSystemParamItem, ExclusiveSystemParamState, IntoSystem, System, SystemMeta,
-        SystemTypeIdLabel,
+        check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamItem,
+        ExclusiveSystemParamState, IntoSystem, System, SystemMeta, SystemTypeIdLabel,
     },
     world::{World, WorldId},
 };
@@ -25,7 +24,7 @@ where
     Param: ExclusiveSystemParam,
 {
     func: F,
-    param_state: Option<Param::Fetch>,
+    param_state: Option<Param::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -95,7 +94,7 @@ where
         let saved_last_tick = world.last_change_tick;
         world.last_change_tick = self.system_meta.last_change_tick;
 
-        let params = <Param as ExclusiveSystemParam>::Fetch::get_param(
+        let params = <Param as ExclusiveSystemParam>::State::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
             &self.system_meta,
         );
@@ -130,7 +129,7 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::Fetch as ExclusiveSystemParamState>::init(
+        self.param_state = Some(<Param::State as ExclusiveSystemParamState>::init(
             world,
             &mut self.system_meta,
         ));
