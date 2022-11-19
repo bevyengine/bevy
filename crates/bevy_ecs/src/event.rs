@@ -295,13 +295,11 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
-pub struct EventWriter<'w, 's, E: Event> {
+pub struct EventWriter<'w, E: Event> {
     events: ResMut<'w, Events<E>>,
-    #[system_param(ignore)]
-    marker: PhantomData<&'s usize>,
 }
 
-impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
+impl<'w, E: Event> EventWriter<'w, E> {
     /// Sends an `event`. [`EventReader`]s can then read the event.
     /// See [`Events`] for details.
     pub fn send(&mut self, event: E) {
