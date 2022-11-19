@@ -410,33 +410,37 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }));
 
     let struct_name = &ast.ident;
-    let fetch_struct_visibility = &ast.vis;
+    let state_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
-        // The struct can still be accessed via SystemParam::Fetch, e.g. EventReaderState can be accessed via
-        // <EventReader<'static, 'static, T> as SystemParam>::Fetch
+        // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
+        // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type Fetch = State<'w, 's, #punctuated_generic_idents>;
+                type State = State<'w, 's, #punctuated_generic_idents>;
             }
 
             #[doc(hidden)]
             type State<'w, 's, #punctuated_generic_idents> = FetchState<
-                (#(<#field_types as #path::system::SystemParam>::Fetch,)*),
+                (#(<#field_types as #path::system::SystemParam>::State,)*),
                 #punctuated_generic_idents
             >;
 
             #[doc(hidden)]
-            #fetch_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
+            #state_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
                 state: TSystemParamState,
                 marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
             }
 
-            unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {
+            unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState for
+                State<'__w, '__s, #punctuated_generic_idents>
+            #where_clause {
+                type Item<'w, 's> = #struct_name #ty_generics;
+
                 fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
                     Self {
-                        state: TSystemParamState::init(world, system_meta),
+                        state: #path::system::SystemParamState::init(world, system_meta),
                         marker: std::marker::PhantomData,
                     }
                 }
@@ -448,18 +452,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 fn apply(&mut self, world: &mut #path::world::World) {
                     self.state.apply(world)
                 }
-            }
 
-            impl<'w, 's, #punctuated_generics> #path::system::SystemParamFetch<'w, 's> for State<'w, 's, #punctuated_generic_idents> #where_clause {
-                type Item = #struct_name #ty_generics;
-                unsafe fn get_param(
+                unsafe fn get_param<'w, 's>(
                     state: &'s mut Self,
                     system_meta: &#path::system::SystemMeta,
                     world: &'w #path::world::World,
                     change_tick: u32,
-                ) -> Self::Item {
+                ) -> Self::Item<'w, 's> {
                     #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#fields: <<#field_types as #path::system::SystemParam>::State as #path::system::SystemParamState>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
