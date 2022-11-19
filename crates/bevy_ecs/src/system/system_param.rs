@@ -41,8 +41,7 @@ use std::{
 /// `#[system_param(ignore)]`:
 /// Can be added to any field in the struct. Fields decorated with this attribute
 /// will be created with the default value upon realisation.
-/// This is most useful for `PhantomData` fields, to ensure that the required lifetimes are
-/// used, as shown in the example.
+/// This is most useful for `PhantomData` fields, such as markers for generic types.
 ///
 /// # Example
 ///
@@ -54,13 +53,13 @@ use std::{
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct MyParam<'w, 's> {
+/// struct MyParam<'w, Marker: 'static> {
 ///     foo: Res<'w, SomeResource>,
 ///     #[system_param(ignore)]
-///     marker: PhantomData<&'s ()>,
+///     marker: PhantomData<Marker>,
 /// }
 ///
-/// fn my_system(param: MyParam) {
+/// fn my_system<T: 'static>(param: MyParam<T>) {
 ///     // Access the resource through `param.foo`
 /// }
 ///
@@ -1561,7 +1560,7 @@ pub mod lifetimeless {
 /// struct GenericParam<'w,'s, T: SystemParam> {
 ///     field: T,
 ///     #[system_param(ignore)]
-///     // Use the lifetimes, as the `SystemParam` derive requires them
+///     // Use the lifetimes, or rustc will get angry.
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
 /// # fn check_always_is_system<T: SystemParam + 'static>(){
