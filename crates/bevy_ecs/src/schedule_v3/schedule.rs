@@ -13,15 +13,15 @@ use bevy_utils::{
 
 use fixedbitset::FixedBitSet;
 
-use crate::component::ComponentId;
 use crate::{
     self as bevy_ecs,
+    component::ComponentId,
     schedule_v3::*,
     system::{BoxedSystem, Resource},
     world::World,
 };
 
-/// Stores [`ScheduleLabel`]-[`Schedule`] pairs.
+/// Resource for storing [`Schedule`]s.
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<BoxedScheduleLabel, Option<Schedule>>,
