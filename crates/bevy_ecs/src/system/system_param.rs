@@ -63,7 +63,7 @@ use std::{
 ///     // Access the resource through `param.foo`
 /// }
 ///
-/// # bevy_ecs::system::assert_is_system(my_system);
+/// # bevy_ecs::system::assert_is_system(my_system::<()>);
 /// ```
 ///
 /// # Generic `SystemParam`s
