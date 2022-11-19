@@ -1560,7 +1560,7 @@ pub mod lifetimeless {
 /// struct GenericParam<'w,'s, T: SystemParam> {
 ///     field: T,
 ///     #[system_param(ignore)]
-///     // Use the lifetimes, or rustc will get angry.
+///     // Use the lifetimes in this type, or they will be unbound.
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
 /// # fn check_always_is_system<T: SystemParam + 'static>(){
