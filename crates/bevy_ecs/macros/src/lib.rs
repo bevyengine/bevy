@@ -216,7 +216,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         let fn_name = Ident::new(&format!("p{i}"), Span::call_site());
         let index = Index::from(i);
         param_fn_muts.push(quote! {
-            pub fn #fn_name<'a>(&'a mut self) -> <#param::State as SystemParamState>::Item::<'a, 'a> {
+            pub fn #fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, #param> {
                 // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams

@@ -160,10 +160,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-    ) -> <Param::State as SystemParamState>::Item<'w, 's>
+    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
     where
         Param::State: ReadOnlySystemParamState,
     {
@@ -174,10 +171,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> <Param::State as SystemParamState>::Item<'w, 's> {
+    pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
         self.validate_world_and_update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
@@ -221,7 +215,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> <Param::State as SystemParamState>::Item<'w, 's> {
+    ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
         let param = <Param::State as SystemParamState>::get_param(
             &mut self.param_state,
@@ -588,7 +582,7 @@ macro_rules! impl_system_function {
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
-                FnMut(In<Input>, $(<<$param as SystemParam>::State as SystemParamState>::Item<'_, '_>),*) -> Out, Out: 'static
+                FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
             #[inline]
             fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {

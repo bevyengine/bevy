@@ -46,7 +46,7 @@ pub struct Extract<'w, 's, P: SystemParam + 'static>
 where
     P::State: ReadOnlySystemParamState,
 {
-    item: <P::State as SystemParamState>::Item<'w, 's>,
+    item: SystemParamItem<'w, 's, P>,
 }
 
 impl<'w, 's, P: SystemParam> SystemParam for Extract<'w, 's, P>
@@ -99,7 +99,7 @@ impl<'w, 's, P: SystemParam> Deref for Extract<'w, 's, P>
 where
     P::State: ReadOnlySystemParamState,
 {
-    type Target = <P::State as SystemParamState>::Item<'w, 's>;
+    type Target = SystemParamItem<'w, 's, P>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
