@@ -99,6 +99,9 @@ filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
 serialize = ["bevy_internal/serialize"]
 
+# Disables all parallelism in the engine. Forces all engine tasks to run on a single thread.
+single-threaded = ["bevy_internal/single-threaded"]
+
 # Display server protocol support (X11 is enabled by default)
 wayland = ["bevy_internal/wayland"]
 x11 = ["bevy_internal/x11"]

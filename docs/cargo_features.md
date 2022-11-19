@@ -40,6 +40,7 @@
 |mp3|MP3 audio format support.|
 |wav|WAV audio format support.|
 |serialize|Enables serialization of `bevy_input` types.|
+|single-threaded|Disables all parallelism in the engine. All engine tasks run on a single thread. Does nothing on WASM.|
 |wayland|Enable this to use Wayland display server protocol other than X11.|
 |subpixel_glyph_atlas|Enable this to cache glyphs using subpixel accuracy. This increases texture memory usage as each position requires a separate sprite in the glyph atlas, but provide more accurate character spacing.|
 |bevy_ci_testing|Used for running examples in CI.|
