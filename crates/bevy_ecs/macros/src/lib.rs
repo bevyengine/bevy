@@ -404,9 +404,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::Fetch, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::Fetch
         const _: () = {
-            impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type Fetch = FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
+            impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+                type Fetch = State<'w, 's, #punctuated_generic_idents>;
             }
+
+            #[doc(hidden)]
+            type State<'w, 's, #punctuated_generic_idents> = FetchState<
+                (#(<#field_types as #path::system::SystemParam>::Fetch,)*),
+                #punctuated_generic_idents
+            >;
 
             #[doc(hidden)]
             #fetch_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
@@ -431,7 +437,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl #impl_generics #path::system::SystemParamFetch<'w, 's> for FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
+            impl<'w, 's, #punctuated_generics> #path::system::SystemParamFetch<'w, 's> for State<'w, 's, #punctuated_generic_idents> #where_clause {
                 type Item = #struct_name #ty_generics;
                 unsafe fn get_param(
                     state: &'s mut Self,

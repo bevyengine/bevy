@@ -33,11 +33,8 @@ use std::{
 /// See the *Generic `SystemParam`s* section for details and workarounds of the probable
 /// cause if this derive causes an error to be emitted.
 ///
-///
-/// The struct for which `SystemParam` is derived must (currently) have exactly
-/// two lifetime parameters.
-/// The first is the lifetime of the world, and the second the lifetime
-/// of the parameter's state.
+/// Most `SystemParam` structs will have two lifetimes: `'w` for data stored in the [`World`],
+/// and `'s` for data stored in the parameter's state.
 ///
 /// ## Attributes
 ///
@@ -1648,7 +1645,7 @@ unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
 
 #[cfg(test)]
 mod tests {
-    use super::SystemParam;
+    use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         query::{ReadOnlyWorldQuery, WorldQuery},
@@ -1665,4 +1662,17 @@ mod tests {
     > {
         _query: Query<'w, 's, Q, F>,
     }
+
+    #[derive(SystemParam)]
+    pub struct SpecialRes<'w, T: Resource> {
+        _res: Res<'w, T>,
+    }
+
+    #[derive(SystemParam)]
+    pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
+        _res: Local<'s, T>,
+    }
+
+    #[derive(SystemParam)]
+    pub struct UnitParam {}
 }
