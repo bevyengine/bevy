@@ -1,8 +1,10 @@
 use crate::schedule_v3::set::*;
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{
+    petgraph::{graphmap::NodeTrait, prelude::*},
+    HashMap, HashSet,
+};
 
 use fixedbitset::FixedBitSet;
-use petgraph::{graphmap::NodeTrait, prelude::*};
 
 use std::fmt::Debug;
 

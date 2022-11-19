@@ -5,13 +5,13 @@ use std::{
 };
 
 use bevy_utils::{
+    petgraph::{algo::tarjan_scc, prelude::*},
     thiserror::Error,
     tracing::{error, warn},
     HashMap, HashSet,
 };
 
 use fixedbitset::FixedBitSet;
-use petgraph::{algo::tarjan_scc, prelude::*};
 
 use crate::component::ComponentId;
 use crate::{
