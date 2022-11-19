@@ -1,9 +1,4 @@
-use std::{
-    future::Future,
-    marker::PhantomData,
-    mem,
-    sync::{Arc, Mutex},
-};
+use std::{cell::RefCell, future::Future, marker::PhantomData, mem, rc::Rc};
 
 thread_local! {
     static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
@@ -75,8 +70,9 @@ impl TaskPool {
         let executor: &'env async_executor::LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
 
-        let results: Mutex<Vec<Arc<Mutex<Option<T>>>>> = Mutex::new(Vec::new());
-        let results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>> = unsafe { mem::transmute(&results) };
+        let results: RefCell<Vec<Rc<RefCell<Option<T>>>>> = RefCell::new(Vec::new());
+        let results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>> =
+            unsafe { mem::transmute(&results) };
 
         let mut scope = Scope {
             executor,
@@ -92,10 +88,10 @@ impl TaskPool {
         // Loop until all tasks are done
         while executor.try_tick() {}
 
-        let results = scope.results.lock().unwrap();
+        let results = scope.results.borrow();
         results
             .iter()
-            .map(|result| result.lock().unwrap().take().unwrap())
+            .map(|result| result.borrow_mut().take().unwrap())
             .collect()
     }
 
@@ -159,7 +155,7 @@ impl FakeTask {
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'env async_executor::LocalExecutor<'env>,
     // Vector to gather results of all futures spawned during scope run
-    results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>>,
+    results: &'env RefCell<Vec<Rc<RefCell<Option<T>>>>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -184,10 +180,10 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
-        let result = Arc::new(Mutex::new(None));
-        self.results.lock().unwrap().push(result.clone());
+        let result = Rc::new(RefCell::new(None));
+        self.results.borrow_mut().push(result.clone());
         let f = async move {
-            result.lock().unwrap().replace(f.await);
+            result.borrow_mut().replace(f.await);
         };
         self.executor.spawn(f).detach();
     }
