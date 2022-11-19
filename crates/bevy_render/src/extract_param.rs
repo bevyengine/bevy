@@ -2,8 +2,8 @@ use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
     system::{
-        ReadOnlySystemParamFetch, ResState, SystemMeta, SystemParam, SystemParamFetch,
-        SystemParamItem, SystemParamState, SystemState,
+        ReadOnlySystemParamState, ResState, SystemMeta, SystemParam, SystemParamItem,
+        SystemParamState, SystemState,
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -44,16 +44,16 @@ use std::ops::{Deref, DerefMut};
 /// [Window]: bevy_window::Window
 pub struct Extract<'w, 's, P: SystemParam + 'static>
 where
-    P::Fetch: ReadOnlySystemParamFetch,
+    P::State: ReadOnlySystemParamState,
 {
-    item: <P::Fetch as SystemParamFetch<'w, 's>>::Item,
+    item: <P::State as SystemParamState>::Item<'w, 's>,
 }
 
 impl<'w, 's, P: SystemParam> SystemParam for Extract<'w, 's, P>
 where
-    P::Fetch: ReadOnlySystemParamFetch,
+    P::State: ReadOnlySystemParamState,
 {
-    type Fetch = ExtractState<P>;
+    type State = ExtractState<P>;
 }
 
 #[doc(hidden)]
@@ -64,7 +64,12 @@ pub struct ExtractState<P: SystemParam + 'static> {
 
 // SAFETY: only accesses MainWorld resource with read only system params using ResState,
 // which is initialized in init()
-unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P> {
+unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P>
+where
+    P::State: ReadOnlySystemParamState,
+{
+    type Item<'w, 's> = Extract<'w, 's, P>;
+
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let mut main_world = world.resource_mut::<MainWorld>();
         Self {
@@ -72,20 +77,13 @@ unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P> {
             main_world_state: ResState::init(world, system_meta),
         }
     }
-}
 
-impl<'w, 's, P: SystemParam + 'static> SystemParamFetch<'w, 's> for ExtractState<P>
-where
-    P::Fetch: ReadOnlySystemParamFetch,
-{
-    type Item = Extract<'w, 's, P>;
-
-    unsafe fn get_param(
+    unsafe fn get_param<'w, 's>(
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
-    ) -> Self::Item {
+    ) -> Self::Item<'w, 's> {
         let main_world = ResState::<MainWorld>::get_param(
             &mut state.main_world_state,
             system_meta,
@@ -99,9 +97,9 @@ where
 
 impl<'w, 's, P: SystemParam> Deref for Extract<'w, 's, P>
 where
-    P::Fetch: ReadOnlySystemParamFetch,
+    P::State: ReadOnlySystemParamState,
 {
-    type Target = <P::Fetch as SystemParamFetch<'w, 's>>::Item;
+    type Target = <P::State as SystemParamState>::Item<'w, 's>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -111,7 +109,7 @@ where
 
 impl<'w, 's, P: SystemParam> DerefMut for Extract<'w, 's, P>
 where
-    P::Fetch: ReadOnlySystemParamFetch,
+    P::State: ReadOnlySystemParamState,
 {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -121,7 +119,7 @@ where
 
 impl<'a, 'w, 's, P: SystemParam> IntoIterator for &'a Extract<'w, 's, P>
 where
-    P::Fetch: ReadOnlySystemParamFetch,
+    P::State: ReadOnlySystemParamState,
     &'a SystemParamItem<'w, 's, P>: IntoIterator,
 {
     type Item = <&'a SystemParamItem<'w, 's, P> as IntoIterator>::Item;
