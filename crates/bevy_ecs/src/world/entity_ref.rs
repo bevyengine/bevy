@@ -596,8 +596,8 @@ impl<'w> EntityMut<'w> {
 /// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
-/// - location` must be within bounds of the given archetype and table and `entity` must exist inside
-/// the archetype and table
+/// - `location` must be within bounds of the given archetype and table and `entity` must exist inside
+///    the archetype and table
 /// - `component_id` must be valid
 #[inline]
 pub(crate) unsafe fn get_component(
