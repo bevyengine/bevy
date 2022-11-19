@@ -2,10 +2,10 @@
 
 use crate::{
     component::{Tick, TickCells},
-    ptr::PtrMut,
+    ptr::{Batch, Ptr, PtrMut, UnsafeCellDeref},
     system::Resource,
 };
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use core::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -352,6 +352,12 @@ impl<'a> TicksMut<'a> {
         }
     }
 }
+pub(crate) struct TicksBatch<'a, const N: usize> {
+    pub(crate) added_ticks: &'a mut Batch<Tick, N>,
+    pub(crate) changed_ticks: &'a mut Batch<Tick, N>,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
+}
 
 impl<'a> From<TicksMut<'a>> for Ticks<'a> {
     fn from(ticks: TicksMut<'a>) -> Self {
@@ -579,6 +585,120 @@ change_detection_impl!(Mut<'a, T>, T,);
 change_detection_mut_impl!(Mut<'a, T>, T,);
 impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
+
+/// Unique mutable borrow of an entity's component (batched version).
+/// Each batch changes in unison:  a batch has changed if any of its elements have changed.
+pub struct MutBatch<'a, T, const N: usize> {
+    pub(crate) value: &'a mut Batch<T, N>,
+    pub(crate) ticks: TicksBatch<'a, N>,
+    pub(crate) _marker: PhantomData<T>,
+}
+
+impl<'a, T, const N: usize> DetectChanges for MutBatch<'a, T, N> {
+    #[inline]
+    fn is_added(&self) -> bool {
+        self.ticks
+            .added_ticks
+            .iter()
+            .any(|x| x.is_older_than(self.ticks.last_change_tick, self.ticks.change_tick))
+    }
+
+    #[inline]
+    fn is_changed(&self) -> bool {
+        self.ticks
+            .changed_ticks
+            .iter()
+            .any(|x| x.is_older_than(self.ticks.last_change_tick, self.ticks.change_tick))
+    }
+
+    #[inline]
+    fn last_changed(&self) -> u32 {
+        self.ticks.last_change_tick
+    }
+}
+
+impl<'a, T, const N: usize> DetectChangesMut for MutBatch<'a, T, N> {
+    type Inner = Batch<T, N>;
+
+    #[inline]
+    fn set_changed(&mut self) {
+        for ticks in self.ticks.changed_ticks.iter_mut() {
+            ticks.set_changed(self.ticks.change_tick);
+        }
+    }
+
+    fn set_last_changed(&mut self, last_change_tick: u32) {
+        self.ticks.last_change_tick = last_change_tick;
+    }
+
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self.value
+    }
+
+    #[inline]
+    fn set_if_neq<Target>(&mut self, value: Target)
+    where
+        Self: Deref<Target = Target> + DerefMut<Target = Target>,
+        Target: PartialEq,
+    {
+        // This dereference is immutable, so does not trigger change detection
+        if *<Self as Deref>::deref(self) != value {
+            // `DerefMut` usage triggers change detection
+            *<Self as DerefMut>::deref_mut(self) = value;
+        }
+    }
+}
+
+impl<'a, T, const N: usize> Deref for MutBatch<'a, T, N> {
+    type Target = Batch<T, N>;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.value
+    }
+}
+
+impl<'a, T, const N: usize> DerefMut for MutBatch<'a, T, N> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.set_changed();
+        self.value
+    }
+}
+
+impl<'a, T, const N: usize> AsRef<Batch<T, N>> for MutBatch<'a, T, N> {
+    #[inline]
+    fn as_ref(&self) -> &Batch<T, N> {
+        self.deref()
+    }
+}
+
+impl<'a, T, const N: usize> AsMut<Batch<T, N>> for MutBatch<'a, T, N> {
+    #[inline]
+    fn as_mut(&mut self) -> &mut Batch<T, N> {
+        self.deref_mut()
+    }
+}
+
+impl<'a, T, const N: usize> MutBatch<'a, T, N> {
+    /// Consume `self` and return a mutable reference to the
+    /// contained value while marking `self` as "changed".
+    #[inline]
+    pub fn into_inner(mut self) -> &'a mut Batch<T, N> {
+        self.set_changed();
+        self.value
+    }
+}
+
+impl<'a, T, const N: usize> std::fmt::Debug for MutBatch<'a, T, N>
+where
+    Batch<T, N>: std::fmt::Debug,
+    T: std::fmt::Debug,
+{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple(stringify!($name)).field(&self.value).finish()
+    }
+}
 
 /// Unique mutable borrow of resources or an entity's component.
 ///

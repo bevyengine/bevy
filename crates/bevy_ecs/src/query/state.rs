@@ -10,13 +10,17 @@ use crate::{
     storage::{TableId, TableRow},
     world::{World, WorldId},
 };
+use bevy_ptr::ThinSlicePtr;
 use bevy_tasks::ComputeTaskPool;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use fixedbitset::FixedBitSet;
 use std::{borrow::Borrow, fmt, mem::MaybeUninit};
 
-use super::{NopWorldQuery, QueryManyIter, ROQueryItem, ReadOnlyWorldQuery};
+use super::{
+    NopWorldQuery, QueryBatch, QueryItem, QueryManyIter, ROQueryBatch, ROQueryItem,
+    ReadOnlyWorldQuery, WorldQueryBatch,
+};
 
 /// Provides scoped access to a [`World`] state according to a given [`WorldQuery`] and query filter.
 #[repr(C)]
@@ -778,6 +782,29 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         }
     }
 
+    /// A read-only version of [`for_each_mut_batched`](Self::for_each_mut_batched).  Detailed docs can be found there regarding how to use this function.
+    #[inline]
+    pub fn for_each_batched<'w, const N: usize>(
+        &'w mut self,
+        world: &'w mut World,
+        func: impl FnMut(ROQueryItem<'w, Q>),
+        func_batch: impl FnMut(ROQueryBatch<'w, Q, N>),
+    ) where
+        <Q as WorldQuery>::ReadOnly: WorldQueryBatch<N>,
+    {
+        // SAFETY: query has unique world access
+        unsafe {
+            self.update_archetypes(world);
+            self.as_readonly().for_each_unchecked_manual_batched(
+                world,
+                func,
+                func_batch,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            );
+        }
+    }
+
     /// Runs `func` on each query result for the given [`World`]. This is faster than the equivalent
     /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
     #[inline]
@@ -787,6 +814,40 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         unsafe {
             self.update_archetypes(world);
             self.for_each_unchecked_manual(world, func, world.last_change_tick(), change_tick);
+        }
+    }
+    /// This is a batched version of [`for_each_mut`](Self::for_each_mut) that accepts a batch size `N`.
+    /// The advantage of using batching in queries is that it enables SIMD acceleration of your code to help you meet your performance goals.
+    /// This function accepts two arguments, `func`, and `func_batch` which represent the "scalar" and "vector" (or "batched") paths of your code respectively.
+    ///
+    /// ## Usage:
+    ///
+    /// * `N` must be a power of 2
+    /// * `func` functions exactly as does in [`for_each_mut`](Self::for_each_mut) -- it receives "scalar" (non-batched) components.
+    /// * `func_batch` receives [`Batch`](bevy_ptr::Batch)es of `N` components.
+    ///
+    /// In other words, `func_batch` composes the "fast path" of your query, and `func` is the "slow path".
+    ///
+    /// See [`Query::for_each_mut_batched`](crate::system::Query::for_each_mut_batched) for a complete example of how to use this function.
+    #[inline]
+    pub fn for_each_mut_batched<'w, const N: usize>(
+        &'w mut self,
+        world: &'w mut World,
+        func: impl FnMut(QueryItem<'w, Q>),
+        func_batch: impl FnMut(QueryBatch<'w, Q, N>),
+    ) where
+        Q: WorldQueryBatch<N>,
+    {
+        // SAFETY: query has unique world access
+        unsafe {
+            self.update_archetypes(world);
+            self.for_each_unchecked_manual_batched(
+                world,
+                func,
+                func_batch,
+                world.last_change_tick(),
+                world.read_change_tick(),
+            );
         }
     }
 
@@ -884,6 +945,138 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 }
             }
         } else {
+            let archetypes = &world.archetypes;
+            for archetype_id in &self.matched_archetype_ids {
+                let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+                let table = tables.get(archetype.table_id()).debug_checked_unwrap();
+                Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
+                F::set_archetype(&mut filter, &self.filter_state, archetype, table);
+
+                let entities = archetype.entities();
+                for idx in 0..archetype.len() {
+                    let archetype_entity = entities.get_unchecked(idx);
+                    if !F::filter_fetch(
+                        &mut filter,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
+                    ) {
+                        continue;
+                    }
+                    func(Q::fetch(
+                        &mut fetch,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
+                    ));
+                }
+            }
+        }
+    }
+
+    // TODO: when generic const expressions are stable, can encode batch alignment using this simple formula:
+    //      gcd::euclid_usize(crate::ptr::batch::MAX_SIMD_ALIGNMENT, N * core::mem::size_of::<T>());
+    // This will only benefit architectures that encode alignment in opcodes or have operand alignment restrictions (SSE4.2 and below mainly)
+    #[inline]
+    pub(crate) unsafe fn for_each_unchecked_manual_batched<
+        'w,
+        const N: usize,
+        FN: FnMut(QueryItem<'w, Q>),
+        FnBatch: FnMut(QueryBatch<'w, Q, N>),
+    >(
+        &self,
+        world: &'w World,
+        mut func: FN,
+        mut func_batch: FnBatch,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) where
+        Q: WorldQueryBatch<N>,
+    {
+        // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
+        // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::for_each_unchecked_manual, QueryState::par_for_each_unchecked_manual
+        let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
+        let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
+
+        // Can't use this because it captures a mutable reference to fetch and filter
+
+        let serial_portion = |entities: ThinSlicePtr<'w, Entity>,
+                              fetch: &mut Q::Fetch<'w>,
+                              filter: &mut F::Fetch<'w>,
+                              func: &mut FN,
+                              range| {
+            for table_index in range {
+                let entity = entities.get(table_index);
+                let row = TableRow::new(table_index);
+                if !F::filter_fetch(filter, *entity, row) {
+                    continue;
+                }
+                let item = Q::fetch(fetch, *entity, row);
+                func(item);
+            }
+        };
+
+        let tables = &world.storages().tables;
+        if Q::IS_DENSE && F::IS_DENSE {
+            for table_id in &self.matched_table_ids {
+                let table = &tables[*table_id];
+                let entities = ThinSlicePtr::from(table.entities());
+                Q::set_table(&mut fetch, &self.fetch_state, table);
+                F::set_table(&mut filter, &self.filter_state, table);
+
+                let mut table_index = 0;
+
+                let batch_end = table.batchable_region_end::<N>();
+
+                while table_index < batch_end {
+                    // TODO PERF: since both the Query and the Filter are dense, can this be precomputed?
+                    // NOTE: if F = (), this optimizes right out, so don't worry about performance in that case.
+                    let mut unbatchable = None;
+                    for i in 0..N {
+                        let table_row = table_index + i;
+                        let entity = entities.get(table_row);
+
+                        if !F::filter_fetch(&mut filter, *entity, TableRow::new(table_row)) {
+                            // Cannot do a full batch, fallback to scalar.
+                            // Already checked the filter against everything up until now.
+                            // Therefore, do an *unchecked* serial portion.
+                            for p in table_index..table_row {
+                                let row = TableRow::new(p);
+                                let entity = entities.get(row.index());
+                                let item = Q::fetch(&mut fetch, *entity, row);
+                                func(item);
+                            }
+
+                            // Handle the rest after
+                            unbatchable = Some(table_row..table_index + N);
+                            break;
+                        }
+                    }
+
+                    if let Some(rest) = unbatchable {
+                        serial_portion(entities, &mut fetch, &mut filter, &mut func, rest);
+                    } else {
+                        // TODO PERF: assume likely/hot path
+                        let row = TableRow::new(table_index);
+                        let entity_batch = entities.get_batch(row.index(), table.entity_count());
+
+                        let batch =
+                            Q::fetch_batched(&mut fetch, entity_batch, row, table.entity_count());
+                        func_batch(batch);
+                    }
+
+                    table_index += N;
+                }
+
+                //EPILOGUE:
+                serial_portion(
+                    entities,
+                    &mut fetch,
+                    &mut filter,
+                    &mut func,
+                    batch_end..table.entity_count(),
+                );
+            }
+        } else {
+            // TODO: accelerate with batching, but first need to figure out if it's worth trying to batch sparse queries
             let archetypes = &world.archetypes;
             for archetype_id in &self.matched_archetype_ids {
                 let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();

@@ -52,6 +52,11 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 /// the metadata and able to point to data that does not correspond to a Rust type.
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
+/// An `N`-sized batch of `T` components.  The batched query interface makes use of this type.
+/// In the future, Batch may have additional alignment information when the `generic_const_exprs`
+/// language feature of Rust is stable.
+pub type Batch<T, const N: usize> = [T; N];
+
 /// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
 /// Conceptually represents ownership of whatever data is being pointed to and so is
 /// responsible for calling its `Drop` impl. This pointer is _not_ responsible for freeing
@@ -344,7 +349,7 @@ impl<'a> OwningPtr<'a, Unaligned> {
     }
 }
 
-/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons
+/// Conceptually equivalent to `&'a [T]` but with length information cut out for performance reasons.
 pub struct ThinSlicePtr<'a, T> {
     ptr: NonNull<T>,
     #[cfg(debug_assertions)]
@@ -353,16 +358,123 @@ pub struct ThinSlicePtr<'a, T> {
 }
 
 impl<'a, T> ThinSlicePtr<'a, T> {
+    /// # Safety
+    /// The contents of the slice returned by this function must never be accessed
     #[inline]
+    pub unsafe fn dangling() -> Self {
+        let item_layout = core::alloc::Layout::new::<T>();
+
+        let dangling = NonNull::new(item_layout.align() as *mut T).unwrap();
+
+        Self {
+            ptr: dangling,
+            #[cfg(debug_assertions)]
+            len: 0,
+            _marker: PhantomData,
+        }
+    }
+
     /// Indexes the slice without doing bounds checks
     ///
     /// # Safety
     /// `index` must be in-bounds.
+    #[inline]
     pub unsafe fn get(self, index: usize) -> &'a T {
         #[cfg(debug_assertions)]
         debug_assert!(index < self.len);
 
         &*self.ptr.as_ptr().add(index)
+    }
+
+    /// # Safety
+    /// `index` must be in bounds
+    /// `index + len` must be in bounds
+    #[inline]
+    pub unsafe fn get_slice(self, index: usize, len: usize) -> &'a [T] {
+        core::slice::from_raw_parts(self.ptr.as_ptr().add(index), len)
+    }
+
+    /// Indexes the slice without doing bounds checks with a batch size of `N`.
+    ///
+    /// # Safety
+    /// `index` must be in-bounds.
+    /// `index` must be a multiple of `N`.
+    #[inline]
+    unsafe fn get_batch_raw<const N: usize>(self, index: usize, _len: usize) -> *const Batch<T, N> {
+        #[cfg(debug_assertions)]
+        debug_assert!(index + N < self.len);
+        #[cfg(debug_assertions)]
+        debug_assert_eq!(_len, self.len);
+        #[cfg(debug_assertions)]
+        debug_assert_eq!(index % N, 0);
+
+        let off_ptr = self.ptr.as_ptr().add(index);
+
+        // NOTE: ZSTs may cause this "slice" to point into nothingness.
+        // This sounds dangerous, but won't cause harm as nothing
+        // will actually access anything "in the slice".
+        // This is consistent with the semantics of Rust slices.
+
+        // TODO: when pointer_is_aligned is standardized, we can just use ptr::is_aligned()
+        #[cfg(debug_assertions)]
+        debug_assert_eq!(off_ptr as usize % core::mem::align_of::<Batch<T, N>>(), 0);
+
+        //SAFETY: off_ptr is not null
+        off_ptr as *const Batch<T, N>
+    }
+
+    /// Indexes the slice without doing bounds checks with a batch size of N.
+    ///
+    /// # Safety
+    /// `index` must be in-bounds.
+    #[inline]
+    pub unsafe fn get_batch<const N: usize>(self, index: usize, len: usize) -> &'a Batch<T, N> {
+        &(*self.get_batch_raw(index, len))
+    }
+}
+
+impl<'a, T> ThinSlicePtr<'a, UnsafeCell<T>> {
+    /// Indexes the slice without doing bounds checks with a batch size of `N`.
+    /// The semantics are like `UnsafeCell` -- you must ensure the aliasing constraints are met.
+    ///
+    /// # Safety
+    /// `index` must be in-bounds.
+    /// `index` must be a multiple of `N`.
+    ///  No other references exist to the batch of size `N` at `index`
+    #[inline]
+    pub unsafe fn get_batch_deref_mut<const N: usize>(
+        self,
+        index: usize,
+        len: usize,
+    ) -> &'a mut Batch<T, N> {
+        &mut *(self.as_deref().get_batch_raw::<N>(index, len) as *mut Batch<T, N>)
+    }
+
+    /// Indexes the slice without doing bounds checks with a batch size of `N`.
+    /// The semantics are like `UnsafeCell` -- you must ensure the aliasing constraints are met.
+    ///
+    /// # Safety
+    /// `index` must be in-bounds.
+    /// `index` must be a multiple of `N`.
+    /// No mutable references exist to the batch of size `N` at `index`
+    #[inline]
+    pub unsafe fn get_batch_deref<const N: usize>(
+        self,
+        index: usize,
+        len: usize,
+    ) -> &'a Batch<T, N> {
+        &*(self.as_deref().get_batch_raw::<N>(index, len))
+    }
+
+    /// Get an immutable view of this `ThinSlicePtr`'s contents.  Note that this is not a reference type.
+    #[inline]
+    pub fn as_deref(self) -> ThinSlicePtr<'a, T> {
+        ThinSlicePtr::<'a, T> {
+            ptr: self.ptr.cast::<T>(),
+            #[cfg(debug_assertions)]
+            len: self.len,
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -399,6 +511,16 @@ pub fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
     debug_assert!(align.is_power_of_two(), "Alignment must be power of two.");
     // SAFETY: The pointer will not be null, since it was created
     // from the address of a `NonZeroUsize`.
+
+    /*NOTE: Dangling pointers still need to be well aligned for the type when using slices (even though they are 0-length).
+            This is important for [`SimdAlignedVec`] and any function that would return a slice view of this BlobVec.
+
+            Since neither strict_provenance nor alloc_layout_extra is stable, there is no way to construct a NonNull::dangling()
+            pointer from `item_layout` without using a pointer cast.  This requires `-Zmiri-permissive-provenance` when testing,
+            otherwise Miri will issue a warning.
+
+          TODO: Rewrite this when strict_provenance or alloc_layout_extra is stable.
+    */
     unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
 }
 

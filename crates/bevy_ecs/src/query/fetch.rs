@@ -3,14 +3,15 @@ use crate::{
     change_detection::{Ticks, TicksMut},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
     entity::Entity,
+    ptr::{ThinSlicePtr, UnsafeCellDeref},
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
     world::{Mut, Ref, World},
 };
+
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
-use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
-use std::{cell::UnsafeCell, marker::PhantomData};
+use core::{cell::UnsafeCell, marker::PhantomData};
 
 /// Types that can be fetched from a [`World`] using a [`Query`].
 ///
@@ -518,9 +519,9 @@ unsafe impl ReadOnlyWorldQuery for Entity {}
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
     // T::Storage = TableStorage
-    table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
+    pub(crate) table_components: Option<ThinSlicePtr<'w, UnsafeCell<T>>>,
     // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
+    pub(crate) sparse_set: Option<&'w ComponentSparseSet>,
 }
 
 /// SAFETY: `Self` is the same as `Self::ReadOnly`
@@ -817,16 +818,15 @@ unsafe impl<'__w, T: Component> ReadOnlyWorldQuery for Ref<'__w, T> {}
 #[doc(hidden)]
 pub struct WriteFetch<'w, T> {
     // T::Storage = TableStorage
-    table_data: Option<(
+    pub(crate) table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
         ThinSlicePtr<'w, UnsafeCell<Tick>>,
     )>,
     // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
-
-    last_change_tick: u32,
-    change_tick: u32,
+    pub(crate) sparse_set: Option<&'w ComponentSparseSet>,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
@@ -978,8 +978,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
 
 #[doc(hidden)]
 pub struct OptionFetch<'w, T: WorldQuery> {
-    fetch: T::Fetch<'w>,
-    matches: bool,
+    pub(crate) fetch: T::Fetch<'w>,
+    pub(crate) matches: bool,
 }
 
 // SAFETY: defers to soundness of `T: WorldQuery` impl
@@ -1119,7 +1119,7 @@ pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
-    marker: PhantomData<T>,
+    pub(crate) marker: PhantomData<T>,
 }
 
 impl<T: Component> Clone for ChangeTrackers<T> {
@@ -1161,14 +1161,14 @@ impl<T: Component> ChangeTrackers<T> {
 #[doc(hidden)]
 pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
-    table_added: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-    table_changed: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+    pub(crate) table_added: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+    pub(crate) table_changed: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
     // T::Storage = SparseStorage
-    sparse_set: Option<&'w ComponentSparseSet>,
+    pub(crate) sparse_set: Option<&'w ComponentSparseSet>,
 
-    marker: PhantomData<T>,
-    last_change_tick: u32,
-    change_tick: u32,
+    pub(crate) marker: PhantomData<T>,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
 }
 
 // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
@@ -1418,7 +1418,6 @@ macro_rules! impl_tuple_fetch {
 
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyWorldQuery),*> ReadOnlyWorldQuery for ($($name,)*) {}
-
     };
 }
 

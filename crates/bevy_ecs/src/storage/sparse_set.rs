@@ -378,7 +378,7 @@ impl<I: SparseSetIndex, V> Default for SparseSet<I, V> {
 }
 
 impl<I, V> SparseSet<I, V> {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             dense: Vec::new(),
             indices: Vec::new(),

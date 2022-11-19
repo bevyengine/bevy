@@ -38,7 +38,7 @@ impl Default for ArchetypeComponentAccess {
 const UNIQUE_ACCESS: usize = 0;
 const BASE_ACCESS: usize = 1;
 impl ArchetypeComponentAccess {
-    const fn new() -> Self {
+    fn new() -> Self {
         Self {
             access: SparseSet::new(),
         }

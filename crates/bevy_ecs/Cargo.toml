@@ -30,6 +30,7 @@ serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 rand = "0.8"
+bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
 
 [[example]]
 name = "events"
