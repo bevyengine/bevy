@@ -5,7 +5,7 @@ use thread_local::ThreadLocal;
 use crate::{
     entity::Entities,
     prelude::World,
-    system::{SystemParam, SystemParamFetch, SystemParamState},
+    system::{SystemParam, SystemParamState},
 };
 
 use super::{CommandQueue, Commands};
@@ -49,27 +49,13 @@ pub struct ParallelCommands<'w, 's> {
 }
 
 impl SystemParam for ParallelCommands<'_, '_> {
-    type Fetch = ParallelCommandsState;
-}
-
-impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
-    type Item = ParallelCommands<'w, 's>;
-
-    unsafe fn get_param(
-        state: &'s mut Self,
-        _: &crate::system::SystemMeta,
-        world: &'w World,
-        _: u32,
-    ) -> Self::Item {
-        ParallelCommands {
-            state,
-            entities: world.entities(),
-        }
-    }
+    type State = ParallelCommandsState;
 }
 
 // SAFETY: no component or resource access to report
 unsafe impl SystemParamState for ParallelCommandsState {
+    type Item<'w, 's> = ParallelCommands<'w, 's>;
+
     fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self {
         Self::default()
     }
@@ -77,6 +63,18 @@ unsafe impl SystemParamState for ParallelCommandsState {
     fn apply(&mut self, world: &mut World) {
         for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
+        }
+    }
+
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self,
+        _: &crate::system::SystemMeta,
+        world: &'w World,
+        _: u32,
+    ) -> Self::Item<'w, 's> {
+        ParallelCommands {
+            state,
+            entities: world.entities(),
         }
     }
 }
