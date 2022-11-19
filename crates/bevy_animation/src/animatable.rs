@@ -42,7 +42,7 @@ macro_rules! impl_float_animatable {
                 (*a) * (1.0 - t) + (*b) * t
             }
 
-            #[inline(always)]
+            #[inline]
             fn blend(inputs: impl Iterator<Item = BlendInput<Self>>) -> Self {
                 let mut value = Default::default();
                 for input in inputs {
