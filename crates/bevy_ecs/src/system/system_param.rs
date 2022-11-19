@@ -72,7 +72,7 @@ use std::{
 ///
 /// ```text
 /// expected ... [ParamType]
-/// found associated type `<<[ParamType] as SystemParam>::Fetch as SystemParamFetch<'_, '_>>::Item`
+/// found associated type `<<[ParamType] as SystemParam>::State as SystemParamState>::Item<'_, '_>`
 /// ```
 /// where `[ParamType]` is the type of one of your fields.
 /// To solve this error, you can wrap the field of type `[ParamType]` with [`StaticSystemParam`]
@@ -81,7 +81,7 @@ use std::{
 /// ## Details
 ///
 /// The derive macro requires that the [`SystemParam`] implementation of
-/// each field `F`'s [`Fetch`](`SystemParam::Fetch`)'s [`Item`](`SystemParamFetch::Item`) is itself `F`
+/// each field `F`'s [`State`](`SystemParam::State`)'s [`Item`](`SystemParamState::Item`) is itself `F`
 /// (ignoring lifetimes for simplicity).
 /// This assumption is due to type inference reasons, so that the derived [`SystemParam`] can be
 /// used as an argument to a function system.
@@ -100,7 +100,7 @@ pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::State as SystemParamS
 /// # Safety
 ///
 /// It is the implementor's responsibility to ensure `system_meta` is populated with the _exact_
-/// [`World`] access used by the [`SystemParamState`] (and associated [`SystemParamFetch`]).
+/// [`World`] access used by the [`SystemParamState`].
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all [`SystemParam`]'s.
 pub unsafe trait SystemParamState: Send + Sync + 'static {
@@ -1478,7 +1478,7 @@ pub mod lifetimeless {
 /// A helper for using system parameters in generic contexts
 ///
 /// This type is a [`SystemParam`] adapter which always has
-/// `Self::Fetch::Item == Self` (ignoring lifetimes for brevity),
+/// `Self::State::Item == Self` (ignoring lifetimes for brevity),
 /// no matter the argument [`SystemParam`] (`P`) (other than
 /// that `P` must be `'static`)
 ///
@@ -1517,7 +1517,7 @@ pub mod lifetimeless {
 /// fn do_thing_generically<T: SystemParam + 'static>(t: T) {}
 ///
 /// #[derive(SystemParam)]
-/// struct GenericParam<'w,'s, T: SystemParam> {
+/// struct GenericParam<'w, 's, T: SystemParam> {
 ///     field: T,
 ///     #[system_param(ignore)]
 ///     // Use the lifetimes in this type, or they will be unbound.
