@@ -33,7 +33,7 @@ use std::{
 /// See the *Generic `SystemParam`s* section for details and workarounds of the probable
 /// cause if this derive causes an error to be emitted.
 ///
-/// Most `SystemParam` structs will have two lifetimes: `'w` for data stored in the [`World`],
+/// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
 /// and `'s` for data stored in the parameter's state.
 ///
 /// ## Attributes
