@@ -127,7 +127,7 @@ impl Transform {
     }
 
     /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
-    /// points towards the given `direction` and [`Transform::up`] points towards `up`.
+    /// points in the given `direction` and [`Transform::up`] points towards `up`.
     #[inline]
     #[must_use]
     pub fn looking_to(mut self, direction: Vec3, up: Vec3) -> Self {
@@ -329,7 +329,7 @@ impl Transform {
         self.look_to(target - self.translation, up);
     }
 
-    /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the given `direction`
+    /// Rotates this [`Transform`] so that [`Transform::forward`] points in the given `direction`
     /// and [`Transform::up`] points towards `up`.
     #[inline]
     pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
