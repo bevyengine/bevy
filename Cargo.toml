@@ -1450,6 +1450,7 @@ path = "examples/ui/window_fallthrough.rs"
 name = "Window Fallthrough"
 description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
 category = "UI (User Interface)"
+wasm = false
 
 [[example]]
 name = "font_atlas_debug"
