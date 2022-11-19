@@ -1,4 +1,4 @@
-//! This example demonstrates how to flip and rotate Bevy UI images.
+//! Demonstrates how to rotate and flip UI images
 
 use bevy::prelude::*;
 
