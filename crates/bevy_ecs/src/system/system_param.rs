@@ -1669,7 +1669,7 @@ mod tests {
 
     #[derive(SystemParam)]
     pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
-        _res: Local<'s, T>,
+        _local: Local<'s, T>,
     }
 
     #[derive(SystemParam)]
