@@ -108,7 +108,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        LOCAL_EXECUTOR.with(|executor|{
+        LOCAL_EXECUTOR.with(|executor| {
             let _task = executor.spawn(future);
             // Loop until all tasks are done
             while executor.try_tick() {}

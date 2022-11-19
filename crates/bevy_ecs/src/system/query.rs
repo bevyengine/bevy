@@ -725,6 +725,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
+    #[cfg(feature = "single-threaded")]
+    pub fn par_for_each<'this>(
+        &'this self,
+        _batch_size: usize,
+        f: impl Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone,
+    ) {
+        self.for_each(f);
+    }
+
     /// Runs `f` on each read-only query item in parallel.
     ///
     /// Parallelization is achieved by using the [`World`]'s [`ComputeTaskPool`].
@@ -750,6 +759,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// - [`par_for_each_mut`](Self::par_for_each_mut) for operating on mutable query items.
     #[inline]
+    #[cfg(not(feature = "single-threaded"))]
     pub fn par_for_each<'this>(
         &'this self,
         batch_size: usize,
@@ -768,6 +778,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         };
     }
 
+    #[cfg(feature = "single-threaded")]
+    pub fn par_for_each_mut<'a>(
+        &'a mut self,
+        _batch_size: usize,
+        f: impl Fn(Q::Item<'a>) + Send + Sync + Clone,
+    ) {
+        self.for_each_mut(f);
+    }
+
     /// Runs `f` on each read-only query item in parallel.
     ///
     /// Parallelization is achieved by using the [`World`]'s [`ComputeTaskPool`].
@@ -783,6 +802,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// - [`par_for_each`](Self::par_for_each) for more usage details.
     #[inline]
+    #[cfg(not(feature = "single-threaded"))]
     pub fn par_for_each_mut<'a>(
         &'a mut self,
         batch_size: usize,

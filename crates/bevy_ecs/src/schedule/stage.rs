@@ -1,3 +1,5 @@
+#[cfg(not(feature = "single-threaded"))]
+use crate::schedule::ParallelExecutor;
 use crate::{
     self as bevy_ecs,
     change_detection::CHECK_TICK_THRESHOLD,
@@ -12,8 +14,6 @@ use crate::{
     },
     world::{World, WorldId},
 };
-#[cfg(not(feature = "single-threaded"))]
-use crate::schedule::ParallelExecutor;
 use bevy_ecs_macros::Resource;
 use bevy_utils::{tracing::warn, HashMap, HashSet};
 use core::fmt::Debug;
