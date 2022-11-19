@@ -25,19 +25,13 @@ use crate::{
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<BoxedScheduleLabel, Option<Schedule>>,
-    default: Option<BoxedScheduleLabel>,
 }
 
 impl Schedules {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
-            default: None,
         }
-    }
-
-    pub(crate) fn set_default(&mut self, label: impl ScheduleLabel) {
-        self.default = Some(label.dyn_clone());
     }
 
     /// Insert a new labeled schedule into the map.
@@ -180,7 +174,7 @@ impl Schedule {
     ///
     /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous pass.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32, last_change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, _change_tick: u32, _last_change_tick: u32) {
         #[cfg(feature = "trace")]
         let _span = bevy_utils::tracing::info_span!("check schedule ticks").entered();
         todo!();
@@ -346,7 +340,7 @@ impl ScheduleMeta {
         let SystemSetConfig {
             set,
             mut graph_info,
-            mut conditions,
+            conditions,
         } = set.into_config();
 
         let id = match self.system_set_ids.get(&set) {
@@ -469,7 +463,7 @@ impl ScheduleMeta {
         match ambiguous_with {
             Ambiguity::Check => (),
             Ambiguity::IgnoreWithSet(ambigous_with) => {
-                for (other) in ambigous_with
+                for other in ambigous_with
                     .into_iter()
                     .map(|set| self.system_set_ids[&set])
                 {

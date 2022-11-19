@@ -1,4 +1,3 @@
-use std::any::TypeId;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;

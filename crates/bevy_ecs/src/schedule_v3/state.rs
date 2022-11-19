@@ -1,12 +1,11 @@
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::mem;
-use std::ops::{Deref, DerefMut};
 
 use crate as bevy_ecs;
 use crate::change_detection::Mut;
 use crate::schedule_v3::{ScheduleLabel, SystemSet, WorldExt};
-use crate::system::{Res, Resource};
+use crate::system::Resource;
 use crate::world::World;
 
 /// Types that can define states in a finite-state machine.

@@ -1,4 +1,3 @@
-#![allow(warnings)]
 mod condition;
 mod config;
 mod executor;
@@ -24,6 +23,7 @@ mod tests {
     use crate::system::*;
     use crate::world::World;
 
+    #[allow(dead_code)]
     #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
     enum TestSchedule {
         A,
@@ -78,9 +78,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn dependency_loop() {
-        let mut world = World::new();
         let mut schedule = Schedule::new();
-
         schedule.configure_set(TestSet::X.after(TestSet::X));
     }
 
@@ -109,9 +107,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn hierarchy_loop() {
-        let mut world = World::new();
         let mut schedule = Schedule::new();
-
         schedule.configure_set(TestSet::X.in_set(TestSet::X));
     }
 
@@ -217,8 +213,8 @@ mod tests {
         #[derive(Resource)]
         struct X;
 
-        fn res_ref(x: Res<X>) {}
-        fn res_mut(mut x: ResMut<X>) {}
+        fn res_ref(_x: Res<X>) {}
+        fn res_mut(_x: ResMut<X>) {}
 
         let mut world = World::new();
         let mut schedule = Schedule::new();

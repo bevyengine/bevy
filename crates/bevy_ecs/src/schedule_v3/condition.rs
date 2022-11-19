@@ -30,7 +30,6 @@ mod sealed {
 }
 
 pub mod helper {
-    use crate::event::{Event, EventReader};
     use crate::schedule_v3::{State, Statelike};
     use crate::system::{Res, Resource};
 

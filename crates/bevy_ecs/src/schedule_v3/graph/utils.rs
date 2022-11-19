@@ -54,12 +54,6 @@ pub(crate) struct GraphInfo {
     pub(crate) ambiguous_with: Ambiguity,
 }
 
-#[derive(Clone)]
-pub(crate) struct IndexedGraphInfo {
-    pub(crate) sets: HashSet<NodeId>,
-    pub(crate) edges: HashSet<(DependencyEdgeKind, NodeId)>,
-}
-
 /// Converts 2D row-major pair of indices into a 1D array index.
 pub(crate) fn index(row: usize, col: usize, num_cols: usize) -> usize {
     debug_assert!(col < num_cols);
@@ -81,8 +75,10 @@ pub(crate) struct CheckGraphResults<V> {
     // Boolean reachability matrix for the graph.
     pub(crate) reachable: FixedBitSet,
     // Variant of the graph with the fewest possible edges.
+    #[allow(dead_code)]
     pub(crate) tred: DiGraphMap<V, ()>,
     // Variant of the graph with the most possible edges.
+    #[allow(dead_code)]
     pub(crate) tcls: DiGraphMap<V, ()>,
 }
 
