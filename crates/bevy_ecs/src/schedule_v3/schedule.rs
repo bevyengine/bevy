@@ -7,7 +7,7 @@ use std::{
 use bevy_utils::{
     petgraph::{algo::tarjan_scc, prelude::*},
     thiserror::Error,
-    tracing::{error, warn},
+    tracing::{error, info, warn},
     HashMap, HashSet,
 };
 
@@ -218,19 +218,30 @@ impl Dag {
 }
 
 /// Metadata for a [`SystemSet`], stored in a [`ScheduleMeta`].
-struct SystemSetMeta(BoxedSystemSet);
+struct SystemSetMeta {
+    set: BoxedSystemSet,
+    /// `true` if this system set was modified with `configure_set`
+    configured: bool,
+}
 
 impl SystemSetMeta {
     pub fn new(set: BoxedSystemSet) -> Self {
-        Self(set)
+        Self {
+            set,
+            configured: false,
+        }
     }
 
     pub fn name(&self) -> Cow<'static, str> {
-        format!("{:?}", &self.0).into()
+        format!("{:?}", &self.set).into()
     }
 
     pub fn is_system_type(&self) -> bool {
-        self.0.is_system_type()
+        self.set.is_system_type()
+    }
+
+    pub fn dyn_clone(&self) -> BoxedSystemSet {
+        self.set.dyn_clone()
     }
 }
 
@@ -366,12 +377,19 @@ impl ScheduleMeta {
 
         let id = match self.system_set_ids.get(&set) {
             Some(&id) => id,
-            None => self.add_set(set),
+            None => self.add_set(set.dyn_clone()),
         };
 
-        // TODO: only if this is the first time configure_set has been called for this set
-        if graph_info.sets.is_empty() {
+        let already_configured = self
+            .system_sets
+            .get_mut(&id)
+            .map_or(false, |meta| std::mem::replace(&mut meta.configured, true));
+
+        // system set can be configured multiple times, so this "default check"
+        // should only happen the first time `configure_set` is called on it
+        if !already_configured && graph_info.sets.is_empty() {
             if let Some(default) = self.default_set.as_ref() {
+                info!("adding system set `{:?}` to default: `{:?}`", set, default);
                 graph_info.sets.insert(default.dyn_clone());
             }
         }
@@ -598,7 +616,7 @@ impl ScheduleMeta {
                     .edges_directed(set, Direction::Outgoing)
                     .count();
                 if systems.len() > 1 && (ambiguities > 0 || dependencies > 0) {
-                    let type_set = self.system_sets[&set].0.dyn_clone();
+                    let type_set = self.system_sets[&set].dyn_clone();
                     return Err(BuildError::SystemTypeSetAmbiguity(type_set));
                 }
             }

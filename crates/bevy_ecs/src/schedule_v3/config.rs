@@ -61,7 +61,8 @@ fn new_condition<P>(condition: impl Condition<P>) -> BoxedCondition {
     let condition_system = IntoSystem::into_system(condition);
     assert!(
         condition_system.is_send(),
-        "Condition accesses thread-local resources. This is not currently supported."
+        "Condition `{}` accesses thread-local resources. This is not currently supported.",
+        condition_system.name()
     );
 
     Box::new(condition_system)
