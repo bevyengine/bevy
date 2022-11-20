@@ -41,7 +41,7 @@ pub trait ExtractComponent: Component {
     /// The output from extraction.
     ///
     /// Returning `None` based on the queried item can allow early optimization,
-    /// for example if there is an `enabled == false` field, or by only accepting
+    /// for example if there is an `enabled: bool` field on `Self`, or by only accepting
     /// values within certain thresholds.
     ///
     /// The output may be different from the queried component.
