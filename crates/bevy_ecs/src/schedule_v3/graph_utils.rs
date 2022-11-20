@@ -125,7 +125,7 @@ where
     // iterate nodes in topological order
     for (i, &node) in topological_order.iter().enumerate() {
         map.insert(node, i);
-        topsorted.add_node(node.clone());
+        topsorted.add_node(node);
         // insert nodes as successors to their predecessors
         for pred in graph.neighbors_directed(node, Direction::Incoming) {
             topsorted.add_edge(pred, node, ());
@@ -164,7 +164,7 @@ where
                 let successors = transitive_closure
                     .neighbors_directed(b, Direction::Outgoing)
                     .collect::<Vec<_>>();
-                for c in successors.into_iter() {
+                for c in successors {
                     let index_c = *map.get(&c).unwrap();
                     debug_assert!(index_b < index_c);
                     if !visited[index_c] {

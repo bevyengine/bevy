@@ -117,6 +117,12 @@ pub struct Schedule {
     executor: Box<dyn SystemExecutor>,
 }
 
+impl Default for Schedule {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Schedule {
     pub fn new() -> Self {
         Self {
@@ -187,14 +193,14 @@ impl Schedule {
 }
 
 #[derive(Default)]
-struct DAG {
+struct Dag {
     /// A directed graph.
     graph: DiGraphMap<NodeId, ()>,
     /// A cached topological ordering of the graph.
     topsort: Vec<NodeId>,
 }
 
-impl DAG {
+impl Dag {
     pub fn new() -> Self {
         Self {
             graph: DiGraphMap::new(),
@@ -231,9 +237,9 @@ struct ScheduleMeta {
     systems: HashMap<NodeId, BoxedSystem>,
     conditions: HashMap<NodeId, Vec<BoxedCondition>>,
 
-    hierarchy: DAG,
-    dependency: DAG,
-    dependency_flattened: DAG,
+    hierarchy: Dag,
+    dependency: Dag,
+    dependency_flattened: Dag,
 
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_flattened: UnGraphMap<NodeId, ()>,
@@ -252,9 +258,9 @@ impl ScheduleMeta {
             system_sets: HashMap::new(),
             systems: HashMap::new(),
             conditions: HashMap::new(),
-            hierarchy: DAG::new(),
-            dependency: DAG::new(),
-            dependency_flattened: DAG::new(),
+            hierarchy: Dag::new(),
+            dependency: Dag::new(),
+            dependency_flattened: Dag::new(),
             ambiguous_with: UnGraphMap::new(),
             ambiguous_with_flattened: UnGraphMap::new(),
             ambiguous_with_all: HashSet::new(),
@@ -483,14 +489,14 @@ impl ScheduleMeta {
                     debug_assert!(id.is_system());
                     system.initialize(world);
                     self.systems.insert(id, system);
-                    for condition in conditions.iter_mut() {
+                    for condition in &mut conditions {
                         condition.initialize(world);
                     }
                     self.conditions.insert(id, conditions);
                 }
                 UninitNode::SystemSet(mut conditions) => {
                     debug_assert!(id.is_set());
-                    for condition in conditions.iter_mut() {
+                    for condition in &mut conditions {
                         condition.initialize(world);
                     }
                     self.conditions
@@ -566,7 +572,7 @@ impl ScheduleMeta {
             }
         }
 
-        // can't depend on or be ambiguous with system type sets that has many instances
+        // can't depend on or be ambiguous with system type sets that have many instances
         for (&set, systems) in systems.iter() {
             if self.system_sets[&set].is_system_type() {
                 let ambiguities = self.ambiguous_with.edges(set).count();
@@ -601,18 +607,18 @@ impl ScheduleMeta {
                     dependency_flattened.add_edge(lhs, rhs, ());
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in systems[&lhs].iter() {
+                    for &lhs_ in &systems[&lhs] {
                         dependency_flattened.add_edge(lhs_, rhs, ());
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in systems[&rhs].iter() {
+                    for &rhs_ in &systems[&rhs] {
                         dependency_flattened.add_edge(lhs, rhs_, ());
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in systems[&lhs].iter() {
-                        for &rhs_ in systems[&rhs].iter() {
+                    for &lhs_ in &systems[&lhs] {
+                        for &rhs_ in &systems[&rhs] {
                             dependency_flattened.add_edge(lhs_, rhs_, ());
                         }
                     }
@@ -644,18 +650,18 @@ impl ScheduleMeta {
                     ambiguous_with_flattened.add_edge(lhs, rhs, ());
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in systems[&lhs].iter() {
+                    for &lhs_ in &systems[&lhs] {
                         ambiguous_with_flattened.add_edge(lhs_, rhs, ());
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in systems[&rhs].iter() {
+                    for &rhs_ in &systems[&rhs] {
                         ambiguous_with_flattened.add_edge(lhs, rhs_, ());
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in systems[&lhs].iter() {
-                        for &rhs_ in systems[&rhs].iter() {
+                    for &lhs_ in &systems[&lhs] {
+                        for &rhs_ in &systems[&rhs] {
                             ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
                         }
                     }
@@ -682,7 +688,7 @@ impl ScheduleMeta {
             } else {
                 let access_a = system_a.component_access();
                 let access_b = system_b.component_access();
-                if !access_a.is_compatible(&access_b) {
+                if !access_a.is_compatible(access_b) {
                     let conflicts = access_a.get_conflicts(access_b);
                     conflicting_systems.push((a, b, conflicts));
                 }
@@ -712,7 +718,7 @@ impl ScheduleMeta {
         // get the number of dependencies and the immediate dependents of each system
         // (needed to run systems in the correct order)
         let mut system_deps = Vec::with_capacity(sys_count);
-        for &sys_id in dg_system_ids.iter() {
+        for &sys_id in &dg_system_ids {
             let num_dependencies = self
                 .dependency_flattened
                 .graph
@@ -768,7 +774,7 @@ impl ScheduleMeta {
         let mut systems_of_sets = vec![FixedBitSet::with_capacity(sys_count); set_count];
         for (i, &row) in hg_set_idxs.iter().enumerate() {
             let bitset = &mut systems_of_sets[i];
-            for &(col, sys_id) in hg_systems.iter() {
+            for &(col, sys_id) in &hg_systems {
                 let idx = dg_system_idx_map[&sys_id];
                 let is_descendant = result.reachable[index(row, col, node_count)];
                 bitset.set(idx, is_descendant);
@@ -776,7 +782,7 @@ impl ScheduleMeta {
         }
 
         let mut sets_of_systems = vec![FixedBitSet::with_capacity(set_count); sys_count];
-        for &(col, sys_id) in hg_systems.iter() {
+        for &(col, sys_id) in &hg_systems {
             let i = dg_system_idx_map[&sys_id];
             let bitset = &mut sets_of_systems[i];
             for (idx, &row) in hg_set_idxs
@@ -832,14 +838,14 @@ impl ScheduleMeta {
         *schedule = self.build_schedule();
 
         // move systems into new schedule
-        for &id in schedule.system_ids.iter() {
+        for &id in &schedule.system_ids {
             let system = self.systems.remove(&id).unwrap();
             let conditions = self.conditions.remove(&id).unwrap();
             schedule.systems.push(RefCell::new(system));
             schedule.system_conditions.push(RefCell::new(conditions));
         }
 
-        for &id in schedule.set_ids.iter() {
+        for &id in &schedule.set_ids {
             let conditions = self.conditions.remove(&id).unwrap();
             schedule.set_conditions.push(RefCell::new(conditions));
         }
@@ -874,7 +880,7 @@ impl ScheduleMeta {
     fn report_hierarchy_conflicts(&self, transitive_edges: &[(NodeId, NodeId)]) {
         // TODO: warn but fix with transitive reduction
         let mut message = String::from("hierarchy contains redundant edge(s)");
-        for (parent, child) in transitive_edges.iter() {
+        for (parent, child) in transitive_edges {
             writeln!(
                 message,
                 " -- {:?} '{:?}' cannot be child of set '{:?}', longer path exists",
@@ -937,7 +943,7 @@ impl ScheduleMeta {
             Consider adding `before`, `after`, or `ambiguous_with` relationships between these:\n",
         );
 
-        for (system_a, system_b, conflicts) in ambiguities.iter() {
+        for (system_a, system_b, conflicts) in ambiguities {
             debug_assert!(system_a.is_system());
             debug_assert!(system_b.is_system());
             let name_a = self.get_node_name(system_a);

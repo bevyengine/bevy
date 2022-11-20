@@ -18,8 +18,6 @@ pub use self::state::*;
 
 #[cfg(test)]
 mod tests {
-    use bevy_utils::HashSet;
-
     use super::*;
     use crate as bevy_ecs;
     use crate::system::*;

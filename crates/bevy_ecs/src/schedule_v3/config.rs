@@ -426,7 +426,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(!set.is_system_type(), "invalid use of system type set");
-        for config in self.systems.iter_mut() {
+        for config in &mut self.systems {
             config.graph_info.sets.insert(set.dyn_clone());
         }
 
@@ -435,7 +435,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        for config in self.systems.iter_mut() {
+        for config in &mut self.systems {
             config
                 .graph_info
                 .dependencies
@@ -447,7 +447,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        for config in self.systems.iter_mut() {
+        for config in &mut self.systems {
             config
                 .graph_info
                 .dependencies
@@ -509,7 +509,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(!set.is_system_type(), "invalid use of system type set");
-        for config in self.sets.iter_mut() {
+        for config in &mut self.sets {
             config.graph_info.sets.insert(set.dyn_clone());
         }
 
@@ -518,7 +518,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        for config in self.sets.iter_mut() {
+        for config in &mut self.sets {
             config
                 .graph_info
                 .dependencies
@@ -530,7 +530,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         let set = set.into_system_set();
-        for config in self.sets.iter_mut() {
+        for config in &mut self.sets {
             config
                 .graph_info
                 .dependencies

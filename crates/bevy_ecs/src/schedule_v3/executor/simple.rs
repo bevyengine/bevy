@@ -1,5 +1,5 @@
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::{info_span, Instrument};
+use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
 use crate::{

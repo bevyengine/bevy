@@ -143,7 +143,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                             self.finish_system_and_signal_dependents(index);
                         }
 
-                        self.rebuild_active_access()
+                        self.rebuild_active_access();
                     }
                 }
 
@@ -202,26 +202,7 @@ impl MultiThreadedExecutor {
             // skip systems we've already seen during this call
             self.seen_ready_systems.insert(system_index);
 
-            if self.system_task_metadata[system_index].is_exclusive {
-                {
-                    // SAFETY: no exclusive system running
-                    let world = unsafe { &*world.get() };
-                    if !self.can_run(system_index, schedule, world) {
-                        // the `break` here emulates single-threaded runner behavior
-                        // without it, the exclusive system will likely be stalled out
-                        break;
-                    }
-                    if !self.should_run(system_index, schedule, world) {
-                        continue;
-                    }
-                }
-                {
-                    // SAFETY: no system running
-                    let world = unsafe { &mut *world.get() };
-                    self.spawn_exclusive_system_task(scope, system_index, schedule, world);
-                    break;
-                }
-            } else {
+            if !self.system_task_metadata[system_index].is_exclusive {
                 // SAFETY: no exclusive system running
                 let world = unsafe { &*world.get() };
                 if !self.can_run(system_index, schedule, world) {
@@ -230,8 +211,24 @@ impl MultiThreadedExecutor {
                 if !self.should_run(system_index, schedule, world) {
                     continue;
                 }
-
                 self.spawn_system_task(scope, system_index, schedule, world);
+            } else {
+                {
+                    // SAFETY: no exclusive system running
+                    let world = unsafe { &*world.get() };
+                    if !self.can_run(system_index, schedule, world) {
+                        // the `break` here emulates single-threaded runner behavior
+                        // without it, exclusive systems would likely be stalled out
+                        break;
+                    }
+                    if !self.should_run(system_index, schedule, world) {
+                        continue;
+                    }
+                }
+                // SAFETY: no system running
+                let world = unsafe { &mut *world.get() };
+                self.spawn_exclusive_system_task(scope, system_index, schedule, world);
+                break;
             }
         }
 
@@ -491,7 +488,7 @@ impl MultiThreadedExecutor {
         self.dependents_scratch
             .extend_from_slice(&self.system_task_metadata[system_index].dependents);
 
-        for &dep_idx in self.dependents_scratch.iter() {
+        for &dep_idx in &self.dependents_scratch {
             let dependent_meta = &mut self.system_task_metadata[dep_idx];
             dependent_meta.dependencies_remaining -= 1;
             if (dependent_meta.dependencies_remaining == 0)
