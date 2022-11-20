@@ -90,7 +90,11 @@ impl<'w> EntityRef<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<&'w ComponentTicks> {
-        // SAFETY: entity location is valid
+        if !self.contains_id(component_id) {
+            return None;
+        }
+
+        // SAFETY: entity location is valid and component_id exists
         unsafe {
             get_ticks(self.world, component_id, self.entity, self.location)
                 .map(|ticks| ticks.deref())
@@ -229,7 +233,11 @@ impl<'w> EntityMut<'w> {
     /// compile time.**
     #[inline]
     pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<&ComponentTicks> {
-        // SAFETY: entity location is valid
+        if !self.contains_id(component_id) {
+            return None;
+        }
+
+        // SAFETY: entity location is valid and component_id exists
         unsafe {
             get_ticks(self.world, component_id, self.entity, self.location)
                 .map(|ticks| ticks.deref())
