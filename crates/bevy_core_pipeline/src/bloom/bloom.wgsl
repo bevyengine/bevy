@@ -9,7 +9,7 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader
 #import bevy_core_pipeline::tonemapping
 
-struct BloomSettings {
+struct BloomUniforms {
     intensity: f32,
     threshold_precomputations: vec4<f32>,
 };
@@ -19,17 +19,17 @@ var input_texture: texture_2d<f32>;
 @group(0) @binding(1)
 var s: sampler;
 @group(0) @binding(2)
-var<uniform> settings: BloomSettings;
+var<uniform> uniforms: BloomUniforms;
 @group(0) @binding(3)
 var main_pass_texture: texture_2d<f32>;
 
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
-    var softness = brightness - settings.threshold_precomputations.y;
-    softness = clamp(softness, 0.0, settings.threshold_precomputations.z);
-    softness = softness * softness * settings.threshold_precomputations.w;
-    var contribution = max(brightness - settings.threshold_precomputations.x, softness);
+    var softness = brightness - uniforms.threshold_precomputations.y;
+    softness = clamp(softness, 0.0, uniforms.threshold_precomputations.z);
+    softness = softness * softness * uniforms.threshold_precomputations.w;
+    var contribution = max(brightness - uniforms.threshold_precomputations.x, softness);
     contribution /= max(brightness, 0.00001); // prevent division by 0
     return color * contribution;
 }
@@ -135,7 +135,7 @@ fn upsample_final(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let main_pass_sample = textureSample(main_pass_texture, s, uv);
     let bloom_sample = sample_input_3x3_tent(uv);
 
-    let mixed_sample = mix(main_pass_sample.rgb, bloom_sample, settings.intensity);
+    let mixed_sample = mix(main_pass_sample.rgb, bloom_sample, uniforms.intensity);
 
     return vec4<f32>(mixed_sample, main_pass_sample.a);
 }
