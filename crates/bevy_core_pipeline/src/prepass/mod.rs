@@ -16,7 +16,7 @@ use bevy_render::{
 };
 use bevy_utils::FloatOrd;
 
-/// Add a [`PrepassSettings`] component to a [`bevy_render::prelude::Camera3d`] to perform a depth and/or normal prepass.
+/// Add a [`PrepassSettings`] component to a [`crate::prelude::Camera3d`] to perform a depth and/or normal prepass.
 /// These textures are useful for various screen-space effects and reducing overdraw in the main pass.
 ///
 /// The textures are automatically added to the default mesh view bindings. You can also get the raw textures
