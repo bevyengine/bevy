@@ -56,8 +56,6 @@ pub struct MultiThreadedExecutor {
     completed_systems: FixedBitSet,
     /// Systems that have no remaining dependencies and are waiting to run.
     ready_systems: FixedBitSet,
-    /// Used to avoid checking systems twice.
-    seen_ready_systems: FixedBitSet,
     /// Systems that are currently running.
     running_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
@@ -81,10 +79,8 @@ impl SystemExecutor for MultiThreadedExecutor {
         let set_count = schedule.set_ids.len();
 
         self.completed_sets = FixedBitSet::with_capacity(set_count);
-
         self.completed_systems = FixedBitSet::with_capacity(sys_count);
         self.ready_systems = FixedBitSet::with_capacity(sys_count);
-        self.seen_ready_systems = FixedBitSet::with_capacity(sys_count);
         self.running_systems = FixedBitSet::with_capacity(sys_count);
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
 
@@ -122,11 +118,16 @@ impl SystemExecutor for MultiThreadedExecutor {
                     }
                 }
 
+                // spare bitset to avoid repeated allocations
+                let mut ready = FixedBitSet::with_capacity(self.ready_systems.len());
+
                 // main loop
                 let world = SyncUnsafeCell::from_mut(world);
                 while self.completed_systems.count_ones(..) != self.completed_systems.len() {
                     if !self.exclusive_running {
-                        self.spawn_system_tasks(scope, schedule, world);
+                        ready.clear();
+                        ready.union_with(&self.ready_systems);
+                        self.spawn_system_tasks(&ready, scope, schedule, world);
                     }
 
                     if self.running_systems.count_ones(..) > 0 {
@@ -182,7 +183,6 @@ impl MultiThreadedExecutor {
             completed_sets: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             ready_systems: FixedBitSet::new(),
-            seen_ready_systems: FixedBitSet::new(),
             running_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
         }
@@ -190,17 +190,16 @@ impl MultiThreadedExecutor {
 
     fn spawn_system_tasks<'scope>(
         &mut self,
+        ready: &FixedBitSet,
         scope: &Scope<'_, 'scope, ()>,
         schedule: &'scope SystemSchedule,
         world: &'scope SyncUnsafeCell<World>,
     ) {
-        while let Some(system_index) = self
-            .ready_systems
-            .difference(&self.seen_ready_systems)
-            .next()
-        {
-            // skip systems we've already seen during this call
-            self.seen_ready_systems.insert(system_index);
+        for system_index in ready.ones() {
+            // systems can be skipped within this loop
+            if self.completed_systems.contains(system_index) {
+                continue;
+            }
 
             if !self.system_task_metadata[system_index].is_exclusive {
                 // SAFETY: no exclusive system running
@@ -231,8 +230,6 @@ impl MultiThreadedExecutor {
                 break;
             }
         }
-
-        self.seen_ready_systems.clear();
     }
 
     fn spawn_system_task<'scope>(
