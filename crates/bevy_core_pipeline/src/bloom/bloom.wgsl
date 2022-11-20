@@ -87,8 +87,8 @@ fn sample_input_13_tap(uv: vec2<f32>) -> vec3<f32> {
 
 // "Next Generation Post Processing in Call of Duty: Advanced Warfare" slide 109
 fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
-    let x = 0.005;
-    let y = 0.005;
+    let x = 0.004;
+    let y = 0.004;
 
     let a = textureSample(input_texture, s, vec2<f32>(uv.x - x, uv.y + y)).rgb;
     let b = textureSample(input_texture, s, vec2<f32>(uv.x, uv.y + y)).rgb;
