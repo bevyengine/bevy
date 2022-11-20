@@ -149,41 +149,6 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
     return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
-// from https://64.github.io/tonemapping/
-// reinhard on RGB oversaturates colors
-fn reinhard(color: vec3<f32>) -> vec3<f32> {
-    return color / (1.0 + color);
-}
-
-fn reinhard_extended(color: vec3<f32>, max_white: f32) -> vec3<f32> {
-    let numerator = color * (1.0 + (color / vec3<f32>(max_white * max_white)));
-    return numerator / (1.0 + color);
-}
-
-// luminance coefficients from Rec. 709.
-// https://en.wikipedia.org/wiki/Rec._709
-fn luminance(v: vec3<f32>) -> f32 {
-    return dot(v, vec3<f32>(0.2126, 0.7152, 0.0722));
-}
-
-fn change_luminance(c_in: vec3<f32>, l_out: f32) -> vec3<f32> {
-    let l_in = luminance(c_in);
-    return c_in * (l_out / l_in);
-}
-
-fn reinhard_luminance(color: vec3<f32>) -> vec3<f32> {
-    let l_old = luminance(color);
-    let l_new = l_old / (1.0 + l_old);
-    return change_luminance(color, l_new);
-}
-
-fn reinhard_extended_luminance(color: vec3<f32>, max_white_l: f32) -> vec3<f32> {
-    let l_old = luminance(color);
-    let numerator = l_old * (1.0 + (l_old / (max_white_l * max_white_l)));
-    let l_new = numerator / (1.0 + l_old);
-    return change_luminance(color, l_new);
-}
-
 fn point_light(
     world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
     R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
@@ -237,6 +202,31 @@ fn point_light(
     // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
 
     return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
+}
+
+fn spot_light(
+    world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
+    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
+) -> vec3<f32> {
+    // reuse the point light calculations
+    let point_light = point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor);
+
+    // reconstruct spot dir from x/z and y-direction flag
+    var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
+    spot_dir.y = sqrt(max(0.0, 1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z));
+    if ((light.flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
+        spot_dir.y = -spot_dir.y;
+    }
+    let light_to_frag = light.position_radius.xyz - world_position.xyz;
+
+    // calculate attenuation based on filament formula https://google.github.io/filament/Filament.html#listing_glslpunctuallight
+    // spot_scale and spot_offset have been precomputed
+    // note we normalize here to get "l" from the filament listing. spot_dir is already normalized
+    let cd = dot(-spot_dir, normalize(light_to_frag));
+    let attenuation = saturate(cd * light.light_custom_data.z + light.light_custom_data.w);
+    let spot_attenuation = attenuation * attenuation;
+
+    return point_light * spot_attenuation;
 }
 
 fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {

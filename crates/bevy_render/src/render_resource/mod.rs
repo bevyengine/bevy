@@ -5,6 +5,7 @@ mod buffer_vec;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
+pub mod resource_macros;
 mod shader;
 mod storage_buffer;
 mod texture;
@@ -49,6 +50,6 @@ pub mod encase {
     pub use encase::*;
 }
 
-pub use self::encase::{ShaderType, Size as ShaderSize};
+pub use self::encase::{ShaderSize, ShaderType};
 
 pub use naga::ShaderStage;

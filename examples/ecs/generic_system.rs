@@ -9,7 +9,7 @@
 //! For more advice on working with generic types in Rust, check out <https://doc.rust-lang.org/book/ch10-01-syntax.html>
 //! or <https://doc.rust-lang.org/rust-by-example/generics.html>
 
-use bevy::{ecs::component::Component, prelude::*};
+use bevy::prelude::*;
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 enum AppState {
@@ -21,7 +21,7 @@ enum AppState {
 struct TextToPrint(String);
 
 #[derive(Component, Deref, DerefMut)]
-struct PrinterTick(bevy::prelude::Timer);
+struct PrinterTick(Timer);
 
 #[derive(Component)]
 struct MenuClose;
@@ -50,23 +50,21 @@ fn main() {
 }
 
 fn setup_system(mut commands: Commands) {
-    commands
-        .spawn()
-        .insert(PrinterTick(bevy::prelude::Timer::from_seconds(1.0, true)))
-        .insert(TextToPrint(
-            "I will print until you press space.".to_string(),
-        ))
-        .insert(MenuClose);
+    commands.spawn((
+        PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
+        TextToPrint("I will print until you press space.".to_string()),
+        MenuClose,
+    ));
 
-    commands
-        .spawn()
-        .insert(PrinterTick(bevy::prelude::Timer::from_seconds(1.0, true)))
-        .insert(TextToPrint("I will always print".to_string()))
-        .insert(LevelUnload);
+    commands.spawn((
+        PrinterTick(Timer::from_seconds(1.0, TimerMode::Repeating)),
+        TextToPrint("I will always print".to_string()),
+        LevelUnload,
+    ));
 }
 
 fn print_text_system(time: Res<Time>, mut query: Query<(&mut PrinterTick, &TextToPrint)>) {
-    for (mut timer, text) in query.iter_mut() {
+    for (mut timer, text) in &mut query {
         if timer.tick(time.delta()).just_finished() {
             info!("{}", text.0);
         }
@@ -85,7 +83,7 @@ fn transition_to_in_game_system(
 // Type arguments on functions come after the function name, but before ordinary arguments.
 // Here, the `Component` trait is a trait bound on T, our generic type
 fn cleanup_system<T: Component>(mut commands: Commands, query: Query<Entity, With<T>>) {
-    for e in query.iter() {
+    for e in &query {
         commands.entity(e).despawn_recursive();
     }
 }

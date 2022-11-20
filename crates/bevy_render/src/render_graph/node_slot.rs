@@ -172,14 +172,14 @@ impl SlotInfos {
     /// Retrieves the [`SlotInfo`] for the provided label.
     pub fn get_slot(&self, label: impl Into<SlotLabel>) -> Option<&SlotInfo> {
         let label = label.into();
-        let index = self.get_slot_index(&label)?;
+        let index = self.get_slot_index(label)?;
         self.slots.get(index)
     }
 
     /// Retrieves the [`SlotInfo`] for the provided label mutably.
     pub fn get_slot_mut(&mut self, label: impl Into<SlotLabel>) -> Option<&mut SlotInfo> {
         let label = label.into();
-        let index = self.get_slot_index(&label)?;
+        let index = self.get_slot_index(label)?;
         self.slots.get_mut(index)
     }
 

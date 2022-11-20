@@ -16,13 +16,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(1.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
     // plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
         material: materials.add(StandardMaterial {
             base_color: Color::rgb(0.2, 0.2, 0.2),
@@ -49,7 +49,7 @@ fn setup(
 
         // sphere light
         commands
-            .spawn_bundle(PbrBundle {
+            .spawn(PbrBundle {
                 mesh: mesh.clone(),
                 material: materials.add(StandardMaterial {
                     base_color: Color::rgb(0.5, 0.5, 1.0),
@@ -61,7 +61,7 @@ fn setup(
                 ..default()
             })
             .with_children(|children| {
-                children.spawn_bundle(PointLightBundle {
+                children.spawn(PointLightBundle {
                     point_light: PointLight {
                         intensity: 1500.0,
                         radius,
