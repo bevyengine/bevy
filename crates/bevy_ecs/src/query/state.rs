@@ -529,7 +529,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
-            self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
+            let change_tick = world.change_tick();
+            self.iter_unchecked_manual(world, world.last_change_tick(), change_tick)
         }
     }
 

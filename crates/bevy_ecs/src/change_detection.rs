@@ -68,7 +68,7 @@ impl Tick {
 /// When [`SmallTick`] value gets too old it is periodically updated to
 /// [`TickCounter::current() - SMALL_TICK_AGE_THRESHOLD`].
 ///
-/// This way [`SmallTick::is_later`] with target older
+/// This way [`SmallTick::is_later_than`] with target older
 /// than `SMALL_TICK_AGE_THRESHOLD` may return false positive.
 /// Which is acceptable tradeoff given that too old targets should
 /// not occur outside some edge cases.
@@ -144,12 +144,12 @@ impl SmallTick {
 /// Yields [`Tick`] values.
 ///
 /// On system without 64-bit atomics requires calls to
-/// [`TickCounter::maintenance`] to keep 32-bit atomic value from overflowing.
+/// [`TickCounter::maintain`] to keep 32-bit atomic value from overflowing.
 /// If overflow do occur then one of the calls to [`TickCounter::next`] would panic
 /// and successful calls to [`TickCounter::next`] and [`TickCounter::current`] would return
 /// out-of-order [`Tick`] values.
 /// Make sure to configure your code to either require `cfg(target_has_atomic = "64")`
-/// or arrange calls to [`TickCounter::maintenance`] frequently enough.
+/// or arrange calls to [`TickCounter::maintain`] frequently enough.
 pub struct TickCounter {
     #[cfg(not(target_has_atomic = "64"))]
     offset: NonZeroU64,

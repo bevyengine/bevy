@@ -21,10 +21,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
-use std::{
-    any::TypeId,
-    fmt,
-};
+use std::{any::TypeId, fmt};
 mod identifier;
 
 pub use identifier::WorldId;
