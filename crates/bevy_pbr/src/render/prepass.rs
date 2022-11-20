@@ -82,9 +82,8 @@ where
             Shader::from_wgsl
         );
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
         };
 
         render_app
@@ -340,59 +339,62 @@ pub fn prepare_prepass_textures(
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
     for (entity, camera, prepass_settings) in &views_3d {
-        if let Some(physical_target_size) = camera.physical_target_size {
-            let size = Extent3d {
-                depth_or_array_layers: 1,
-                width: physical_target_size.x,
-                height: physical_target_size.y,
-            };
+        let Some(physical_target_size) = camera.physical_target_size else {
+            continue;
+        };
 
-            let cached_depth_texture = prepass_settings.output_depth.then(|| {
-                depth_textures
-                    .entry(camera.target.clone())
-                    .or_insert_with(|| {
-                        let descriptor = TextureDescriptor {
-                            label: Some("prepass_depth_texture"),
+        let size = Extent3d {
+            depth_or_array_layers: 1,
+            width: physical_target_size.x,
+            height: physical_target_size.y,
+        };
+
+        let cached_depth_texture = prepass_settings.output_depth.then(|| {
+            depth_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let descriptor = TextureDescriptor {
+                        label: Some("prepass_depth_texture"),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: msaa.samples,
+                        dimension: TextureDimension::D2,
+                        format: TextureFormat::Depth32Float,
+                        usage: TextureUsages::COPY_DST
+                            | TextureUsages::RENDER_ATTACHMENT
+                            | TextureUsages::TEXTURE_BINDING,
+                    };
+                    texture_cache.get(&render_device, descriptor)
+                })
+                .clone()
+        });
+
+        let cached_normals_texture = prepass_settings.output_normals.then(|| {
+            normal_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_normal_texture"),
                             size,
                             mip_level_count: 1,
                             sample_count: msaa.samples,
                             dimension: TextureDimension::D2,
-                            format: TextureFormat::Depth32Float,
-                            usage: TextureUsages::COPY_DST
-                                | TextureUsages::RENDER_ATTACHMENT
+                            format: TextureFormat::Rgb10a2Unorm,
+                            usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
-                        };
-                        texture_cache.get(&render_device, descriptor)
-                    })
-                    .clone()
-            });
+                        },
+                    )
+                })
+                .clone()
+        });
 
-            let cached_normals_texture = prepass_settings.output_normals.then(|| {
-                normal_textures
-                    .entry(camera.target.clone())
-                    .or_insert_with(|| {
-                        texture_cache.get(
-                            &render_device,
-                            TextureDescriptor {
-                                label: Some("prepass_normal_texture"),
-                                size,
-                                mip_level_count: 1,
-                                sample_count: msaa.samples,
-                                dimension: TextureDimension::D2,
-                                format: TextureFormat::Rgb10a2Unorm,
-                                usage: TextureUsages::RENDER_ATTACHMENT
-                                    | TextureUsages::TEXTURE_BINDING,
-                            },
-                        )
-                    })
-                    .clone()
-            });
-            commands.entity(entity).insert(ViewPrepassTextures {
-                depth: cached_depth_texture,
-                normals: cached_normals_texture,
-                size,
-            });
-        }
+        commands.entity(entity).insert(ViewPrepassTextures {
+            depth: cached_depth_texture,
+            normals: cached_normals_texture,
+            size,
+        });
     }
 }
 
@@ -461,61 +463,63 @@ pub fn queue_prepass_material_meshes<M: Material>(
         }
 
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_uniform)) =
-                material_meshes.get(*visible_entity)
-            {
-                if let (Some(material), Some(mesh)) = (
-                    render_materials.get(material_handle),
-                    render_meshes.get(mesh_handle),
-                ) {
-                    let mut key = MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                        | view_key;
-                    let alpha_mode = material.properties.alpha_mode;
-                    match alpha_mode {
-                        AlphaMode::Opaque => {}
-                        AlphaMode::Mask(_) => key |= MeshPipelineKey::ALPHA_MASK,
-                        AlphaMode::Blend => continue,
-                    }
+            let Ok((material_handle, mesh_handle, mesh_uniform)) = material_meshes.get(*visible_entity) else {
+                continue;
+            };
 
-                    let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
-                        &prepass_pipeline,
-                        MaterialPipelineKey {
-                            mesh_key: key,
-                            bind_group_data: material.key.clone(),
-                        },
-                        &mesh.layout,
-                    );
-                    let pipeline_id = match pipeline_id {
-                        Ok(id) => id,
-                        Err(err) => {
-                            error!("{}", err);
-                            continue;
-                        }
-                    };
+            let (Some(material), Some(mesh)) = (
+                render_materials.get(material_handle),
+                render_meshes.get(mesh_handle),
+            ) else {
+                continue;
+            };
 
-                    let distance = rangefinder.distance(&mesh_uniform.transform)
-                        + material.properties.depth_bias;
-                    match alpha_mode {
-                        AlphaMode::Opaque => {
-                            opaque_phase.add(Opaque3dPrepass {
-                                entity: *visible_entity,
-                                draw_function: opaque_draw_prepass,
-                                pipeline_id,
-                                distance,
-                            });
-                        }
-                        AlphaMode::Mask(_) => {
-                            alpha_mask_phase.add(AlphaMask3dPrepass {
-                                entity: *visible_entity,
-                                draw_function: alpha_mask_draw_prepass,
-                                pipeline_id,
-                                distance,
-                            });
-                        }
-                        AlphaMode::Blend => {}
-                    }
+            let mut key =
+                MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+            let alpha_mode = material.properties.alpha_mode;
+            match alpha_mode {
+                AlphaMode::Opaque => {}
+                AlphaMode::Mask(_) => key |= MeshPipelineKey::ALPHA_MASK,
+                AlphaMode::Blend => continue,
+            }
+
+            let pipeline_id = pipelines.specialize(
+                &mut pipeline_cache,
+                &prepass_pipeline,
+                MaterialPipelineKey {
+                    mesh_key: key,
+                    bind_group_data: material.key.clone(),
+                },
+                &mesh.layout,
+            );
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
                 }
+            };
+
+            let distance =
+                rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
+            match alpha_mode {
+                AlphaMode::Opaque => {
+                    opaque_phase.add(Opaque3dPrepass {
+                        entity: *visible_entity,
+                        draw_function: opaque_draw_prepass,
+                        pipeline_id,
+                        distance,
+                    });
+                }
+                AlphaMode::Mask(_) => {
+                    alpha_mask_phase.add(AlphaMask3dPrepass {
+                        entity: *visible_entity,
+                        draw_function: alpha_mask_draw_prepass,
+                        pipeline_id,
+                        distance,
+                    });
+                }
+                AlphaMode::Blend => {}
             }
         }
     }
