@@ -119,7 +119,7 @@ fn setup_pyramid_scene(
             cull_mode: None,
             ..default()
         }),
-        transform: Transform::from_scale(Vec3::splat(10_000_000.0)),
+        transform: Transform::from_scale(Vec3::splat(1_000_000.0)),
         ..default()
     });
 
