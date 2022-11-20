@@ -11,7 +11,7 @@
 
 struct BloomSettings {
     intensity: f32,
-    precomputed_threshold: vec4<f32>,
+    threshold_precomputations: vec4<f32>,
 };
 
 @group(0) @binding(0)
@@ -26,10 +26,10 @@ var main_pass_texture: texture_2d<f32>;
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
-    var softness = brightness - settings.precomputed_threshold.y;
-    softness = clamp(softness, 0.0, settings.precomputed_threshold.z);
-    softness = softness * softness * settings.precomputed_threshold.w;
-    var contribution = max(brightness - settings.precomputed_threshold.x, softness);
+    var softness = brightness - settings.threshold_precomputations.y;
+    softness = clamp(softness, 0.0, settings.threshold_precomputations.z);
+    softness = softness * softness * settings.threshold_precomputations.w;
+    var contribution = max(brightness - settings.threshold_precomputations.x, softness);
     contribution /= max(brightness, 0.00001); // prevent division by 0
     return color * contribution;
 }
