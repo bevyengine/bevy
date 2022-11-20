@@ -1,7 +1,7 @@
 use crate::schedule_v3::*;
 use crate::world::World;
 
-/// New "stageless" [`App`](bevy_app::App) methods.
+/// New "stageless" `App` methods.
 pub trait AppExt {
     /// Sets the [`Schedule`] that will be modified by default when you call `App::add_system`
     /// and similar methods.

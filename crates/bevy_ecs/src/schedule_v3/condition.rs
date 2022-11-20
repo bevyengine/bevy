@@ -33,7 +33,7 @@ pub mod helper {
     use crate::schedule_v3::{State, Statelike};
     use crate::system::{Res, Resource};
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource exists.
     pub fn resource_exists<T>() -> impl FnMut(Option<Res<T>>) -> bool
     where
@@ -42,7 +42,7 @@ pub mod helper {
         move |res: Option<Res<T>>| res.is_some()
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource is equal to `value`.
     ///
     /// # Panics
@@ -55,7 +55,7 @@ pub mod helper {
         move |res: Res<T>| *res == value
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the resource exists and is equal to `value`.
     ///
     /// The condition will return `false` if the resource does not exist.
@@ -69,13 +69,13 @@ pub mod helper {
         }
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists.
     pub fn state_exists<S: Statelike>() -> impl FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine is currently in `state`.
     ///
     /// # Panics
@@ -85,7 +85,7 @@ pub mod helper {
         move |current_state: Res<State<S>>| current_state.0 == state
     }
 
-    /// Generates a [`Condition`]-satisfying closure that returns `true`
+    /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists and is currently in `state`.
     ///
     /// The condition will return `false` if the state does not exist.
