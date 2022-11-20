@@ -3,7 +3,7 @@ use bevy_utils::tracing::{info_span, Instrument};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{SystemExecutor, SystemSchedule},
+    schedule_v3::{ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
@@ -18,6 +18,10 @@ pub struct SimpleExecutor {
 }
 
 impl SystemExecutor for SimpleExecutor {
+    fn kind(&self) -> ExecutorKind {
+        ExecutorKind::Simple
+    }
+
     fn init(&mut self, schedule: &SystemSchedule) {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
@@ -121,6 +125,9 @@ impl SystemExecutor for SimpleExecutor {
             let _apply_buffers_span = info_span!("apply_buffers", name = &*name).entered();
             system.apply_buffers(world);
         }
+
+        self.completed_sets.clear();
+        self.completed_systems.clear();
     }
 }
 

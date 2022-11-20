@@ -4,7 +4,7 @@ use bevy_utils::HashSet;
 use crate::{
     schedule_v3::{
         condition::{BoxedCondition, Condition},
-        graph::{Ambiguity, DependencyEdgeKind, GraphInfo},
+        graph_utils::{Ambiguity, DependencyEdgeKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
     },
     system::{BoxedSystem, IntoSystem, System},

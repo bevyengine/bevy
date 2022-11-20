@@ -3,7 +3,7 @@ use bevy_utils::tracing::{info_span, Instrument};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{is_apply_system_buffers, SystemExecutor, SystemSchedule},
+    schedule_v3::{is_apply_system_buffers, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
@@ -19,6 +19,10 @@ pub struct SingleThreadedExecutor {
 }
 
 impl SystemExecutor for SingleThreadedExecutor {
+    fn kind(&self) -> ExecutorKind {
+        ExecutorKind::SingleThreaded
+    }
+
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
@@ -131,6 +135,8 @@ impl SystemExecutor for SingleThreadedExecutor {
         }
 
         self.apply_system_buffers(schedule, world);
+        self.completed_sets.clear();
+        self.completed_systems.clear();
     }
 }
 

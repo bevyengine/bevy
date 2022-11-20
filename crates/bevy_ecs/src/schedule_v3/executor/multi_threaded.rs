@@ -10,7 +10,7 @@ use fixedbitset::FixedBitSet;
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
-    schedule_v3::{is_apply_system_buffers, SystemExecutor, SystemSchedule},
+    schedule_v3::{is_apply_system_buffers, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
@@ -71,6 +71,10 @@ impl Default for MultiThreadedExecutor {
 }
 
 impl SystemExecutor for MultiThreadedExecutor {
+    fn kind(&self) -> ExecutorKind {
+        ExecutorKind::MultiThreaded
+    }
+
     fn init(&mut self, schedule: &SystemSchedule) {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();

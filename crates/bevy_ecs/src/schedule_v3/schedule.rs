@@ -146,7 +146,11 @@ impl Schedule {
         self.graph.set_default_set(set);
     }
 
-    pub fn set_executor(&mut self, executor: ExecutorKind) {
+    pub fn get_executor_kind(&self) -> ExecutorKind {
+        self.executor.kind()
+    }
+
+    pub fn set_executor_kind(&mut self, executor: ExecutorKind) {
         self.executor = match executor {
             ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
             ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
@@ -164,6 +168,7 @@ impl Schedule {
             self.graph.initialize(world);
             self.graph.update_schedule(&mut self.executable)?;
             self.executor.init(&self.executable);
+            self.graph.changed = false;
         }
 
         Ok(())
@@ -373,7 +378,7 @@ impl ScheduleMeta {
     }
 
     fn chain(&mut self, nodes: Vec<NodeId>) {
-        for pair in nodes.as_slice().windows(2) {
+        for pair in nodes.windows(2) {
             self.dependency.graph.add_edge(pair[0], pair[1], ());
         }
     }
@@ -396,30 +401,23 @@ impl ScheduleMeta {
     }
 
     fn check_edges(&mut self, id: &NodeId, graph_info: &GraphInfo) -> Result<(), BuildError> {
-        for (_, other) in graph_info.dependencies.iter() {
-            match self.system_set_ids.get(other) {
-                Some(other_id) => {
-                    if id == other_id {
-                        return Err(BuildError::DependencyLoop(other.dyn_clone()));
+        for (_, set) in graph_info.dependencies.iter() {
+            match self.system_set_ids.get(set) {
+                Some(set_id) => {
+                    if id == set_id {
+                        return Err(BuildError::DependencyLoop(set.dyn_clone()));
                     }
                 }
                 None => {
-                    self.add_set(other.dyn_clone());
+                    self.add_set(set.dyn_clone());
                 }
             }
         }
 
         if let Ambiguity::IgnoreWithSet(ambiguous_with) = &graph_info.ambiguous_with {
-            for other in ambiguous_with.iter() {
-                match self.system_set_ids.get(other) {
-                    Some(other_id) => {
-                        if id == other_id {
-                            return Err(BuildError::DependencyLoop(other.dyn_clone()));
-                        }
-                    }
-                    None => {
-                        self.add_set(other.dyn_clone());
-                    }
+            for set in ambiguous_with.iter() {
+                if !self.system_set_ids.contains_key(set) {
+                    self.add_set(set.dyn_clone());
                 }
             }
         }
@@ -449,13 +447,13 @@ impl ScheduleMeta {
             self.dependency.graph.add_node(id);
         }
 
-        for (edge_kind, other) in dependencies
+        for (edge_kind, set) in dependencies
             .into_iter()
             .map(|(edge_kind, set)| (edge_kind, self.system_set_ids[&set]))
         {
             let (lhs, rhs) = match edge_kind {
-                DependencyEdgeKind::Before => (id, other),
-                DependencyEdgeKind::After => (other, id),
+                DependencyEdgeKind::Before => (id, set),
+                DependencyEdgeKind::After => (set, id),
             };
             self.dependency.graph.add_edge(lhs, rhs, ());
         }
@@ -463,11 +461,11 @@ impl ScheduleMeta {
         match ambiguous_with {
             Ambiguity::Check => (),
             Ambiguity::IgnoreWithSet(ambigous_with) => {
-                for other in ambigous_with
+                for set in ambigous_with
                     .into_iter()
                     .map(|set| self.system_set_ids[&set])
                 {
-                    self.ambiguous_with.add_edge(id, other, ());
+                    self.ambiguous_with.add_edge(id, set, ());
                 }
             }
             Ambiguity::IgnoreAll => {
@@ -568,7 +566,7 @@ impl ScheduleMeta {
             }
         }
 
-        // system type sets with multiple members cannot be related to
+        // can't depend on or be ambiguous with system type sets that has many instances
         for (&set, systems) in systems.iter() {
             if self.system_sets[&set].is_system_type() {
                 let ambiguities = self.ambiguous_with.edges(set).count();
@@ -735,22 +733,22 @@ impl ScheduleMeta {
             .hierarchy
             .topsort
             .iter()
-            .filter(|&id| id.is_system())
             .cloned()
             .enumerate()
+            .filter(|&(_i, id)| id.is_system())
             .collect::<Vec<_>>();
 
         let (hg_set_idxs, hg_set_ids): (Vec<_>, Vec<_>) = self
             .hierarchy
             .topsort
             .iter()
-            .filter(|&id| {
-                // ignore system type sets
-                // ignore system sets that have no conditions
-                id.is_set() && self.conditions.get(id).filter(|v| !v.is_empty()).is_some()
-            })
             .cloned()
             .enumerate()
+            .filter(|&(_i, id)| {
+                // ignore system sets that have no conditions
+                // ignore system type sets (already covered, they don't have conditions)
+                id.is_set() && self.conditions.get(&id).filter(|v| !v.is_empty()).is_some()
+            })
             .unzip();
 
         let set_count = hg_set_ids.len();
@@ -761,7 +759,7 @@ impl ScheduleMeta {
         let mut sets_of_sets = vec![FixedBitSet::with_capacity(set_count); set_count];
         for (i, &row) in hg_set_idxs.iter().enumerate() {
             let bitset = &mut sets_of_sets[i];
-            for (idx, &col) in hg_set_idxs.iter().enumerate() {
+            for (idx, &col) in hg_set_idxs.iter().enumerate().skip(i) {
                 let is_descendant = result.reachable[index(row, col, node_count)];
                 bitset.set(idx, is_descendant);
             }

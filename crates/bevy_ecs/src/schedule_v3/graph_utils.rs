@@ -66,18 +66,18 @@ pub(crate) fn row_col(index: usize, num_cols: usize) -> (usize, usize) {
 }
 
 pub(crate) struct CheckGraphResults<V> {
-    // Boolean reachability matrix for the graph.
+    /// Boolean reachability matrix for the graph.
     pub(crate) reachable: FixedBitSet,
-    // Pairs of nodes that have a path connecting them.
+    /// Pairs of nodes that have a path connecting them.
     pub(crate) connected: HashSet<(V, V)>,
-    // Pairs of nodes that don't have a path connecting them.
+    /// Pairs of nodes that don't have a path connecting them.
     pub(crate) disconnected: HashSet<(V, V)>,
-    // Edges that are redundant because a longer path exists.
+    /// Edges that are redundant because a longer path exists.
     pub(crate) transitive_edges: Vec<(V, V)>,
-    // Variant of the graph with no transitive edges.
+    /// Variant of the graph with no transitive edges.
     #[allow(dead_code)]
     pub(crate) transitive_reduction: DiGraphMap<V, ()>,
-    // Variant of the graph with all possible transitive edges.
+    /// Variant of the graph with all possible transitive edges.
     #[allow(dead_code)]
     pub(crate) transitive_closure: DiGraphMap<V, ()>,
 }
@@ -96,7 +96,7 @@ impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
 }
 
 /// Processes a DAG and computes:
-/// - transitive reduction (along with the set of transitive edges)
+/// - transitive reduction (along with the set of removed edges)
 /// - transitive closure
 /// - reachability matrix (as a bitset)
 /// - pairs of nodes connected by a path
@@ -182,7 +182,7 @@ where
         visited.clear();
     }
 
-    // fill reachability matrix and partition nodes into "connected by path" and not
+    // partition pairs of nodes into "connected by path" and "not connected by path"
     for i in 0..(n - 1) {
         // reachable is upper triangular because the nodes were topsorted
         for index in index(i, i + 1, n)..=index(i, n - 1, n) {
@@ -197,9 +197,9 @@ where
     }
 
     // fill diagonal (nodes reach themselves)
-    for i in 0..n {
-        reachable.set(index(i, i, n), true);
-    }
+    // for i in 0..n {
+    //     reachable.set(index(i, i, n), true);
+    // }
 
     CheckGraphResults {
         reachable,

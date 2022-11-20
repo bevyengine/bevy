@@ -1,7 +1,7 @@
 mod condition;
 mod config;
 mod executor;
-mod graph;
+mod graph_utils;
 mod migration;
 mod schedule;
 mod set;
@@ -10,7 +10,7 @@ mod state;
 pub use self::condition::*;
 pub use self::config::*;
 pub use self::executor::*;
-use self::graph::*;
+use self::graph_utils::*;
 pub use self::migration::*;
 pub use self::schedule::*;
 pub use self::set::*;
@@ -18,6 +18,8 @@ pub use self::state::*;
 
 #[cfg(test)]
 mod tests {
+    use bevy_utils::HashSet;
+
     use super::*;
     use crate as bevy_ecs;
     use crate::system::*;
