@@ -113,6 +113,7 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 @fragment
 fn downsample_first(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var sample = sample_input_13_tap(uv);
+    sample = clamp(sample, vec3<f32>(0.0), vec3<f32>(3.40282347E+38)); // Prevent NaNs
 
     sample = soft_threshold(sample);
 
