@@ -38,16 +38,19 @@ pub trait ExtractComponent: Component {
     /// Filters the entities with additional constraints.
     type Filter: WorldQuery + ReadOnlyWorldQuery;
 
-    /// The output component.
+    /// The output from extraction.
     ///
     /// Returning `None` based on the queried item can allow early optimization,
     /// for example if there is an `enabled == false` field, or by only accepting
     /// values within certain thresholds.
     ///
-    /// The component may be different from the queried component.
+    /// The output may be different from the queried component.
     /// This can be useful for example if only a subset of the fields are useful
     /// in the render world.
-    type Out: Component;
+    ///
+    /// The output is a bundle instead of a component in order to allow use cases
+    /// such as tuples of components as output.
+    type Out: Bundle;
 
     // TODO: https://github.com/rust-lang/rust/issues/29661
     // type Out: Component = Self;
