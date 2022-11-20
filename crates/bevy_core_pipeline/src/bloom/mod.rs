@@ -622,6 +622,8 @@ fn prepare_bloom_textures(
     }
 }
 
+/// The uniform struct extracted from [`BloomSettings`] attached to a [`Camera`].
+/// Will be available for use in the Bloom shader.
 #[derive(Component, ShaderType, Clone)]
 pub struct BloomUniform {
     threshold: f32,
