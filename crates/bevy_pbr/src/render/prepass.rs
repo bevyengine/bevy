@@ -88,8 +88,8 @@ where
         };
 
         render_app
-            .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_prepass_phase)
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_prepass_textures)
+            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_settings_phase)
+            .add_system_to_stage(RenderStage::Prepare, prepare_prepass_textures)
             .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
             .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3dPrepass>)
@@ -309,7 +309,7 @@ where
     }
 }
 
-pub fn extract_core_3d_camera_prepass_phase(
+pub fn extract_camera_prepass_settings_phase(
     mut commands: Commands,
     cameras_3d: Extract<Query<(Entity, &Camera, &PrepassSettings), With<Camera3d>>>,
 ) {
@@ -324,7 +324,7 @@ pub fn extract_core_3d_camera_prepass_phase(
     }
 }
 
-pub fn prepare_core_3d_prepass_textures(
+pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
@@ -351,23 +351,22 @@ pub fn prepare_core_3d_prepass_textures(
                 depth_textures
                     .entry(camera.target.clone())
                     .or_insert_with(|| {
-                        texture_cache.get(
-                            &render_device,
-                            TextureDescriptor {
-                                label: Some("view_depth_texture_resource"),
-                                size,
-                                mip_level_count: 1,
-                                sample_count: msaa.samples,
-                                dimension: TextureDimension::D2,
-                                format: TextureFormat::Depth32Float,
-                                usage: TextureUsages::COPY_DST
-                                    | TextureUsages::RENDER_ATTACHMENT
-                                    | TextureUsages::TEXTURE_BINDING,
-                            },
-                        )
+                        let descriptor = TextureDescriptor {
+                            label: Some("prepass_depth_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: msaa.samples,
+                            dimension: TextureDimension::D2,
+                            format: TextureFormat::Depth32Float,
+                            usage: TextureUsages::COPY_DST
+                                | TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                        };
+                        texture_cache.get(&render_device, descriptor)
                     })
                     .clone()
             });
+
             let cached_normals_texture = prepass_settings.output_normals.then(|| {
                 normal_textures
                     .entry(camera.target.clone())
@@ -375,7 +374,7 @@ pub fn prepare_core_3d_prepass_textures(
                         texture_cache.get(
                             &render_device,
                             TextureDescriptor {
-                                label: Some("view_normals_texture"),
+                                label: Some("prepass_normal_texture"),
                                 size,
                                 mip_level_count: 1,
                                 sample_count: msaa.samples,
