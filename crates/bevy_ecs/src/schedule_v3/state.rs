@@ -3,7 +3,6 @@ use std::hash::Hash;
 use std::mem;
 
 use crate as bevy_ecs;
-use crate::change_detection::Mut;
 use crate::schedule_v3::{ScheduleLabel, SystemSet, WorldExt};
 use crate::system::Resource;
 use crate::world::World;
@@ -48,15 +47,14 @@ pub struct NextState<S: Statelike>(pub Option<S>);
 /// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
 /// - Runs the [`OnExit(exited_state)`] schedule.
 /// - Runs the [`OnEnter(entered_state)`] schedule.
-///
-/// For simplicity, [`State<S>`] is temporarily removed until the two schedules have completed.
 pub fn apply_state_transition<S: Statelike>(world: &mut World) {
-    world.resource_scope(|world, mut state: Mut<State<S>>| {
-        if world.resource::<NextState<S>>().0.is_some() {
-            let entered_state = world.resource_mut::<NextState<S>>().0.take().unwrap();
-            let exited_state = mem::replace(&mut state.0, entered_state.clone());
-            world.run_schedule(OnExit(exited_state));
-            world.run_schedule(OnEnter(entered_state));
-        }
-    });
+    if world.resource::<NextState<S>>().0.is_some() {
+        let entered_state = world.resource_mut::<NextState<S>>().0.take().unwrap();
+        let exited_state = mem::replace(
+            &mut world.resource_mut::<State<S>>().0,
+            entered_state.clone(),
+        );
+        world.run_schedule(OnExit(exited_state));
+        world.run_schedule(OnEnter(entered_state));
+    }
 }
