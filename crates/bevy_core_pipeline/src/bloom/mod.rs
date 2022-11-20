@@ -161,20 +161,22 @@ impl ExtractComponent for BloomSettings {
     type Out = BloomUniform;
 
     fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        if let Some(size) = camera.physical_viewport_size() {
+        if !(camera.is_active && camera.hdr) {
+            return None;
+        }
+
+        camera.physical_viewport_size().map(|size| {
             let min_view = size.x.min(size.y) / 2;
             let mip_count = calculate_mip_count(min_view);
             let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
 
-            Some(BloomUniform {
+            BloomUniform {
                 threshold: settings.threshold,
                 knee: settings.knee,
                 scale: settings.scale * scale,
                 intensity: settings.intensity,
-            })
-        } else {
-            None
-        }
+            }
+        })
     }
 }
 
