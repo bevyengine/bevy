@@ -277,10 +277,10 @@ pub struct SparseSet<I: SparseSetIndex, V: 'static> {
 /// A space-optimized version of [`SparseSet`] that cannot be changed
 /// after construction.
 #[derive(Debug)]
-pub(crate) struct ImmutableSparseSet<I, V: 'static> {
+pub(crate) struct ImmutableSparseSet<I: SparseSetIndex, V: 'static> {
     dense: Box<[V]>,
     indices: Box<[I]>,
-    sparse: ImmutableSparseArray<I, usize>,
+    sparse: ImmutableSparseArray<I, I::Repr>,
 }
 
 macro_rules! impl_sparse_set {
@@ -299,7 +299,7 @@ macro_rules! impl_sparse_set {
             pub fn get(&self, index: I) -> Option<&V> {
                 self.sparse.get(index).map(|dense_index| {
                     // SAFETY: if the sparse index points to something in the dense vec, it exists
-                    unsafe { self.dense.get_unchecked(*dense_index) }
+                    unsafe { self.dense.get_unchecked(I::repr_to_index(dense_index)) }
                 })
             }
 
@@ -307,7 +307,7 @@ macro_rules! impl_sparse_set {
                 let dense = &mut self.dense;
                 self.sparse.get(index).map(move |dense_index| {
                     // SAFETY: if the sparse index points to something in the dense vec, it exists
-                    unsafe { dense.get_unchecked_mut(*dense_index) }
+                    unsafe { dense.get_unchecked_mut(I::repr_to_index(dense_index)) }
                 })
             }
 
@@ -383,7 +383,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
-            // SAFE: dense indices stored in self.sparse always exist
+            // SAFETY: dense indices stored in self.sparse always exist
             unsafe { self.dense.get_unchecked_mut(I::repr_to_index(&dense_index)) }
         } else {
             let value = func();

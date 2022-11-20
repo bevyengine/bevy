@@ -255,7 +255,7 @@ impl BundleId {
             value < u32::MAX as usize,
             "BundleID cannot be u32::MAX or greater"
         );
-        // SAFE: The above assertion will fail if the value is not valid.
+        // SAFETY: The above assertion will fail if the value is not valid.
         unsafe { Self::new_unchecked(value) }
     }
 

@@ -18,7 +18,10 @@ use std::{
 pub struct ArchetypeId(NonMaxU32);
 
 impl ArchetypeId {
-    pub const EMPTY: ArchetypeId = unsafe { ArchetypeId::new_unchecked(0) };
+    pub const EMPTY: ArchetypeId = {
+        // SAFETY: 0 is guarenteed to not equal u32::MAX
+        unsafe { ArchetypeId::new_unchecked(0) }
+    };
 
     /// Creates a new [`ArchetypeId`].
     ///
@@ -30,7 +33,7 @@ impl ArchetypeId {
             index < u32::MAX as usize,
             "ArchetypeID cannot be u32::MAX or greater"
         );
-        // SAFE: The above assertion will fail if the value is not valid.
+        // SAFETY: The above assertion will fail if the value is not valid.
         unsafe { Self(NonMaxU32::new_unchecked(index as u32)) }
     }
 
@@ -409,7 +412,7 @@ impl ArchetypeComponentId {
             index < u32::MAX as usize,
             "ArchetypeComponentId cannot be u32::MAX or greater"
         );
-        // SAFE: The above assertion will fail if the value is not valid.
+        // SAFETY: The above assertion will fail if the value is not valid.
         unsafe { Self::new_unchecked(index) }
     }
 
@@ -543,11 +546,11 @@ impl Archetypes {
                 let table_start = *archetype_component_count;
                 *archetype_component_count += table_components.len();
                 let table_archetype_components =
-                    (table_start..*archetype_component_count).map(ArchetypeComponentId);
+                    (table_start..*archetype_component_count).map(ArchetypeComponentId::new);
                 let sparse_start = *archetype_component_count;
                 *archetype_component_count += sparse_set_components.len();
                 let sparse_set_archetype_components =
-                    (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
+                    (sparse_start..*archetype_component_count).map(ArchetypeComponentId::new);
 
                 archetypes.push(Archetype::new(
                     id,

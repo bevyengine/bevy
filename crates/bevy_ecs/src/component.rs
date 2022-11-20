@@ -247,7 +247,7 @@ impl ComponentId {
     #[inline]
     pub fn new(index: usize) -> ComponentId {
         assert!(index < u32::MAX as usize);
-        // SAFE: The above assertion will fail if the value is not valid.
+        // SAFETY: The above assertion will fail if the value is not valid.
         unsafe { Self(NonMaxU32::new_unchecked(index as u32)) }
     }
 
@@ -272,7 +272,7 @@ impl SparseSetIndex for ComponentId {
     #[inline]
     fn repr_from_index(index: usize) -> Self::Repr {
         assert!(index < u32::MAX as usize);
-        // SAFE: The above assertion will fail if the value is not valid.
+        // SAFETY: The above assertion will fail if the value is not valid.
         unsafe { NonMaxU32::new_unchecked(index as u32) }
     }
 
