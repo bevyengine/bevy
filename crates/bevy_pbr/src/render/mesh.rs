@@ -519,6 +519,8 @@ bitflags::bitflags! {
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
         const DEBAND_DITHER               = (1 << 3);
+        const MAY_DISCARD                 = (1 << 4); // Guards shader codepaths that may discard, allowing early depth tests in most cases
+                                                      // See: https://www.khronos.org/opengl/wiki/Early_Fragment_Test
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -642,6 +644,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             if key.contains(MeshPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".to_string());
             }
+        }
+
+        if key.contains(MeshPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".to_string());
         }
 
         let format = match key.contains(MeshPipelineKey::HDR) {

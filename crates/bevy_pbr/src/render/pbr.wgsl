@@ -15,6 +15,11 @@ struct FragmentInput {
 };
 
 @fragment
+// NOTE: in the future, if we do depth writes, we'll also need to disable
+// `@early_depth_test` for them, via a similar def (e.g. `MAY_DEPTH_WRITE`)
+#ifndef MAY_DISCARD
+@early_depth_test
+#endif
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.base_color;
 #ifdef VERTEX_COLORS
