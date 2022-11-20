@@ -1,3 +1,7 @@
+// Bloom works by creating an intermediate texture with a bunch of mip levels, each half the size of the previous.
+// You then downsample each mip (starting with the original texture) to the lower resolution mip under it, going in order.
+// You then upsample each mip (starting from the smallest mip) and additively blend with the higher resolution mip above it (ending on the original texture).
+//
 // References:
 // * http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
 // * https://learnopengl.com/Guest-Articles/2022/Phys.-Based-Bloom
@@ -7,7 +11,7 @@
 
 struct BloomSettings {
     intensity: f32,
-    t: vec4<f32>,
+    precomputed_threshold: vec4<f32>,
 };
 
 @group(0) @binding(0)
@@ -22,10 +26,10 @@ var main_pass_texture: texture_2d<f32>;
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
     let brightness = max(color.r, max(color.g, color.b));
-    var softness = brightness - settings.t.y;
-    softness = clamp(softness, 0.0, settings.t.z);
-    softness = softness * softness * settings.t.w;
-    var contribution = max(brightness - settings.t.x, softness);
+    var softness = brightness - settings.precomputed_threshold.y;
+    softness = clamp(softness, 0.0, settings.precomputed_threshold.z);
+    softness = softness * softness * settings.precomputed_threshold.w;
+    var contribution = max(brightness - settings.precomputed_threshold.x, softness);
     contribution /= max(brightness, 0.00001); // prevent division by 0
     return color * contribution;
 }

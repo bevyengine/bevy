@@ -207,26 +207,22 @@ impl Node for BloomNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let bloom_uniforms = world.resource::<BloomUniforms>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, view_target, bloom_texture, bind_groups, uniform_index) =
-            match self.view_query.get_manual(world, view_entity) {
-                Ok(result) => result,
-                _ => return Ok(()),
-            };
         let (
-            downsampling_first_pipeline,
-            downsampling_pipeline,
-            upsampling_pipeline,
-            upsampling_final_pipeline,
-            bloom_uniforms,
-        ) = match (
+            Ok((camera, view_target, bloom_texture, bind_groups, uniform_index)),
+            Some(downsampling_first_pipeline),
+            Some(downsampling_pipeline),
+            Some(upsampling_pipeline),
+            Some(upsampling_final_pipeline),
+            Some(bloom_uniforms),
+        ) = (
+            self.view_query.get_manual(world, view_entity),
             pipeline_cache.get_render_pipeline(pipelines.downsampling_first_pipeline),
             pipeline_cache.get_render_pipeline(pipelines.downsampling_pipeline),
             pipeline_cache.get_render_pipeline(pipelines.upsampling_pipeline),
             pipeline_cache.get_render_pipeline(pipelines.upsampling_final_pipeline),
             bloom_uniforms.buffer.binding(),
-        ) {
-            (Some(a), Some(b), Some(c), Some(d), Some(e)) => (a, b, c, d, e),
-            _ => return Ok(()),
+        ) else {
+            return Ok(());
         };
         let view_target = view_target.post_process_write();
 
@@ -671,7 +667,8 @@ fn prepare_bloom_textures(
 #[derive(ShaderType)]
 struct BloomUniform {
     intensity: f32,
-    filter: Vec4,
+    // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
+    precomputed_threshold: Vec4,
 }
 
 #[derive(Resource, Default)]
@@ -697,7 +694,7 @@ fn prepare_bloom_uniforms(
             let knee = settings.threshold_base * settings.threshold_softness;
             let uniform = BloomUniform {
                 intensity: settings.intensity,
-                filter: Vec4::new(
+                precomputed_threshold: Vec4::new(
                     settings.threshold_base,
                     settings.threshold_base - knee,
                     2.0 * knee,
