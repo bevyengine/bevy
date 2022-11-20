@@ -124,7 +124,12 @@ pub fn ui_focus_system(
         })
         .filter_map(|window_id| windows.get(window_id))
         .filter(|window| window.is_focused())
-        .find_map(|window| window.cursor_position())
+        .find_map(|window| {
+            window.cursor_position().map(|mut cursor_pos| {
+                cursor_pos.y = window.height() - cursor_pos.y;
+                cursor_pos
+            })
+        })
         .or_else(|| touches_input.first_pressed_position());
 
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
