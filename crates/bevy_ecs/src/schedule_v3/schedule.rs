@@ -146,7 +146,7 @@ impl Schedule {
 
     /// Sets the schedule's execution strategy.
     pub fn set_executor_kind(&mut self, executor: ExecutorKind) {
-        if executor == self.executor.kind() {
+        if executor != self.executor.kind() {
             self.executor = match executor {
                 ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
                 ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
