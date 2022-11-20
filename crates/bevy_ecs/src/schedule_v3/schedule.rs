@@ -21,79 +21,51 @@ use crate::{
     world::World,
 };
 
-/// Resource for storing [`Schedule`]s.
+/// Resource that stores [`Schedule`]s mapped to [`ScheduleLabel`]s.
 #[derive(Default, Resource)]
 pub struct Schedules {
-    inner: HashMap<BoxedScheduleLabel, Option<Schedule>>,
+    inner: HashMap<BoxedScheduleLabel, Schedule>,
 }
 
 impl Schedules {
+    /// Constructs an empty `Schedules` with zero initial capacity.
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
         }
     }
 
-    /// Insert a new labeled schedule into the map.
+    /// Inserts a labeled schedule into the map.
     ///
-    /// # Errors
-    ///
-    /// TODO
-    pub fn insert(
-        &mut self,
-        label: impl ScheduleLabel,
-        schedule: Schedule,
-    ) -> Result<(), InsertionError> {
+    /// If the map already had an entry for `label`, `schedule` is inserted,
+    /// and the old schedule is returned. Otherwise, `None` is returned.
+    pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
         let label = label.dyn_clone();
         if self.inner.contains_key(&label) {
-            return Err(InsertionError::AlreadyExists(label));
+            warn!("schedule with label {:?} already exists", label);
         }
-        self.inner.insert(label, Some(schedule));
-        Ok(())
+        self.inner.insert(label, schedule)
     }
 
-    /// Returns the schedule corresponding to the label.
-    ///
-    /// # Errors
-    ///
-    /// TODO
-    pub(crate) fn check_out(
-        &mut self,
-        label: &dyn ScheduleLabel,
-    ) -> Result<Schedule, ExtractionError> {
+    /// Removes the `label` entry from the map, returning its schedule if one existed.
+    pub fn remove(&mut self, label: &dyn ScheduleLabel) -> Option<Schedule> {
         let label = label.dyn_clone();
-        match self.inner.get_mut(&label) {
-            Some(container) => match container.take() {
-                Some(schedule) => Ok(schedule),
-                None => Err(ExtractionError::AlreadyExtracted(label)),
-            },
-            None => Err(ExtractionError::Unknown(label)),
+        if !self.inner.contains_key(&label) {
+            warn!("schedule with label {:?} not found", label);
         }
+        self.inner.remove(&label)
     }
 
-    /// Re-inserts the schedule corresponding to the label into the map.
-    ///
-    /// The schedule must have been previously extracted using [`check_out`](#method.check_out).
-    ///
-    /// # Errors
-    ///
-    /// TODO
-    pub(crate) fn check_in(
-        &mut self,
-        label: &dyn ScheduleLabel,
-        schedule: Schedule,
-    ) -> Result<(), ExtractionError> {
+    /// Returns a reference to the schedule associated with `label`, if it exists.
+    pub fn get(&self, label: &dyn ScheduleLabel) -> Option<&Schedule> {
         let label = label.dyn_clone();
-        match self.inner.get_mut(&label) {
-            Some(container) => match container.take() {
-                Some(_) => Err(ExtractionError::NotExtracted(label)),
-                None => {
-                    *container = Some(schedule);
-                    Ok(())
-                }
-            },
-            None => Err(ExtractionError::Unknown(label)),
-        }
+        self.inner.get(&label)
+    }
+
+    /// Returns a mutable reference to the schedule associated with `label`, if it exists.
+    pub fn get_mut(&mut self, label: &dyn ScheduleLabel) -> Option<&mut Schedule> {
+        let label = label.dyn_clone();
+        self.inner.get_mut(&label)
     }
 
     /// Iterates all system change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
@@ -101,16 +73,24 @@ impl Schedules {
     ///
     /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous pass.
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32, last_check_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("check ticks").entered();
-        for schedule in self.inner.values_mut().flatten() {
-            schedule.check_change_ticks(change_tick, last_check_tick);
+        let _span = bevy_utils::tracing::info_span!("check stored schedule ticks").entered();
+        // label used when trace feature is enabled
+        #[allow(unused_variables)]
+        for (label, schedule) in self.inner.iter_mut() {
+            #[cfg(feature = "trace")]
+            let name = format!("{:?}", label);
+            #[cfg(feature = "trace")]
+            let _span =
+                bevy_utils::tracing::info_span!("check schedule ticks", name = &name).entered();
+            schedule.check_change_ticks(change_tick);
         }
     }
 }
 
-/// TBD
+/// A collection of systems, and the metadata and executor needed to run them
+/// in a certain order under certain conditions.
 pub struct Schedule {
     graph: ScheduleMeta,
     executable: SystemSchedule,
@@ -124,6 +104,7 @@ impl Default for Schedule {
 }
 
 impl Schedule {
+    /// Constructs an empty `Schedule`.
     pub fn new() -> Self {
         Self {
             graph: ScheduleMeta::new(),
@@ -132,43 +113,57 @@ impl Schedule {
         }
     }
 
+    /// Add a system to the schedule.
     pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) {
         self.graph.add_system(system);
     }
 
+    /// Add a collection of systems to the schedule.
     pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
         self.graph.add_systems(systems);
     }
 
+    /// Configure a system set in this schedule.
     pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
         self.graph.configure_set(set);
     }
 
+    /// Configure a collection of system sets in this schedule.
     pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
         self.graph.configure_sets(sets);
     }
 
+    /// Sets the system set that new systems and system sets will join by default
+    /// if they aren't already part of one.
     pub fn set_default_set(&mut self, set: impl SystemSet) {
         self.graph.set_default_set(set);
     }
 
+    /// Returns the schedule's current execution strategy.
     pub fn get_executor_kind(&self) -> ExecutorKind {
         self.executor.kind()
     }
 
+    /// Sets the schedule's execution strategy.
     pub fn set_executor_kind(&mut self, executor: ExecutorKind) {
-        self.executor = match executor {
-            ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
-            ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
-            ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
-        };
+        if executor == self.executor.kind() {
+            self.executor = match executor {
+                ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
+                ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
+                ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
+            };
+            self.executor.init(&self.executable);
+        }
     }
 
+    /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         self.initialize(world).unwrap();
         self.executor.run(&mut self.executable, world);
     }
 
+    /// Initializes all uninitialized systems and conditions, rebuilds the executable schedule,
+    /// and re-initializes executor data structures.
     pub(crate) fn initialize(&mut self, world: &mut World) -> Result<(), BuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
@@ -185,13 +180,26 @@ impl Schedule {
     ///
     /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous pass.
-    pub(crate) fn check_change_ticks(&mut self, _change_tick: u32, _last_change_tick: u32) {
-        #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("check schedule ticks").entered();
-        todo!();
+    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+        for system in self.executable.systems.iter_mut() {
+            system.borrow_mut().check_change_tick(change_tick);
+        }
+
+        for conditions in self.executable.system_conditions.iter_mut() {
+            for system in conditions.borrow_mut().iter_mut() {
+                system.check_change_tick(change_tick);
+            }
+        }
+
+        for conditions in self.executable.set_conditions.iter_mut() {
+            for system in conditions.borrow_mut().iter_mut() {
+                system.check_change_tick(change_tick);
+            }
+        }
     }
 }
 
+/// A directed acylic graph structure.
 #[derive(Default)]
 struct Dag {
     /// A directed graph.
@@ -201,7 +209,7 @@ struct Dag {
 }
 
 impl Dag {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             graph: DiGraphMap::new(),
             topsort: Vec::new(),
@@ -209,6 +217,7 @@ impl Dag {
     }
 }
 
+/// Metadata for a [`SystemSet`], stored in a [`ScheduleMeta`].
 struct SystemSetMeta(BoxedSystemSet);
 
 impl SystemSetMeta {
@@ -225,11 +234,13 @@ impl SystemSetMeta {
     }
 }
 
+/// Uninitialized systems associated with a graph node, stored in a [`ScheduleMeta`].
 enum UninitNode {
     System(BoxedSystem, Vec<BoxedCondition>),
     SystemSet(Vec<BoxedCondition>),
 }
 
+/// Metadata for a [`Schedule`].
 #[derive(Default)]
 struct ScheduleMeta {
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
@@ -324,7 +335,6 @@ impl ScheduleMeta {
         // system init has to be deferred (need `&mut World`)
         self.uninit
             .push((id, UninitNode::System(system, conditions)));
-        self.changed = true;
 
         Ok(id)
     }
@@ -371,7 +381,6 @@ impl ScheduleMeta {
 
         // system init has to be deferred (need `&mut World`)
         self.uninit.push((id, UninitNode::SystemSet(conditions)));
-        self.changed = true;
 
         Ok(id)
     }
@@ -434,6 +443,7 @@ impl ScheduleMeta {
     fn update_graphs(&mut self, id: NodeId, graph_info: GraphInfo) -> Result<(), BuildError> {
         self.check_sets(&id, &graph_info)?;
         self.check_edges(&id, &graph_info)?;
+        self.changed = true;
 
         let GraphInfo {
             sets,
@@ -716,7 +726,7 @@ impl ScheduleMeta {
             .collect::<HashMap<_, _>>();
 
         // get the number of dependencies and the immediate dependents of each system
-        // (needed to run systems in the correct order)
+        // (needed by multi-threaded executor to run systems in the correct order)
         let mut system_deps = Vec::with_capacity(sys_count);
         for &sys_id in &dg_system_ids {
             let num_dependencies = self
@@ -961,24 +971,6 @@ impl ScheduleMeta {
 
         warn!("{}", string);
     }
-}
-
-#[derive(Error, Debug)]
-#[non_exhaustive]
-pub enum InsertionError {
-    #[error("schedule `{0:?}` already exists")]
-    AlreadyExists(BoxedScheduleLabel),
-}
-
-#[derive(Error, Debug)]
-#[non_exhaustive]
-pub enum ExtractionError {
-    #[error("unknown schedule: `{0:?}`")]
-    Unknown(BoxedScheduleLabel),
-    #[error("schedule `{0:?}` is not available")]
-    AlreadyExtracted(BoxedScheduleLabel),
-    #[error("schedule `{0:?}` has not been extracted")]
-    NotExtracted(BoxedScheduleLabel),
 }
 
 #[derive(Error, Debug)]

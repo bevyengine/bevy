@@ -23,13 +23,17 @@ pub(super) trait SystemExecutor: Send + Sync {
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World);
 }
 
-/// Controls how a [`Schedule`] will be run.
+/// Specifies how a [`Schedule`](super::Schedule) will be run.
+///
+/// [`MultiThreaded`](ExecutorKind::MultiThreaded) is the default.
+#[derive(PartialEq, Eq, Default)]
 pub enum ExecutorKind {
     /// Runs the schedule using a single thread.
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_buffers`](crate::system::System::apply_buffers)
     /// immediately after running each system.
     Simple,
+    #[default]
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
     MultiThreaded,
 }

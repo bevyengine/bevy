@@ -12,36 +12,48 @@ use crate::world::World;
 pub trait Statelike: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 impl<T> Statelike for T where T: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {}
 
-/// TBD
+/// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
+/// enters this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnEnter<S: Statelike>(pub S);
 
-/// TBD
+/// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
+/// exits this state.
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: Statelike>(pub S);
 
-/// TBD
+/// A [`SystemSet`] that will run within \<insert-`bevy_core`-set-name\> when this state is active.
+///
+/// This is provided for convenience. A more general [`state_equals`](super::state_equals)
+/// [condition](super::Condition) also exists for systems that need to run elsewhere.
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnUpdate<S: Statelike>(pub S);
 
 /// A finite-state machine whose transitions have associated schedules
 /// ([`OnEnter(state)`] and [`OnExit(state)`]).
 ///
-/// A state transition can be queued through the [`Transition<S>`] resource, and it will
-/// be applied by the next [`apply_state_transition::<S>`] system.
+/// The current state value can be accessed through this resource. To *change* the state,
+/// queue a transition in the [`NextState<S>`] resource, and it will be applied by the next
+/// [`apply_state_transition::<S>`] system.
 #[derive(Resource)]
 pub struct State<S: Statelike>(pub S);
 
 /// The next state of [`State<S>`].
+///
+/// To queue a transition, just set the contained value to `Some(next_state)`.
 #[derive(Resource)]
-pub struct Transition<S: Statelike>(pub Option<S>);
+pub struct NextState<S: Statelike>(pub Option<S>);
 
-/// If a state transition is queued in [`Transition<S>`], updates [`State<S>`], then
-/// runs the [`OnExit(exited_state)`] and [`OnEnter(entered_state)`] schedules.
+/// If a new state is queued in [`NextState<S>`], this system:
+/// - Takes the new state value from [`NextState<S>`] and updates [`State<S>`].
+/// - Runs the [`OnExit(exited_state)`] schedule.
+/// - Runs the [`OnEnter(entered_state)`] schedule.
+///
+/// For simplicity, [`State<S>`] is temporarily removed until the two schedules have completed.
 pub fn apply_state_transition<S: Statelike>(world: &mut World) {
     world.resource_scope(|world, mut state: Mut<State<S>>| {
-        if world.resource::<Transition<S>>().0.is_some() {
-            let entered_state = world.resource_mut::<Transition<S>>().0.take().unwrap();
+        if world.resource::<NextState<S>>().0.is_some() {
+            let entered_state = world.resource_mut::<NextState<S>>().0.take().unwrap();
             let exited_state = mem::replace(&mut state.0, entered_state.clone());
             world.run_schedule(OnExit(exited_state));
             world.run_schedule(OnEnter(entered_state));

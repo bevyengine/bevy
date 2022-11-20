@@ -223,14 +223,4 @@ mod tests {
         let result = schedule.initialize(&mut world);
         assert!(matches!(result, Err(BuildError::Ambiguity)));
     }
-
-    #[test]
-    fn schedule_already_exists() {
-        let mut schedules = Schedules::new();
-        let result = schedules.insert(TestSchedule::X, Schedule::new());
-        assert!(matches!(result, Ok(())));
-
-        let result = schedules.insert(TestSchedule::X, Schedule::new());
-        assert!(matches!(result, Err(InsertionError::AlreadyExists(_))));
-    }
 }
