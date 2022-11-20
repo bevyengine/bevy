@@ -34,7 +34,7 @@ fn setup_scene(
     ));
 
     let material_emissive = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(5.2, 1.2, 0.8), // 3. Set StandardMaterial::emissive using Color::rgb_linear, for entities we want to apply bloom to
+        emissive: Color::rgb_linear(8000.0, 100.0, 0.8), // 3. Set StandardMaterial::emissive using Color::rgb_linear, for entities we want to apply bloom to
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
@@ -110,8 +110,8 @@ fn update_bloom_settings(
 
     *text = "BloomSettings\n".to_string();
     text.push_str("-------------\n");
-    text.push_str(&format!("Threshold: {}\n", bloom_settings.threshold));
-    text.push_str(&format!("Knee: {}\n", bloom_settings.knee));
+    // text.push_str(&format!("Threshold: {}\n", bloom_settings.threshold));
+    // text.push_str(&format!("Knee: {}\n", bloom_settings.knee));
     text.push_str(&format!("Scale: {}\n", bloom_settings.scale));
     text.push_str(&format!("Intensity: {}\n", bloom_settings.intensity));
 
@@ -126,19 +126,19 @@ fn update_bloom_settings(
 
     let dt = time.delta_seconds();
 
-    if keycode.pressed(KeyCode::Q) {
-        bloom_settings.threshold -= dt;
-    }
-    if keycode.pressed(KeyCode::W) {
-        bloom_settings.threshold += dt;
-    }
+    // if keycode.pressed(KeyCode::Q) {
+    //     bloom_settings.threshold -= dt;
+    // }
+    // if keycode.pressed(KeyCode::W) {
+    //     bloom_settings.threshold += dt;
+    // }
 
-    if keycode.pressed(KeyCode::E) {
-        bloom_settings.knee -= dt;
-    }
-    if keycode.pressed(KeyCode::R) {
-        bloom_settings.knee += dt;
-    }
+    // if keycode.pressed(KeyCode::E) {
+    //     bloom_settings.knee -= dt;
+    // }
+    // if keycode.pressed(KeyCode::R) {
+    //     bloom_settings.knee += dt;
+    // }
 
     if keycode.pressed(KeyCode::A) {
         bloom_settings.scale -= dt;
@@ -148,10 +148,10 @@ fn update_bloom_settings(
     }
 
     if keycode.pressed(KeyCode::D) {
-        bloom_settings.intensity -= dt;
+        bloom_settings.intensity = (bloom_settings.intensity - dt).max(0.0);
     }
     if keycode.pressed(KeyCode::F) {
-        bloom_settings.intensity += dt;
+        bloom_settings.intensity = (bloom_settings.intensity + dt).min(1.0);
     }
 }
 

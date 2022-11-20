@@ -138,28 +138,18 @@ impl Plugin for BloomPlugin {
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
-    /// Baseline of the threshold curve (default: 1.0).
-    ///
-    /// RGB values under the threshold curve will not have bloom applied.
-    pub threshold: f32,
-
-    /// Knee of the threshold curve (default: 0.1).
-    pub knee: f32,
-
     /// Scale used when upsampling (default: 1.0).
     pub scale: f32,
 
-    /// Intensity of the bloom effect (default: 0.3).
+    /// Intensity of the bloom effect (default: 0.4).
     pub intensity: f32,
 }
 
 impl Default for BloomSettings {
     fn default() -> Self {
         Self {
-            threshold: 1.0,
-            knee: 0.1,
             scale: 1.0,
-            intensity: 0.3,
+            intensity: 0.4,
         }
     }
 }
@@ -509,8 +499,8 @@ impl FromWorld for BloomPipelines {
                         format: ViewTarget::TEXTURE_FORMAT_HDR,
                         blend: Some(BlendState {
                             color: BlendComponent {
-                                src_factor: BlendFactor::One,
-                                dst_factor: BlendFactor::One,
+                                src_factor: BlendFactor::SrcAlpha,
+                                dst_factor: BlendFactor::OneMinusSrcAlpha,
                                 operation: BlendOperation::Add,
                             },
                             alpha: BlendComponent::REPLACE,
@@ -577,8 +567,7 @@ fn prepare_bloom_textures(
             y: height,
         }) = camera.physical_viewport_size
         {
-            let min_view = width.min(height) / 2;
-            let mip_count = calculate_mip_count(min_view);
+            let mip_count = better_calculate_mip_count(width.max(height));
 
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
@@ -617,8 +606,8 @@ fn prepare_bloom_textures(
 
 #[derive(ShaderType)]
 struct BloomUniform {
-    threshold: f32,
-    knee: f32,
+    // threshold: f32,
+    // knee: f32,
     scale: f32,
     intensity: f32,
 }
@@ -648,12 +637,12 @@ fn prepare_bloom_uniforms(
                 None => return None,
             };
             let min_view = size.x.min(size.y) / 2;
-            let mip_count = calculate_mip_count(min_view);
+            let mip_count = better_calculate_mip_count(size.x.max(size.y));
             let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
 
             let uniform = BloomUniform {
-                threshold: settings.threshold,
-                knee: settings.knee,
+                // threshold: settings.threshold,
+                // knee: settings.knee,
                 scale: settings.scale * scale,
                 intensity: settings.intensity,
             };
@@ -806,4 +795,17 @@ fn queue_bloom_bind_groups(
 
 fn calculate_mip_count(min_view: u32) -> u32 {
     ((min_view as f32).log2().round() as i32 - 3).max(1) as u32
+}
+
+fn better_calculate_mip_count(size: u32) -> u32 {
+    let mut size = size;
+    let mut count = 1;
+
+    loop {
+        if size / 2 < 3 { break; }
+        size /= 2;
+        count += 1;
+    }
+
+    count as u32
 }

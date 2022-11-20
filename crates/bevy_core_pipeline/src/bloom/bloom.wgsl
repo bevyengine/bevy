@@ -1,8 +1,6 @@
 #import bevy_core_pipeline::fullscreen_vertex_shader
 
 struct BloomUniforms {
-    threshold: f32,
-    knee: f32,
     scale: f32,
     intensity: f32,
 };
@@ -15,15 +13,6 @@ var original_sampler: sampler;
 var<uniform> uniforms: BloomUniforms;
 @group(0) @binding(3)
 var up: texture_2d<f32>;
-
-fn quadratic_threshold(color: vec4<f32>, threshold: f32, curve: vec3<f32>) -> vec4<f32> {
-    let br = max(max(color.r, color.g), color.b);
-
-    var rq: f32 = clamp(br - curve.x, 0.0, curve.y);
-    rq = curve.z * rq * rq;
-
-    return color * max(rq, br - threshold) / max(br, 0.0001);
-}
 
 // Samples original around the supplied uv using a filter.
 //
@@ -62,6 +51,8 @@ fn sample_13_tap(uv: vec2<f32>, scale: vec2<f32>) -> vec4<f32> {
     o = o + (f + g + l + k) * div.y;
     o = o + (g + h + m + l) * div.y;
 
+    o.a = 1.0;
+
     return o;
 }
 
@@ -92,15 +83,8 @@ fn downsample_prefilter(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let scale = texel_size;
 
-    let curve = vec3<f32>(
-        uniforms.threshold - uniforms.knee,
-        uniforms.knee * 2.0,
-        0.25 / uniforms.knee,
-    );
-
     var o: vec4<f32> = sample_13_tap(uv, scale);
 
-    o = quadratic_threshold(o, uniforms.threshold, curve);
     o = max(o, vec4<f32>(0.00001));
 
     return o;
@@ -121,7 +105,7 @@ fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let upsample = sample_original_3x3_tent(uv, texel_size * uniforms.scale);
     var color: vec4<f32> = textureSample(up, original_sampler, uv);
-    color = vec4<f32>(color.rgb + upsample.rgb, upsample.a);
+    color = vec4<f32>(mix(color.rgb, upsample.rgb, uniforms.intensity), upsample.a);
 
     return color;
 }
@@ -132,5 +116,5 @@ fn upsample_final(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
     let upsample = sample_original_3x3_tent(uv, texel_size * uniforms.scale);
 
-    return vec4<f32>(upsample.rgb * uniforms.intensity, upsample.a);
+    return vec4<f32>(upsample.rgb, uniforms.intensity);
 }
