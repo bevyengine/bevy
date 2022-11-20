@@ -1,12 +1,12 @@
-use crate::schedule_v3::set::*;
+use std::fmt::Debug;
+
 use bevy_utils::{
     petgraph::{graphmap::NodeTrait, prelude::*},
     HashMap, HashSet,
 };
-
 use fixedbitset::FixedBitSet;
 
-use std::fmt::Debug;
+use crate::schedule_v3::set::*;
 
 /// Unique identifier for a system or system set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
