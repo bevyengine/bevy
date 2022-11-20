@@ -23,8 +23,9 @@ pub trait WorldExt {
 
 impl WorldExt for World {
     fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        let mut schedule = self.resource_mut::<Schedules>().remove(&label).unwrap();
-        schedule.run(self);
-        self.resource_mut::<Schedules>().insert(label, schedule);
+        if let Some(mut schedule) = self.resource_mut::<Schedules>().remove(&label) {
+            schedule.run(self);
+            self.resource_mut::<Schedules>().insert(label, schedule);
+        }
     }
 }
