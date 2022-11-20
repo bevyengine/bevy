@@ -125,10 +125,7 @@ fn update_bloom_settings(
             *text = "BloomSettings (Toggle: Space)\n".to_string();
             text.push_str("-----------------------------\n");
             text.push_str(&format!("(Q/W) Intensity: {}\n", bloom_settings.intensity));
-            text.push_str(&format!(
-                "(A/S) Threshold Base: {}\n",
-                bloom_settings.threshold_base
-            ));
+            text.push_str(&format!("(A/S) Threshold: {}\n", bloom_settings.threshold));
             text.push_str(&format!(
                 "(D/F) Threshold Softness: {}",
                 bloom_settings.threshold_softness
@@ -148,10 +145,10 @@ fn update_bloom_settings(
             }
 
             if keycode.pressed(KeyCode::A) {
-                bloom_settings.threshold_base -= dt;
+                bloom_settings.threshold -= dt;
             }
             if keycode.pressed(KeyCode::S) {
-                bloom_settings.threshold_base += dt;
+                bloom_settings.threshold += dt;
             }
 
             if keycode.pressed(KeyCode::D) {
