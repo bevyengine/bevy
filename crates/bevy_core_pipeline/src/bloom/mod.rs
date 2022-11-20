@@ -129,7 +129,7 @@ impl Plugin for BloomPlugin {
 /// Applies a bloom effect to a HDR-enabled 2d or 3d camera.
 ///
 /// Bloom emulates an effect found in real cameras and the human eye,
-/// causing halos to appear around very bright objects.
+/// causing halos to appear around very bright parts of the scene.
 ///
 /// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive`.
 ///
