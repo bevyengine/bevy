@@ -48,7 +48,7 @@ pub trait ExtractComponent: Component {
     /// This can be useful for example if only a subset of the fields are useful
     /// in the render world.
     ///
-    /// The output is a bundle instead of a component in order to allow use cases
+    /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow use cases
     /// such as tuples of components as output.
     type Out: Bundle;
 
