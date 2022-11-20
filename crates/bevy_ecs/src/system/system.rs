@@ -5,6 +5,8 @@ use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
     query::Access, schedule::SystemLabelId, world::World,
 };
+
+use std::any::TypeId;
 use std::borrow::Cow;
 
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
@@ -26,6 +28,8 @@ pub trait System: Send + Sync + 'static {
     type Out;
     /// Returns the system's name.
     fn name(&self) -> Cow<'static, str>;
+    /// Returns the [`TypeId`] of the underlying system type.
+    fn type_id(&self) -> TypeId;
     /// Returns the system's component [`Access`].
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].

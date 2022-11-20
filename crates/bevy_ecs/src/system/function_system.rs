@@ -9,7 +9,7 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, borrow::Cow, fmt::Debug, marker::PhantomData};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -366,6 +366,11 @@ where
     #[inline]
     fn name(&self) -> Cow<'static, str> {
         self.system_meta.name.clone()
+    }
+
+    #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<F>()
     }
 
     #[inline]

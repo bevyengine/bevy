@@ -6,14 +6,13 @@ pub use self::multi_threaded::MultiThreadedExecutor;
 pub use self::simple::SimpleExecutor;
 pub use self::single_threaded::SingleThreadedExecutor;
 
-use std::any::{Any, TypeId};
 use std::cell::RefCell;
 
 use fixedbitset::FixedBitSet;
 
 use crate::{
     schedule_v3::{BoxedCondition, NodeId},
-    system::{BoxedSystem, IntoSystem},
+    system::BoxedSystem,
     world::World,
 };
 
@@ -78,9 +77,7 @@ pub fn apply_system_buffers(world: &mut World) {}
 
 /// Returns `true` if the [`System`] is an instance of [`apply_system_buffers`].
 pub(super) fn is_apply_system_buffers(system: &BoxedSystem) -> bool {
-    fn get_type_id<T: Any>(_: &T) -> TypeId {
-        TypeId::of::<T>()
-    }
-    let type_id = get_type_id(&IntoSystem::into_system(apply_system_buffers));
-    (&*system as &dyn Any).type_id() == type_id
+    use std::any::Any;
+    // deref to use `System::type_id` instead of `Any::type_id`
+    system.as_ref().type_id() == apply_system_buffers.type_id()
 }

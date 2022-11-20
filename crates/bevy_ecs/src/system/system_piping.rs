@@ -5,7 +5,7 @@ use crate::{
     system::{IntoSystem, System},
     world::World,
 };
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow};
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
@@ -75,6 +75,10 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
 
     fn name(&self) -> Cow<'static, str> {
         self.name.clone()
+    }
+
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<(SystemA, SystemB)>()
     }
 
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
