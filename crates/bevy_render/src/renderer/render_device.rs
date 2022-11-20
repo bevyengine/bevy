@@ -3,20 +3,25 @@ use crate::render_resource::{
     RenderPipeline, Sampler, Texture,
 };
 use bevy_ecs::system::Resource;
-use std::sync::Arc;
 use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
 
 use super::RenderQueue;
 
+use crate::render_resource::resource_macros::*;
+
+render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
+
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
 pub struct RenderDevice {
-    device: Arc<wgpu::Device>,
+    device: ErasedRenderDevice,
 }
 
-impl From<Arc<wgpu::Device>> for RenderDevice {
-    fn from(device: Arc<wgpu::Device>) -> Self {
-        Self { device }
+impl From<wgpu::Device> for RenderDevice {
+    fn from(device: wgpu::Device) -> Self {
+        Self {
+            device: ErasedRenderDevice::new(device),
+        }
     }
 }
 

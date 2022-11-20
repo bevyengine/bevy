@@ -17,12 +17,16 @@ use bevy_utils::{
     tracing::{debug, error},
     Entry, HashMap, HashSet,
 };
-use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
+use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
-    BufferBindingType, PipelineLayoutDescriptor, ShaderModule,
-    VertexBufferLayout as RawVertexBufferLayout,
+    BufferBindingType, PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout,
 };
+
+use crate::render_resource::resource_macros::*;
+
+render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
+render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -103,7 +107,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
+    processed_shaders: HashMap<Vec<String>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
     dependents: HashSet<Handle<Shader>>,
 }
@@ -124,7 +128,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[String],
-    ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
+    ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
             .get(handle)
@@ -204,7 +208,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(Arc::new(shader_module))
+                entry.insert(ErasedShaderModule::new(shader_module))
             }
         };
 
@@ -276,7 +280,7 @@ impl ShaderCache {
 
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, wgpu::PipelineLayout>,
+    layouts: HashMap<Vec<BindGroupLayoutId>, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -291,10 +295,12 @@ impl LayoutCache {
                 .iter()
                 .map(|l| l.value())
                 .collect::<Vec<_>>();
-            render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                bind_group_layouts: &bind_group_layouts,
-                ..default()
-            })
+            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                &PipelineLayoutDescriptor {
+                    bind_group_layouts: &bind_group_layouts,
+                    ..default()
+                },
+            ))
         })
     }
 }

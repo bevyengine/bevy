@@ -26,10 +26,13 @@ fn setup(
     });
     // transparent sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 3,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial {
             // Alpha channel of the color controls transparency.
             // We set it to 0.0 here, because it will be changed over time in the
@@ -46,10 +49,13 @@ fn setup(
     });
     // transparent unlit sphere, uses `alpha_mode: Mask(f32)`
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 3,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial {
             base_color: Color::rgba(0.2, 0.7, 0.1, 0.0),
             alpha_mode: AlphaMode::Mask(0.5),
@@ -71,10 +77,13 @@ fn setup(
     });
     // opaque sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 3,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
         material: materials.add(Color::rgb(0.7, 0.2, 0.1).into()),
         transform: Transform::from_xyz(0.0, 0.5, -1.5),
         ..default()
