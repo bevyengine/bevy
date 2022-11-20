@@ -35,21 +35,18 @@ struct SystemTaskMetadata {
 pub struct MultiThreadedExecutor {
     /// Metadata for scheduling and running system tasks.
     system_task_metadata: Vec<SystemTaskMetadata>,
-
     /// Sends system completion events.
     sender: Sender<usize>,
     /// Receives system completion events.
     receiver: Receiver<usize>,
     /// Scratch vector to avoid frequent allocation.
     dependents_scratch: Vec<usize>,
-
     /// Union of the accesses of all currently running systems.
     active_access: Access<ArchetypeComponentId>,
     /// Returns `true` if a system with non-`Send` access is running.
     local_thread_running: bool,
     /// Returns `true` if an exclusive system is running.
     exclusive_running: bool,
-
     /// System sets that have been skipped or had their conditions evaluated.
     completed_sets: FixedBitSet,
     /// Systems that have run or been skipped.
@@ -108,9 +105,9 @@ impl SystemExecutor for MultiThreadedExecutor {
         #[cfg(feature = "trace")]
         let _schedule_span = info_span!("schedule").entered();
         ComputeTaskPool::init(TaskPool::default).scope(|scope| {
-            // the runner itself is a `Send` future so that it can run
+            // the executor itself is a `Send` future so that it can run
             // alongside systems that claim the local thread
-            let runner = async {
+            let executor = async {
                 // systems with zero dependencies
                 for (index, system_meta) in self.system_task_metadata.iter_mut().enumerate() {
                     if system_meta.dependencies_total == 0 {
@@ -161,10 +158,10 @@ impl SystemExecutor for MultiThreadedExecutor {
             };
 
             #[cfg(feature = "trace")]
-            let runner_span = info_span!("schedule_task");
+            let executor_span = info_span!("schedule_task");
             #[cfg(feature = "trace")]
-            let runner = runner.instrument(runner_span);
-            scope.spawn(runner);
+            let executor = executor.instrument(executor_span);
+            scope.spawn(executor);
         });
     }
 }
@@ -193,7 +190,7 @@ impl MultiThreadedExecutor {
         ready: &FixedBitSet,
         scope: &Scope<'_, 'scope, ()>,
         schedule: &'scope SystemSchedule,
-        world: &'scope SyncUnsafeCell<World>,
+        cell: &'scope SyncUnsafeCell<World>,
     ) {
         for system_index in ready.ones() {
             // systems can be skipped within this loop
@@ -201,31 +198,24 @@ impl MultiThreadedExecutor {
                 continue;
             }
 
+            // SAFETY: no exclusive system running
+            let world = unsafe { &*cell.get() };
+            if !self.can_run(system_index, schedule, world) {
+                // NOTE: exclusive systems with ambiguities are susceptible to
+                // being significantly "delayed" here (compared to single-threaded)
+                // if systems after them in topological order can run
+                // if that becomes an issue, `break;` if exclusive system
+                continue;
+            }
+            if !self.should_run(system_index, schedule, world) {
+                continue;
+            }
+
             if !self.system_task_metadata[system_index].is_exclusive {
-                // SAFETY: no exclusive system running
-                let world = unsafe { &*world.get() };
-                if !self.can_run(system_index, schedule, world) {
-                    continue;
-                }
-                if !self.should_run(system_index, schedule, world) {
-                    continue;
-                }
                 self.spawn_system_task(scope, system_index, schedule, world);
             } else {
-                {
-                    // SAFETY: no exclusive system running
-                    let world = unsafe { &*world.get() };
-                    if !self.can_run(system_index, schedule, world) {
-                        // the `break` here emulates single-threaded runner behavior
-                        // without it, exclusive systems would likely be stalled out
-                        break;
-                    }
-                    if !self.should_run(system_index, schedule, world) {
-                        continue;
-                    }
-                }
-                // SAFETY: no system running
-                let world = unsafe { &mut *world.get() };
+                // SAFETY: no other system running
+                let world = unsafe { &mut *cell.get() };
                 self.spawn_exclusive_system_task(scope, system_index, schedule, world);
                 break;
             }
