@@ -17,6 +17,9 @@ use bevy_utils::tracing::info_span;
 
 use super::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures};
 
+/// Render node used by the prepass.
+///
+/// By default, inserted before the main pass in the render graph.
 pub struct PrepassNode {
     main_view_query: QueryState<
         (
@@ -42,7 +45,7 @@ impl PrepassNode {
 
 impl Node for PrepassNode {
     fn input(&self) -> Vec<SlotInfo> {
-        vec![SlotInfo::new(PrepassNode::IN_VIEW, SlotType::Entity)]
+        vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
 
     fn update(&mut self, world: &mut World) {

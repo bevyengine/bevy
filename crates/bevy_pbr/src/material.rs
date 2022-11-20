@@ -168,6 +168,11 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
 pub struct MaterialPlugin<M: Material> {
+    /// Controls if the prepass is enabled for the Material.
+    /// For more information about what is a prepass, see the [`bevy_core_pipeline::prepass::PrepassSettings`] docs.
+    ///
+    /// When it is enabled, it will automatically add the [`PrepassPlugin`]
+    /// required to make the prepass work on this Material.
     pub prepass_enabled: bool,
     pub _marker: PhantomData<M>,
 }
