@@ -8,6 +8,7 @@ use std::{
 
 fn main() {
     App::new()
+        .insert_resource(ClearColor(Color::DARK_GRAY))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
         .add_system(update_bloom_settings)
@@ -159,6 +160,7 @@ fn update_bloom_settings(
             if keycode.pressed(KeyCode::F) {
                 bloom_settings.threshold_softness += dt / 5.0;
             }
+            bloom_settings.threshold_softness = bloom_settings.threshold_softness.clamp(0.0, 1.0);
         }
 
         (entity, None) => {

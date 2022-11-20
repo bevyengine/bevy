@@ -148,10 +148,12 @@ pub struct BloomSettings {
     /// Using a threshold is not physically accurate, but may fit better with your artistic direction.
     pub threshold_base: f32,
 
-    /// Controls how much to blend between the thresholded and non-thresholded colors (default: 0.5, min: 0.0, max: 1.0).
+    /// Controls how much to blend between the thresholded and non-thresholded colors (default: 0.5).
     ///
     /// 0.0 = Abrupt threshold, no blending
     /// 1.0 = Fully soft threshold
+    ///
+    /// Values outside of the range [0.0, 1.0] will be clamped.
     pub threshold_softness: f32,
 }
 
@@ -691,7 +693,7 @@ fn prepare_bloom_uniforms(
     let entities = bloom_query
         .iter()
         .map(|(entity, settings)| {
-            let knee = settings.threshold_base * settings.threshold_softness;
+            let knee = settings.threshold_base * settings.threshold_softness.clamp(0.0, 1.0);
             let uniform = BloomUniform {
                 intensity: settings.intensity,
                 precomputed_threshold: Vec4::new(
