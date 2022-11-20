@@ -3,7 +3,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, core_pipeline::bloom::BloomSettings};
 
 fn main() {
     App::new()
@@ -211,10 +211,20 @@ fn setup(
     });
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            camera: Camera {
+                hdr: true,
+                ..default()
+            },
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        BloomSettings {
+            intensity: 0.5,
+            ..default()
+        },
+    ));
 }
 
 fn animate_light_direction(
