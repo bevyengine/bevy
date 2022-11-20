@@ -896,7 +896,7 @@ pub fn queue_mesh_view_bind_groups(
                 }
             };
 
-            let normal_view = match prepass_textures.and_then(|x| x.normals.as_ref()) {
+            let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
                 Some(texture) => &texture.default_view,
                 None => {
                     &fallback_images

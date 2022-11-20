@@ -102,7 +102,8 @@ impl Node for MainPass3dNode {
                         // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
                         load: match prepass_settings {
                             Some(PrepassSettings {
-                                output_depth: true, ..
+                                depth_enabled: true,
+                                ..
                             }) => Camera3dDepthLoadOp::Load,
                             _ => camera_3d.depth_load_op.clone(),
                         }

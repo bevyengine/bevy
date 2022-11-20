@@ -349,7 +349,7 @@ pub fn prepare_prepass_textures(
             height: physical_target_size.y,
         };
 
-        let cached_depth_texture = prepass_settings.output_depth.then(|| {
+        let cached_depth_texture = prepass_settings.depth_enabled.then(|| {
             depth_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -369,7 +369,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_normals_texture = prepass_settings.output_normals.then(|| {
+        let cached_normals_texture = prepass_settings.normal_enabled.then(|| {
             normal_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -392,7 +392,7 @@ pub fn prepare_prepass_textures(
 
         commands.entity(entity).insert(ViewPrepassTextures {
             depth: cached_depth_texture,
-            normals: cached_normals_texture,
+            normal: cached_normals_texture,
             size,
         });
     }
@@ -458,7 +458,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
         let mut view_key =
             MeshPipelineKey::PREPASS_DEPTH | MeshPipelineKey::from_msaa_samples(msaa.samples);
-        if prepass_settings.output_normals {
+        if prepass_settings.normal_enabled {
             view_key |= MeshPipelineKey::PREPASS_NORMALS;
         }
 

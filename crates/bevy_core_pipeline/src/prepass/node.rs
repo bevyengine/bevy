@@ -69,7 +69,7 @@ impl Node for PrepassNode {
             }
 
             let mut color_attachments = vec![];
-            if let Some(view_normals_texture) = &view_prepass_textures.normals {
+            if let Some(view_normals_texture) = &view_prepass_textures.normal {
                 color_attachments.push(Some(RenderPassColorAttachment {
                     view: &view_normals_texture.default_view,
                     resolve_target: None,

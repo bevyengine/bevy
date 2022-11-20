@@ -107,7 +107,7 @@ fn setup(
         // You can configure which textures is going to be used by the prepass.
         prepass_settings: PrepassSettings {
             // In this case we don't use the normals so we can simply disable it
-            output_normals: false,
+            normal_enabled: false,
             ..default()
         },
         ..default()
