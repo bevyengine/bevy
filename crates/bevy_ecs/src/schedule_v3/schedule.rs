@@ -181,17 +181,17 @@ impl Schedule {
     /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous pass.
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for system in self.executable.systems.iter_mut() {
+        for system in &mut self.executable.systems {
             system.borrow_mut().check_change_tick(change_tick);
         }
 
-        for conditions in self.executable.system_conditions.iter_mut() {
+        for conditions in &mut self.executable.system_conditions {
             for system in conditions.borrow_mut().iter_mut() {
                 system.check_change_tick(change_tick);
             }
         }
 
-        for conditions in self.executable.set_conditions.iter_mut() {
+        for conditions in &mut self.executable.set_conditions {
             for system in conditions.borrow_mut().iter_mut() {
                 system.check_change_tick(change_tick);
             }
