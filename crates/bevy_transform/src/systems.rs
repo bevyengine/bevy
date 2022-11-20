@@ -46,7 +46,7 @@ pub fn propagate_transforms(
             changed |= children_changed;
 
             for child in children.iter() {
-                let _ = propagate_recursive(
+                propagate_recursive(
                     &global_transform,
                     &transform_query,
                     &parent_query,
@@ -72,22 +72,23 @@ fn propagate_recursive(
     entity: Entity,
     mut changed: bool,
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
-) -> Result<(), ()> {
-    if let Ok(actual_parent) = parent_query.get(entity) {
-        assert_eq!(
-            actual_parent.get(), expected_parent,
-            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-        );
-    } else {
+) {
+    let Ok(actual_parent) = parent_query.get(entity) else {
         panic!("Propagated child for {:?} has no Parent component!", entity);
-    }
+    };
+    assert_eq!(
+        actual_parent.get(), expected_parent,
+        "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+    );
 
-    // SAFE: With the check that each child has one and only one parent, each child must be globally unique within the
-    // hierarchy. Because of this, it is impossible for this query to have aliased mutable access to the same GlobalTransform.
-    // Any malformed hierarchy will cause a panic due to the above check.
-    let global_matrix = unsafe {
-        let (transform, transform_changed, mut global_transform) =
-            unsafe_transform_query.get_unchecked(entity).map_err(drop)?;
+    let global_matrix = {
+        let Ok((transform, transform_changed, mut global_transform)) =
+            // SAFE: With the check that each child has one and only one parent, each child must be globally unique within the
+            // hierarchy. Because of this, it is impossible for this query to have aliased mutable access to the same GlobalTransform.
+            // Any malformed hierarchy will cause a panic due to the above check.
+            (unsafe { unsafe_transform_query.get_unchecked(entity) }) else {
+                return;
+            };
 
         changed |= transform_changed;
         if changed {
@@ -96,11 +97,13 @@ fn propagate_recursive(
         *global_transform
     };
 
-    let (children, changed_children) = children_query.get(entity).map_err(drop)?;
+    let Ok((children, changed_children)) = children_query.get(entity) else {
+        return
+    };
     // If our `Children` has changed, we need to recalculate everything below us
     changed |= changed_children;
     for child in children {
-        let _ = propagate_recursive(
+        propagate_recursive(
             &global_matrix,
             unsafe_transform_query,
             parent_query,
@@ -110,7 +113,6 @@ fn propagate_recursive(
             changed,
         );
     }
-    Ok(())
 }
 
 #[cfg(test)]
