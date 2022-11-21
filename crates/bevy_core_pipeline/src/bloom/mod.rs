@@ -60,7 +60,7 @@ impl Plugin for BloomPlugin {
                 .unwrap();
             draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
             draw_3d_graph.add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
+                draw_3d_graph.input_node().id,
                 crate::core_3d::graph::input::VIEW_ENTITY,
                 core_3d::graph::node::BLOOM,
                 BloomNode::IN_VIEW,
@@ -84,7 +84,7 @@ impl Plugin for BloomPlugin {
                 .unwrap();
             draw_2d_graph.add_node(core_2d::graph::node::BLOOM, bloom_node);
             draw_2d_graph.add_slot_edge(
-                draw_2d_graph.input_node().unwrap().id,
+                draw_2d_graph.input_node().id,
                 crate::core_2d::graph::input::VIEW_ENTITY,
                 core_2d::graph::node::BLOOM,
                 BloomNode::IN_VIEW,

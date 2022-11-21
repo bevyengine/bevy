@@ -104,7 +104,7 @@ impl Plugin for FxaaPlugin {
             graph.add_node(core_3d::graph::node::FXAA, fxaa_node);
 
             graph.add_slot_edge(
-                graph.input_node().unwrap().id,
+                graph.input_node().id,
                 core_3d::graph::input::VIEW_ENTITY,
                 core_3d::graph::node::FXAA,
                 FxaaNode::IN_VIEW,
@@ -127,7 +127,7 @@ impl Plugin for FxaaPlugin {
             graph.add_node(core_2d::graph::node::FXAA, fxaa_node);
 
             graph.add_slot_edge(
-                graph.input_node().unwrap().id,
+                graph.input_node().id,
                 core_2d::graph::input::VIEW_ENTITY,
                 core_2d::graph::node::FXAA,
                 FxaaNode::IN_VIEW,

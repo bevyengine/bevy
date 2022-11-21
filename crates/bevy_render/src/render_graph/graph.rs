@@ -80,10 +80,28 @@ impl RenderGraph {
         id
     }
 
-    /// Returns the [`NodeState`] of the input node of this graph..
+    /// Returns the [`NodeState`] of the input node of this graph.
+    ///
+    /// # See also
+    ///
+    /// - [`input_node`](Self::input_node) for an unchecked version.
     #[inline]
-    pub fn input_node(&self) -> Option<&NodeState> {
+    pub fn get_input_node(&self) -> Option<&NodeState> {
         self.input_node.and_then(|id| self.get_node_state(id).ok())
+    }
+
+    /// Returns the [`NodeState`] of the input node of this graph.
+    ///
+    /// # Panics
+    ///
+    /// Panics if there is no input node set.
+    ///
+    /// # See also
+    ///
+    /// - [`get_input_node`](Self::get_input_node) for a version which returns an [`Option`] instead.
+    #[inline]
+    pub fn input_node(&self) -> &NodeState {
+        self.get_input_node().unwrap()
     }
 
     /// Adds the `node` with the `name` to the graph.

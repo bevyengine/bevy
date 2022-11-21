@@ -107,7 +107,7 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
         );
         graph_2d.add_slot_edge(
-            graph_2d.input_node().unwrap().id,
+            graph_2d.input_node().id,
             bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
             draw_ui_graph::node::UI_PASS,
             RunGraphOnViewNode::IN_VIEW,
@@ -141,7 +141,7 @@ pub fn build_ui_render(app: &mut App) {
             bevy_core_pipeline::core_3d::graph::node::UPSCALING,
         );
         graph_3d.add_slot_edge(
-            graph_3d.input_node().unwrap().id,
+            graph_3d.input_node().id,
             bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
             draw_ui_graph::node::UI_PASS,
             RunGraphOnViewNode::IN_VIEW,
