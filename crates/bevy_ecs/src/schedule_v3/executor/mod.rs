@@ -67,7 +67,10 @@ impl SystemSchedule {
     }
 }
 
-// SAFETY: MultiThreadedExecutor does not alias RefCell instances
+// SAFETY:
+// - MultiThreadedExecutor is the only type that uses SystemSchedule across multiple threads.
+// - MultiThreadedExecutor cannot alias any of the RefCells.
+// - SystemSchedule is not made pub in any way
 unsafe impl Sync for SystemSchedule {}
 
 /// Instructs the executor to call [`apply_buffers`](crate::system::System::apply_buffers)

@@ -86,7 +86,6 @@ impl SystemExecutor for MultiThreadedExecutor {
             self.dependencies_remaining.push(num_dependencies);
             self.system_task_metadata.push(SystemTaskMetadata {
                 dependents,
-                dependencies_total: num_dependencies,
                 is_send: system.is_send(),
                 is_exclusive: system.is_exclusive(),
                 archetype_component_access: default(),
@@ -123,7 +122,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                         self.spawn_system_tasks(&ready, scope, schedule, world);
                     }
 
-                    if self.running_systems.count_ones(..) > 0 {
+                    if !self.running_systems.is_clear() {
                         // wait for systems to complete
                         let index = self
                             .receiver
@@ -145,9 +144,9 @@ impl SystemExecutor for MultiThreadedExecutor {
                 let world = unsafe { &mut *world.get() };
                 Self::apply_system_buffers(&mut self.unapplied_systems, schedule, world);
 
-                debug_assert_eq!(self.ready_systems.count_ones(..), 0);
-                debug_assert_eq!(self.running_systems.count_ones(..), 0);
-                debug_assert_eq!(self.unapplied_systems.count_ones(..), 0);
+                debug_assert!(self.ready_systems.is_clear());
+                debug_assert!(self.running_systems.is_clear());
+                debug_assert!(self.unapplied_systems.is_clear());
                 self.active_access.clear();
                 self.completed_sets.clear();
                 self.completed_systems.clear();
@@ -198,7 +197,7 @@ impl MultiThreadedExecutor {
             let world = unsafe { &*cell.get() };
             if !self.can_run(system_index, schedule, world) {
                 // NOTE: exclusive systems with ambiguities are susceptible to
-                // being significantly "delayed" here (compared to single-threaded)
+                // being significantly displaced here (compared to single-threaded order)
                 // if systems after them in topological order can run
                 // if that becomes an issue, `break;` if exclusive system
                 continue;
@@ -468,7 +467,6 @@ impl MultiThreadedExecutor {
     fn signal_dependents(&mut self, system_index: usize) {
         #[cfg(feature = "trace")]
         let _span = info_span!("signal_dependents").entered();
-
         for &dep_idx in &self.system_task_metadata[system_index].dependents {
             let dependencies = &mut self.dependencies_remaining[dep_idx];
             *dependencies -= 1;
