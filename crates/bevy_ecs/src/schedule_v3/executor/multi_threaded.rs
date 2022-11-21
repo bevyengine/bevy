@@ -20,8 +20,6 @@ struct SystemTaskMetadata {
     dependents: Vec<usize>,
     /// The number of dependencies the system has in total.
     dependencies_total: usize,
-    /// The number of dependencies the system has that have not completed.
-    dependencies_remaining: usize,
     // These values are cached because we can't read them from the system while it's running.
     /// The `ArchetypeComponentId` access of the system.
     archetype_component_access: Access<ArchetypeComponentId>,
@@ -39,8 +37,8 @@ pub struct MultiThreadedExecutor {
     sender: Sender<usize>,
     /// Receives system completion events.
     receiver: Receiver<usize>,
-    /// Scratch vector to avoid frequent allocation.
-    dependents_scratch: Vec<usize>,
+    /// The number of dependencies the system has that have not completed.
+    dependencies_remaining: Vec<usize>,
     /// Union of the accesses of all currently running systems.
     active_access: Access<ArchetypeComponentId>,
     /// Returns `true` if a system with non-`Send` access is running.
@@ -81,16 +79,16 @@ impl SystemExecutor for MultiThreadedExecutor {
         self.running_systems = FixedBitSet::with_capacity(sys_count);
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
 
-        self.dependents_scratch = Vec::with_capacity(sys_count);
+        self.dependencies_remaining = Vec::with_capacity(sys_count);
         self.system_task_metadata = Vec::with_capacity(sys_count);
 
         for index in 0..sys_count {
             let (num_dependencies, dependents) = schedule.system_deps[index].clone();
             let system = schedule.systems[index].borrow();
+            self.dependencies_remaining.push(num_dependencies);
             self.system_task_metadata.push(SystemTaskMetadata {
                 dependents,
                 dependencies_total: num_dependencies,
-                dependencies_remaining: num_dependencies,
                 is_send: system.is_send(),
                 is_exclusive: system.is_exclusive(),
                 archetype_component_access: default(),
@@ -173,7 +171,7 @@ impl MultiThreadedExecutor {
             system_task_metadata: Vec::new(),
             sender,
             receiver,
-            dependents_scratch: Vec::new(),
+            dependencies_remaining: Vec::new(),
             active_access: default(),
             local_thread_running: false,
             exclusive_running: false,
@@ -472,20 +470,14 @@ impl MultiThreadedExecutor {
     fn signal_dependents(&mut self, system_index: usize) {
         #[cfg(feature = "trace")]
         let _span = info_span!("signal_dependents").entered();
-        self.dependents_scratch
-            .extend_from_slice(&self.system_task_metadata[system_index].dependents);
 
-        for &dep_idx in &self.dependents_scratch {
-            let dependent_meta = &mut self.system_task_metadata[dep_idx];
-            dependent_meta.dependencies_remaining -= 1;
-            if (dependent_meta.dependencies_remaining == 0)
-                && !self.completed_systems.contains(dep_idx)
-            {
+        for &dep_idx in &self.system_task_metadata[system_index].dependents {
+            let dependencies = &mut self.dependencies_remaining[dep_idx];
+            *dependencies -= 1;
+            if *dependencies == 0 && !self.completed_systems.contains(dep_idx) {
                 self.ready_systems.insert(dep_idx);
             }
         }
-
-        self.dependents_scratch.clear();
     }
 
     fn rebuild_active_access(&mut self) {
