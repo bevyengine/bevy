@@ -138,7 +138,7 @@ pub trait DynamicPluginExt {
     ///
     /// Same as [`dynamically_load_plugin`].
     ///
-    /// [`load_allocated_plugin`]: `DyanmicPluginExt::load_allocated_plugin`
+    /// [`load_dropping_plugin`]: `DyanmicPluginExt::load_dropping_plugin`
     unsafe fn load_plugin<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self;
     /// Dynamically links and builds a plugin at the given path.
     ///
