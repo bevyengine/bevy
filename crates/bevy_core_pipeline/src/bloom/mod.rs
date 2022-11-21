@@ -3,7 +3,7 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{QueryState, With},
+    query::{QueryItem, QueryState, With},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -11,14 +11,18 @@ use bevy_math::UVec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::ExtractedCamera,
+    extract_component::{
+        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
+        UniformComponentPlugin,
+    },
     prelude::Camera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Extract, RenderApp, RenderStage,
+    RenderApp, RenderStage,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -35,6 +39,8 @@ impl Plugin for BloomPlugin {
         load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
 
         app.register_type::<BloomSettings>();
+        app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
+        app.add_plugin(UniformComponentPlugin::<BloomUniform>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -43,10 +49,7 @@ impl Plugin for BloomPlugin {
 
         render_app
             .init_resource::<BloomPipelines>()
-            .init_resource::<BloomUniforms>()
-            .add_system_to_stage(RenderStage::Extract, extract_bloom_settings)
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
-            .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
             .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
 
         {
@@ -151,13 +154,39 @@ impl Default for BloomSettings {
     }
 }
 
+impl ExtractComponent for BloomSettings {
+    type Query = (&'static Self, &'static Camera);
+
+    type Filter = ();
+    type Out = BloomUniform;
+
+    fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        if !(camera.is_active && camera.hdr) {
+            return None;
+        }
+
+        camera.physical_viewport_size().map(|size| {
+            let min_view = size.x.min(size.y) / 2;
+            let mip_count = calculate_mip_count(min_view);
+            let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
+
+            BloomUniform {
+                threshold: settings.threshold,
+                knee: settings.knee,
+                scale: settings.scale * scale,
+                intensity: settings.intensity,
+            }
+        })
+    }
+}
+
 pub struct BloomNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTextures,
         &'static BloomBindGroups,
-        &'static BloomUniformIndex,
+        &'static DynamicUniformIndex<BloomUniform>,
     )>,
 }
 
@@ -227,7 +256,11 @@ impl Node for BloomNode {
                     },
                 ));
             prefilter_pass.set_render_pipeline(downsampling_prefilter_pipeline);
-            prefilter_pass.set_bind_group(0, &bind_groups.prefilter_bind_group, &[uniform_index.0]);
+            prefilter_pass.set_bind_group(
+                0,
+                &bind_groups.prefilter_bind_group,
+                &[uniform_index.index()],
+            );
             if let Some(viewport) = camera.viewport.as_ref() {
                 prefilter_pass.set_camera_viewport(viewport);
             }
@@ -252,7 +285,7 @@ impl Node for BloomNode {
             downsampling_pass.set_bind_group(
                 0,
                 &bind_groups.downsampling_bind_groups[mip as usize - 1],
-                &[uniform_index.0],
+                &[uniform_index.index()],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
                 downsampling_pass.set_camera_viewport(viewport);
@@ -278,7 +311,7 @@ impl Node for BloomNode {
             upsampling_pass.set_bind_group(
                 0,
                 &bind_groups.upsampling_bind_groups[mip as usize - 1],
-                &[uniform_index.0],
+                &[uniform_index.index()],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_pass.set_camera_viewport(viewport);
@@ -304,7 +337,7 @@ impl Node for BloomNode {
             upsampling_final_pass.set_bind_group(
                 0,
                 &bind_groups.upsampling_final_bind_group,
-                &[uniform_index.0],
+                &[uniform_index.index()],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_final_pass.set_camera_viewport(viewport);
@@ -522,17 +555,6 @@ impl FromWorld for BloomPipelines {
     }
 }
 
-fn extract_bloom_settings(
-    mut commands: Commands,
-    cameras: Extract<Query<(Entity, &Camera, &BloomSettings), With<Camera>>>,
-) {
-    for (entity, camera, bloom_settings) in &cameras {
-        if camera.is_active && camera.hdr {
-            commands.get_or_spawn(entity).insert(bloom_settings.clone());
-        }
-    }
-}
-
 #[derive(Component)]
 struct BloomTextures {
     texture_a: CachedTexture,
@@ -554,7 +576,7 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
+    views: Query<(Entity, &ExtractedCamera), With<BloomUniform>>,
 ) {
     let mut texture_as = HashMap::default();
     let mut texture_bs = HashMap::default();
@@ -602,57 +624,15 @@ fn prepare_bloom_textures(
     }
 }
 
-#[derive(ShaderType)]
-struct BloomUniform {
+/// The uniform struct extracted from [`BloomSettings`] attached to a [`Camera`].
+/// Will be available for use in the Bloom shader.
+#[doc(hidden)]
+#[derive(Component, ShaderType, Clone)]
+pub struct BloomUniform {
     threshold: f32,
     knee: f32,
     scale: f32,
     intensity: f32,
-}
-
-#[derive(Resource, Default)]
-struct BloomUniforms {
-    uniforms: DynamicUniformBuffer<BloomUniform>,
-}
-
-#[derive(Component)]
-struct BloomUniformIndex(u32);
-
-fn prepare_bloom_uniforms(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut bloom_uniforms: ResMut<BloomUniforms>,
-    bloom_query: Query<(Entity, &ExtractedCamera, &BloomSettings)>,
-) {
-    bloom_uniforms.uniforms.clear();
-
-    let entities = bloom_query
-        .iter()
-        .filter_map(|(entity, camera, settings)| {
-            let size = match camera.physical_viewport_size {
-                Some(size) => size,
-                None => return None,
-            };
-            let min_view = size.x.min(size.y) / 2;
-            let mip_count = calculate_mip_count(min_view);
-            let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
-
-            let uniform = BloomUniform {
-                threshold: settings.threshold,
-                knee: settings.knee,
-                scale: settings.scale * scale,
-                intensity: settings.intensity,
-            };
-            let index = bloom_uniforms.uniforms.push(uniform);
-            Some((entity, (BloomUniformIndex(index))))
-        })
-        .collect::<Vec<_>>();
-    commands.insert_or_spawn_batch(entities);
-
-    bloom_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Component)]
@@ -667,10 +647,10 @@ fn queue_bloom_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipelines: Res<BloomPipelines>,
-    uniforms: Res<BloomUniforms>,
+    uniforms: Res<ComponentUniforms<BloomUniform>>,
     views: Query<(Entity, &ViewTarget, &BloomTextures)>,
 ) {
-    if let Some(uniforms) = uniforms.uniforms.binding() {
+    if let Some(uniforms) = uniforms.binding() {
         for (entity, view_target, textures) in &views {
             let prefilter_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                 label: Some("bloom_prefilter_bind_group"),

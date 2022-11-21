@@ -164,8 +164,9 @@ impl Tonemapping {
 impl ExtractComponent for Tonemapping {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
+        Some(item.clone())
     }
 }

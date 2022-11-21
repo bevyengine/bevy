@@ -69,9 +69,10 @@ impl Default for Fxaa {
 impl ExtractComponent for Fxaa {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self> {
+        Some(item.clone())
     }
 }
 
