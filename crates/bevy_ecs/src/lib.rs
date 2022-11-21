@@ -1225,38 +1225,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
-    fn non_sync_resource_panic() {
-        // We aren't marking the type as !Sync, so the systems will confict and panic.
-        #[derive(Resource, Default)]
-        struct SyncCounter(Mutex<()>);
-
-        fn assert_non_sync(counter: Res<SyncCounter>) {
-            // Panic if multiple instances of this system try to access `counter` at once.
-            let _guard = counter
-                .0
-                .try_lock()
-                .expect("shared access is not allowed for non-`Sync` resources");
-
-            // Make sure other systems have a chance to conflict with this one before dropping the guard.
-            std::thread::sleep(std::time::Duration::from_millis(100));
-        }
-
-        let mut world = World::default();
-        world.init_resource::<SyncCounter>();
-
-        let mut stage = SystemStage::parallel()
-            .with_system(assert_non_sync)
-            .with_system(assert_non_sync)
-            .with_system(assert_non_sync)
-            .with_system(assert_non_sync)
-            .with_system(assert_non_sync)
-            .with_system(assert_non_sync);
-
-        stage.run(&mut world);
-    }
-
-    #[test]
     fn trackers_query() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0))).id();
