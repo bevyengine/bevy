@@ -18,8 +18,6 @@ use crate::{
 struct SystemTaskMetadata {
     /// Indices of the systems that directly depend on the system.
     dependents: Vec<usize>,
-    /// The number of dependencies the system has in total.
-    dependencies_total: usize,
     // These values are cached because we can't read them from the system while it's running.
     /// The `ArchetypeComponentId` access of the system.
     archetype_component_access: Access<ArchetypeComponentId>,
@@ -107,8 +105,8 @@ impl SystemExecutor for MultiThreadedExecutor {
             // alongside systems that claim the local thread
             let executor = async {
                 // systems with zero dependencies
-                for (index, system_meta) in self.system_task_metadata.iter_mut().enumerate() {
-                    if system_meta.dependencies_total == 0 {
+                for (index, dependencies) in self.dependencies_remaining.iter().enumerate() {
+                    if *dependencies == 0 {
                         self.ready_systems.insert(index);
                     }
                 }
