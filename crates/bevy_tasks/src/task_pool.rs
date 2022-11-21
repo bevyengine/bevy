@@ -299,8 +299,11 @@ impl TaskPool {
                     break result;
                 };
 
-                self.executor.try_tick();
-                task_scope_executor.try_tick();
+                std::panic::catch_unwind(|| {
+                    executor.try_tick();
+                    task_scope_executor.try_tick();
+                })
+                .ok();
             }
         }
     }
