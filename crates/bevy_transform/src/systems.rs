@@ -84,23 +84,23 @@ fn propagate_recursive(
     let global_matrix = {
         let Ok((transform, transform_changed, mut global_transform)) =
             // SAFETY: This call cannot create aliased mutable references.
-            //   - The top level iteration parallelizes on the roots of the hierarchy. 
-            //   - The above assertion ensures that each child has one and only one unique parent throughout the entire 
+            //   - The top level iteration parallelizes on the roots of the hierarchy.
+            //   - The above assertion ensures that each child has one and only one unique parent throughout the entire
             //     hierarchy.
-            // 
+            //
             // For example, consider the following malformed hierarchy:
-            // 
+            //
             //     A
             //   /   \
             //  B     C
             //   \   /
             //     D
-            // 
+            //
             // D has two parents, B and C. If the propagation passes through C, but the Parent component on D points to B,
             // the above check will panic as the origin parent does match the recorded parent.
             //
             // Also consider the following case, where A and B are roots:
-            // 
+            //
             //  A       B
             //   \     /
             //    C   D

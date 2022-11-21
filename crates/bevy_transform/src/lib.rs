@@ -1,4 +1,5 @@
 #![warn(missing_docs)]
+#![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
 /// The basic components of the transform crate
