@@ -496,7 +496,7 @@ fn shadows__fetch_directional_shadow(light_id_2: u32, frag_position_2: vec4<f32>
     return _e66;
 }
 
-fn pbr_functions__prepare_normal(@location(0) standard_material_flags: u32, world_normal: vec3<f32>, uv: vec2<f32>, is_front_1: bool) -> vec3<f32> {
+fn pbr_functions__prepare_normal(standard_material_flags: u32, world_normal: vec3<f32>, uv: vec2<f32>, is_front_1: bool) -> vec3<f32> {
     var N_2: vec3<f32>;
 
     N_2 = normalize(world_normal);
