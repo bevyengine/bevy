@@ -1733,3 +1733,6 @@ codegen-units = 1
 inherits = "release"
 lto = "fat"
 panic = "abort"
+
+[patch.crates-io]
+rodio = { git = "https://github.com/dis-da-moe/rodio" }
