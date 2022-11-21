@@ -1,43 +1,28 @@
+use super::{UiBatch, UiImageBindGroups, UiMeta};
+use crate::{prelude::UiCameraConfig, DefaultCameraView};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
-    camera::ActiveCamera,
     render_graph::*,
     render_phase::*,
-    render_resource::{
-        CachedRenderPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-    },
+    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
     renderer::*,
     view::*,
 };
 use bevy_utils::FloatOrd;
 
-use crate::prelude::CameraUi;
-
-use super::{draw_ui_graph, UiBatch, UiImageBindGroups, UiMeta};
-
-pub struct UiPassDriverNode;
-
-impl Node for UiPassDriverNode {
-    fn run(
-        &self,
-        graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
-        world: &World,
-    ) -> Result<(), NodeRunError> {
-        if let Some(camera_ui) = world.resource::<ActiveCamera<CameraUi>>().get() {
-            graph.run_sub_graph(draw_ui_graph::NAME, vec![SlotValue::Entity(camera_ui)])?;
-        }
-
-        Ok(())
-    }
-}
-
 pub struct UiPassNode {
-    query:
-        QueryState<(&'static RenderPhase<TransparentUi>, &'static ViewTarget), With<ExtractedView>>,
+    ui_view_query: QueryState<
+        (
+            &'static RenderPhase<TransparentUi>,
+            &'static ViewTarget,
+            Option<&'static UiCameraConfig>,
+        ),
+        With<ExtractedView>,
+    >,
+    default_camera_view_query: QueryState<&'static DefaultCameraView>,
 }
 
 impl UiPassNode {
@@ -45,7 +30,8 @@ impl UiPassNode {
 
     pub fn new(world: &mut World) -> Self {
         Self {
-            query: QueryState::new(world),
+            ui_view_query: world.query_filtered(),
+            default_camera_view_query: world.query(),
         }
     }
 }
@@ -56,7 +42,8 @@ impl Node for UiPassNode {
     }
 
     fn update(&mut self, world: &mut World) {
-        self.query.update_archetypes(world);
+        self.ui_view_query.update_archetypes(world);
+        self.default_camera_view_query.update_archetypes(world);
     }
 
     fn run(
@@ -65,26 +52,36 @@ impl Node for UiPassNode {
         render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (transparent_phase, target) = self
-            .query
-            .get_manual(world, view_entity)
-            .expect("view entity should exist");
+        let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
+        let Ok((transparent_phase, target, camera_ui)) =
+                self.ui_view_query.get_manual(world, input_view_entity)
+             else {
+                return Ok(());
+            };
         if transparent_phase.items.is_empty() {
             return Ok(());
         }
+        // Don't render UI for cameras where it is explicitly disabled
+        if matches!(camera_ui, Some(&UiCameraConfig { show_ui: false })) {
+            return Ok(());
+        }
 
+        // use the "default" view entity if it is defined
+        let view_entity = if let Ok(default_view) = self
+            .default_camera_view_query
+            .get_manual(world, input_view_entity)
+        {
+            default_view.0
+        } else {
+            input_view_entity
+        };
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[RenderPassColorAttachment {
-                view: &target.view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                },
-            }],
+            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
+                load: LoadOp::Load,
+                store: true,
+            }))],
             depth_stencil_attachment: None,
         };
 

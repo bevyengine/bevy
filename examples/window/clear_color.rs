@@ -1,3 +1,7 @@
+//! Shows how to set the solid color that is used to paint the window before the frame gets drawn.
+//!
+//! Acts as background color, since pixels that are not drawn in a frame remain unchanged.
+
 use bevy::prelude::*;
 
 fn main() {
@@ -10,7 +14,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn(Camera2dBundle::default());
 }
 
 fn change_clear_color(input: Res<Input<KeyCode>>, mut clear_color: ResMut<ClearColor>) {

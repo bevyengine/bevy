@@ -1,8 +1,9 @@
 use super::{Window, WindowId};
+use bevy_ecs::prelude::Resource;
 use bevy_utils::HashMap;
 
 /// A collection of [`Window`]s with unique [`WindowId`]s.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct Windows {
     windows: HashMap<WindowId, Window>,
 }
@@ -13,7 +14,7 @@ impl Windows {
         self.windows.insert(window.id(), window);
     }
 
-    /// Get a reference to the [`Window`] of `id`
+    /// Get a reference to the [`Window`] of `id`.
     pub fn get(&self, id: WindowId) -> Option<&Window> {
         self.windows.get(&id)
     }
@@ -32,7 +33,7 @@ impl Windows {
     ///
     /// # Panics
     ///
-    /// Panics if the primary window does not exist in [`Windows`]
+    /// Panics if the primary window does not exist in [`Windows`].
     pub fn primary(&self) -> &Window {
         self.get_primary().expect("Primary window does not exist")
     }
@@ -46,10 +47,20 @@ impl Windows {
     ///
     /// # Panics
     ///
-    /// Panics if the primary window does not exist in [`Windows`]
+    /// Panics if the primary window does not exist in [`Windows`].
     pub fn primary_mut(&mut self) -> &mut Window {
         self.get_primary_mut()
             .expect("Primary window does not exist")
+    }
+
+    /// Get a reference to the focused [`Window`].
+    pub fn get_focused(&self) -> Option<&Window> {
+        self.windows.values().find(|window| window.is_focused())
+    }
+
+    /// Get a mutable reference to the focused [`Window`].
+    pub fn get_focused_mut(&mut self) -> Option<&mut Window> {
+        self.windows.values_mut().find(|window| window.is_focused())
     }
 
     /// Returns the scale factor for the [`Window`] of `id`, or `1.0` if the window does not exist.
@@ -61,12 +72,12 @@ impl Windows {
         }
     }
 
-    /// An iterator over all registered [`Window`]s
+    /// An iterator over all registered [`Window`]s.
     pub fn iter(&self) -> impl Iterator<Item = &Window> {
         self.windows.values()
     }
 
-    /// A mutable iterator over all registered [`Window`]s
+    /// A mutable iterator over all registered [`Window`]s.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Window> {
         self.windows.values_mut()
     }

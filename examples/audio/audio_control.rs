@@ -1,6 +1,7 @@
+//! This example illustrates how to load and play an audio file, and control how it's played.
+
 use bevy::{audio::AudioSink, prelude::*};
 
-/// This example illustrates how to load and play an audio file, and control how it's played
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -22,6 +23,7 @@ fn setup(
     commands.insert_resource(MusicController(handle));
 }
 
+#[derive(Resource)]
 struct MusicController(Handle<AudioSink>);
 
 fn update_speed(
@@ -30,7 +32,7 @@ fn update_speed(
     time: Res<Time>,
 ) {
     if let Some(sink) = audio_sinks.get(&music_controller.0) {
-        sink.set_speed(((time.seconds_since_startup() / 5.0).sin() as f32 + 1.0).max(0.1));
+        sink.set_speed(((time.elapsed_seconds() / 5.0).sin() + 1.0).max(0.1));
     }
 }
 
@@ -41,11 +43,7 @@ fn pause(
 ) {
     if keyboard_input.just_pressed(KeyCode::Space) {
         if let Some(sink) = audio_sinks.get(&music_controller.0) {
-            if sink.is_paused() {
-                sink.play()
-            } else {
-                sink.pause()
-            }
+            sink.toggle();
         }
     }
 }

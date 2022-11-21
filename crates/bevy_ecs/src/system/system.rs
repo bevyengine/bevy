@@ -1,8 +1,9 @@
 use bevy_utils::tracing::warn;
+use core::fmt::Debug;
 
 use crate::{
-    archetype::ArchetypeComponentId, component::ComponentId, query::Access, schedule::SystemLabel,
-    world::World,
+    archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
+    query::Access, schedule::SystemLabelId, world::World,
 };
 use std::borrow::Cow;
 
@@ -31,6 +32,10 @@ pub trait System: Send + Sync + 'static {
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
+
+    /// Returns true if the system must be run exclusively.
+    fn is_exclusive(&self) -> bool;
+
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// takes a shared reference to [`World`] and may therefore break Rust's aliasing rules, making
     /// it unsafe to call.
@@ -46,7 +51,7 @@ pub trait System: Send + Sync + 'static {
     /// Runs the system with the given input in the world.
     fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
         self.update_archetype_component_access(world);
-        // SAFE: world and resources are exclusively borrowed
+        // SAFETY: world and resources are exclusively borrowed
         unsafe { self.run_unsafe(input, world) }
     }
     fn apply_buffers(&mut self, world: &mut World);
@@ -56,9 +61,17 @@ pub trait System: Send + Sync + 'static {
     fn update_archetype_component_access(&mut self, world: &World);
     fn check_change_tick(&mut self, change_tick: u32);
     /// The default labels for the system
-    fn default_labels(&self) -> Vec<Box<dyn SystemLabel>> {
+    fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
+    /// Gets the system's last change tick
+    fn get_last_change_tick(&self) -> u32;
+    /// Sets the system's last change tick
+    /// # Warning
+    /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
+    /// However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
+    fn set_last_change_tick(&mut self, last_change_tick: u32);
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.
@@ -69,14 +82,35 @@ pub(crate) fn check_system_change_tick(
     change_tick: u32,
     system_name: &str,
 ) {
-    let tick_delta = change_tick.wrapping_sub(*last_change_tick);
-    const MAX_DELTA: u32 = (u32::MAX / 4) * 3;
-    // Clamp to max delta
-    if tick_delta > MAX_DELTA {
+    let age = change_tick.wrapping_sub(*last_change_tick);
+    // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
+    // so long as this check always runs before that can happen.
+    if age > MAX_CHANGE_AGE {
         warn!(
-            "Too many intervening systems have run since the last time System '{}' was last run; it may fail to detect changes.",
-            system_name
+            "System '{}' has not run for {} ticks. \
+            Changes older than {} ticks will not be detected.",
+            system_name,
+            age,
+            MAX_CHANGE_AGE - 1,
         );
-        *last_change_tick = change_tick.wrapping_sub(MAX_DELTA);
+        *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
+    }
+}
+
+impl Debug for dyn System<In = (), Out = ()> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "System {}: {{{}}}", self.name(), {
+            if self.is_send() {
+                if self.is_exclusive() {
+                    "is_send is_exclusive"
+                } else {
+                    "is_send"
+                }
+            } else if self.is_exclusive() {
+                "is_exclusive"
+            } else {
+                ""
+            }
+        },)
     }
 }

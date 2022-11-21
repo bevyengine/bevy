@@ -1,3 +1,5 @@
+//! Iterates and prints gamepad input and connection events.
+
 use bevy::{
     input::gamepad::{GamepadEvent, GamepadEventType},
     prelude::*,
@@ -13,7 +15,7 @@ fn main() {
 fn gamepad_events(mut gamepad_event: EventReader<GamepadEvent>) {
     for event in gamepad_event.iter() {
         match event.event_type {
-            GamepadEventType::Connected => {
+            GamepadEventType::Connected(_) => {
                 info!("{:?} Connected", event.gamepad);
             }
             GamepadEventType::Disconnected => {

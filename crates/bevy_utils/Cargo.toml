@@ -1,6 +1,6 @@
 [package]
 name = "bevy_utils"
-version = "0.8.0-dev"
+version = "0.9.0"
 edition = "2021"
 description = "A collection of utils for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -12,9 +12,8 @@ keywords = ["bevy"]
 ahash = "0.7.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
-uuid = { version = "0.8", features = ["v4", "serde"] }
-hashbrown = { version = "0.11", features = ["serde"] }
+uuid = { version = "1.1", features = ["v4", "serde"] }
+hashbrown = { version = "0.12", features = ["serde"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = {version = "0.2.0", features = ["js"]}
-uuid = { version = "0.8", features = ["wasm-bindgen"] }

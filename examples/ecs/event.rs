@@ -1,7 +1,8 @@
+//! This example creates a new event, a system that triggers the event once per second,
+//! and a system that prints a message whenever the event is received.
+
 use bevy::prelude::*;
 
-/// This example creates a new event, a system that triggers the event once per second,
-/// and a system that prints a message whenever the event is received.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -21,6 +22,7 @@ struct MyEvent {
 #[derive(Default)]
 struct PlaySound;
 
+#[derive(Resource)]
 struct EventTriggerState {
     event_timer: Timer,
 }
@@ -28,7 +30,7 @@ struct EventTriggerState {
 impl Default for EventTriggerState {
     fn default() -> Self {
         EventTriggerState {
-            event_timer: Timer::from_seconds(1.0, true),
+            event_timer: Timer::from_seconds(1.0, TimerMode::Repeating),
         }
     }
 }

@@ -5,10 +5,11 @@ mod buffer_vec;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
+pub mod resource_macros;
 mod shader;
 mod storage_buffer;
 mod texture;
-mod uniform_vec;
+mod uniform_buffer;
 
 pub use bind_group::*;
 pub use bind_group_layout::*;
@@ -20,7 +21,7 @@ pub use pipeline_specializer::*;
 pub use shader::*;
 pub use storage_buffer::*;
 pub use texture::*;
-pub use uniform_vec::*;
+pub use uniform_buffer::*;
 
 // TODO: decide where re-exports should go
 pub use wgpu::{
@@ -44,6 +45,11 @@ pub use wgpu::{
     VertexStepMode,
 };
 
-pub use bevy_crevice::*;
+pub mod encase {
+    pub use bevy_encase_derive::ShaderType;
+    pub use encase::*;
+}
+
+pub use self::encase::{ShaderSize, ShaderType};
 
 pub use naga::ShaderStage;

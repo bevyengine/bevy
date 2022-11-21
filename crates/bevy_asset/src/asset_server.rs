@@ -5,26 +5,40 @@ use crate::{
     RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
-use bevy_ecs::system::{Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
-use bevy_tasks::TaskPool;
+use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
 use std::{path::Path, sync::Arc};
 use thiserror::Error;
 
-/// Errors that occur while loading assets with an `AssetServer`
+/// Errors that occur while loading assets with an `AssetServer`.
 #[derive(Error, Debug)]
 pub enum AssetServerError {
+    /// Asset folder is not a directory.
     #[error("asset folder path is not a directory: {0}")]
     AssetFolderNotADirectory(String),
+
+    /// No asset loader was found for the specified extensions.
     #[error("no `AssetLoader` found{}", format_missing_asset_ext(.extensions))]
-    MissingAssetLoader { extensions: Vec<String> },
+    MissingAssetLoader {
+        /// The list of extensions detected on the asset source path that failed to load.
+        ///
+        /// The list may be empty if the asset path is invalid or doesn't have an extension.
+        extensions: Vec<String>,
+    },
+
+    /// The handle type does not match the type of the loaded asset.
     #[error("the given type does not match the type of the loaded asset")]
     IncorrectHandleType,
+
+    /// Encountered an error while processing an asset.
     #[error("encountered an error while loading an asset: {0}")]
     AssetLoaderError(anyhow::Error),
+
+    /// Encountered an error while reading an asset from disk.
     #[error("encountered an error while reading an asset: {0}")]
     AssetIoError(#[from] AssetIoError),
 }
@@ -48,6 +62,9 @@ pub(crate) struct AssetRefCounter {
     pub(crate) mark_unused_assets: Arc<Mutex<Vec<HandleId>>>,
 }
 
+/// Internal data for the asset server.
+///
+/// [`AssetServer`] is the public API for interacting with the asset server.
 pub struct AssetServerInternal {
     pub(crate) asset_io: Box<dyn AssetIo>,
     pub(crate) asset_ref_counter: AssetRefCounter,
@@ -56,21 +73,57 @@ pub struct AssetServerInternal {
     loaders: RwLock<Vec<Arc<dyn AssetLoader>>>,
     extension_to_loader_index: RwLock<HashMap<String, usize>>,
     handle_to_path: Arc<RwLock<HashMap<HandleId, AssetPath<'static>>>>,
-    task_pool: TaskPool,
 }
 
-/// Loads assets from the filesystem on background threads
-#[derive(Clone)]
+/// Loads assets from the filesystem in the background.
+///
+/// The asset server is the primary way of loading assets in bevy. It keeps track of the load state
+/// of the assets it manages and can even reload them from the filesystem with
+/// ```
+/// # use bevy_asset::*;
+/// # use bevy_app::*;
+/// # let mut app = App::new();
+/// // The asset plugin can be configured to watch for asset changes.
+/// app.add_plugin(AssetPlugin {
+///     watch_for_changes: true,
+///     ..Default::default()
+/// });
+/// ```
+///
+/// The asset server is a _resource_, so in order to access it in a system you need a `Res`
+/// accessor, like this:
+///
+/// ```rust,no_run
+/// use bevy_asset::{AssetServer, Handle};
+/// use bevy_ecs::prelude::{Commands, Res};
+///
+/// # #[derive(Debug, bevy_reflect::TypeUuid)]
+/// # #[uuid = "00000000-0000-0000-0000-000000000000"]
+/// # struct Image;
+///
+/// fn my_system(mut commands: Commands, asset_server: Res<AssetServer>)
+/// {
+///     // Now you can do whatever you want with the asset server, such as loading an asset:
+///     let asset_handle: Handle<Image> = asset_server.load("cool_picture.png");
+/// }
+/// ```
+///
+/// See the [`asset_loading`] example for more information.
+///
+/// [`asset_loading`]: https://github.com/bevyengine/bevy/tree/latest/examples/asset/asset_loading.rs
+#[derive(Clone, Resource)]
 pub struct AssetServer {
     pub(crate) server: Arc<AssetServerInternal>,
 }
 
 impl AssetServer {
-    pub fn new<T: AssetIo>(source_io: T, task_pool: TaskPool) -> Self {
-        Self::with_boxed_io(Box::new(source_io), task_pool)
+    /// Creates a new asset server with the provided asset I/O.
+    pub fn new<T: AssetIo>(source_io: T) -> Self {
+        Self::with_boxed_io(Box::new(source_io))
     }
 
-    pub fn with_boxed_io(asset_io: Box<dyn AssetIo>, task_pool: TaskPool) -> Self {
+    /// Creates a new asset server with a boxed asset I/O.
+    pub fn with_boxed_io(asset_io: Box<dyn AssetIo>) -> Self {
         AssetServer {
             server: Arc::new(AssetServerInternal {
                 loaders: Default::default(),
@@ -79,12 +132,12 @@ impl AssetServer {
                 asset_ref_counter: Default::default(),
                 handle_to_path: Default::default(),
                 asset_lifecycles: Default::default(),
-                task_pool,
                 asset_io,
             }),
         }
     }
 
+    /// Returns the associated asset I/O.
     pub fn asset_io(&self) -> &dyn AssetIo {
         &*self.server.asset_io
     }
@@ -94,10 +147,7 @@ impl AssetServer {
             .server
             .asset_lifecycles
             .write()
-            .insert(
-                T::TYPE_UUID,
-                Box::new(AssetLifecycleChannel::<T>::default()),
-            )
+            .insert(T::TYPE_UUID, Box::<AssetLifecycleChannel<T>>::default())
             .is_some()
         {
             panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
@@ -106,13 +156,17 @@ impl AssetServer {
         Assets::new(self.server.asset_ref_counter.channel.sender.clone())
     }
 
+    /// Adds the provided asset loader to the server.
+    ///
+    /// If `loader` has one or more supported extensions in conflict with loaders that came before
+    /// it, it will replace them.
     pub fn add_loader<T>(&self, loader: T)
     where
         T: AssetLoader,
     {
         let mut loaders = self.server.loaders.write();
         let loader_index = loaders.len();
-        for extension in loader.extensions().iter() {
+        for extension in loader.extensions() {
             self.server
                 .extension_to_loader_index
                 .write()
@@ -121,18 +175,13 @@ impl AssetServer {
         loaders.push(Arc::new(loader));
     }
 
-    /// Enable watching of the filesystem for changes, if support is available, starting from after
-    /// the point of calling this function.
-    pub fn watch_for_changes(&self) -> Result<(), AssetServerError> {
-        self.asset_io().watch_for_changes()?;
-        Ok(())
-    }
-
+    /// Gets a strong handle for an asset with the provided id.
     pub fn get_handle<T: Asset, I: Into<HandleId>>(&self, id: I) -> Handle<T> {
         let sender = self.server.asset_ref_counter.channel.sender.clone();
         Handle::strong(id.into(), sender)
     }
 
+    /// Gets an untyped strong handle for an asset with the provided id.
     pub fn get_handle_untyped<I: Into<HandleId>>(&self, id: I) -> HandleUntyped {
         let sender = self.server.asset_ref_counter.channel.sender.clone();
         HandleUntyped::strong(id.into(), sender)
@@ -181,6 +230,7 @@ impl AssetServer {
         })
     }
 
+    /// Gets the source path of an asset from the provided handle.
     pub fn get_handle_path<H: Into<HandleId>>(&self, handle: H) -> Option<AssetPath<'_>> {
         self.server
             .handle_to_path
@@ -189,6 +239,7 @@ impl AssetServer {
             .cloned()
     }
 
+    /// Gets the load state of an asset from the provided handle.
     pub fn get_load_state<H: Into<HandleId>>(&self, handle: H) -> LoadState {
         match handle.into() {
             HandleId::AssetPathId(id) => {
@@ -201,6 +252,10 @@ impl AssetServer {
         }
     }
 
+    /// Gets the overall load state of a group of assets from the provided handles.
+    ///
+    /// This method will only return [`LoadState::Loaded`] if all assets in the
+    /// group were loaded successfully.
     pub fn get_group_load_state(&self, handles: impl IntoIterator<Item = HandleId>) -> LoadState {
         let mut load_state = LoadState::Loaded;
         for handle_id in handles {
@@ -221,23 +276,29 @@ impl AssetServer {
         load_state
     }
 
-    /// Queue an [`Asset`] at the provided relative path for asynchronous loading.
+    /// Queues an [`Asset`] at the provided relative path for asynchronous loading.
     ///
-    /// The absolute Path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`.
+    /// The absolute path to the asset is `"ROOT/ASSET_FOLDER_NAME/path"`. Its extension is then
+    /// extracted to search for an [asset loader]. If an asset path contains multiple dots (e.g.
+    /// `foo.bar.baz`), each level is considered a separate extension and the asset server will try
+    /// to look for loaders of `bar.baz` and `baz` assets.
     ///
-    /// By default the ROOT is the directory of the Application, but this can be overridden by
+    /// By default the `ROOT` is the directory of the Application, but this can be overridden by
     /// setting the `"CARGO_MANIFEST_DIR"` environment variable
     /// (see <https://doc.rust-lang.org/cargo/reference/environment-variables.html>)
     /// to another directory. When the application  is run through Cargo, then
     /// `"CARGO_MANIFEST_DIR"` is automatically set to the root folder of your crate (workspace).
     ///
     /// The name of the asset folder is set inside the
-    /// [`AssetServerSettings`](crate::AssetServerSettings) resource. The default name is
+    /// [`AssetPlugin`](crate::AssetPlugin). The default name is
     /// `"assets"`.
     ///
     /// The asset is loaded asynchronously, and will generally not be available by the time
     /// this calls returns. Use [`AssetServer::get_load_state`] to determine when the asset is
-    /// effectively loaded and available in the [`Assets`] collection.
+    /// effectively loaded and available in the [`Assets`] collection. The asset will always fail to
+    /// load if the provided path doesn't contain an extension.
+    ///
+    /// [asset loader]: AssetLoader
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load<'a, T: Asset, P: Into<AssetPath<'a>>>(&self, path: P) -> Handle<T> {
         self.load_untyped(path).typed()
@@ -315,7 +376,6 @@ impl AssetServer {
             &self.server.asset_ref_counter.channel,
             self.asset_io(),
             version,
-            &self.server.task_pool,
         );
 
         if let Err(err) = asset_loader
@@ -368,17 +428,27 @@ impl AssetServer {
         Ok(asset_path_id)
     }
 
+    /// Queues the [`Asset`] at the provided path for loading and returns an untyped handle.
+    ///
+    /// See [`load`](AssetServer::load).
     #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
     pub fn load_untyped<'a, P: Into<AssetPath<'a>>>(&self, path: P) -> HandleUntyped {
         let handle_id = self.load_untracked(path.into(), false);
         self.get_handle_untyped(handle_id)
     }
 
+    /// Force an [`Asset`] to be reloaded.
+    ///
+    /// This is useful for custom hot-reloading or for supporting `watch_for_changes`
+    /// in custom [`AssetIo`] implementations.
+    pub fn reload_asset<'a, P: Into<AssetPath<'a>>>(&self, path: P) {
+        self.load_untracked(path.into(), true);
+    }
+
     pub(crate) fn load_untracked(&self, asset_path: AssetPath<'_>, force: bool) -> HandleId {
         let server = self.clone();
         let owned_path = asset_path.to_owned();
-        self.server
-            .task_pool
+        IoTaskPool::get()
             .spawn(async move {
                 if let Err(err) = server.load_async(owned_path, force).await {
                     warn!("{}", err);
@@ -396,6 +466,14 @@ impl AssetServer {
         asset_path.into()
     }
 
+    /// Loads assets from the specified folder recursively.
+    ///
+    /// # Errors
+    ///
+    /// - If the provided path is not a directory, it will fail with
+    /// [`AssetServerError::AssetFolderNotADirectory`].
+    /// - If something unexpected happened while loading an asset, other
+    /// [`AssetServerError`]s may be returned.
     #[must_use = "not using the returned strong handles may result in the unexpected release of the assets"]
     pub fn load_folder<P: AsRef<Path>>(
         &self,
@@ -425,6 +503,7 @@ impl AssetServer {
         Ok(handles)
     }
 
+    /// Frees unused assets, unloading them from memory.
     pub fn free_unused_assets(&self) {
         let mut potential_frees = self.server.asset_ref_counter.mark_unused_assets.lock();
 
@@ -451,6 +530,7 @@ impl AssetServer {
         }
     }
 
+    /// Iterates through asset references and marks assets with no active handles as unused.
     pub fn mark_unused_assets(&self) {
         let receiver = &self.server.asset_ref_counter.channel.receiver;
         let mut ref_counts = self.server.asset_ref_counter.ref_counts.write();
@@ -555,6 +635,7 @@ fn free_unused_assets_system_impl(asset_server: &AssetServer) {
     asset_server.mark_unused_assets();
 }
 
+/// A system for freeing assets that have no active handles.
 pub fn free_unused_assets_system(asset_server: Res<AssetServer>) {
     free_unused_assets_system_impl(&asset_server);
 }
@@ -620,8 +701,8 @@ mod test {
 
     fn setup(asset_path: impl AsRef<Path>) -> AssetServer {
         use crate::FileAssetIo;
-
-        AssetServer::new(FileAssetIo::new(asset_path, false), Default::default())
+        IoTaskPool::init(Default::default);
+        AssetServer::new(FileAssetIo::new(asset_path, false))
     }
 
     #[test]
@@ -704,7 +785,7 @@ mod test {
 
     fn create_dir_and_file(file: impl AsRef<Path>) -> tempfile::TempDir {
         let asset_dir = tempfile::tempdir().unwrap();
-        std::fs::write(asset_dir.path().join(file), &[]).unwrap();
+        std::fs::write(asset_dir.path().join(file), []).unwrap();
         asset_dir
     }
 
@@ -781,8 +862,11 @@ mod test {
             asset_server.get_handle_untyped(id)
         }
 
-        fn get_asset(id: impl Into<HandleId>, world: &World) -> Option<&PngAsset> {
-            world.resource::<Assets<PngAsset>>().get(id.into())
+        fn get_asset<'world>(
+            id: &Handle<PngAsset>,
+            world: &'world World,
+        ) -> Option<&'world PngAsset> {
+            world.resource::<Assets<PngAsset>>().get(id)
         }
 
         fn get_load_state(id: impl Into<HandleId>, world: &World) -> LoadState {
@@ -800,7 +884,7 @@ mod test {
         );
 
         // load the asset
-        let handle = load_asset(path.clone(), &app.world);
+        let handle = load_asset(path.clone(), &app.world).typed();
         let weak_handle = handle.clone_weak();
 
         // asset is loading
@@ -826,7 +910,7 @@ mod test {
         assert!(get_asset(&weak_handle, &app.world).is_none());
 
         // finally, reload the asset
-        let handle = load_asset(path.clone(), &app.world);
+        let handle = load_asset(path.clone(), &app.world).typed();
         assert_eq!(LoadState::Loading, get_load_state(&handle, &app.world));
         app.update();
         assert_eq!(LoadState::Loaded, get_load_state(&handle, &app.world));

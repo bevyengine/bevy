@@ -1,8 +1,12 @@
+//! Support for hot reloading internal assets.
+//!
+//! Internal assets (e.g. shaders) are bundled directly into an application and can't be hot
+//! reloaded using the conventional API.
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
     schedule::SystemLabel,
-    system::{NonSendMut, Res, ResMut, SystemState},
+    system::{NonSendMut, Res, ResMut, Resource, SystemState},
 };
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
@@ -12,12 +16,10 @@ use std::{
 };
 
 use crate::{
-    Asset, AssetEvent, AssetPlugin, AssetServer, AssetServerSettings, Assets, FileAssetIo, Handle,
-    HandleUntyped,
+    Asset, AssetEvent, AssetPlugin, AssetServer, Assets, FileAssetIo, Handle, HandleUntyped,
 };
 
-/// A "debug asset app", whose sole responsibility is hot reloading assets that are
-/// "internal" / compiled-in to Bevy Plugins.
+/// A helper [`App`] used for hot reloading internal assets, which are compiled-in to Bevy plugins.
 pub struct DebugAssetApp(App);
 
 impl Deref for DebugAssetApp {
@@ -34,17 +36,24 @@ impl DerefMut for DebugAssetApp {
     }
 }
 
+/// A label describing the system that runs [`DebugAssetApp`].
 #[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct DebugAssetAppRun;
 
 /// Facilitates the creation of a "debug asset app", whose sole responsibility is hot reloading
 /// assets that are "internal" / compiled-in to Bevy Plugins.
-/// Pair with [`load_internal_asset`](crate::load_internal_asset) to load "hot reloadable" assets
-/// The `debug_asset_server` feature flag must also be enabled for hot reloading to work.
+///
+/// Pair with the [`load_internal_asset`](crate::load_internal_asset) macro to load hot-reloadable
+/// assets. The `debug_asset_server` feature flag must also be enabled for hot reloading to work.
 /// Currently only hot reloads assets stored in the `crates` folder.
 #[derive(Default)]
 pub struct DebugAssetServerPlugin;
+
+/// A collection that maps internal assets in a [`DebugAssetApp`]'s asset server to their mirrors in
+/// the main [`App`].
+#[derive(Resource)]
 pub struct HandleMap<T: Asset> {
+    /// The collection of asset handles.
     pub handles: HashMap<Handle<T>, Handle<T>>,
 }
 
@@ -58,19 +67,17 @@ impl<T: Asset> Default for HandleMap<T> {
 
 impl Plugin for DebugAssetServerPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        IoTaskPool::init(|| {
+            TaskPoolBuilder::default()
+                .num_threads(2)
+                .thread_name("Debug Asset Server IO Task Pool".to_string())
+                .build()
+        });
         let mut debug_asset_app = App::new();
-        debug_asset_app
-            .insert_resource(IoTaskPool(
-                TaskPoolBuilder::default()
-                    .num_threads(2)
-                    .thread_name("Debug Asset Server IO Task Pool".to_string())
-                    .build(),
-            ))
-            .insert_resource(AssetServerSettings {
-                asset_folder: "crates".to_string(),
-                watch_for_changes: true,
-            })
-            .add_plugin(AssetPlugin);
+        debug_asset_app.add_plugin(AssetPlugin {
+            asset_folder: "crates".to_string(),
+            watch_for_changes: true,
+        });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
         app.add_system(run_debug_asset_app);
     }
@@ -93,8 +100,7 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
     let (changed_shaders, handle_map, debug_assets) = state.get_mut(world);
     for changed in changed_shaders.iter_current_update_events() {
         let debug_handle = match changed {
-            AssetEvent::Created { handle } => handle,
-            AssetEvent::Modified { handle } => handle,
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
             AssetEvent::Removed { .. } => continue,
         };
         if let Some(handle) = handle_map.handles.get(debug_handle) {
@@ -107,7 +113,8 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 
 /// Uses the return type of the given loader to register the given handle with the appropriate type
 /// and load the asset with the given `path` and parent `file_path`.
-/// If this feels a bit odd ... thats because it is. This was built to improve the UX of the
+///
+/// If this feels a bit odd ... that's because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
 pub fn register_handle_with_loader<A: Asset>(
     _loader: fn(&'static str) -> A,
