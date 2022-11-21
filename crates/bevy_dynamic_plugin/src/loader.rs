@@ -144,7 +144,7 @@ pub trait DynamicPluginExt {
     ///
     /// The dynamic library is dropped when the app is,
     /// freeing its allocated memory,
-    /// so this method has addition safety concerns compared to [`load_plugin`]
+    /// so this method has additional safety concerns compared to [`load_plugin`].
     ///
     /// # Safety
     ///
