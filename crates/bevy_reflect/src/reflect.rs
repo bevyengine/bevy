@@ -203,6 +203,7 @@ pub trait Reflect: Any + Send + Sync {
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+    fn from_reflect_owned(reflect: Box<dyn Reflect>) -> Option<Self>;
 }
 
 impl Debug for dyn Reflect {

@@ -583,6 +583,23 @@ macro_rules! impl_reflect_tuple {
                     None
                 }
             }
+
+            fn from_reflect_owned(reflect: Box<dyn Reflect>) -> Option<Self> {
+                if let ReflectOwned::Tuple(owned_tuple) = reflect.reflect_owned() {
+                    let mut fields = owned_tuple.drain();
+                    fields.reverse();
+                    let _len = fields.len();
+                    Some(
+                        (
+                            $(
+                                <$name as FromReflect>::from_reflect_owned(fields.swap_remove(_len - $index))?,
+                            )*
+                        )
+                    )
+                } else {
+                    None
+                }
+            }
         }
     }
 }

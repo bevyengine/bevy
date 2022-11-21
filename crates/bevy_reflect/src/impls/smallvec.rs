@@ -149,6 +149,18 @@ where
             None
         }
     }
+
+    fn from_reflect_owned(reflect: Box<dyn Reflect>) -> Option<Self> {
+        if let ReflectOwned::List(owned_list) = reflect.reflect_owned() {
+            owned_list
+                .drain()
+                .into_iter()
+                .map(|reflect| <T as smallvec::Array>::Item::from_reflect_owned(reflect))
+                .collect()
+        } else {
+            None
+        }
+    }
 }
 
 impl<T: smallvec::Array + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>

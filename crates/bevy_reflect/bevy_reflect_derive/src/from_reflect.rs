@@ -28,6 +28,10 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
                 Some(reflect.as_any().downcast_ref::<#type_name #ty_generics>()?.clone())
             }
+
+            fn from_reflect_owned(reflect: Box<dyn #bevy_reflect_path::Reflect>) -> Option<Self> {
+                reflect.downcast::<#type_name #ty_generics>().map(|b| *b).ok()
+            }
         }
     })
 }
@@ -49,6 +53,17 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> Option<Self> {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
+                    match #ref_value.variant_name() {
+                        #(#variant_names => Some(#variant_constructors),)*
+                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, std::any::type_name::<Self>()),
+                    }
+                } else {
+                    None
+                }
+            }
+
+            fn from_reflect_owned(#ref_value: Box<dyn #bevy_reflect_path::Reflect>) -> Option<Self> {
+                if let #bevy_reflect_path::ReflectOwned::Enum(#ref_value) = #ref_value.reflect_owned() {
                     match #ref_value.variant_name() {
                         #(#variant_names => Some(#variant_constructors),)*
                         name => panic!("variant with name `{}` does not exist on enum `{}`", name, std::any::type_name::<Self>()),
@@ -135,6 +150,10 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
                 } else {
                     None
                 }
+            }
+
+            fn from_reflect_owned(reflect: Box<dyn #bevy_reflect_path::Reflect>) -> Option<Self> {
+                todo!()
             }
         }
     })

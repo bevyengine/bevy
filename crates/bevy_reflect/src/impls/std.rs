@@ -310,6 +310,18 @@ impl<T: FromReflect> FromReflect for Vec<T> {
             None
         }
     }
+
+    fn from_reflect_owned(reflect: Box<dyn Reflect>) -> Option<Self> {
+        if let ReflectOwned::List(owned_list) = reflect.reflect_owned() {
+            owned_list
+                .drain()
+                .into_iter()
+                .map(|reflect| T::from_reflect_owned(reflect))
+                .collect()
+        } else {
+            None
+        }
+    }
 }
 
 impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
@@ -476,6 +488,20 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
             None
         }
     }
+
+    fn from_reflect_owned(reflect: Box<dyn Reflect>) -> Option<Self> {
+        if let ReflectOwned::Map(owned_map) = reflect.reflect_owned() {
+            let mut new_map = Self::with_capacity(owned_map.len());
+            for (key, value) in owned_map.drain() {
+                let new_key = K::from_reflect_owned(key)?;
+                let new_value = V::from_reflect_owned(value)?;
+                new_map.insert(new_key, new_value);
+            }
+            Some(new_map)
+        } else {
+            None
+        }
+    }
 }
 
 impl<T: Reflect, const N: usize> Array for [T; N] {
@@ -588,6 +614,18 @@ impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
             let mut temp_vec = Vec::with_capacity(ref_array.len());
             for field in ref_array.iter() {
                 temp_vec.push(T::from_reflect(field)?);
+            }
+            temp_vec.try_into().ok()
+        } else {
+            None
+        }
+    }
+
+    fn from_reflect_owned(reflect: Box<dyn Reflect>) -> Option<Self> {
+        if let ReflectOwned::Array(owned_array) = reflect.reflect_owned() {
+            let mut temp_vec = Vec::with_capacity(owned_array.len());
+            for field in owned_array.drain() {
+                temp_vec.push(T::from_reflect_owned(field)?);
             }
             temp_vec.try_into().ok()
         } else {
@@ -919,6 +957,43 @@ impl<T: FromReflect> FromReflect for Option<T> {
             None
         }
     }
+
+    fn from_reflect_owned(reflect: Box<dyn Reflect>) -> Option<Self> {
+        if let ReflectOwned::Enum(dyn_enum) = reflect.reflect_owned() {
+            match dyn_enum.variant_name() {
+                "Some" => {
+                    let field = dyn_enum
+                        .field_at(0)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "Field in `Some` variant of {} should exist",
+                                std::any::type_name::<Option<T>>()
+                            )
+                        })
+                        .clone_value()
+                        .take::<T>()
+                        .unwrap_or_else(|value| {
+                            T::from_reflect(&*value).unwrap_or_else(|| {
+                                panic!(
+                                    "Field in `Some` variant of {} should be of type {}",
+                                    std::any::type_name::<Option<T>>(),
+                                    std::any::type_name::<T>()
+                                )
+                            })
+                        });
+                    Some(Some(field))
+                }
+                "None" => Some(None),
+                name => panic!(
+                    "variant with name `{}` does not exist on enum `{}`",
+                    name,
+                    std::any::type_name::<Self>()
+                ),
+            }
+        } else {
+            None
+        }
+    }
 }
 
 impl<T: FromReflect> Typed for Option<T> {
@@ -961,6 +1036,10 @@ impl FromReflect for Cow<'static, str> {
                 .downcast_ref::<Cow<'static, str>>()?
                 .clone(),
         )
+    }
+
+    fn from_reflect_owned(reflect: Box<dyn Reflect>) -> Option<Self> {
+        reflect.downcast::<Cow<'static, str>>().map(|b| *b).ok()
     }
 }
 
