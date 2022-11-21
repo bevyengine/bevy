@@ -138,11 +138,6 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
     mut spatial_sinks: ResMut<Assets<SpatialAudioSink>>,
 ) {
     if let Some(audio_sources) = audio_sources {
-        audio_output.try_play_queued(
-            &*audio_sources,
-            &mut *audio,
-            &mut sinks,
-            &mut *spatial_sinks,
-        );
+        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks, &mut spatial_sinks);
     };
 }
