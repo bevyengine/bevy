@@ -83,9 +83,32 @@ fn propagate_recursive(
 
     let global_matrix = {
         let Ok((transform, transform_changed, mut global_transform)) =
-            // SAFE: With the check that each child has one and only one parent, each child must be globally unique within the
-            // hierarchy. Because of this, it is impossible for this query to have aliased mutable access to the same GlobalTransform.
-            // Any malformed hierarchy will cause a panic due to the above check.
+            // SAFETY: This call cannot create aliased mutable references.
+            //   - The top level iteration parallelizes on the roots of the hierarchy. 
+            //   - The above assertion ensures that each child has one and only one unique parent throughout the entire 
+            //     hierarchy.
+            // 
+            // For example, consider the following malformed hierarchy:
+            // 
+            //     A
+            //   /   \
+            //  B     C
+            //   \   /
+            //     D
+            // 
+            // D has two parents, B and C. If the propagation passes through C, but the Parent component on D points to B,
+            // the above check will panic as the origin parent does match the recorded parent.
+            //
+            // Also consider the following case, where A and B are roots:
+            // 
+            //  A       B
+            //   \     /
+            //    C   D
+            //     \ /
+            //      E
+            //
+            // Even if these A and B start two separate tasks running in parallel, one of them will panic before attempting
+            // to mutably access E.
             (unsafe { unsafe_transform_query.get_unchecked(entity) }) else {
                 return;
             };
