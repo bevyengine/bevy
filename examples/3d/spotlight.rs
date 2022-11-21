@@ -83,7 +83,7 @@ fn setup(
                     },
                     ..default()
                 })
-                .with_children(|builder| {
+                .with_child(|builder| {
                     builder.spawn(PbrBundle {
                         mesh: meshes.add(Mesh::from(shape::UVSphere {
                             radius: 0.05,

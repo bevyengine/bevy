@@ -45,14 +45,12 @@ fn setup(
             },
             Rotator,
         ))
-        .with_children(|parent| {
-            // child cube
-            parent.spawn(PbrBundle {
-                mesh: cube_handle,
-                material: cube_material_handle,
-                transform: Transform::from_xyz(0.0, 0.0, 3.0),
-                ..default()
-            });
+        // child cube
+        .with_child(PbrBundle {
+            mesh: cube_handle,
+            material: cube_material_handle,
+            transform: Transform::from_xyz(0.0, 0.0, 3.0),
+            ..default()
         });
     // light
     commands.spawn(PointLightBundle {

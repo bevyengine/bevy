@@ -157,9 +157,7 @@ mod tests {
                     .with_children(|parent| {
                         parent.spawn(node_without_zindex("1-2-0"));
                         parent.spawn(node_with_zindex("1-2-1", ZIndex::Global(-3)));
-                        parent
-                            .spawn(node_without_zindex("1-2-2"))
-                            .with_children(|_| ());
+                        parent.spawn(node_without_zindex("1-2-2")).with_child(());
                         parent.spawn(node_without_zindex("1-2-3"));
                     });
                 parent.spawn(node_without_zindex("1-3"));
@@ -168,14 +166,10 @@ mod tests {
         commands
             .spawn(node_without_zindex("2"))
             .with_children(|parent| {
-                parent
-                    .spawn(node_without_zindex("2-0"))
-                    .with_children(|_parent| ());
+                parent.spawn(node_without_zindex("2-0")).with_child(());
                 parent
                     .spawn(node_without_zindex("2-1"))
-                    .with_children(|parent| {
-                        parent.spawn(node_without_zindex("2-1-0"));
-                    });
+                    .with_child(node_without_zindex("2-1-0"));
             });
 
         commands.spawn(node_with_zindex("3", ZIndex::Global(-2)));

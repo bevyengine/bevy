@@ -335,17 +335,15 @@ fn spawn_bonus(
                 scene: game.bonus.handle.clone(),
                 ..default()
             })
-            .with_children(|children| {
-                children.spawn(PointLightBundle {
-                    point_light: PointLight {
-                        color: Color::rgb(1.0, 1.0, 0.0),
-                        intensity: 1000.0,
-                        range: 10.0,
-                        ..default()
-                    },
-                    transform: Transform::from_xyz(0.0, 2.0, 0.0),
+            .with_child(PointLightBundle {
+                point_light: PointLight {
+                    color: Color::rgb(1.0, 1.0, 0.0),
+                    intensity: 1000.0,
+                    range: 10.0,
                     ..default()
-                });
+                },
+                transform: Transform::from_xyz(0.0, 2.0, 0.0),
+                ..default()
             })
             .id(),
     );
@@ -387,14 +385,12 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
             },
             ..default()
         })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                format!("Cake eaten: {}", game.cake_eaten),
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 80.0,
-                    color: Color::rgb(0.5, 0.5, 1.0),
-                },
-            ));
-        });
+        .with_child(TextBundle::from_section(
+            format!("Cake eaten: {}", game.cake_eaten),
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 80.0,
+                color: Color::rgb(0.5, 0.5, 1.0),
+            },
+        ));
 }

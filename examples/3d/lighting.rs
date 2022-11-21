@@ -110,19 +110,17 @@ fn setup(
             },
             ..default()
         })
-        .with_children(|builder| {
-            builder.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 0.1,
-                    ..default()
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::RED,
-                    emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
-                    ..default()
-                }),
+        .with_child(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: 0.1,
                 ..default()
-            });
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::RED,
+                emissive: Color::rgba_linear(100.0, 0.0, 0.0, 0.0),
+                ..default()
+            }),
+            ..default()
         });
 
     // green spot light
@@ -140,21 +138,19 @@ fn setup(
             },
             ..default()
         })
-        .with_children(|builder| {
-            builder.spawn(PbrBundle {
-                transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
-                mesh: meshes.add(Mesh::from(shape::Capsule {
-                    depth: 0.125,
-                    radius: 0.1,
-                    ..default()
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::GREEN,
-                    emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
-                    ..default()
-                }),
+        .with_child(PbrBundle {
+            transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
+            mesh: meshes.add(Mesh::from(shape::Capsule {
+                depth: 0.125,
+                radius: 0.1,
                 ..default()
-            });
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::GREEN,
+                emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
+                ..default()
+            }),
+            ..default()
         });
 
     // blue point light
@@ -170,19 +166,17 @@ fn setup(
             },
             ..default()
         })
-        .with_children(|builder| {
-            builder.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 0.1,
-                    ..default()
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::BLUE,
-                    emissive: Color::rgba_linear(0.0, 0.0, 100.0, 0.0),
-                    ..default()
-                }),
+        .with_child(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: 0.1,
                 ..default()
-            });
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::BLUE,
+                emissive: Color::rgba_linear(0.0, 0.0, 100.0, 0.0),
+                ..default()
+            }),
+            ..default()
         });
 
     // directional 'sun' light

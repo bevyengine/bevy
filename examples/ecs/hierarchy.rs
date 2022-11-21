@@ -23,18 +23,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             texture: texture.clone(),
             ..default()
         })
-        // With that entity as a parent, run a lambda that spawns its children
-        .with_children(|parent| {
-            // parent is a ChildBuilder, which has a similar API to Commands
-            parent.spawn(SpriteBundle {
-                transform: Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
-                texture: texture.clone(),
-                sprite: Sprite {
-                    color: Color::BLUE,
-                    ..default()
-                },
+        // Add a child entity
+        .with_child(SpriteBundle {
+            transform: Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
+            texture: texture.clone(),
+            sprite: Sprite {
+                color: Color::BLUE,
                 ..default()
-            });
+            },
+            ..default()
         })
         // Store parent entity for next sections
         .id();

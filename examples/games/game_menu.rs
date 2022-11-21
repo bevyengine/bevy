@@ -94,16 +94,14 @@ mod splash {
                 },
                 OnSplashScreen,
             ))
-            .with_children(|parent| {
-                parent.spawn(ImageBundle {
-                    style: Style {
-                        // This will set the logo to be 200px wide, and auto adjust its height
-                        size: Size::new(Val::Px(200.0), Val::Auto),
-                        ..default()
-                    },
-                    image: UiImage::new(icon),
+            .with_child(ImageBundle {
+                style: Style {
+                    // This will set the logo to be 200px wide, and auto adjust its height
+                    size: Size::new(Val::Px(200.0), Val::Auto),
                     ..default()
-                });
+                },
+                image: UiImage::new(icon),
+                ..default()
             });
         // Insert the timer as a resource
         commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, TimerMode::Once)));
@@ -459,7 +457,7 @@ mod menu {
                         background_color: Color::CRIMSON.into(),
                         ..default()
                     })
-                    .with_children(|parent| {
+                    .with_child(|parent| {
                         // Display the game name
                         parent.spawn(
                             TextBundle::from_section(

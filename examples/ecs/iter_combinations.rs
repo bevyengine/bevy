@@ -136,17 +136,15 @@ fn generate_bodies(
             },
             Star,
         ))
-        .with_children(|p| {
-            p.spawn(PointLightBundle {
-                point_light: PointLight {
-                    color: Color::WHITE,
-                    intensity: 400.0,
-                    range: 100.0,
-                    radius: star_radius,
-                    ..default()
-                },
+        .with_child(PointLightBundle {
+            point_light: PointLight {
+                color: Color::WHITE,
+                intensity: 400.0,
+                range: 100.0,
+                radius: star_radius,
                 ..default()
-            });
+            },
+            ..default()
         });
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),

@@ -43,20 +43,18 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
         },
         ..default()
     })
-    .with_children(|root| {
-        // Text where we display current resolution
-        root.spawn((
-            TextBundle::from_section(
-                "Resolution",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                    font_size: 50.0,
-                    color: Color::BLACK,
-                },
-            ),
-            ResolutionText,
-        ));
-    });
+    // Text where we display current resolution
+    .with_child((
+        ResolutionText,
+        TextBundle::from_section(
+            "Resolution",
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 50.0,
+                color: Color::BLACK,
+            },
+        ),
+    ));
 }
 
 /// This system shows how to request the window to a new resolution

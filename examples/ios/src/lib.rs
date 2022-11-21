@@ -111,19 +111,17 @@ fn setup_scene(
             },
             ..default()
         })
-        .with_children(|b| {
-            b.spawn(
-                TextBundle::from_section(
-                    "Test Button",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 30.0,
-                        color: Color::BLACK,
-                    },
-                )
-                .with_text_alignment(TextAlignment::CENTER),
-            );
-        });
+        .with_child(
+            TextBundle::from_section(
+                "Test Button",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 30.0,
+                    color: Color::BLACK,
+                },
+            )
+            .with_text_alignment(TextAlignment::CENTER),
+        );
 }
 
 fn button_handler(
