@@ -134,7 +134,7 @@ fn setup(
                 orbit_controller,
             ))
             // The satellite, placed at a distance of the planet
-            .with_children((
+            .with_child((
                 PbrBundle {
                     transform: Transform::from_xyz(1.5, 0.0, 0.0),
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
