@@ -30,8 +30,9 @@ impl Default for UiCameraConfig {
 impl ExtractComponent for UiCameraConfig {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(item.clone())
     }
 }
