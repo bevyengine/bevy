@@ -259,6 +259,18 @@ impl_param_set!();
 /// # schedule.run_once(&mut world);
 /// ```
 ///
+/// ```compile_fail
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Resource)] // we forgot to mark this resource as `is_sync = false`
+/// struct MyResource(std::cell::Cell<u32>); // `Cell` can't be shared between threads
+///
+/// // it fails when we try to use the type as a resource
+/// fn my_system(res: Res<MyResource>) {
+///     // ...
+/// }
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+///
 /// # Safety
 ///
 /// If [`Self::IS_SYNC`] == `true`, then `Self` must be [`Sync`].
