@@ -57,8 +57,8 @@ fn setup(
             });
 
             // sound emitter
-            parent
-                .spawn(SpriteBundle {
+            parent.spawn((
+                SpriteBundle {
                     sprite: Sprite {
                         color: Color::BLUE,
                         custom_size: Some(Vec2::new(0.3, 0.3)),
@@ -66,8 +66,9 @@ fn setup(
                     },
                     transform: Transform::from_xyz(0.0, 0.5, 0.0),
                     ..default()
-                })
-                .insert(Emitter);
+                },
+                Emitter,
+            ));
         });
 
     // camera

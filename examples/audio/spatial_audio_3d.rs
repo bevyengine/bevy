@@ -46,8 +46,8 @@ fn setup(
     });
 
     // sound emitter
-    commands
-        .spawn(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::UVSphere {
                 radius: 0.2,
                 ..default()
@@ -55,8 +55,9 @@ fn setup(
             material: materials.add(Color::BLUE.into()),
             transform: Transform::from_xyz(0.0, 0.0, 0.0),
             ..default()
-        })
-        .insert(Emitter);
+        },
+        Emitter,
+    ));
 
     // light
     commands.spawn(PointLightBundle {
