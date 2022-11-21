@@ -252,6 +252,9 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 
 /// Trait defining how to build children
 pub trait BuildChildren {
+    /// Spawns a new entity for the provided `bundle`, and adds it as a child entity to the parent
+    fn with_child(&mut self, bundle: impl Bundle) -> &mut Self;
+
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
     ///
     /// Compared to [`add_children`][BuildChildren::add_children], this method returns self
@@ -316,6 +319,13 @@ pub trait BuildChildren {
 }
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
+    fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.add_children(|child_builder| {
+            child_builder.spawn(bundle);
+        });
+        self
+    }
+
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
         self.add_children(spawn_children);
         self
@@ -444,6 +454,8 @@ impl<'w> WorldChildBuilder<'w> {
 
 /// Trait that defines adding children to an entity directly through the [`World`]
 pub trait BuildWorldChildren {
+    /// Spawns a new entity for the provided `bundle`, and adds it as a child entity to the parent
+    fn with_child(&mut self, bundle: impl Bundle) -> &mut Self;
     /// Creates a [`WorldChildBuilder`] with the given children built in the given closure
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self;
     /// Pushes children to the back of the builder's children
@@ -455,12 +467,20 @@ pub trait BuildWorldChildren {
 }
 
 impl<'w> BuildWorldChildren for EntityMut<'w> {
+    fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
+        // PERF: we can probably special-case this to be faster
+        self.with_children(|world_child_builder| {
+            world_child_builder.spawn(bundle);
+        });
+        self
+    }
+
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut WorldChildBuilder)) -> &mut Self {
-        let entity = self.id();
+        let parent_entity = self.id();
         self.world_scope(|world| {
             let mut builder = WorldChildBuilder {
                 current_entity: None,
-                parent_entities: vec![entity],
+                parent_entities: vec![parent_entity],
                 world,
             };
             spawn_children(&mut builder);
@@ -510,6 +530,13 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
 }
 
 impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
+    fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
+        self.with_children(|world_child_builder| {
+            world_child_builder.spawn(bundle);
+        });
+        self
+    }
+
     fn with_children(
         &mut self,
         spawn_children: impl FnOnce(&mut WorldChildBuilder<'w>),
