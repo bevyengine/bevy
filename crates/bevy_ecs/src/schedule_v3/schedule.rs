@@ -164,7 +164,7 @@ impl Schedule {
 
     /// Initializes all uninitialized systems and conditions, rebuilds the executable schedule,
     /// and re-initializes executor data structures.
-    pub(crate) fn initialize(&mut self, world: &mut World) -> Result<(), BuildError> {
+    pub fn initialize(&mut self, world: &mut World) -> Result<(), BuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
             self.graph.update_schedule(&mut self.executable)?;
@@ -882,6 +882,7 @@ impl ScheduleMeta {
     }
 }
 
+// methods for reporting errors
 impl ScheduleMeta {
     fn get_node_name(&self, id: &NodeId) -> Cow<'static, str> {
         match id {
