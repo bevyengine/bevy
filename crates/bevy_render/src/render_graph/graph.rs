@@ -329,7 +329,7 @@ impl RenderGraph {
     ///
     /// # See also
     ///
-    /// - [`add_node_edge`](Self::add_node_edge) for a fallible version.
+    /// - [`add_node_edge`](Self::add_node_edge) for an infallible version.
     pub fn try_add_node_edge(
         &mut self,
         output_node: impl Into<NodeLabel>,
