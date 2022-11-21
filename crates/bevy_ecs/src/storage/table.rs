@@ -1,10 +1,10 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
 };
-use bevy_ptr::{OwningPtr, Ptr, PtrMut};
+use bevy_ptr::{OwningPtr, Ptr, PtrMut, UnsafeCellDeref};
 use bevy_utils::HashMap;
 use std::alloc::Layout;
 use std::{
@@ -35,7 +35,8 @@ impl TableId {
 #[derive(Debug)]
 pub struct Column {
     data: BlobVec,
-    ticks: Vec<UnsafeCell<ComponentTicks>>,
+    added_ticks: Vec<UnsafeCell<Tick>>,
+    changed_ticks: Vec<UnsafeCell<Tick>>,
 }
 
 impl Column {
@@ -44,7 +45,8 @@ impl Column {
         Column {
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             data: unsafe { BlobVec::new(component_info.layout(), component_info.drop(), capacity) },
-            ticks: Vec::with_capacity(capacity),
+            added_ticks: Vec::with_capacity(capacity),
+            changed_ticks: Vec::with_capacity(capacity),
         }
     }
 
@@ -60,15 +62,11 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn initialize(
-        &mut self,
-        row: usize,
-        data: OwningPtr<'_>,
-        ticks: ComponentTicks,
-    ) {
+    pub(crate) unsafe fn initialize(&mut self, row: usize, data: OwningPtr<'_>, tick: Tick) {
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
-        *self.ticks.get_unchecked_mut(row).get_mut() = ticks;
+        *self.added_ticks.get_unchecked_mut(row).get_mut() = tick;
+        *self.changed_ticks.get_unchecked_mut(row).get_mut() = tick;
     }
 
     /// Writes component data to the column at given row.
@@ -80,7 +78,7 @@ impl Column {
     pub(crate) unsafe fn replace(&mut self, row: usize, data: OwningPtr<'_>, change_tick: u32) {
         debug_assert!(row < self.len());
         self.data.replace_unchecked(row, data);
-        self.ticks
+        self.changed_ticks
             .get_unchecked_mut(row)
             .get_mut()
             .set_changed(change_tick);
@@ -113,7 +111,8 @@ impl Column {
     #[inline]
     pub(crate) unsafe fn swap_remove_unchecked(&mut self, row: usize) {
         self.data.swap_remove_and_drop_unchecked(row);
-        self.ticks.swap_remove(row);
+        self.added_ticks.swap_remove(row);
+        self.changed_ticks.swap_remove(row);
     }
 
     #[inline]
@@ -125,8 +124,9 @@ impl Column {
         (row < self.data.len()).then(|| {
             // SAFETY: The row was length checked before this.
             let data = unsafe { self.data.swap_remove_and_forget_unchecked(row) };
-            let ticks = self.ticks.swap_remove(row).into_inner();
-            (data, ticks)
+            let added = self.added_ticks.swap_remove(row).into_inner();
+            let changed = self.changed_ticks.swap_remove(row).into_inner();
+            (data, ComponentTicks { added, changed })
         })
     }
 
@@ -139,8 +139,9 @@ impl Column {
         row: usize,
     ) -> (OwningPtr<'_>, ComponentTicks) {
         let data = self.data.swap_remove_and_forget_unchecked(row);
-        let ticks = self.ticks.swap_remove(row).into_inner();
-        (data, ticks)
+        let added = self.added_ticks.swap_remove(row).into_inner();
+        let changed = self.changed_ticks.swap_remove(row).into_inner();
+        (data, ComponentTicks { added, changed })
     }
 
     /// Removes the element from `other` at `src_row` and inserts it
@@ -164,20 +165,23 @@ impl Column {
         debug_assert!(self.data.layout() == other.data.layout());
         let ptr = self.data.get_unchecked_mut(dst_row);
         other.data.swap_remove_unchecked(src_row, ptr);
-        *self.ticks.get_unchecked_mut(dst_row) = other.ticks.swap_remove(src_row);
+        *self.added_ticks.get_unchecked_mut(dst_row) = other.added_ticks.swap_remove(src_row);
+        *self.changed_ticks.get_unchecked_mut(dst_row) = other.changed_ticks.swap_remove(src_row);
     }
 
     // # Safety
     // - ptr must point to valid data of this column's component type
     pub(crate) unsafe fn push(&mut self, ptr: OwningPtr<'_>, ticks: ComponentTicks) {
         self.data.push(ptr);
-        self.ticks.push(UnsafeCell::new(ticks));
+        self.added_ticks.push(UnsafeCell::new(ticks.added));
+        self.changed_ticks.push(UnsafeCell::new(ticks.changed));
     }
 
     #[inline]
     pub(crate) fn reserve_exact(&mut self, additional: usize) {
         self.data.reserve_exact(additional);
-        self.ticks.reserve_exact(additional);
+        self.added_ticks.reserve_exact(additional);
+        self.changed_ticks.reserve_exact(additional);
     }
 
     #[inline]
@@ -192,16 +196,29 @@ impl Column {
     }
 
     #[inline]
-    pub fn get_ticks_slice(&self) -> &[UnsafeCell<ComponentTicks>] {
-        &self.ticks
+    pub fn get_added_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
+        &self.added_ticks
     }
 
     #[inline]
-    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    pub fn get_changed_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
+        &self.changed_ticks
+    }
+
+    #[inline]
+    pub fn get(&self, row: usize) -> Option<(Ptr<'_>, TickCells<'_>)> {
         (row < self.data.len())
             // SAFETY: The row is length checked before fetching the pointer. This is being
             // accessed through a read-only reference to the column.
-            .then(|| unsafe { (self.data.get_unchecked(row), self.ticks.get_unchecked(row)) })
+            .then(|| unsafe {
+                (
+                    self.data.get_unchecked(row),
+                    TickCells {
+                        added: self.added_ticks.get_unchecked(row),
+                        changed: self.changed_ticks.get_unchecked(row),
+                    },
+                )
+            })
     }
 
     #[inline]
@@ -237,27 +254,66 @@ impl Column {
     }
 
     #[inline]
-    pub fn get_ticks(&self, row: usize) -> Option<&UnsafeCell<ComponentTicks>> {
-        self.ticks.get(row)
+    pub fn get_added_ticks(&self, row: usize) -> Option<&UnsafeCell<Tick>> {
+        self.added_ticks.get(row)
+    }
+
+    #[inline]
+    pub fn get_changed_ticks(&self, row: usize) -> Option<&UnsafeCell<Tick>> {
+        self.changed_ticks.get(row)
+    }
+
+    #[inline]
+    pub fn get_ticks(&self, row: usize) -> Option<ComponentTicks> {
+        if row < self.data.len() {
+            // SAFETY: The size of the column has already been checked.
+            Some(unsafe { self.get_ticks_unchecked(row) })
+        } else {
+            None
+        }
     }
 
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> &UnsafeCell<ComponentTicks> {
-        debug_assert!(row < self.ticks.len());
-        self.ticks.get_unchecked(row)
+    pub unsafe fn get_added_ticks_unchecked(&self, row: usize) -> &UnsafeCell<Tick> {
+        debug_assert!(row < self.added_ticks.len());
+        self.added_ticks.get_unchecked(row)
+    }
+
+    /// # Safety
+    /// index must be in-bounds
+    #[inline]
+    pub unsafe fn get_changed_ticks_unchecked(&self, row: usize) -> &UnsafeCell<Tick> {
+        debug_assert!(row < self.changed_ticks.len());
+        self.changed_ticks.get_unchecked(row)
+    }
+
+    /// # Safety
+    /// index must be in-bounds
+    #[inline]
+    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> ComponentTicks {
+        debug_assert!(row < self.added_ticks.len());
+        debug_assert!(row < self.changed_ticks.len());
+        ComponentTicks {
+            added: self.added_ticks.get_unchecked(row).read(),
+            changed: self.changed_ticks.get_unchecked(row).read(),
+        }
     }
 
     pub fn clear(&mut self) {
         self.data.clear();
-        self.ticks.clear();
+        self.added_ticks.clear();
+        self.changed_ticks.clear();
     }
 
     #[inline]
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for component_ticks in &mut self.ticks {
-            component_ticks.get_mut().check_ticks(change_tick);
+        for component_ticks in &mut self.added_ticks {
+            component_ticks.get_mut().check_tick(change_tick);
+        }
+        for component_ticks in &mut self.changed_ticks {
+            component_ticks.get_mut().check_tick(change_tick);
         }
     }
 }
@@ -474,7 +530,8 @@ impl Table {
         self.entities.push(entity);
         for column in self.columns.values_mut() {
             column.data.set_len(self.entities.len());
-            column.ticks.push(UnsafeCell::new(ComponentTicks::new(0)));
+            column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
+            column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
         }
         index
     }
@@ -631,7 +688,7 @@ mod tests {
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
     use crate::{
-        component::{ComponentTicks, Components},
+        component::{Components, Tick},
         entity::Entity,
         storage::TableBuilder,
     };
@@ -657,7 +714,7 @@ mod tests {
                     table.get_column_mut(component_id).unwrap().initialize(
                         row,
                         value_ptr,
-                        ComponentTicks::new(0),
+                        Tick::new(0),
                     );
                 });
             };
