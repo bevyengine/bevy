@@ -35,3 +35,18 @@ fn screen_space_dither(frag_coord: vec2<f32>) -> vec3<f32> {
     dither = fract(dither.rgb / vec3<f32>(103.0, 71.0, 97.0));
     return (dither - 0.5) / 255.0;
 }
+
+fn to_srgb(in: f32) -> f32 {
+    if in <= 0.0031308 {
+        return in * 12.92;
+    } else {
+        return pow(in, 1.0/2.4) * 1.055 - 0.055;
+    }
+}
+fn to_linear(in: f32) -> f32 {
+    if in <= 0.04045 {
+        return in / 12.92;
+    } else {
+        return pow((in + 0.055) / 1.055, 2.4);
+    }
+}
