@@ -46,7 +46,7 @@ use super::EdgeExistence;
 /// let mut graph = RenderGraph::default();
 /// graph.add_node("input_node", MyNode);
 /// graph.add_node("output_node", MyNode);
-/// graph.add_node_edge("output_node", "input_node").unwrap();
+/// graph.add_node_edge("output_node", "input_node");
 /// ```
 #[derive(Resource, Default)]
 pub struct RenderGraph {
@@ -209,7 +209,13 @@ impl RenderGraph {
 
     /// Adds the [`Edge::SlotEdge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node` and also connects the `output_slot` to the `input_slot`.
-    pub fn add_slot_edge(
+    ///
+    /// Fails if any invalid [`NodeLabel`]s or [`SlotLabel`]s are given.
+    ///
+    /// # See also
+    ///
+    /// - [`add_slot_edge`](Self::add_slot_edge) for an infallible version.
+    pub fn try_add_slot_edge(
         &mut self,
         output_node: impl Into<NodeLabel>,
         output_slot: impl Into<SlotLabel>,
@@ -249,6 +255,27 @@ impl RenderGraph {
         input_node.edges.add_input_edge(edge)?;
 
         Ok(())
+    }
+
+    /// Adds the [`Edge::SlotEdge`] to the graph. This guarantees that the `output_node`
+    /// is run before the `input_node` and also connects the `output_slot` to the `input_slot`.
+    ///
+    /// # Panics
+    ///
+    /// Any invalid [`NodeLabel`]s or [`SlotLabel`]s are given.
+    ///
+    /// # See also
+    ///
+    /// - [`try_add_slot_edge`](Self::try_add_slot_edge) for a fallible version.
+    pub fn add_slot_edge(
+        &mut self,
+        output_node: impl Into<NodeLabel>,
+        output_slot: impl Into<SlotLabel>,
+        input_node: impl Into<NodeLabel>,
+        input_slot: impl Into<SlotLabel>,
+    ) {
+        self.try_add_slot_edge(output_node, output_slot, input_node, input_slot)
+            .unwrap();
     }
 
     /// Removes the [`Edge::SlotEdge`] from the graph. If any nodes or slots do not exist then
@@ -297,7 +324,13 @@ impl RenderGraph {
 
     /// Adds the [`Edge::NodeEdge`] to the graph. This guarantees that the `output_node`
     /// is run before the `input_node`.
-    pub fn add_node_edge(
+    ///
+    /// Fails if any invalid [`NodeLabel`] is given.
+    ///
+    /// # See also
+    ///
+    /// - [`add_node_edge`](Self::add_node_edge) for a fallible version.
+    pub fn try_add_node_edge(
         &mut self,
         output_node: impl Into<NodeLabel>,
         input_node: impl Into<NodeLabel>,
@@ -320,6 +353,24 @@ impl RenderGraph {
         input_node.edges.add_input_edge(edge)?;
 
         Ok(())
+    }
+
+    /// Adds the [`Edge::NodeEdge`] to the graph. This guarantees that the `output_node`
+    /// is run before the `input_node`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any invalid [`NodeLabel`] is given.
+    ///
+    /// # See also
+    ///
+    /// - [`try_add_node_edge`](Self::try_add_node_edge) for a fallible version.
+    pub fn add_node_edge(
+        &mut self,
+        output_node: impl Into<NodeLabel>,
+        input_node: impl Into<NodeLabel>,
+    ) {
+        self.try_add_node_edge(output_node, input_node).unwrap();
     }
 
     /// Removes the [`Edge::NodeEdge`] from the graph. If either node does not exist then nothing
@@ -615,9 +666,9 @@ mod tests {
         let c_id = graph.add_node("C", TestNode::new(1, 1));
         let d_id = graph.add_node("D", TestNode::new(1, 0));
 
-        graph.add_slot_edge("A", "out_0", "C", "in_0").unwrap();
-        graph.add_node_edge("B", "C").unwrap();
-        graph.add_slot_edge("C", 0, "D", 0).unwrap();
+        graph.add_slot_edge("A", "out_0", "C", "in_0");
+        graph.add_node_edge("B", "C");
+        graph.add_slot_edge("C", 0, "D", 0);
 
         fn input_nodes(name: &'static str, graph: &RenderGraph) -> HashSet<NodeId> {
             graph
@@ -703,9 +754,9 @@ mod tests {
         graph.add_node("B", TestNode::new(0, 1));
         graph.add_node("C", TestNode::new(1, 1));
 
-        graph.add_slot_edge("A", 0, "C", 0).unwrap();
+        graph.add_slot_edge("A", 0, "C", 0);
         assert_eq!(
-            graph.add_slot_edge("B", 0, "C", 0),
+            graph.try_add_slot_edge("B", 0, "C", 0),
             Err(RenderGraphError::NodeInputSlotAlreadyOccupied {
                 node: graph.get_node_id("C").unwrap(),
                 input_slot: 0,
@@ -722,9 +773,9 @@ mod tests {
         graph.add_node("A", TestNode::new(0, 1));
         graph.add_node("B", TestNode::new(1, 0));
 
-        graph.add_slot_edge("A", 0, "B", 0).unwrap();
+        graph.add_slot_edge("A", 0, "B", 0);
         assert_eq!(
-            graph.add_slot_edge("A", 0, "B", 0),
+            graph.try_add_slot_edge("A", 0, "B", 0),
             Err(RenderGraphError::EdgeAlreadyExists(Edge::SlotEdge {
                 output_node: graph.get_node_id("A").unwrap(),
                 output_index: 0,
