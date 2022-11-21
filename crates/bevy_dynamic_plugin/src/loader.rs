@@ -56,7 +56,10 @@ impl LeakingDynamicPlugin {
 
     /// Creates a leaky dynamic plugin from its raw [`Box<dyn Plugin>`] and [`Library`].
     pub fn from_raw_parts(plugin: Box<dyn Plugin>, lib: Library) -> Self {
-        Self { plugin, lib: ManuallyDrop::new(lib) }
+        Self {
+            plugin,
+            lib: ManuallyDrop::new(lib),
+        }
     }
 }
 
