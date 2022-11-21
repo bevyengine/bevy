@@ -457,7 +457,7 @@ mod menu {
                         background_color: Color::CRIMSON.into(),
                         ..default()
                     })
-                    .with_child(|parent| {
+                    .with_children(|parent| {
                         // Display the game name
                         parent.spawn(
                             TextBundle::from_section(
@@ -596,12 +596,10 @@ mod menu {
                                     },
                                     action,
                                 ))
-                                .with_children(|parent| {
-                                    parent.spawn(TextBundle::from_section(
-                                        text,
-                                        button_text_style.clone(),
-                                    ));
-                                });
+                                .with_child(TextBundle::from_section(
+                                    text,
+                                    button_text_style.clone(),
+                                ));
                         }
                     });
             });
@@ -702,9 +700,7 @@ mod menu {
                                 },
                                 MenuButtonAction::BackToSettings,
                             ))
-                            .with_children(|parent| {
-                                parent.spawn(TextBundle::from_section("Back", button_text_style));
-                            });
+                            .with_child(TextBundle::from_section("Back", button_text_style));
                     });
             });
     }
@@ -790,9 +786,7 @@ mod menu {
                                 },
                                 MenuButtonAction::BackToSettings,
                             ))
-                            .with_children(|parent| {
-                                parent.spawn(TextBundle::from_section("Back", button_text_style));
-                            });
+                            .with_child(TextBundle::from_section("Back", button_text_style));
                     });
             });
     }

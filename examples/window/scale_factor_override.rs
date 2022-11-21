@@ -44,22 +44,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
-                .with_children(|parent| {
-                    parent.spawn(
-                        TextBundle::from_section(
-                            "Example text",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 30.0,
-                                color: Color::WHITE,
-                            },
-                        )
-                        .with_style(Style {
-                            align_self: AlignSelf::FlexEnd,
-                            ..default()
-                        }),
-                    );
-                });
+                .with_child(
+                    TextBundle::from_section(
+                        "Example text",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 30.0,
+                            color: Color::WHITE,
+                        },
+                    )
+                    .with_style(Style {
+                        align_self: AlignSelf::FlexEnd,
+                        ..default()
+                    }),
+                );
         });
 }
 

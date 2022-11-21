@@ -396,24 +396,22 @@ fn setup_triggers(
                 x,
                 y,
             ))
-            .with_children(|parent| {
-                parent.spawn((
-                    Text2dBundle {
-                        transform: Transform::from_xyz(0., 0., 1.),
-                        text: Text::from_section(
-                            format!("{:.3}", 0.),
-                            TextStyle {
-                                font: font.clone(),
-                                font_size: 16.,
-                                color: TEXT_COLOR,
-                            },
-                        )
-                        .with_alignment(TextAlignment::CENTER),
-                        ..default()
-                    },
-                    TextWithButtonValue(button_type),
-                ));
-            });
+            .with_child((
+                TextWithButtonValue(button_type),
+                Text2dBundle {
+                    transform: Transform::from_xyz(0., 0., 1.),
+                    text: Text::from_section(
+                        format!("{:.3}", 0.),
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 16.,
+                            color: TEXT_COLOR,
+                        },
+                    )
+                    .with_alignment(TextAlignment::CENTER),
+                    ..default()
+                },
+            ));
     };
 
     spawn_trigger(

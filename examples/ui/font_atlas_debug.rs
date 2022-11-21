@@ -95,14 +95,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
             },
             ..default()
         })
-        .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "a",
-                TextStyle {
-                    font: font_handle,
-                    font_size: 60.0,
-                    color: Color::YELLOW,
-                },
-            ));
-        });
+        .with_child(TextBundle::from_section(
+            "a",
+            TextStyle {
+                font: font_handle,
+                font_size: 60.0,
+                color: Color::YELLOW,
+            },
+        ));
 }

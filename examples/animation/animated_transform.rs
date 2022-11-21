@@ -133,18 +133,16 @@ fn setup(
                 // Add the Name component
                 orbit_controller,
             ))
-            .with_children(|p| {
-                // The satellite, placed at a distance of the planet
-                p.spawn((
-                    PbrBundle {
-                        transform: Transform::from_xyz(1.5, 0.0, 0.0),
-                        mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                        material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
-                        ..default()
-                    },
-                    // Add the Name component
-                    satellite,
-                ));
-            });
+            // The satellite, placed at a distance of the planet
+            .with_children((
+                PbrBundle {
+                    transform: Transform::from_xyz(1.5, 0.0, 0.0),
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                    material: materials.add(Color::rgb(0.3, 0.9, 0.3).into()),
+                    ..default()
+                },
+                // Add the Name component
+                satellite,
+            ));
         });
 }

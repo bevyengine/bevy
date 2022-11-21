@@ -176,15 +176,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     background_color: Color::rgb(0.4, 0.4, 1.0).into(),
                     ..default()
                 })
-                .with_children(|parent| {
-                    parent.spawn(NodeBundle {
-                        style: Style {
-                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                            ..default()
-                        },
-                        background_color: Color::rgb(0.8, 0.8, 1.0).into(),
+                .with_child(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         ..default()
-                    });
+                    },
+                    background_color: Color::rgb(0.8, 0.8, 1.0).into(),
+                    ..default()
                 });
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
@@ -280,17 +278,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     },
                     ..default()
                 })
-                .with_children(|parent| {
+                .with_child(
                     // bevy logo (image)
-                    parent.spawn(ImageBundle {
+                    ImageBundle {
                         style: Style {
                             size: Size::new(Val::Px(500.0), Val::Auto),
                             ..default()
                         },
                         image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
                         ..default()
-                    });
-                });
+                    },
+                );
         });
 }
 
