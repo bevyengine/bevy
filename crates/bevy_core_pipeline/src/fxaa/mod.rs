@@ -203,8 +203,8 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             fragment: Some(FragmentState {
                 shader: FXAA_SHADER_HANDLE.typed(),
                 shader_defs: vec![
-                    format!("EDGE_THRESH_{}", key.edge_threshold.get_str()),
-                    format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()),
+                    format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
+                    format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),
                 ],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
