@@ -204,7 +204,7 @@ impl Redirector {
             });
 
             // remove things we added from requirements
-            for (_, reqs) in &mut requirements {
+            for reqs in requirements.values_mut() {
                 reqs.retain(|req| !added.contains(req));
             }
 

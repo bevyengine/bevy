@@ -899,7 +899,7 @@ impl Composer {
                     " ".repeat(cap.get(4).unwrap().range().len()),
                 );
 
-                (&mut local_virtual_functions).insert(rename, base_name);
+                local_virtual_functions.insert(rename, base_name);
 
                 replacement_str
             })
@@ -1615,7 +1615,7 @@ impl Composer {
                     inner: ComposerErrorInner::ImportNotFound(import_name.clone(), offset),
                     source: ErrSource::Constructing {
                         path: file_path.to_owned(),
-                        source: substituted_source.clone(),
+                        source: substituted_source,
                         offset: 0,
                     },
                 });
