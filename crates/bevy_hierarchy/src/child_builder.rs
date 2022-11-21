@@ -252,7 +252,10 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 
 /// Trait defining how to build children
 pub trait BuildChildren {
-    /// Spawns a new entity for the provided `bundle`, and adds it as a child entity to the parent
+    /// Spawns a new entity for the provided `bundle`, and adds it as a child entity to the parent.
+    ///
+    /// Returns the original reference to the parent,
+    /// which can be used to spawn siblings by calling this method repeatedly.
     fn with_child(&mut self, bundle: impl Bundle) -> &mut Self;
 
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
