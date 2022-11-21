@@ -14,11 +14,19 @@ use bevy::prelude::*;
 use rand::random;
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins)
         .add_startup_system(setup)
-        .add_system(example_control_system)
-        .run();
+        .add_system(example_control_system);
+
+    // Unfortunately, MSAA and HDR are not supported simultaneously under WebGL.
+    // Since this example uses HDR, we must disable MSAA for WASM builds, at least
+    // until WebGPU is ready and no longer behind a feature flag in Web browsers.
+    #[cfg(target_arch = "wasm32")]
+    app.insert_resource(Msaa { samples: 1 }); // Default is 4 samples (MSAA on)
+
+    app.run();
 }
 
 /// set up a simple 3D scene
