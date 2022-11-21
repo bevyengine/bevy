@@ -488,6 +488,8 @@ mod tests {
         map_value: HashMap<u8, usize>,
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
+        unit_struct: SomeUnitStruct,
+        ignored_struct: SomeIgnoredStruct,
         unit_enum: SomeEnum,
         newtype_enum: SomeEnum,
         tuple_enum: SomeEnum,
@@ -502,6 +504,12 @@ mod tests {
 
     #[derive(Reflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
+
+    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    struct SomeUnitStruct;
+
+    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    struct SomeIgnoredStruct(#[reflect(ignore)] i32);
 
     #[derive(Reflect, Debug, PartialEq)]
     enum SomeEnum {
@@ -532,6 +540,8 @@ mod tests {
         registry.register::<MyStruct>();
         registry.register::<SomeStruct>();
         registry.register::<SomeTupleStruct>();
+        registry.register::<SomeUnitStruct>();
+        registry.register::<SomeIgnoredStruct>();
         registry.register::<CustomSerialize>();
         registry.register::<SomeEnum>();
         registry.register::<SomeSerializableStruct>();
@@ -557,6 +567,8 @@ mod tests {
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_struct: SomeUnitStruct,
+            ignored_struct: SomeIgnoredStruct(123),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
@@ -600,6 +612,8 @@ mod tests {
             foo: 999999999,
         ),
         tuple_struct_value: ("Tuple Struct"),
+        unit_struct: (),
+        ignored_struct: (),
         unit_enum: Unit,
         newtype_enum: NewType(123),
         tuple_enum: Tuple(1.23, 3.21),
@@ -745,6 +759,8 @@ mod tests {
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_struct: SomeUnitStruct,
+            ignored_struct: SomeIgnoredStruct(123),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
@@ -795,6 +811,8 @@ mod tests {
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
+            unit_struct: SomeUnitStruct,
+            ignored_struct: SomeIgnoredStruct(123),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
@@ -815,14 +833,14 @@ mod tests {
         let expected: Vec<u8> = vec![
             129, 217, 41, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
             101, 114, 100, 101, 58, 58, 115, 101, 114, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77,
-            121, 83, 116, 114, 117, 99, 116, 158, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
-            114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0,
-            1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172, 84,
-            117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 164, 85, 110, 105, 116, 129, 167,
-            78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202, 63,
-            157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180,
-            83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117,
-            101, 146, 100, 145, 101,
+            121, 83, 116, 114, 117, 99, 116, 220, 0, 16, 123, 172, 72, 101, 108, 108, 111, 32, 119,
+            111, 114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255,
+            0, 1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172,
+            84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 144, 164, 85, 110, 105,
+            116, 129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101,
+            146, 202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99,
+            116, 145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32,
+            118, 97, 108, 117, 101, 146, 100, 145, 101,
         ];
 
         assert_eq!(expected, bytes);
