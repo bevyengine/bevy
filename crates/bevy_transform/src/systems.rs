@@ -373,11 +373,8 @@ mod test {
         let mut temp = World::new();
         let mut app = App::new();
 
-        // FIXME: Parallel executors seem to have some odd interaction with the other
-        // tests in this crate. Using single_threaded until a root cause can be found.
-        app.add_stage("single", SystemStage::single_threaded())
-            .add_system_to_stage("single", sync_simple_transforms)
-            .add_system_to_stage("single", propagate_transforms);
+        app.add_system(propagate_transforms)
+            .add_system(sync_simple_transforms);
 
         fn setup_world(world: &mut World) -> (Entity, Entity) {
             let mut grandchild = Entity::from_raw(0);
