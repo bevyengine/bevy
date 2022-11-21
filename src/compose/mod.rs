@@ -469,6 +469,8 @@ pub struct Composer {
     define_import_path_regex: Regex,
     virtual_fn_regex: Regex,
     undecorate_virtual_regex: Regex,
+    auto_binding_regex: Regex,
+    auto_binding_index: u32,
 }
 
 // shift for module index
@@ -520,6 +522,8 @@ impl Default for Composer {
                 .as_str(),
             )
             .unwrap(),
+            auto_binding_regex: Regex::new(r"@binding\(auto\)").unwrap(),
+            auto_binding_index: 0,
         }
     }
 }
@@ -537,6 +541,13 @@ struct IrBuildResult {
 }
 
 impl Composer {
+    pub fn decorated_name(module_name: Option<&str>, item_name: &str) -> String {
+        match module_name {
+            Some(module_name) => format!("{}{}", Self::decorate(module_name), item_name),
+            None => item_name.to_owned(),
+        }
+    }
+
     fn decorate(as_name: &str) -> String {
         let as_name = data_encoding::BASE32_NOPAD.encode(as_name.as_bytes());
         format!("{}{}{}", DECORATION_PRE, as_name, DECORATION_POST)
@@ -566,6 +577,7 @@ impl Composer {
     }
 
     fn sanitize_and_substitute_shader_string(
+        &mut self,
         source: &str,
         imports: &[ImportDefWithOffset],
     ) -> String {
@@ -584,7 +596,27 @@ impl Composer {
                 &Self::decorate(&import.definition.import),
             );
         }
-        substituted_source
+
+        // replace @binding(auto) with an incrementing index
+        struct AutoBindingReplacer<'a> {
+            auto: &'a mut u32,
+        }
+
+        impl<'a> regex::Replacer for AutoBindingReplacer<'a> {
+            fn replace_append(&mut self, _: &regex::Captures<'_>, dst: &mut String) {
+                dst.push_str(&format!("@binding({})", self.auto));
+                *self.auto += 1;
+            }
+        }
+
+        let substituted_source = self.auto_binding_regex.replace_all(
+            &substituted_source,
+            AutoBindingReplacer {
+                auto: &mut self.auto_binding_index,
+            },
+        );
+
+        substituted_source.into_owned()
     }
 
     // build naga module for a given shader_def configuration. builds a minimal self-contained module built against headers for imports
@@ -1465,7 +1497,7 @@ impl Composer {
             });
         }
 
-        let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
+        let substituted_source = self.sanitize_and_substitute_shader_string(source, &imports);
 
         let mut effective_defs = HashSet::new();
         for import in imports.iter() {
@@ -1570,7 +1602,7 @@ impl Composer {
             })?;
 
         let name = name.unwrap_or_default();
-        let substituted_source = Self::sanitize_and_substitute_shader_string(source, &imports);
+        let substituted_source = self.sanitize_and_substitute_shader_string(source, &imports);
 
         // make sure imports have been added
         for (import_name, offset) in imports
