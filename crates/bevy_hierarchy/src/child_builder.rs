@@ -323,8 +323,9 @@ pub trait BuildChildren {
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.add_children(|child_builder| {
-            child_builder.spawn(bundle);
+        let parent_entity = self.id();
+        self.commands().add(move |world| {
+            world.entity_mut(parent_entity).with_child(bundle);
         });
         self
     }
@@ -471,9 +472,9 @@ pub trait BuildWorldChildren {
 
 impl<'w> BuildWorldChildren for EntityMut<'w> {
     fn with_child(&mut self, bundle: impl Bundle) -> &mut Self {
-        // PERF: we can probably special-case this to be faster
-        self.with_children(|world_child_builder| {
-            world_child_builder.spawn(bundle);
+        let parent_entity = self.id();
+        self.world_scope(|world| {
+            world.spawn(bundle).set_parent(parent_entity);
         });
         self
     }
