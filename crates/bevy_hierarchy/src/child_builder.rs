@@ -509,69 +509,6 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
     }
 }
 
-impl<'w> BuildWorldChildren for WorldChildBuilder<'w> {
-    fn with_children(
-        &mut self,
-        spawn_children: impl FnOnce(&mut WorldChildBuilder<'w>),
-    ) -> &mut Self {
-        let current_entity = self
-            .current_entity
-            .expect("Cannot add children without a parent. Try creating an entity first.");
-        self.parent_entities.push(current_entity);
-        self.current_entity = None;
-
-        spawn_children(self);
-
-        self.current_entity = self.parent_entities.pop();
-        self
-    }
-
-    fn push_children(&mut self, children: &[Entity]) -> &mut Self {
-        let parent = self
-            .current_entity
-            .expect("Cannot add children without a parent. Try creating an entity first.");
-        update_old_parents(self.world, parent, children);
-        if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
-            children_component
-                .0
-                .retain(|value| !children.contains(value));
-            children_component.0.extend(children.iter().cloned());
-        } else {
-            self.world
-                .entity_mut(parent)
-                .insert(Children::from_entities(children));
-        }
-        self
-    }
-
-    fn insert_children(&mut self, index: usize, children: &[Entity]) -> &mut Self {
-        let parent = self
-            .current_entity
-            .expect("Cannot add children without a parent. Try creating an entity first.");
-        update_old_parents(self.world, parent, children);
-        if let Some(mut children_component) = self.world.get_mut::<Children>(parent) {
-            children_component
-                .0
-                .retain(|value| !children.contains(value));
-            children_component.0.insert_from_slice(index, children);
-        } else {
-            self.world
-                .entity_mut(parent)
-                .insert(Children::from_entities(children));
-        }
-        self
-    }
-
-    fn remove_children(&mut self, children: &[Entity]) -> &mut Self {
-        let parent = self
-            .current_entity
-            .expect("Cannot remove children without a parent. Try creating an entity first.");
-
-        remove_children(parent, children, self.world);
-        self
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::{BuildChildren, BuildWorldChildren};
