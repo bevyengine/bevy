@@ -8,11 +8,14 @@ pub trait AppExt {
     ///
     /// **Note:** This will create the schedule if it does not already exist.
     fn set_default_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self;
-    /// Sets the [`Schedule`] that will be modified by default within the scope of `f` and calls it.
-    /// Afterwards, restores the default to its previous value.
+    /// Applies the function to the [`Schedule`] associated with `label`.
     ///
     /// **Note:** This will create the schedule if it does not already exist.
-    fn edit_schedule(&mut self, label: impl ScheduleLabel, f: impl FnMut(&mut Self)) -> &mut Self;
+    fn edit_schedule(
+        &mut self,
+        label: impl ScheduleLabel,
+        f: impl FnMut(&mut Schedule),
+    ) -> &mut Self;
 }
 
 /// New "stageless" [`World`] methods.

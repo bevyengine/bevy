@@ -114,29 +114,34 @@ impl Schedule {
     }
 
     /// Add a system to the schedule.
-    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) {
+    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
         self.graph.add_system(system);
+        self
     }
 
     /// Add a collection of systems to the schedule.
-    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
+    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
         self.graph.add_systems(systems);
+        self
     }
 
     /// Configure a system set in this schedule.
-    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) {
+    pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.graph.configure_set(set);
+        self
     }
 
     /// Configure a collection of system sets in this schedule.
-    pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
+    pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
         self.graph.configure_sets(sets);
+        self
     }
 
     /// Sets the system set that new systems and system sets will join by default
     /// if they aren't already part of one.
-    pub fn set_default_set(&mut self, set: impl SystemSet) {
+    pub fn set_default_set(&mut self, set: impl SystemSet) -> &mut Self {
         self.graph.set_default_set(set);
+        self
     }
 
     /// Returns the schedule's current execution strategy.
@@ -145,7 +150,7 @@ impl Schedule {
     }
 
     /// Sets the schedule's execution strategy.
-    pub fn set_executor_kind(&mut self, executor: ExecutorKind) {
+    pub fn set_executor_kind(&mut self, executor: ExecutorKind) -> &mut Self {
         if executor != self.executor.kind() {
             self.executor = match executor {
                 ExecutorKind::Simple => Box::new(SimpleExecutor::new()),
@@ -154,6 +159,7 @@ impl Schedule {
             };
             self.executor.init(&self.executable);
         }
+        self
     }
 
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
