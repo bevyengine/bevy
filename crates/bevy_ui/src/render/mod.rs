@@ -327,7 +327,7 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
-            let alignment_offset = Vec2::new(
+            let alignment_offset = Vec3::new(
                 match text.alignment.horizontal {
                     HorizontalAlign::Left => -0.5 * uinode.size().x,
                     HorizontalAlign::Center => -0.5 * text_layout_info.size.x,
@@ -338,8 +338,8 @@ pub fn extract_text_uinodes(
                     VerticalAlign::Top => -0.5 * uinode.size().y,
                     VerticalAlign::Bottom => 0.5 * uinode.size().y - text_layout_info.size.y,
                 },
-            )
-            .extend(0.0);
+                0.0
+            );
 
             let text_glyphs = &text_layout_info.glyphs;
             let mut color = Color::WHITE;
