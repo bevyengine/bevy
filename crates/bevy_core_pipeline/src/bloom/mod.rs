@@ -641,7 +641,7 @@ fn prepare_bloom_textures(
         }) = camera.physical_viewport_size
         {
             let min_view = width.min(height) as f32;
-            // How many times we can halve the resolution, minus 3 to avoid tiny mips
+            // How many times we can halve the resolution
             let mip_count = (min_view.log2().floor() as i32).max(1) as u32;
 
             let texture_descriptor = TextureDescriptor {
