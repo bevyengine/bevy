@@ -49,7 +49,9 @@ use crate::{
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::tracing::debug;
+use std::ops::Range;
 use std::{
     any::TypeId,
     ops::{Deref, DerefMut},
@@ -336,10 +338,15 @@ impl Plugin for RenderPlugin {
             .register_type::<camera::RenderTarget>()
             .register_type::<camera::ScalingMode>()
             .register_type::<camera::Viewport>()
+            .register_type::<Option<camera::Viewport>>()
+            .register_type::<Range<f32>>()
+            .register_type_data::<Range<f32>, ReflectSerialize>()
+            .register_type_data::<Range<f32>, ReflectDeserialize>()
             .register_type::<camera::WindowOrigin>()
             .register_type::<color::Color>()
             .register_type::<globals::GlobalsUniform>()
             .register_type::<mesh::skinning::SkinnedMesh>()
+            .register_type::<Vec<Entity>>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>()
