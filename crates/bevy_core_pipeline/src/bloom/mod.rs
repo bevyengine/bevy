@@ -547,11 +547,15 @@ impl FromWorld for BloomPipelines {
                     format: TextureFormat::Rg11b10Float,
                     blend: Some(BlendState {
                         color: BlendComponent {
-                            src_factor: BlendFactor::One,
+                            src_factor: BlendFactor::SrcAlpha,
+                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            operation: BlendOperation::Add,
+                        },
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::Zero,
                             dst_factor: BlendFactor::One,
                             operation: BlendOperation::Add,
                         },
-                        alpha: BlendComponent::REPLACE,
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -638,7 +642,7 @@ fn prepare_bloom_textures(
         {
             let min_view = width.min(height) as f32;
             // How many times we can halve the resolution, minus 3 to avoid tiny mips
-            let mip_count = (min_view.log2().round() as i32 - 3).max(1) as u32;
+            let mip_count = (min_view.log2().round() as i32).max(1) as u32;
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
