@@ -642,7 +642,7 @@ fn prepare_bloom_textures(
         {
             let min_view = width.min(height) as f32;
             // How many times we can halve the resolution, minus 3 to avoid tiny mips
-            let mip_count = (min_view.log2().round() as i32).max(1) as u32;
+            let mip_count = (min_view.log2().floor() as i32).max(1) as u32;
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
