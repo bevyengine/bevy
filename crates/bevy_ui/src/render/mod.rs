@@ -338,7 +338,7 @@ pub fn extract_text_uinodes(
                     VerticalAlign::Top => -0.5 * uinode.size().y,
                     VerticalAlign::Bottom => 0.5 * uinode.size().y - text_layout_info.size.y,
                 },
-                0.0
+                0.0,
             );
 
             let text_glyphs = &text_layout_info.glyphs;
