@@ -412,6 +412,7 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                         enum_info.variant_names(),
                         EnumVisitor {
                             enum_info,
+                            registration: self.registration,
                             registry: self.registry,
                         },
                     )?
@@ -704,6 +705,7 @@ impl<'a, 'de> Visitor<'de> for MapVisitor<'a> {
 
 struct EnumVisitor<'a> {
     enum_info: &'static EnumInfo,
+    registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
 }
 
@@ -730,6 +732,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                     struct_info.field_names(),
                     StructVariantVisitor {
                         struct_info,
+                        registration: self.registration,
                         registry: self.registry,
                     },
                 )?
@@ -751,6 +754,7 @@ impl<'a, 'de> Visitor<'de> for EnumVisitor<'a> {
                     tuple_info.field_len(),
                     TupleVariantVisitor {
                         tuple_info,
+                        registration: self.registration,
                         registry: self.registry,
                     },
                 )?
@@ -816,6 +820,7 @@ impl<'de> DeserializeSeed<'de> for VariantDeserializer {
 
 struct StructVariantVisitor<'a> {
     struct_info: &'static StructVariantInfo,
+    registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
 }
 
@@ -840,6 +845,18 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
         let mut index = 0usize;
         let mut output = DynamicStruct::default();
 
+        let ignored_len = self
+            .registration
+            .data::<SerializationData>()
+            .map(|data| data.len())
+            .unwrap_or(0);
+        let field_len = self.struct_info.field_len().saturating_sub(ignored_len);
+
+        if field_len == 0 {
+            // Handle all fields being ignored
+            return Ok(output);
+        }
+
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
             registration: self
                 .struct_info
@@ -860,6 +877,7 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
 
 struct TupleVariantVisitor<'a> {
     tuple_info: &'static TupleVariantInfo,
+    registration: &'a TypeRegistration,
     registry: &'a TypeRegistry,
 }
 
@@ -874,6 +892,18 @@ impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
     where
         V: SeqAccess<'de>,
     {
+        let ignored_len = self
+            .registration
+            .data::<SerializationData>()
+            .map(|data| data.len())
+            .unwrap_or(0);
+        let field_len = self.tuple_info.field_len().saturating_sub(ignored_len);
+
+        if field_len == 0 {
+            // Handle all fields being ignored
+            return Ok(DynamicTuple::default());
+        }
+
         visit_tuple(&mut seq, self.tuple_info, self.registry)
     }
 }
@@ -1042,6 +1072,7 @@ mod tests {
         tuple_struct_value: SomeTupleStruct,
         unit_struct: SomeUnitStruct,
         ignored_struct: SomeIgnoredStruct,
+        ignored_enum: SomeIgnoredEnum,
         unit_enum: SomeEnum,
         newtype_enum: SomeEnum,
         tuple_enum: SomeEnum,
@@ -1087,6 +1118,11 @@ mod tests {
         Struct { foo: String },
     }
 
+    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    enum SomeIgnoredEnum {
+        Ignored(#[reflect(ignore)] f32, #[reflect(ignore)] f32),
+    }
+
     fn get_registry() -> TypeRegistry {
         let mut registry = TypeRegistry::default();
         registry.register::<MyStruct>();
@@ -1097,6 +1133,7 @@ mod tests {
         registry.register::<CustomDeserialize>();
         registry.register::<SomeDeserializableStruct>();
         registry.register::<SomeEnum>();
+        registry.register::<SomeIgnoredEnum>();
         registry.register::<i8>();
         registry.register::<String>();
         registry.register::<i64>();
@@ -1131,6 +1168,7 @@ mod tests {
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_struct: SomeUnitStruct,
             ignored_struct: SomeIgnoredStruct(0),
+            ignored_enum: SomeIgnoredEnum::Ignored(0.0, 0.0),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
@@ -1168,6 +1206,7 @@ mod tests {
                 tuple_struct_value: ("Tuple Struct"),
                 unit_struct: (),
                 ignored_struct: (),
+                ignored_enum: Ignored(),
                 unit_enum: Unit,
                 newtype_enum: NewType(123),
                 tuple_enum: Tuple(1.23, 3.21),
@@ -1382,6 +1421,7 @@ mod tests {
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_struct: SomeUnitStruct,
             ignored_struct: SomeIgnoredStruct(0),
+            ignored_enum: SomeIgnoredEnum::Ignored(0.0, 0.0),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
@@ -1405,10 +1445,10 @@ mod tests {
             255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255, 255,
             255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32, 0,
             0, 0, 0, 0, 0, 0, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 84, 117, 112,
-            108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0, 0, 0, 0, 0,
-            0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0, 0, 0, 0, 0,
-            0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
-            108, 117, 101, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
+            108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0,
+            0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0,
+            0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32,
+            118, 97, 108, 117, 101, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
         ];
 
         let deserializer = UntypedReflectDeserializer::new(&registry);
@@ -1439,6 +1479,7 @@ mod tests {
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_struct: SomeUnitStruct,
             ignored_struct: SomeIgnoredStruct(0),
+            ignored_enum: SomeIgnoredEnum::Ignored(0.0, 0.0),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
@@ -1456,14 +1497,14 @@ mod tests {
         let input = vec![
             129, 217, 40, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
             101, 114, 100, 101, 58, 58, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
-            83, 116, 114, 117, 99, 116, 220, 0, 16, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
+            83, 116, 114, 117, 99, 116, 220, 0, 17, 123, 172, 72, 101, 108, 108, 111, 32, 119, 111,
             114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255, 0,
             1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172, 84,
-            117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 144, 164, 85, 110, 105, 116,
-            129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146,
-            202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116,
-            145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
-            108, 117, 101, 146, 100, 145, 101,
+            117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 144, 129, 167, 73, 103, 110,
+            111, 114, 101, 100, 144, 164, 85, 110, 105, 116, 129, 167, 78, 101, 119, 84, 121, 112,
+            101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202, 63, 157, 112, 164, 202, 64, 77,
+            112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180, 83, 116, 114, 117, 99, 116,
+            32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117, 101, 146, 100, 145, 101,
         ];
 
         let deserializer = UntypedReflectDeserializer::new(&registry);
