@@ -35,15 +35,15 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(5.2, 1.2, 0.8), // 3. Set StandardMaterial::emissive using Color::rgb_linear, for entities we want to glow
+        emissive: Color::rgb_linear(50.0, 50.0, 0.0), // 3. Set StandardMaterial::emissive using Color::rgb_linear, for entities we want to glow
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(1.2, 5.2, 0.8),
+        emissive: Color::rgb_linear(0.0, 50.0, 50.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(1.2, 0.8, 5.2), // 3.
+        emissive: Color::rgb_linear(50.0, 0.0, 50.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
