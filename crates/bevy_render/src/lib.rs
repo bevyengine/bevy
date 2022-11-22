@@ -37,13 +37,10 @@ pub mod prelude {
 
 use globals::GlobalsPlugin;
 pub use once_cell;
-use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
-    color::Color,
     mesh::MeshPlugin,
-    primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
@@ -137,8 +134,7 @@ impl Plugin for RenderPlugin {
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>()
-            .register_type::<Color>();
+            .init_debug_asset_loader::<ShaderLoader>();
 
         if let Some(backends) = options.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
@@ -166,9 +162,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone())
-                .init_resource::<ScratchMainWorld>()
-                .register_type::<Frustum>()
-                .register_type::<CubemapFrusta>();
+                .init_resource::<ScratchMainWorld>();
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -327,12 +321,35 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+        app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
             .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
             .add_plugin(GlobalsPlugin);
+
+        app.register_type::<camera::Camera>()
+            .register_type::<camera::CameraRenderGraph>()
+            .register_type::<camera::OrthographicProjection>()
+            .register_type::<camera::PerspectiveProjection>()
+            .register_type::<camera::Projection>()
+            .register_type::<camera::RenderTarget>()
+            .register_type::<camera::ScalingMode>()
+            .register_type::<camera::Viewport>()
+            .register_type::<camera::WindowOrigin>()
+            .register_type::<color::Color>()
+            .register_type::<globals::GlobalsUniform>()
+            .register_type::<mesh::skinning::SkinnedMesh>()
+            .register_type::<primitives::Aabb>()
+            .register_type::<primitives::CubemapFrusta>()
+            .register_type::<primitives::Frustum>()
+            .register_type::<texture::Image>()
+            .register_type::<view::ComputedVisibility>()
+            .register_type::<view::ComputedVisibilityFlags>()
+            .register_type::<view::Msaa>()
+            .register_type::<view::RenderLayers>()
+            .register_type::<view::Visibility>()
+            .register_type::<view::VisibleEntities>();
     }
 }
 
