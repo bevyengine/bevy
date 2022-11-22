@@ -25,7 +25,7 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
-use bevy_text::{Text, TextLayoutInfo};
+use bevy_text::{HorizontalAlign, Text, TextLayoutInfo, VerticalAlign};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
@@ -344,9 +344,19 @@ pub fn extract_text_uinodes(
             if uinode.size() == Vec2::ZERO {
                 continue;
             }
-            let text_glyphs = &text_layout_info.glyphs;
-            let alignment_offset = (uinode.size() / -2.0).extend(0.0);
 
+            let alignment_offset = (match text.alignment.vertical {
+                VerticalAlign::Center => -0.5 * text_layout_info.size.y,
+                VerticalAlign::Top => -0.5 * uinode.size().y,
+                VerticalAlign::Bottom => 0.5 * uinode.size().y - text_layout_info.size.y,
+            } * Vec3::Y)
+                + (match text.alignment.horizontal {
+                    HorizontalAlign::Left => -0.5 * uinode.size().x,
+                    HorizontalAlign::Center => -0.5 * text_layout_info.size.x,
+                    HorizontalAlign::Right => 0.5 * uinode.size().x - text_layout_info.size.x,
+                } * Vec3::X);
+
+            let text_glyphs = &text_layout_info.glyphs;
             let mut color = Color::WHITE;
             let mut current_section = usize::MAX;
             for text_glyph in text_glyphs {
@@ -366,6 +376,7 @@ pub fn extract_text_uinodes(
                 let atlas_size = Some(atlas.size);
 
                 // NOTE: Should match `bevy_text::text2d::extract_text2d_sprite`
+
                 let extracted_transform = global_transform.compute_matrix()
                     * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
                     * Mat4::from_translation(
