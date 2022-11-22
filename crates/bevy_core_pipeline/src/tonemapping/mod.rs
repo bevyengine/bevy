@@ -66,7 +66,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
         if key.deband_dither {
-            shader_defs.push("DEBAND_DITHER".to_string());
+            shader_defs.push("DEBAND_DITHER".into());
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),

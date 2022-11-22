@@ -59,27 +59,21 @@ impl Plugin for BloomPlugin {
                 .get_sub_graph_mut(crate::core_3d::graph::NAME)
                 .unwrap();
             draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
-            draw_3d_graph
-                .add_slot_edge(
-                    draw_3d_graph.input_node().unwrap().id,
-                    crate::core_3d::graph::input::VIEW_ENTITY,
-                    core_3d::graph::node::BLOOM,
-                    BloomNode::IN_VIEW,
-                )
-                .unwrap();
+            draw_3d_graph.add_slot_edge(
+                draw_3d_graph.input_node().id,
+                crate::core_3d::graph::input::VIEW_ENTITY,
+                core_3d::graph::node::BLOOM,
+                BloomNode::IN_VIEW,
+            );
             // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_3d_graph
-                .add_node_edge(
-                    crate::core_3d::graph::node::MAIN_PASS,
-                    core_3d::graph::node::BLOOM,
-                )
-                .unwrap();
-            draw_3d_graph
-                .add_node_edge(
-                    core_3d::graph::node::BLOOM,
-                    crate::core_3d::graph::node::TONEMAPPING,
-                )
-                .unwrap();
+            draw_3d_graph.add_node_edge(
+                crate::core_3d::graph::node::MAIN_PASS,
+                core_3d::graph::node::BLOOM,
+            );
+            draw_3d_graph.add_node_edge(
+                core_3d::graph::node::BLOOM,
+                crate::core_3d::graph::node::TONEMAPPING,
+            );
         }
 
         {
@@ -89,27 +83,21 @@ impl Plugin for BloomPlugin {
                 .get_sub_graph_mut(crate::core_2d::graph::NAME)
                 .unwrap();
             draw_2d_graph.add_node(core_2d::graph::node::BLOOM, bloom_node);
-            draw_2d_graph
-                .add_slot_edge(
-                    draw_2d_graph.input_node().unwrap().id,
-                    crate::core_2d::graph::input::VIEW_ENTITY,
-                    core_2d::graph::node::BLOOM,
-                    BloomNode::IN_VIEW,
-                )
-                .unwrap();
+            draw_2d_graph.add_slot_edge(
+                draw_2d_graph.input_node().id,
+                crate::core_2d::graph::input::VIEW_ENTITY,
+                core_2d::graph::node::BLOOM,
+                BloomNode::IN_VIEW,
+            );
             // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_2d_graph
-                .add_node_edge(
-                    crate::core_2d::graph::node::MAIN_PASS,
-                    core_2d::graph::node::BLOOM,
-                )
-                .unwrap();
-            draw_2d_graph
-                .add_node_edge(
-                    core_2d::graph::node::BLOOM,
-                    crate::core_2d::graph::node::TONEMAPPING,
-                )
-                .unwrap();
+            draw_2d_graph.add_node_edge(
+                crate::core_2d::graph::node::MAIN_PASS,
+                core_2d::graph::node::BLOOM,
+            );
+            draw_2d_graph.add_node_edge(
+                core_2d::graph::node::BLOOM,
+                crate::core_2d::graph::node::TONEMAPPING,
+            );
         }
     }
 }
