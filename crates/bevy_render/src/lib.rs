@@ -41,7 +41,6 @@ pub use once_cell;
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
-    render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     view::{ViewPlugin, WindowRenderPlugin},
@@ -49,9 +48,7 @@ use crate::{
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
 use bevy_ecs::prelude::*;
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::tracing::debug;
-use std::ops::Range;
 use std::{
     any::TypeId,
     ops::{Deref, DerefMut},
@@ -199,7 +196,7 @@ impl Plugin for RenderPlugin {
                         .with_system(render_system.at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
-                .init_resource::<RenderGraph>()
+                .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
@@ -330,33 +327,10 @@ impl Plugin for RenderPlugin {
             .add_plugin(MeshPlugin)
             .add_plugin(GlobalsPlugin);
 
-        app.register_type::<camera::Camera>()
-            .register_type::<camera::CameraRenderGraph>()
-            .register_type::<camera::OrthographicProjection>()
-            .register_type::<camera::PerspectiveProjection>()
-            .register_type::<camera::Projection>()
-            .register_type::<camera::RenderTarget>()
-            .register_type::<camera::ScalingMode>()
-            .register_type::<camera::Viewport>()
-            .register_type::<Option<camera::Viewport>>()
-            .register_type::<Range<f32>>()
-            .register_type_data::<Range<f32>, ReflectSerialize>()
-            .register_type_data::<Range<f32>, ReflectDeserialize>()
-            .register_type::<camera::WindowOrigin>()
-            .register_type::<color::Color>()
-            .register_type::<globals::GlobalsUniform>()
-            .register_type::<mesh::skinning::SkinnedMesh>()
-            .register_type::<Vec<Entity>>()
+        app.register_type::<color::Color>()
             .register_type::<primitives::Aabb>()
             .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>()
-            .register_type::<texture::Image>()
-            .register_type::<view::ComputedVisibility>()
-            .register_type::<view::ComputedVisibilityFlags>()
-            .register_type::<view::Msaa>()
-            .register_type::<view::RenderLayers>()
-            .register_type::<view::Visibility>()
-            .register_type::<view::VisibleEntities>();
+            .register_type::<primitives::Frustum>();
     }
 }
 
