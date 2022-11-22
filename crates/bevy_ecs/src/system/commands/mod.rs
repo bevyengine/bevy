@@ -113,6 +113,10 @@ impl<'w, 's> Commands<'w, 's> {
         }
     }
 
+    pub fn from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
+        Self { queue, entities }
+    }
+
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
     ///
     /// It is not required to call this constructor when using `Commands` as a [system parameter].
