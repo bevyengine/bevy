@@ -6,7 +6,7 @@ use crate::{
 use bevy_ptr::{OwningPtr, Ptr};
 use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
-type EntityId = u32;
+type EntityIndex = u32;
 
 #[derive(Debug)]
 pub(crate) struct SparseArray<I, V = I> {
@@ -102,14 +102,14 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     dense: Column,
-    // Internally this only relies on the Entity ID to keep track of where the component data is
+    // Internally this only relies on the Entity index to keep track of where the component data is
     // stored for entities that are alive. The generation is not required, but is stored
     // in debug builds to validate that access is correct.
     #[cfg(not(debug_assertions))]
-    entities: Vec<EntityId>,
+    entities: Vec<EntityIndex>,
     #[cfg(debug_assertions)]
     entities: Vec<Entity>,
-    sparse: SparseArray<EntityId, u32>,
+    sparse: SparseArray<EntityIndex, u32>,
 }
 
 impl ComponentSparseSet {
