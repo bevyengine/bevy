@@ -13,6 +13,7 @@ use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
 use bevy_render::{
+    auto_binding::AutoBindGroupPlugin,
     camera::Camera,
     color::Color,
     render_asset::RenderAssets,
@@ -21,7 +22,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
-    view::{ComputedVisibility, ExtractedView, ViewUniforms},
+    view::{ComputedVisibility, ExtractedView},
     Extract, RenderApp, RenderStage,
 };
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
@@ -94,7 +95,12 @@ pub fn build_ui_render(app: &mut App) {
         )
         .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
         .add_system_to_stage(RenderStage::Queue, queue_uinodes)
-        .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
+        .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>)
+        .add_plugin(AutoBindGroupPlugin::<
+            UiViewBindGroup,
+            Or<(With<UiViewTargetMarker>, With<RenderPhase<TransparentUi>>)>,
+        >::default())
+        .add_core_view_bindings::<UiViewBindGroup>();
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);
@@ -297,21 +303,24 @@ pub fn extract_default_ui_camera_view<T: Component>(
             let projection_matrix =
                 Mat4::orthographic_rh(0.0, logical_size.x, logical_size.y, 0.0, 0.0, UI_CAMERA_FAR);
             let default_camera_view = commands
-                .spawn(ExtractedView {
-                    projection: projection_matrix,
-                    transform: GlobalTransform::from_xyz(
-                        0.0,
-                        0.0,
-                        UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
-                    ),
-                    hdr: camera.hdr,
-                    viewport: UVec4::new(
-                        physical_origin.x,
-                        physical_origin.y,
-                        physical_size.x,
-                        physical_size.y,
-                    ),
-                })
+                .spawn((
+                    ExtractedView {
+                        projection: projection_matrix,
+                        transform: GlobalTransform::from_xyz(
+                            0.0,
+                            0.0,
+                            UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
+                        ),
+                        hdr: camera.hdr,
+                        viewport: UVec4::new(
+                            physical_origin.x,
+                            physical_origin.y,
+                            physical_size.x,
+                            physical_size.y,
+                        ),
+                    },
+                    UiViewTargetMarker,
+                ))
                 .id();
             commands.get_or_spawn(entity).insert((
                 DefaultCameraView(default_camera_view),
@@ -320,6 +329,9 @@ pub fn extract_default_ui_camera_view<T: Component>(
         }
     }
 }
+
+#[derive(Component)]
+pub struct UiViewTargetMarker;
 
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
@@ -405,14 +417,12 @@ struct UiVertex {
 #[derive(Resource)]
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
-    view_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
     fn default() -> Self {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
-            view_bind_group: None,
         }
     }
 }
@@ -581,8 +591,6 @@ pub struct UiImageBindGroups {
 pub fn queue_uinodes(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
     render_device: Res<RenderDevice>,
-    mut ui_meta: ResMut<UiMeta>,
-    view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
@@ -602,50 +610,40 @@ pub fn queue_uinodes(
         };
     }
 
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        ui_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
-            entries: &[BindGroupEntry {
-                binding: 0,
-                resource: view_binding,
-            }],
-            label: Some("ui_view_bind_group"),
-            layout: &ui_pipeline.view_layout,
-        }));
-        let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
-        for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
-                &ui_pipeline,
-                UiPipelineKey { hdr: view.hdr },
-            );
-            for (entity, batch) in &ui_batches {
-                image_bind_groups
-                    .values
-                    .entry(batch.image.clone_weak())
-                    .or_insert_with(|| {
-                        let gpu_image = gpu_images.get(&batch.image).unwrap();
-                        render_device.create_bind_group(&BindGroupDescriptor {
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(&gpu_image.texture_view),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&gpu_image.sampler),
-                                },
-                            ],
-                            label: Some("ui_material_bind_group"),
-                            layout: &ui_pipeline.image_layout,
-                        })
-                    });
-                transparent_phase.add(TransparentUi {
-                    draw_function: draw_ui_function,
-                    pipeline,
-                    entity,
-                    sort_key: FloatOrd(batch.z),
+    let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
+    for (view, mut transparent_phase) in &mut views {
+        let pipeline = pipelines.specialize(
+            &mut pipeline_cache,
+            &ui_pipeline,
+            UiPipelineKey { hdr: view.hdr },
+        );
+        for (entity, batch) in &ui_batches {
+            image_bind_groups
+                .values
+                .entry(batch.image.clone_weak())
+                .or_insert_with(|| {
+                    let gpu_image = gpu_images.get(&batch.image).unwrap();
+                    render_device.create_bind_group(&BindGroupDescriptor {
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(&gpu_image.texture_view),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&gpu_image.sampler),
+                            },
+                        ],
+                        label: Some("ui_material_bind_group"),
+                        layout: &ui_pipeline.image_layout,
+                    })
                 });
-            }
+            transparent_phase.add(TransparentUi {
+                draw_function: draw_ui_function,
+                pipeline,
+                entity,
+                sort_key: FloatOrd(batch.z),
+            });
         }
     }
 }

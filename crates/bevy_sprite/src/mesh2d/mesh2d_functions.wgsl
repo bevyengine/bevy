@@ -1,6 +1,6 @@
 #define_import_path bevy_sprite::mesh2d_functions
 
-#import bevy_sprite::mesh2d_view_bindings
+#import bevy_render::core_bindings
 #import bevy_sprite::mesh2d_bindings as mesh_bindings
 
 fn mesh2d_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
@@ -8,7 +8,7 @@ fn mesh2d_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>
 }
 
 fn mesh2d_position_world_to_clip(world_position: vec4<f32>) -> vec4<f32> {
-    return bevy_sprite::mesh2d_view_bindings::view.view_proj * world_position;
+    return bevy_render::core_bindings::view.view_proj * world_position;
 }
 
 // NOTE: The intermediate world_position assignment is important

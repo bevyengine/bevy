@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
+    auto_binding::{AutoBindGroup, SetAutoBindGroup},
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
@@ -143,25 +144,16 @@ pub type DrawUi = (
     DrawUiNode,
 );
 
-pub struct SetUiViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetUiViewBindGroup<I> {
-    type Param = (SRes<UiMeta>, SQuery<Read<ViewUniformOffset>>);
-
-    fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (ui_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let view_uniform = view_query.get(view).unwrap();
-        pass.set_bind_group(
-            I,
-            ui_meta.into_inner().view_bind_group.as_ref().unwrap(),
-            &[view_uniform.offset],
-        );
-        RenderCommandResult::Success
+#[derive(Component)]
+pub struct UiViewBindGroup;
+impl AutoBindGroup for UiViewBindGroup {
+    fn label() -> Option<&'static str> {
+        Some("ui_view_bind_group")
     }
 }
+
+pub type SetUiViewBindGroup<const I: usize> = SetAutoBindGroup<UiViewBindGroup, I>;
+
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
     type Param = (SRes<UiImageBindGroups>, SQuery<Read<UiBatch>>);

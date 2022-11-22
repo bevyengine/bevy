@@ -1,5 +1,6 @@
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset_with_path, Handle, HandleUntyped};
+use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -7,19 +8,17 @@ use bevy_ecs::{
 use bevy_math::{Mat4, Vec2};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
+    auto_binding::{auto_layout, AutoBindGroup, AutoBindGroupPlugin, SetAutoBindGroup},
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
-    globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{EntityRenderCommand, RenderCommandResult, RenderPhase, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
-    view::{
-        ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-    },
+    view::{ComputedVisibility, ViewTarget},
     Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
@@ -42,10 +41,6 @@ pub struct Mesh2dRenderPlugin;
 
 pub const MESH2D_VERTEX_OUTPUT: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7646632476603252194);
-pub const MESH2D_VIEW_TYPES_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 12677582416765805110);
-pub const MESH2D_VIEW_BINDINGS_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 6901431444735842434);
 pub const MESH2D_TYPES_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 8994673400261890424);
 pub const MESH2D_BINDINGS_HANDLE: HandleUntyped =
@@ -61,18 +56,6 @@ impl Plugin for Mesh2dRenderPlugin {
             app,
             MESH2D_VERTEX_OUTPUT,
             "mesh2d_vertex_output.wgsl",
-            Shader::from_wgsl_with_path
-        );
-        load_internal_asset_with_path!(
-            app,
-            MESH2D_VIEW_TYPES_HANDLE,
-            "mesh2d_view_types.wgsl",
-            Shader::from_wgsl_with_path
-        );
-        load_internal_asset_with_path!(
-            app,
-            MESH2D_VIEW_BINDINGS_HANDLE,
-            "mesh2d_view_bindings.wgsl",
             Shader::from_wgsl_with_path
         );
         load_internal_asset_with_path!(
@@ -108,7 +91,11 @@ impl Plugin for Mesh2dRenderPlugin {
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
                 .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
                 .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
+                .add_plugin(AutoBindGroupPlugin::<
+                    Mesh2dViewBindGroup,
+                    With<RenderPhase<Transparent2d>>,
+                >::default())
+                .add_core_view_bindings::<Mesh2dViewBindGroup>();
         }
     }
 }
@@ -158,7 +145,6 @@ pub fn extract_mesh2d(
 
 #[derive(Resource, Clone)]
 pub struct Mesh2dPipeline {
-    pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     // This dummy white texture is to be used in place of optional textures
     pub dummy_white_gpu_image: GpuImage,
@@ -169,32 +155,6 @@ impl FromWorld for Mesh2dPipeline {
         let mut system_state: SystemState<(Res<RenderDevice>, Res<DefaultImageSampler>)> =
             SystemState::new(world);
         let (render_device, default_sampler) = system_state.get_mut(world);
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // View
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                    count: None,
-                },
-                BindGroupLayoutEntry {
-                    binding: 1,
-                    visibility: ShaderStages::VERTEX_FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: false,
-                        min_binding_size: Some(GlobalsUniform::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-            label: Some("mesh2d_view_layout"),
-        });
 
         let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -259,7 +219,6 @@ impl FromWorld for Mesh2dPipeline {
             }
         };
         Mesh2dPipeline {
-            view_layout,
             mesh_layout,
             dummy_white_gpu_image,
         }
@@ -413,7 +372,10 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
+            layout: Some(vec![
+                auto_layout::<Mesh2dViewBindGroup>(),
+                self.mesh_layout.clone(),
+            ]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
@@ -460,61 +422,14 @@ pub fn queue_mesh2d_bind_group(
 }
 
 #[derive(Component)]
-pub struct Mesh2dViewBindGroup {
-    pub value: BindGroup,
-}
-
-pub fn queue_mesh2d_view_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    mesh2d_pipeline: Res<Mesh2dPipeline>,
-    view_uniforms: Res<ViewUniforms>,
-    views: Query<Entity, With<ExtractedView>>,
-    globals_buffer: Res<GlobalsBuffer>,
-) {
-    if let (Some(view_binding), Some(globals)) = (
-        view_uniforms.uniforms.binding(),
-        globals_buffer.buffer.binding(),
-    ) {
-        for entity in &views {
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: globals.clone(),
-                    },
-                ],
-                label: Some("mesh2d_view_bind_group"),
-                layout: &mesh2d_pipeline.view_layout,
-            });
-
-            commands.entity(entity).insert(Mesh2dViewBindGroup {
-                value: view_bind_group,
-            });
-        }
+pub struct Mesh2dViewBindGroup;
+impl AutoBindGroup for Mesh2dViewBindGroup {
+    fn label() -> Option<&'static str> {
+        Some("mesh_2d_view_bind_group")
     }
 }
 
-pub struct SetMesh2dViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
-    type Param = SQuery<(Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>)>;
-    #[inline]
-    fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        view_query: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let (view_uniform, mesh2d_view_bind_group) = view_query.get_inner(view).unwrap();
-        pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
-
-        RenderCommandResult::Success
-    }
-}
+pub type SetMesh2dViewBindGroup<const I: usize> = SetAutoBindGroup<Mesh2dViewBindGroup, I>;
 
 pub struct SetMesh2dBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetMesh2dBindGroup<I> {

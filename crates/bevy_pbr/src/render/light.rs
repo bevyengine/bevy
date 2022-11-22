@@ -6,29 +6,23 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Transparent3d;
-use bevy_ecs::{
-    prelude::*,
-    system::{lifetimeless::*, SystemParamItem},
-};
+use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
+    auto_binding::{auto_layout, AutoBindGroup, SetAutoBindGroup},
     camera::{Camera, CameraProjection},
     color::Color,
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
-        TrackedRenderPass,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem, PhaseItem,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{
-        ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,
-        VisibleEntities,
-    },
+    view::{ComputedVisibility, ExtractedView, VisibleEntities},
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -148,10 +142,10 @@ impl GpuPointLights {
         }
     }
 
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn buffer(&self) -> Option<Buffer> {
         match self {
-            GpuPointLights::Uniform(buffer) => buffer.binding(),
-            GpuPointLights::Storage(buffer) => buffer.binding(),
+            GpuPointLights::Uniform(buffer) => buffer.buffer().cloned(),
+            GpuPointLights::Storage(buffer) => buffer.buffer().cloned(),
         }
     }
 
@@ -216,7 +210,6 @@ pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
 #[derive(Resource)]
 pub struct ShadowPipeline {
-    pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
     pub point_light_sampler: Sampler,
@@ -228,28 +221,10 @@ impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // View
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        min_binding_size: Some(ViewUniform::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-            label: Some("shadow_view_layout"),
-        });
-
         let mesh_pipeline = world.resource::<MeshPipeline>();
         let skinned_mesh_layout = mesh_pipeline.skinned_mesh_layout.clone();
 
         ShadowPipeline {
-            view_layout,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
             skinned_mesh_layout,
             point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
@@ -319,7 +294,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
 
-        let mut bind_group_layout = vec![self.view_layout.clone()];
+        let mut bind_group_layout = vec![auto_layout::<ShadowViewBindGroup>()];
         let mut shader_defs = vec!["MESH_BINDGROUP_1".to_owned()];
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
@@ -1485,29 +1460,29 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn light_index_lists_binding(&self) -> Option<BindingResource> {
+    pub fn light_index_lists_buffer(&self) -> Option<Buffer> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_light_index_lists,
                 ..
-            } => cluster_light_index_lists.binding(),
+            } => cluster_light_index_lists.buffer().cloned(),
             ViewClusterBuffers::Storage {
                 cluster_light_index_lists,
                 ..
-            } => cluster_light_index_lists.binding(),
+            } => cluster_light_index_lists.buffer().cloned(),
         }
     }
 
-    pub fn offsets_and_counts_binding(&self) -> Option<BindingResource> {
+    pub fn offsets_and_counts_buffer(&self) -> Option<Buffer> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_offsets_and_counts,
                 ..
-            } => cluster_offsets_and_counts.binding(),
+            } => cluster_offsets_and_counts.buffer().cloned(),
             ViewClusterBuffers::Storage {
                 cluster_offsets_and_counts,
                 ..
-            } => cluster_offsets_and_counts.binding(),
+            } => cluster_offsets_and_counts.buffer().cloned(),
         }
     }
 
@@ -1594,25 +1569,6 @@ pub fn prepare_clusters(
         view_clusters_bindings.write_buffers(render_device, &render_queue);
 
         commands.get_or_spawn(entity).insert(view_clusters_bindings);
-    }
-}
-
-pub fn queue_shadow_view_bind_group(
-    render_device: Res<RenderDevice>,
-    shadow_pipeline: Res<ShadowPipeline>,
-    mut light_meta: ResMut<LightMeta>,
-    view_uniforms: Res<ViewUniforms>,
-) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        light_meta.shadow_view_bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding,
-                }],
-                label: Some("shadow_view_bind_group"),
-                layout: &shadow_pipeline.view_layout,
-            }));
     }
 }
 
@@ -1808,27 +1764,12 @@ pub type DrawShadowMesh = (
     DrawMesh,
 );
 
-pub struct SetShadowViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
-    type Param = (SRes<LightMeta>, SQuery<Read<ViewUniformOffset>>);
-    #[inline]
-    fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (light_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let view_uniform_offset = view_query.get(view).unwrap();
-        pass.set_bind_group(
-            I,
-            light_meta
-                .into_inner()
-                .shadow_view_bind_group
-                .as_ref()
-                .unwrap(),
-            &[view_uniform_offset.offset],
-        );
-
-        RenderCommandResult::Success
+#[derive(Component)]
+pub struct ShadowViewBindGroup;
+impl AutoBindGroup for ShadowViewBindGroup {
+    fn label() -> Option<&'static str> {
+        Some("shadow_view_bind_group")
     }
 }
+
+pub type SetShadowViewBindGroup<const I: usize> = SetAutoBindGroup<ShadowViewBindGroup, I>;

@@ -6,9 +6,13 @@ use bevy::{
         query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
-    pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
+    pbr::{
+        MeshPipeline, MeshPipelineKey, MeshUniform, MeshViewBindGroup, SetMeshBindGroup,
+        SetMeshViewBindGroup,
+    },
     prelude::*,
     render::{
+        auto_binding::auto_layout,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
@@ -217,7 +221,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
         });
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
         descriptor.layout = Some(vec![
-            self.mesh_pipeline.view_layout.clone(),
+            auto_layout::<MeshViewBindGroup>(),
             self.mesh_pipeline.mesh_layout.clone(),
         ]);
 

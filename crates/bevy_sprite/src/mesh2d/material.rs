@@ -16,6 +16,7 @@ use bevy_ecs::{
 use bevy_log::error;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    auto_binding::auto_layout,
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
     prelude::Image,
@@ -40,8 +41,8 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 use crate::{
-    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform, SetMesh2dBindGroup,
-    SetMesh2dViewBindGroup,
+    DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
+    Mesh2dViewBindGroup, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
 };
 
 /// Materials are used alongside [`Material2dPlugin`] and [`MaterialMesh2dBundle`]
@@ -238,7 +239,7 @@ where
             descriptor.fragment.as_mut().unwrap().shader = fragment_shader.clone();
         }
         descriptor.layout = Some(vec![
-            self.mesh2d_pipeline.view_layout.clone(),
+            auto_layout::<Mesh2dViewBindGroup>(),
             self.material2d_layout.clone(),
             self.mesh2d_pipeline.mesh_layout.clone(),
         ]);

@@ -1,34 +1,18 @@
+use crate::UiViewBindGroup;
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::*,
-    renderer::RenderDevice,
-    texture::BevyDefault,
-    view::{ViewTarget, ViewUniform},
+    auto_binding::auto_layout, render_resource::*, renderer::RenderDevice, texture::BevyDefault,
+    view::ViewTarget,
 };
 
 #[derive(Resource)]
 pub struct UiPipeline {
-    pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
 }
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[BindGroupLayoutEntry {
-                binding: 0,
-                visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
-                ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
-                    has_dynamic_offset: true,
-                    min_binding_size: Some(ViewUniform::min_size()),
-                },
-                count: None,
-            }],
-            label: Some("ui_view_layout"),
-        });
 
         let image_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -52,10 +36,7 @@ impl FromWorld for UiPipeline {
             label: Some("ui_image_layout"),
         });
 
-        UiPipeline {
-            view_layout,
-            image_layout,
-        }
+        UiPipeline { image_layout }
     }
 }
 
@@ -102,7 +83,10 @@ impl SpecializedRenderPipeline for UiPipeline {
                     write_mask: ColorWrites::ALL,
                 })],
             }),
-            layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
+            layout: Some(vec![
+                auto_layout::<UiViewBindGroup>(),
+                self.image_layout.clone(),
+            ]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

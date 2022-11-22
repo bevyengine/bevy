@@ -1,7 +1,9 @@
 mod bind_group;
 mod bind_group_layout;
+mod bindings;
 mod buffer;
 mod buffer_vec;
+mod owned_binding_resource;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
@@ -12,8 +14,10 @@ mod uniform_buffer;
 
 pub use bind_group::*;
 pub use bind_group_layout::*;
+pub use bindings::*;
 pub use buffer::*;
 pub use buffer_vec::*;
+pub use owned_binding_resource::*;
 pub use pipeline::*;
 pub use pipeline_cache::*;
 pub use pipeline_specializer::*;

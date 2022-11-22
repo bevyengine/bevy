@@ -1,11 +1,8 @@
 #define_import_path depth
 
-#import bevy_pbr::mesh_view_types
+#import bevy_render::core_types
 #import bevy_pbr::mesh_bindings
 #import bevy_pbr::mesh_functions
-
-@group(0) @binding(0)
-var<uniform> view: bevy_pbr::mesh_view_types::View;
 
 #ifdef SKINNED
 #import bevy_pbr::skinning

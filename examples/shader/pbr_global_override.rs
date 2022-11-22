@@ -1,15 +1,72 @@
 //! Illustrates different lights of various types and colors, some static, some moving over
 //! a simple scene.
 
-use bevy::{pbr::PbrShaderFunctionOverrides, prelude::*};
+use bevy::{
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    pbr::{MeshViewBindGroup, PbrShaderFunctionOverrides},
+    prelude::*,
+    render::{
+        auto_binding::{AddAutoBinding, AutoBindGroupLayoutEntry, AutoBinding, ShaderBindingName},
+        render_resource::*,
+        renderer::{RenderDevice, RenderQueue},
+        RenderApp,
+    },
+};
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
+    let mut app = App::new();
+
+    app.add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(movement)
-        .add_system(animate_light_direction)
-        .run();
+        .add_system(animate_light_direction);
+
+    let render_app = app.sub_app_mut(RenderApp);
+    let device = render_app.world.resource::<RenderDevice>();
+    let queue = render_app.world.resource::<RenderQueue>();
+    let mut uniform =
+        UniformBuffer::<QuantizeStepsStruct>::from(QuantizeStepsStruct { steps: 4.0 });
+    uniform.write_buffer(device, queue);
+    render_app
+        .insert_resource(QuantizeStepsResource(uniform))
+        .add_auto_binding::<MeshViewBindGroup, QuantizeStepsBinding>();
+
+    app.run();
+}
+
+#[derive(ShaderType)]
+struct QuantizeStepsStruct {
+    steps: f32,
+}
+
+#[derive(Resource)]
+struct QuantizeStepsResource(UniformBuffer<QuantizeStepsStruct>);
+
+struct QuantizeStepsBinding;
+impl AutoBinding for QuantizeStepsBinding {
+    type LayoutParam = ();
+    type BindingParam = SRes<QuantizeStepsResource>;
+
+    fn bind_name() -> ShaderBindingName {
+        ShaderBindingName::new("quantize_lights", "quantize_steps_struct")
+    }
+    fn bindgroup_layout_entry(_: SystemParamItem<Self::LayoutParam>) -> AutoBindGroupLayoutEntry {
+        AutoBindGroupLayoutEntry {
+            visibility: ShaderStages::FRAGMENT,
+            ty: BindingType::Buffer {
+                ty: BufferBindingType::Uniform,
+                has_dynamic_offset: false,
+                min_binding_size: Some(QuantizeStepsStruct::min_size()),
+            },
+            count: None,
+        }
+    }
+    fn binding_source(
+        _entity: Entity,
+        resource: &SystemParamItem<Self::BindingParam>,
+    ) -> Option<OwnedBindingResource> {
+        resource.0.owned_binding()
+    }
 }
 
 #[derive(Component)]

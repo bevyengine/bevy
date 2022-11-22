@@ -1,4 +1,5 @@
 use crate::{
+    auto_binding::AutoBindingsIndex,
     render_resource::{
         BindGroupLayout, BindGroupLayoutId, ComputePipeline, ComputePipelineDescriptor,
         RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
@@ -182,6 +183,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[String],
+        auto_bindings: &HashMap<String, u32>,
     ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
         let shader = self
             .shaders
@@ -243,12 +245,23 @@ impl ShaderCache {
                             )?;
                         }
 
-                        let naga = self.composer.make_naga_module(
+                        let mut naga = self.composer.make_naga_module(
                             naga_oil::compose::NagaModuleDescriptor {
                                 shader_defs: &shader_defs,
                                 ..shader.into()
                             },
                         )?;
+
+                        // map auto bindings
+                        for (_, gv) in naga.global_variables.iter_mut() {
+                            if let Some(name) = &gv.name {
+                                if let Some(index) = auto_bindings.get(name) {
+                                    if let Some(binding) = gv.binding.as_mut() {
+                                        binding.binding = *index;
+                                    }
+                                }
+                            }
+                        }
 
                         wgpu::ShaderSource::Naga(Cow::Owned(naga))
                     }
@@ -394,6 +407,7 @@ impl LayoutCache {
 pub struct PipelineCache {
     layout_cache: LayoutCache,
     shader_cache: ShaderCache,
+    auto_bindings: HashMap<String, u32>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
@@ -412,6 +426,7 @@ impl PipelineCache {
             layout_cache: default(),
             waiting_pipelines: default(),
             pipelines: default(),
+            auto_bindings: default(),
         }
     }
 
@@ -573,6 +588,7 @@ impl PipelineCache {
             id,
             &descriptor.vertex.shader,
             &descriptor.vertex.shader_defs,
+            &self.auto_bindings,
         ) {
             Ok(module) => module,
             Err(err) => {
@@ -586,6 +602,7 @@ impl PipelineCache {
                 id,
                 &fragment.shader,
                 &fragment.shader_defs,
+                &self.auto_bindings,
             ) {
                 Ok(module) => module,
                 Err(err) => {
@@ -654,6 +671,7 @@ impl PipelineCache {
             id,
             &descriptor.shader,
             &descriptor.shader_defs,
+            &self.auto_bindings,
         ) {
             Ok(module) => module,
             Err(err) => {
@@ -728,7 +746,13 @@ impl PipelineCache {
         self.pipelines = pipelines;
     }
 
-    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
+    pub(crate) fn process_pipeline_queue_system(
+        mut cache: ResMut<Self>,
+        auto_bindings: Res<AutoBindingsIndex>,
+    ) {
+        if auto_bindings.is_changed() {
+            cache.auto_bindings = auto_bindings.lookup.clone();
+        }
         cache.process_queue();
     }
 

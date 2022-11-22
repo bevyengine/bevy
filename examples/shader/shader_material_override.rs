@@ -30,10 +30,13 @@ fn setup(
 ) {
     // cube
     commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 5,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 5,
+            })
+            .unwrap(),
+        ),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
             inner: StandardMaterial {

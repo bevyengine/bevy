@@ -1,6 +1,6 @@
+#import bevy_render::core_bindings
 #import bevy_pbr::mesh_vertex_output
 #import bevy_pbr::pbr_functions
-#import bevy_pbr::mesh_view_bindings
 #import bevy_pbr::pbr_types
 
 @group(1) @binding(0)
@@ -32,7 +32,7 @@ fn fragment(
         is_front,
     );
 
-    pbr_input.is_orthographic = bevy_pbr::mesh_view_bindings::view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = bevy_render::core_bindings::view.projection[3].w == 1.0;
 
     pbr_input.N = bevy_pbr::pbr_functions::apply_normal_mapping(
         pbr_input.material.flags,

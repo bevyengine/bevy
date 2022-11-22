@@ -3,8 +3,15 @@
 #import bevy_pbr::lighting
 #import bevy_pbr::mesh_view_types
 
+struct QuantizeStepsStruct {
+    steps: f32,
+}
+
+@group(0) @binding(auto)
+var<uniform> quantize_steps_struct: QuantizeStepsStruct;
+
 fn quantize_steps() -> f32 {
-     return 2.0;
+     return quantize_steps_struct.steps;
 }
 
 override fn bevy_pbr::lighting::point_light(

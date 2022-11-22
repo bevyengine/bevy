@@ -4,13 +4,12 @@ use encase::ShaderType;
 use crate::{
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
+    render_resource::{BindGroupLayout, OwnedBindingResource},
     renderer::RenderDevice,
     texture::FallbackImage,
 };
 use bevy_reflect::Uuid;
 use std::{ops::Deref, sync::Arc};
-use wgpu::BindingResource;
 
 /// A [`BindGroup`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -63,7 +62,7 @@ impl Deref for BindGroup {
 /// these can be used to retrieve the corresponding [`Texture`](crate::render_resource::Texture) resource.
 ///
 /// [`AsBindGroup::as_bind_group`] is intended to be called once, then the result cached somewhere. It is generally
-/// ok to do "expensive" work here, such as creating a [`Buffer`] for a uniform.
+/// ok to do "expensive" work here, such as creating a [`crate::render_resource::Buffer`] for a uniform.
 ///
 /// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::render_resource::Texture)
 /// for an [`Image`] hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
@@ -106,7 +105,7 @@ impl Deref for BindGroup {
 ///
 /// The following field-level attributes are supported:
 /// * `uniform(BINDING_INDEX)`
-///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a uniform.
+///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`crate::render_resource::Buffer`], and bound as a uniform.
 ///     [`ShaderType`] is implemented for most math types already, such as [`f32`], [`Vec4`](bevy_math::Vec4), and
 ///   [`Color`](crate::color::Color). It can also be derived for custom structs.
 /// * `texture(BINDING_INDEX)`
@@ -175,7 +174,7 @@ impl Deref for BindGroup {
 ///
 /// Some less common scenarios will require "struct-level" attributes. These are the currently supported struct-level attributes:
 /// * `uniform(BINDING_INDEX, ConvertedShaderType)`
-///     * This also creates a [`Buffer`] using [`ShaderType`] and binds it as a uniform, much
+///     * This also creates a [`crate::render_resource::Buffer`] using [`ShaderType`] and binds it as a uniform, much
 ///     much like the field-level `uniform` attribute. The difference is that the entire [`AsBindGroup`] value is converted to `ConvertedShaderType`,
 ///     which must implement [`ShaderType`], instead of a specific field implementing [`ShaderType`]. This is useful if more complicated conversion
 ///     logic is required. The conversion is done using the [`AsBindGroupShaderType<ConvertedShaderType>`] trait, which is automatically implemented
@@ -266,25 +265,6 @@ pub struct PreparedBindGroup<T: AsBindGroup> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
     pub data: T::Data,
-}
-
-/// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
-/// This is used by types like [`PreparedBindGroup`] to hold a single list of all
-/// render resources used by bindings.
-pub enum OwnedBindingResource {
-    Buffer(Buffer),
-    TextureView(TextureView),
-    Sampler(Sampler),
-}
-
-impl OwnedBindingResource {
-    pub fn get_binding(&self) -> BindingResource {
-        match self {
-            OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
-            OwnedBindingResource::TextureView(view) => BindingResource::TextureView(view),
-            OwnedBindingResource::Sampler(sampler) => BindingResource::Sampler(sampler),
-        }
-    }
 }
 
 /// Converts a value to a [`ShaderType`] for use in a bind group.

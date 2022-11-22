@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
+        auto_binding::auto_layout,
         mesh::{Indices, MeshVertexAttribute},
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
@@ -25,7 +26,7 @@ use bevy::{
     },
     sprite::{
         DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
-        SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        Mesh2dViewBindGroup, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
     utils::FloatOrd,
 };
@@ -174,7 +175,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             // Use the two standard uniforms for 2d meshes
             layout: Some(vec![
                 // Bind group 0 is the view uniform
-                self.mesh2d_pipeline.view_layout.clone(),
+                auto_layout::<Mesh2dViewBindGroup>(),
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
             ]),

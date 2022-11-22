@@ -1645,3 +1645,6 @@ inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[patch.crates-io]
+naga_oil = { path = "../naga_oil" }

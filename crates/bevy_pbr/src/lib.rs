@@ -44,12 +44,13 @@ use bevy_asset::{load_internal_asset_with_path, AddAsset, Assets, Handle, Handle
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    auto_binding::{AddAutoBinding, AutoBindGroupPlugin},
     camera::CameraUpdateSystem,
     extract_resource::ExtractResourcePlugin,
     prelude::Color,
     render_graph::RenderGraph,
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
-    render_resource::{Shader, SpecializedMeshPipelines},
+    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
+    render_resource::{Shader, SpecializedMeshPipelines, ViewUniformBinding},
     view::VisibilitySystems,
     RenderApp, RenderStage,
 };
@@ -265,7 +266,11 @@ impl Plugin for PbrPlugin {
                 RenderStage::Queue,
                 render::queue_shadows.label(RenderLightSystems::QueueShadows),
             )
-            .add_system_to_stage(RenderStage::Queue, render::queue_shadow_view_bind_group)
+            .add_plugin(AutoBindGroupPlugin::<
+                ShadowViewBindGroup,
+                With<RenderPhase<Shadow>>,
+            >::default())
+            .add_auto_binding::<ShadowViewBindGroup, ViewUniformBinding>()
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Shadow>)
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
