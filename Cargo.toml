@@ -792,6 +792,16 @@ category = "ECS (Entity Component System)"
 wasm = false
 
 [[example]]
+name = "command_queue_in_world"
+path = "examples/ecs/command_queue_in_world.rs"
+
+[package.metadata.example.command_queue_in_world]
+name = "CommandQueue in World"
+description = "Manually apply a command Queue"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "component_change_detection"
 path = "examples/ecs/component_change_detection.rs"
 
