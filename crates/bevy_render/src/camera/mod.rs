@@ -6,11 +6,9 @@ mod projection;
 pub use camera::*;
 pub use camera_driver_node::*;
 pub use projection::*;
-use std::ops::Range;
 
 use crate::{render_graph::RenderGraph, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 #[derive(Default)]
 pub struct CameraPlugin;
@@ -20,9 +18,6 @@ impl Plugin for CameraPlugin {
         app.register_type::<Camera>()
             .register_type::<Viewport>()
             .register_type::<Option<Viewport>>()
-            .register_type::<Range<f32>>()
-            .register_type_data::<Range<f32>, ReflectSerialize>()
-            .register_type_data::<Range<f32>, ReflectDeserialize>()
             .register_type::<WindowOrigin>()
             .register_type::<ScalingMode>()
             .register_type::<CameraRenderGraph>()
