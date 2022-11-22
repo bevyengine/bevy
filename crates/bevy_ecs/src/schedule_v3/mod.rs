@@ -94,28 +94,28 @@ mod tests {
         }
 
         #[test]
+        #[cfg(not(miri))]
         fn parallel_execution() {
-            // TODO: Miri
-            // use std::sync::{Arc, Barrier};
+            use std::sync::{Arc, Barrier};
 
-            // let mut world = World::default();
-            // let mut schedule = Schedule::default();
+            let mut world = World::default();
+            let mut schedule = Schedule::default();
 
-            // let barrier = Arc::new(Barrier::new(3));
+            let barrier = Arc::new(Barrier::new(3));
 
-            // let barrier1 = barrier.clone();
-            // schedule.add_system(move || {
-            //     barrier1.wait();
-            // });
-            // let barrier2 = barrier.clone();
-            // schedule.add_system(move || {
-            //     barrier2.wait();
-            // });
-            // schedule.add_system(move || {
-            //     barrier.wait();
-            // });
+            let barrier1 = barrier.clone();
+            schedule.add_system(move || {
+                barrier1.wait();
+            });
+            let barrier2 = barrier.clone();
+            schedule.add_system(move || {
+                barrier2.wait();
+            });
+            schedule.add_system(move || {
+                barrier.wait();
+            });
 
-            // schedule.run(&mut world);
+            schedule.run(&mut world);
         }
     }
 
