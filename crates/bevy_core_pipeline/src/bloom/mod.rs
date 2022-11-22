@@ -139,7 +139,7 @@ impl Plugin for BloomPlugin {
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
-    /// Intensity of the bloom effect (default: 0.04).
+    /// Intensity of the bloom effect (default: 0.3).
     pub intensity: f32,
 
     /// Baseline of the quadratic threshold curve (default: 0.0).
@@ -160,7 +160,7 @@ pub struct BloomSettings {
 impl Default for BloomSettings {
     fn default() -> Self {
         Self {
-            intensity: 0.04,
+            intensity: 0.3,
             threshold: 0.0,
             threshold_softness: 0.5,
         }
