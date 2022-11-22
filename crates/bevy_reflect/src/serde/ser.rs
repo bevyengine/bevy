@@ -489,12 +489,14 @@ mod tests {
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
         unit_struct: SomeUnitStruct,
-        ignored_struct: SomeIgnoredStruct,
-        ignored_enum: SomeIgnoredEnum,
         unit_enum: SomeEnum,
         newtype_enum: SomeEnum,
         tuple_enum: SomeEnum,
         struct_enum: SomeEnum,
+        ignored_struct: SomeIgnoredStruct,
+        ignored_tuple_struct: SomeIgnoredTupleStruct,
+        ignored_struct_variant: SomeIgnoredEnum,
+        ignored_tuple_variant: SomeIgnoredEnum,
         custom_serialize: CustomSerialize,
     }
 
@@ -510,7 +512,13 @@ mod tests {
     struct SomeUnitStruct;
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
-    struct SomeIgnoredStruct(#[reflect(ignore)] i32);
+    struct SomeIgnoredStruct {
+        #[reflect(ignore)]
+        ignored: i32,
+    }
+
+    #[derive(Reflect, FromReflect, Debug, PartialEq)]
+    struct SomeIgnoredTupleStruct(#[reflect(ignore)] i32);
 
     #[derive(Reflect, Debug, PartialEq)]
     enum SomeEnum {
@@ -522,7 +530,11 @@ mod tests {
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
     enum SomeIgnoredEnum {
-        Ignored(#[reflect(ignore)] f32, #[reflect(ignore)] f32),
+        Tuple(#[reflect(ignore)] f32, #[reflect(ignore)] f32),
+        Struct {
+            #[reflect(ignore)]
+            foo: String,
+        },
     }
 
     #[derive(Reflect, Debug, PartialEq, Serialize)]
@@ -548,6 +560,7 @@ mod tests {
         registry.register::<SomeTupleStruct>();
         registry.register::<SomeUnitStruct>();
         registry.register::<SomeIgnoredStruct>();
+        registry.register::<SomeIgnoredTupleStruct>();
         registry.register::<SomeIgnoredEnum>();
         registry.register::<CustomSerialize>();
         registry.register::<SomeEnum>();
@@ -575,14 +588,18 @@ mod tests {
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_struct: SomeUnitStruct,
-            ignored_struct: SomeIgnoredStruct(123),
-            ignored_enum: SomeIgnoredEnum::Ignored(1.23, 3.45),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
             struct_enum: SomeEnum::Struct {
                 foo: String::from("Struct variant value"),
             },
+            ignored_struct: SomeIgnoredStruct { ignored: 123 },
+            ignored_tuple_struct: SomeIgnoredTupleStruct(123),
+            ignored_struct_variant: SomeIgnoredEnum::Struct {
+                foo: String::from("Struct Variant"),
+            },
+            ignored_tuple_variant: SomeIgnoredEnum::Tuple(1.23, 3.45),
             custom_serialize: CustomSerialize {
                 value: 100,
                 inner_struct: SomeSerializableStruct { foo: 101 },
@@ -621,14 +638,16 @@ mod tests {
         ),
         tuple_struct_value: ("Tuple Struct"),
         unit_struct: (),
-        ignored_struct: (),
-        ignored_enum: Ignored(),
         unit_enum: Unit,
         newtype_enum: NewType(123),
         tuple_enum: Tuple(1.23, 3.21),
         struct_enum: Struct(
             foo: "Struct variant value",
         ),
+        ignored_struct: (),
+        ignored_tuple_struct: (),
+        ignored_struct_variant: Struct(),
+        ignored_tuple_variant: Tuple(),
         custom_serialize: (
             value: 100,
             renamed: (
@@ -769,14 +788,18 @@ mod tests {
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_struct: SomeUnitStruct,
-            ignored_struct: SomeIgnoredStruct(123),
-            ignored_enum: SomeIgnoredEnum::Ignored(1.23, 3.45),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
             struct_enum: SomeEnum::Struct {
                 foo: String::from("Struct variant value"),
             },
+            ignored_struct: SomeIgnoredStruct { ignored: 123 },
+            ignored_tuple_struct: SomeIgnoredTupleStruct(123),
+            ignored_struct_variant: SomeIgnoredEnum::Struct {
+                foo: String::from("Struct Variant"),
+            },
+            ignored_tuple_variant: SomeIgnoredEnum::Tuple(1.23, 3.45),
             custom_serialize: CustomSerialize {
                 value: 100,
                 inner_struct: SomeSerializableStruct { foo: 101 },
@@ -797,10 +820,11 @@ mod tests {
             255, 255, 255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 254, 255, 255, 255,
             255, 255, 255, 255, 0, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 64, 32,
             0, 0, 0, 0, 0, 0, 0, 255, 201, 154, 59, 0, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 84, 117,
-            112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 123,
-            0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20,
-            0, 0, 0, 0, 0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116,
-            32, 118, 97, 108, 117, 101, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0, 0,
+            112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 0, 0, 0, 0, 1, 0, 0, 0, 123, 0, 0, 0, 0,
+            0, 0, 0, 2, 0, 0, 0, 164, 112, 157, 63, 164, 112, 77, 64, 3, 0, 0, 0, 20, 0, 0, 0, 0,
+            0, 0, 0, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
+            108, 117, 101, 1, 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 101, 0, 0, 0, 0, 0, 0,
+            0,
         ];
 
         assert_eq!(expected, bytes);
@@ -822,14 +846,18 @@ mod tests {
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_struct: SomeUnitStruct,
-            ignored_struct: SomeIgnoredStruct(123),
-            ignored_enum: SomeIgnoredEnum::Ignored(1.23, 3.45),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
             tuple_enum: SomeEnum::Tuple(1.23, 3.21),
             struct_enum: SomeEnum::Struct {
                 foo: String::from("Struct variant value"),
             },
+            ignored_struct: SomeIgnoredStruct { ignored: 123 },
+            ignored_tuple_struct: SomeIgnoredTupleStruct(123),
+            ignored_struct_variant: SomeIgnoredEnum::Struct {
+                foo: String::from("Struct Variant"),
+            },
+            ignored_tuple_variant: SomeIgnoredEnum::Tuple(1.23, 3.45),
             custom_serialize: CustomSerialize {
                 value: 100,
                 inner_struct: SomeSerializableStruct { foo: 101 },
@@ -844,15 +872,15 @@ mod tests {
         let expected: Vec<u8> = vec![
             129, 217, 41, 98, 101, 118, 121, 95, 114, 101, 102, 108, 101, 99, 116, 58, 58, 115,
             101, 114, 100, 101, 58, 58, 115, 101, 114, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77,
-            121, 83, 116, 114, 117, 99, 116, 220, 0, 17, 123, 172, 72, 101, 108, 108, 111, 32, 119,
+            121, 83, 116, 114, 117, 99, 116, 220, 0, 19, 123, 172, 72, 101, 108, 108, 111, 32, 119,
             111, 114, 108, 100, 33, 145, 123, 146, 202, 64, 73, 15, 219, 205, 5, 57, 149, 254, 255,
             0, 1, 2, 149, 254, 255, 0, 1, 2, 129, 64, 32, 145, 206, 59, 154, 201, 255, 145, 172,
-            84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 144, 129, 167, 73, 103,
-            110, 111, 114, 101, 100, 144, 164, 85, 110, 105, 116, 129, 167, 78, 101, 119, 84, 121,
-            112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146, 202, 63, 157, 112, 164, 202, 64,
-            77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116, 145, 180, 83, 116, 114, 117, 99,
-            116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97, 108, 117, 101, 146, 100, 145,
-            101,
+            84, 117, 112, 108, 101, 32, 83, 116, 114, 117, 99, 116, 144, 164, 85, 110, 105, 116,
+            129, 167, 78, 101, 119, 84, 121, 112, 101, 123, 129, 165, 84, 117, 112, 108, 101, 146,
+            202, 63, 157, 112, 164, 202, 64, 77, 112, 164, 129, 166, 83, 116, 114, 117, 99, 116,
+            145, 180, 83, 116, 114, 117, 99, 116, 32, 118, 97, 114, 105, 97, 110, 116, 32, 118, 97,
+            108, 117, 101, 144, 144, 129, 166, 83, 116, 114, 117, 99, 116, 144, 129, 165, 84, 117,
+            112, 108, 101, 144, 146, 100, 145, 101,
         ];
 
         assert_eq!(expected, bytes);
