@@ -1010,6 +1010,7 @@ mod tests {
         array_value: [i32; 5],
         map_value: HashMap<u8, usize>,
         struct_value: SomeStruct,
+        unit_struct_value: SomeUnitStruct,
         tuple_struct_value: SomeTupleStruct,
         unit_enum: SomeEnum,
         newtype_enum: SomeEnum,
@@ -1022,6 +1023,9 @@ mod tests {
     struct SomeStruct {
         foo: i64,
     }
+
+    #[derive(Reflect, FromReflect, Debug, Deserialize, PartialEq)]
+    struct SomeUnitStruct;
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
     struct SomeTupleStruct(String);
@@ -1054,6 +1058,7 @@ mod tests {
         let mut registry = TypeRegistry::default();
         registry.register::<MyStruct>();
         registry.register::<SomeStruct>();
+        registry.register::<SomeUnitStruct>();
         registry.register::<SomeTupleStruct>();
         registry.register::<CustomDeserialize>();
         registry.register::<SomeDeserializableStruct>();
@@ -1089,6 +1094,7 @@ mod tests {
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
+            unit_struct_value: SomeUnitStruct,
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
@@ -1336,6 +1342,7 @@ mod tests {
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
+            unit_struct_value: SomeUnitStruct,
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
@@ -1391,6 +1398,7 @@ mod tests {
             array_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
+            unit_struct_value: SomeUnitStruct,
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
             unit_enum: SomeEnum::Unit,
             newtype_enum: SomeEnum::NewType(123),
