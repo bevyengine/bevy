@@ -48,7 +48,7 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
                 }
             ),
             20,
-            6, // TODO: let user pick num_of_decimals
+            0,
         ));
     }
 
