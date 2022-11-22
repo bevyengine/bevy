@@ -190,6 +190,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[CommandQueue in World](../examples/ecs/command_queue_in_world.rs) | Manually apply a command Queue
 [Component Change Detection](../examples/ecs/component_change_detection.rs) | Change detection on components
 [Custom Query Parameters](../examples/ecs/custom_query_param.rs) | Groups commonly used compound queries and query filters into a single type
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
