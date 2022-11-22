@@ -12,18 +12,17 @@ use crate::{
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use bevy_utils::tracing::debug;
+use bevy_ptr::{OwningPtr, Ptr};
+use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
-    cell::UnsafeCell,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -483,7 +482,7 @@ impl World {
         // SAFETY: entity index was just allocated
         self.entities
             .meta
-            .get_unchecked_mut(entity.id() as usize)
+            .get_unchecked_mut(entity.index() as usize)
             .location = location;
         EntityMut::new(self, entity, location)
     }
@@ -581,13 +580,13 @@ impl World {
     /// ```
     #[inline]
     pub fn despawn(&mut self, entity: Entity) -> bool {
-        debug!("Despawning entity {:?}", entity);
-        self.get_entity_mut(entity)
-            .map(|e| {
-                e.despawn();
-                true
-            })
-            .unwrap_or(false)
+        if let Some(entity) = self.get_entity_mut(entity) {
+            entity.despawn();
+            true
+        } else {
+            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", entity);
+            false
+        }
     }
 
     /// Clears component tracker state
@@ -1001,7 +1000,7 @@ impl World {
     pub(crate) fn get_resource_with_ticks(
         &self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
         self.storages.resources.get(component_id)?.get_with_ticks()
     }
 
@@ -1194,7 +1193,8 @@ impl World {
         let value_mut = Mut {
             value: &mut value,
             ticks: Ticks {
-                component_ticks: &mut ticks,
+                added: &mut ticks.added,
+                changed: &mut ticks.changed,
                 last_change_tick,
                 change_tick,
             },
@@ -1273,11 +1273,7 @@ impl World {
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks {
-                component_ticks: ticks.deref_mut(),
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.read_change_tick(),
-            },
+            ticks: Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick()),
         })
     }
 
@@ -1457,14 +1453,11 @@ impl World {
 
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
-        // SAFE: This function has exclusive access to the world so nothing aliases `ticks`.
-        let ticks = Ticks {
-            // SAFETY:
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            component_ticks: unsafe { ticks.deref_mut() },
-            last_change_tick: self.last_change_tick(),
-            change_tick: self.read_change_tick(),
+        // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
+        // - index is in-bounds because the column is initialized and non-empty
+        // - no other reference to the ticks of the same row can exist at the same time
+        let ticks = unsafe {
+            Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
         };
 
         Some(MutUntyped {
@@ -1939,5 +1932,11 @@ mod tests {
         iterate_and_count_entities(&world, &mut entity_counters);
 
         assert_eq!(entity_counters.len(), 0);
+    }
+
+    #[test]
+    fn spawn_empty_bundle() {
+        let mut world = World::new();
+        world.spawn(());
     }
 }

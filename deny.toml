@@ -34,10 +34,16 @@ wildcards = "deny"
 highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
+    { name = "miniz_oxide", version = "0.5" },           # from image v0.24.4
     { name = "ndk-sys", version = "0.3" },               # from rodio v0.16.0
     { name = "ndk", version = "0.6" },                   # from rodio v0.16.0
     { name = "raw-window-handle", version = "0.4" },     # from winit v0.27.4
+    { name = "nix", version = "0.23" },                  # from cpal v0.14.1
     { name = "nix", version = "0.24" },                  # from cpal v0.14.1
+    { name = "bare-metal", version = "0.2" },            # from postcard v1.0.2
+    { name = "nb", version = "0.1" },                    # from postcard v1.0.2
+    { name = "rustc_version", version = "0.2" },         # from postcard v1.0.2
+    { name = "semver", version = "0.9" },                # from postcard v1.0.2
     { name = "windows_aarch64_msvc", version = "0.36" }, # from notify v5.0.0
     { name = "windows_i686_gnu", version = "0.36" },     # from notify v5.0.0
     { name = "windows_i686_msvc", version = "0.36" },    # from notify v5.0.0

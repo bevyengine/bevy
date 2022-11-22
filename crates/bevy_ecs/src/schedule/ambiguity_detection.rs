@@ -235,9 +235,9 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
         }
         all_dependants[index] = dependants;
     }
-    let mut all_relations = all_dependencies
-        .drain(..)
-        .zip(all_dependants.drain(..))
+    let all_relations = all_dependencies
+        .into_iter()
+        .zip(all_dependants.into_iter())
         .enumerate()
         .map(|(index, (dependencies, dependants))| {
             let mut relations = FixedBitSet::with_capacity(systems.len());
@@ -250,7 +250,7 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
     let mut ambiguities = Vec::new();
     let full_bitset: FixedBitSet = (0..systems.len()).collect();
     let mut processed = FixedBitSet::with_capacity(systems.len());
-    for (index_a, relations) in all_relations.drain(..).enumerate() {
+    for (index_a, relations) in all_relations.into_iter().enumerate() {
         // TODO: prove that `.take(index_a)` would be correct here, and uncomment it if so.
         for index_b in full_bitset.difference(&relations)
         // .take(index_a)

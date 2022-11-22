@@ -54,10 +54,9 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
-        let (transparent_phase, target, camera_ui) =
-            if let Ok(result) = self.ui_view_query.get_manual(world, input_view_entity) {
-                result
-            } else {
+        let Ok((transparent_phase, target, camera_ui)) =
+                self.ui_view_query.get_manual(world, input_view_entity)
+             else {
                 return Ok(());
             };
         if transparent_phase.items.is_empty() {

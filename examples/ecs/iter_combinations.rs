@@ -54,10 +54,13 @@ fn generate_bodies(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mesh = meshes.add(Mesh::from(shape::Icosphere {
-        radius: 1.0,
-        subdivisions: 3,
-    }));
+    let mesh = meshes.add(
+        Mesh::try_from(shape::Icosphere {
+            radius: 1.0,
+            subdivisions: 3,
+        })
+        .unwrap(),
+    );
 
     let color_range = 0.5..1.0;
     let vel_range = -0.5..0.5;
@@ -73,7 +76,7 @@ fn generate_bodies(
             rng.gen_range(-1.0..1.0),
         )
         .normalize()
-            * rng.gen_range(0.2f32..1.0).powf(1. / 3.)
+            * rng.gen_range(0.2f32..1.0).cbrt()
             * 15.;
 
         commands.spawn(BodyBundle {
@@ -114,10 +117,13 @@ fn generate_bodies(
             BodyBundle {
                 pbr: PbrBundle {
                     transform: Transform::from_scale(Vec3::splat(star_radius)),
-                    mesh: meshes.add(Mesh::from(shape::Icosphere {
-                        radius: 1.0,
-                        subdivisions: 5,
-                    })),
+                    mesh: meshes.add(
+                        Mesh::try_from(shape::Icosphere {
+                            radius: 1.0,
+                            subdivisions: 5,
+                        })
+                        .unwrap(),
+                    ),
                     material: materials.add(StandardMaterial {
                         base_color: Color::ORANGE_RED,
                         emissive: (Color::ORANGE_RED * 2.),
@@ -169,8 +175,7 @@ fn integrate(mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)
 
-        let new_pos =
-            transform.translation + transform.translation - last_pos.0 + acceleration.0 * dt_sq;
+        let new_pos = transform.translation * 2.0 - last_pos.0 + acceleration.0 * dt_sq;
         acceleration.0 = Vec3::ZERO;
         last_pos.0 = transform.translation;
         transform.translation = new_pos;

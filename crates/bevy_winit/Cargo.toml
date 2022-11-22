@@ -1,6 +1,6 @@
 [package]
 name = "bevy_winit"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 description = "A winit window and input backend for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -9,17 +9,18 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+trace = []
 wayland = ["winit/wayland"]
 x11 = ["winit/x11"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
-bevy_input = { path = "../bevy_input", version = "0.9.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.9.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.9.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
+bevy_input = { path = "../bevy_input", version = "0.9.0" }
+bevy_math = { path = "../bevy_math", version = "0.9.0" }
+bevy_window = { path = "../bevy_window", version = "0.9.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
 # other
 winit = { version = "0.27", default-features = false }

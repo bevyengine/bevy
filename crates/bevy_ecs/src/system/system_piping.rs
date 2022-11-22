@@ -83,6 +83,12 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.system_b.run_unsafe(out, world)
     }
 
+    // needed to make exclusive systems work
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        let out = self.system_a.run(input, world);
+        self.system_b.run(out, world)
+    }
+
     fn apply_buffers(&mut self, world: &mut World) {
         self.system_a.apply_buffers(world);
         self.system_b.apply_buffers(world);
@@ -202,7 +208,7 @@ pub mod adapter {
     /// // Building a new schedule/app...
     /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::single_threaded())
+    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // Panic if the load system returns an error.
@@ -246,7 +252,7 @@ pub mod adapter {
     /// // Building a new schedule/app...
     /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
-    /// #     .add_stage(CoreStage::Update, SystemStage::single_threaded())
+    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // If the system fails, just move on and try again next frame.
