@@ -96,9 +96,12 @@ modules can we written in GLSL or WGSL. shaders with entry points can be importe
 
 final shaders can also be written in GLSL or WGSL. for GLSL users must specify whether the shader is a vertex shader or fragment shader via the ShaderType argument (GLSL compute shaders are not supported).
 
-## conditional compilation
+## preprocessing
 
-when generating a final shader, a set of `shader_def` strings must be provided. these allow conditional compilation of parts of modules and the final shader. conditional compilation is performed with `#ifdef` / `#ifndef`, `#else` and `#endif` preprocessor directives:
+when generating a final shader, a set of `shader_def` string/value pairs must be provided. The value can be a bool (`ShaderDefValue::Bool`) or an i32 (`ShaderDefValue::Int`).
+
+these allow conditional compilation of parts of modules and the final shader. conditional compilation is performed with `#if` / `#ifdef` / `#ifndef`, `#else` and `#endif` preprocessor directives:
+
 ```wgsl
 fn get_number() -> f32 {
     #ifdef BIG_NUMBER
@@ -108,6 +111,14 @@ fn get_number() -> f32 {
     #endif
 }
 ```
+the `#ifdef` directive matches when the def name exists in the input binding set (regardless of value). the `#ifndef` directive is the reverse.
+
+the `#if` directive requires a def name, an operator, and a value for comparison:
+- the def name must be a provided `shader_def` name. 
+- the operator must be one of `==`, `!=`, `>=`, `>`, `<`, `<=`
+- the value must be an integer literal if comparing to a `ShaderDef::Int`, or `true` or `false` if comparing to a `ShaderDef::Bool`.
+
+shader defs can also be used in the shader source with `#SHADER_DEF` or `#{SHADER_DEF}`, and will be substituted for their value.
 
 ## error reporting
 

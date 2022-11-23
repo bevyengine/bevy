@@ -96,7 +96,6 @@
 ///
 /// codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
 ///
-use bit_set::BitSet;
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
     files::SimpleFile,
@@ -105,12 +104,12 @@ use codespan_reporting::{
 use naga::EntryPoint;
 use regex::Regex;
 use std::{
-    collections::{hash_map::Entry, HashMap, HashSet},
+    collections::{hash_map::Entry, BTreeMap, HashMap, HashSet},
     iter::FusedIterator,
     ops::Range,
 };
 use thiserror::Error;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 use crate::{
     derive::DerivedModule,
@@ -143,15 +142,30 @@ impl From<ShaderType> for ShaderLanguage {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderDefValue {
+    Bool(bool),
+    Int(i32),
+}
+
+impl Default for ShaderDefValue {
+    fn default() -> Self {
+        ShaderDefValue::Bool(true)
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug, Default)]
+pub struct OwnedShaderDefs(BTreeMap<String, ShaderDefValue>);
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
-struct ModuleKey(BitSet);
+struct ModuleKey(OwnedShaderDefs);
 
 impl ModuleKey {
-    fn from_members(key: &HashSet<String>, universe: &[String]) -> Self {
-        let mut acc = BitSet::new();
-        for (index, item) in universe.iter().enumerate() {
-            if key.contains(item) {
-                acc.insert(index);
+    fn from_members(key: &HashMap<String, ShaderDefValue>, universe: &[String]) -> Self {
+        let mut acc = OwnedShaderDefs::default();
+        for item in universe {
+            if let Some(value) = key.get(item) {
+                acc.0.insert(item.to_owned(), *value);
             }
         }
         ModuleKey(acc)
@@ -206,14 +220,17 @@ pub struct ComposableModuleDefinition {
 }
 
 impl ComposableModuleDefinition {
-    fn get_module(&self, shader_defs: &HashSet<String>) -> Option<&ComposableModule> {
+    fn get_module(
+        &self,
+        shader_defs: &HashMap<String, ShaderDefValue>,
+    ) -> Option<&ComposableModule> {
         self.modules
             .get(&ModuleKey::from_members(shader_defs, &self.effective_defs))
     }
 
     fn insert_module(
         &mut self,
-        shader_defs: &HashSet<String>,
+        shader_defs: &HashMap<String, ShaderDefValue>,
         module: ComposableModule,
     ) -> &ComposableModule {
         match self
@@ -307,6 +324,19 @@ pub enum ComposerErrorInner {
     NotEnoughEndIfs(usize),
     #[error("Too many '# endif' lines. Each endif should be preceded by an if statement.")]
     TooManyEndIfs(usize),
+    #[error("Unknown shader def operator: '{operator}'")]
+    UnknownShaderDefOperator { pos: usize, operator: String },
+    #[error("Unknown shader def: '{shader_def_name}'")]
+    UnknownShaderDef { pos: usize, shader_def_name: String },
+    #[error(
+        "Invalid shader def comparison for '{shader_def_name}': expected {expected}, got {value}"
+    )]
+    InvalidShaderDefComparisonValue {
+        pos: usize,
+        shader_def_name: String,
+        expected: String,
+        value: String,
+    },
     #[error("Attempted to add a module with no #define_import_path")]
     NoModuleName,
     #[error("source contains internal decoration string, results probably won't be what you expect. if you have a legitimate reason to do this please file a report")]
@@ -410,6 +440,9 @@ impl ComposerError {
             ),
             ComposerErrorInner::NotEnoughEndIfs(pos)
             | ComposerErrorInner::TooManyEndIfs(pos)
+            | ComposerErrorInner::UnknownShaderDef { pos, .. }
+            | ComposerErrorInner::UnknownShaderDefOperator { pos, .. }
+            | ComposerErrorInner::InvalidShaderDefComparisonValue { pos, .. }
             | ComposerErrorInner::GlslInvalidVersion(pos) => {
                 (vec![Label::primary((), *pos..*pos)], vec![])
             }
@@ -462,8 +495,11 @@ pub struct Composer {
     version_regex: Regex,
     ifdef_regex: Regex,
     ifndef_regex: Regex,
+    ifop_regex: Regex,
     else_regex: Regex,
     endif_regex: Regex,
+    def_regex: Regex,
+    def_regex_delimited: Regex,
     import_custom_path_as_regex: Regex,
     import_custom_path_regex: Regex,
     define_import_path_regex: Regex,
@@ -499,8 +535,11 @@ impl Default for Composer {
             version_regex: Regex::new(r"^\s*#version\s+([0-9]+)").unwrap(),
             ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s+([\w|\d|_]+)").unwrap(),
             ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s+([\w|\d|_]+)").unwrap(),
+            ifop_regex: Regex::new(r"^\s*#\s*if\s+([\w|\d|_]+)\s*([^\s]*)\s*([\w|\d]+)").unwrap(),
             else_regex: Regex::new(r"^\s*#\s*else").unwrap(),
             endif_regex: Regex::new(r"^\s*#\s*endif").unwrap(),
+            def_regex: Regex::new(r"#\s*([\w|\d|_]+)").unwrap(),
+            def_regex_delimited: Regex::new(r"#\s*\{([\w|\d|_]+)\}").unwrap(),            
             import_custom_path_as_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)\s+as\s+([^\s]+)")
                 .unwrap(),
             import_custom_path_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)").unwrap(),
@@ -626,7 +665,7 @@ impl Composer {
         source: String,
         language: ShaderLanguage,
         imports: &[ImportDefinition],
-        shader_defs: &HashSet<String>,
+        shader_defs: &HashMap<String, ShaderDefValue>,
     ) -> Result<IrBuildResult, ComposerError> {
         info!("creating IR for {} with defs: {:?}", name, shader_defs);
 
@@ -712,14 +751,14 @@ impl Composer {
         })
     }
 
-    // process #if(n)def / #else / #endif preprocessor directives,
+    // process #if[(n)?def]? / #else / #endif preprocessor directives,
     // strip module name and imports
     // also strip "#version xxx"
     fn preprocess_defs(
         &self,
         shader_str: &str,
-        shader_defs: &HashSet<String>,
-        validate_len: bool,
+        shader_defs: &HashMap<String, ShaderDefValue>,
+        mut validate_len: bool,
     ) -> Result<(Option<String>, String, Vec<ImportDefWithOffset>), ComposerErrorInner> {
         let mut imports = Vec::new();
         let mut scopes = vec![true];
@@ -739,10 +778,67 @@ impl Composer {
                 }
             } else if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                scopes.push(*scopes.last().unwrap() && shader_defs.contains(def.as_str()));
+                scopes.push(*scopes.last().unwrap() && shader_defs.contains_key(def.as_str()));
             } else if let Some(cap) = self.ifndef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                scopes.push(*scopes.last().unwrap() && !shader_defs.contains(def.as_str()));
+                scopes.push(*scopes.last().unwrap() && !shader_defs.contains_key(def.as_str()));
+            } else if let Some(cap) = self.ifop_regex.captures(line) {
+                let def = cap.get(1).unwrap();
+                let op = cap.get(2).unwrap();
+                let val = cap.get(3).unwrap();
+
+                fn act_on<T: Eq + Ord>(
+                    a: T,
+                    b: T,
+                    op: &str,
+                    pos: usize,
+                ) -> Result<bool, ComposerErrorInner> {
+                    match op {
+                        "==" => Ok(a == b),
+                        "!=" => Ok(a != b),
+                        ">" => Ok(a > b),
+                        ">=" => Ok(a >= b),
+                        "<" => Ok(a < b),
+                        "<=" => Ok(a <= b),
+                        _ => Err(ComposerErrorInner::UnknownShaderDefOperator {
+                            pos,
+                            operator: op.to_string(),
+                        }),
+                    }
+                }
+
+                let def_value =
+                    shader_defs
+                        .get(def.as_str())
+                        .ok_or(ComposerErrorInner::UnknownShaderDef {
+                            pos: offset,
+                            shader_def_name: def.as_str().to_string(),
+                        })?;
+                let new_scope = match def_value {
+                    ShaderDefValue::Bool(def_value) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ComposerErrorInner::InvalidShaderDefComparisonValue {
+                                pos: offset,
+                                shader_def_name: def.as_str().to_string(),
+                                value: val.as_str().to_string(),
+                                expected: "bool".to_string(),
+                            }
+                        })?;
+                        act_on(*def_value, val, op.as_str(), offset)?
+                    }
+                    ShaderDefValue::Int(def_value) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ComposerErrorInner::InvalidShaderDefComparisonValue {
+                                pos: offset,
+                                shader_def_name: def.as_str().to_string(),
+                                value: val.as_str().to_string(),
+                                expected: "int".to_string(),
+                            }
+                        })?;
+                        act_on(*def_value, val, op.as_str(), offset)?
+                    }
+                };
+                scopes.push(*scopes.last().unwrap() && new_scope);
             } else if self.else_regex.is_match(line) {
                 let mut is_parent_scope_truthy = true;
                 if scopes.len() > 1 {
@@ -776,7 +872,40 @@ impl Composer {
                         offset,
                     });
                 } else {
-                    final_string.push_str(line);
+                    let mut line_with_defs = line.to_string();
+                    for capture in self.def_regex.captures_iter(line) {
+                        let def = capture.get(1).unwrap();
+                        if let Some(def) = shader_defs.get(def.as_str()) {
+                            let def = match def {
+                                ShaderDefValue::Bool(def) => def.to_string(),
+                                ShaderDefValue::Int(def) => def.to_string(),
+                            };
+                            line_with_defs =
+                                self.def_regex.replace(&line_with_defs, def).to_string();
+                        }
+                    }
+                    for capture in self.def_regex_delimited.captures_iter(line) {
+                        let def = capture.get(1).unwrap();
+                        if let Some(def) = shader_defs.get(def.as_str()) {
+                            let def = match def {
+                                ShaderDefValue::Bool(def) => def.to_string(),
+                                ShaderDefValue::Int(def) => def.to_string(),
+                            };
+                            line_with_defs = self
+                                .def_regex_delimited
+                                .replace(&line_with_defs, def)
+                                .to_string();
+                        }
+                    }
+                    final_string.push_str(&line_with_defs);
+                    let diff = line_with_defs.len() as i32 - line.len() as i32;
+                    if diff > 0 {
+                        final_string.extend(std::iter::repeat(" ").take(diff as usize));
+                    } else if diff < 0 && validate_len {
+                        // this sucks
+                        warn!("source code map requires shader_def values to be no longer than the corresponding shader_def name, error reporting may not be correct:\noriginal: {}\nreplaced: {}", line, line_with_defs);
+                        validate_len = false;
+                    }
                     output = true;
                 }
             }
@@ -846,12 +975,16 @@ impl Composer {
         &self,
         module_definition: &ComposableModuleDefinition,
         module_decoration: &str,
-        shader_defs: &HashSet<String>,
+        shader_defs: &HashMap<String, ShaderDefValue>,
         create_headers: bool,
         demote_entrypoints: bool,
     ) -> Result<ComposableModule, ComposerError> {
         let (_, source, imports) = self
-            .preprocess_defs(&module_definition.substituted_source, shader_defs, true)
+            .preprocess_defs(
+                &module_definition.substituted_source,
+                shader_defs,
+                self.validate,
+            )
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Module(module_definition.name.to_owned(), 0),
@@ -1301,7 +1434,7 @@ impl Composer {
         &'a self,
         derived: &mut DerivedModule<'a>,
         import: &String,
-        shader_defs: &HashSet<String>,
+        shader_defs: &HashMap<String, ShaderDefValue>,
         already_added: &mut HashSet<String>,
     ) {
         if already_added.contains(import) {
@@ -1326,10 +1459,10 @@ impl Composer {
     fn ensure_import(
         &mut self,
         module_set: &ComposableModuleDefinition,
-        shader_defs: &HashSet<String>,
+        shader_defs: &HashMap<String, ShaderDefValue>,
     ) -> Result<ComposableModule, ComposerError> {
         let (_, _, imports) = self
-            .preprocess_defs(&module_set.substituted_source, shader_defs, true)
+            .preprocess_defs(&module_set.substituted_source, shader_defs, self.validate)
             .map_err(|inner| ComposerError {
                 inner,
                 source: ErrSource::Module(module_set.name.to_owned(), 0),
@@ -1351,7 +1484,7 @@ impl Composer {
     fn ensure_imports<'a>(
         &mut self,
         imports: impl IntoIterator<Item = &'a ImportDefinition>,
-        shader_defs: &HashSet<String>,
+        shader_defs: &HashMap<String, ShaderDefValue>,
     ) -> Result<(), ComposerError> {
         for ImportDefinition { import, .. } in imports.into_iter() {
             // we've already ensured imports exist when they were added
@@ -1394,7 +1527,7 @@ pub struct NagaModuleDescriptor<'a> {
     pub source: &'a str,
     pub file_path: &'a str,
     pub shader_type: ShaderType,
-    pub shader_defs: &'a [String],
+    pub shader_defs: HashMap<String, ShaderDefValue>,
     pub additional_imports: &'a [ImportDefinition],
 }
 
@@ -1588,8 +1721,6 @@ impl Composer {
             shader_defs,
             additional_imports,
         } = desc;
-        let shader_defs = shader_defs.iter().cloned().collect();
-
         let (name, modified_source, imports) = self
             .preprocess_defs(source, &shader_defs, false)
             .map_err(|inner| ComposerError {

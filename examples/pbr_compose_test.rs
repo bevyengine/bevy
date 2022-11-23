@@ -91,7 +91,7 @@ fn test_compose_full() -> Result<naga::Module, ComposerError> {
     match composer.make_naga_module(NagaModuleDescriptor {
         source: include_str!("bevy_pbr_wgsl/pbr.wgsl"),
         file_path: "examples/bevy_pbr_wgsl/pbr.wgsl",
-        shader_defs: &["VERTEX_UVS".to_owned()],
+        shader_defs: [("VERTEX_UVS".to_owned(), Default::default())].into(),
         ..Default::default()
     }) {
         Ok(module) => {
@@ -115,7 +115,7 @@ fn test_compose_final_module(n: usize, composer: &mut Composer) {
         shader = match composer.make_naga_module(NagaModuleDescriptor {
             source: include_str!("bevy_pbr_wgsl/pbr.wgsl"),
             file_path: "examples/bevy_pbr_wgsl/pbr.wgsl",
-            shader_defs: &["VERTEX_UVS".to_owned()],
+            shader_defs: [("VERTEX_UVS".to_owned(), Default::default())].into(),
             ..Default::default()
         }) {
             Ok(module) => {
@@ -178,7 +178,7 @@ fn test_composer_compile(n: usize, composer: &mut Composer) {
             .make_naga_module(NagaModuleDescriptor {
                 source: include_str!("bevy_pbr_wgsl/pbr.wgsl"),
                 file_path: "examples/bevy_pbr_wgsl/pbr.wgsl",
-                shader_defs: &["VERTEX_UVS".to_owned()],
+                shader_defs: [("VERTEX_UVS".to_owned(), Default::default())].into(),
                 ..Default::default()
             })
             .unwrap();

@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod test {
-    use std::borrow::Cow;
     #[allow(unused_imports)]
     use std::io::Write;
+    use std::{borrow::Cow, collections::HashMap};
 
     use wgpu::{
         BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor, BindGroupLayoutEntry,
@@ -11,8 +11,8 @@ mod test {
     };
 
     use crate::compose::{
-        ComposableModuleDescriptor, Composer, ImportDefinition, NagaModuleDescriptor,
-        ShaderLanguage, ShaderType,
+        ComposableModuleDescriptor, Composer, ComposerErrorInner, ImportDefWithOffset,
+        ImportDefinition, NagaModuleDescriptor, ShaderDefValue, ShaderLanguage, ShaderType,
     };
 
     #[test]
@@ -67,13 +67,15 @@ mod test {
             })
             .unwrap();
 
-        let defs = (1..=67).map(|i| format!("a{}", i)).collect::<Vec<String>>();
+        let defs = (1..=67)
+            .map(|i| (format!("a{}", i), ShaderDefValue::Bool(true)))
+            .collect::<HashMap<_, _>>();
 
         let module = composer
             .make_naga_module(NagaModuleDescriptor {
                 source: include_str!("tests/big_shaderdefs/top.wgsl"),
                 file_path: "tests/big_shaderdefs/top.wgsl",
-                shader_defs: &defs,
+                shader_defs: defs,
                 ..Default::default()
             })
             .unwrap();
@@ -716,5 +718,510 @@ mod test {
         let res = f32::from_le_bytes(view.try_into().unwrap());
 
         res
+    }
+
+    //preprocessor tests
+    #[test]
+    fn process_shader_def_unknown_operator() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+#if TEXTURE !! true
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        let processor = Composer::default();
+
+        let result_missing = processor.preprocess_defs(
+            WGSL,
+            &[("TEXTURE".to_owned(), ShaderDefValue::Bool(true))].into(),
+            true,
+        );
+
+        let expected: Result<
+            (Option<String>, String, Vec<ImportDefWithOffset>),
+            ComposerErrorInner,
+        > = Err(ComposerErrorInner::UnknownShaderDefOperator {
+            pos: 124,
+            operator: "!!".to_string(),
+        });
+
+        assert_eq!(format!("{:?}", result_missing), format!("{:?}", expected),);
+    }
+    #[test]
+    fn process_shader_def_equal_int() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+#if TEXTURE == 3
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_EQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+                
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+      
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_NEQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+                
+                     
+                                    
+      
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = Composer::default();
+        let result_eq = processor
+            .preprocess_defs(
+                WGSL,
+                &[("TEXTURE".to_string(), ShaderDefValue::Int(3))].into(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(result_eq.1, EXPECTED_EQ);
+
+        let result_neq = processor
+            .preprocess_defs(
+                WGSL,
+                &[("TEXTURE".to_string(), ShaderDefValue::Int(7))].into(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(result_neq.1, EXPECTED_NEQ);
+
+        let result_missing = processor.preprocess_defs(WGSL, &Default::default(), true);
+
+        let expected_err: Result<
+            (Option<String>, String, Vec<ImportDefWithOffset>),
+            ComposerErrorInner,
+        > = Err(ComposerErrorInner::UnknownShaderDef {
+            pos: 124,
+            shader_def_name: "TEXTURE".to_string(),
+        });
+        assert_eq!(
+            format!("{:?}", result_missing),
+            format!("{:?}", expected_err),
+        );
+
+        let result_wrong_type = processor.preprocess_defs(
+            WGSL,
+            &[("TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
+            true,
+        );
+
+        let expected_err: Result<
+            (Option<String>, String, Vec<ImportDefWithOffset>),
+            ComposerErrorInner,
+        > = Err(ComposerErrorInner::InvalidShaderDefComparisonValue {
+            pos: 124,
+            shader_def_name: "TEXTURE".to_string(),
+            expected: "bool".to_string(),
+            value: "3".to_string(),
+        });
+
+        assert_eq!(
+            format!("{:?}", result_wrong_type),
+            format!("{:?}", expected_err)
+        );
+    }
+
+    #[test]
+    fn process_shader_def_equal_bool() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+#if TEXTURE == true
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_EQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+                   
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+      
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_NEQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+                   
+                     
+                                    
+      
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = Composer::default();
+        let result_eq = processor
+            .preprocess_defs(
+                WGSL,
+                &[("TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(result_eq.1, EXPECTED_EQ);
+
+        let result_neq = processor
+            .preprocess_defs(
+                WGSL,
+                &[("TEXTURE".to_string(), ShaderDefValue::Bool(false))].into(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(result_neq.1, EXPECTED_NEQ);
+    }
+
+    #[test]
+    fn process_shader_def_not_equal_bool() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+#if TEXTURE != false
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_EQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+                    
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+      
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_NEQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+                    
+                     
+                                    
+      
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = Composer::default();
+        let result_eq = processor
+            .preprocess_defs(
+                WGSL,
+                &[("TEXTURE".to_string(), ShaderDefValue::Bool(true))].into(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(result_eq.1, EXPECTED_EQ);
+
+        let result_neq = processor
+            .preprocess_defs(
+                WGSL,
+                &[("TEXTURE".to_string(), ShaderDefValue::Bool(false))].into(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(result_neq.1, EXPECTED_NEQ);
+
+        let result_missing = processor.preprocess_defs(WGSL, &[].into(), true);
+        let expected_err: Result<
+            (Option<String>, String, Vec<ImportDefWithOffset>),
+            ComposerErrorInner,
+        > = Err(ComposerErrorInner::UnknownShaderDef {
+            pos: 124,
+            shader_def_name: "TEXTURE".to_string(),
+        });
+        assert_eq!(
+            format!("{:?}", result_missing),
+            format!("{:?}", expected_err),
+        );
+
+        let result_wrong_type = processor.preprocess_defs(
+            WGSL,
+            &[("TEXTURE".to_string(), ShaderDefValue::Int(7))].into(),
+            true,
+        );
+
+        let expected_err: Result<
+            (Option<String>, String, Vec<ImportDefWithOffset>),
+            ComposerErrorInner,
+        > = Err(ComposerErrorInner::InvalidShaderDefComparisonValue {
+            pos: 124,
+            shader_def_name: "TEXTURE".to_string(),
+            expected: "int".to_string(),
+            value: "false".to_string(),
+        });
+        assert_eq!(
+            format!("{:?}", result_wrong_type),
+            format!("{:?}", expected_err),
+        );
+    }
+
+    #[test]
+    fn process_shader_def_replace() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    var a: i32 = #FIRST_VALUE;
+    var b: i32 = #FIRST_VALUE * #SECOND_VALUE;
+    var c: i32 = #MISSING_VALUE;
+    var d: bool = #BOOL_VALUE;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_REPLACED: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    var a: i32 = 5;
+    var b: i32 = 5 * 3;
+    var c: i32 = #MISSING_VALUE;
+    var d: bool = true;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = Composer::default();
+        let result = processor
+            .preprocess_defs(
+                WGSL,
+                &[
+                    ("BOOL_VALUE".to_string(), ShaderDefValue::Bool(true)),
+                    ("FIRST_VALUE".to_string(), ShaderDefValue::Int(5)),
+                    ("SECOND_VALUE".to_string(), ShaderDefValue::Int(3)),
+                ]
+                .into(),
+                true,
+            )
+            .unwrap();
+        assert_eq!(result.1, EXPECTED_REPLACED);
     }
 }
