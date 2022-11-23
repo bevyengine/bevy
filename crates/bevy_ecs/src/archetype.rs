@@ -373,7 +373,7 @@ pub struct ArchetypeGeneration(usize);
 impl ArchetypeGeneration {
     #[inline]
     pub const fn initial() -> Self {
-        ArchetypeGeneration(0)
+        ArchetypeGeneration(1)
     }
 
     #[inline]
@@ -435,7 +435,14 @@ pub struct Archetypes {
 impl Default for Archetypes {
     fn default() -> Self {
         let mut archetypes = Archetypes {
-            archetypes: Vec::new(),
+            // Dummy value to fill the zero-index slot.
+            archetypes: vec![Archetype {
+                id: ArchetypeId::new(1),
+                table_id: TableId::empty(),
+                edges: Default::default(),
+                entities: Vec::new(),
+                components: SparseSet::new().into_immutable(),
+            }],
             archetype_ids: Default::default(),
             archetype_component_count: 0,
         };

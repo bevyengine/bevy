@@ -723,7 +723,6 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
     }
 }
 
-#[derive(Default)]
 pub struct Bundles {
     bundle_infos: Vec<BundleInfo>,
     bundle_ids: HashMap<TypeId, BundleId>,
@@ -759,6 +758,20 @@ impl Bundles {
         });
         // SAFETY: index either exists, or was initialized
         unsafe { self.bundle_infos.get_unchecked(id.index()) }
+    }
+}
+
+impl Default for Bundles {
+    fn default() -> Self {
+        Bundles {
+            // Dummy value to fill the zero-index slot.
+            bundle_infos: vec![BundleInfo {
+                id: BundleId::new(1),
+                component_ids: Vec::new(),
+                storage_types: Vec::new(),
+            }],
+            bundle_ids: Default::default(),
+        }
     }
 }
 
