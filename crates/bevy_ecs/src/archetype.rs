@@ -414,7 +414,7 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 
     #[inline]
-    fn repr_from_index(_index: usize) -> Self::Repr {
+    unsafe fn repr_from_index(_index: usize) -> Self::Repr {
         // Intentionally unimplemented, not used in SparseSets/SparseArrays as key
         unimplemented!();
     }

@@ -230,14 +230,19 @@ impl SparseSetIndex for Entity {
     }
 
     #[inline]
-    fn repr_from_index(index: usize) -> Self::Repr {
+    unsafe fn repr_from_index(index: usize) -> Self::Repr {
         debug_assert!(index < Self::MAX_SIZE);
+        // SAFETY: Index is guarenteed not to exceed Self::MAX_SIZE.
+        // The created index cannot exceed u32::MAX, which is guarenteed
+        // to be least as big as usize::MAX on 32/64-bit platforms.
+        //
+        // Input cannot be zero as it's incremented by one.
         unsafe { NonZeroUsize::new_unchecked(index + 1) }
     }
 
     #[inline]
     fn repr_to_index(repr: &Self::Repr) -> usize {
-        repr.get() + 1
+        repr.get() - 1
     }
 }
 

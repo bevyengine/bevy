@@ -395,7 +395,14 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
                 *self.dense.get_unchecked_mut(I::repr_to_index(&dense_index)) = value;
             }
         } else {
-            let dense = I::repr_from_index(self.dense.len());
+            assert!(
+                self.dense.len() < I::MAX_SIZE,
+                "A SparseSet keyed by {} cannot exceed {} elements",
+                std::any::type_name::<I>(),
+                I::MAX_SIZE
+            );
+            // SAFETY: The above assertion esnures that the index is less than I::MAX_SIZE.
+            let dense = unsafe { I::repr_from_index(self.dense.len()) };
             self.sparse.insert(index.clone(), dense);
             self.indices.push(index);
             self.dense.push(value);
@@ -407,10 +414,17 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             // SAFETY: dense indices stored in self.sparse always exist
             unsafe { self.dense.get_unchecked_mut(I::repr_to_index(&dense_index)) }
         } else {
+            assert!(
+                self.dense.len() < I::MAX_SIZE,
+                "A SparseSet keyed by {} cannot exceed {} elements",
+                std::any::type_name::<I>(),
+                I::MAX_SIZE
+            );
             let value = func();
             let dense_index = self.dense.len();
-            self.sparse
-                .insert(index.clone(), I::repr_from_index(dense_index));
+            // SAFETY: The above assertion esnures that the index is less than I::MAX_SIZE.
+            let dense = unsafe { I::repr_from_index(dense_index) };
+            self.sparse.insert(index.clone(), dense);
             self.indices.push(index);
             self.dense.push(value);
             // SAFETY: dense index was just populated above
@@ -452,12 +466,23 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 /// zero), as the number of bits needed to represent a `SparseSetIndex` in a `FixedBitSet`
 /// is proportional to the **value** of those `usize`.
 pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
+    /// The internal representation type used to represent a dense index within a [`SparseArray`]
+    /// or [`SparseSet`].
+    ///
+    /// It's advised to use a space-optimized type (i.e. the `std::num::NonZero*` types), as this
+    /// cut the overall memory overhead by ~50%.
     type Repr: Clone;
+
+    /// The maximum number of elements that can be stored in a [`SparseArray`]/[`SparseSet`]
+    /// when keyed by this type.
     const MAX_SIZE: usize;
+
     fn sparse_set_index(&self) -> usize;
     fn get_sparse_set_index(value: usize) -> Self;
-    // fn to_repr(&self) -> Self::Repr;
-    fn repr_from_index(index: usize) -> Self::Repr;
+
+    /// # Safety
+    /// This function is only safe if `index <= Self::MAX_SIZE`
+    unsafe fn repr_from_index(index: usize) -> Self::Repr;
     fn repr_to_index(repr: &Self::Repr) -> usize;
 }
 
@@ -478,7 +503,7 @@ macro_rules! impl_sparse_set_index {
             }
 
             #[inline]
-            fn repr_from_index(index: usize) -> Self::Repr {
+            unsafe fn repr_from_index(index: usize) -> Self::Repr {
                 index as Self
             }
 
@@ -507,9 +532,9 @@ macro_rules! impl_nonzero_sparse_set_index {
             }
 
             #[inline]
-            fn repr_from_index(index: usize) -> Self::Repr {
+            unsafe fn repr_from_index(index: usize) -> Self::Repr {
                 debug_assert!(index < <Self as SparseSetIndex>::MAX_SIZE);
-                // SAFETY: Index is guarenteed to not exceed Self::MAX
+                // SAFETY: Index is guarenteed by the caller to not exceed Self::MAX_SIZE
                 unsafe { <$ty>::new_unchecked((index + 1) as $underlying) }
             }
 

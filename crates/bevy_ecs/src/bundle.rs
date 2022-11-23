@@ -279,8 +279,12 @@ impl SparseSetIndex for BundleId {
     }
 
     #[inline]
-    fn repr_from_index(index: usize) -> Self::Repr {
+    unsafe fn repr_from_index(index: usize) -> Self::Repr {
         debug_assert!(index < Self::MAX_SIZE);
+        // SAFETY: Caller guarentees that `index` does not exceed `u32::MAX - 1`.
+        // This addition cannot overflow under these guarentees.
+        //
+        // Created index cannot be zero as it's being incremented by one.
         unsafe { NonZeroU32::new_unchecked((index + 1) as u32) }
     }
 
