@@ -6,6 +6,8 @@ use regex::Regex;
 use std::{borrow::Cow, marker::Copy, path::PathBuf, str::FromStr};
 use thiserror::Error;
 
+use super::ShaderDefVal;
+
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ShaderId(Uuid);
 

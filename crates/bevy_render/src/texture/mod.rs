@@ -86,6 +86,7 @@ impl Plugin for ImagePlugin {
         app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
             PrepareAssetLabel::PreAssetPrepare,
         ))
+        .register_type::<Image>()
         .add_asset::<Image>()
         .register_asset_reflect::<Image>();
         app.world

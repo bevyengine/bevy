@@ -8,6 +8,10 @@ repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
+[features]
+default = ["serialize"]
+serialize = ["dep:serde", "uuid/serde"]
+
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.9.0" }
@@ -21,9 +25,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 bevy_render = { path = "../bevy_render", version = "0.9.0" }
 
 # other
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"], optional = true }
 ron = "0.8.0"
-uuid = { version = "1.1", features = ["v4", "serde"] }
+uuid = { version = "1.1", features = ["v4"] }
 anyhow = "1.0.4"
 thiserror = "1.0"
 

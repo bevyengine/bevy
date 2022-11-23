@@ -262,6 +262,16 @@ description = "Demonstrates transparency in 2d"
 category = "2D Rendering"
 wasm = true
 
+[[example]]
+name = "pixel_perfect"
+path = "examples/2d/pixel_perfect.rs"
+
+[package.metadata.example.pixel_perfect]
+name = "Pixel Perfect"
+description = "Demonstrates pixel perfect in 2d"
+category = "2D Rendering"
+wasm = true
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
@@ -1451,6 +1461,16 @@ name = "Button"
 description = "Illustrates creating and updating a button"
 category = "UI (User Interface)"
 wasm = true
+
+[[example]]
+name = "window_fallthrough"
+path = "examples/ui/window_fallthrough.rs"
+
+[package.metadata.example.window_fallthrough]
+name = "Window Fallthrough"
+description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
+category = "UI (User Interface)"
+wasm = false
 
 [[example]]
 name = "font_atlas_debug"

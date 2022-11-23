@@ -708,6 +708,29 @@ mod tests {
     }
 
     #[test]
+    fn query_get_works_across_sparse_removal() {
+        // Regression test for: https://github.com/bevyengine/bevy/issues/6623
+        let mut world = World::new();
+        let a = world.spawn((TableStored("abc"), SparseStored(123))).id();
+        let b = world.spawn((TableStored("def"), SparseStored(456))).id();
+        let c = world
+            .spawn((TableStored("ghi"), SparseStored(789), B(1)))
+            .id();
+
+        let mut query = world.query::<&TableStored>();
+        assert_eq!(query.get(&world, a).unwrap(), &TableStored("abc"));
+        assert_eq!(query.get(&world, b).unwrap(), &TableStored("def"));
+        assert_eq!(query.get(&world, c).unwrap(), &TableStored("ghi"));
+
+        world.entity_mut(b).remove::<SparseStored>();
+        world.entity_mut(c).remove::<SparseStored>();
+
+        assert_eq!(query.get(&world, a).unwrap(), &TableStored("abc"));
+        assert_eq!(query.get(&world, b).unwrap(), &TableStored("def"));
+        assert_eq!(query.get(&world, c).unwrap(), &TableStored("ghi"));
+    }
+
+    #[test]
     fn remove_tracking() {
         let mut world = World::new();
 
