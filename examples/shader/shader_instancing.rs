@@ -197,7 +197,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
         descriptor
             .vertex
             .shader_defs
-            .push("MESH_BINDGROUP_1".to_owned());
+            .push("MESH_BINDGROUP_1".into());
 
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.buffers.push(VertexBufferLayout {

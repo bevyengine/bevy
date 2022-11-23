@@ -325,7 +325,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
             ShaderDefVal::Int(
                 "MAX_DIRECTIONAL_LIGHTS".to_string(),
                 MAX_DIRECTIONAL_LIGHTS as i32,
-            )
+            ),
         ];
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)

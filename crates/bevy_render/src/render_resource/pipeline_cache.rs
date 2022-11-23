@@ -16,10 +16,10 @@ use bevy_utils::{
     Entry, HashMap, HashSet,
 };
 use naga::valid::Capabilities;
-use std::{borrow::Cow, hash::Hash, mem, ops::Deref, sync::Arc};
+use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
-    util::make_spirv, BufferBindingType, Features, PipelineLayoutDescriptor, ShaderModule,
+    util::make_spirv, BufferBindingType, Features, PipelineLayoutDescriptor,
     ShaderModuleDescriptor, VertexBufferLayout as RawVertexBufferLayout,
 };
 
@@ -265,9 +265,21 @@ impl ShaderCache {
                             )?;
                         }
 
+                        let shader_defs = shader_defs
+                            .into_iter()
+                            .map(|def| match def {
+                                ShaderDefVal::Bool(k, v) => {
+                                    (k, naga_oil::compose::ShaderDefValue::Bool(v))
+                                }
+                                ShaderDefVal::Int(k, v) => {
+                                    (k, naga_oil::compose::ShaderDefValue::Int(v))
+                                }
+                            })
+                            .collect::<std::collections::HashMap<_, _>>();
+
                         let naga = self.composer.make_naga_module(
                             naga_oil::compose::NagaModuleDescriptor {
-                                shader_defs: &shader_defs,
+                                shader_defs,
                                 ..shader.into()
                             },
                         )?;
