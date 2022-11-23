@@ -507,7 +507,7 @@ impl Default for Composer {
             define_import_path_regex: Regex::new(r"^\s*#\s*define_import_path\s+([^\s]+)").unwrap(),
             virtual_fn_regex: Regex::new(
                 format!(
-                    r"(?P<lead>[\s]*override\s*fn\s*){}(?P<module>[^\s]+){}(?P<function>[^\s]+)(?P<trail>\s*)\(", 
+                    r"(?P<lead>[\s]*override\s+fn\s*){}(?P<module>[^\s]+){}(?P<function>[^\s]+)(?P<trail>\s*)\(", 
                     regex_syntax::escape(DECORATION_PRE),
                     regex_syntax::escape(DECORATION_POST)
                 )
