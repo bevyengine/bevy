@@ -35,9 +35,8 @@ mod map_entities;
 pub use map_entities::*;
 
 use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
-use nonmax::NonMaxUsize;
 use serde::{Deserialize, Serialize};
-use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
+use std::{convert::TryFrom, fmt, mem, num::NonZeroUsize, sync::atomic::Ordering};
 
 #[cfg(target_has_atomic = "64")]
 use std::sync::atomic::AtomicI64 as AtomicIdCursor;
@@ -217,7 +216,8 @@ impl fmt::Debug for Entity {
 }
 
 impl SparseSetIndex for Entity {
-    type Repr = NonMaxUsize;
+    type Repr = NonZeroUsize;
+    const MAX_SIZE: usize = u32::MAX as usize;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -231,12 +231,13 @@ impl SparseSetIndex for Entity {
 
     #[inline]
     fn repr_from_index(index: usize) -> Self::Repr {
-        NonMaxUsize::new(index).unwrap()
+        debug_assert!(index < Self::MAX_SIZE);
+        unsafe { NonZeroUsize::new_unchecked(index + 1) }
     }
 
     #[inline]
     fn repr_to_index(repr: &Self::Repr) -> usize {
-        repr.get()
+        repr.get() + 1
     }
 }
 

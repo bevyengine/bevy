@@ -15,8 +15,7 @@ use crate::{
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
-use nonmax::NonMaxU32;
-use std::{any::TypeId, collections::HashMap};
+use std::{any::TypeId, collections::HashMap, num::NonZeroU32};
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -232,7 +231,7 @@ macro_rules! tuple_impl {
 all_tuples!(tuple_impl, 0, 15, B);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct BundleId(NonMaxU32);
+pub struct BundleId(NonZeroU32);
 
 impl BundleId {
     /// Creates a new [`BundleId`] from an index without checking for the
@@ -241,8 +240,8 @@ impl BundleId {
     /// # Safety
     /// `value` must be less than [`u32::MAX`].
     #[inline]
-    pub const unsafe fn new_unchecked(value: usize) -> Self {
-        Self(NonMaxU32::new_unchecked(value as u32))
+    pub(crate) const unsafe fn new_unchecked(value: usize) -> Self {
+        Self(NonZeroU32::new_unchecked(value as u32))
     }
 
     /// Creates a new [`BundleId`] from an index.
@@ -250,9 +249,9 @@ impl BundleId {
     /// # Panic
     /// This function will panic if `value` is greater than or equal to [`u32::MAX`].
     #[inline]
-    pub const fn new(value: usize) -> Self {
+    pub(crate) const fn new(value: usize) -> Self {
         assert!(
-            value < u32::MAX as usize,
+            value > 0 && value <= u32::MAX as usize,
             "BundleID cannot be u32::MAX or greater"
         );
         // SAFETY: The above assertion will fail if the value is not valid.
@@ -260,13 +259,14 @@ impl BundleId {
     }
 
     #[inline]
-    pub fn index(self) -> usize {
+    pub(crate) fn index(self) -> usize {
         self.0.get() as usize
     }
 }
 
 impl SparseSetIndex for BundleId {
-    type Repr = NonMaxU32;
+    type Repr = NonZeroU32;
+    const MAX_SIZE: usize = (u32::MAX - 1) as usize;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -280,7 +280,8 @@ impl SparseSetIndex for BundleId {
 
     #[inline]
     fn repr_from_index(index: usize) -> Self::Repr {
-        NonMaxU32::new(index as u32).unwrap()
+        debug_assert!(index < Self::MAX_SIZE);
+        unsafe { NonZeroU32::new_unchecked((index + 1) as u32) }
     }
 
     #[inline]

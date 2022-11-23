@@ -26,7 +26,6 @@ thread_local = "1.1.4"
 fixedbitset = "0.4"
 fxhash = "0.2"
 downcast-rs = "1.2"
-nonmax = "0.5"
 serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]

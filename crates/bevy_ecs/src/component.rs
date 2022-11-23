@@ -260,6 +260,7 @@ impl ComponentId {
 
 impl SparseSetIndex for ComponentId {
     type Repr = NonZeroU32;
+    const MAX_SIZE: usize = <NonZeroU32 as SparseSetIndex>::MAX_SIZE;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -272,7 +273,7 @@ impl SparseSetIndex for ComponentId {
 
     #[inline]
     fn repr_from_index(index: usize) -> Self::Repr {
-        assert!(index < u32::MAX as usize);
+        debug_assert!(index < Self::MAX_SIZE);
         // SAFETY: The above assertion will fail if the value is not valid.
         unsafe { NonZeroU32::new_unchecked((index + 1) as u32) }
     }

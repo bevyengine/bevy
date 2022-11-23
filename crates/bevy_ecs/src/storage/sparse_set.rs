@@ -4,7 +4,7 @@ use crate::{
     storage::Column,
 };
 use bevy_ptr::{OwningPtr, Ptr};
-use nonmax::{NonMaxU16, NonMaxU32, NonMaxU64, NonMaxU8, NonMaxUsize};
+use std::num::{NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize};
 use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
 type EntityIndex = u32;
@@ -453,6 +453,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 /// is proportional to the **value** of those `usize`.
 pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
     type Repr: Clone;
+    const MAX_SIZE: usize;
     fn sparse_set_index(&self) -> usize;
     fn get_sparse_set_index(value: usize) -> Self;
     // fn to_repr(&self) -> Self::Repr;
@@ -464,6 +465,7 @@ macro_rules! impl_sparse_set_index {
     ($ty:ty) => {
         impl SparseSetIndex for $ty {
             type Repr = Self;
+            const MAX_SIZE: usize = Self::MAX as usize;
 
             #[inline]
             fn sparse_set_index(&self) -> usize {
@@ -488,10 +490,11 @@ macro_rules! impl_sparse_set_index {
     };
 }
 
-macro_rules! impl_nonmax_sparse_set_index {
+macro_rules! impl_nonzero_sparse_set_index {
     ($ty:ty, $underlying:ty) => {
         impl SparseSetIndex for $ty {
             type Repr = Self;
+            const MAX_SIZE: usize = (<$underlying>::MAX - 1) as usize;
 
             #[inline]
             fn sparse_set_index(&self) -> usize {
@@ -505,12 +508,14 @@ macro_rules! impl_nonmax_sparse_set_index {
 
             #[inline]
             fn repr_from_index(index: usize) -> Self::Repr {
-                <$ty>::new(index as $underlying).unwrap()
+                debug_assert!(index < <Self as SparseSetIndex>::MAX_SIZE);
+                // SAFETY: Index is guarenteed to not exceed Self::MAX
+                unsafe { <$ty>::new_unchecked((index + 1) as $underlying) }
             }
 
             #[inline]
             fn repr_to_index(repr: &Self::Repr) -> usize {
-                repr.get() as usize
+                repr.get() as usize - 1
             }
         }
     };
@@ -522,11 +527,11 @@ impl_sparse_set_index!(u32);
 impl_sparse_set_index!(u64);
 impl_sparse_set_index!(usize);
 
-impl_nonmax_sparse_set_index!(NonMaxU8, u8);
-impl_nonmax_sparse_set_index!(NonMaxU16, u16);
-impl_nonmax_sparse_set_index!(NonMaxU32, u32);
-impl_nonmax_sparse_set_index!(NonMaxU64, u64);
-impl_nonmax_sparse_set_index!(NonMaxUsize, usize);
+impl_nonzero_sparse_set_index!(NonZeroU8, u8);
+impl_nonzero_sparse_set_index!(NonZeroU16, u16);
+impl_nonzero_sparse_set_index!(NonZeroU32, u32);
+impl_nonzero_sparse_set_index!(NonZeroU64, u64);
+impl_nonzero_sparse_set_index!(NonZeroUsize, usize);
 
 /// A collection of [`ComponentSparseSet`] storages, indexed by [`ComponentId`]
 ///

@@ -7,20 +7,20 @@ use crate::{
     entity::{Entity, EntityLocation},
     storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
-use nonmax::NonMaxU32;
 use std::{
     collections::HashMap,
     hash::Hash,
+    num::NonZeroU32,
     ops::{Index, IndexMut},
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeId(NonMaxU32);
+pub struct ArchetypeId(NonZeroU32);
 
 impl ArchetypeId {
     pub const EMPTY: ArchetypeId = {
         // SAFETY: 0 is guarenteed to not equal u32::MAX
-        unsafe { ArchetypeId::new_unchecked(0) }
+        unsafe { Self::new_unchecked(1) }
     };
 
     /// Creates a new [`ArchetypeId`].
@@ -28,13 +28,13 @@ impl ArchetypeId {
     /// # Panics
     /// This will panic if `index` is `u32::MAX` or greater.
     #[inline]
-    pub fn new(index: usize) -> Self {
+    pub(crate) fn new(index: usize) -> Self {
         assert!(
-            index < u32::MAX as usize,
+            index > 0 && index <= u32::MAX as usize,
             "ArchetypeID cannot be u32::MAX or greater"
         );
         // SAFETY: The above assertion will fail if the value is not valid.
-        unsafe { Self(NonMaxU32::new_unchecked(index as u32)) }
+        unsafe { Self::new_unchecked(index) }
     }
 
     /// Creates a new [`ArchetypeId`] without checking for validity of the
@@ -43,13 +43,13 @@ impl ArchetypeId {
     /// # Safety
     /// This is only safe if `index` is not `u32::MAX` or greater.
     #[inline]
-    pub const unsafe fn new_unchecked(index: usize) -> Self {
-        Self(NonMaxU32::new_unchecked(index as u32))
+    pub(crate) const unsafe fn new_unchecked(index: usize) -> Self {
+        Self(NonZeroU32::new_unchecked(index as u32))
     }
 
     /// Gets the corresponding index for the ID.
     #[inline]
-    pub const fn index(self) -> usize {
+    pub(crate) const fn index(self) -> usize {
         self.0.get() as usize
     }
 }
@@ -389,7 +389,7 @@ pub struct ArchetypeIdentity {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeComponentId(NonMaxU32);
+pub struct ArchetypeComponentId(NonZeroU32);
 
 impl ArchetypeComponentId {
     /// Creates a new [`ArchetypeComponentId`] from an index without
@@ -398,8 +398,8 @@ impl ArchetypeComponentId {
     /// # Safety
     /// `index` must not be [`usize::MAX`].
     #[inline]
-    pub const unsafe fn new_unchecked(index: usize) -> Self {
-        Self(NonMaxU32::new_unchecked(index as u32))
+    pub(crate) const unsafe fn new_unchecked(index: usize) -> Self {
+        Self(NonZeroU32::new_unchecked(index as u32))
     }
 
     /// Creates a new [`ArchetypeComponentId`] from an index.
@@ -407,7 +407,7 @@ impl ArchetypeComponentId {
     /// # Panic
     /// This function will panic if `index` is equal to [`usize::MAX`].
     #[inline]
-    pub const fn new(index: usize) -> Self {
+    pub(crate) const fn new(index: usize) -> Self {
         assert!(
             index < u32::MAX as usize,
             "ArchetypeComponentId cannot be u32::MAX or greater"
@@ -415,15 +415,11 @@ impl ArchetypeComponentId {
         // SAFETY: The above assertion will fail if the value is not valid.
         unsafe { Self::new_unchecked(index) }
     }
-
-    #[inline]
-    pub fn index(self) -> usize {
-        self.0.get() as usize
-    }
 }
 
 impl SparseSetIndex for ArchetypeComponentId {
-    type Repr = NonMaxU32;
+    type Repr = NonZeroU32;
+    const MAX_SIZE: usize = NonZeroU32::MAX_SIZE;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -437,12 +433,13 @@ impl SparseSetIndex for ArchetypeComponentId {
 
     #[inline]
     fn repr_from_index(index: usize) -> Self::Repr {
-        NonMaxU32::new(index as u32).unwrap()
+        debug_assert!(index < Self::MAX_SIZE);
+        unsafe { NonZeroU32::new_unchecked((index + 1) as u32) }
     }
 
     #[inline]
     fn repr_to_index(repr: &Self::Repr) -> usize {
-        repr.get() as usize
+        repr.get() as usize - 1
     }
 }
 
