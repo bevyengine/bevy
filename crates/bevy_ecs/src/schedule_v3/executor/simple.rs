@@ -3,7 +3,7 @@ use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule_v3::{ticks_since, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
@@ -30,11 +30,6 @@ impl SystemExecutor for SimpleExecutor {
     }
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
-        // The start of schedule execution is the best time to do this.
-        world.check_change_ticks();
-
-        #[cfg(feature = "trace")]
-        let _schedule_span = info_span!("schedule").entered();
         for sys_idx in 0..schedule.systems.len() {
             if self.completed_systems.contains(sys_idx) {
                 continue;
@@ -47,8 +42,9 @@ impl SystemExecutor for SimpleExecutor {
 
             // evaluate conditions
             let mut should_run = true;
+            let world_tick = world.change_tick();
 
-            // evaluate set conditions in hierarchical order
+            // evaluate system set conditions in hierarchical order
             for set_idx in schedule.sets_of_systems[sys_idx].ones() {
                 if self.completed_sets.contains(set_idx) {
                     continue;
@@ -60,9 +56,10 @@ impl SystemExecutor for SimpleExecutor {
                 let saved_tick = set_conditions
                     .iter()
                     .map(|condition| condition.get_last_change_tick())
-                    .min();
+                    .min_by_key(|&tick| ticks_since(tick, world_tick));
 
                 let set_conditions_met = set_conditions.iter_mut().all(|condition| {
+                    condition.set_last_change_tick(saved_tick.unwrap());
                     #[cfg(feature = "trace")]
                     let _condition_span =
                         info_span!("condition", name = &*condition.name()).entered();
@@ -72,16 +69,16 @@ impl SystemExecutor for SimpleExecutor {
                 self.completed_sets.insert(set_idx);
 
                 if !set_conditions_met {
+                    // restore condition change ticks
+                    for condition in set_conditions.iter_mut() {
+                        condition.set_last_change_tick(saved_tick.unwrap());
+                    }
+
                     // mark all members as completed
                     self.completed_systems
                         .union_with(&schedule.systems_of_sets[set_idx]);
                     self.completed_sets
                         .union_with(&schedule.sets_of_sets[set_idx]);
-
-                    // restore condition change ticks
-                    for condition in set_conditions.iter_mut() {
-                        condition.set_last_change_tick(saved_tick.unwrap());
-                    }
                 }
 
                 should_run &= set_conditions_met;
@@ -94,21 +91,21 @@ impl SystemExecutor for SimpleExecutor {
             let system = schedule.systems[sys_idx].get_mut();
 
             // evaluate the system's conditions
-            let system_conditions = schedule.system_conditions[sys_idx].get_mut();
-            for condition in system_conditions.iter_mut() {
-                condition.set_last_change_tick(system.get_last_change_tick());
-            }
-
-            let should_run = system_conditions.iter_mut().all(|condition| {
-                #[cfg(feature = "trace")]
-                let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-                condition.run((), world)
-            });
+            should_run = schedule.system_conditions[sys_idx]
+                .get_mut()
+                .iter_mut()
+                .all(|condition| {
+                    condition.set_last_change_tick(system.get_last_change_tick());
+                    #[cfg(feature = "trace")]
+                    let _condition_span =
+                        info_span!("condition", name = &*condition.name()).entered();
+                    condition.run((), world)
+                });
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
-            // mark system as completed regardless
+            // system has been skipped or will run
             self.completed_systems.insert(sys_idx);
 
             if !should_run {

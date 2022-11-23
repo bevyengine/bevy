@@ -10,7 +10,9 @@ use fixedbitset::FixedBitSet;
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
-    schedule_v3::{is_apply_system_buffers, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule_v3::{
+        is_apply_system_buffers, ticks_since, ExecutorKind, SystemExecutor, SystemSchedule,
+    },
     world::World,
 };
 
@@ -94,11 +96,6 @@ impl SystemExecutor for MultiThreadedExecutor {
     }
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
-        // The start of schedule execution is the best time to do this.
-        world.check_change_ticks();
-
-        #[cfg(feature = "trace")]
-        let _schedule_span = info_span!("schedule").entered();
         ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             // the executor itself is a `Send` future so that it can run
             // alongside systems that claim the local thread
@@ -253,15 +250,15 @@ impl MultiThreadedExecutor {
         self.active_access
             .extend(&system_meta.archetype_component_access);
 
-        self.ready_systems.set(system_index, false);
-        self.running_systems.insert(system_index);
-
         if system_meta.is_send {
             scope.spawn(task);
         } else {
             self.local_thread_running = true;
             scope.spawn_on_scope(task);
         }
+
+        self.ready_systems.set(system_index, false);
+        self.running_systems.insert(system_index);
     }
 
     fn spawn_exclusive_system_task<'scope>(
@@ -280,12 +277,6 @@ impl MultiThreadedExecutor {
         let system_span = info_span!("system", name = &*system.name());
 
         let sender = self.sender.clone();
-
-        self.ready_systems.set(system_index, false);
-        self.running_systems.insert(system_index);
-        self.local_thread_running = true;
-        self.exclusive_running = true;
-
         if is_apply_system_buffers(system) {
             // TODO: avoid allocation
             let mut unapplied_systems = self.unapplied_systems.clone();
@@ -321,6 +312,11 @@ impl MultiThreadedExecutor {
             let task = task.instrument(task_span);
             scope.spawn_on_scope(task);
         }
+
+        self.local_thread_running = true;
+        self.exclusive_running = true;
+        self.ready_systems.set(system_index, false);
+        self.running_systems.insert(system_index);
     }
 
     fn can_run(&mut self, system_index: usize, schedule: &SystemSchedule, world: &World) -> bool {
@@ -372,8 +368,9 @@ impl MultiThreadedExecutor {
 
         // evaluate conditions
         let mut should_run = true;
+        let world_tick = world.read_change_tick();
 
-        // evaluate set conditions in hierarchical order
+        // evaluate system set conditions in hierarchical order
         for set_idx in schedule.sets_of_systems[system_index].ones() {
             if self.completed_sets.contains(set_idx) {
                 continue;
@@ -385,9 +382,10 @@ impl MultiThreadedExecutor {
             let saved_tick = set_conditions
                 .iter()
                 .map(|condition| condition.get_last_change_tick())
-                .min();
+                .min_by_key(|&tick| ticks_since(tick, world_tick));
 
             let set_conditions_met = set_conditions.iter_mut().all(|condition| {
+                condition.set_last_change_tick(saved_tick.unwrap());
                 #[cfg(feature = "trace")]
                 let _condition_span = info_span!("condition", name = &*condition.name()).entered();
                 // SAFETY: access is compatible
@@ -397,20 +395,19 @@ impl MultiThreadedExecutor {
             self.completed_sets.insert(set_idx);
 
             if !set_conditions_met {
+                // restore change ticks
+                for condition in set_conditions.iter_mut() {
+                    condition.set_last_change_tick(saved_tick.unwrap());
+                }
+
                 // mark all members as completed
                 for sys_idx in schedule.systems_of_sets[set_idx].ones() {
                     if !self.completed_systems.contains(sys_idx) {
                         self.skip_system_and_signal_dependents(sys_idx);
                     }
                 }
-
                 self.completed_sets
                     .union_with(&schedule.sets_of_sets[set_idx]);
-
-                // restore condition change ticks
-                for condition in set_conditions.iter_mut() {
-                    condition.set_last_change_tick(saved_tick.unwrap());
-                }
             }
 
             should_run &= set_conditions_met;
@@ -423,17 +420,16 @@ impl MultiThreadedExecutor {
         let system = schedule.systems[system_index].borrow();
 
         // evaluate the system's conditions
-        let mut system_conditions = schedule.system_conditions[system_index].borrow_mut();
-        for condition in system_conditions.iter_mut() {
-            condition.set_last_change_tick(system.get_last_change_tick());
-        }
-
-        let should_run = system_conditions.iter_mut().all(|condition| {
-            #[cfg(feature = "trace")]
-            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-            // SAFETY: access is compatible
-            unsafe { condition.run_unsafe((), world) }
-        });
+        should_run = schedule.system_conditions[system_index]
+            .borrow_mut()
+            .iter_mut()
+            .all(|condition| {
+                condition.set_last_change_tick(system.get_last_change_tick());
+                #[cfg(feature = "trace")]
+                let _condition_span = info_span!("condition", name = &*condition.name()).entered();
+                // SAFETY: access is compatible
+                unsafe { condition.run_unsafe((), world) }
+            });
 
         if !should_run {
             self.skip_system_and_signal_dependents(system_index);

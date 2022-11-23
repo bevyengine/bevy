@@ -4,6 +4,8 @@ use std::{
     result::Result,
 };
 
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use bevy_utils::{
     petgraph::{algo::tarjan_scc, prelude::*},
     thiserror::Error,
@@ -75,15 +77,14 @@ impl Schedules {
     /// times since the previous pass.
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("check stored schedule ticks").entered();
+        let _all_span = info_span!("check stored schedule ticks").entered();
         // label used when trace feature is enabled
         #[allow(unused_variables)]
         for (label, schedule) in self.inner.iter_mut() {
             #[cfg(feature = "trace")]
             let name = format!("{:?}", label);
             #[cfg(feature = "trace")]
-            let _span =
-                bevy_utils::tracing::info_span!("check schedule ticks", name = &name).entered();
+            let _one_span = info_span!("check schedule ticks", name = &name).entered();
             schedule.check_change_ticks(change_tick);
         }
     }
@@ -165,6 +166,10 @@ impl Schedule {
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
         self.initialize(world).unwrap();
+        world.check_change_ticks();
+        // TODO: get a label on this span
+        #[cfg(feature = "trace")]
+        let _span = info_span!("schedule").entered();
         self.executor.run(&mut self.executable, world);
     }
 

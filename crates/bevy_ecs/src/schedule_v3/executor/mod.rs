@@ -88,3 +88,8 @@ pub(super) fn is_apply_system_buffers(system: &BoxedSystem) -> bool {
     // deref to use `System::type_id` instead of `Any::type_id`
     system.as_ref().type_id() == apply_system_buffers.type_id()
 }
+
+/// Returns the number of change ticks elapsed.
+pub(super) fn ticks_since(system_tick: u32, world_tick: u32) -> u32 {
+    world_tick.wrapping_sub(system_tick)
+}
