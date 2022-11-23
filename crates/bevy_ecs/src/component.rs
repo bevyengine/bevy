@@ -260,7 +260,7 @@ impl ComponentId {
 
 impl SparseSetIndex for ComponentId {
     type Repr = NonZeroU32;
-    const MAX_SIZE: usize = <NonZeroU32 as SparseSetIndex>::MAX_SIZE;
+    const MAX_SIZE: usize = NonZeroU32::MAX_SIZE;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {

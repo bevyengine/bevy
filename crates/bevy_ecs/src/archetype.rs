@@ -389,57 +389,40 @@ pub struct ArchetypeIdentity {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeComponentId(NonZeroU32);
+pub struct ArchetypeComponentId(usize);
 
 impl ArchetypeComponentId {
-    /// Creates a new [`ArchetypeComponentId`] from an index without
-    /// checking for the type's invariants.
-    ///
-    /// # Safety
-    /// `index` must not be [`usize::MAX`].
-    #[inline]
-    pub(crate) const unsafe fn new_unchecked(index: usize) -> Self {
-        Self(NonZeroU32::new_unchecked(index as u32))
-    }
-
     /// Creates a new [`ArchetypeComponentId`] from an index.
-    ///
-    /// # Panic
-    /// This function will panic if `index` is equal to [`usize::MAX`].
     #[inline]
     pub(crate) const fn new(index: usize) -> Self {
-        assert!(
-            index < u32::MAX as usize,
-            "ArchetypeComponentId cannot be u32::MAX or greater"
-        );
-        // SAFETY: The above assertion will fail if the value is not valid.
-        unsafe { Self::new_unchecked(index) }
+        Self(index)
     }
 }
 
 impl SparseSetIndex for ArchetypeComponentId {
-    type Repr = NonZeroU32;
-    const MAX_SIZE: usize = NonZeroU32::MAX_SIZE;
+    type Repr = usize;
+    const MAX_SIZE: usize = usize::MAX;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
-        self.0.get() as usize
+        self.0
     }
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Self::new(value)
+        Self(value)
     }
 
     #[inline]
-    fn repr_from_index(index: usize) -> Self::Repr {
-        debug_assert!(index < Self::MAX_SIZE);
-        unsafe { NonZeroU32::new_unchecked((index + 1) as u32) }
+    fn repr_from_index(_index: usize) -> Self::Repr {
+        // Intentionally unimplemented, not used in SparseSets/SparseArrays as key
+        unimplemented!();
     }
 
     #[inline]
-    fn repr_to_index(repr: &Self::Repr) -> usize {
-        repr.get() as usize - 1
+    fn repr_to_index(_repr: &Self::Repr) -> usize {
+        // Intentionally unimplemented, not used in SparseSets/SparseArrays as key
+        unimplemented!();
     }
 }
 
