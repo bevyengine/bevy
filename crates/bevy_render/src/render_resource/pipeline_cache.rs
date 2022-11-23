@@ -17,12 +17,17 @@ use bevy_utils::{
     Entry, HashMap, HashSet,
 };
 use naga::valid::Capabilities;
-use std::{borrow::Cow, hash::Hash, mem, ops::Deref, sync::Arc};
+use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
-    util::make_spirv, BufferBindingType, Features, PipelineLayoutDescriptor, ShaderModule,
+    util::make_spirv, BufferBindingType, Features, PipelineLayoutDescriptor,
     ShaderModuleDescriptor, VertexBufferLayout as RawVertexBufferLayout,
 };
+
+use crate::render_resource::resource_macros::*;
+
+render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
+render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -103,7 +108,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
+    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
     dependents: HashSet<Handle<Shader>>,
 }
@@ -114,6 +119,24 @@ struct ShaderCache {
     import_path_shaders: HashMap<ShaderImport, Handle<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<Handle<Shader>>>,
     composer: naga_oil::compose::Composer,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderDefVal {
+    Bool(String, bool),
+    Int(String, i32),
+}
+
+impl From<&str> for ShaderDefVal {
+    fn from(key: &str) -> Self {
+        ShaderDefVal::Bool(key.to_string(), true)
+    }
+}
+
+impl From<String> for ShaderDefVal {
+    fn from(key: String) -> Self {
+        ShaderDefVal::Bool(key, true)
+    }
 }
 
 impl ShaderCache {
@@ -182,9 +205,9 @@ impl ShaderCache {
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
-        shader_defs: &[String],
+        shader_defs: &[ShaderDefVal],
         auto_bindings: &HashMap<String, u32>,
-    ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
+    ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
             .get(handle)
@@ -212,21 +235,20 @@ impl ShaderCache {
                 let mut shader_defs = shader_defs.to_vec();
                 #[cfg(feature = "webgl")]
                 {
-                    shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
-                    shader_defs.push(String::from("SIXTEEN_BYTE_ALIGNMENT"));
+                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                // TODO: 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
-                // consider exposing this in shaders in a more generally useful way, such as:
-                // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
-                // /* use storage buffers here */
-                // # elif
-                // /* use uniforms here */
-                if !matches!(
+                // 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
+                // Using the value directly here to avoid the cyclic dependency
+                if matches!(
                     render_device.get_supported_read_only_binding_type(3),
                     BufferBindingType::Storage { .. }
                 ) {
-                    shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
+                    shader_defs.push(ShaderDefVal::Int(
+                        String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+                        3,
+                    ));
                 }
 
                 debug!(
@@ -245,9 +267,21 @@ impl ShaderCache {
                             )?;
                         }
 
+                        let shader_defs = shader_defs
+                            .into_iter()
+                            .map(|def| match def {
+                                ShaderDefVal::Bool(k, v) => {
+                                    (k, naga_oil::compose::ShaderDefValue::Bool(v))
+                                }
+                                ShaderDefVal::Int(k, v) => {
+                                    (k, naga_oil::compose::ShaderDefValue::Int(v))
+                                }
+                            })
+                            .collect::<std::collections::HashMap<_, _>>();
+
                         let mut naga = self.composer.make_naga_module(
                             naga_oil::compose::NagaModuleDescriptor {
-                                shader_defs: &shader_defs,
+                                shader_defs,
                                 ..shader.into()
                             },
                         )?;
@@ -288,7 +322,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(Arc::new(shader_module))
+                entry.insert(ErasedShaderModule::new(shader_module))
             }
         };
 
@@ -368,7 +402,7 @@ impl ShaderCache {
 
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, wgpu::PipelineLayout>,
+    layouts: HashMap<Vec<BindGroupLayoutId>, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -383,10 +417,12 @@ impl LayoutCache {
                 .iter()
                 .map(|l| l.value())
                 .collect::<Vec<_>>();
-            render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                bind_group_layouts: &bind_group_layouts,
-                ..default()
-            })
+            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                &PipelineLayoutDescriptor {
+                    bind_group_layouts: &bind_group_layouts,
+                    ..default()
+                },
+            ))
         })
     }
 }

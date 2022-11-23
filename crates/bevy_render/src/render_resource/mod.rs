@@ -7,6 +7,7 @@ mod owned_binding_resource;
 mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
+pub mod resource_macros;
 mod shader;
 mod storage_buffer;
 mod texture;

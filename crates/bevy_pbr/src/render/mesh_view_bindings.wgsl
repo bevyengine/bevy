@@ -24,18 +24,18 @@ var directional_shadow_textures: texture_depth_2d_array;
 @group(0) @binding(auto)
 var directional_shadow_textures_sampler: sampler_comparison;
 
-#ifdef NO_STORAGE_BUFFERS_SUPPORT
-@group(0) @binding(auto)
-var<uniform> point_lights: types::PointLights;
-@group(0) @binding(auto)
-var<uniform> cluster_light_index_lists: types::ClusterLightIndexLists;
-@group(0) @binding(auto)
-var<uniform> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
-#else
+#if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 @group(0) @binding(auto)
 var<storage> point_lights: types::PointLights;
 @group(0) @binding(auto)
 var<storage> cluster_light_index_lists: types::ClusterLightIndexLists;
 @group(0) @binding(auto)
 var<storage> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
+#else
+@group(0) @binding(6)
+var<uniform> point_lights: types::PointLights;
+@group(0) @binding(auto)
+var<uniform> cluster_light_index_lists: types::ClusterLightIndexLists;
+@group(0) @binding(auto)
+var<uniform> cluster_offsets_and_counts: types::ClusterOffsetsAndCounts;
 #endif

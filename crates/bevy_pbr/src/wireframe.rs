@@ -97,7 +97,7 @@ impl SpecializedMeshPipeline for WireframePipeline {
         descriptor
             .vertex
             .shader_defs
-            .push("MESH_BINDGROUP_1".to_owned());
+            .push("MESH_BINDGROUP_1".into());
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone_weak();
         descriptor.primitive.polygon_mode = PolygonMode::Line;
         descriptor.depth_stencil.as_mut().unwrap().bias.slope_scale = 1.0;
