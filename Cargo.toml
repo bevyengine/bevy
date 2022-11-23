@@ -1735,4 +1735,4 @@ lto = "fat"
 panic = "abort"
 
 [patch.crates-io]
-rodio = { git = "https://github.com/dis-da-moe/rodio" }
+rodio = { git = "https://github.com/RustAudio/rodio" }
