@@ -76,9 +76,9 @@ impl SystemExecutor for SimpleExecutor {
 
                     // mark all members as completed
                     self.completed_systems
-                        .union_with(&schedule.systems_of_sets[set_idx]);
+                        .union_with(&schedule.systems_in_sets[set_idx]);
                     self.completed_sets
-                        .union_with(&schedule.sets_of_sets[set_idx]);
+                        .union_with(&schedule.sets_in_sets[set_idx]);
                 }
 
                 should_run &= set_conditions_met;

@@ -801,18 +801,18 @@ impl ScheduleMeta {
 
         // get the rows and columns of the hierarchy graph's reachability matrix
         // (needed to we can evaluate conditions in the correct order)
-        let mut sets_of_sets = vec![FixedBitSet::with_capacity(set_count); set_count];
+        let mut sets_in_sets = vec![FixedBitSet::with_capacity(set_count); set_count];
         for (i, &row) in hg_set_idxs.iter().enumerate() {
-            let bitset = &mut sets_of_sets[i];
+            let bitset = &mut sets_in_sets[i];
             for (idx, &col) in hg_set_idxs.iter().enumerate().skip(i) {
                 let is_descendant = result.reachable[index(row, col, node_count)];
                 bitset.set(idx, is_descendant);
             }
         }
 
-        let mut systems_of_sets = vec![FixedBitSet::with_capacity(sys_count); set_count];
+        let mut systems_in_sets = vec![FixedBitSet::with_capacity(sys_count); set_count];
         for (i, &row) in hg_set_idxs.iter().enumerate() {
-            let bitset = &mut systems_of_sets[i];
+            let bitset = &mut systems_in_sets[i];
             for &(col, sys_id) in &hg_systems {
                 let idx = dg_system_idx_map[&sys_id];
                 let is_descendant = result.reachable[index(row, col, node_count)];
@@ -842,8 +842,8 @@ impl ScheduleMeta {
             set_ids: hg_set_ids,
             system_deps,
             sets_of_systems,
-            sets_of_sets,
-            systems_of_sets,
+            sets_in_sets,
+            systems_in_sets,
         }
     }
 

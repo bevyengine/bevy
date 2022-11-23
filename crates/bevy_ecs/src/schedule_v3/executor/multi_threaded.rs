@@ -401,13 +401,13 @@ impl MultiThreadedExecutor {
                 }
 
                 // mark all members as completed
-                for sys_idx in schedule.systems_of_sets[set_idx].ones() {
+                for sys_idx in schedule.systems_in_sets[set_idx].ones() {
                     if !self.completed_systems.contains(sys_idx) {
                         self.skip_system_and_signal_dependents(sys_idx);
                     }
                 }
                 self.completed_sets
-                    .union_with(&schedule.sets_of_sets[set_idx]);
+                    .union_with(&schedule.sets_in_sets[set_idx]);
             }
 
             should_run &= set_conditions_met;

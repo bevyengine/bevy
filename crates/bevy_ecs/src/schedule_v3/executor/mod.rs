@@ -47,8 +47,8 @@ pub(super) struct SystemSchedule {
     pub(super) set_ids: Vec<NodeId>,
     pub(super) system_deps: Vec<(usize, Vec<usize>)>,
     pub(super) sets_of_systems: Vec<FixedBitSet>,
-    pub(super) sets_of_sets: Vec<FixedBitSet>,
-    pub(super) systems_of_sets: Vec<FixedBitSet>,
+    pub(super) sets_in_sets: Vec<FixedBitSet>,
+    pub(super) systems_in_sets: Vec<FixedBitSet>,
 }
 
 impl SystemSchedule {
@@ -61,8 +61,8 @@ impl SystemSchedule {
             set_ids: Vec::new(),
             system_deps: Vec::new(),
             sets_of_systems: Vec::new(),
-            sets_of_sets: Vec::new(),
-            systems_of_sets: Vec::new(),
+            sets_in_sets: Vec::new(),
+            systems_in_sets: Vec::new(),
         }
     }
 }
