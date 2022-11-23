@@ -578,16 +578,3 @@ impl IndexMut<ArchetypeId> for Archetypes {
         &mut self.archetypes[index.index()]
     }
 }
-
-#[cfg(test)]
-mod test {
-    use super::ArchetypeComponentId;
-
-    #[test]
-    pub fn test_archetyype_component_id_size_optimized() {
-        assert_eq!(
-            core::mem::size_of::<ArchetypeComponentId>(),
-            core::mem::size_of::<Option<ArchetypeComponentId>>(),
-        );
-    }
-}
