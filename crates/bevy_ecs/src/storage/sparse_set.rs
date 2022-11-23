@@ -466,15 +466,14 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 /// zero), as the number of bits needed to represent a `SparseSetIndex` in a `FixedBitSet`
 /// is proportional to the **value** of those `usize`.
 pub trait SparseSetIndex: Clone + PartialEq + Eq + Hash {
-    /// The internal representation type used to represent a dense index within a [`SparseArray`]
-    /// or [`SparseSet`].
+    /// The internal representation type used to represent a dense index within a [`SparseSet`].
     ///
     /// It's advised to use a space-optimized type (i.e. the `std::num::NonZero*` types), as this
     /// cut the overall memory overhead by ~50%.
     type Repr: Clone;
 
-    /// The maximum number of elements that can be stored in a [`SparseArray`]/[`SparseSet`]
-    /// when keyed by this type.
+    /// The maximum number of elements that can be stored in a [`SparseSet`] when keyed by
+    /// this type.
     const MAX_SIZE: usize;
 
     fn sparse_set_index(&self) -> usize;

@@ -10,7 +10,7 @@ use crate::{
 use std::{
     collections::HashMap,
     hash::Hash,
-    num::NonZeroU32,
+    num::{NonZeroU32, NonZeroUsize},
     ops::{Index, IndexMut},
 };
 
@@ -389,40 +389,45 @@ pub struct ArchetypeIdentity {
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub struct ArchetypeComponentId(usize);
+pub struct ArchetypeComponentId(NonZeroUsize);
 
 impl ArchetypeComponentId {
     /// Creates a new [`ArchetypeComponentId`] from an index.
     #[inline]
     pub(crate) const fn new(index: usize) -> Self {
-        Self(index)
+        assert!(index != 0);
+        // SAFETY: The value is guarenteed not to be 0 by the above check.
+        Self(unsafe { NonZeroUsize::new_unchecked(index) })
     }
 }
 
 impl SparseSetIndex for ArchetypeComponentId {
-    type Repr = usize;
-    const MAX_SIZE: usize = usize::MAX;
+    type Repr = NonZeroUsize;
+    const MAX_SIZE: usize = NonZeroUsize::MAX_SIZE;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
-        self.0
+        self.0.get()
     }
 
     #[inline]
     fn get_sparse_set_index(value: usize) -> Self {
-        Self(value)
+        Self::new(value)
     }
 
     #[inline]
-    unsafe fn repr_from_index(_index: usize) -> Self::Repr {
-        // Intentionally unimplemented, not used in SparseSets/SparseArrays as key
-        unimplemented!();
+    unsafe fn repr_from_index(index: usize) -> Self::Repr {
+        debug_assert!(index < Self::MAX_SIZE);
+        // SAFETY: Caller guarentees that `index` does not exceed `u32::MAX - 1`.
+        // This addition cannot overflow under these guarentees.
+        //
+        // Created index cannot be zero as it's being incremented by one.
+        unsafe { NonZeroUsize::new_unchecked(index + 1) }
     }
 
     #[inline]
-    fn repr_to_index(_repr: &Self::Repr) -> usize {
-        // Intentionally unimplemented, not used in SparseSets/SparseArrays as key
-        unimplemented!();
+    fn repr_to_index(repr: &Self::Repr) -> usize {
+        repr.get() as usize - 1
     }
 }
 
@@ -444,7 +449,7 @@ impl Default for Archetypes {
                 components: SparseSet::new().into_immutable(),
             }],
             archetype_ids: Default::default(),
-            archetype_component_count: 0,
+            archetype_component_count: 1,
         };
         archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
         archetypes
