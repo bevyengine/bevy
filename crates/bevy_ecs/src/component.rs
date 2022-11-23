@@ -6,7 +6,6 @@ use crate::{
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
-use nonmax::NonMaxU32;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 use std::{
@@ -14,6 +13,7 @@ use std::{
     any::{Any, TypeId},
     borrow::Cow,
     mem::needs_drop,
+    num::NonZeroU32,
 };
 
 /// A data type that can be used to store data for an [entity].
@@ -228,28 +228,28 @@ impl ComponentInfo {
 /// one `World` to access the metadata of a `Component` in a different `World` is undefined behaviour
 /// and must not be attempted.
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
-pub struct ComponentId(NonMaxU32);
+pub struct ComponentId(NonZeroU32);
 
 impl ComponentId {
     /// Creates a new [`ComponentId`] from an index without
     /// checking for the type's invariants.
     ///
     /// # Safety
-    /// This function is only safe if `index` is less than [`u32::MAX`].
+    /// This function is only safe if `index` is not in the range of `0 < index <= u32::MAX`.
     #[inline]
     pub const unsafe fn new_unchecked(index: usize) -> ComponentId {
-        ComponentId(NonMaxU32::new_unchecked(index as u32))
+        ComponentId(NonZeroU32::new_unchecked(index as u32))
     }
 
     /// Creates a new [`ComponentId`] from an index.
     ///
     /// # Panic
-    /// This function will panic if `index` is greater than or equal to [`u32::MAX`].
+    /// This function panic if `index` is not in the range of `0 < index <= u32::MAX`.
     #[inline]
     pub fn new(index: usize) -> ComponentId {
-        assert!(index < u32::MAX as usize);
+        assert!(index > 0 && index <= u32::MAX as usize);
         // SAFETY: The above assertion will fail if the value is not valid.
-        unsafe { Self(NonMaxU32::new_unchecked(index as u32)) }
+        unsafe { Self(NonZeroU32::new_unchecked(index as u32)) }
     }
 
     #[inline]
@@ -259,7 +259,7 @@ impl ComponentId {
 }
 
 impl SparseSetIndex for ComponentId {
-    type Repr = NonMaxU32;
+    type Repr = NonZeroU32;
 
     #[inline]
     fn sparse_set_index(&self) -> usize {
@@ -274,12 +274,12 @@ impl SparseSetIndex for ComponentId {
     fn repr_from_index(index: usize) -> Self::Repr {
         assert!(index < u32::MAX as usize);
         // SAFETY: The above assertion will fail if the value is not valid.
-        unsafe { NonMaxU32::new_unchecked(index as u32) }
+        unsafe { NonZeroU32::new_unchecked((index + 1) as u32) }
     }
 
     #[inline]
     fn repr_to_index(repr: &Self::Repr) -> usize {
-        repr.get() as usize
+        repr.get() as usize - 1
     }
 }
 
@@ -394,7 +394,7 @@ impl ComponentDescriptor {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Components {
     components: Vec<ComponentInfo>,
     indices: std::collections::HashMap<TypeId, ComponentId, fxhash::FxBuildHasher>,
@@ -542,6 +542,28 @@ impl Components {
 
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
+    }
+}
+
+impl Default for Components {
+    fn default() -> Self {
+        Components {
+            // Dummy value to fill the zero-index slot.
+            // Inaccessible except via Debug
+            components: vec![ComponentInfo {
+                id: ComponentId::new(1),
+                descriptor: ComponentDescriptor {
+                    name: Cow::Borrowed(""),
+                    storage_type: StorageType::Table,
+                    is_send_and_sync: false,
+                    type_id: None,
+                    layout: Layout::from_size_align(1, 1).unwrap(),
+                    drop: None,
+                },
+            }],
+            indices: Default::default(),
+            resource_indices: Default::default(),
+        }
     }
 }
 
