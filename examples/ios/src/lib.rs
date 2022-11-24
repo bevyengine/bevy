@@ -4,12 +4,14 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 #[bevy_main]
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            resizable: false,
-            mode: WindowMode::BorderlessFullscreen,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                resizable: false,
+                mode: WindowMode::BorderlessFullscreen,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)
         .add_system(touch_camera)
@@ -51,30 +53,33 @@ fn setup_scene(
     asset_server: Res<AssetServer>,
 ) {
     // plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: materials.add(Color::rgb(0.1, 0.2, 0.1).into()),
         ..default()
     });
     // cube
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         material: materials.add(Color::rgb(0.5, 0.4, 0.3).into()),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         ..default()
     });
     // sphere
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            subdivisions: 4,
-            radius: 0.5,
-        })),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                subdivisions: 4,
+                radius: 0.5,
+            })
+            .unwrap(),
+        ),
         material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         point_light: PointLight {
             intensity: 5000.0,
@@ -84,15 +89,14 @@ fn setup_scene(
         ..default()
     });
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
     // Test ui
-    commands.spawn_bundle(Camera2dBundle::default());
     commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(ButtonBundle {
             style: Style {
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
@@ -108,7 +112,7 @@ fn setup_scene(
             ..default()
         })
         .with_children(|b| {
-            b.spawn_bundle(
+            b.spawn(
                 TextBundle::from_section(
                     "Test Button",
                     TextStyle {
@@ -124,7 +128,7 @@ fn setup_scene(
 
 fn button_handler(
     mut interaction_query: Query<
-        (&Interaction, &mut UiColor),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {

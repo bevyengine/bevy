@@ -3,10 +3,9 @@
 //! This is useful for making desktop applications, or any other program that doesn't need to be
 //! running the event loop non-stop.
 
-use std::time::Duration;
-
 use bevy::{
     prelude::*,
+    utils::Duration,
     window::{PresentMode, RequestRedraw},
     winit::WinitSettings,
 };
@@ -25,13 +24,15 @@ fn main() {
             },
             ..default()
         })
-        // Turn off vsync to maximize CPU/GPU usage
-        .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::AutoNoVsync,
-            ..default()
-        })
         .insert_resource(ExampleMode::Game)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                // Turn off vsync to maximize CPU/GPU usage
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
+            ..default()
+        }))
         .add_startup_system(test_setup::setup)
         .add_system(test_setup::cycle_modes)
         .add_system(test_setup::rotate_cube)
@@ -40,7 +41,7 @@ fn main() {
         .run();
 }
 
-#[derive(Debug)]
+#[derive(Resource, Debug)]
 enum ExampleMode {
     Game,
     Application,
@@ -144,14 +145,15 @@ pub(crate) mod test_setup {
         mut event: EventWriter<RequestRedraw>,
         asset_server: Res<AssetServer>,
     ) {
-        commands
-            .spawn_bundle(PbrBundle {
+        commands.spawn((
+            PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
                 ..default()
-            })
-            .insert(Rotator);
-        commands.spawn_bundle(PointLightBundle {
+            },
+            Rotator,
+        ));
+        commands.spawn(PointLightBundle {
             point_light: PointLight {
                 intensity: 1500.0,
                 shadows_enabled: true,
@@ -160,52 +162,51 @@ pub(crate) mod test_setup {
             transform: Transform::from_xyz(4.0, 8.0, 4.0),
             ..default()
         });
-        commands.spawn_bundle(Camera3dBundle {
+        commands.spawn(Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         });
         event.send(RequestRedraw);
-        commands
-            .spawn_bundle(
-                TextBundle::from_sections([
-                    TextSection::new(
-                        "Press spacebar to cycle modes\n",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 50.0,
-                            color: Color::WHITE,
-                        },
-                    ),
-                    TextSection::from_style(TextStyle {
+        commands.spawn((
+            TextBundle::from_sections([
+                TextSection::new(
+                    "Press spacebar to cycle modes\n",
+                    TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
-                        color: Color::GREEN,
-                    }),
-                    TextSection::new(
-                        "\nFrame: ",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 50.0,
-                            color: Color::YELLOW,
-                        },
-                    ),
-                    TextSection::from_style(TextStyle {
+                        color: Color::WHITE,
+                    },
+                ),
+                TextSection::from_style(TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 50.0,
+                    color: Color::GREEN,
+                }),
+                TextSection::new(
+                    "\nFrame: ",
+                    TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::YELLOW,
-                    }),
-                ])
-                .with_style(Style {
-                    align_self: AlignSelf::FlexStart,
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
-                        top: Val::Px(5.0),
-                        left: Val::Px(5.0),
-                        ..default()
                     },
-                    ..default()
+                ),
+                TextSection::from_style(TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 50.0,
+                    color: Color::YELLOW,
                 }),
-            )
-            .insert(ModeText);
+            ])
+            .with_style(Style {
+                align_self: AlignSelf::FlexStart,
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    top: Val::Px(5.0),
+                    left: Val::Px(5.0),
+                    ..default()
+                },
+                ..default()
+            }),
+            ModeText,
+        ));
     }
 }

@@ -5,7 +5,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{Column, SparseArray, SparseSet, SparseSetIndex, TableId},
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId},
 };
 use std::{
     collections::HashMap,
@@ -14,11 +14,14 @@ use std::{
 };
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+#[repr(transparent)]
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
-    pub const RESOURCE: ArchetypeId = ArchetypeId(1);
+    /// # Safety:
+    ///
+    /// This must always have an all-1s bit pattern to ensure soundness in fast entity id space allocation.
     pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
 
     #[inline]
@@ -32,6 +35,7 @@ impl ArchetypeId {
     }
 }
 
+#[derive(Copy, Clone)]
 pub(crate) enum ComponentStatus {
     Added,
     Mutated,
@@ -40,6 +44,36 @@ pub(crate) enum ComponentStatus {
 pub struct AddBundle {
     pub archetype_id: ArchetypeId,
     pub(crate) bundle_status: Vec<ComponentStatus>,
+}
+
+/// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
+/// being added to a given entity, relative to that entity's original archetype.
+/// See [`crate::bundle::BundleInfo::write_components`] for more info.
+pub(crate) trait BundleComponentStatus {
+    /// Returns the Bundle's component status for the given "bundle index"
+    ///
+    /// # Safety
+    /// Callers must ensure that index is always a valid bundle index for the
+    /// Bundle associated with this [`BundleComponentStatus`]
+    unsafe fn get_status(&self, index: usize) -> ComponentStatus;
+}
+
+impl BundleComponentStatus for AddBundle {
+    #[inline]
+    unsafe fn get_status(&self, index: usize) -> ComponentStatus {
+        // SAFETY: caller has ensured index is a valid bundle index for this bundle
+        *self.bundle_status.get_unchecked(index)
+    }
+}
+
+pub(crate) struct SpawnBundleStatus;
+
+impl BundleComponentStatus for SpawnBundleStatus {
+    #[inline]
+    unsafe fn get_status(&self, _index: usize) -> ComponentStatus {
+        // Components added during a spawn_bundle call are always treated as added
+        ComponentStatus::Added
+    }
 }
 
 /// Archetypes and bundles form a graph. Adding or removing a bundle moves
@@ -118,9 +152,19 @@ impl Edges {
     }
 }
 
-struct TableInfo {
-    id: TableId,
-    entity_rows: Vec<usize>,
+pub struct ArchetypeEntity {
+    pub(crate) entity: Entity,
+    pub(crate) table_row: usize,
+}
+
+impl ArchetypeEntity {
+    pub fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    pub fn table_row(&self) -> usize {
+        self.table_row
+    }
 }
 
 pub(crate) struct ArchetypeSwapRemoveResult {
@@ -135,31 +179,25 @@ pub(crate) struct ArchetypeComponentInfo {
 
 pub struct Archetype {
     id: ArchetypeId,
-    entities: Vec<Entity>,
+    table_id: TableId,
     edges: Edges,
-    table_info: TableInfo,
-    table_components: Box<[ComponentId]>,
-    sparse_set_components: Box<[ComponentId]>,
-    pub(crate) unique_components: SparseSet<ComponentId, Column>,
-    pub(crate) components: SparseSet<ComponentId, ArchetypeComponentInfo>,
+    entities: Vec<ArchetypeEntity>,
+    components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
 }
 
 impl Archetype {
     pub fn new(
         id: ArchetypeId,
         table_id: TableId,
-        table_components: Box<[ComponentId]>,
-        sparse_set_components: Box<[ComponentId]>,
-        table_archetype_components: Vec<ArchetypeComponentId>,
-        sparse_set_archetype_components: Vec<ArchetypeComponentId>,
+        table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
+        sparse_set_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
     ) -> Self {
-        let mut components =
-            SparseSet::with_capacity(table_components.len() + sparse_set_components.len());
-        for (component_id, archetype_component_id) in
-            table_components.iter().zip(table_archetype_components)
-        {
+        let (min_table, _) = table_components.size_hint();
+        let (min_sparse, _) = sparse_set_components.size_hint();
+        let mut components = SparseSet::with_capacity(min_table + min_sparse);
+        for (component_id, archetype_component_id) in table_components {
             components.insert(
-                *component_id,
+                component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::Table,
                     archetype_component_id,
@@ -167,12 +205,9 @@ impl Archetype {
             );
         }
 
-        for (component_id, archetype_component_id) in sparse_set_components
-            .iter()
-            .zip(sparse_set_archetype_components)
-        {
+        for (component_id, archetype_component_id) in sparse_set_components {
             components.insert(
-                *component_id,
+                component_id,
                 ArchetypeComponentInfo {
                     storage_type: StorageType::SparseSet,
                     archetype_component_id,
@@ -181,15 +216,9 @@ impl Archetype {
         }
         Self {
             id,
-            table_info: TableInfo {
-                id: table_id,
-                entity_rows: Default::default(),
-            },
-            components,
-            table_components,
-            sparse_set_components,
-            unique_components: SparseSet::new(),
-            entities: Default::default(),
+            table_id,
+            entities: Vec::new(),
+            components: components.into_immutable(),
             edges: Default::default(),
         }
     }
@@ -201,37 +230,28 @@ impl Archetype {
 
     #[inline]
     pub fn table_id(&self) -> TableId {
-        self.table_info.id
+        self.table_id
     }
 
     #[inline]
-    pub fn entities(&self) -> &[Entity] {
+    pub fn entities(&self) -> &[ArchetypeEntity] {
         &self.entities
     }
 
     #[inline]
-    pub fn entity_table_rows(&self) -> &[usize] {
-        &self.table_info.entity_rows
+    pub fn table_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components
+            .iter()
+            .filter(|(_, component)| component.storage_type == StorageType::Table)
+            .map(|(id, _)| *id)
     }
 
     #[inline]
-    pub fn table_components(&self) -> &[ComponentId] {
-        &self.table_components
-    }
-
-    #[inline]
-    pub fn sparse_set_components(&self) -> &[ComponentId] {
-        &self.sparse_set_components
-    }
-
-    #[inline]
-    pub fn unique_components(&self) -> &SparseSet<ComponentId, Column> {
-        &self.unique_components
-    }
-
-    #[inline]
-    pub fn unique_components_mut(&mut self) -> &mut SparseSet<ComponentId, Column> {
-        &mut self.unique_components
+    pub fn sparse_set_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
+        self.components
+            .iter()
+            .filter(|(_, component)| component.storage_type == StorageType::SparseSet)
+            .map(|(id, _)| *id)
     }
 
     #[inline]
@@ -251,20 +271,19 @@ impl Archetype {
 
     #[inline]
     pub fn entity_table_row(&self, index: usize) -> usize {
-        self.table_info.entity_rows[index]
+        self.entities[index].table_row
     }
 
     #[inline]
     pub(crate) fn set_entity_table_row(&mut self, index: usize, table_row: usize) {
-        self.table_info.entity_rows[index] = table_row;
+        self.entities[index].table_row = table_row;
     }
 
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
     pub(crate) unsafe fn allocate(&mut self, entity: Entity, table_row: usize) -> EntityLocation {
-        self.entities.push(entity);
-        self.table_info.entity_rows.push(table_row);
+        self.entities.push(ArchetypeEntity { entity, table_row });
 
         EntityLocation {
             archetype_id: self.id,
@@ -274,21 +293,20 @@ impl Archetype {
 
     pub(crate) fn reserve(&mut self, additional: usize) {
         self.entities.reserve(additional);
-        self.table_info.entity_rows.reserve(additional);
     }
 
     /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored
     /// in.
     pub(crate) fn swap_remove(&mut self, index: usize) -> ArchetypeSwapRemoveResult {
         let is_last = index == self.entities.len() - 1;
-        self.entities.swap_remove(index);
+        let entity = self.entities.swap_remove(index);
         ArchetypeSwapRemoveResult {
             swapped_entity: if is_last {
                 None
             } else {
-                Some(self.entities[index])
+                Some(self.entities[index].entity)
             },
-            table_row: self.table_info.entity_rows.swap_remove(index),
+            table_row: entity.table_row,
         }
     }
 
@@ -326,7 +344,6 @@ impl Archetype {
 
     pub(crate) fn clear_entities(&mut self) {
         self.entities.clear();
-        self.table_info.entity_rows.clear();
     }
 }
 
@@ -392,17 +409,6 @@ impl Default for Archetypes {
             archetype_component_count: 0,
         };
         archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
-
-        // adds the resource archetype. it is "special" in that it is inaccessible via a "hash",
-        // which prevents entities from being added to it
-        archetypes.archetypes.push(Archetype::new(
-            ArchetypeId::RESOURCE,
-            TableId::empty(),
-            Box::new([]),
-            Box::new([]),
-            Vec::new(),
-            Vec::new(),
-        ));
         archetypes
     }
 }
@@ -430,21 +436,6 @@ impl Archetypes {
         unsafe {
             self.archetypes
                 .get_unchecked_mut(ArchetypeId::EMPTY.index())
-        }
-    }
-
-    #[inline]
-    pub fn resource(&self) -> &Archetype {
-        // SAFETY: resource archetype always exists
-        unsafe { self.archetypes.get_unchecked(ArchetypeId::RESOURCE.index()) }
-    }
-
-    #[inline]
-    pub(crate) fn resource_mut(&mut self) -> &mut Archetype {
-        // SAFETY: resource archetype always exists
-        unsafe {
-            self.archetypes
-                .get_unchecked_mut(ArchetypeId::RESOURCE.index())
         }
     }
 
@@ -489,38 +480,33 @@ impl Archetypes {
         table_components: Vec<ComponentId>,
         sparse_set_components: Vec<ComponentId>,
     ) -> ArchetypeId {
-        let table_components = table_components.into_boxed_slice();
-        let sparse_set_components = sparse_set_components.into_boxed_slice();
         let archetype_identity = ArchetypeIdentity {
-            sparse_set_components: sparse_set_components.clone(),
-            table_components: table_components.clone(),
+            sparse_set_components: sparse_set_components.clone().into_boxed_slice(),
+            table_components: table_components.clone().into_boxed_slice(),
         };
 
         let archetypes = &mut self.archetypes;
         let archetype_component_count = &mut self.archetype_component_count;
-        let mut next_archetype_component_id = move || {
-            let id = ArchetypeComponentId(*archetype_component_count);
-            *archetype_component_count += 1;
-            id
-        };
         *self
             .archetype_ids
             .entry(archetype_identity)
             .or_insert_with(move || {
                 let id = ArchetypeId(archetypes.len());
-                let table_archetype_components = (0..table_components.len())
-                    .map(|_| next_archetype_component_id())
-                    .collect();
-                let sparse_set_archetype_components = (0..sparse_set_components.len())
-                    .map(|_| next_archetype_component_id())
-                    .collect();
+                let table_start = *archetype_component_count;
+                *archetype_component_count += table_components.len();
+                let table_archetype_components =
+                    (table_start..*archetype_component_count).map(ArchetypeComponentId);
+                let sparse_start = *archetype_component_count;
+                *archetype_component_count += sparse_set_components.len();
+                let sparse_set_archetype_components =
+                    (sparse_start..*archetype_component_count).map(ArchetypeComponentId);
                 archetypes.push(Archetype::new(
                     id,
                     table_id,
-                    table_components,
-                    sparse_set_components,
-                    table_archetype_components,
-                    sparse_set_archetype_components,
+                    table_components.into_iter().zip(table_archetype_components),
+                    sparse_set_components
+                        .into_iter()
+                        .zip(sparse_set_archetype_components),
                 ));
                 id
             })

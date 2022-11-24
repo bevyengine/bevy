@@ -18,16 +18,22 @@ fn main() {
     // Add systems to increase the counter and to print out the current value
     update.add_system(increase_counter);
     update.add_system(print_counter.after(increase_counter));
-    schedule.add_stage("update", update);
+
+    // Declare a unique label for the stage.
+    #[derive(StageLabel)]
+    struct Update;
+
+    // Add the stage to the schedule.
+    schedule.add_stage(Update, update);
 
     for iteration in 1..=10 {
-        println!("Simulating frame {}/10", iteration);
+        println!("Simulating frame {iteration}/10");
         schedule.run(&mut world);
     }
 }
 
 // Counter resource to be increased and read by systems
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct Counter {
     pub value: i32,
 }

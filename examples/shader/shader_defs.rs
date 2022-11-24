@@ -27,7 +27,7 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // blue cube
-    commands.spawn().insert_bundle(MaterialMeshBundle {
+    commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         transform: Transform::from_xyz(-1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
@@ -38,7 +38,7 @@ fn setup(
     });
 
     // red cube (with green color overridden by the IS_RED "shader def")
-    commands.spawn().insert_bundle(MaterialMeshBundle {
+    commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         transform: Transform::from_xyz(1.0, 0.5, 0.0),
         material: materials.add(CustomMaterial {
@@ -49,7 +49,7 @@ fn setup(
     });
 
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -68,7 +68,7 @@ impl Material for CustomMaterial {
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.is_red {
             let fragment = descriptor.fragment.as_mut().unwrap();
-            fragment.shader_defs.push("IS_RED".to_string());
+            fragment.shader_defs.push("IS_RED".into());
         }
         Ok(())
     }

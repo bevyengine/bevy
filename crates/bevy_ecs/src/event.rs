@@ -1,14 +1,10 @@
 //! Event handling types.
 
 use crate as bevy_ecs;
-use crate::system::{Local, Res, ResMut, SystemParam};
+use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
-use std::{
-    fmt::{self},
-    hash::Hash,
-    marker::PhantomData,
-};
+use std::{fmt, hash::Hash, marker::PhantomData};
 
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
@@ -128,7 +124,7 @@ struct EventInstance<E: Event> {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/ecs/event.rs)
 /// [Example usage standalone.](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_ecs/examples/events.rs)
 ///
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct Events<E: Event> {
     /// Holds the oldest still active events.
     /// Note that a.start_event_count + a.len() should always === events_b.start_event_count.
@@ -146,6 +142,14 @@ impl<E: Event> Default for Events<E> {
             events_b: Default::default(),
             event_count: Default::default(),
         }
+    }
+}
+
+impl<E: Event> Events<E> {
+    pub fn oldest_event_count(&self) -> usize {
+        self.events_a
+            .start_event_count
+            .min(self.events_b.start_event_count)
     }
 }
 
@@ -180,7 +184,7 @@ impl<E: Event> DerefMut for EventSequence<E> {
 }
 
 /// Reads events of type `T` in order and tracks which events have already been read.
-#[derive(SystemParam)]
+#[derive(SystemParam, Debug)]
 pub struct EventReader<'w, 's, E: Event> {
     reader: Local<'s, ManualEventReader<E>>,
     events: Res<'w, Events<E>>,
@@ -199,9 +203,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         &mut self,
     ) -> impl DoubleEndedIterator<Item = (&E, EventId<E>)> + ExactSizeIterator<Item = (&E, EventId<E>)>
     {
-        self.reader.iter_with_id(&self.events).map(|r @ (_, id)| {
+        self.reader.iter_with_id(&self.events).inspect(|(_, id)| {
             trace!("EventReader::iter() -> {}", id);
-            r
         })
     }
 
@@ -305,7 +308,7 @@ impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
         self.events.send(event);
     }
 
-    pub fn send_batch(&mut self, events: impl Iterator<Item = E>) {
+    pub fn send_batch(&mut self, events: impl IntoIterator<Item = E>) {
         self.events.extend(events);
     }
 
@@ -349,12 +352,11 @@ impl<E: Event> ManualEventReader<E> {
         events: &'a Events<E>,
     ) -> impl DoubleEndedIterator<Item = (&'a E, EventId<E>)>
            + ExactSizeIterator<Item = (&'a E, EventId<E>)> {
-        // if the reader has seen some of the events in a buffer, find the proper index offset.
-        // otherwise read all events in the buffer
         let a_index = (self.last_event_count).saturating_sub(events.events_a.start_event_count);
         let b_index = (self.last_event_count).saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
         let b = events.events_b.get(b_index..).unwrap_or_default();
+
         let unread_count = a.len() + b.len();
         // Ensure `len` is implemented correctly
         debug_assert_eq!(unread_count, self.len(events));
@@ -377,6 +379,13 @@ impl<E: Event> ManualEventReader<E> {
             .event_count
             .saturating_sub(self.last_event_count)
             .min(events.len())
+    }
+
+    /// Amount of events we missed.
+    pub fn missed_events(&self, events: &Events<E>) -> usize {
+        events
+            .oldest_event_count()
+            .saturating_sub(self.last_event_count)
     }
 
     /// See [`EventReader::is_empty`]
