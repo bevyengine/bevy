@@ -26,7 +26,7 @@ use std::{
     future::Future,
     hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
-    ops::{Add, Deref, Div, Mul, RangeInclusive, Sub, AddAssign, SubAssign},
+    ops::{Add, AddAssign, Deref, Div, Mul, RangeInclusive, Sub, SubAssign},
     pin::Pin,
 };
 
@@ -300,7 +300,6 @@ where
 }
 
 impl Progress<f32> {
-
     /// Creates a new [`Progress`] using percent.
     /// `Min` = 0.0
     /// `Max` = 100.0
@@ -309,7 +308,7 @@ impl Progress<f32> {
     }
 
     /// Returns the current progress, normalized between 0 and 1.
-    /// 
+    ///
     /// 0 represents value == min,
     /// 1 represents value == max.
     pub fn normalized(&self) -> f32 {
@@ -333,7 +332,7 @@ pub enum ProgressError {
     // Value is outside the bounds of the Progress.
     OutOfBounds,
     /// Tried creating a new [`Progress`] using a range that was not valid.
-    /// 
+    ///
     /// Usually by having `min` >= `max`.
     InvalidRange,
 }
