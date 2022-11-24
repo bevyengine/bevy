@@ -368,7 +368,7 @@ impl ArchetypeGeneration {
 }
 
 #[derive(Hash, PartialEq, Eq)]
-pub struct ArchetypeIdentity {
+struct ArchetypeIdentity {
     table_components: Box<[ComponentId]>,
     sparse_set_components: Box<[ComponentId]>,
 }
