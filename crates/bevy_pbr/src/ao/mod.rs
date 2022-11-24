@@ -5,6 +5,7 @@
 // Source code heavily based on XeGTAO v1.30 from Intel
 // https://github.com/GameTechDev/XeGTAO/blob/0d177ce06bfa642f64d8af4de1197ad1bcb862d4/Source/Rendering/Shaders/XeGTAO.hlsli
 
+use crate::MAX_DIRECTIONAL_LIGHTS;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
@@ -420,7 +421,11 @@ impl FromWorld for AmbientOcclusionPipelines {
                     common_bind_group_layout.clone(),
                 ]),
                 shader: PREFILTER_DEPTH_SHADER_HANDLE.typed(),
-                shader_defs: vec![],
+                shader_defs: vec![ShaderDefVal::Int(
+                    // TODO: Remove this hack
+                    "MAX_DIRECTIONAL_LIGHTS".to_string(),
+                    MAX_DIRECTIONAL_LIGHTS as i32,
+                )],
                 entry_point: "prefilter_depth".into(),
             });
 
@@ -435,7 +440,12 @@ impl FromWorld for AmbientOcclusionPipelines {
                 // TODO: Specalize based on AmbientOcclusionSettings
                 // "TEMPOAL_NOISE".into(),
                 ShaderDefVal::Int("SLICE_COUNT".to_string(), 3),
-                ShaderDefVal::Int("SAMPLE_COUNT".to_string(), 3),
+                ShaderDefVal::Int("SAMPLES_PER_SLICE_SIDE".to_string(), 3),
+                // TODO: Remove this hack
+                ShaderDefVal::Int(
+                    "MAX_DIRECTIONAL_LIGHTS".to_string(),
+                    MAX_DIRECTIONAL_LIGHTS as i32,
+                ),
             ],
             entry_point: "gtao".into(),
         });

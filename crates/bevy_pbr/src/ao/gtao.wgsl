@@ -85,7 +85,7 @@ fn load_and_reconstruct_view_space_position(uv: vec2<f32>) -> vec3<f32> {
 fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_coordinates = vec2<i32>(global_id.xy);
     let slice_count = u32(#SLICE_COUNT);
-    let sample_count = u32(#SAMPLE_COUNT);
+    let samples_per_slice_side = u32(#SAMPLES_PER_SLICE_SIDE);
     let pi = 3.1415926535897932384626433832795;
     let half_pi = pi / 2.0;
 
