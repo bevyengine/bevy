@@ -111,7 +111,7 @@ fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: 
 
         for (var slice_side = 0u; slice_side < 2u; slice_side += 1u) {
             let side_modifier = -1.0 + (2.0 * f32(slice_side));
-            let min_cos_horizon = n - (side_modifier * half_pi);
+            let min_cos_horizon = cos(n + (side_modifier * half_pi));
             var cos_horizon = min_cos_horizon;
             for (var s = 0u; s < samples_per_slice_side; s += 1u) {
                 var sample_noise = (slice + f32(s) * f32(samples_per_slice_side)) * 0.6180339887498948482;
