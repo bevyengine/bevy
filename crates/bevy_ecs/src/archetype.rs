@@ -413,6 +413,9 @@ impl SparseSetIndex for ArchetypeComponentId {
     }
 }
 
+/// The backing store of all [`Archetype`]s within a [`World`].
+///
+/// [`World`]: crate::world::World
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
@@ -435,17 +438,23 @@ impl Archetypes {
         ArchetypeGeneration(self.archetypes.len())
     }
 
+    /// Fetches the total number of [`Archetype`]s within the world.
     #[inline]
+    #[allow(clippy::len_without_is_empty)] // the internal vec is never empty.
     pub fn len(&self) -> usize {
         self.archetypes.len()
     }
 
+    /// Fetches an immutable reference to the archetype without any compoennts.
+    ///
+    /// Shorthand for `archetypes.get(ArchetypeId::EMPTY).unwrap()`
     #[inline]
     pub fn empty(&self) -> &Archetype {
         // SAFETY: empty archetype always exists
         unsafe { self.archetypes.get_unchecked(ArchetypeId::EMPTY.index()) }
     }
 
+    /// Fetches an mutable reference to the archetype without any compoennts.
     #[inline]
     pub(crate) fn empty_mut(&mut self) -> &mut Archetype {
         // SAFETY: empty archetype always exists
@@ -455,11 +464,8 @@ impl Archetypes {
         }
     }
 
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.archetypes.is_empty()
-    }
-
+    /// Fetches an immutable reference to an [`Archetype`] using its
+    /// ID. Returns `None` if no corresponding archetype exists.
     #[inline]
     pub fn get(&self, id: ArchetypeId) -> Option<&Archetype> {
         self.archetypes.get(id.index())
@@ -480,6 +486,7 @@ impl Archetypes {
         }
     }
 
+    /// Returns a read-only iterator over all archetypes.
     #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &Archetype> {
         self.archetypes.iter()
@@ -533,6 +540,7 @@ impl Archetypes {
         self.archetype_component_count
     }
 
+    /// Clears all entities from all archetypes.
     pub(crate) fn clear_entities(&mut self) {
         for archetype in &mut self.archetypes {
             archetype.clear_entities();
