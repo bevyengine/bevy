@@ -14,7 +14,6 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
-use bevy_input::InputSystem;
 use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
 pub use flex::*;
 pub use focus::*;
@@ -36,6 +35,7 @@ use bevy_ecs::{
     schedule::{IntoSystemDescriptor, SystemLabel},
     system::Resource,
 };
+use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
