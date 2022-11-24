@@ -301,7 +301,7 @@ impl Progress<f32> {
     /// Returns the current progress, normalized between 0 and 1.
     /// Where 0 represents value == min,
     /// 1 represents value == max.
-    pub fn progress_normalized(&self) -> f32 {
+    pub fn normalized(&self) -> f32 {
         remap_range(self.value, (self.min, self.max), (0.0, 1.0))
     }
 }
