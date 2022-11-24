@@ -35,8 +35,8 @@ use std::{
 ///
 /// Archetype IDs are only valid for a given World, and are not globally unique.
 /// Attempting to use an archetype ID on a world that it wasn't sourced from will
-/// not return the archetype with the components. The only exception to this is [`EMPTY`]
-/// which is guarenteed to be identical for all Worlds.
+/// not return the archetype with the same components. The only exception to this is 
+/// [`EMPTY`] which is guarenteed to be identical for all Worlds.
 ///
 /// [`World`]: crate::world::World
 /// [`EMPTY`]: crate::archetype::ArchetypeId::EMPTY
@@ -478,6 +478,10 @@ struct ArchetypeIdentity {
 /// though `&mut A` on both queries point to the same [`ComponentId`].
 ///
 /// Every [`Resource`] is also assigned one.
+///
+/// ArchetypComponentIds are only valid for a given World, and are not globally unique.
+/// Attempting to use an ID on a world that it wasn't sourced from will
+/// not point to the same archetype nor the same component. 
 ///
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
