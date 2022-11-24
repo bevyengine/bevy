@@ -22,7 +22,6 @@ fn main() {
         .run();
 }
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.insert_resource(UiScale { scale: 0.5 });
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
@@ -63,7 +62,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 pub fn update(
     mut t: Local<f32>,
     mut i: Local<usize>,
-    mut uiscale: ResMut<UiScale>,
     time: Res<Time>,
     mut text_query: Query<&mut Text>,
 ) {
@@ -77,12 +75,5 @@ pub fn update(
             "{:?}-{:?}",
             text.alignment.vertical, text.alignment.horizontal
         );
-
-        if *i % 2 == 0 {
-            uiscale.scale += 0.5;
-            if uiscale.scale > 5.0 {
-                uiscale.scale = 0.5;
-            }
-        }
     }
 }
