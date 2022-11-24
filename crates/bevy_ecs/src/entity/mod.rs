@@ -116,6 +116,11 @@ pub(crate) enum AllocAtWithoutReplacement {
 }
 
 impl Entity {
+    #[cfg(test)]
+    pub(crate) const fn new(index: u32, generation: u32) -> Entity {
+        Entity { index, generation }
+    }
+
     /// Creates a new entity reference with the specified `index` and a generation of 0.
     ///
     /// # Note
@@ -683,11 +688,13 @@ impl Entities {
         self.meta.len()
     }
 
+    /// The total number of living entities.
     #[inline]
     pub fn len(&self) -> u32 {
         self.len
     }
 
+    /// Checks if any entity is currently alive.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
@@ -739,7 +746,7 @@ mod tests {
 
     #[test]
     fn reserve_entity_len() {
-        let mut e = Entities::default();
+        let mut e = Entities::new();
         e.reserve_entity();
         // SAFETY: entity_location is left invalid
         unsafe { e.flush(|_, _| {}) };
@@ -748,7 +755,7 @@ mod tests {
 
     #[test]
     fn get_reserved_and_invalid() {
-        let mut entities = Entities::default();
+        let mut entities = Entities::new();
         let e = entities.reserve_entity();
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());
