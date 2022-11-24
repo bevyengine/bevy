@@ -1476,6 +1476,12 @@ wasm = true
 name = "text_alignment"
 path = "examples/ui/text_alignment.rs"
 
+[package.metadata.example.text_alignment]
+name = "Text Alignment"
+description = "Demonstrates how text is displayed with each TextAlignment"
+category = "UI (User Interface)"
+wasm = false
+
 [[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
