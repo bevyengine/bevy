@@ -103,9 +103,15 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
     /// Fallible wrapper for [`Self::get_id()`]
     ///
     /// ## Panics
-    /// if the id doesn't exist it will panic
+    /// If the id doesn't exist it will panic
     pub fn id<T: 'static>(&self) -> DrawFunctionId {
-        self.get_id::<T>().expect("DrawFunctionId not found")
+        self.get_id::<T>().unwrap_or_else(|| {
+            panic!(
+                "Draw function {} not found for {}",
+                std::any::type_name::<T>(),
+                std::any::type_name::<P>()
+            )
+        })
     }
 }
 
