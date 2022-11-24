@@ -327,7 +327,7 @@ impl World {
         self.archetypes
             .iter()
             .flat_map(|archetype| archetype.entities().iter())
-            .map(|archetype_entity| archetype_entity.entity)
+            .map(|archetype_entity| archetype_entity.entity())
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.

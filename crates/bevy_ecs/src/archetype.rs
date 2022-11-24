@@ -157,16 +157,18 @@ impl Edges {
 }
 
 pub struct ArchetypeEntity {
-    pub(crate) entity: Entity,
-    pub(crate) table_row: usize,
+    entity: Entity,
+    table_row: usize,
 }
 
 impl ArchetypeEntity {
-    pub fn entity(&self) -> Entity {
+    #[inline]
+    pub const fn entity(&self) -> Entity {
         self.entity
     }
 
-    pub fn table_row(&self) -> usize {
+    #[inline]
+    pub const fn table_row(&self) -> usize {
         self.table_row
     }
 }
