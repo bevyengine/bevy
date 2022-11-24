@@ -75,7 +75,6 @@ impl Default for UiScale {
     }
 }
 
-
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())

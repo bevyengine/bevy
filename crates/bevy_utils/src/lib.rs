@@ -26,7 +26,7 @@ use std::{
     future::Future,
     hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
-    ops::{Deref, RangeInclusive, Add, Div, Sub, Mul},
+    ops::{Add, Deref, Div, Mul, RangeInclusive, Sub},
     pin::Pin,
 };
 
@@ -317,7 +317,7 @@ impl Default for Progress<f32> {
 }
 
 /// Maps a value from one range of values to a new range of values.
-/// 
+///
 /// This is essentially an inverse linear interpolation followed by a normal linear interpolation.
 #[inline]
 pub fn remap_range<
