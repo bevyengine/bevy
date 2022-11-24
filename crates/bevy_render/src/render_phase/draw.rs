@@ -100,7 +100,7 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
 
     /// Retrieves the id of the [`Draw`] function corresponding to their associated type `T`.
     ///
-    /// Fallible wrapper for [`DrawFunctionsInternal::get_id()`]
+    /// Fallible wrapper for [`Self::get_id()`]
     ///
     /// ## Panics
     /// if the id doesn't exist it will panic
