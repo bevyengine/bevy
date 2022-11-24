@@ -31,8 +31,9 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> Noise {
 }
 
 // Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
-fn calculate_neighboring_depth_differences(uv: vec2<f32>, pixel_coordinates: vec2<i32>) -> f32 {
+fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 {
     // Sample the pixel's depth and 4 depths around it
+    let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
     let depths_upper_left = textureGather(0, prefiltered_depth, point_clamp_sampler, uv);
     let depths_bottom_right = textureGather(0, prefiltered_depth, point_clamp_sampler, uv, vec2<i32>(1i, 1i));
     let depth_center = depths_upper_left.y;
@@ -75,15 +76,13 @@ fn load_and_reconstruct_view_space_position(uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: u32) {
-    let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
     let pi = 3.1415926535897932384626433832795;
     let half_pi = pi / 2.0;
 
-    let pixel_depth = calculate_neighboring_depth_differences(uv, pixel_coordinates);
-    if pixel_depth == 0.0 {
-        return;
-    }
+    var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
+    pixel_depth *= 0.99999; // TODO: XeGTAO avoid precision artifacts, is needed?
 
+    let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
     let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
     let view_vec = normalize(-pixel_position);
     let pixel_normal = load_normal_view_space(uv);
@@ -97,7 +96,7 @@ fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: 
 
         let direction = vec3<f32>(omega.xy, 0.0);
         let orthographic_direction = direction - (dot(direction, view_vec) * view_vec);
-        let axis = cross(direction, view_vec);
+        let axis = normalize(cross(direction, view_vec)); // TODO: Why XeGTAO normalize? Paper does not
         let projected_normal = pixel_normal - axis * dot(pixel_normal, axis);
         let projected_normal_length = length(projected_normal);
 
@@ -106,19 +105,38 @@ fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: 
         let n = sign_norm * acos(cos_norm);
 
         for (var slice_side = 0u; slice_side < 2u; slice_side += 1u) {
-            var horizon_cos_center = -1.0;
+            let side_modifier = -1.0 + (2.0 * f32(slice_side));
+            let min_cos_horizon = n - (side_modifier * half_pi);
+            var cos_horizon = min_cos_horizon;
             for (var s = 0u; s < samples_per_slice_side; s += 1u) {
-                let sample_noise = (slice + f32(s) * f32(samples_per_slice_side)) * 0.6180339887498948482;
-                let sample_noise = fract(f32(noise.sample) + sample_noise);
-                let sample = (f32(s) + sample_noise) / f32(samples_per_slice_side);
-                let sample_uv = uv + (-1.0 + 2.0 * f32(slice_side)) * sample * 1.0 * vec2<f32>(omega.x, -omega.y);
-                // TODO: 1.0 In above equation should be "scaling" from paper?
+                var sample_noise = (slice + f32(s) * f32(samples_per_slice_side)) * 0.6180339887498948482;
+                sample_noise = fract(f32(noise.sample) + sample_noise);
+
+                var sample = (f32(s) + sample_noise) / f32(samples_per_slice_side);
+                sample = pow(sample, 2.1); // https://github.com/GameTechDev/XeGTAO#sample-distribution
+
+                let sample_uv = uv + side_modifier * sample * vec2<f32>(omega.x, -omega.y);
                 let sample_position = load_and_reconstruct_view_space_position(sample_uv);
-                let sample_horizon = normalize(sample_position - pixel_position);
-                horizon_cos_center = max(horizon_cos_center, dot(sample_horizon, view_vec));
+
+                let sample_difference = sample_position - pixel_position;
+                let sample_distance = length(sample_difference);
+                let sample_horizon = sample_difference / sample_distance;
+
+                let depth_range_scale_factor = 0.75;
+                let effect_radius = depth_range_scale_factor * 0.5 * 1.457;
+                let falloff_range = 0.615 * effect_radius;
+                let falloff_from = effect_radius * (1.0 - 0.615);
+                let falloff_mul = -1.0 / falloff_range;
+                let falloff_add = falloff_from / falloff_range + 1.0;
+                let weight = saturate(sample_distance * falloff_mul + falloff_add);
+                var sample_cos_horizon = dot(sample_horizon, view_vec);
+                sample_cos_horizon = mix(min_cos_horizon, sample_cos_horizon, weight);
+
+                cos_horizon = max(cos_horizon, sample_cos_horizon);
             }
 
-            let horizon = n + clamp((-1.0 + 2.0 * f32(slice_side)) * acos(horizon_cos_center) - n, -half_pi, half_pi);
+            let horizon = acos(cos_horizon);
+            let horizon = n + clamp(side_modifier * horizon - n, -half_pi, half_pi);
             visiblity += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * horizon - n)) / 4.0;
         }
     }
