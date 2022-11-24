@@ -11,7 +11,13 @@
 //! archetypes may store their table components in the same table. These archetypes
 //! differ only by the [`SparseSet`] components.
 //!
+//! Like tables, archetypes can be created but are never cleaned up. Empty archetypes are
+//! not removed, and persist until the world is dropped.
+//!
+//! Archetypes can be fetched from [`Archetypes`], which is accessible via [`World::archetypes`].
+//!
 //! [`Table`]: crate::storage::Table
+//! [`World::archetypes`]: crate::World::archetypes
 
 use crate::{
     bundle::BundleId,
