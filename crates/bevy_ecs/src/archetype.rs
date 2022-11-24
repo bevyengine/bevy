@@ -419,8 +419,8 @@ pub struct Archetypes {
     archetype_ids: HashMap<ArchetypeIdentity, ArchetypeId>,
 }
 
-impl Default for Archetypes {
-    fn default() -> Self {
+impl Archetypes {
+    pub(crate) fn new() -> Self {
         let mut archetypes = Archetypes {
             archetypes: Vec::new(),
             archetype_ids: Default::default(),
@@ -429,9 +429,7 @@ impl Default for Archetypes {
         archetypes.get_id_or_insert(TableId::empty(), Vec::new(), Vec::new());
         archetypes
     }
-}
 
-impl Archetypes {
     #[inline]
     pub fn generation(&self) -> ArchetypeGeneration {
         ArchetypeGeneration(self.archetypes.len())
