@@ -1,5 +1,17 @@
 //! Types for defining [`Archetype`]s, collections of entities that have the same set of
 //! components.
+//!
+//! An archetype uniquely describes a group of entities that share the same components:
+//! a world only has one archetype for each unique combination of components, and all
+//! entities that have those components and only those components belong to that
+//! archetype.
+//!
+//! Archetypes are not to be confused with [`Table`]s. Each archetype stores its table
+//! components in one table, and each archetype unqiuely points to one table, but multiple
+//! archetypes may store their table components in the same table. These archetypes
+//! differ only by the [`SparseSet`] components.
+//!
+//! [`Table`]: crate::storage::Table
 
 use crate::{
     bundle::BundleId,
@@ -186,6 +198,12 @@ struct ArchetypeComponentInfo {
     archetype_component_id: ArchetypeComponentId,
 }
 
+/// Metadata for a single archetype within a [`World`].
+///
+/// For more information, see the *[module level documentation]*.
+///
+/// [`World`]: crate::world::World
+/// [module level documentation]: crate::archetype
 pub struct Archetype {
     id: ArchetypeId,
     table_id: TableId,
@@ -195,7 +213,7 @@ pub struct Archetype {
 }
 
 impl Archetype {
-    pub fn new(
+    pub(crate) fn new(
         id: ArchetypeId,
         table_id: TableId,
         table_components: impl Iterator<Item = (ComponentId, ArchetypeComponentId)>,
@@ -232,11 +250,15 @@ impl Archetype {
         }
     }
 
+    /// Fetches the ID for the archetype.
     #[inline]
     pub fn id(&self) -> ArchetypeId {
         self.id
     }
 
+    /// Fetches the archetype's [`Table`] ID.
+    ///
+    /// [`Table`]: crate::storage::Table
     #[inline]
     pub fn table_id(&self) -> TableId {
         self.table_id
@@ -247,6 +269,11 @@ impl Archetype {
         &self.entities
     }
 
+    /// Gets an iterator of all of the components stored in [`Table`]s.
+    ///
+    /// All of the IDs are unique.
+    ///
+    /// [`Table`]: crate::storage::Table
     #[inline]
     pub fn table_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components
@@ -255,6 +282,11 @@ impl Archetype {
             .map(|(id, _)| *id)
     }
 
+    /// Gets an iterator of all of the components stored in [`ComponentSparseSet`]s.
+    ///
+    /// All of the IDs are unique.
+    ///
+    /// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
     #[inline]
     pub fn sparse_set_components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components
@@ -263,31 +295,57 @@ impl Archetype {
             .map(|(id, _)| *id)
     }
 
+    /// Gets an iterator of all of the components in the archetype.
+    ///
+    /// All of the IDs are unique.
     #[inline]
     pub fn components(&self) -> impl Iterator<Item = ComponentId> + '_ {
         self.components.indices()
     }
 
+    /// Fetches a immutable reference to the archetype's [`Edges`], a cache of
+    /// archetypal relationships.
     #[inline]
     pub fn edges(&self) -> &Edges {
         &self.edges
     }
 
+    /// Fetches a mutable reference to the archetype's [`Edges`], a cache of
+    /// archetypal relationships.
     #[inline]
     pub(crate) fn edges_mut(&mut self) -> &mut Edges {
         &mut self.edges
     }
 
+    /// Fetches the row in the [`Table`] where the components for the entity at `index`
+    /// is stored.
+    ///
+    /// An entity's archetype index can be fetched from [`EntityLocation::index`], which
+    /// can be retrieved from [`Entities::get`].
+    ///
+    /// # Panics
+    /// This function will panic if `index >= self.len()`.
+    ///
+    /// [`Table`]: crate::storage::Table
+    /// [`EntityLocation`]: crate::entity::EntityLocation::index
+    /// [`Entities::get`]: crate::entity::Entities::get
     #[inline]
     pub fn entity_table_row(&self, index: usize) -> usize {
         self.entities[index].table_row
     }
 
+    /// Updates where an the components for the entity at `index` can be found
+    /// in the corresponding table.
+    ///
+    /// # Panics
+    /// This function will panic if `index >= self.len()`.
     #[inline]
     pub(crate) fn set_entity_table_row(&mut self, index: usize, table_row: usize) {
         self.entities[index].table_row = table_row;
     }
 
+    /// Allocates an entity to the archetype.
+    ///
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
@@ -306,6 +364,9 @@ impl Archetype {
 
     /// Removes the entity at `index` by swapping it out. Returns the table row the entity is stored
     /// in.
+    ///
+    /// # Panics
+    /// This function will panic if `index >= self.len()`
     pub(crate) fn swap_remove(&mut self, index: usize) -> ArchetypeSwapRemoveResult {
         let is_last = index == self.entities.len() - 1;
         let entity = self.entities.swap_remove(index);
@@ -319,21 +380,27 @@ impl Archetype {
         }
     }
 
+    /// Gets the total number of entities that belong to the archetype.
     #[inline]
     pub fn len(&self) -> usize {
         self.entities.len()
     }
 
+    /// Checks if the archetype has any entities.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.entities.is_empty()
     }
 
+    /// Checks if the archetype contains a specific component. This runs in `O(1)` time.
     #[inline]
     pub fn contains(&self, component_id: ComponentId) -> bool {
         self.components.contains(component_id)
     }
 
+    /// Gets the type of storage where a component in the archetype can be found.
+    /// Returns `None` if the component is not part of the archetype.
+    /// This runs in `O(1)` time.
     #[inline]
     pub fn get_storage_type(&self, component_id: ComponentId) -> Option<StorageType> {
         self.components
@@ -341,6 +408,9 @@ impl Archetype {
             .map(|info| info.storage_type)
     }
 
+    /// Fetches the corresponding [`ArchetypeComponentId`] for a component in the archetype.
+    /// Returns `None` if the component is not part of the archetype.
+    /// This runs in `O(1)` time.
     #[inline]
     pub fn get_archetype_component_id(
         &self,
@@ -351,6 +421,7 @@ impl Archetype {
             .map(|info| info.archetype_component_id)
     }
 
+    /// Clears all entities from the archetype.
     pub(crate) fn clear_entities(&mut self) {
         self.entities.clear();
     }
