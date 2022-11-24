@@ -265,6 +265,14 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
+/// A [`World`]'s internal metadata store on all of its entities.
+///
+/// Contains metadata on:
+///  - The generation of every entity.
+///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
+///  - The entity's location in memory (via [`EntityLocation`])
+///
+/// [`World`]: crate::world::World
 #[derive(Debug)]
 pub struct Entities {
     meta: Vec<EntityMeta>,
