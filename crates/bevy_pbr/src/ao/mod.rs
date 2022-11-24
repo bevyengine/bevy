@@ -29,7 +29,7 @@ use bevy_render::{
         BufferBindingType, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, DynamicUniformBuffer, Extent3d, FilterMode, PipelineCache,
         Sampler, SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, ShaderType,
-        StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
+        StorageTextureAccess, Texture, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -40,7 +40,7 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{prelude::default, HashMap};
-use std::num::NonZeroU32;
+use std::{mem, num::NonZeroU32};
 
 pub mod draw_3d_graph {
     pub mod node {
@@ -234,12 +234,32 @@ struct AmbientOcclusionPipelines {
     common_bind_group_layout: BindGroupLayout,
     prefilter_depth_bind_group_layout: BindGroupLayout,
 
+    hilbert_index_texture: Texture,
     point_clamp_sampler: Sampler,
 }
 
 impl FromWorld for AmbientOcclusionPipelines {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
+        let render_queue = world.resource::<RenderQueue>();
+
+        let hilbert_index_texture = render_device.create_texture_with_data(
+            render_queue,
+            &(TextureDescriptor {
+                label: Some("ambient_occlusion_hilbert_index_texture"),
+                size: Extent3d {
+                    width: 64,
+                    height: 64,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R16Uint,
+                usage: TextureUsages::TEXTURE_BINDING,
+            }),
+            bytemuck::cast_slice(&generate_hilbert_index()),
+        );
 
         let point_clamp_sampler = render_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Nearest,
@@ -347,6 +367,7 @@ impl FromWorld for AmbientOcclusionPipelines {
 
             prefilter_depth_bind_group_layout,
 
+            hilbert_index_texture,
             point_clamp_sampler,
         }
     }
@@ -579,4 +600,42 @@ fn queue_ambient_occlusion_bind_groups(
             }
         }
     }
+}
+
+fn generate_hilbert_index() -> [[u16; 64]; 64] {
+    let mut t = [[0; 64]; 64];
+
+    for x in 0..64 {
+        for y in 0..64 {
+            t[x][y] = hilbert_index(x as u16, y as u16);
+        }
+    }
+
+    t
+}
+
+// https://www.shadertoy.com/view/3tB3z3
+const HILBERT_WIDTH: u16 = 1 << 6;
+fn hilbert_index(mut x: u16, mut y: u16) -> u16 {
+    let mut index = 0;
+
+    let mut level: u16 = HILBERT_WIDTH / 2;
+    while level > 0 {
+        let region_x = (x & level > 0) as u16;
+        let region_y = (y & level > 0) as u16;
+        index += level * level * ((3 * region_x) ^ region_y);
+
+        if region_y == 0 {
+            if region_x == 1 {
+                x = HILBERT_WIDTH - 1 - x;
+                y = HILBERT_WIDTH - 1 - y;
+            }
+
+            mem::swap(&mut x, &mut y);
+        }
+
+        level /= 2;
+    }
+
+    index
 }

@@ -3,7 +3,7 @@
 
 @group(0) @binding(0) var prefiltered_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
-@group(0) @binding(2) var noise: texture_2d<u32>;
+@group(0) @binding(2) var hilbert_index: texture_2d<u32>;
 @group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32uint, write>;
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
