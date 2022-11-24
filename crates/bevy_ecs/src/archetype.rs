@@ -179,6 +179,8 @@ pub(crate) struct ArchetypeSwapRemoveResult {
 }
 
 /// Internal metadata for a [`Component`] within a given [`Archetype`].
+///
+/// [`Component`]: crate::component::Component
 struct ArchetypeComponentInfo {
     storage_type: StorageType,
     archetype_component_id: ArchetypeComponentId,
@@ -376,18 +378,27 @@ struct ArchetypeIdentity {
     sparse_set_components: Box<[ComponentId]>,
 }
 
+/// An opaque unique joint ID for a [`Component`] in an [`Archetype`] within a [`World`].
+///
+/// A component may be present within multiple archetypes, but each of those components within
+/// each archetype has its own unique `ArchetypeComponentId`. This is leveraged by the system
+/// schedulers to opprotunistically run multiple systems in parallel that would otherwise
+/// conflict. For example, `Query<&mut A, With<B>>` and `Query<&mut A, Without<B>>` can run in
+/// parallel as the matched `ArchetypeComponentId` sets for both queries are disjoint, even
+/// though `&mut A` on both queries point to the same [`ComponentId`].
+///
+/// Every [`Resource`] is also assigned one.
+///
+/// [`Component`]: crate::component::Component
+/// [`World`]: crate::world::World
+/// [`Resource`]: crate::system::Resource
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
 
 impl ArchetypeComponentId {
     #[inline]
-    pub const fn new(index: usize) -> Self {
+    pub(crate) const fn new(index: usize) -> Self {
         Self(index)
-    }
-
-    #[inline]
-    pub fn index(self) -> usize {
-        self.0
     }
 }
 
