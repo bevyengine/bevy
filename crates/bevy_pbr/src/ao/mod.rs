@@ -11,7 +11,7 @@ use bevy_core_pipeline::{prelude::Camera3d, prepass::PrepassSettings};
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryState, With},
-    system::{Commands, Query, Resource},
+    system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_reflect::{Reflect, TypeUuid};
@@ -21,14 +21,18 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
         AddressMode, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        BufferBindingType, CachedComputePipelineId, ComputePipelineDescriptor, FilterMode,
-        PipelineCache, Sampler, SamplerBindingType, SamplerDescriptor, Shader, ShaderStages,
-        ShaderType, StorageTextureAccess, TextureSampleType, TextureViewDimension,
+        BufferBindingType, CachedComputePipelineId, ComputePipelineDescriptor,
+        DynamicUniformBuffer, FilterMode, PipelineCache, Sampler, SamplerBindingType,
+        SamplerDescriptor, Shader, ShaderStages, ShaderType, StorageTextureAccess,
+        TextureSampleType, TextureViewDimension,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
+    texture::TextureCache,
     view::{ViewTarget, ViewUniform},
     Extract, RenderApp, RenderStage,
 };
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 
 use crate::PREPASS_DEPTH_FORMAT;
 
@@ -64,18 +68,18 @@ impl Plugin for AmbientOcclusionPlugin {
 
         render_app
             .init_resource::<AmbientOcclusionPipelines>()
-            //     .init_resource::<BloomUniforms>()
-            .add_system_to_stage(RenderStage::Extract, extract_ao_settings);
-        //     .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
-        //     .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
-        //     .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
+            .init_resource::<AmbientOcclusionUniforms>()
+            .add_system_to_stage(RenderStage::Extract, extract_ambient_occlusion_settings)
+            .add_system_to_stage(RenderStage::Prepare, prepare_ambient_occlusion_textures)
+            .add_system_to_stage(RenderStage::Prepare, prepare_ambient_occlusion_uniforms)
+            .add_system_to_stage(RenderStage::Queue, queue_ambient_occlusion_bind_groups);
 
-        let bloom_node = AmbientOcclusionNode::new(&mut render_app.world);
+        let ao_node = AmbientOcclusionNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
             .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::AMBIENT_OCCLUSION, bloom_node);
+        draw_3d_graph.add_node(draw_3d_graph::node::AMBIENT_OCCLUSION, ao_node);
         draw_3d_graph
             .add_slot_edge(
                 draw_3d_graph.input_node().unwrap().id,
@@ -100,7 +104,7 @@ impl Plugin for AmbientOcclusionPlugin {
     }
 }
 
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, ShaderType, Clone)]
 pub struct AmbientOcclusionSettings {
     effect_radius: f32,
     effect_falloff_range: f32,
@@ -120,9 +124,9 @@ struct AmbientOcclusionNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
         &'static ViewTarget,
-        // &'static BloomTextures,
-        // &'static BloomBindGroups,
-        // &'static BloomUniformIndex,
+        &'static AmbientOcclusionTextures,
+        &'static AmbientOcclusionBindGroups,
+        &'static AmbientOcclusionUniformIndex,
     )>,
 }
 
@@ -231,8 +235,7 @@ impl FromWorld for AmbientOcclusionPipelines {
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
                             has_dynamic_offset: true,
-                            min_binding_size: todo!(),
-                            // min_binding_size: Some(AmbientOcclusionUniform::min_size()),
+                            min_binding_size: Some(AmbientOcclusionSettings::min_size()),
                         },
                         count: None,
                     },
@@ -268,7 +271,7 @@ impl FromWorld for AmbientOcclusionPipelines {
     }
 }
 
-fn extract_ao_settings(
+fn extract_ambient_occlusion_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<(Entity, &Camera, &AmbientOcclusionSettings, &PrepassSettings), With<Camera3d>>,
@@ -279,4 +282,60 @@ fn extract_ao_settings(
             commands.get_or_spawn(entity).insert(ao_settings.clone());
         }
     }
+}
+
+#[derive(Component)]
+struct AmbientOcclusionTextures {}
+
+fn prepare_ambient_occlusion_textures(
+    mut commands: Commands,
+    mut texture_cache: ResMut<TextureCache>,
+    render_device: Res<RenderDevice>,
+    views: Query<(Entity, &ExtractedCamera), With<AmbientOcclusionTextures>>,
+) {
+    todo!()
+}
+
+#[derive(Resource, Default)]
+struct AmbientOcclusionUniforms {
+    uniforms: DynamicUniformBuffer<AmbientOcclusionSettings>,
+}
+
+#[derive(Component)]
+struct AmbientOcclusionUniformIndex(u32);
+
+fn prepare_ambient_occlusion_uniforms(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut ao_uniforms: ResMut<AmbientOcclusionUniforms>,
+    au_query: Query<(Entity, &AmbientOcclusionSettings)>,
+) {
+    ao_uniforms.uniforms.clear();
+
+    let entities = au_query
+        .iter()
+        .map(|(entity, settings)| {
+            let index = ao_uniforms.uniforms.push(settings.clone());
+            (entity, (AmbientOcclusionUniformIndex(index)))
+        })
+        .collect::<Vec<_>>();
+    commands.insert_or_spawn_batch(entities);
+
+    ao_uniforms
+        .uniforms
+        .write_buffer(&render_device, &render_queue);
+}
+
+#[derive(Component)]
+struct AmbientOcclusionBindGroups {}
+
+fn queue_ambient_occlusion_bind_groups(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    pipelines: Res<AmbientOcclusionPipelines>,
+    uniforms: Res<AmbientOcclusionUniforms>,
+    views: Query<(Entity, &ViewTarget, &AmbientOcclusionTextures)>,
+) {
+    todo!()
 }
