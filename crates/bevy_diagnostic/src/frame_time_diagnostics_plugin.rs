@@ -1,4 +1,4 @@
-use crate::{Diagnostic, DiagnosticId, Diagnostics};
+use crate::{Diagnostic, DiagnosticId, Diagnostics, DisplayPercision};
 use bevy_app::prelude::*;
 use bevy_core::FrameCount;
 use bevy_ecs::system::{Res, ResMut};
@@ -23,10 +23,27 @@ impl FrameTimeDiagnosticsPlugin {
         DiagnosticId::from_u128(73441630925388532774622109383099159699);
 
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
-        diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20, 6).with_suffix("ms")); // TODO: let user pick num_of_decimals
-        diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20, 6)); // TODO: let user pick num_of_decimals
-        diagnostics.add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1, 6));
-        // TODO: let user pick num_of_decimals
+        diagnostics.add(
+            Diagnostic::new(
+                Self::FRAME_TIME,
+                "frame_time",
+                20,
+                DisplayPercision::DecimalValue(6),
+            )
+            .with_suffix("ms"),
+        );
+        diagnostics.add(Diagnostic::new(
+            Self::FPS,
+            "fps",
+            20,
+            DisplayPercision::DecimalValue(6),
+        ));
+        diagnostics.add(Diagnostic::new(
+            Self::FRAME_COUNT,
+            "frame_count",
+            1,
+            DisplayPercision::IntegerValue,
+        ));
     }
 
     pub fn diagnostic_system(

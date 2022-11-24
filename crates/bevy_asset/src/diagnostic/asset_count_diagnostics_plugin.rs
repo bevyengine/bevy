@@ -1,6 +1,8 @@
 use crate::{Asset, Assets};
 use bevy_app::prelude::*;
-use bevy_diagnostic::{Diagnostic, DiagnosticId, Diagnostics, MAX_DIAGNOSTIC_NAME_WIDTH};
+use bevy_diagnostic::{
+    Diagnostic, DiagnosticId, Diagnostics, DisplayPercision, MAX_DIAGNOSTIC_NAME_WIDTH,
+};
 use bevy_ecs::system::{Res, ResMut};
 
 /// Adds an asset count diagnostic to an [`App`] for assets of type `T`.
@@ -48,7 +50,7 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
                 }
             ),
             20,
-            0,
+            DisplayPercision::IntegerValue,
         ));
     }
 
