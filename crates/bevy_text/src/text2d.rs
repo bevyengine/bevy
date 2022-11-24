@@ -42,7 +42,7 @@ pub struct Text2dBounds {
 impl Default for Text2dBounds {
     fn default() -> Self {
         Self {
-            size: Vec2::new(f32::MAX, f32::MAX),
+            size: Vec2::splat(f32::MAX),
         }
     }
 }
