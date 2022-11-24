@@ -351,18 +351,18 @@ impl Archetype {
     }
 }
 
-/// A generational id that changes every time the set of archetypes changes
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+/// An opaque generational id that changes every time the set of [`Archetypes`] changes.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Ord, PartialOrd)]
 pub struct ArchetypeGeneration(usize);
 
 impl ArchetypeGeneration {
     #[inline]
-    pub const fn initial() -> Self {
+    pub(crate) const fn initial() -> Self {
         ArchetypeGeneration(0)
     }
 
     #[inline]
-    pub fn value(self) -> usize {
+    pub(crate) fn value(self) -> usize {
         self.0
     }
 }
