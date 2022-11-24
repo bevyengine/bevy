@@ -1473,6 +1473,10 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_alignment"
+path = "examples/ui/text_alignment.rs"
+
+[[example]]
 name = "text_debug"
 path = "examples/ui/text_debug.rs"
 
