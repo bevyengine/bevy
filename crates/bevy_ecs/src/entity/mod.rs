@@ -575,7 +575,8 @@ impl Entities {
     ///
     /// # Safety
     ///  - `index` must be a valid entity index.
-    ///  - `location` must be valid for the entity at `index` is location
+    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
+    ///    before handing control to unknown code.
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
         // SAFETY: Caller guarentees that `index` a valid entity index
         self.meta.get_unchecked_mut(index as usize).location = location;
@@ -685,7 +686,7 @@ impl Entities {
     /// The count of all entities in the [`World`] that have ever been allocated
     /// including the entities that are currently freed.
     ///
-    /// This does not include entities that have been reserved but have never been 
+    /// This does not include entities that have been reserved but have never been
     /// allocated yet.
     ///
     /// [`World`]: crate::world::World
