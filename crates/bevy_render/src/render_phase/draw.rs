@@ -97,6 +97,16 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
     pub fn get_id<T: 'static>(&self) -> Option<DrawFunctionId> {
         self.indices.get(&TypeId::of::<T>()).copied()
     }
+
+    /// Retrieves the id of the [`Draw`] function corresponding to their associated type `T`.
+    ///
+    /// Fallible wrapper for [`DrawFunctionsInternal::get_id()`]
+    ///
+    /// ## Panics
+    /// if the id doesn't exist it will panic
+    pub fn id<T: 'static>(&self) -> DrawFunctionId {
+        self.get_id::<T>().expect("DrawFunctionId not found")
+    }
 }
 
 /// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.

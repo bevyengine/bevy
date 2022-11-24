@@ -488,7 +488,7 @@ pub fn queue_sprites(
             layout: &sprite_pipeline.view_layout,
         }));
 
-        let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
+        let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
         // Vertex buffer indices
         let mut index = 0;
