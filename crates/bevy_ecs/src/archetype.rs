@@ -178,9 +178,10 @@ pub(crate) struct ArchetypeSwapRemoveResult {
     pub(crate) table_row: usize,
 }
 
-pub(crate) struct ArchetypeComponentInfo {
-    pub(crate) storage_type: StorageType,
-    pub(crate) archetype_component_id: ArchetypeComponentId,
+/// Internal metadata for a [`Component`] within a given [`Archetype`].
+struct ArchetypeComponentInfo {
+    storage_type: StorageType,
+    archetype_component_id: ArchetypeComponentId,
 }
 
 pub struct Archetype {
