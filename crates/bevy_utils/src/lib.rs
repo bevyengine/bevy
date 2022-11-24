@@ -244,18 +244,16 @@ where
     ///
     /// The `value` must be within the bounds of the `range` or returns a [`ProgressError`].
     pub fn new(value: T, min: T, max: T) -> Result<Self, ProgressError> {
-        if min < max {
-            Self::from_range(value, min..=max)
-        } else {
-            Err(ProgressError::InvalidRange)
-        }
+        Self::from_range(value, min..=max)
     }
 
     /// Creates a new progress using a `value` and a `range`.
     ///
     /// The `value` must be within the bounds of the `range` or returns a [`ProgressError::OutOfBounds`].
     pub fn from_range(value: T, range: RangeInclusive<T>) -> Result<Self, ProgressError> {
-        if range.contains(&value) {
+        if range.start() >= range.end() {
+            Err(ProgressError::InvalidRange)
+        } else if range.contains(&value) {
             Ok(Self {
                 value,
                 min: *range.start(),
@@ -327,7 +325,7 @@ impl Default for Progress<f32> {
 }
 
 /// Error types for [`Progress`].
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum ProgressError {
     // Value is outside the bounds of the Progress.
     OutOfBounds,
@@ -349,4 +347,71 @@ pub fn remap_range<
     new_range: (T, T),
 ) -> T {
     (value - old_range.0) / (old_range.1 - old_range.0) * (new_range.1 - new_range.0) + new_range.0
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Progress, ProgressError};
+
+    #[test]
+    fn valid_range() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 0.5;
+        assert!(Progress::from_range(value, min..=max) == Ok(Progress { min, max, value }));
+        assert!(Progress::new(value, min, max) == Ok(Progress { min, max, value }));
+    }
+
+    #[test]
+    fn reverse_range() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 0.5;
+        assert!(Progress::from_range(value, max..=min) == Err(ProgressError::InvalidRange));
+        assert!(Progress::new(value, max, min) == Err(ProgressError::InvalidRange));
+    }
+
+    #[test]
+    fn nonsensical_range() {
+        let value = 1.0;
+        assert!(Progress::from_range(value, value..=value) == Err(ProgressError::InvalidRange));
+        assert!(Progress::new(value, value, value) == Err(ProgressError::InvalidRange));
+    }
+
+    #[test]
+    fn out_of_bounds() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 10.0;
+        assert!(Progress::from_range(value, min..=max) == Err(ProgressError::OutOfBounds));
+        assert!(Progress::new(value, min, max) == Err(ProgressError::OutOfBounds));
+    }
+
+    #[test]
+    fn set_value_in_bounds() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 0.5;
+
+        let mut progress = Progress::from_range(value, min..=max).unwrap();
+        assert!(progress.progress() == value);
+        let result = progress.set_progress(0.8);
+        assert!(result.is_ok());
+        // progress should be changed from the original
+        assert!(progress.progress() != value);
+    }
+
+    #[test]
+    fn set_value_out_of_bounds() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 0.5;
+
+        let mut progress = Progress::from_range(value, min..=max).unwrap();
+        assert!(progress.progress() == value);
+        let result = progress.set_progress(10.0);
+        assert!(result == Err(ProgressError::OutOfBounds));
+        // progress should be unchanged from the original
+        assert!(progress.progress() == value);
+    }
 }
