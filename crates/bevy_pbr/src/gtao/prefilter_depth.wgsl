@@ -8,7 +8,7 @@ struct AmbientOcclusionSettings {
     effect_falloff_range: f32;
 };
 
-@group(0) @binding(0) var input_depth: texture_2d<f32>;
+@group(0) @binding(0) var input_depth: texture_depth_2d<f32>;
 @group(0) @binding(1) var prefiltered_depth_mip0: texture_storage_2d<r32float, write>;
 @group(0) @binding(2) var prefiltered_depth_mip1: texture_storage_2d<r32float, write>;
 @group(0) @binding(3) var prefiltered_depth_mip2: texture_storage_2d<r32float, write>;
@@ -18,28 +18,13 @@ struct AmbientOcclusionSettings {
 @group(0) @binding(7) var<uniform> ao_settings: AmbientOcclusionSettings;
 @group(0) @binding(8) var<uniform> view: View;
 
-fn clamp_depth(depth: f32) -> f32 {
-    return clamp(depth, 0.0, 3.402823466e+38);
-}
-
-fn screen_to_view_space_depth(depth: f32) -> f32 {
-    // float depthLinearizeMul = (rowMajor)?(-projMatrix[3 * 4 + 2]):(-projMatrix[3 + 2 * 4]);     // float depthLinearizeMul = ( clipFar * clipNear ) / ( clipFar - clipNear );
-    // float depthLinearizeAdd = (rowMajor)?( projMatrix[2 * 4 + 2]):( projMatrix[2 + 2 * 4]);     // float depthLinearizeAdd = clipFar / ( clipFar - clipNear );
-
-    // // correct the handedness issue. need to make sure this below is correct, but I think it is.
-    // if( depthLinearizeMul * depthLinearizeAdd < 0 )
-    //     depthLinearizeAdd = -depthLinearizeAdd;
-
-    // // Optimised version of "-cameraClipNear / (cameraClipFar - projDepth * (cameraClipFar - cameraClipNear)) * cameraClipFar"
-    // return depthLinearizeMul / (depthLinearizeAdd - depth);
-
-    // TODO
-    return 0.0;
+fn screen_to_view_space_depth(depth: f32, uv: vec2<f32>) -> f32 {
+    let depth = view.inverse_projection * vec4<f32>(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y, depth, 1.0);
+    return depth.z / depth.w;
 }
 
 fn depth_for_next_mip(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
-    let depth_range_scale_factor = 0.75;
-    let effect_radius = depth_range_scale_factor * ao_settings.effect_radius * 1.457;
+    let effect_radius = 0.75 * ao_settings.effect_radius * 1.457;
     let falloff_range = 0.615 * effect_radius;
     let falloff_from = effect_radius * (1.0 - ao_settings.effect_falloff_range);
     let falloff_mul = -1.0 / falloff_range;
@@ -66,11 +51,11 @@ fn prefilter_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin
     // MIP 0 - Copy 4 texels from the input depth (per invocation, 8x8 invocations)
     let pixel_coordinates = base_coordinates * 2i;
     let viewport_pixel_size = 1.0 / view.viewport.zw;
-    let depths4 = textureGather(0, input_depth, point_clamp_sampler, vec2<f32>(pixel_coordinates) * viewport_pixel_size, vec2<i32>(1i, 1i));
-    let depth0 = clamp_depth(screen_to_view_space_depth(depths4.w));
-    let depth1 = clamp_depth(screen_to_view_space_depth(depths4.z));
-    let depth2 = clamp_depth(screen_to_view_space_depth(depths4.x));
-    let depth3 = clamp_depth(screen_to_view_space_depth(depths4.y));
+    let depths4 = textureGather(input_depth, point_clamp_sampler, vec2<f32>(pixel_coordinates) * viewport_pixel_size, vec2<i32>(1i, 1i));
+    let depth0 = screen_to_view_space_depth(depths4.w, vec2<f32>(0.0)); // TODO
+    let depth1 = screen_to_view_space_depth(depths4.z, vec2<f32>(0.0)); // TODO
+    let depth2 = screen_to_view_space_depth(depths4.x, vec2<f32>(0.0)); // TODO
+    let depth3 = screen_to_view_space_depth(depths4.y, vec2<f32>(0.0)); // TODO
     textureStore(prefiltered_depth_mip0, pixel_coordinates + vec2<i32>(0i, 0i), vec4<f32>(depth0, 0.0, 0.0, 0.0));
     textureStore(prefiltered_depth_mip0, pixel_coordinates + vec2<i32>(1i, 0i), vec4<f32>(depth0, 0.0, 0.0, 0.0));
     textureStore(prefiltered_depth_mip0, pixel_coordinates + vec2<i32>(0i, 1i), vec4<f32>(depth1, 0.0, 0.0, 0.0));
