@@ -2,6 +2,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+mod gtao;
 mod light;
 mod material;
 mod pbr_material;
@@ -10,6 +11,7 @@ mod render;
 pub use alpha::*;
 use bevy_utils::default;
 pub use bundle::*;
+pub use gtao::*;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
