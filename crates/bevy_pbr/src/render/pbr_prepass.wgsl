@@ -11,8 +11,8 @@ fn prepare_world_normal(
     is_front: bool,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
-    #ifndef VERTEX_TANGENTS
-    #ifndef STANDARDMATERIAL_NORMAL_MAP
+#ifndef VERTEX_TANGENTS
+#ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted. This is a branchless version of that.
     output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
@@ -77,12 +77,12 @@ fn apply_normal_mapping(
     // calculates the normal maps so there is no error introduced. Do not change this code
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
-    N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
+    N = Nt.x * T + Nt.y * B + Nt.z * N;
 #endif
 #endif
 #endif
 
-    return N;
+    return normalize(N);
 }
 
 struct FragmentInput {
