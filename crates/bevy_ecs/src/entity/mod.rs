@@ -293,8 +293,8 @@ pub struct Entities {
     ///   `reserve_entities` or `reserve_entity()`. They are now waiting for `flush()` to make them
     ///   fully allocated.
     ///
-    /// - The count of new IDs that do not yet exist in `self.meta()`, but which we have handed out
-    ///   and reserved. `flush()` will allocate room for them in `self.meta()`.
+    /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
+    ///   and reserved. `flush()` will allocate room for them in `self.meta`.
     ///
     /// The contents of `pending` look like this:
     ///
@@ -682,7 +682,11 @@ impl Entities {
         self.len = count as u32;
     }
 
-    /// The count of all entities in the [`World`], living and dead.
+    /// The count of all entities in the [`World`] that have ever been allocated
+    /// including the entities that are currently freed.
+    ///
+    /// This does not include entities that have been reserved but have never been 
+    /// allocated yet.
     ///
     /// [`World`]: crate::world::World
     #[inline]
@@ -690,13 +694,13 @@ impl Entities {
         self.meta.len()
     }
 
-    /// The count of currently living entities.
+    /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u32 {
         self.len
     }
 
-    /// Checks if any entity is currently alive.
+    /// Checks if any entity is currently active.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
