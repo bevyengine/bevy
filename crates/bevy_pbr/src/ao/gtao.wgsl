@@ -9,7 +9,7 @@
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
 
-fn load_noise(pixel_coordinates: vec2<i32>) -> Noise {
+fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).r;
 
 #ifdef TEMPORAL_NOISE

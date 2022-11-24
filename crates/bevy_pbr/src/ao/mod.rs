@@ -179,10 +179,12 @@ impl Node for AmbientOcclusionNode {
             Ok((camera, bind_groups, view_uniform_offset)),
             Some(prefilter_depth_pipeline),
             Some(gtao_pipeline),
+            Some(denoise_pipeline),
         ) = (
             self.view_query.get_manual(world, view_entity),
             pipeline_cache.get_compute_pipeline(pipelines.prefilter_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.gtao_pipeline),
+            pipeline_cache.get_compute_pipeline(pipelines.denoise_pipeline),
         ) else {
             return Ok(());
         };
@@ -226,6 +228,23 @@ impl Node for AmbientOcclusionNode {
             gtao_pass.dispatch_workgroups((camera_size.x + 7) / 8, (camera_size.y + 7) / 8, 1);
         }
 
+        {
+            let mut denoise_pass =
+                render_context
+                    .command_encoder
+                    .begin_compute_pass(&ComputePassDescriptor {
+                        label: Some("ambient_occlusion_denoise_pass"),
+                    });
+            denoise_pass.set_pipeline(&denoise_pipeline);
+            denoise_pass.set_bind_group(0, &bind_groups.denoise_bind_group, &[]);
+            denoise_pass.set_bind_group(
+                1,
+                &bind_groups.common_bind_group,
+                &[view_uniform_offset.offset],
+            );
+            denoise_pass.dispatch_workgroups((camera_size.x + 15) / 16, (camera_size.y + 7) / 8, 1);
+        }
+
         Ok(())
     }
 }
@@ -234,10 +253,12 @@ impl Node for AmbientOcclusionNode {
 struct AmbientOcclusionPipelines {
     prefilter_depth_pipeline: CachedComputePipelineId,
     gtao_pipeline: CachedComputePipelineId,
+    denoise_pipeline: CachedComputePipelineId,
 
     common_bind_group_layout: BindGroupLayout,
     prefilter_depth_bind_group_layout: BindGroupLayout,
     gtao_bind_group_layout: BindGroupLayout,
+    denoise_bind_group_layout: BindGroupLayout,
 
     hilbert_index_texture: TextureView,
     point_clamp_sampler: Sampler,
@@ -411,6 +432,43 @@ impl FromWorld for AmbientOcclusionPipelines {
                 ],
             });
 
+        let denoise_bind_group_layout =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("ambient_occlusion_denoise_bind_group_layout"),
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::StorageTexture {
+                            access: StorageTextureAccess::WriteOnly,
+                            format: TextureFormat::R32Float,
+                            view_dimension: TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::StorageTexture {
+                            access: StorageTextureAccess::WriteOnly,
+                            format: TextureFormat::R32Float,
+                            view_dimension: TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::StorageTexture {
+                            access: StorageTextureAccess::WriteOnly,
+                            format: TextureFormat::R32Uint,
+                            view_dimension: TextureViewDimension::D2,
+                        },
+                        count: None,
+                    },
+                ],
+            });
+
         let mut pipeline_cache = world.resource_mut::<PipelineCache>();
 
         let prefilter_depth_pipeline =
@@ -450,13 +508,32 @@ impl FromWorld for AmbientOcclusionPipelines {
             entry_point: "gtao".into(),
         });
 
+        let denoise_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+            label: Some("ambient_occlusion_denoise_pipeline".into()),
+            layout: Some(vec![
+                denoise_bind_group_layout.clone(),
+                common_bind_group_layout.clone(),
+            ]),
+            shader: DENOISE_AO_SHADER_HANDLE.typed(),
+            shader_defs: vec![
+                // TODO: Remove this hack
+                ShaderDefVal::Int(
+                    "MAX_DIRECTIONAL_LIGHTS".to_string(),
+                    MAX_DIRECTIONAL_LIGHTS as i32,
+                ),
+            ],
+            entry_point: "denoise".into(),
+        });
+
         Self {
             prefilter_depth_pipeline,
             gtao_pipeline,
+            denoise_pipeline,
 
             common_bind_group_layout,
             prefilter_depth_bind_group_layout,
             gtao_bind_group_layout,
+            denoise_bind_group_layout,
 
             hilbert_index_texture,
             point_clamp_sampler,
@@ -480,7 +557,8 @@ fn extract_ambient_occlusion_settings(
 #[derive(Component)]
 struct AmbientOcclusionTextures {
     prefiltered_depth_texture: CachedTexture,
-    ambient_occlusion_texture: CachedTexture,
+    ambient_occlusion_noisy_texture: CachedTexture, // Pre-denoised texture
+    ambient_occlusion_texture: CachedTexture,       // Denoised texture
     depth_differences_texture: CachedTexture,
 }
 
@@ -491,6 +569,7 @@ fn prepare_ambient_occlusion_textures(
     views: Query<(Entity, &ExtractedCamera), With<AmbientOcclusionSettings>>,
 ) {
     let mut prefiltered_depth_textures = HashMap::default();
+    let mut ambient_occlusion_noisy_textures = HashMap::default();
     let mut ambient_occlusion_textures = HashMap::default();
     let mut depth_differences_textures = HashMap::default();
     for (entity, camera) in &views {
@@ -513,6 +592,20 @@ fn prepare_ambient_occlusion_textures(
             let prefiltered_depth_texture = prefiltered_depth_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
+                .clone();
+
+            let texture_descriptor = TextureDescriptor {
+                label: Some("ambient_occlusion_ambient_occlusion_noisy_texture"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R32Float,
+                usage: TextureUsages::STORAGE_BINDING,
+            };
+            let ambient_occlusion_noisy_texture = ambient_occlusion_noisy_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
                 .clone();
 
             let texture_descriptor = TextureDescriptor {
@@ -545,6 +638,7 @@ fn prepare_ambient_occlusion_textures(
 
             commands.entity(entity).insert(AmbientOcclusionTextures {
                 prefiltered_depth_texture,
+                ambient_occlusion_noisy_texture,
                 ambient_occlusion_texture,
                 depth_differences_texture,
             });
@@ -557,6 +651,7 @@ struct AmbientOcclusionBindGroups {
     common_bind_group: BindGroup,
     prefilter_depth_bind_group: BindGroup,
     gtao_bind_group: BindGroup,
+    denoise_bind_group: BindGroup,
 }
 
 fn queue_ambient_occlusion_bind_groups(
@@ -702,7 +797,7 @@ fn queue_ambient_occlusion_bind_groups(
                 BindGroupEntry {
                     binding: 3,
                     resource: BindingResource::TextureView(
-                        &ao_textures.ambient_occlusion_texture.default_view,
+                        &ao_textures.ambient_occlusion_noisy_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
@@ -718,10 +813,36 @@ fn queue_ambient_occlusion_bind_groups(
             ],
         });
 
+        let denoise_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("ambient_occlusion_denoise_bind_group"),
+            layout: &pipelines.denoise_bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(
+                        &ao_textures.ambient_occlusion_noisy_texture.default_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(
+                        &ao_textures.ambient_occlusion_texture.default_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(
+                        &ao_textures.depth_differences_texture.default_view,
+                    ),
+                },
+            ],
+        });
+
         commands.entity(entity).insert(AmbientOcclusionBindGroups {
             common_bind_group,
             prefilter_depth_bind_group,
             gtao_bind_group,
+            denoise_bind_group,
         });
     }
 }
