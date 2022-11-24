@@ -1,12 +1,8 @@
 // Inputs a depth texture (in screenspace) and outputs a MIP-chain of viewspace depths
 // Because GTAO's performance is bound by texture reads, this increases performance over using the raw depth
 
+#import bevy_pbr::ao_settings
 #import bevy_pbr::mesh_view_types
-
-struct AmbientOcclusionSettings {
-    effect_radius: f32,
-    effect_falloff_range: f32,
-};
 
 @group(0) @binding(0) var input_depth: texture_2d<f32>;
 @group(0) @binding(1) var prefiltered_depth_mip0: texture_storage_2d<r32float, write>;
@@ -30,6 +26,7 @@ fn screen_to_view_space_depth(depth: f32, pixel_coordinates: vec2<i32>) -> f32 {
 // Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
 fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     // TODO: Cleanup constants
+    // TODO: Document how the weights are determined, and what the parameters are doing
     let effect_radius = 0.75 * ao_settings.effect_radius * 1.457;
     let falloff_range = 0.615 * effect_radius;
     let falloff_from = effect_radius * (1.0 - ao_settings.effect_falloff_range);

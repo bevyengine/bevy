@@ -1,0 +1,41 @@
+#import bevy_pbr::mesh_view_types
+
+@group(0) @binding(0) var prefiltered_depth: texture_2d<r32float>;
+@group(0) @binding(1) var depth_differences: texture_2d<r32uint>;
+@group(0) @binding(2) var point_clamp_sampler: sampler;
+@group(0) @binding(3) var<uniform> view: View;
+
+// Calculate differences in depth between neighbor pixels (used by the spatial denoiser pass to preserve object edges)
+fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<u32>) {
+    // Sample the pixel's depth and 4 depths around it
+    let uv = vec2<f32>(pixel_coordinates) / (view.viewport.zw - 1.0);
+    let depths_upper_left = textureGather(0, prefiltered_depth, point_clamp_sampler, uv);
+    let depths_bottom_right = textureGather(0, prefiltered_depth, point_clamp_sampler, uv, vec2<i32>(1i, 1i));
+    let depth_center = depths_upper_left.y;
+    let depth_left = depths_upper_left.x;
+    let depth_top = depths_upper_left.z;
+    let depth_bottom = depths_bottom_right.x;
+    let depth_right = depths_bottom_right.z;
+
+    // Calculate the depth differences (which represent object edges when the difference is large)
+    var edge_info = vec4<f32>(depth_left, depth_right, depth_top, depth_bottom) - depth_center;
+    let slope_left_right = (edge_info.y - edge_info.x) * 0.5;
+    let slope_top_bottom = (edge_info.w - edge_info.z) * 0.5;
+    let edge_info_slope_adjusted = edge_info + vec4<f32>(slope_left_right, -slope_left_right, slope_top_bottom, -slope_top_bottom);
+    edge_info = min(abs(edge_info), abs(edge_info_slope_adjusted));
+    edge_info = saturate(1.25 - edge_info / (depth_center * 0.011));
+
+    // Pack the edge info into the texture
+    let edge_info = vec4<u32>(pack4x8unorm(edge_info), 0u, 0u, 0u);
+    textureStore(depth_differences, pixel_coordinates, edge_info);
+}
+
+@compute
+@workgroup_size(8, 8, 1)
+fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_id) local_id: vec3<u32>) {
+    let pixel_coordinates = vec2<u32>(global_id.xy);
+
+    calculate_neighboring_depth_differences(pixel_coordinates);
+
+    // TODO
+}
