@@ -79,27 +79,35 @@ impl Default for UiScale {
 }
 
 /// General representation of progress between two values.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Progress<T>
 where
-    T: Send + Sync + Clone + 'static,
+    T: Send + Sync + Copy,
 {
     /// The minimum value that the progress can have, inclusive.
-    pub min: T,
+    min: T,
     /// The maximum value that the progress can have, inlucsive.
-    pub max: T,
+    max: T,
     /// The current value of progress.
-    pub value: T,
+    value: T,
 }
 
 impl<T: Send + Sync + Copy> Progress<T>
 where
     T: PartialOrd<T>,
 {
+    /// Creates a new progress using a value, min and max.
+    ///
+    /// The value must be within min and max.
+    /// Will panic if value is out-of-bounds.
     pub fn new(value: T, min: T, max: T) -> Self {
         Self::from_range(value, min..=max)
     }
 
+    /// Creates a new progress using a value and a range.
+    ///
+    /// The value must be within the bounds of the range.
+    /// Will panic if value is out-of-bounds.
     pub fn from_range(value: T, range: RangeInclusive<T>) -> Self {
         if range.contains(&value) {
             Self {
@@ -109,6 +117,35 @@ where
             }
         } else {
             panic!("Tried creating progress with value out of bounds.");
+        }
+    }
+
+    /// Gets the min bound of the progress.
+    pub fn get_min(&self) -> T {
+        self.min
+    }
+
+    /// Gets the max bound of the progress.
+    pub fn get_max(&self) -> T {
+        self.max
+    }
+
+    /// Gets the bounds of the progress.
+    pub fn get_bounds(&self) -> RangeInclusive<T> {
+        self.min..=self.max
+    }
+
+    /// Gets the current value of progress.
+    pub fn get_progress(&self) -> T {
+        self.value
+    }
+
+    /// Sets the progress to a new value.
+    ///
+    /// Value must be between `min` and `max`, and will panic otherwise.
+    pub fn set_progress(&mut self, new_value: T) {
+        if self.get_bounds().contains(&new_value) {
+            self.value = new_value;
         }
     }
 }
