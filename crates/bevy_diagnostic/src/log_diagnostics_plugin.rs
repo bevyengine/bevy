@@ -62,11 +62,11 @@ impl LogDiagnosticsPlugin {
                         // so we reserve two columns for it; however,
                         // Do not reserve columns for the suffix in the average
                         // The ) hugging the value is more aesthetically pleasing
-                        "{name:<name_width$}: {value:>11.num_of_decimals$}{suffix:1} (avg {average:>.num_of_decimals$}{suffix:})",
+                        "{name:<name_width$}: {value:>11.num_of_decimals$}{suffix:2} (avg {average:>.num_of_decimals$}{suffix:})",
                         name = diagnostic.name,
                         suffix = diagnostic.suffix,
                         name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                        num_of_decimals = diagnostic.num_of_decimals,
+                        num_of_decimals = diagnostic.get_num_of_decimals(),
                     );
                     return;
                 }
@@ -77,7 +77,7 @@ impl LogDiagnosticsPlugin {
                 name = diagnostic.name,
                 suffix = diagnostic.suffix,
                 name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                num_of_decimals = diagnostic.num_of_decimals,
+                num_of_decimals = diagnostic.get_num_of_decimals(),
             );
         }
     }
