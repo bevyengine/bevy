@@ -682,13 +682,13 @@ impl Entities {
         self.len = count as u32;
     }
 
-    /// Accessor for getting the length of the vec in `self.meta`
+    /// The count of all entities in the [`World`], living and dead.
     #[inline]
-    pub fn meta_len(&self) -> usize {
+    pub fn total_count(&self) -> usize {
         self.meta.len()
     }
 
-    /// The total number of living entities.
+    /// The count of currently living entities.
     #[inline]
     pub fn len(&self) -> u32 {
         self.len
