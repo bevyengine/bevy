@@ -28,7 +28,7 @@ pub struct DiagnosticMeasurement {
     pub value: f64,
 }
 
-/// Enum for display percision. Choose IntergerValue for discrete values and DecimalValue(num_of_decimals) to specify the number of decimals
+/// Enum for display percision. Choose `IntegerValue` for discrete values and `DecimalValue(num_of_decimals)` to specify the number of decimals
 #[derive(Debug)]
 pub enum DisplayPercision {
     IntegerValue,
