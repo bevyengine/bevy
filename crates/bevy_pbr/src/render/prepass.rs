@@ -229,9 +229,11 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
+        // The fragment shader is only used when the normal prepass is enabled or the material uses an alpha mask
         let fragment = if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS)
             || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
         {
+            // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
                 handle.clone()
             } else {
@@ -239,6 +241,7 @@ where
             };
 
             let mut targets = vec![];
+            // When the normal prepass is enabled we need a target to be able to write to it.
             if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
                 targets.push(Some(ColorTargetState {
                     format: TextureFormat::Rgb10a2Unorm,
@@ -257,6 +260,7 @@ where
             None
         };
 
+        // Use the vertex shader from the material if present
         let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
             handle.clone()
         } else {
@@ -314,6 +318,7 @@ where
     }
 }
 
+// Extract the render phases for the prepass
 pub fn extract_camera_prepass_settings_phase(
     mut commands: Commands,
     cameras_3d: Extract<Query<(Entity, &Camera, &PrepassSettings), With<Camera3d>>>,
@@ -329,6 +334,7 @@ pub fn extract_camera_prepass_settings_phase(
     }
 }
 
+// Prepares the textures used by the prepass
 pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -460,13 +466,15 @@ pub fn queue_prepass_material_meshes<M: Material>(
     for (view, visible_entities, prepass_settings, mut opaque_phase, mut alpha_mask_phase) in
         &mut views
     {
-        let rangefinder = view.rangefinder3d();
-
-        let mut view_key =
-            MeshPipelineKey::PREPASS_DEPTH | MeshPipelineKey::from_msaa_samples(msaa.samples);
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+        if prepass_settings.depth_enabled {
+            view_key |= MeshPipelineKey::PREPASS_DEPTH;
+        }
         if prepass_settings.normal_enabled {
             view_key |= MeshPipelineKey::PREPASS_NORMALS;
         }
+
+        let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
             let Ok((material_handle, mesh_handle, mesh_uniform)) = material_meshes.get(*visible_entity) else {
@@ -480,12 +488,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 continue;
             };
 
-            let mut key =
+            let mut mesh_key =
                 MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}
-                AlphaMode::Mask(_) => key |= MeshPipelineKey::ALPHA_MASK,
+                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::ALPHA_MASK,
                 AlphaMode::Blend => continue,
             }
 
@@ -493,7 +501,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 &mut pipeline_cache,
                 &prepass_pipeline,
                 MaterialPipelineKey {
-                    mesh_key: key,
+                    mesh_key,
                     bind_group_data: material.key.clone(),
                 },
                 &mesh.layout,
