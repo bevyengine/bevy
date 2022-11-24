@@ -28,34 +28,35 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 24.0,
         color: Color::WHITE,
     };
-    
-    commands.insert_resource(UiScale{ scale: 0.5 });
+
+    commands.insert_resource(UiScale { scale: 0.5 });
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(NodeBundle {
-        style: Style    {
-            align_items: AlignItems::Center,
-            justify_content: JustifyContent::Center,
-            size: Size::new(Val::Percent(100.), Val::Percent(100.)),
-            ..Default::default()
-        },
-        ..Default::default()
-    }).with_children(|builder| {
-        builder.spawn(NodeBundle {
+    commands
+        .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Percent(80.), Val::Percent(80.)),
+                align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
+                size: Size::new(Val::Percent(100.), Val::Percent(100.)),
                 ..Default::default()
             },
-            background_color: BackgroundColor(Color::NAVY),
             ..Default::default()
-        }).with_children(|builder| {
-                builder.spawn(TextBundle {
-                    text: Text::from_section(
-                    "".to_string(), 
-                        text_style.clone()
-                    ),
+        })
+        .with_children(|builder| {
+            builder
+                .spawn(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(80.), Val::Percent(80.)),
+                        ..Default::default()
+                    },
+                    background_color: BackgroundColor(Color::NAVY),
                     ..Default::default()
+                })
+                .with_children(|builder| {
+                    builder.spawn(TextBundle {
+                        text: Text::from_section("".to_string(), text_style.clone()),
+                        ..Default::default()
+                    });
                 });
-            });
         });
 }
 
@@ -72,7 +73,10 @@ pub fn update(
         *i = (*i + 1) % ALIGNMENTS.len();
         let mut text = text_query.single_mut();
         text.alignment = ALIGNMENTS[*i];
-        text.sections[0].value = format!("{:?}-{:?}", text.alignment.vertical, text.alignment.horizontal);
+        text.sections[0].value = format!(
+            "{:?}-{:?}",
+            text.alignment.vertical, text.alignment.horizontal
+        );
 
         if *i % 2 == 0 {
             uiscale.scale += 0.5;
