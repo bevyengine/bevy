@@ -121,22 +121,22 @@ where
     }
 
     /// Gets the min bound of the progress.
-    pub fn get_min(&self) -> T {
+    pub fn min(&self) -> T {
         self.min
     }
 
     /// Gets the max bound of the progress.
-    pub fn get_max(&self) -> T {
+    pub fn max(&self) -> T {
         self.max
     }
 
     /// Gets the bounds of the progress.
-    pub fn get_bounds(&self) -> RangeInclusive<T> {
+    pub fn bounds(&self) -> RangeInclusive<T> {
         self.min..=self.max
     }
 
     /// Gets the current value of progress.
-    pub fn get_progress(&self) -> T {
+    pub fn progress(&self) -> T {
         self.value
     }
 
@@ -144,7 +144,7 @@ where
     ///
     /// Value must be between `min` and `max`, and will panic otherwise.
     pub fn set_progress(&mut self, new_value: T) {
-        if self.get_bounds().contains(&new_value) {
+        if self.bounds().contains(&new_value) {
             self.value = new_value;
         }
     }
@@ -154,7 +154,7 @@ impl Progress<f32> {
     /// Returns the current progress, normalized between 0 and 1.
     /// Where 0 represents value == min,
     /// 1 represents value == max.
-    pub fn get_progress_normalized(&self) -> f32 {
+    pub fn progress_normalized(&self) -> f32 {
         map_range(self.value, (self.min, self.max), (0.0, 1.0))
     }
 }
