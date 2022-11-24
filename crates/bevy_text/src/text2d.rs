@@ -88,7 +88,7 @@ pub fn extract_text2d_sprite(
         let alignment_offset = -text_layout_info.size
             * Vec2::new(
                 match text.alignment.horizontal {
-                    HorizontalAlign::Left => 0.0,
+                    HorizontalAlign::Left => 0.,
                     HorizontalAlign::Center => 0.5,
                     HorizontalAlign::Right => 1.,
                 },
