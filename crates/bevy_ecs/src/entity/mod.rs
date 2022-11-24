@@ -683,6 +683,8 @@ impl Entities {
     }
 
     /// The count of all entities in the [`World`], living and dead.
+    ///
+    /// [`World`]: crate::world::World
     #[inline]
     pub fn total_count(&self) -> usize {
         self.meta.len()
