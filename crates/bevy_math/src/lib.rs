@@ -26,6 +26,7 @@ pub mod prelude {
 pub use glam::*;
 
 /// Maps a value from one range of values to a new range of values.
+#[inline]
 pub fn map_range<
     T: Add<Output = T> + Div<Output = T> + Sub<Output = T> + Mul<Output = T> + Copy,
 >(
