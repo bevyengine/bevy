@@ -18,11 +18,13 @@ struct AmbientOcclusionSettings {
 @group(0) @binding(7) var<uniform> ao_settings: AmbientOcclusionSettings;
 @group(0) @binding(8) var<uniform> view: View;
 
-// TODO: Explain clamps between 0.0 and f32::max for avoiding INF
-
-fn screen_to_view_space_depth(depth: f32) -> f32 {
-    let depth = view.projection[3][2] / depth;
-    return clamp(depth, 0.0, 3.402823466e+38);
+fn screen_to_view_space_depth(depth: f32, pixel_coordinates: vec2<i32>) -> f32 {
+    let screen_uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
+    let clip_xy = vec2<f32>(screen_uv.x * 2.0 - 1.0, 1.0 - 2.0 * screen_uv.y);
+    let t = view.inverse_projection * vec4<f32>(clip_xy, depth, 1.0);
+    let view_xyz = t.xyz / t.w;
+    let view_depth = -view_xyz.z;
+    return min(view_depth, 3.402823466e+38); // Clamp INF to f32::MAX
 }
 
 // Using 4 depths from the previous MIP, compute a weighted average for the depth of the current MIP
@@ -42,7 +44,7 @@ fn weighted_average(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
     let weight_total = weight0 + weight1 + weight2 + weight3;
 
     let depth = ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3)) / weight_total;
-    return clamp(depth, 0.0, 3.402823466e+38);
+    return min(depth, 3.402823466e+38); // Clamp INF to f32::MAX
 }
 
 // Used to share the depths from the previous MIP level between all invocations in a workgroup
@@ -53,27 +55,29 @@ var<workgroup> previous_mip_depth: array<array<f32, 8>, 8>;
 fn prefilter_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_id) local_id: vec3<u32>) {
     let base_coordinates = vec2<i32>(global_id.xy);
 
-    // MIP 0 - Copy 4 texels from the input depth (per invocation, 8x8 invocations)
-    let pixel_coordinates = base_coordinates * 2i;
-    let viewport_pixel_size = 1.0 / view.viewport.zw;
-    let depths4 = textureGather(0, input_depth, point_clamp_sampler, vec2<f32>(pixel_coordinates) * viewport_pixel_size, vec2<i32>(1i, 1i));
-    let depth0 = screen_to_view_space_depth(depths4.w);
-    let depth1 = screen_to_view_space_depth(depths4.z);
-    let depth2 = screen_to_view_space_depth(depths4.x);
-    let depth3 = screen_to_view_space_depth(depths4.y);
-    textureStore(prefiltered_depth_mip0, pixel_coordinates + vec2<i32>(0i, 0i), vec4<f32>(depth0, 0.0, 0.0, 0.0));
-    textureStore(prefiltered_depth_mip0, pixel_coordinates + vec2<i32>(1i, 0i), vec4<f32>(depth1, 0.0, 0.0, 0.0));
-    textureStore(prefiltered_depth_mip0, pixel_coordinates + vec2<i32>(0i, 1i), vec4<f32>(depth2, 0.0, 0.0, 0.0));
-    textureStore(prefiltered_depth_mip0, pixel_coordinates + vec2<i32>(1i, 1i), vec4<f32>(depth3, 0.0, 0.0, 0.0));
+    // MIP 0 - Copy 4 texels from the input depth (per invocation, 8x8 invocations per workgroup)
+    let pixel_coordinates0 = base_coordinates * 2i;
+    let pixel_coordinates1 = pixel_coordinates0 + vec2<i32>(1i, 0i);
+    let pixel_coordinates2 = pixel_coordinates0 + vec2<i32>(0i, 1i);
+    let pixel_coordinates3 = pixel_coordinates0 + vec2<i32>(1i, 1i);
+    let depths = textureGather(0, input_depth, point_clamp_sampler, vec2<f32>(pixel_coordinates0) / view.viewport.zw, vec2<i32>(1i, 1i));
+    let depth0 = screen_to_view_space_depth(depths.w, pixel_coordinates0);
+    let depth1 = screen_to_view_space_depth(depths.z, pixel_coordinates1);
+    let depth2 = screen_to_view_space_depth(depths.x, pixel_coordinates2);
+    let depth3 = screen_to_view_space_depth(depths.y, pixel_coordinates3);
+    textureStore(prefiltered_depth_mip0, pixel_coordinates0, vec4<f32>(depth0, 0.0, 0.0, 0.0));
+    textureStore(prefiltered_depth_mip0, pixel_coordinates1, vec4<f32>(depth1, 0.0, 0.0, 0.0));
+    textureStore(prefiltered_depth_mip0, pixel_coordinates2, vec4<f32>(depth2, 0.0, 0.0, 0.0));
+    textureStore(prefiltered_depth_mip0, pixel_coordinates3, vec4<f32>(depth3, 0.0, 0.0, 0.0));
 
-    // MIP 1 - Weighted average of MIP 0's depth values (per invocation, 8x8 invocations)
+    // MIP 1 - Weighted average of MIP 0's depth values (per invocation, 8x8 invocations per workgroup)
     let depth_mip1 = weighted_average(depth0, depth1, depth2, depth3);
     textureStore(prefiltered_depth_mip1, base_coordinates, vec4<f32>(depth_mip1, 0.0, 0.0, 0.0));
     previous_mip_depth[local_id.x][local_id.y] = depth_mip1;
 
     workgroupBarrier();
 
-    // MIP 2 - Weighted average of MIP 1's depth values (per invocation, 4x4 invocations)
+    // MIP 2 - Weighted average of MIP 1's depth values (per invocation, 4x4 invocations per workgroup)
     if all(local_id.xy % vec2<u32>(2u) == vec2<u32>(0u)) {
         let depth0 = previous_mip_depth[local_id.x + 0u][local_id.y + 0u];
         let depth1 = previous_mip_depth[local_id.x + 1u][local_id.y + 0u];
@@ -86,7 +90,7 @@ fn prefilter_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin
 
     workgroupBarrier();
 
-    // MIP 3 - Weighted average of MIP 2's depth values (per invocation, 2x2 invocations)
+    // MIP 3 - Weighted average of MIP 2's depth values (per invocation, 2x2 invocations per workgroup)
     if all(local_id.xy % vec2<u32>(4u) == vec2<u32>(0u)) {
         let depth0 = previous_mip_depth[local_id.x + 0u][local_id.y + 0u];
         let depth1 = previous_mip_depth[local_id.x + 2u][local_id.y + 0u];
@@ -99,7 +103,7 @@ fn prefilter_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin
 
     workgroupBarrier();
 
-    // MIP 4 - Weighted average of MIP 3's depth values (per invocation, 1 invocation)
+    // MIP 4 - Weighted average of MIP 3's depth values (per invocation, 1 invocation per workgroup)
     if all(local_id.xy % vec2<u32>(8u) == vec2<u32>(0u)) {
         let depth0 = previous_mip_depth[local_id.x + 0u][local_id.y + 0u];
         let depth1 = previous_mip_depth[local_id.x + 4u][local_id.y + 0u];
