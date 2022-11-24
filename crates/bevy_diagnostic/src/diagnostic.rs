@@ -28,6 +28,30 @@ pub struct DiagnosticMeasurement {
     pub value: f64,
 }
 
+/// Enum for display percision. Choose IntergerValue for discrete values and DecimalValue(num_of_decimals) to specify the number of decimals
+#[derive(Debug)]
+pub enum DisplayPercision {
+    IntegerValue,
+    DecimalValue(usize),
+}
+
+impl DisplayPercision {
+    pub fn get_num_of_decimals(&self) -> usize {
+        match self {
+            DisplayPercision::IntegerValue => 0,
+            DisplayPercision::DecimalValue(x) => *x,
+        }
+    }
+}
+
+// trait DiagnosticDisplayPercision {
+//     type DisplayPercision;
+// }
+
+// impl DiagnosticDisplayPercision for Diagnostic {
+//     type DisplayPercision = DisplayPercision;
+// }
+
 /// A timeline of [`DiagnosticMeasurement`]s of a specific type.
 /// Diagnostic examples: frames per second, CPU usage, network latency
 #[derive(Debug)]
@@ -41,7 +65,7 @@ pub struct Diagnostic {
     ema_smoothing_factor: f64,
     max_history_length: usize,
     pub is_enabled: bool,
-    pub num_of_decimals: usize, // Seems like it needs to be usize
+    pub num_of_decimals: DisplayPercision, // Seems like it needs to be usize
 }
 
 impl Diagnostic {
@@ -79,7 +103,7 @@ impl Diagnostic {
         id: DiagnosticId,
         name: impl Into<Cow<'static, str>>,
         max_history_length: usize,
-        num_of_decimals: usize, // Choose number of decimals for display precision.
+        num_of_decimals: DisplayPercision, // Choose number of decimals for display precision.
     ) -> Diagnostic {
         let name = name.into();
         if name.chars().count() > MAX_DIAGNOSTIC_NAME_WIDTH {
@@ -197,6 +221,11 @@ impl Diagnostic {
     /// Clear the history of this diagnostic.
     pub fn clear_history(&mut self) {
         self.history.clear();
+    }
+
+    /// Get the number of decimals to display for this diagnostic.
+    pub fn get_num_of_decimals(&self) -> usize {
+        self.num_of_decimals.get_num_of_decimals()
     }
 }
 
