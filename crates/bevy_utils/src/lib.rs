@@ -26,7 +26,7 @@ use std::{
     future::Future,
     hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
-    ops::{Add, Deref, Div, Mul, RangeInclusive, Sub},
+    ops::{Add, Deref, Div, Mul, RangeInclusive, Sub, AddAssign, SubAssign},
     pin::Pin,
 };
 
@@ -226,7 +226,7 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Progress<T>
 where
-    T: Send + Sync + Copy,
+    T: Send + Sync + Copy + Add + AddAssign + Sub + SubAssign,
 {
     /// The minimum value that the progress can have, inclusive.
     min: T,
@@ -236,31 +236,33 @@ where
     value: T,
 }
 
-impl<T: Send + Sync + Copy> Progress<T>
+impl<T: Send + Sync + Copy + Add + AddAssign + Sub + SubAssign> Progress<T>
 where
     T: PartialOrd<T>,
 {
-    /// Creates a new progress using a value, min and max.
+    /// Creates a new progress using a `value`, and a `min` and `max` that defines a `range`.
     ///
-    /// The value must be within min and max.
-    /// Will panic if value is out-of-bounds.
-    pub fn new(value: T, min: T, max: T) -> Self {
-        Self::from_range(value, min..=max)
+    /// The `value` must be within the bounds of the `range` or returns a [`ProgressError`].
+    pub fn new(value: T, min: T, max: T) -> Result<Self, ProgressError> {
+        if min < max {
+            Self::from_range(value, min..=max)
+        } else {
+            Err(ProgressError::InvalidRange)
+        }
     }
 
-    /// Creates a new progress using a value and a range.
+    /// Creates a new progress using a `value` and a `range`.
     ///
-    /// The value must be within the bounds of the range.
-    /// Will panic if value is out-of-bounds.
-    pub fn from_range(value: T, range: RangeInclusive<T>) -> Self {
+    /// The `value` must be within the bounds of the `range` or returns a [`ProgressError::OutOfBounds`].
+    pub fn from_range(value: T, range: RangeInclusive<T>) -> Result<Self, ProgressError> {
         if range.contains(&value) {
-            Self {
+            Ok(Self {
                 value,
                 min: *range.start(),
                 max: *range.end(),
-            }
+            })
         } else {
-            panic!("Tried creating progress with value out of bounds.");
+            Err(ProgressError::OutOfBounds)
         }
     }
 
@@ -286,20 +288,29 @@ where
 
     /// Sets the progress to a new value and returns the new value if successful.
     ///
-    /// Value must be between `min` and `max`.
-    pub fn set_progress(&mut self, new_value: T) -> Result<T, &str> {
+    /// The `value` must be within the bounds of the `range` or returns a [`ProgressError::OutOfBounds`].
+    pub fn set_progress(&mut self, new_value: T) -> Result<T, ProgressError> {
         if self.bounds().contains(&new_value) {
             self.value = new_value;
             Ok(self.value)
         } else {
-            Err("Value outside the bounds of the Progress")
+            Err(ProgressError::OutOfBounds)
         }
     }
 }
 
 impl Progress<f32> {
+
+    /// Creates a new [`Progress`] using percent.
+    /// `Min` = 0.0
+    /// `Max` = 100.0
+    pub fn from_percent(value: f32) -> Self {
+        Self::from_range(value, 0.0..=100.0).unwrap()
+    }
+
     /// Returns the current progress, normalized between 0 and 1.
-    /// Where 0 represents value == min,
+    /// 
+    /// 0 represents value == min,
     /// 1 represents value == max.
     pub fn normalized(&self) -> f32 {
         remap_range(self.value, (self.min, self.max), (0.0, 1.0))
@@ -314,6 +325,17 @@ impl Default for Progress<f32> {
             value: 0.0,
         }
     }
+}
+
+/// Error types for [`Progress`].
+#[derive(Debug)]
+pub enum ProgressError {
+    // Value is outside the bounds of the Progress.
+    OutOfBounds,
+    /// Tried creating a new [`Progress`] using a range that was not valid.
+    /// 
+    /// Usually by having `min` >= `max`.
+    InvalidRange,
 }
 
 /// Maps a value from one range of values to a new range of values.
