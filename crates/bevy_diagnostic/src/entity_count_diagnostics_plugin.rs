@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
 use bevy_ecs::{entity::Entities, system::ResMut};
 
-use crate::{Diagnostic, DiagnosticId, Diagnostics, DisplayPercision};
+use crate::{Diagnostic, DiagnosticId, Diagnostics, DisplayPrecision};
 
 /// Adds "entity count" diagnostic to an App
 #[derive(Default)]
@@ -23,7 +23,7 @@ impl EntityCountDiagnosticsPlugin {
             Self::ENTITY_COUNT,
             "entity_count",
             20,
-            DisplayPercision::IntegerValue,
+            DisplayPrecision::IntegerValue,
         ));
     }
 

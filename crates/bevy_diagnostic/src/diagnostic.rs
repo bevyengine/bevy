@@ -28,18 +28,20 @@ pub struct DiagnosticMeasurement {
     pub value: f64,
 }
 
-/// Enum for display percision. Choose `IntegerValue` for discrete values and `DecimalValue(num_of_decimals)` to specify the number of decimals
+/// The number of digits that should be displayed for a diagnostic.
+///
+/// Choose `IntegerValue` for discrete values and `DecimalValue(num_of_decimals)` to specify the number of decimals.
 #[derive(Debug)]
-pub enum DisplayPercision {
+pub enum DisplayPrecision {
     IntegerValue,
     DecimalValue(usize),
 }
 
-impl DisplayPercision {
-    pub fn get_num_of_decimals(&self) -> usize {
+impl DisplayPrecision {
+    pub fn num_decimals(&self) -> usize {
         match self {
-            DisplayPercision::IntegerValue => 0,
-            DisplayPercision::DecimalValue(x) => *x,
+            DisplayPrecision::IntegerValue => 0,
+            DisplayPrecision::DecimalValue(x) => *x,
         }
     }
 }
@@ -65,7 +67,7 @@ pub struct Diagnostic {
     ema_smoothing_factor: f64,
     max_history_length: usize,
     pub is_enabled: bool,
-    pub num_of_decimals: DisplayPercision, // Seems like it needs to be usize
+    pub precision: DisplayPrecision,
 }
 
 impl Diagnostic {
@@ -98,12 +100,12 @@ impl Diagnostic {
             .push_back(DiagnosticMeasurement { time, value });
     }
 
-    /// Create a new diagnostic with the given ID, name, maximum history and number of decimals.
+    /// Create a new diagnostic with the given ID, name, maximum history and decimal precision.
     pub fn new(
         id: DiagnosticId,
         name: impl Into<Cow<'static, str>>,
         max_history_length: usize,
-        num_of_decimals: DisplayPercision, // Choose number of decimals for display precision.
+        precision: DisplayPrecision, // Choose number of decimals for display precision.
     ) -> Diagnostic {
         let name = name.into();
         if name.chars().count() > MAX_DIAGNOSTIC_NAME_WIDTH {
@@ -124,7 +126,7 @@ impl Diagnostic {
             ema: 0.0,
             ema_smoothing_factor: 2.0 / 21.0,
             is_enabled: true,
-            num_of_decimals,
+            precision,
         }
     }
 
@@ -224,8 +226,8 @@ impl Diagnostic {
     }
 
     /// Get the number of decimals to display for this diagnostic.
-    pub fn get_num_of_decimals(&self) -> usize {
-        self.num_of_decimals.get_num_of_decimals()
+    pub fn num_decimals(&self) -> usize {
+        self.precision.num_decimals()
     }
 }
 

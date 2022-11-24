@@ -1,7 +1,7 @@
 use crate::{Asset, Assets};
 use bevy_app::prelude::*;
 use bevy_diagnostic::{
-    Diagnostic, DiagnosticId, Diagnostics, DisplayPercision, MAX_DIAGNOSTIC_NAME_WIDTH,
+    Diagnostic, DiagnosticId, Diagnostics, DisplayPrecision, MAX_DIAGNOSTIC_NAME_WIDTH,
 };
 use bevy_ecs::system::{Res, ResMut};
 
@@ -50,7 +50,7 @@ impl<T: Asset> AssetCountDiagnosticsPlugin<T> {
                 }
             ),
             20,
-            DisplayPercision::IntegerValue,
+            DisplayPrecision::IntegerValue,
         ));
     }
 

@@ -66,7 +66,7 @@ impl LogDiagnosticsPlugin {
                         name = diagnostic.name,
                         suffix = diagnostic.suffix,
                         name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                        num_of_decimals = diagnostic.get_num_of_decimals(),
+                        num_of_decimals = diagnostic.num_decimals(),
                     );
                     return;
                 }
@@ -77,7 +77,7 @@ impl LogDiagnosticsPlugin {
                 name = diagnostic.name,
                 suffix = diagnostic.suffix,
                 name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                num_of_decimals = diagnostic.get_num_of_decimals(),
+                num_of_decimals = diagnostic.num_decimals(),
             );
         }
     }

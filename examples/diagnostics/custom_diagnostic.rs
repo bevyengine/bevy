@@ -1,7 +1,7 @@
 //! This example illustrates how to create a custom diagnostic.
 
 use bevy::{
-    diagnostic::{Diagnostic, DiagnosticId, Diagnostics, DisplayPercision, LogDiagnosticsPlugin},
+    diagnostic::{Diagnostic, DiagnosticId, Diagnostics, DisplayPrecision, LogDiagnosticsPlugin},
     prelude::*,
 };
 
@@ -28,7 +28,7 @@ fn setup_diagnostic_system(mut diagnostics: ResMut<Diagnostics>) {
         SYSTEM_ITERATION_COUNT,
         "system_iteration_count",
         10,
-        DisplayPercision::IntegerValue,
+        DisplayPrecision::IntegerValue,
     ));
 }
 
