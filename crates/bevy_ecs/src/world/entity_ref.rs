@@ -89,16 +89,13 @@ impl<'w> EntityRef<'w> {
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
-    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<&'w ComponentTicks> {
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         if !self.contains_id(component_id) {
             return None;
         }
 
         // SAFETY: entity location is valid and component_id exists
-        unsafe {
-            get_ticks(self.world, component_id, self.entity, self.location)
-                .map(|ticks| ticks.deref())
-        }
+        unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with
@@ -232,16 +229,13 @@ impl<'w> EntityMut<'w> {
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
-    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<&ComponentTicks> {
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
         if !self.contains_id(component_id) {
             return None;
         }
 
         // SAFETY: entity location is valid and component_id exists
-        unsafe {
-            get_ticks(self.world, component_id, self.entity, self.location)
-                .map(|ticks| ticks.deref())
-        }
+        unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with
