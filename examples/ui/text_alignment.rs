@@ -1,4 +1,4 @@
-//! This example demonstrates how text is displayed with each TextAlignment
+//! This example demonstrates how text is displayed with each `TextAlignment`
 
 use bevy::prelude::*;
 
@@ -22,13 +22,6 @@ fn main() {
         .run();
 }
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let text_style = TextStyle {
-        font: font.clone(),
-        font_size: 24.0,
-        color: Color::WHITE,
-    };
-
     commands.insert_resource(UiScale { scale: 0.5 });
     commands.spawn(Camera2dBundle::default());
     commands
@@ -53,7 +46,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|builder| {
                     builder.spawn(TextBundle {
-                        text: Text::from_section("".to_string(), text_style.clone()),
+                        text: Text::from_section(
+                            "".to_string(),
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 24.0,
+                                color: Color::WHITE,
+                            },
+                        ),
                         ..Default::default()
                     });
                 });
