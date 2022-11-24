@@ -476,129 +476,127 @@ fn queue_ambient_occlusion_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &AmbientOcclusionTextures, &ViewPrepassTextures)>,
 ) {
-    if let Some(ao_uniforms) = ao_uniforms.uniforms.binding() {
-        if let Some(view_uniforms) = view_uniforms.uniforms.binding() {
-            for (entity, ao_textures, prepass_textures) in &views {
-                let common_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                    label: Some("ambient_occlusion_common_bind_group"),
-                    layout: &pipelines.common_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::Sampler(&pipelines.point_clamp_sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: ao_uniforms.clone(),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: view_uniforms.clone(),
-                        },
-                    ],
-                });
+    let (ao_uniforms, view_uniforms) = match (
+        ao_uniforms.uniforms.binding(),
+        view_uniforms.uniforms.binding(),
+    ) {
+        (Some(a), Some(b)) => (a, b),
+        _ => return,
+    };
 
-                let prefilter_depth_mip_view_descriptor = TextureViewDescriptor {
-                    format: Some(TextureFormat::R32Float),
-                    dimension: Some(TextureViewDimension::D2),
-                    mip_level_count: NonZeroU32::new(1),
-                    ..default()
-                };
-                let prefilter_depth_bind_group = render_device
-                    .create_bind_group(&BindGroupDescriptor {
-                    label: Some("ambient_occlusion_prefilter_depth_bind_group"),
-                    layout: &pipelines.prefilter_depth_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(
-                                &prepass_textures.depth.as_ref().unwrap().default_view,
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::TextureView(
-                                &ao_textures
-                                    .prefiltered_depth_texture
-                                    .texture
-                                    .create_view(&TextureViewDescriptor {
-                                    label: Some(
-                                        "ambient_occlusion_prefiltered_depth_texture_mip_view_0",
-                                    ),
-                                    base_mip_level: 0,
-                                    ..prefilter_depth_mip_view_descriptor
-                                }),
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: BindingResource::TextureView(
-                                &ao_textures
-                                    .prefiltered_depth_texture
-                                    .texture
-                                    .create_view(&TextureViewDescriptor {
-                                    label: Some(
-                                        "ambient_occlusion_prefiltered_depth_texture_mip_view_1",
-                                    ),
-                                    base_mip_level: 1,
-                                    ..prefilter_depth_mip_view_descriptor
-                                }),
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 3,
-                            resource: BindingResource::TextureView(
-                                &ao_textures
-                                    .prefiltered_depth_texture
-                                    .texture
-                                    .create_view(&TextureViewDescriptor {
-                                    label: Some(
-                                        "ambient_occlusion_prefiltered_depth_texture_mip_view_2",
-                                    ),
-                                    base_mip_level: 2,
-                                    ..prefilter_depth_mip_view_descriptor
-                                }),
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 4,
-                            resource: BindingResource::TextureView(
-                                &ao_textures
-                                    .prefiltered_depth_texture
-                                    .texture
-                                    .create_view(&TextureViewDescriptor {
-                                    label: Some(
-                                        "ambient_occlusion_prefiltered_depth_texture_mip_view_3",
-                                    ),
-                                    base_mip_level: 3,
-                                    ..prefilter_depth_mip_view_descriptor
-                                }),
-                            ),
-                        },
-                        BindGroupEntry {
-                            binding: 5,
-                            resource: BindingResource::TextureView(
-                                &ao_textures
-                                    .prefiltered_depth_texture
-                                    .texture
-                                    .create_view(&TextureViewDescriptor {
-                                    label: Some(
-                                        "ambient_occlusion_prefiltered_depth_texture_mip_view_4",
-                                    ),
-                                    base_mip_level: 4,
-                                    ..prefilter_depth_mip_view_descriptor
-                                }),
-                            ),
-                        },
-                    ],
-                });
+    for (entity, ao_textures, prepass_textures) in &views {
+        let common_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("ambient_occlusion_common_bind_group"),
+            layout: &pipelines.common_bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::Sampler(&pipelines.point_clamp_sampler),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: ao_uniforms.clone(),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: view_uniforms.clone(),
+                },
+            ],
+        });
 
-                commands.entity(entity).insert(AmbientOcclusionBindGroups {
-                    common_bind_group,
-                    prefilter_depth_bind_group,
-                });
-            }
-        }
+        let prefilter_depth_mip_view_descriptor = TextureViewDescriptor {
+            format: Some(TextureFormat::R32Float),
+            dimension: Some(TextureViewDimension::D2),
+            mip_level_count: NonZeroU32::new(1),
+            ..default()
+        };
+        let prefilter_depth_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("ambient_occlusion_prefilter_depth_bind_group"),
+            layout: &pipelines.prefilter_depth_bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(
+                        &prepass_textures.depth.as_ref().unwrap().default_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(
+                        &ao_textures.prefiltered_depth_texture.texture.create_view(
+                            &TextureViewDescriptor {
+                                label: Some(
+                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_0",
+                                ),
+                                base_mip_level: 0,
+                                ..prefilter_depth_mip_view_descriptor
+                            },
+                        ),
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(
+                        &ao_textures.prefiltered_depth_texture.texture.create_view(
+                            &TextureViewDescriptor {
+                                label: Some(
+                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_1",
+                                ),
+                                base_mip_level: 1,
+                                ..prefilter_depth_mip_view_descriptor
+                            },
+                        ),
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::TextureView(
+                        &ao_textures.prefiltered_depth_texture.texture.create_view(
+                            &TextureViewDescriptor {
+                                label: Some(
+                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_2",
+                                ),
+                                base_mip_level: 2,
+                                ..prefilter_depth_mip_view_descriptor
+                            },
+                        ),
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(
+                        &ao_textures.prefiltered_depth_texture.texture.create_view(
+                            &TextureViewDescriptor {
+                                label: Some(
+                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_3",
+                                ),
+                                base_mip_level: 3,
+                                ..prefilter_depth_mip_view_descriptor
+                            },
+                        ),
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::TextureView(
+                        &ao_textures.prefiltered_depth_texture.texture.create_view(
+                            &TextureViewDescriptor {
+                                label: Some(
+                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_4",
+                                ),
+                                base_mip_level: 4,
+                                ..prefilter_depth_mip_view_descriptor
+                            },
+                        ),
+                    ),
+                },
+            ],
+        });
+
+        commands.entity(entity).insert(AmbientOcclusionBindGroups {
+            common_bind_group,
+            prefilter_depth_bind_group,
+        });
     }
 }
 
