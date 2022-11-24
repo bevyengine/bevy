@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::Changed,
+    query::{Changed, With},
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -64,13 +64,16 @@ pub fn extract_text2d_sprite(
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Res<Windows>>,
     text2d_query: Extract<
-        Query<(
-            Entity,
-            &ComputedVisibility,
-            &Text,
-            &TextLayoutInfo,
-            &GlobalTransform,
-        )>,
+        Query<
+            (
+                Entity,
+                &ComputedVisibility,
+                &Text,
+                &TextLayoutInfo,
+                &GlobalTransform,
+            ),
+            With<Text2dBounds>,
+        >,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
@@ -90,7 +93,7 @@ pub fn extract_text2d_sprite(
                     HorizontalAlign::Right => 1.,
                 },
                 match text.alignment.vertical {
-                    VerticalAlign::Bottom => 0.,                    
+                    VerticalAlign::Bottom => 0.,
                     VerticalAlign::Center => 0.5,
                     VerticalAlign::Top => 1.,
                 },
@@ -159,7 +162,7 @@ pub fn update_text2d_layout(
         Entity,
         Changed<Text>,
         &Text,
-        Option<&Text2dBounds>,
+        &Text2dBounds,
         Option<&mut TextLayoutInfo>,
     )>,
 ) {
@@ -167,15 +170,20 @@ pub fn update_text2d_layout(
     let factor_changed = scale_factor_changed.iter().last().is_some();
     let scale_factor = windows.scale_factor(WindowId::primary());
 
-    for (entity, text_changed, text, maybe_bounds, text_layout_info) in &mut text_query {
+    for (entity, text_changed, text, bounds, text_layout_info) in &mut text_query {
         if factor_changed || text_changed || queue.remove(&entity) {
-            let text_bounds = match maybe_bounds {
-                Some(bounds) => Vec2::new(
-                    scale_value(bounds.size.x, scale_factor),
-                    scale_value(bounds.size.y, scale_factor),
-                ),
-                None => Vec2::new(f32::MAX, f32::MAX),
-            };
+            let text_bounds = Vec2::new(
+                if bounds.size.x != f32::MAX {
+                    scale_value(bounds.size.x, scale_factor)
+                } else {
+                    f32::MAX
+                },
+                if bounds.size.x != f32::MAX {
+                    scale_value(bounds.size.y, scale_factor)
+                } else {
+                    f32::MAX
+                },
+            );
 
             match text_pipeline.queue_text(
                 &fonts,
