@@ -33,7 +33,13 @@ use std::{
 
 /// An opaque unique ID for a single [`Archetype`] within a [`World`].
 ///
+/// Archetype IDs are only valid for a given World, and are not globally unique.
+/// Attempting to use an archetype ID on a world that it wasn't sourced from will
+/// not return the archetype with the components. The only exception to this is [`EMPTY`]
+/// which is guarenteed to be identical for all Worlds.
+///
 /// [`World`]: crate::world::World
+/// [`EMPTY`]: crate::archetype::ArchetypeId::EMPTY
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
 pub struct ArchetypeId(usize);
