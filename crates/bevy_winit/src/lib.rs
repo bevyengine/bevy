@@ -230,6 +230,10 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_always_on_top(always_on_top);
                 }
+                bevy_window::WindowCommand::SetCursorHitTest { hittest } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_hittest(hittest).unwrap();
+                }
                 bevy_window::WindowCommand::Close => {
                     // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
                     // Add the removal requests to a queue to solve this

@@ -1,12 +1,12 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::Entity,
     storage::Column,
 };
 use bevy_ptr::{OwningPtr, Ptr};
 use std::{cell::UnsafeCell, hash::Hash, marker::PhantomData};
 
-type EntityId = u32;
+type EntityIndex = u32;
 
 #[derive(Debug)]
 pub(crate) struct SparseArray<I, V = I> {
@@ -102,14 +102,14 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 #[derive(Debug)]
 pub struct ComponentSparseSet {
     dense: Column,
-    // Internally this only relies on the Entity ID to keep track of where the component data is
+    // Internally this only relies on the Entity index to keep track of where the component data is
     // stored for entities that are alive. The generation is not required, but is stored
     // in debug builds to validate that access is correct.
     #[cfg(not(debug_assertions))]
-    entities: Vec<EntityId>,
+    entities: Vec<EntityIndex>,
     #[cfg(debug_assertions)]
     entities: Vec<Entity>,
-    sparse: SparseArray<EntityId, u32>,
+    sparse: SparseArray<EntityIndex, u32>,
 }
 
 impl ComponentSparseSet {
@@ -189,7 +189,7 @@ impl ComponentSparseSet {
     }
 
     #[inline]
-    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    pub fn get_with_ticks(&self, entity: Entity) -> Option<(Ptr<'_>, TickCells<'_>)> {
         let dense_index = *self.sparse.get(entity.index())? as usize;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index]);
@@ -197,13 +197,34 @@ impl ComponentSparseSet {
         unsafe {
             Some((
                 self.dense.get_data_unchecked(dense_index),
-                self.dense.get_ticks_unchecked(dense_index),
+                TickCells {
+                    added: self.dense.get_added_ticks_unchecked(dense_index),
+                    changed: self.dense.get_changed_ticks_unchecked(dense_index),
+                },
             ))
         }
     }
 
     #[inline]
-    pub fn get_ticks(&self, entity: Entity) -> Option<&UnsafeCell<ComponentTicks>> {
+    pub fn get_added_ticks(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
+        let dense_index = *self.sparse.get(entity.index())? as usize;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index]);
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
+        unsafe { Some(self.dense.get_added_ticks_unchecked(dense_index)) }
+    }
+
+    #[inline]
+    pub fn get_changed_ticks(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
+        let dense_index = *self.sparse.get(entity.index())? as usize;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index]);
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
+        unsafe { Some(self.dense.get_changed_ticks_unchecked(dense_index)) }
+    }
+
+    #[inline]
+    pub fn get_ticks(&self, entity: Entity) -> Option<ComponentTicks> {
         let dense_index = *self.sparse.get(entity.index())? as usize;
         #[cfg(debug_assertions)]
         assert_eq!(entity, self.entities[dense_index]);
