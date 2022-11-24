@@ -14,7 +14,7 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
-use std::ops::RangeInclusive;
+use std::{error::Error, ops::RangeInclusive};
 
 use bevy_input::InputSystem;
 use bevy_math::map_range;
@@ -140,12 +140,15 @@ where
         self.value
     }
 
-    /// Sets the progress to a new value.
+    /// Sets the progress to a new value and returns the new value if successful.
     ///
-    /// Value must be between `min` and `max`, and will panic otherwise.
-    pub fn set_progress(&mut self, new_value: T) {
+    /// Value must be between `min` and `max`.
+    pub fn set_progress(&mut self, new_value: T) -> Result<T, &str> {
         if self.bounds().contains(&new_value) {
             self.value = new_value;
+            Ok(self.value)
+        } else {
+            Err("Value outside the bounds of the Progress")
         }
     }
 }
