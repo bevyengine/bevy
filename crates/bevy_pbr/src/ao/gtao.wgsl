@@ -11,9 +11,9 @@
 @group(1) @binding(2) var<uniform> view: View;
 
 // Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
-fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<u32>) {
+fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) {
     // Sample the pixel's depth and 4 depths around it
-    let uv = vec2<f32>(pixel_coordinates) / (view.viewport.zw - 1.0);
+    let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
     let depths_upper_left = textureGather(0, prefiltered_depth, point_clamp_sampler, uv);
     let depths_bottom_right = textureGather(0, prefiltered_depth, point_clamp_sampler, uv, vec2<i32>(1i, 1i));
     let depth_center = depths_upper_left.y;
@@ -28,7 +28,7 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<u32>) {
     let slope_top_bottom = (edge_info.w - edge_info.z) * 0.5;
     let edge_info_slope_adjusted = edge_info + vec4<f32>(slope_left_right, -slope_left_right, slope_top_bottom, -slope_top_bottom);
     edge_info = min(abs(edge_info), abs(edge_info_slope_adjusted));
-    edge_info = saturate(1.25 - edge_info / (depth_center * 0.011));
+    edge_info = saturate(1.25 - edge_info / (depth_center * 0.011)); // TODO: ???
 
     // Pack the edge info into the texture
     let edge_info = vec4<u32>(pack4x8unorm(edge_info), 0u, 0u, 0u);
@@ -38,7 +38,7 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<u32>) {
 @compute
 @workgroup_size(8, 8, 1)
 fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invocation_id) local_id: vec3<u32>) {
-    let pixel_coordinates = vec2<u32>(global_id.xy);
+    let pixel_coordinates = vec2<i32>(global_id.xy);
 
     calculate_neighboring_depth_differences(pixel_coordinates);
 

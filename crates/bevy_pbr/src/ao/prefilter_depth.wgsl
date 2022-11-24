@@ -15,7 +15,7 @@
 @group(1) @binding(2) var<uniform> view: View;
 
 fn screen_to_view_space_depth(depth: f32, pixel_coordinates: vec2<i32>) -> f32 {
-    let screen_uv = vec2<f32>(pixel_coordinates) / (view.viewport.zw - 1.0);
+    let screen_uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
     let clip_xy = vec2<f32>(screen_uv.x * 2.0 - 1.0, 1.0 - 2.0 * screen_uv.y);
     let t = view.inverse_projection * vec4<f32>(clip_xy, depth, 1.0);
     let view_xyz = t.xyz / t.w;
@@ -57,7 +57,7 @@ fn prefilter_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin
     let pixel_coordinates1 = pixel_coordinates0 + vec2<i32>(1i, 0i);
     let pixel_coordinates2 = pixel_coordinates0 + vec2<i32>(0i, 1i);
     let pixel_coordinates3 = pixel_coordinates0 + vec2<i32>(1i, 1i);
-    let depths_uv = vec2<f32>(pixel_coordinates0) / (view.viewport.zw - 1.0);
+    let depths_uv = vec2<f32>(pixel_coordinates0) / view.viewport.zw;
     let depths = textureGather(0, input_depth, point_clamp_sampler, depths_uv, vec2<i32>(1i, 1i));
     let depth0 = screen_to_view_space_depth(depths.w, pixel_coordinates0);
     let depth1 = screen_to_view_space_depth(depths.z, pixel_coordinates1);
