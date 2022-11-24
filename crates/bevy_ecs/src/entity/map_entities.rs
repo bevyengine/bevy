@@ -20,7 +20,7 @@ impl fmt::Display for MapEntitiesError {
     }
 }
 
-/// Allows mapping internal [`Entity`] references from one entity space to another.
+/// Allows mapping [`Entity`] references from one entity space to another.
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_map`.
     ///
