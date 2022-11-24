@@ -236,7 +236,7 @@ impl Node for AmbientOcclusionNode {
                 &bind_groups.common_bind_group,
                 &[ao_uniform_offset.offset, view_uniform_offset.offset],
             );
-            gtao_pass.dispatch_workgroups((camera_size.x + 15) / 16, (camera_size.y + 15) / 16, 1);
+            gtao_pass.dispatch_workgroups((camera_size.x + 7) / 8, (camera_size.y + 7) / 8, 1);
         }
 
         Ok(())
