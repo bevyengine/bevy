@@ -33,7 +33,7 @@ use bevy_render::{
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    view::{ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
 #[cfg(feature = "trace")]
@@ -147,8 +147,6 @@ impl Default for AmbientOcclusionSettings {
 struct AmbientOcclusionNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
-        &'static ViewTarget,
-        &'static AmbientOcclusionTextures,
         &'static AmbientOcclusionBindGroups,
         &'static AmbientOcclusionUniformOffset,
         &'static ViewUniformOffset,
@@ -186,7 +184,7 @@ impl Node for AmbientOcclusionNode {
         let pipelines = world.resource::<AmbientOcclusionPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, view_target, textures, bind_groups, ao_uniform_offset, view_uniform_offset) =
+        let (camera, bind_groups, ao_uniform_offset, view_uniform_offset) =
             match self.view_query.get_manual(world, view_entity) {
                 Ok(result) => result,
                 _ => return Ok(()),
