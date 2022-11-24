@@ -27,8 +27,8 @@ use bevy_render::{
         AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
         BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
         BufferBindingType, CachedComputePipelineId, ComputePassDescriptor,
-        ComputePipelineDescriptor, DynamicUniformBuffer, Extent3d, FilterMode, PipelineCache,
-        Sampler, SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, ShaderType,
+        ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, ShaderType,
         StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
     },
@@ -49,8 +49,6 @@ pub mod draw_3d_graph {
     }
 }
 
-const AO_SETTINGS_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 776205188160487);
 const PREFILTER_DEPTH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 102258915420479);
 const GTAO_SHADER_HANDLE: HandleUntyped =
@@ -64,12 +62,6 @@ pub struct AmbientOcclusionPlugin;
 
 impl Plugin for AmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            AO_SETTINGS_SHADER_HANDLE,
-            "ao_settings.wgsl",
-            Shader::from_wgsl
-        );
         load_internal_asset!(
             app,
             PREFILTER_DEPTH_SHADER_HANDLE,
@@ -93,10 +85,8 @@ impl Plugin for AmbientOcclusionPlugin {
 
         render_app
             .init_resource::<AmbientOcclusionPipelines>()
-            .init_resource::<AmbientOcclusionUniforms>()
             .add_system_to_stage(RenderStage::Extract, extract_ambient_occlusion_settings)
             .add_system_to_stage(RenderStage::Prepare, prepare_ambient_occlusion_textures)
-            .add_system_to_stage(RenderStage::Prepare, prepare_ambient_occlusion_uniforms)
             .add_system_to_stage(RenderStage::Queue, queue_ambient_occlusion_bind_groups);
 
         let ao_node = AmbientOcclusionNode::new(&mut render_app.world);
@@ -129,19 +119,17 @@ impl Plugin for AmbientOcclusionPlugin {
     }
 }
 
-#[derive(Component, Reflect, ShaderType, Clone)]
-pub struct AmbientOcclusionSettings {
-    effect_radius: f32,
-    effect_falloff_range: f32,
+#[derive(Component, Reflect, Clone)]
+pub enum AmbientOcclusionSettings {
+    Low,
+    Medium,
+    High,
+    Ultra,
 }
 
 impl Default for AmbientOcclusionSettings {
     fn default() -> Self {
-        // TODO: Document defaults
-        Self {
-            effect_radius: 0.5,
-            effect_falloff_range: 0.615,
-        }
+        Self::Medium
     }
 }
 
@@ -149,7 +137,6 @@ struct AmbientOcclusionNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
         &'static AmbientOcclusionBindGroups,
-        &'static AmbientOcclusionUniformOffset,
         &'static ViewUniformOffset,
     )>,
 }
@@ -185,7 +172,7 @@ impl Node for AmbientOcclusionNode {
         let pipelines = world.resource::<AmbientOcclusionPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, bind_groups, ao_uniform_offset, view_uniform_offset) =
+        let (camera, bind_groups, view_uniform_offset) =
             match self.view_query.get_manual(world, view_entity) {
                 Ok(result) => result,
                 _ => return Ok(()),
@@ -214,7 +201,7 @@ impl Node for AmbientOcclusionNode {
             prefilter_depth_pass.set_bind_group(
                 1,
                 &bind_groups.common_bind_group,
-                &[ao_uniform_offset.offset, view_uniform_offset.offset],
+                &[view_uniform_offset.offset],
             );
             prefilter_depth_pass.dispatch_workgroups(
                 (camera_size.x + 15) / 16,
@@ -235,7 +222,7 @@ impl Node for AmbientOcclusionNode {
             gtao_pass.set_bind_group(
                 1,
                 &bind_groups.common_bind_group,
-                &[ao_uniform_offset.offset, view_uniform_offset.offset],
+                &[view_uniform_offset.offset],
             );
             gtao_pass.dispatch_workgroups((camera_size.x + 7) / 8, (camera_size.y + 7) / 8, 1);
         }
@@ -303,16 +290,6 @@ impl FromWorld for AmbientOcclusionPipelines {
                     },
                     BindGroupLayoutEntry {
                         binding: 1,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(AmbientOcclusionSettings::min_size()),
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 2,
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::Buffer {
                             ty: BufferBindingType::Uniform,
@@ -457,7 +434,7 @@ impl FromWorld for AmbientOcclusionPipelines {
             ]),
             shader: GTAO_SHADER_HANDLE.typed(),
             shader_defs: vec!["TEMPORAL_NOISE".to_string()], // TODO: Specalize based on AmbientOcclusionSettings
-            entry_point: "gtao".into(),
+            entry_point: "gtao_medium".into(), // TODO: Specalize based on AmbientOcclusionSettings
         });
 
         Self {
@@ -562,39 +539,6 @@ fn prepare_ambient_occlusion_textures(
     }
 }
 
-#[derive(Resource, Default)]
-struct AmbientOcclusionUniforms {
-    uniforms: DynamicUniformBuffer<AmbientOcclusionSettings>,
-}
-
-#[derive(Component)]
-struct AmbientOcclusionUniformOffset {
-    offset: u32,
-}
-
-fn prepare_ambient_occlusion_uniforms(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut ao_uniforms: ResMut<AmbientOcclusionUniforms>,
-    au_query: Query<(Entity, &AmbientOcclusionSettings)>,
-) {
-    ao_uniforms.uniforms.clear();
-
-    let entities = au_query
-        .iter()
-        .map(|(entity, settings)| {
-            let offset = ao_uniforms.uniforms.push(settings.clone());
-            (entity, (AmbientOcclusionUniformOffset { offset }))
-        })
-        .collect::<Vec<_>>();
-    commands.insert_or_spawn_batch(entities);
-
-    ao_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
-}
-
 #[derive(Component)]
 struct AmbientOcclusionBindGroups {
     common_bind_group: BindGroup,
@@ -606,17 +550,15 @@ fn queue_ambient_occlusion_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipelines: Res<AmbientOcclusionPipelines>,
-    ao_uniforms: Res<AmbientOcclusionUniforms>,
     view_uniforms: Res<ViewUniforms>,
     global_uniforms: Res<GlobalsBuffer>,
     views: Query<(Entity, &AmbientOcclusionTextures, &ViewPrepassTextures)>,
 ) {
-    let (ao_uniforms, view_uniforms, globals_uniforms) = match (
-        ao_uniforms.uniforms.binding(),
+    let (view_uniforms, globals_uniforms) = match (
         view_uniforms.uniforms.binding(),
         global_uniforms.buffer.binding(),
     ) {
-        (Some(a), Some(b), Some(c)) => (a, b, c),
+        (Some(a), Some(b)) => (a, b),
         _ => return,
     };
 
@@ -631,10 +573,6 @@ fn queue_ambient_occlusion_bind_groups(
                 },
                 BindGroupEntry {
                     binding: 1,
-                    resource: ao_uniforms.clone(),
-                },
-                BindGroupEntry {
-                    binding: 2,
                     resource: view_uniforms.clone(),
                 },
             ],
