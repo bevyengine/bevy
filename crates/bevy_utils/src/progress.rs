@@ -1,4 +1,5 @@
 use std::ops::{Add, AddAssign, Div, Mul, RangeInclusive, Sub, SubAssign};
+use thiserror::Error;
 
 /// General representation of progress between two values.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -127,13 +128,11 @@ impl Default for Progress<f32> {
 }
 
 /// Error types for [`Progress`].
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ProgressError {
-    // Value is outside the bounds of the Progress.
+    #[error("Value is outside the bounds of the Progress.")]
     OutOfBounds,
-    /// Tried creating a new [`Progress`] using a range that was not valid.
-    ///
-    /// Usually by having `min` >= `max`.
+    #[error("Tried creating a new [`Progress`] using a range that was not valid.`")]
     InvalidRange,
 }
 
