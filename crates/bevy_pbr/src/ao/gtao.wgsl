@@ -6,9 +6,21 @@
 @group(0) @binding(2) var hilbert_index: texture_2d<u32>;
 @group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32uint, write>;
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
+@group(0) @binding(5) var<uniform> globals: Globals;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> ao_settings: AmbientOcclusionSettings;
 @group(1) @binding(2) var<uniform> view: View;
+
+fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
+    var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).x;
+
+#ifdef TEMPORAL_NOISE
+    index += 288u * (globals.frame_count % 64u);
+#endif
+
+    // R2 sequence - http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences
+    return fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
+}
 
 // Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
 fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) {
@@ -42,5 +54,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin(local_invo
 
     calculate_neighboring_depth_differences(pixel_coordinates);
 
-    // TODO
+    let noise = load_noise(pixel_coordinates);
+    let noise_slice = noise.x;
+    let noise_sample = noise.y;
 }

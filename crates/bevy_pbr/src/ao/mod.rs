@@ -20,6 +20,7 @@ use bevy_ecs::{
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::ExtractedCamera,
+    globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
@@ -197,7 +198,7 @@ impl Node for AmbientOcclusionNode {
             pipeline_cache.get_compute_pipeline(pipelines.prefilter_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.gtao_pipeline),
         ) {
-            (Some(p1), Some(p2)) => (p1, p2),
+            (Some(a), Some(b)) => (a, b),
             _ => return Ok(()),
         };
 
@@ -421,6 +422,16 @@ impl FromWorld for AmbientOcclusionPipelines {
                         },
                         count: None,
                     },
+                    BindGroupLayoutEntry {
+                        binding: 5,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: Some(GlobalsUniform::min_size()),
+                        },
+                        count: None,
+                    },
                 ],
             });
 
@@ -445,7 +456,7 @@ impl FromWorld for AmbientOcclusionPipelines {
                 common_bind_group_layout.clone(),
             ]),
             shader: GTAO_SHADER_HANDLE.typed(),
-            shader_defs: vec![],
+            shader_defs: vec!["TEMPORAL_NOISE".to_string()], // TODO: Specalize based on AmbientOcclusionSettings
             entry_point: "gtao".into(),
         });
 
@@ -597,13 +608,15 @@ fn queue_ambient_occlusion_bind_groups(
     pipelines: Res<AmbientOcclusionPipelines>,
     ao_uniforms: Res<AmbientOcclusionUniforms>,
     view_uniforms: Res<ViewUniforms>,
+    global_uniforms: Res<GlobalsBuffer>,
     views: Query<(Entity, &AmbientOcclusionTextures, &ViewPrepassTextures)>,
 ) {
-    let (ao_uniforms, view_uniforms) = match (
+    let (ao_uniforms, view_uniforms, globals_uniforms) = match (
         ao_uniforms.uniforms.binding(),
         view_uniforms.uniforms.binding(),
+        global_uniforms.buffer.binding(),
     ) {
-        (Some(a), Some(b)) => (a, b),
+        (Some(a), Some(b), Some(c)) => (a, b, c),
         _ => return,
     };
 
@@ -747,6 +760,10 @@ fn queue_ambient_occlusion_bind_groups(
                     resource: BindingResource::TextureView(
                         &ao_textures.depth_differences_texture.default_view,
                     ),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: globals_uniforms.clone(),
                 },
             ],
         });
