@@ -358,8 +358,8 @@ mod tests {
         let min = 0.0;
         let max = 1.0;
         let value = 0.5;
-        assert!(Progress::from_range(value, min..=max) == Ok(Progress { min, max, value }));
-        assert!(Progress::new(value, min, max) == Ok(Progress { min, max, value }));
+        assert_eq!(Progress::from_range(value, min..=max), Ok(Progress { min, max, value }));
+        assert_eq!(Progress::new(value, min, max), Ok(Progress { min, max, value }));
     }
 
     #[test]
@@ -367,15 +367,15 @@ mod tests {
         let min = 0.0;
         let max = 1.0;
         let value = 0.5;
-        assert!(Progress::from_range(value, max..=min) == Err(ProgressError::InvalidRange));
-        assert!(Progress::new(value, max, min) == Err(ProgressError::InvalidRange));
+        assert_eq!(Progress::from_range(value, max..=min), Err(ProgressError::InvalidRange));
+        assert_eq!(Progress::new(value, max, min), Err(ProgressError::InvalidRange));
     }
 
     #[test]
     fn nonsensical_range() {
         let value = 1.0;
-        assert!(Progress::from_range(value, value..=value) == Err(ProgressError::InvalidRange));
-        assert!(Progress::new(value, value, value) == Err(ProgressError::InvalidRange));
+        assert_eq!(Progress::from_range(value, value..=value), Err(ProgressError::InvalidRange));
+        assert_eq!(Progress::new(value, value, value), Err(ProgressError::InvalidRange));
     }
 
     #[test]
@@ -383,8 +383,8 @@ mod tests {
         let min = 0.0;
         let max = 1.0;
         let value = 10.0;
-        assert!(Progress::from_range(value, min..=max) == Err(ProgressError::OutOfBounds));
-        assert!(Progress::new(value, min, max) == Err(ProgressError::OutOfBounds));
+        assert_eq!(Progress::from_range(value, min..=max), Err(ProgressError::OutOfBounds));
+        assert_eq!(Progress::new(value, min, max), Err(ProgressError::OutOfBounds));
     }
 
     #[test]
@@ -394,11 +394,11 @@ mod tests {
         let value = 0.5;
 
         let mut progress = Progress::from_range(value, min..=max).unwrap();
-        assert!(progress.progress() == value);
+        assert_eq!(progress.progress(), value);
         let result = progress.set_progress(0.8);
         assert!(result.is_ok());
         // progress should be changed from the original
-        assert!(progress.progress() != value);
+        assert_ne!(progress.progress(), value);
     }
 
     #[test]
@@ -408,10 +408,11 @@ mod tests {
         let value = 0.5;
 
         let mut progress = Progress::from_range(value, min..=max).unwrap();
-        assert!(progress.progress() == value);
+        assert_eq!(progress.progress(), value);
         let result = progress.set_progress(10.0);
-        assert!(result == Err(ProgressError::OutOfBounds));
+        assert_eq!(result, Err(ProgressError::OutOfBounds));
         // progress should be unchanged from the original
-        assert!(progress.progress() == value);
+        assert_eq!(progress.progress(), value);
+    }
     }
 }
