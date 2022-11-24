@@ -90,9 +90,9 @@ pub fn extract_text2d_sprite(
                     HorizontalAlign::Right => 1.,
                 },
                 match text.alignment.vertical {
-                    VerticalAlign::Top => 0.0,
+                    VerticalAlign::Bottom => 0.,                    
                     VerticalAlign::Center => 0.5,
-                    VerticalAlign::Bottom => 1.,
+                    VerticalAlign::Top => 1.,
                 },
             );
 
