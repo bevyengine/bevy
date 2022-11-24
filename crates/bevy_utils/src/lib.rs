@@ -314,6 +314,30 @@ impl Progress<f32> {
     }
 }
 
+impl AddAssign<f32> for Progress<f32> {
+    /// Increases the progress `value` with `rhs`.
+    /// 
+    /// # Panic
+    /// Panics if the resulting value is out of bounds.
+    fn add_assign(&mut self, rhs: f32) {
+        if self.set_progress(self.value + rhs).is_err() {
+            panic!("Value of ouf bounds.");
+        }
+    }
+}
+
+impl SubAssign<f32> for Progress<f32> {
+    /// Decreases the progress `value` with `rhs`.
+    /// 
+    /// # Panic
+    /// Panics if the resulting value is out of bounds.
+    fn sub_assign(&mut self, rhs: f32) {
+        if self.set_progress(self.value - rhs).is_err() {
+            panic!("Value out of bounds.");
+        }
+    }
+}
+
 impl Default for Progress<f32> {
     fn default() -> Self {
         Self {
@@ -414,5 +438,52 @@ mod tests {
         // progress should be unchanged from the original
         assert_eq!(progress.progress(), value);
     }
+
+    /// Test that we can AddAssign to the Progress struct and have the inner value change.
+    #[test]
+    fn add_assign() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 0.5;
+
+        let mut progress = Progress::from_range(value, min..=max).unwrap();
+        progress += value;
+        assert_eq!(progress.progress(), value + value);
+    }
+
+    /// Test that we can SubAssign to the Progress struct and have the inner value change.
+    #[test]
+    fn sub_assign() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 0.5;
+
+        let mut progress = Progress::from_range(value, min..=max).unwrap();
+        progress -= value;
+        assert_eq!(progress.progress(), value - value);
+    }
+
+    /// AddAssign out of the range bound should panic.
+    #[test]
+    #[should_panic]
+    fn add_assign_out_of_bounds() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 0.5;
+
+        let mut progress = Progress::from_range(value, min..=max).unwrap();
+        progress += 10.0;
+    }
+
+    /// SubAssign out of the range bound should panic.
+    #[test]
+    #[should_panic]
+    fn sub_assign_out_of_bounds() {
+        let min = 0.0;
+        let max = 1.0;
+        let value = 0.5;
+
+        let mut progress = Progress::from_range(value, min..=max).unwrap();
+        progress -= 10.0;
     }
 }
