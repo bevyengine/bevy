@@ -1,7 +1,7 @@
 use crate::{
     GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
     ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -584,27 +584,32 @@ impl SpecializedMeshPipeline for MeshPipeline {
         let mut vertex_attributes = Vec::new();
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
-            shader_defs.push(String::from("VERTEX_POSITIONS"));
+            shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
-            shader_defs.push(String::from("VERTEX_NORMALS"));
+            shader_defs.push("VERTEX_NORMALS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
+        shader_defs.push(ShaderDefVal::Int(
+            "MAX_DIRECTIONAL_LIGHTS".to_string(),
+            MAX_DIRECTIONAL_LIGHTS as i32,
+        ));
+
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
-            shader_defs.push(String::from("VERTEX_UVS"));
+            shader_defs.push("VERTEX_UVS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
-            shader_defs.push(String::from("VERTEX_TANGENTS"));
+            shader_defs.push("VERTEX_TANGENTS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
-            shader_defs.push(String::from("VERTEX_COLORS"));
+            shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
@@ -612,7 +617,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
-            shader_defs.push(String::from("SKINNED"));
+            shader_defs.push("SKINNED".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(5));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(6));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
@@ -627,8 +632,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
         if pass == MeshPipelineKey::BLEND_PREMULTIPLIED_ALPHA {
             label = "premultiplied_alpha_mesh_pipeline".into();
             blend = Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING);
-            shader_defs.push("PREMULTIPLY_ALPHA".to_string());
-            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".to_string());
+            shader_defs.push("PREMULTIPLY_ALPHA".into());
+            shader_defs.push("BLEND_PREMULTIPLIED_ALPHA".into());
             // For the transparent pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
@@ -642,8 +647,8 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 },
                 alpha: BlendComponent::OVER,
             });
-            shader_defs.push("PREMULTIPLY_ALPHA".to_string());
-            shader_defs.push("BLEND_MULTIPLY".to_string());
+            shader_defs.push("PREMULTIPLY_ALPHA".into());
+            shader_defs.push("BLEND_MULTIPLY".into());
             // For the multiply pass, fragments that are closer will be alpha blended
             // but their depth is not written to the depth buffer
             depth_write_enabled = false;
@@ -657,11 +662,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
         }
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
-            shader_defs.push("TONEMAP_IN_SHADER".to_string());
+            shader_defs.push("TONEMAP_IN_SHADER".into());
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
             if key.contains(MeshPipelineKey::DEBAND_DITHER) {
-                shader_defs.push("DEBAND_DITHER".to_string());
+                shader_defs.push("DEBAND_DITHER".into());
             }
         }
 

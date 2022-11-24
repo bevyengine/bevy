@@ -98,7 +98,7 @@ impl RenderGraphRunner {
             .collect();
 
         // pass inputs into the graph
-        if let Some(input_node) = graph.input_node() {
+        if let Some(input_node) = graph.get_input_node() {
             let mut input_values: SmallVec<[SlotValue; 4]> = SmallVec::new();
             for (i, input_slot) in input_node.input_slots.iter().enumerate() {
                 if let Some(input_value) = inputs.get(i) {
