@@ -88,7 +88,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_normal = load_normal_view_space(uv);
     let noise = load_noise(pixel_coordinates);
 
-    var visiblity = 0.0;
+    var visibility = 0.0;
     for (var s = 0u; s < slice_count; s += 1u) {
         let slice = f32(s) + noise.x;
         let phi = (pi / f32(slice_count)) * slice;
@@ -137,10 +137,10 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
             let horizon = acos(cos_horizon);
             let horizon = n + clamp(side_modifier * horizon - n, -half_pi, half_pi);
-            visiblity += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * horizon - n)) / 4.0;
+            visibility += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * horizon - n)) / 4.0;
         }
     }
-    visiblity /= f32(slice_count);
+    visibility /= f32(slice_count);
 
-    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visiblity, 0.0, 0.0, 0.0));
+    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
 }
