@@ -28,7 +28,7 @@ use bevy_render::{
         BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
         BufferBindingType, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, ShaderType,
+        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
         StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
     },
@@ -92,27 +92,21 @@ impl Plugin for AmbientOcclusionPlugin {
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::AMBIENT_OCCLUSION, ao_node);
-        draw_3d_graph
-            .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::AMBIENT_OCCLUSION,
-                AmbientOcclusionNode::IN_VIEW,
-            )
-            .unwrap();
+        draw_3d_graph.add_slot_edge(
+            draw_3d_graph.input_node().id,
+            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+            draw_3d_graph::node::AMBIENT_OCCLUSION,
+            AmbientOcclusionNode::IN_VIEW,
+        );
         // PREPASS -> AMBIENT_OCCLUSION -> MAIN_PASS
-        draw_3d_graph
-            .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::PREPASS,
-                draw_3d_graph::node::AMBIENT_OCCLUSION,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_node_edge(
-                draw_3d_graph::node::AMBIENT_OCCLUSION,
-                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
-            )
-            .unwrap();
+        draw_3d_graph.add_node_edge(
+            bevy_core_pipeline::core_3d::graph::node::PREPASS,
+            draw_3d_graph::node::AMBIENT_OCCLUSION,
+        );
+        draw_3d_graph.add_node_edge(
+            draw_3d_graph::node::AMBIENT_OCCLUSION,
+            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+        );
     }
 }
 
@@ -126,7 +120,18 @@ pub enum AmbientOcclusionSettings {
 
 impl Default for AmbientOcclusionSettings {
     fn default() -> Self {
-        Self::Medium
+        Self::High
+    }
+}
+
+impl AmbientOcclusionSettings {
+    fn sample_counts(&self) -> (u32, u32) {
+        match self {
+            AmbientOcclusionSettings::Low => (1, 2), // 4 spp (1 * (2 * 2)), plus optional temporal samples
+            AmbientOcclusionSettings::Medium => (2, 2), // 8 spp (2 * (2 * 2)), plus optional temporal samples
+            AmbientOcclusionSettings::High => (3, 3), // 18 spp (3 * (3 * 2)), plus optional temporal samples
+            AmbientOcclusionSettings::Ultra => (9, 3), // 54 spp (9 * (3 * 2)), plus optional temporal samples
+        }
     }
 }
 
@@ -426,9 +431,13 @@ impl FromWorld for AmbientOcclusionPipelines {
                 common_bind_group_layout.clone(),
             ]),
             shader: GTAO_SHADER_HANDLE.typed(),
-            // shader_defs: vec!["TEMPORAL_NOISE".to_string()], // TODO: Specalize based on AmbientOcclusionSettings
-            shader_defs: vec![],
-            entry_point: "gtao_medium".into(), // TODO: Specalize based on AmbientOcclusionSettings
+            shader_defs: vec![
+                // TODO: Specalize based on AmbientOcclusionSettings
+                // "TEMPOAL_NOISE".into(),
+                ShaderDefVal::Int("SLICE_COUNT".to_string(), 3),
+                ShaderDefVal::Int("SAMPLE_COUNT".to_string(), 3),
+            ],
+            entry_point: "gtao".into(),
         });
 
         Self {
@@ -452,7 +461,7 @@ fn extract_ambient_occlusion_settings(
     >,
 ) {
     for (entity, camera, ao_settings, prepass_settings) in &cameras {
-        if camera.is_active && prepass_settings.output_depth && prepass_settings.output_normals {
+        if camera.is_active && prepass_settings.depth_enabled && prepass_settings.normal_enabled {
             commands.get_or_spawn(entity).insert(ao_settings.clone());
         }
     }
@@ -673,7 +682,7 @@ fn queue_ambient_occlusion_bind_groups(
                 BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::TextureView(
-                        &prepass_textures.normals.as_ref().unwrap().default_view,
+                        &prepass_textures.normal.as_ref().unwrap().default_view,
                     ),
                 },
                 BindGroupEntry {

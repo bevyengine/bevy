@@ -80,9 +80,15 @@ fn load_and_reconstruct_view_space_position(uv: vec2<f32>) -> vec3<f32> {
     return reconstruct_view_space_position(depth, uv);
 }
 
-fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: u32) {
+@compute
+@workgroup_size(8, 8, 1)
+fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
+    let pixel_coordinates = vec2<i32>(global_id.xy);
+    let slice_count = u32(#SLICE_COUNT);
+    let sample_count = u32(#SAMPLE_COUNT);
     let pi = 3.1415926535897932384626433832795;
     let half_pi = pi / 2.0;
+
 
     var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
     pixel_depth *= 0.99999; // TODO: XeGTAO avoid precision artifacts, is needed?
@@ -148,30 +154,4 @@ fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: 
     visiblity /= f32(slice_count);
 
     textureStore(ambient_occlusion, pixel_coordinates, vec4<u32>(u32(visiblity), 0u, 0u, 0u));
-}
-
-// TODO: Replace below when shader defines can hold values
-
-@compute
-@workgroup_size(8, 8, 1)
-fn gtao_low(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    gtao(vec2<i32>(global_id.xy), 1u, 2u); // 4 spp (1 * (2 * 2)), plus optional temporal samples
-}
-
-@compute
-@workgroup_size(8, 8, 1)
-fn gtao_medium(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    gtao(vec2<i32>(global_id.xy), 2u, 2u); // 8 spp (2 * (2 * 2)), plus optional temporal samples
-}
-
-@compute
-@workgroup_size(8, 8, 1)
-fn gtao_high(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    gtao(vec2<i32>(global_id.xy), 3u, 3u); // 18 spp (3 * (3 * 2)), plus optional temporal samples
-}
-
-@compute
-@workgroup_size(8, 8, 1)
-fn gtao_ultra(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    gtao(vec2<i32>(global_id.xy), 9u, 3u); // 54 spp (9 * (3 * 2)), plus optional temporal samples
 }
