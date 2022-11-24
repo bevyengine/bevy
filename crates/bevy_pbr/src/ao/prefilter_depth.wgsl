@@ -4,8 +4,8 @@
 #import bevy_pbr::mesh_view_types
 
 struct AmbientOcclusionSettings {
-    effect_radius: f32;
-    effect_falloff_range: f32;
+    effect_radius: f32,
+    effect_falloff_range: f32,
 };
 
 @group(0) @binding(0) var input_depth: texture_2d<f32>;
