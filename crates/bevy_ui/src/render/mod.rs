@@ -327,7 +327,7 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
-            let alignment_offset = Vec3::new(
+            let alignment_offset = Vec2::new(
                 match text.alignment.horizontal {
                     HorizontalAlign::Left => -0.5 * uinode.size().x,
                     HorizontalAlign::Center => -0.5 * text_layout_info.size.x,
@@ -337,8 +337,7 @@ pub fn extract_text_uinodes(
                     VerticalAlign::Center => -0.5 * text_layout_info.size.y,
                     VerticalAlign::Top => -0.5 * uinode.size().y,
                     VerticalAlign::Bottom => 0.5 * uinode.size().y - text_layout_info.size.y,
-                },
-                0.0,
+                }
             );
 
             let text_glyphs = &text_layout_info.glyphs;
@@ -362,7 +361,7 @@ pub fn extract_text_uinodes(
 
                 let extracted_transform = global_transform.compute_matrix()
                     * Mat4::from_scale(Vec3::splat(scale_factor.recip()))
-                    * Mat4::from_translation(alignment_offset + text_glyph.position.extend(0.));
+                    * Mat4::from_translation((alignment_offset + text_glyph.position).extend(0.));
 
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     stack_index,
