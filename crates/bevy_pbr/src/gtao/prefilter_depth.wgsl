@@ -3,6 +3,11 @@
 
 #import bevy_pbr::mesh_view_types
 
+struct AmbientOcclusionSettings {
+    effect_radius: f32;
+    effect_falloff_range: f32;
+};
+
 @group(0) @binding(0) var input_depth: texture_2d<f32>;
 @group(0) @binding(1) var prefiltered_depth_mip0: texture_storage_2d<r32float, write>;
 @group(0) @binding(2) var prefiltered_depth_mip1: texture_storage_2d<r32float, write>;
@@ -10,7 +15,8 @@
 @group(0) @binding(4) var prefiltered_depth_mip3: texture_storage_2d<r32float, write>;
 @group(0) @binding(5) var prefiltered_depth_mip4: texture_storage_2d<r32float, write>;
 @group(0) @binding(6) var point_clamp_sampler: sampler;
-@group(0) @binding(7) var<uniform> view: View;
+@group(0) @binding(7) var<uniform> ao_settings: AmbientOcclusionSettings;
+@group(0) @binding(8) var<uniform> view: View;
 
 fn clamp_depth(depth: f32) -> f32 {
     return clamp(depth, 0.0, 3.402823466e+38);
@@ -32,11 +38,24 @@ fn screen_to_view_space_depth(depth: f32) -> f32 {
 }
 
 fn depth_for_next_mip(depth0: f32, depth1: f32, depth2: f32, depth3: f32) -> f32 {
-    // TODO
-    return 0.0;
+    let depth_range_scale_factor = 0.75;
+    let effect_radius = depth_range_scale_factor * ao_settings.effect_radius * 1.457;
+    let falloff_range = 0.615 * effect_radius;
+    let falloff_from = effect_radius * (1.0 - ao_settings.effect_falloff_range);
+    let falloff_mul = -1.0 / falloff_range;
+    let falloff_add = falloff_from / falloff_range + 1.0;
+    let max_depth = max(max(depth0, depth1), max(depth2, depth3));
+
+    let weight0 = saturate((max_depth - depth0) * falloff_mul + falloff_add);
+    let weight1 = saturate((max_depth - depth1) * falloff_mul + falloff_add);
+    let weight2 = saturate((max_depth - depth2) * falloff_mul + falloff_add);
+    let weight3 = saturate((max_depth - depth3) * falloff_mul + falloff_add);
+    let weight_total = weight0 + weight1 + weight2 + weight3;
+
+    return ((weight0 * depth0) + (weight1 * depth1) + (weight2 * depth2) + (weight3 * depth3)) / weight_total;
 }
 
-// Used to share the depths from the previous MIP level with all invocations per workgroup
+// Used to share the depths from the previous MIP level between all invocations in a workgroup
 var<workgroup> workspace: array<array<f32, 8>, 8>;
 
 @compute
@@ -84,7 +103,7 @@ fn prefilter_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin
         let depth2 = workspace[local_id.x + 0u][local_id.y + 2u];
         let depth3 = workspace[local_id.x + 2u][local_id.y + 2u];
         let depth_mip3 = depth_for_next_mip(depth0, depth1, depth2, depth3);
-        textureStore(prefiltered_depth_mip3, base_coordinates / 2i, vec4<f32>(depth_mip3, 0.0, 0.0, 0.0));
+        textureStore(prefiltered_depth_mip3, base_coordinates / 4i, vec4<f32>(depth_mip3, 0.0, 0.0, 0.0));
         workspace[local_id.x][local_id.y] = depth_mip3;
     }
 
@@ -97,6 +116,6 @@ fn prefilter_depth(@builtin(global_invocation_id) global_id: vec3<u32>, @builtin
         let depth2 = workspace[local_id.x + 0u][local_id.y + 4u];
         let depth3 = workspace[local_id.x + 4u][local_id.y + 4u];
         let depth_mip4 = depth_for_next_mip(depth0, depth1, depth2, depth3);
-        textureStore(prefiltered_depth_mip4, base_coordinates / 2i, vec4<f32>(depth_mip4, 0.0, 0.0, 0.0));
+        textureStore(prefiltered_depth_mip4, base_coordinates / 8i, vec4<f32>(depth_mip4, 0.0, 0.0, 0.0));
     }
 }
