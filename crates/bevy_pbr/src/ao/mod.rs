@@ -78,10 +78,7 @@ impl Plugin for AmbientOcclusionPlugin {
 
         app.register_type::<AmbientOcclusionSettings>();
 
-        let render_app = match app.get_sub_app_mut(RenderApp) {
-            Ok(render_app) => render_app,
-            Err(_) => return,
-        };
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
             .init_resource::<AmbientOcclusionPipelines>()
@@ -172,22 +169,18 @@ impl Node for AmbientOcclusionNode {
         let pipelines = world.resource::<AmbientOcclusionPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, bind_groups, view_uniform_offset) =
-            match self.view_query.get_manual(world, view_entity) {
-                Ok(result) => result,
-                _ => return Ok(()),
-            };
-        let camera_size = match camera.physical_viewport_size {
-            Some(size) => size,
-            None => return Ok(()),
-        };
-        let (prefilter_depth_pipeline, gtao_pipeline) = match (
+        let (
+            Ok((camera, bind_groups, view_uniform_offset)),
+            Some(prefilter_depth_pipeline),
+            Some(gtao_pipeline),
+        ) = (
+            self.view_query.get_manual(world, view_entity),
             pipeline_cache.get_compute_pipeline(pipelines.prefilter_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.gtao_pipeline),
-        ) {
-            (Some(a), Some(b)) => (a, b),
-            _ => return Ok(()),
+        ) else {
+            return Ok(());
         };
+        let Some(camera_size) = camera.physical_viewport_size else { return Ok(()) };
 
         {
             let mut prefilter_depth_pass =
@@ -554,12 +547,11 @@ fn queue_ambient_occlusion_bind_groups(
     global_uniforms: Res<GlobalsBuffer>,
     views: Query<(Entity, &AmbientOcclusionTextures, &ViewPrepassTextures)>,
 ) {
-    let (view_uniforms, globals_uniforms) = match (
+    let (Some(view_uniforms), Some(globals_uniforms)) = (
         view_uniforms.uniforms.binding(),
         global_uniforms.buffer.binding(),
-    ) {
-        (Some(a), Some(b)) => (a, b),
-        _ => return,
+    ) else {
+        return;
     };
 
     for (entity, ao_textures, prepass_textures) in &views {
