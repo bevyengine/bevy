@@ -17,7 +17,7 @@ pub mod widget;
 use std::{error::Error, ops::RangeInclusive};
 
 use bevy_input::InputSystem;
-use bevy_math::map_range;
+use bevy_math::remap_range;
 use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
 pub use flex::*;
 pub use focus::*;
@@ -158,7 +158,7 @@ impl Progress<f32> {
     /// Where 0 represents value == min,
     /// 1 represents value == max.
     pub fn progress_normalized(&self) -> f32 {
-        map_range(self.value, (self.min, self.max), (0.0, 1.0))
+        remap_range(self.value, (self.min, self.max), (0.0, 1.0))
     }
 }
 

@@ -29,7 +29,7 @@ pub use glam::*;
 /// 
 /// This is essentially an inverse linear interpolation followed by a normal linear interpolation.
 #[inline]
-pub fn map_range<
+pub fn remap_range<
     T: Add<Output = T> + Div<Output = T> + Sub<Output = T> + Mul<Output = T> + Copy,
 >(
     value: T,
