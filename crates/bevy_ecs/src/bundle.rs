@@ -420,8 +420,8 @@ impl BundleInfo {
         components: &mut Components,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
-        if let Some(add_bundle) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
-            return add_bundle.archetype_id;
+        if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
+            return add_bundle_id;
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
@@ -537,7 +537,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     self.table,
@@ -562,7 +562,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     self.table,
@@ -614,7 +614,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     new_table,

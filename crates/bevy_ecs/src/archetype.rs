@@ -57,9 +57,9 @@ pub(crate) enum ComponentStatus {
     Mutated,
 }
 
-pub struct AddBundle {
+pub(crate) struct AddBundle {
     pub archetype_id: ArchetypeId,
-    pub(crate) bundle_status: Vec<ComponentStatus>,
+    pub bundle_status: Vec<ComponentStatus>,
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
@@ -115,7 +115,13 @@ pub struct Edges {
 
 impl Edges {
     #[inline]
-    pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<&AddBundle> {
+    pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
+        self.get_add_bundle_internal(bundle_id).map(|bundle| bundle.archetype_id)
+    }
+
+    /// Internal version of `get_add_bundle` that fetches the full `AddBundle`.
+    #[inline]
+    pub(crate) fn get_add_bundle_internal(&self, bundle_id: BundleId) -> Option<&AddBundle> {
         self.add_bundle.get(bundle_id)
     }
 
