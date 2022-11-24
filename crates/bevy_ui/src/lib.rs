@@ -14,6 +14,10 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
+use std::ops::RangeInclusive;
+
+use bevy_input::InputSystem;
+use bevy_math::map_range;
 use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
 pub use flex::*;
 pub use focus::*;
@@ -35,7 +39,6 @@ use bevy_ecs::{
     schedule::{IntoSystemDescriptor, SystemLabel},
     system::Resource,
 };
-use bevy_input::InputSystem;
 use bevy_transform::TransformSystem;
 use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
@@ -72,6 +75,60 @@ pub struct UiScale {
 impl Default for UiScale {
     fn default() -> Self {
         Self { scale: 1.0 }
+    }
+}
+
+/// General representation of progress between two values.
+#[derive(Debug, Clone)]
+pub struct Progress<T>
+where
+    T: Send + Sync + Clone + 'static,
+{
+    /// The minimum value that the progress can have, inclusive.
+    pub min: T,
+    /// The maximum value that the progress can have, inlucsive.
+    pub max: T,
+    /// The current value of progress.
+    pub value: T,
+}
+
+impl<T: Send + Sync + Copy> Progress<T>
+where
+    T: PartialOrd<T>,
+{
+    pub fn new(value: T, min: T, max: T) -> Self {
+        Self::from_range(value, min..=max)
+    }
+
+    pub fn from_range(value: T, range: RangeInclusive<T>) -> Self {
+        if range.contains(&value) {
+            Self {
+                value,
+                min: *range.start(),
+                max: *range.end(),
+            }
+        } else {
+            panic!("Tried creating progress with value out of bounds.");
+        }
+    }
+}
+
+impl Progress<f32> {
+    /// Returns the current progress, normalized between 0 and 1.
+    /// Where 0 represents value == min,
+    /// 1 represents value == max.
+    pub fn get_progress_normalized(&self) -> f32 {
+        map_range(self.value, (self.min, self.max), (0.0, 1.0))
+    }
+}
+
+impl Default for Progress<f32> {
+    fn default() -> Self {
+        Self {
+            min: 0.0,
+            max: 1.0,
+            value: 0.0,
+        }
     }
 }
 
