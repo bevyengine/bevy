@@ -2,34 +2,28 @@ use std::ops::{Add, AddAssign, Div, Mul, RangeInclusive, Sub, SubAssign};
 use thiserror::Error;
 
 /// General representation of progress between two values.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Progress<T>
-where
-    T: Send + Sync + Copy + Add + AddAssign + Sub + AddAssign,
-{
+#[derive(Debug, Clone, PartialEq)]
+pub struct Progress {
     /// The minimum value that the progress can have, inclusive.
-    min: T,
+    min: f32,
     /// The maximum value that the progress can have, inlucsive.
-    max: T,
+    max: f32,
     /// The current value of progress.
-    value: T,
+    value: f32,
 }
 
-impl<T: Send + Sync + Copy + Add + AddAssign + Sub + SubAssign> Progress<T>
-where
-    T: PartialOrd<T>,
-{
+impl Progress {
     /// Creates a new progress using a `value`, and a `min` and `max` that defines a `range`.
     ///
     /// The `value` must be within the bounds of the `range` or returns a [`ProgressError`].
-    pub fn new(value: T, min: T, max: T) -> Result<Self, ProgressError> {
+    pub fn new(value: f32, min: f32, max: f32) -> Result<Self, ProgressError> {
         Self::from_range(value, min..=max)
     }
 
     /// Creates a new progress using a `value` and a `range`.
     ///
     /// The `value` must be within the bounds of the `range` or returns a [`ProgressError::OutOfBounds`].
-    pub fn from_range(value: T, range: RangeInclusive<T>) -> Result<Self, ProgressError> {
+    pub fn from_range(value: f32, range: RangeInclusive<f32>) -> Result<Self, ProgressError> {
         if range.start() >= range.end() {
             Err(ProgressError::InvalidRange)
         } else if range.contains(&value) {
@@ -43,45 +37,31 @@ where
         }
     }
 
-    /// Gets the min bound of the progress.
-    pub fn min(&self) -> T {
-        self.min
-    }
-
-    /// Gets the max bound of the progress.
-    pub fn max(&self) -> T {
-        self.max
-    }
-
-    /// Gets the bounds of the progress.
-    pub fn bounds(&self) -> RangeInclusive<T> {
-        self.min..=self.max
-    }
-
-    /// Gets the current value of progress.
-    pub fn progress(&self) -> T {
-        self.value
-    }
-
-    /// Sets the progress to a new value and returns the new value if successful.
-    ///
-    /// The `value` must be within the bounds of the `range` or returns a [`ProgressError::OutOfBounds`].
-    pub fn set_progress(&mut self, new_value: T) -> Result<T, ProgressError> {
-        if self.bounds().contains(&new_value) {
-            self.value = new_value;
-            Ok(self.value)
-        } else {
-            Err(ProgressError::OutOfBounds)
-        }
-    }
-}
-
-impl Progress<f32> {
     /// Creates a new [`Progress`] using percent.
     /// `Min` = 0.0
     /// `Max` = 100.0
     pub fn from_percent(value: f32) -> Self {
         Self::from_range(value, 0.0..=100.0).unwrap()
+    }
+
+    /// Gets the min bound of the progress.
+    pub fn min(&self) -> f32 {
+        self.min
+    }
+
+    /// Gets the max bound of the progress.
+    pub fn max(&self) -> f32 {
+        self.max
+    }
+
+    /// Gets the bounds of the progress.
+    pub fn bounds(&self) -> RangeInclusive<f32> {
+        self.min..=self.max
+    }
+
+    /// Gets the current value of progress.
+    pub fn progress(&self) -> f32 {
+        self.value
     }
 
     /// Returns the current progress, normalized between 0 and 1.
@@ -91,9 +71,21 @@ impl Progress<f32> {
     pub fn normalized(&self) -> f32 {
         remap_range(self.value, (self.min, self.max), (0.0, 1.0))
     }
+
+    /// Sets the progress to a new value and returns the new value if successful.
+    ///
+    /// The `value` must be within the bounds of the `range` or returns a [`ProgressError::OutOfBounds`].
+    pub fn set_progress(&mut self, new_value: f32) -> Result<f32, ProgressError> {
+        if self.bounds().contains(&new_value) {
+            self.value = new_value;
+            Ok(self.value)
+        } else {
+            Err(ProgressError::OutOfBounds)
+        }
+    }
 }
 
-impl AddAssign<f32> for Progress<f32> {
+impl AddAssign<f32> for Progress {
     /// Increases the progress `value` with `rhs`.
     ///
     /// Clamps to the extent of the bounds.
@@ -105,7 +97,7 @@ impl AddAssign<f32> for Progress<f32> {
     }
 }
 
-impl SubAssign<f32> for Progress<f32> {
+impl SubAssign<f32> for Progress {
     /// Decreases the progress `value` with `rhs`.
     ///
     /// Clamps to the extent of the bounds.
@@ -117,7 +109,7 @@ impl SubAssign<f32> for Progress<f32> {
     }
 }
 
-impl Default for Progress<f32> {
+impl Default for Progress {
     fn default() -> Self {
         Self {
             min: 0.0,
