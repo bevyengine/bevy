@@ -28,7 +28,7 @@ use bevy_render::{
         BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState,
         ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, FragmentState,
         FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-        RenderPipelineDescriptor, Shader, ShaderRef, ShaderStages, ShaderType,
+        RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages, ShaderType,
         SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
         StencilFaceState, StencilState, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages, VertexState,
@@ -43,6 +43,7 @@ use bevy_utils::{tracing::error, HashMap};
 use crate::{
     AlphaMode, DrawMesh, Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline,
     MeshPipelineKey, MeshUniform, RenderMaterials, SetMaterialBindGroup, SetMeshBindGroup,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 
 use std::{hash::Hash, marker::PhantomData};
@@ -183,29 +184,34 @@ where
         bind_group_layout.insert(1, self.material_layout.clone());
 
         if key.mesh_key.contains(MeshPipelineKey::PREPASS_DEPTH) {
-            shader_defs.push(String::from("PREPASS_DEPTH"));
+            shader_defs.push("PREPASS_DEPTH".into());
         }
 
         if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
-            shader_defs.push(String::from("ALPHA_MASK"));
+            shader_defs.push("ALPHA_MASK".into());
         }
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
-            shader_defs.push(String::from("VERTEX_POSITIONS"));
+            shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
+        shader_defs.push(ShaderDefVal::Int(
+            "MAX_DIRECTIONAL_LIGHTS".to_string(),
+            MAX_DIRECTIONAL_LIGHTS as i32,
+        ));
+
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
-            shader_defs.push(String::from("VERTEX_UVS"));
+            shader_defs.push("VERTEX_UVS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
         if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
-            shader_defs.push(String::from("PREPASS_NORMALS"));
+            shader_defs.push("PREPASS_NORMALS".into());
 
             if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
-                shader_defs.push(String::from("VERTEX_TANGENTS"));
+                shader_defs.push("VERTEX_TANGENTS".into());
                 vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
             }
         }
@@ -213,7 +219,7 @@ where
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
-            shader_defs.push(String::from("SKINNED"));
+            shader_defs.push("SKINNED".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
             bind_group_layout.insert(2, self.skinned_mesh_layout.clone());
