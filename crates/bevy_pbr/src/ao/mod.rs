@@ -507,7 +507,7 @@ fn prepare_ambient_occlusion_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R32Float,
-                usage: TextureUsages::STORAGE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
             let prefiltered_depth_texture = prefiltered_depth_textures
                 .entry(camera.target.clone())
