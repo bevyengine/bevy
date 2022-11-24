@@ -68,7 +68,7 @@ impl Default for World {
     fn default() -> Self {
         Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
-            entities: Default::default(),
+            entities: Entities::new(),
             components: Default::default(),
             archetypes: Default::default(),
             storages: Default::default(),

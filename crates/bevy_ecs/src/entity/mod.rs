@@ -265,7 +265,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Entities {
     meta: Vec<EntityMeta>,
 
@@ -311,6 +311,15 @@ pub struct Entities {
 }
 
 impl Entities {
+    pub(crate) const fn new() -> Self {
+        Entities {
+            meta: Vec::new(),
+            pending: Vec::new(),
+            free_cursor: AtomicIdCursor::new(0),
+            len: 0,
+        }
+    }
+
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling `flush`.
@@ -525,6 +534,7 @@ impl Entities {
             .map_or(false, |e| e.generation() == entity.generation)
     }
 
+    /// Clears all [`Entity`] from the World.
     pub fn clear(&mut self) {
         self.meta.clear();
         self.pending.clear();
