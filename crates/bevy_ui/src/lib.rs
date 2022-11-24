@@ -14,10 +14,7 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
-use std::{error::Error, ops::RangeInclusive};
-
 use bevy_input::InputSystem;
-use bevy_math::remap_range;
 use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
 pub use flex::*;
 pub use focus::*;
@@ -78,99 +75,6 @@ impl Default for UiScale {
     }
 }
 
-/// General representation of progress between two values.
-#[derive(Debug)]
-pub struct Progress<T>
-where
-    T: Send + Sync + Copy,
-{
-    /// The minimum value that the progress can have, inclusive.
-    min: T,
-    /// The maximum value that the progress can have, inlucsive.
-    max: T,
-    /// The current value of progress.
-    value: T,
-}
-
-impl<T: Send + Sync + Copy> Progress<T>
-where
-    T: PartialOrd<T>,
-{
-    /// Creates a new progress using a value, min and max.
-    ///
-    /// The value must be within min and max.
-    /// Will panic if value is out-of-bounds.
-    pub fn new(value: T, min: T, max: T) -> Self {
-        Self::from_range(value, min..=max)
-    }
-
-    /// Creates a new progress using a value and a range.
-    ///
-    /// The value must be within the bounds of the range.
-    /// Will panic if value is out-of-bounds.
-    pub fn from_range(value: T, range: RangeInclusive<T>) -> Self {
-        if range.contains(&value) {
-            Self {
-                value,
-                min: *range.start(),
-                max: *range.end(),
-            }
-        } else {
-            panic!("Tried creating progress with value out of bounds.");
-        }
-    }
-
-    /// Gets the min bound of the progress.
-    pub fn min(&self) -> T {
-        self.min
-    }
-
-    /// Gets the max bound of the progress.
-    pub fn max(&self) -> T {
-        self.max
-    }
-
-    /// Gets the bounds of the progress.
-    pub fn bounds(&self) -> RangeInclusive<T> {
-        self.min..=self.max
-    }
-
-    /// Gets the current value of progress.
-    pub fn progress(&self) -> T {
-        self.value
-    }
-
-    /// Sets the progress to a new value and returns the new value if successful.
-    ///
-    /// Value must be between `min` and `max`.
-    pub fn set_progress(&mut self, new_value: T) -> Result<T, &str> {
-        if self.bounds().contains(&new_value) {
-            self.value = new_value;
-            Ok(self.value)
-        } else {
-            Err("Value outside the bounds of the Progress")
-        }
-    }
-}
-
-impl Progress<f32> {
-    /// Returns the current progress, normalized between 0 and 1.
-    /// Where 0 represents value == min,
-    /// 1 represents value == max.
-    pub fn progress_normalized(&self) -> f32 {
-        remap_range(self.value, (self.min, self.max), (0.0, 1.0))
-    }
-}
-
-impl Default for Progress<f32> {
-    fn default() -> Self {
-        Self {
-            min: 0.0,
-            max: 1.0,
-            value: 0.0,
-        }
-    }
-}
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {

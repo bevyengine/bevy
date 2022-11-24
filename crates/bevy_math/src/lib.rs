@@ -9,8 +9,6 @@
 mod ray;
 mod rect;
 
-use std::ops::{Add, Div, Mul, Sub};
-
 pub use ray::Ray;
 pub use rect::Rect;
 
@@ -24,17 +22,3 @@ pub mod prelude {
 }
 
 pub use glam::*;
-
-/// Maps a value from one range of values to a new range of values.
-/// 
-/// This is essentially an inverse linear interpolation followed by a normal linear interpolation.
-#[inline]
-pub fn remap_range<
-    T: Add<Output = T> + Div<Output = T> + Sub<Output = T> + Mul<Output = T> + Copy,
->(
-    value: T,
-    old_range: (T, T),
-    new_range: (T, T),
-) -> T {
-    (value - old_range.0) / (old_range.1 - old_range.0) * (new_range.1 - new_range.0) + new_range.0
-}
