@@ -74,7 +74,7 @@ fn setup_pyramid_scene(
     // orb
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
+            mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
             material: materials.add(StandardMaterial {
                 base_color: Color::hex("126212CC").unwrap(),
                 reflectance: 1.0,

@@ -176,8 +176,8 @@ impl Entity {
     /// for serialization between runs.
     ///
     /// No particular structure is guaranteed for the returned bits.
-    pub fn to_bits(self) -> u64 {
-        u64::from(self.generation) << 32 | u64::from(self.index)
+    pub const fn to_bits(self) -> u64 {
+        (self.generation as u64) << 32 | self.index as u64
     }
 
     /// Reconstruct an `Entity` previously destructured with [`Entity::to_bits`].

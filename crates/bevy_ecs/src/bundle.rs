@@ -9,7 +9,7 @@ use crate::{
         Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
@@ -394,11 +394,7 @@ impl BundleInfo {
                     // SAFETY: bundle_component is a valid index for this bundle
                     match bundle_component_status.get_status(bundle_component) {
                         ComponentStatus::Added => {
-                            column.initialize(
-                                table_row,
-                                component_ptr,
-                                ComponentTicks::new(change_tick),
-                            );
+                            column.initialize(table_row, component_ptr, Tick::new(change_tick));
                         }
                         ComponentStatus::Mutated => {
                             column.replace(table_row, component_ptr, change_tick);
@@ -461,7 +457,7 @@ impl BundleInfo {
                 table_components = if new_table_components.is_empty() {
                     // if there are no new table components, we can keep using this table
                     table_id = current_archetype.table_id();
-                    current_archetype.table_components().to_vec()
+                    current_archetype.table_components().collect()
                 } else {
                     new_table_components.extend(current_archetype.table_components());
                     // sort to ignore order while hashing
@@ -477,7 +473,7 @@ impl BundleInfo {
                 };
 
                 sparse_set_components = if new_sparse_set_components.is_empty() {
-                    current_archetype.sparse_set_components().to_vec()
+                    current_archetype.sparse_set_components().collect()
                 } else {
                     new_sparse_set_components.extend(current_archetype.sparse_set_components());
                     // sort to ignore order while hashing
