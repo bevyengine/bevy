@@ -426,7 +426,8 @@ impl FromWorld for AmbientOcclusionPipelines {
                 common_bind_group_layout.clone(),
             ]),
             shader: GTAO_SHADER_HANDLE.typed(),
-            shader_defs: vec!["TEMPORAL_NOISE".to_string()], // TODO: Specalize based on AmbientOcclusionSettings
+            // shader_defs: vec!["TEMPORAL_NOISE".to_string()], // TODO: Specalize based on AmbientOcclusionSettings
+            shader_defs: vec![],
             entry_point: "gtao_medium".into(), // TODO: Specalize based on AmbientOcclusionSettings
         });
 

@@ -9,21 +9,30 @@
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
 
-fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
-    var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).x;
+struct Noise {
+    slice: u32,
+    sample: u32,
+};
+
+fn load_noise(pixel_coordinates: vec2<i32>) -> Noise {
+    var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).r;
 
 #ifdef TEMPORAL_NOISE
     index += 288u * (globals.frame_count % 64u);
 #endif
 
     // R2 sequence - http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences
-    return fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
+    let n = fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
+
+    var noise: Noise;
+    noise.slice = u32(n.x);
+    noise.sample = u32(n.y);
+    return noise;
 }
 
 // Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
-fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 {
+fn calculate_neighboring_depth_differences(uv: vec2<f32>, pixel_coordinates: vec2<i32>) -> f32 {
     // Sample the pixel's depth and 4 depths around it
-    let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
     let depths_upper_left = textureGather(0, prefiltered_depth, point_clamp_sampler, uv);
     let depths_bottom_right = textureGather(0, prefiltered_depth, point_clamp_sampler, uv, vec2<i32>(1i, 1i));
     let depth_center = depths_upper_left.y;
@@ -47,48 +56,75 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
     return depth_center;
 }
 
-fn screen_to_view_space(pixel_coordinates: vec2<i32>, view_depth: f32) -> vec3<f32> {
-    return vec3<f32>(0.0); // TODO
+fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
+    let normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0);
+    let normal = (normal * 2.0) - 1.0;
+    return (view.view * normal).xyz; // Convert from world to view space
+}
+
+fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
+    let clip_xy = vec2<f32>(uv.x * 2.0 - 1.0, 1.0 - 2.0 * uv.y);
+    let t = view.inverse_projection * vec4<f32>(clip_xy, depth, 1.0);
+    let view_xyz = t.xyz / t.w;
+    return view_xyz;
+}
+
+fn load_and_reconstruct_view_space_position(uv: vec2<f32>) -> vec3<f32> {
+    let depth = textureSampleLevel(prefiltered_depth, point_clamp_sampler, uv, 0.0).r;
+    return reconstruct_view_space_position(depth, uv);
 }
 
 fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: u32) {
-    let view_depth = calculate_neighboring_depth_differences(pixel_coordinates);
-    let view_normal = vec3<f32>(0.0); // TODO
+    let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
+    let pi = 3.1415926535897932384626433832795;
+    let half_pi = pi / 2.0;
 
+    let pixel_depth = calculate_neighboring_depth_differences(uv, pixel_coordinates);
+    if pixel_depth == 0.0 {
+        return;
+    }
+
+    let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
+    let view_vec = normalize(-pixel_position);
+    let pixel_normal = load_normal_view_space(uv);
     let noise = load_noise(pixel_coordinates);
-    let noise_slice = noise.x;
-    let noise_sample = noise.y;
-
-    let view_position_center = screen_to_view_space(pixel_coordinates, view_depth);
-    let view_vec = normalize(-view_position_center);
 
     var visiblity = 0.0;
-    for (var slice = 0u; slice < slice_count; slice += 1u) {
-        let pi = 3.1415926535897932384626433832795;
-        let phi = (pi / f32(slice_count)) * f32(slice);
+    for (var s = 0u; s < slice_count; s += 1u) {
+        let slice = f32(s + noise.slice);
+        let phi = (pi / f32(slice_count)) * slice;
         let omega = vec2<f32>(cos(phi), sin(phi));
 
         let direction = vec3<f32>(omega.xy, 0.0);
-        let orthographic_direction = direction - (dot(direction, view_vec) * view_vec)
+        let orthographic_direction = direction - (dot(direction, view_vec) * view_vec);
         let axis = cross(direction, view_vec);
-        let projected_normal = view_normal - axis * dot(view_normal, axis);
+        let projected_normal = pixel_normal - axis * dot(pixel_normal, axis);
         let projected_normal_length = length(projected_normal);
 
         let sign_norm = sign(dot(orthographic_direction, projected_normal));
-        let cos_norm = saturate(dot(projected_normal, view_vec) / projected_normal_length)
+        let cos_norm = saturate(dot(projected_normal, view_vec) / projected_normal_length);
         let n = sign_norm * acos(cos_norm);
 
-        for (var side = 0u; side < 2u; side += 1u) {
-            var horizon_cos_center = -1;
-            for (var sample = 0u; sample < samples_per_slice_side; sample += 1u) {
-                // TODO
+        for (var slice_side = 0u; slice_side < 2u; slice_side += 1u) {
+            var horizon_cos_center = -1.0;
+            for (var s = 0u; s < samples_per_slice_side; s += 1u) {
+                let sample_noise = (slice + f32(s) * f32(samples_per_slice_side)) * 0.6180339887498948482;
+                let sample_noise = fract(f32(noise.sample) + sample_noise);
+                let sample = (f32(s) + sample_noise) / f32(samples_per_slice_side);
+                let sample_uv = uv + (-1.0 + 2.0 * f32(slice_side)) * sample * 1.0 * vec2<f32>(omega.x, -omega.y);
+                // TODO: 1.0 In above equation should be "scaling" from paper?
+                let sample_position = load_and_reconstruct_view_space_position(sample_uv);
+                let sample_horizon = normalize(sample_position - pixel_position);
+                horizon_cos_center = max(horizon_cos_center, dot(sample_horizon, view_vec));
             }
 
-            let horizon = n + clamp((-1.0 + 2.0 * f32(side)) * acos(horizon_cos_center) - n, -pi / 2.0, pi / 2.0);
-            visiblity += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * h - n)) / 4.0;
+            let horizon = n + clamp((-1.0 + 2.0 * f32(slice_side)) * acos(horizon_cos_center) - n, -half_pi, half_pi);
+            visiblity += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * horizon - n)) / 4.0;
         }
     }
     visiblity /= f32(slice_count);
+
+    textureStore(ambient_occlusion, pixel_coordinates, vec4<u32>(u32(visiblity), 0u, 0u, 0u));
 }
 
 // TODO: Replace below when shader defines can hold values
