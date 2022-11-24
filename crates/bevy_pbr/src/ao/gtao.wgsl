@@ -3,16 +3,11 @@
 @group(0) @binding(0) var prefiltered_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
 @group(0) @binding(2) var hilbert_index: texture_2d<u32>;
-@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32uint, write>;
+@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32float, write>;
 @group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
 @group(0) @binding(5) var<uniform> globals: Globals;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
-
-struct Noise {
-    slice: f32,
-    sample: f32,
-};
 
 fn load_noise(pixel_coordinates: vec2<i32>) -> Noise {
     var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).r;
@@ -22,12 +17,7 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> Noise {
 #endif
 
     // R2 sequence - http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences
-    let n = fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
-
-    var noise: Noise;
-    noise.slice = n.x;
-    noise.sample = n.y;
-    return noise;
+    return fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
 }
 
 // Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
@@ -89,7 +79,6 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pi = 3.1415926535897932384626433832795;
     let half_pi = pi / 2.0;
 
-
     var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
     pixel_depth *= 0.99999; // TODO: XeGTAO avoid precision artifacts, is needed?
 
@@ -101,7 +90,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var visiblity = 0.0;
     for (var s = 0u; s < slice_count; s += 1u) {
-        let slice = f32(s) + noise.slice;
+        let slice = f32(s) + noise.x;
         let phi = (pi / f32(slice_count)) * slice;
         let omega = vec2<f32>(cos(phi), sin(phi));
 
@@ -121,7 +110,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
             var cos_horizon = min_cos_horizon;
             for (var s = 0u; s < samples_per_slice_side; s += 1u) {
                 var sample_noise = (slice + f32(s) * f32(samples_per_slice_side)) * 0.6180339887498948482;
-                sample_noise = fract(noise.sample + sample_noise);
+                sample_noise = fract(noise.y + sample_noise);
 
                 var sample = (f32(s) + sample_noise) / f32(samples_per_slice_side);
                 sample = pow(sample, 2.1); // https://github.com/GameTechDev/XeGTAO#sample-distribution
@@ -153,5 +142,5 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
     visiblity /= f32(slice_count);
 
-    textureStore(ambient_occlusion, pixel_coordinates, vec4<u32>(u32(visiblity), 0u, 0u, 0u));
+    textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visiblity, 0.0, 0.0, 0.0));
 }

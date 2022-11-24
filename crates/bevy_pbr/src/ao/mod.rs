@@ -383,7 +383,7 @@ impl FromWorld for AmbientOcclusionPipelines {
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::StorageTexture {
                             access: StorageTextureAccess::WriteOnly,
-                            format: TextureFormat::R32Uint,
+                            format: TextureFormat::R32Float,
                             view_dimension: TextureViewDimension::D2,
                         },
                         count: None,
@@ -521,7 +521,7 @@ fn prepare_ambient_occlusion_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R32Uint,
+                format: TextureFormat::R32Float,
                 usage: TextureUsages::STORAGE_BINDING,
             };
             let ambient_occlusion_texture = ambient_occlusion_textures
