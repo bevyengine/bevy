@@ -10,9 +10,9 @@
 @group(0) @binding(3) var prefiltered_depth_mip2: texture_storage_2d<r32float, write>;
 @group(0) @binding(4) var prefiltered_depth_mip3: texture_storage_2d<r32float, write>;
 @group(0) @binding(5) var prefiltered_depth_mip4: texture_storage_2d<r32float, write>;
-@group(0) @binding(6) var point_clamp_sampler: sampler;
-@group(0) @binding(7) var<uniform> ao_settings: AmbientOcclusionSettings;
-@group(0) @binding(8) var<uniform> view: View;
+@group(1) @binding(0) var point_clamp_sampler: sampler;
+@group(1) @binding(1) var<uniform> ao_settings: AmbientOcclusionSettings;
+@group(1) @binding(2) var<uniform> view: View;
 
 fn screen_to_view_space_depth(depth: f32, pixel_coordinates: vec2<i32>) -> f32 {
     let screen_uv = vec2<f32>(pixel_coordinates) / (view.viewport.zw - 1.0);

@@ -1,9 +1,14 @@
+#import bevy_pbr::ao_settings
 #import bevy_pbr::mesh_view_types
 
-@group(0) @binding(0) var prefiltered_depth: texture_2d<r32float>;
-@group(0) @binding(1) var depth_differences: texture_2d<r32uint>;
-@group(0) @binding(2) var point_clamp_sampler: sampler;
-@group(0) @binding(3) var<uniform> view: View;
+@group(0) @binding(0) var prefiltered_depth: texture_2d<f32>;
+@group(0) @binding(1) var normals: texture_2d<f32>;
+@group(0) @binding(2) var noise: texture_2d<u32>;
+@group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32uint, write>;
+@group(0) @binding(4) var depth_differences: texture_storage_2d<r32uint, write>;
+@group(1) @binding(0) var point_clamp_sampler: sampler;
+@group(1) @binding(1) var<uniform> ao_settings: AmbientOcclusionSettings;
+@group(1) @binding(2) var<uniform> view: View;
 
 // Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
 fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<u32>) {

@@ -49,8 +49,14 @@ pub mod draw_3d_graph {
     }
 }
 
+const AO_SETTINGS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 776205188160487);
 const PREFILTER_DEPTH_SHADER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 549599446926908);
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 102258915420479);
+const GTAO_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 253938746510568);
+const DENOISE_AO_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 466162052558226);
 
 // TODO: Support MSAA
 
@@ -60,8 +66,21 @@ impl Plugin for AmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
+            AO_SETTINGS_SHADER_HANDLE,
+            "ao_settings.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
             PREFILTER_DEPTH_SHADER_HANDLE,
             "prefilter_depth.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(app, GTAO_SHADER_HANDLE, "gtao.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            DENOISE_AO_SHADER_HANDLE,
+            "denoise_ao.wgsl",
             Shader::from_wgsl
         );
 
@@ -191,9 +210,10 @@ impl Node for AmbientOcclusionNode {
                         label: Some("ambient_occlusion_prefilter_depth_pass"),
                     });
             prefilter_depth_pass.set_pipeline(prefilter_depth_pipeline);
+            prefilter_depth_pass.set_bind_group(0, &bind_groups.prefilter_depth_bind_group, &[]);
             prefilter_depth_pass.set_bind_group(
-                0,
-                &bind_groups.prefilter_depth_bind_group,
+                1,
+                &bind_groups.common_bind_group,
                 &[ao_uniform_offset.offset, view_uniform_offset.offset],
             );
             prefilter_depth_pass.dispatch_workgroups(
@@ -210,7 +230,10 @@ impl Node for AmbientOcclusionNode {
 #[derive(Resource)]
 struct AmbientOcclusionPipelines {
     prefilter_depth_pipeline: CachedComputePipelineId,
+
+    common_bind_group_layout: BindGroupLayout,
     prefilter_depth_bind_group_layout: BindGroupLayout,
+
     point_clamp_sampler: Sampler,
 }
 
@@ -226,6 +249,39 @@ impl FromWorld for AmbientOcclusionPipelines {
             address_mode_v: AddressMode::ClampToEdge,
             ..Default::default()
         });
+
+        let common_bind_group_layout =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("ambient_occlusion_common_bind_group_layout"),
+                entries: &[
+                    BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(AmbientOcclusionSettings::min_size()),
+                        },
+                        count: None,
+                    },
+                    BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: ShaderStages::COMPUTE,
+                        ty: BindingType::Buffer {
+                            ty: BufferBindingType::Uniform,
+                            has_dynamic_offset: true,
+                            min_binding_size: Some(ViewUniform::min_size()),
+                        },
+                        count: None,
+                    },
+                ],
+            });
 
         let mip_texture_entry = BindGroupLayoutEntry {
             binding: 1,
@@ -268,32 +324,6 @@ impl FromWorld for AmbientOcclusionPipelines {
                         binding: 5,
                         ..mip_texture_entry
                     },
-                    BindGroupLayoutEntry {
-                        binding: 6,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 7,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(AmbientOcclusionSettings::min_size()),
-                        },
-                        count: None,
-                    },
-                    BindGroupLayoutEntry {
-                        binding: 8,
-                        visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(ViewUniform::min_size()),
-                        },
-                        count: None,
-                    },
                 ],
             });
 
@@ -302,15 +332,21 @@ impl FromWorld for AmbientOcclusionPipelines {
         let prefilter_depth_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
                 label: Some("ambient_occlusion_prefilter_depth_pipeline".into()),
-                layout: Some(vec![prefilter_depth_bind_group_layout.clone()]),
+                layout: Some(vec![
+                    prefilter_depth_bind_group_layout.clone(),
+                    common_bind_group_layout.clone(),
+                ]),
                 shader: PREFILTER_DEPTH_SHADER_HANDLE.typed(),
                 shader_defs: vec![],
                 entry_point: "prefilter_depth".into(),
             });
 
         Self {
+            common_bind_group_layout,
             prefilter_depth_pipeline,
+
             prefilter_depth_bind_group_layout,
+
             point_clamp_sampler,
         }
     }
@@ -407,6 +443,7 @@ fn prepare_ambient_occlusion_uniforms(
 
 #[derive(Component)]
 struct AmbientOcclusionBindGroups {
+    common_bind_group: BindGroup,
     prefilter_depth_bind_group: BindGroup,
 }
 
@@ -421,6 +458,25 @@ fn queue_ambient_occlusion_bind_groups(
     if let Some(ao_uniforms) = ao_uniforms.uniforms.binding() {
         if let Some(view_uniforms) = view_uniforms.uniforms.binding() {
             for (entity, ao_textures, prepass_textures) in &views {
+                let common_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                    label: Some("ambient_occlusion_common_bind_group"),
+                    layout: &pipelines.common_bind_group_layout,
+                    entries: &[
+                        BindGroupEntry {
+                            binding: 0,
+                            resource: BindingResource::Sampler(&pipelines.point_clamp_sampler),
+                        },
+                        BindGroupEntry {
+                            binding: 1,
+                            resource: ao_uniforms.clone(),
+                        },
+                        BindGroupEntry {
+                            binding: 2,
+                            resource: view_uniforms.clone(),
+                        },
+                    ],
+                });
+
                 let prefilter_depth_mip_view_descriptor = TextureViewDescriptor {
                     format: Some(TextureFormat::R32Float),
                     dimension: Some(TextureViewDimension::D2),
@@ -513,22 +569,11 @@ fn queue_ambient_occlusion_bind_groups(
                                 }),
                             ),
                         },
-                        BindGroupEntry {
-                            binding: 6,
-                            resource: BindingResource::Sampler(&pipelines.point_clamp_sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 7,
-                            resource: ao_uniforms.clone(),
-                        },
-                        BindGroupEntry {
-                            binding: 8,
-                            resource: view_uniforms.clone(),
-                        },
                     ],
                 });
 
                 commands.entity(entity).insert(AmbientOcclusionBindGroups {
+                    common_bind_group,
                     prefilter_depth_bind_group,
                 });
             }
