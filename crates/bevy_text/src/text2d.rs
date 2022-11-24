@@ -26,13 +26,6 @@ use crate::{
     TextSettings, VerticalAlign, YAxisOrientation,
 };
 
-/// The calculated size of text drawn in 2D scene.
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
-#[reflect(Component)]
-pub struct Text2dSize {
-    pub size: Vec2,
-}
-
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
 /// specified `TextAlignment`.
@@ -61,7 +54,6 @@ pub struct Text2dBundle {
     pub text: Text,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
-    pub text_2d_size: Text2dSize,
     pub text_2d_bounds: Text2dBounds,
     pub visibility: Visibility,
     pub computed_visibility: ComputedVisibility,
@@ -78,30 +70,31 @@ pub fn extract_text2d_sprite(
             &Text,
             &TextLayoutInfo,
             &GlobalTransform,
-            &Text2dSize,
         )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, computed_visibility, text, text_layout_info, text_transform, calculated_size) in
-        text2d_query.iter()
+    for (entity, computed_visibility, text, text_layout_info, text_transform) in text2d_query.iter()
     {
         if !computed_visibility.is_visible() {
             continue;
         }
-        let (width, height) = (calculated_size.size.x, calculated_size.size.y);
 
         let text_glyphs = &text_layout_info.glyphs;
-        let alignment_offset = match text.alignment.vertical {
-            VerticalAlign::Top => Vec3::new(0.0, -height, 0.0),
-            VerticalAlign::Center => Vec3::new(0.0, -height * 0.5, 0.0),
-            VerticalAlign::Bottom => Vec3::ZERO,
-        } + match text.alignment.horizontal {
-            HorizontalAlign::Left => Vec3::ZERO,
-            HorizontalAlign::Center => Vec3::new(-width * 0.5, 0.0, 0.0),
-            HorizontalAlign::Right => Vec3::new(-width, 0.0, 0.0),
-        };
+        let alignment_offset = -text_layout_info.size
+            * Vec2::new(
+                match text.alignment.horizontal {
+                    HorizontalAlign::Left => 0.0,
+                    HorizontalAlign::Center => 0.5,
+                    HorizontalAlign::Right => 1.,
+                },
+                match text.alignment.vertical {
+                    VerticalAlign::Top => 0.0,
+                    VerticalAlign::Center => 0.5,
+                    VerticalAlign::Bottom => 1.,
+                },
+            );
 
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
@@ -120,10 +113,9 @@ pub fn extract_text2d_sprite(
             let index = text_glyph.atlas_info.glyph_index;
             let rect = Some(atlas.textures[index]);
 
-            let glyph_transform = Transform::from_translation(
-                alignment_offset * scale_factor + text_glyph.position.extend(0.),
-            );
-            // NOTE: Should match `bevy_ui::render::extract_text_uinodes`
+            let glyph_transform =
+                Transform::from_translation((alignment_offset + text_glyph.position).extend(0.));
+
             let transform = *text_transform
                 * GlobalTransform::from_scale(Vec3::splat(scale_factor.recip()))
                 * glyph_transform;
@@ -168,7 +160,6 @@ pub fn update_text2d_layout(
         Changed<Text>,
         &Text,
         Option<&Text2dBounds>,
-        &mut Text2dSize,
         Option<&mut TextLayoutInfo>,
     )>,
 ) {
@@ -176,9 +167,7 @@ pub fn update_text2d_layout(
     let factor_changed = scale_factor_changed.iter().last().is_some();
     let scale_factor = windows.scale_factor(WindowId::primary());
 
-    for (entity, text_changed, text, maybe_bounds, mut calculated_size, text_layout_info) in
-        &mut text_query
-    {
+    for (entity, text_changed, text, maybe_bounds, text_layout_info) in &mut text_query {
         if factor_changed || text_changed || queue.remove(&entity) {
             let text_bounds = match maybe_bounds {
                 Some(bounds) => Vec2::new(
@@ -209,18 +198,12 @@ pub fn update_text2d_layout(
                 | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
-                Ok(info) => {
-                    calculated_size.size = Vec2::new(
-                        scale_value(info.size.x, 1. / scale_factor),
-                        scale_value(info.size.y, 1. / scale_factor),
-                    );
-                    match text_layout_info {
-                        Some(mut t) => *t = info,
-                        None => {
-                            commands.entity(entity).insert(info);
-                        }
+                Ok(info) => match text_layout_info {
+                    Some(mut t) => *t = info,
+                    None => {
+                        commands.entity(entity).insert(info);
                     }
-                }
+                },
             }
         }
     }
