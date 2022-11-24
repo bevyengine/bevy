@@ -480,10 +480,7 @@ impl World {
         // empty
         let location = archetype.allocate(entity, table_row);
         // SAFETY: entity index was just allocated
-        self.entities
-            .meta
-            .get_unchecked_mut(entity.index() as usize)
-            .location = location;
+        self.entities.set(entity.index(), location);
         EntityMut::new(self, entity, location)
     }
 

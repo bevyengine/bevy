@@ -109,7 +109,7 @@ pub struct Entity {
     pub(crate) index: u32,
 }
 
-pub enum AllocAtWithoutReplacement {
+pub(crate) enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,
     ExistsWithWrongGeneration,
@@ -267,7 +267,7 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 #[derive(Debug, Default)]
 pub struct Entities {
-    pub(crate) meta: Vec<EntityMeta>,
+    meta: Vec<EntityMeta>,
 
     /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
     /// that have been freed or are in the process of being allocated:
@@ -447,7 +447,10 @@ impl Entities {
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any.
-    pub fn alloc_at_without_replacement(&mut self, entity: Entity) -> AllocAtWithoutReplacement {
+    pub(crate) fn alloc_at_without_replacement(
+        &mut self,
+        entity: Entity,
+    ) -> AllocAtWithoutReplacement {
         self.verify_flushed();
 
         let result = if entity.index as usize >= self.meta.len() {
@@ -542,6 +545,17 @@ impl Entities {
         } else {
             None
         }
+    }
+
+    /// Updates the location of an [`Entity`]. This must be called when moving the components of
+    /// the entity around in storage.
+    ///
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    ///  - `location` must be valid for the entity at `index` is location
+    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
+        // SAFETY: Caller guarentees that `index` a valid entity index
+        self.meta.get_unchecked_mut(index as usize).location = location;
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
@@ -666,7 +680,7 @@ impl Entities {
 // This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct EntityMeta {
+struct EntityMeta {
     pub generation: u32,
     pub location: EntityLocation,
 }
