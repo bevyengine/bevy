@@ -275,7 +275,7 @@ impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 /// Contains metadata on:
 ///  - The generation of every entity.
 ///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
-///  - The entity's location in memory (via [`EntityLocation`])
+///  - The location of the entity's components in memory (via [`EntityLocation`])
 ///
 /// [`World`]: crate::world::World
 #[derive(Debug)]
