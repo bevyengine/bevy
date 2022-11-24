@@ -286,6 +286,7 @@ pub struct Window {
     cursor_icon: CursorIcon,
     cursor_visible: bool,
     cursor_grab_mode: CursorGrabMode,
+    hittest: bool,
     physical_cursor_position: Option<DVec2>,
     raw_handle: Option<RawHandleWrapper>,
     focused: bool,
@@ -350,6 +351,10 @@ pub enum WindowCommand {
     /// Set the cursor's position.
     SetCursorPosition {
         position: Vec2,
+    },
+    /// Set whether or not mouse events within *this* window are captured, or fall through to the Window below.
+    SetCursorHitTest {
+        hittest: bool,
     },
     /// Set whether or not the window is maximized.
     SetMaximized {
@@ -435,6 +440,7 @@ impl Window {
             cursor_visible: window_descriptor.cursor_visible,
             cursor_grab_mode: window_descriptor.cursor_grab_mode,
             cursor_icon: CursorIcon::Default,
+            hittest: true,
             physical_cursor_position: None,
             raw_handle,
             focused: false,
@@ -777,7 +783,20 @@ impl Window {
         self.command_queue
             .push(WindowCommand::SetCursorPosition { position });
     }
-
+    /// Modifies whether the window catches cursor events.
+    ///
+    /// If true, the window will catch the cursor events.
+    /// If false, events are passed through the window such that any other window behind it receives them. By default hittest is enabled.
+    pub fn set_cursor_hittest(&mut self, hittest: bool) {
+        self.hittest = hittest;
+        self.command_queue
+            .push(WindowCommand::SetCursorHitTest { hittest });
+    }
+    /// Get whether or not the hittest is active.
+    #[inline]
+    pub fn hittest(&self) -> bool {
+        self.hittest
+    }
     #[allow(missing_docs)]
     #[inline]
     pub fn update_focused_status_from_backend(&mut self, focused: bool) {
@@ -961,6 +980,8 @@ pub struct WindowDescriptor {
     pub cursor_visible: bool,
     /// Sets whether and how the window grabs the cursor.
     pub cursor_grab_mode: CursorGrabMode,
+    /// Sets whether or not the window listens for 'hits' of mouse activity over _this_ window.
+    pub hittest: bool,
     /// Sets the [`WindowMode`](crate::WindowMode).
     ///
     /// The monitor to go fullscreen on can be selected with the `monitor` field.
@@ -1013,6 +1034,7 @@ impl Default for WindowDescriptor {
             decorations: true,
             cursor_grab_mode: CursorGrabMode::None,
             cursor_visible: true,
+            hittest: true,
             mode: WindowMode::Windowed,
             transparent: false,
             canvas: None,

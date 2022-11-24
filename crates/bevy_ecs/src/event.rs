@@ -2,7 +2,7 @@
 
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
-use bevy_utils::tracing::{trace, warn};
+use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
 use std::{fmt, hash::Hash, marker::PhantomData};
 
@@ -352,15 +352,6 @@ impl<E: Event> ManualEventReader<E> {
         events: &'a Events<E>,
     ) -> impl DoubleEndedIterator<Item = (&'a E, EventId<E>)>
            + ExactSizeIterator<Item = (&'a E, EventId<E>)> {
-        // if the reader has seen some of the events in a buffer, find the proper index offset.
-        // otherwise read all events in the buffer
-        let missed = self.missed_events(events);
-        if missed > 0 {
-            let plural = if missed == 1 { "event" } else { "events" };
-            let type_name = std::any::type_name::<E>();
-            warn!("Missed {missed} `{type_name}` {plural}. Consider reading from the `EventReader` more often (generally the best solution) or calling Events::update() less frequently (normally this is called once per frame). This problem is most likely due to run criteria/fixed timesteps or consuming events conditionally. See the Events documentation for more information.");
-        }
-
         let a_index = (self.last_event_count).saturating_sub(events.events_a.start_event_count);
         let b_index = (self.last_event_count).saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();

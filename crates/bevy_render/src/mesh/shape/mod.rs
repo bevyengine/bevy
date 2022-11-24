@@ -49,6 +49,20 @@ impl Box {
             min_z: -z_length / 2.0,
         }
     }
+
+    /// Creates a new box given the coordinates of two opposing corners.
+    pub fn from_corners(a: Vec3, b: Vec3) -> Box {
+        let max = a.max(b);
+        let min = a.min(b);
+        Box {
+            max_x: max.x,
+            min_x: min.x,
+            max_y: max.y,
+            min_y: min.y,
+            max_z: max.z,
+            min_z: min.z,
+        }
+    }
 }
 
 impl Default for Box {
