@@ -2,6 +2,7 @@ use crate::entity::Entity;
 use bevy_utils::{Entry, HashMap};
 use std::fmt;
 
+/// The errors that might be returned while using [`MapEntities::map_entities`].
 #[derive(Debug)]
 pub enum MapEntitiesError {
     EntityNotFound(Entity),
@@ -19,7 +20,12 @@ impl fmt::Display for MapEntitiesError {
     }
 }
 
+/// Allows mapping internal [`Entity`] references from one entity space to another.
 pub trait MapEntities {
+    /// Updates all [`Entity`] references stored inside using `entity_map`.
+    ///
+    /// Implementors should look up any and all [`Entity`] values stored within and
+    /// update them to the mapped values via `entity_map`.
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
 }
 
