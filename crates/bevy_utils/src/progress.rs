@@ -96,11 +96,11 @@ impl Progress<f32> {
 impl AddAssign<f32> for Progress<f32> {
     /// Increases the progress `value` with `rhs`.
     ///
-    /// # Panic
-    /// Panics if the resulting value is out of bounds.
+    /// Clamps to the extent of the bounds.
     fn add_assign(&mut self, rhs: f32) {
-        if self.set_progress(self.value + rhs).is_err() {
-            panic!("Value of ouf bounds.");
+        let new_value = self.value + rhs;
+        if self.set_progress(new_value.min(self.max)).is_err() {
+            unreachable!("This should have been within bounds.");
         }
     }
 }
@@ -108,11 +108,11 @@ impl AddAssign<f32> for Progress<f32> {
 impl SubAssign<f32> for Progress<f32> {
     /// Decreases the progress `value` with `rhs`.
     ///
-    /// # Panic
-    /// Panics if the resulting value is out of bounds.
+    /// Clamps to the extent of the bounds.
     fn sub_assign(&mut self, rhs: f32) {
-        if self.set_progress(self.value - rhs).is_err() {
-            panic!("Value out of bounds.");
+        let new_value = self.value - rhs;
+        if self.set_progress(new_value.max(self.min)).is_err() {
+            unreachable!("This should have been within bounds.");
         }
     }
 }
@@ -272,25 +272,31 @@ mod tests {
 
     /// [`AddAssign`] out of the range bound should panic.
     #[test]
-    #[should_panic]
     fn add_assign_out_of_bounds() {
         let min = 0.0;
         let max = 1.0;
         let value = 0.5;
 
         let mut progress = Progress::from_range(value, min..=max).unwrap();
+        assert_eq!(progress.progress(), value);
+        // When increasing out of bounds,
         progress += 10.0;
+        // value should be clamped to max.
+        assert_eq!(progress.progress(), max);
     }
 
     /// [`SubAssign`] out of the range bound should panic.
     #[test]
-    #[should_panic]
     fn sub_assign_out_of_bounds() {
         let min = 0.0;
         let max = 1.0;
         let value = 0.5;
 
         let mut progress = Progress::from_range(value, min..=max).unwrap();
+        assert_eq!(progress.progress(), value);
+        // When decreasing out of bounds,
         progress -= 10.0;
+        // value should be clamped to min.
+        assert_eq!(progress.progress(), min);
     }
 }
