@@ -66,7 +66,7 @@ impl FlexSurface {
         let taffy_style = convert::from_style(scale_factor, style);
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            taffy.new_with_children(taffy_style, &Vec::new()).unwrap()
+            taffy.new_leaf(taffy_style).unwrap()
         });
 
         if !added {
@@ -146,11 +146,10 @@ without UI components as a child of an entity with UI components, results may be
 
     pub fn update_window(&mut self, window: &Window) {
         let taffy = &mut self.taffy;
-        let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
-            taffy
-                .new_with_children(taffy::style::Style::default(), &Vec::new())
-                .unwrap()
-        });
+        let node = self
+            .window_nodes
+            .entry(window.id())
+            .or_insert_with(|| taffy.new_leaf(taffy::style::Style::default()).unwrap());
 
         taffy
             .set_style(
