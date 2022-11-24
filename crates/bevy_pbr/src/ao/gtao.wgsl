@@ -60,7 +60,7 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
 fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
     let normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0);
     let normal = (normal * 2.0) - 1.0;
-    return (view.view * normal).xyz; // Convert from world to view space
+    return (view.inverse_view * normal).xyz; // Convert from world to view space
 }
 
 fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
