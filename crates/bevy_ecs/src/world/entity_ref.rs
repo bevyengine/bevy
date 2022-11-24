@@ -85,7 +85,7 @@ impl<'w> EntityRef<'w> {
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API where possible and only
+    /// **You should prefer to use the typed API [`EntityRef::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
@@ -228,7 +228,7 @@ impl<'w> EntityMut<'w> {
     /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
     /// detection in custom runtimes.
     ///
-    /// **You should prefer to use the typed API where possible and only
+    /// **You should prefer to use the typed API [`EntityMut::get_change_ticks`] where possible and only
     /// use this in cases where the actual component types are not known at
     /// compile time.**
     #[inline]
