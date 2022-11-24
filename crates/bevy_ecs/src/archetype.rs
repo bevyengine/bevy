@@ -116,7 +116,8 @@ pub struct Edges {
 impl Edges {
     #[inline]
     pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
-        self.get_add_bundle_internal(bundle_id).map(|bundle| bundle.archetype_id)
+        self.get_add_bundle_internal(bundle_id)
+            .map(|bundle| bundle.archetype_id)
     }
 
     /// Internal version of `get_add_bundle` that fetches the full `AddBundle`.
