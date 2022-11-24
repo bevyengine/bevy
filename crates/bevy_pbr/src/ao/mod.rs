@@ -29,7 +29,7 @@ use bevy_render::{
         BufferBindingType, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, DynamicUniformBuffer, Extent3d, FilterMode, PipelineCache,
         Sampler, SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, ShaderType,
-        StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+        StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
