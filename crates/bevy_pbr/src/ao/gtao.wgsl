@@ -10,8 +10,8 @@
 @group(1) @binding(1) var<uniform> view: View;
 
 struct Noise {
-    slice: u32,
-    sample: u32,
+    slice: f32,
+    sample: f32,
 };
 
 fn load_noise(pixel_coordinates: vec2<i32>) -> Noise {
@@ -25,8 +25,8 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> Noise {
     let n = fract(0.5 + f32(index) * vec2<f32>(0.75487766624669276005, 0.5698402909980532659114));
 
     var noise: Noise;
-    noise.slice = u32(n.x);
-    noise.sample = u32(n.y);
+    noise.slice = n.x;
+    noise.sample = n.y;
     return noise;
 }
 
@@ -95,7 +95,7 @@ fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: 
 
     var visiblity = 0.0;
     for (var s = 0u; s < slice_count; s += 1u) {
-        let slice = f32(s + noise.slice);
+        let slice = f32(s) + noise.slice;
         let phi = (pi / f32(slice_count)) * slice;
         let omega = vec2<f32>(cos(phi), sin(phi));
 
@@ -115,7 +115,7 @@ fn gtao(pixel_coordinates: vec2<i32>, slice_count: u32, samples_per_slice_side: 
             var cos_horizon = min_cos_horizon;
             for (var s = 0u; s < samples_per_slice_side; s += 1u) {
                 var sample_noise = (slice + f32(s) * f32(samples_per_slice_side)) * 0.6180339887498948482;
-                sample_noise = fract(f32(noise.sample) + sample_noise);
+                sample_noise = fract(noise.sample + sample_noise);
 
                 var sample = (f32(s) + sample_noise) / f32(samples_per_slice_side);
                 sample = pow(sample, 2.1); // https://github.com/GameTechDev/XeGTAO#sample-distribution
