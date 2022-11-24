@@ -360,7 +360,7 @@ impl<'w> EntityMut<'w> {
         let old_archetype = &mut archetypes[old_archetype_id];
         let remove_result = old_archetype.swap_remove(old_location.index);
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            entities.set(swapped_entity.index, old_location);
+            entities.set(swapped_entity.index(), old_location);
         }
         let old_table_row = remove_result.table_row;
         let old_table_id = old_archetype.table_id();
@@ -395,7 +395,7 @@ impl<'w> EntityMut<'w> {
 
         *self_location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.
-        entities.set(entity.index, new_location);
+        entities.set(entity.index(), new_location);
     }
 
     #[deprecated(
@@ -494,7 +494,7 @@ impl<'w> EntityMut<'w> {
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
                 unsafe {
-                    world.entities.set(swapped_entity.index, location);
+                    world.entities.set(swapped_entity.index(), location);
                 }
             }
             table_row = remove_result.table_row;

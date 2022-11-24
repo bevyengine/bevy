@@ -105,8 +105,8 @@ type IdCursor = isize;
 /// [`Query::get`]: crate::system::Query::get
 #[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Entity {
-    pub(crate) generation: u32,
-    pub(crate) index: u32,
+    generation: u32,
+    index: u32,
 }
 
 pub(crate) enum AllocAtWithoutReplacement {
