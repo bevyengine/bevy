@@ -223,7 +223,7 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 }
 
 /// General representation of progress between two values.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Progress<T>
 where
     T: Send + Sync + Copy + Add + AddAssign + Sub + SubAssign,
