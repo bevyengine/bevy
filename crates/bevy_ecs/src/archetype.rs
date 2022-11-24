@@ -13,11 +13,15 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+/// An opaque unique ID for a single [`Archetype`] within a [`World`].
+///
+/// [`World`]: crate::world::World
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 #[repr(transparent)]
 pub struct ArchetypeId(usize);
 
 impl ArchetypeId {
+    /// The ID for the [`Archetype`] without any components.
     pub const EMPTY: ArchetypeId = ArchetypeId(0);
     /// # Safety:
     ///
@@ -25,12 +29,12 @@ impl ArchetypeId {
     pub const INVALID: ArchetypeId = ArchetypeId(usize::MAX);
 
     #[inline]
-    pub const fn new(index: usize) -> Self {
+    pub(crate) const fn new(index: usize) -> Self {
         ArchetypeId(index)
     }
 
     #[inline]
-    pub fn index(self) -> usize {
+    pub(crate) fn index(self) -> usize {
         self.0
     }
 }
