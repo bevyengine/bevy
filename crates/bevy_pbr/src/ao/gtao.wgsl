@@ -5,7 +5,7 @@
 @group(0) @binding(2) var point_clamp_sampler: sampler;
 @group(0) @binding(3) var<uniform> view: View;
 
-// Calculate differences in depth between neighbor pixels (used by the spatial denoiser pass to preserve object edges)
+// Calculate differences in depth between neighbor pixels (later used by the spatial denoiser pass to preserve object edges)
 fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<u32>) {
     // Sample the pixel's depth and 4 depths around it
     let uv = vec2<f32>(pixel_coordinates) / (view.viewport.zw - 1.0);
