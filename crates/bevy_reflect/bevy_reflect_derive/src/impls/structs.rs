@@ -6,6 +6,10 @@ use syn::{Index, Member};
 
 /// Implements `Struct`, `GetTypeRegistration`, and `Reflect` for the given derive data.
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
+    let option = quote!(::core::option::Option);
+    let any = quote!(::core::any::Any);
+    let alloc_box = quote!(::alloc::boxed::Box);
+
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
     let struct_name = reflect_struct.meta().type_name();
 
@@ -45,7 +49,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #option<bool> {
                     #bevy_reflect_path::struct_partial_eq(self, value)
                 }
             }
@@ -106,38 +110,38 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         #typed_impl
 
         impl #impl_generics #bevy_reflect_path::Struct for #struct_name #ty_generics #where_clause {
-            fn field(&self, name: &str) -> Option<&dyn #bevy_reflect_path::Reflect> {
+            fn field(&self, name: &str) -> #option<&dyn #bevy_reflect_path::Reflect> {
                 match name {
-                    #(#field_names => Some(&self.#field_idents),)*
-                    _ => None,
+                    #(#field_names => #option::Some(&self.#field_idents),)*
+                    _ => #option::None,
                 }
             }
 
-            fn field_mut(&mut self, name: &str) -> Option<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_mut(&mut self, name: &str) -> #option<&mut dyn #bevy_reflect_path::Reflect> {
                 match name {
-                    #(#field_names => Some(&mut self.#field_idents),)*
-                    _ => None,
+                    #(#field_names => #option::Some(&mut self.#field_idents),)*
+                    _ => #option::None,
                 }
             }
 
-            fn field_at(&self, index: usize) -> Option<&dyn #bevy_reflect_path::Reflect> {
+            fn field_at(&self, index: usize) -> #option<&dyn #bevy_reflect_path::Reflect> {
                 match index {
-                    #(#field_indices => Some(&self.#field_idents),)*
-                    _ => None,
+                    #(#field_indices => #option::Some(&self.#field_idents),)*
+                    _ => #option::None,
                 }
             }
 
-            fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_at_mut(&mut self, index: usize) -> #option<&mut dyn #bevy_reflect_path::Reflect> {
                 match index {
-                    #(#field_indices => Some(&mut self.#field_idents),)*
-                    _ => None,
+                    #(#field_indices => #option::Some(&mut self.#field_idents),)*
+                    _ => #option::None,
                 }
             }
 
-            fn name_at(&self, index: usize) -> Option<&str> {
+            fn name_at(&self, index: usize) -> #option<&str> {
                 match index {
-                    #(#field_indices => Some(#field_names),)*
-                    _ => None,
+                    #(#field_indices => #option::Some(#field_names),)*
+                    _ => #option::None,
                 }
             }
 
@@ -150,9 +154,9 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
-                let mut dynamic = #bevy_reflect_path::DynamicStruct::default();
-                dynamic.set_name(self.type_name().to_string());
-                #(dynamic.insert_boxed(#field_names, self.#field_idents.clone_value());)*
+                let mut dynamic: #bevy_reflect_path::DynamicStruct = ::core::default::Default::default();
+                dynamic.set_name(::alloc::string::ToString::to_string(#bevy_reflect_path::Reflect::type_name(self)));
+                #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
                 dynamic
             }
         }
@@ -160,7 +164,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         impl #impl_generics #bevy_reflect_path::Reflect for #struct_name #ty_generics #where_clause {
             #[inline]
             fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
+                ::core::any::type_name::<Self>()
             }
 
             #[inline]
@@ -169,22 +173,22 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             #[inline]
-            fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
+            fn into_any(self: #alloc_box<Self>) -> #alloc_box<dyn #any> {
                 self
             }
 
             #[inline]
-            fn as_any(&self) -> &dyn std::any::Any {
+            fn as_any(&self) -> &dyn #any {
                 self
             }
 
             #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            fn as_any_mut(&mut self) -> &mut dyn #any {
                 self
             }
 
             #[inline]
-            fn into_reflect(self: Box<Self>) -> Box<dyn #bevy_reflect_path::Reflect> {
+            fn into_reflect(self: #alloc_box<Self>) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
                 self
             }
 
@@ -199,20 +203,21 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
-                Box::new(#bevy_reflect_path::Struct::clone_dynamic(self))
+            fn clone_value(&self) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
+                #alloc_box::new(#bevy_reflect_path::Struct::clone_dynamic(self))
             }
+
             #[inline]
-            fn set(&mut self, value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<(), Box<dyn #bevy_reflect_path::Reflect>> {
-                *self = value.take()?;
+            fn set(&mut self, value: #alloc_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #alloc_box<dyn #bevy_reflect_path::Reflect>> {
+                *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
                 Ok(())
             }
 
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = value.reflect_ref() {
-                    for (i, value) in struct_value.iter_fields().enumerate() {
-                        let name = struct_value.name_at(i).unwrap();
+                if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
+                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Struct::iter_fields(struct_value)) {
+                        let name = #bevy_reflect_path::Struct::name_at(struct_value, i).unwrap();
                         #bevy_reflect_path::Struct::field_mut(self, name).map(|v| v.apply(value));
                     }
                 } else {
@@ -228,7 +233,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
 
-            fn reflect_owned(self: Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #alloc_box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Struct(self)
             }
 

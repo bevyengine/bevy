@@ -39,7 +39,7 @@ pub(crate) fn get_variant_constructors(
         let constructor_fields = fields.iter().enumerate().map(|(declar_index, field)| {
             let field_ident = ident_or_index(field.data.ident.as_ref(), declar_index);
             let field_value = if field.attrs.ignore.is_ignored() {
-                quote! { Default::default() }
+                quote! { ::core::default::Default::default() }
             } else {
                 let error_repr = field.data.ident.as_ref().map_or_else(
                     || format!("at index {reflect_index}"),

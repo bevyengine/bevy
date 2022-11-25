@@ -5,6 +5,10 @@ use quote::quote;
 
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
 pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
+    let any = quote!(::core::any::Any);
+    let alloc_box = quote!(::alloc::boxed::Box);
+    let clone = quote!(::core::clone::Clone::clone);
+
     let bevy_reflect_path = meta.bevy_reflect_path();
     let type_name = meta.type_name();
 
@@ -41,7 +45,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
         impl #impl_generics #bevy_reflect_path::Reflect for #type_name #ty_generics #where_clause  {
             #[inline]
             fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
+                ::core::any::type_name::<Self>()
             }
 
             #[inline]
@@ -50,22 +54,22 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
-            fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
+            fn into_any(self: #alloc_box<Self>) -> #alloc_box<dyn #any> {
                 self
             }
 
             #[inline]
-            fn as_any(&self) -> &dyn std::any::Any {
+            fn as_any(&self) -> &dyn #any {
                 self
             }
 
             #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            fn as_any_mut(&mut self) -> &mut dyn #any {
                 self
             }
 
             #[inline]
-            fn into_reflect(self: Box<Self>) -> Box<dyn #bevy_reflect_path::Reflect> {
+            fn into_reflect(self: #alloc_box<Self>) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
                 self
             }
 
@@ -80,23 +84,23 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
-                Box::new(std::clone::Clone::clone(self))
+            fn clone_value(&self) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
+                #alloc_box::new(#clone(self))
             }
 
             #[inline]
             fn apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) {
-                let value = value.as_any();
-                if let Some(value) = value.downcast_ref::<Self>() {
-                    *self = std::clone::Clone::clone(value);
+                let value = #bevy_reflect_path::Reflect::as_any(value);
+                if let ::core::option::Option::Some(value) = <dyn #any>::downcast_ref::<Self>(value) {
+                    *self = #clone(value);
                 } else {
-                    panic!("Value is not {}.", std::any::type_name::<Self>());
+                    panic!("Value is not {}.", ::core::any::type_name::<Self>());
                 }
             }
 
             #[inline]
-            fn set(&mut self, value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<(), Box<dyn #bevy_reflect_path::Reflect>> {
-                *self = value.take()?;
+            fn set(&mut self, value: #alloc_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #alloc_box<dyn #bevy_reflect_path::Reflect>> {
+                *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
                 Ok(())
             }
 
@@ -108,7 +112,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Value(self)
             }
 
-            fn reflect_owned(self: Box<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #alloc_box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Value(self)
             }
 

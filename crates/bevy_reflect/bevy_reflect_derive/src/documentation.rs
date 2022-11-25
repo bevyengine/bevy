@@ -68,10 +68,11 @@ impl Documentation {
 
 impl ToTokens for Documentation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
+        let option = quote!(::core::option::Option);
         if let Some(doc) = self.doc_string() {
-            quote!(Some(#doc)).to_tokens(tokens);
+            quote!(#option::Some(#doc)).to_tokens(tokens);
         } else {
-            quote!(None).to_tokens(tokens);
+            quote!(#option::None).to_tokens(tokens);
         }
     }
 }

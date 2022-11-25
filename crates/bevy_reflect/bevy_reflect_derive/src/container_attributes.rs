@@ -7,7 +7,7 @@
 
 use crate::utility;
 use proc_macro2::{Ident, Span};
-use quote::quote_spanned;
+use quote::{quote, quote_spanned};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -220,19 +220,22 @@ impl ReflectTraits {
     ///
     /// If `Hash` was not registered, returns `None`.
     pub fn get_hash_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
+        let option = quote!(::core::option::Option);
+        let any = quote!(::core::any::Any);
+
         match &self.hash {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_hash(&self) -> Option<u64> {
-                    use std::hash::{Hash, Hasher};
-                    let mut hasher = #bevy_reflect_path::ReflectHasher::default();
-                    Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+                fn reflect_hash(&self) -> #option<u64> {
+                    use ::core::hash::{Hash, Hasher};
+                    let mut hasher: #bevy_reflect_path::ReflectHasher = ::core::default::Default::default();
+                    Hash::hash(&#any::type_id(self), &mut hasher);
                     Hash::hash(self, &mut hasher);
-                    Some(hasher.finish())
+                    #option::Some(Hasher::finish(&hasher))
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_hash(&self) -> Option<u64> {
-                    Some(#impl_fn(self))
+                fn reflect_hash(&self) -> #option<u64> {
+                    #option::Some(#impl_fn(self))
                 }
             }),
             TraitImpl::NotImplemented => None,
@@ -246,20 +249,23 @@ impl ReflectTraits {
         &self,
         bevy_reflect_path: &Path,
     ) -> Option<proc_macro2::TokenStream> {
+        let option = quote!(::core::option::Option);
+        let any = quote!(::core::any::Any);
+
         match &self.partial_eq {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
-                    let value = value.as_any();
-                    if let Some(value) = value.downcast_ref::<Self>() {
-                        Some(std::cmp::PartialEq::eq(self, value))
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #option<bool> {
+                    let value = <dyn #bevy_reflect_path::Reflect>::as_any(value);
+                    if let #option::Some(value) = <dyn #any>::downcast_ref::<Self>(value) {
+                        #option::Some(::core::cmp::PartialEq::eq(self, value))
                     } else {
-                        Some(false)
+                        #option::Some(false)
                     }
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
-                    Some(#impl_fn(self, value))
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #option<bool> {
+                    #option::Some(#impl_fn(self, value))
                 }
             }),
             TraitImpl::NotImplemented => None,
@@ -272,12 +278,12 @@ impl ReflectTraits {
     pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {
         match &self.debug {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    std::fmt::Debug::fmt(self, f)
+                fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    ::core::fmt::Debug::fmt(self, f)
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                     #impl_fn(self, f)
                 }
             }),
