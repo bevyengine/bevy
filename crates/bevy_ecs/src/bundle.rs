@@ -163,6 +163,11 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// ownership of the component values to `func`.
     #[doc(hidden)]
     fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>));
+
+    /// Bundle the [`Bundle`] together with another bundle into a tuple bundle.
+    fn bundle<B>(self, b: B) -> (Self, B) where Self: Sized {
+        (self, b)
+    }
 }
 
 // SAFETY:
@@ -749,16 +754,5 @@ unsafe fn initialize_bundle(
         id,
         component_ids,
         storage_types,
-    }
-}
-
-pub trait BundleBundles: Bundle + Sized {
-    fn bundle<B: Bundle>(self, b: B) -> (Self, B);
-}
-
-impl <B: Bundle> BundleBundles for B {
-    /// Bundle the [`Bundle`] together with another bundle into a tuple bundle.
-    fn bundle<C>(self, b: C) -> (Self, C) {
-        (self, b)
     }
 }
