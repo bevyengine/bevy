@@ -327,16 +327,17 @@ pub fn extract_text_uinodes(
                 continue;
             }
 
+            let node_size = uinode.size() * scale_factor;
             let alignment_offset = Vec2::new(
                 match text.alignment.horizontal {
-                    HorizontalAlign::Left => -0.5 * uinode.size().x,
+                    HorizontalAlign::Left => -0.5 * node_size.x,
                     HorizontalAlign::Center => -0.5 * text_layout_info.size.x,
-                    HorizontalAlign::Right => 0.5 * uinode.size().x - text_layout_info.size.x,
+                    HorizontalAlign::Right => 0.5 * node_size.x - text_layout_info.size.x,
                 },
                 match text.alignment.vertical {
                     VerticalAlign::Center => -0.5 * text_layout_info.size.y,
-                    VerticalAlign::Top => -0.5 * uinode.size().y,
-                    VerticalAlign::Bottom => 0.5 * uinode.size().y - text_layout_info.size.y,
+                    VerticalAlign::Top => -0.5 * node_size.y,
+                    VerticalAlign::Bottom => 0.5 * node_size.y - text_layout_info.size.y,
                 },
             );
 
