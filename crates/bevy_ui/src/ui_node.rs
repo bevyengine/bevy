@@ -265,7 +265,7 @@ impl Default for Style {
             max_size: Size::AUTO,
             aspect_ratio: Default::default(),
             overflow: Default::default(),
-            gap: Size::AUTO,
+            gap: Size::UNDEFINED,
         }
     }
 }
