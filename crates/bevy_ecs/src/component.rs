@@ -9,10 +9,10 @@ pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 use std::{
-    collections::HashMap,
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
+    collections::HashMap,
     mem::needs_drop,
 };
 
@@ -197,7 +197,7 @@ impl ComponentInfo {
 
     /// Gets the component's type ID, if it has one.
     ///
-    /// If this returns `None`, there is no matching Rust type for 
+    /// If this returns `None`, there is no matching Rust type for
     /// the component.
     #[inline]
     pub fn type_id(&self) -> Option<TypeId> {
@@ -205,7 +205,7 @@ impl ComponentInfo {
     }
 
     /// Gets the memory layout of the type in memory.
-    /// 
+    ///
     /// All components must have a static layout in memory, as enforced
     /// [`Component`] and [`Resource`] both require [`Sized`].
     ///
@@ -286,10 +286,10 @@ impl SparseSetIndex for ComponentId {
 }
 
 /// A low-level descriptor for initializing [`Component`]s in a [`World`].
-/// 
-/// Typical users will not need to use this type. Systems and other ECS APIs will 
-/// automatically initialize components. The primary API that consumes this type is 
-/// [`World::init_component_with_descriptor`], which allows users to initialize 
+///
+/// Typical users will not need to use this type. Systems and other ECS APIs will
+/// automatically initialize components. The primary API that consumes this type is
+/// [`World::init_component_with_descriptor`], which allows users to initialize
 /// components for foreign (non-Rust) types.
 ///
 /// [`World`]: crate::world::World
@@ -393,19 +393,31 @@ impl ComponentDescriptor {
     }
 }
 
+/// The metadata store for all components within a [`World`].
+///
+/// A public read-only API is accessbile. To initialize a new component,
+/// use [`World::init_component`], [`World::init_resource`], [`World::init_non_send_resource`] or
+/// [`World::init_component_with_descriptor`].  Initialized components cannot be removed or
+/// altered from a world.
+///
+/// [`World`]: crate::world::World
+/// [`World::init_component`]: crate::world::World::init_component
+/// [`World::init_resource`]: crate::world::World::init_resource
+/// [`World::init_non_send_resource`]: crate::world::World::init_non_send_resource
+/// [`World::init_component_with_descriptor`]: crate::world::World::init_component_with_descriptor
 #[derive(Debug)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-    resource_indices: HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    ids: HashMap<TypeId, ComponentId, fxhash::FxBuildHasher>,
+    resource_ids: HashMap<TypeId, ComponentId, fxhash::FxBuildHasher>,
 }
 
 impl Components {
     pub(crate) fn new() -> Components {
         Components {
             components: Vec::new(),
-            indices: HashMap::default(),
-            resource_indices: HashMap::default(),
+            ids: HashMap::default(),
+            resource_ids: HashMap::default(),
         }
     }
 
@@ -414,14 +426,17 @@ impl Components {
         let type_id = TypeId::of::<T>();
 
         let Components {
-            indices,
-            components,
-            ..
+            ids, components, ..
         } = self;
-        let index = indices.entry(type_id).or_insert_with(|| {
-            Components::init_component_inner(components, storages, ComponentDescriptor::new_component::<T>())
+        let id = ids.entry(type_id).or_insert_with(|| {
+            let index = Components::init_component_inner(
+                components,
+                storages,
+                ComponentDescriptor::new_component::<T>(),
+            );
+            ComponentId(index)
         });
-        ComponentId(*index)
+        *id
     }
 
     pub(crate) fn init_component_with_descriptor(
@@ -448,24 +463,32 @@ impl Components {
         index
     }
 
+    /// Gets the total number of components registered.
     #[inline]
     pub fn len(&self) -> usize {
         self.components.len()
     }
 
+    /// Gets if any component has been registered.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.components.len() == 0
     }
 
+    /// Fetches the component metadata for by it's ID.
+    ///
+    /// Returns `None` if no such component has been registered.
     #[inline]
     pub fn get_info(&self, id: ComponentId) -> Option<&ComponentInfo> {
         self.components.get(id.0)
     }
 
-    /// # Safety
+    /// Fetches the component metadata for by it's ID without checking it's validity.
     ///
-    /// `id` must be a valid [`ComponentId`]
+    /// # Safety
+    /// `id` must be a valid [`ComponentId`] registered with the parent [`World`]
+    ///
+    /// [`World`]: crate::world::World
     #[inline]
     pub unsafe fn get_info_unchecked(&self, id: ComponentId) -> &ComponentInfo {
         debug_assert!(id.index() < self.components.len());
@@ -475,7 +498,7 @@ impl Components {
     /// Type-erased equivalent of [`Components::component_id`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).map(|index| ComponentId(*index))
+        self.ids.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
@@ -504,11 +527,12 @@ impl Components {
         self.get_id(TypeId::of::<T>())
     }
 
+    /// Gets the [`ComponentId`] of a resource by its type ID.k
+    ///
+    /// Returns `None` if no such component has been registered.
     #[inline]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices
-            .get(&type_id)
-            .map(|index| ComponentId(*index))
+    pub fn resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.resource_ids.get(&type_id).copied()
     }
 
     #[inline]
@@ -541,16 +565,17 @@ impl Components {
         func: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
         let components = &mut self.components;
-        let index = self.resource_indices.entry(type_id).or_insert_with(|| {
+        let index = self.resource_ids.entry(type_id).or_insert_with(|| {
             let descriptor = func();
             let index = components.len();
             components.push(ComponentInfo::new(ComponentId(index), descriptor));
-            index
+            ComponentId(index)
         });
 
-        ComponentId(*index)
+        *index
     }
 
+    /// Fetches an iterator of all of the component metadata.
     pub fn iter(&self) -> impl Iterator<Item = &ComponentInfo> + '_ {
         self.components.iter()
     }

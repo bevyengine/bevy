@@ -187,7 +187,7 @@ impl<'w> WorldCell<'w> {
 
     /// Gets a reference to the resource of the given type
     pub fn get_resource<T: Resource>(&self) -> Option<WorldBorrow<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+        let component_id = self.world.components.resource_id(TypeId::of::<T>())?;
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
@@ -220,7 +220,7 @@ impl<'w> WorldCell<'w> {
 
     /// Gets a mutable reference to the resource of the given type
     pub fn get_resource_mut<T: Resource>(&self) -> Option<WorldBorrowMut<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+        let component_id = self.world.components.resource_id(TypeId::of::<T>())?;
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
@@ -253,7 +253,7 @@ impl<'w> WorldCell<'w> {
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
     pub fn get_non_send_resource<T: 'static>(&self) -> Option<WorldBorrow<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+        let component_id = self.world.components.resource_id(TypeId::of::<T>())?;
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
@@ -286,7 +286,7 @@ impl<'w> WorldCell<'w> {
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     pub fn get_non_send_resource_mut<T: 'static>(&self) -> Option<WorldBorrowMut<'_, T>> {
-        let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
+        let component_id = self.world.components.resource_id(TypeId::of::<T>())?;
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
