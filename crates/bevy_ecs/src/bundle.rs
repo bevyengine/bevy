@@ -751,3 +751,14 @@ unsafe fn initialize_bundle(
         storage_types,
     }
 }
+
+pub trait BundleBundles: Bundle + Sized {
+    fn bundle<B: Bundle>(self, b: B) -> (Self, B);
+}
+
+impl <B: Bundle> BundleBundles for B {
+    /// Bundle the [`Bundle`] together with another bundle into a tuple bundle.
+    fn bundle<C>(self, b: C) -> (Self, C) {
+        (self, b)
+    }
+}
