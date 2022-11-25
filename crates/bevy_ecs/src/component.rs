@@ -248,6 +248,15 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
+/// A low-level descriptor for initializing [`Component`]s in a [`World`].
+/// 
+/// Typical users will not need to use this type. Systems and other ECS APIs will 
+/// automatically initialize components. The primary API that consumes this type is 
+/// [`World::init_component_with_descriptor`], which allows users to initialize 
+/// components for foreign (non-Rust) types.
+///
+/// [`World`]: crate::world::World
+/// [`World::init_component_with_descriptor`]: crate::world::World::init_component_with_descriptor
 pub struct ComponentDescriptor {
     name: Cow<'static, str>,
     // SAFETY: This must remain private. It must match the statically known StorageType of the
@@ -283,24 +292,12 @@ impl ComponentDescriptor {
         x.drop_as::<T>();
     }
 
-    /// Create a new `ComponentDescriptor` for the type `T`.
-    pub fn new<T: Component>() -> Self {
-        Self {
-            name: Cow::Borrowed(std::any::type_name::<T>()),
-            storage_type: T::Storage::STORAGE_TYPE,
-            is_send_and_sync: true,
-            type_id: Some(TypeId::of::<T>()),
-            layout: Layout::new::<T>(),
-            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
-        }
-    }
-
     /// Create a new `ComponentDescriptor`.
     ///
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
-    pub unsafe fn new_with_layout(
+    pub unsafe fn new(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
         layout: Layout,
@@ -316,10 +313,22 @@ impl ComponentDescriptor {
         }
     }
 
+    /// Create a new `ComponentDescriptor` for the type `T`.
+    fn new_component<T: Component>() -> Self {
+        Self {
+            name: Cow::Borrowed(std::any::type_name::<T>()),
+            storage_type: T::Storage::STORAGE_TYPE,
+            is_send_and_sync: true,
+            type_id: Some(TypeId::of::<T>()),
+            layout: Layout::new::<T>(),
+            drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
+        }
+    }
+
     /// Create a new `ComponentDescriptor` for a resource.
     ///
     /// The [`StorageType`] for resources is always [`TableStorage`].
-    pub fn new_resource<T: Resource>() -> Self {
+    fn new_resource<T: Resource>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             // PERF: `SparseStorage` may actually be a more
@@ -341,21 +350,6 @@ impl ComponentDescriptor {
             layout: Layout::new::<T>(),
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
         }
-    }
-
-    #[inline]
-    pub fn storage_type(&self) -> StorageType {
-        self.storage_type
-    }
-
-    #[inline]
-    pub fn type_id(&self) -> Option<TypeId> {
-        self.type_id
-    }
-
-    #[inline]
-    pub fn name(&self) -> &str {
-        self.name.as_ref()
     }
 }
 
@@ -385,7 +379,7 @@ impl Components {
             ..
         } = self;
         let index = indices.entry(type_id).or_insert_with(|| {
-            Components::init_component_inner(components, storages, ComponentDescriptor::new::<T>())
+            Components::init_component_inner(components, storages, ComponentDescriptor::new_component::<T>())
         });
         ComponentId(*index)
     }
