@@ -115,9 +115,22 @@ pub trait Component: Send + Sync + 'static {
     type Storage: ComponentStorage;
 }
 
+/// An implementation of [`ComponentStorage`] for [`StorageType::Table`].
+/// This is the default when using the `Component` derive macro.
 pub struct TableStorage;
+/// An implementation of [`ComponentStorage`] for [`StorageType::SparseSet`].
+/// This must be manually specified when using the `Component` derive macro.
+/// See the [`Component`] documentation for more information.
 pub struct SparseStorage;
 
+/// An associated trait used for selecting which storage a component type
+/// will be stored in.
+///
+/// This is done to allow [`Compoennt`] to be [object safe]. This trait is also
+/// [sealed trait] to ensure external types cannot implement it.
+///
+/// [object safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
+/// [sealed trait]: https://rust-lang.github.io/api-guidelines/future-proofing.html
 pub trait ComponentStorage: sealed::Sealed {
     // because the trait is sealed, those items are private API.
     const STORAGE_TYPE: StorageType;
