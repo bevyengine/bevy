@@ -834,12 +834,12 @@ impl Window {
             .push(WindowCommand::SetAlwaysOnTop { always_on_top });
     }
     /// Close the operating system window corresponding to this [`Window`].
-    ///  
+    ///
     /// This will also lead to this [`Window`] being removed from the
     /// [`Windows`] resource.
     ///
     /// If the default [`WindowPlugin`] is used, when no windows are
-    /// open, the [app will exit](bevy_app::AppExit).  
+    /// open, the [app will exit](bevy_app::AppExit).
     /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
     /// to `false`
     ///
@@ -869,7 +869,7 @@ impl Window {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -996,7 +996,7 @@ pub struct WindowDescriptor {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
