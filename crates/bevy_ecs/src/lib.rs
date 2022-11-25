@@ -1014,10 +1014,7 @@ mod tests {
         assert!(!world.is_resource_changed::<Num>());
 
         world.insert_resource(Num(123));
-        let resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<Num>())
-            .unwrap();
+        let resource_id = world.components().resource_id(TypeId::of::<Num>()).unwrap();
         let archetype_component_id = world.storages().resources.get(resource_id).unwrap().id();
 
         assert_eq!(world.resource::<Num>().0, 123);
@@ -1072,10 +1069,7 @@ mod tests {
             "other resources are unaffected"
         );
 
-        let current_resource_id = world
-            .components()
-            .get_resource_id(TypeId::of::<Num>())
-            .unwrap();
+        let current_resource_id = world.components().resource_id(TypeId::of::<Num>()).unwrap();
         assert_eq!(
             resource_id, current_resource_id,
             "resource id does not change after removing / re-adding"

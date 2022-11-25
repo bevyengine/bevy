@@ -697,7 +697,7 @@ mod tests {
 
     #[test]
     fn table() {
-        let mut components = Components::default();
+        let mut components = Components::new();
         let mut storages = Storages::default();
         let component_id = components.init_component::<W<usize>>(&mut storages);
         let columns = &[component_id];

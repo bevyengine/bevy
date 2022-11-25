@@ -1729,7 +1729,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .resource_id(std::any::TypeId::of::<TestResource>())
             .unwrap();
 
         let resource = world.get_resource_by_id(component_id).unwrap();
@@ -1745,7 +1745,7 @@ mod tests {
         world.insert_resource(TestResource(42));
         let component_id = world
             .components()
-            .get_resource_id(std::any::TypeId::of::<TestResource>())
+            .resource_id(std::any::TypeId::of::<TestResource>())
             .unwrap();
 
         {
@@ -1771,7 +1771,7 @@ mod tests {
 
         // SAFETY: the drop function is valid for the layout and the data will be safe to access from any thread
         let descriptor = unsafe {
-            ComponentDescriptor::new_with_layout(
+            ComponentDescriptor::new(
                 "Custom Test Component".to_string(),
                 StorageType::Table,
                 std::alloc::Layout::new::<[u8; 8]>(),

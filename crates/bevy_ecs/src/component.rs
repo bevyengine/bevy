@@ -126,7 +126,7 @@ pub struct SparseStorage;
 /// An associated trait used for selecting which storage a component type
 /// will be stored in.
 ///
-/// This is done to allow [`Compoennt`] to be [object safe]. This trait is also
+/// This is done to allow [`Component`] to be [object safe]. This trait is also
 /// [sealed trait] to ensure external types cannot implement it.
 ///
 /// [object safe]: https://doc.rust-lang.org/reference/items/traits.html#object-safety
@@ -170,7 +170,7 @@ pub enum StorageType {
     SparseSet,
 }
 
-/// Metadata for a [`Component`] within a [`World].
+/// Metadata for a [`Component`] within a [`World`].
 ///
 /// [`World`]: crate::world::World
 #[derive(Debug)]
@@ -229,6 +229,8 @@ impl ComponentInfo {
     /// Gets where the components of this particular type is stored
     /// within a [`World`]. For more information, see [`StorageType`]'s
     /// documentation.
+    ///
+    /// [`World`]: crate::world::World
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.descriptor.storage_type
@@ -268,6 +270,12 @@ impl ComponentInfo {
 pub struct ComponentId(usize);
 
 impl ComponentId {
+    #[inline]
+    #[cfg(test)]
+    pub(crate) fn new(index: usize) -> Self {
+        ComponentId(index)
+    }
+
     #[inline]
     pub(crate) fn index(self) -> usize {
         self.0
@@ -507,8 +515,7 @@ impl Components {
     /// it was retrieved from and should not be used with another `Components`
     /// instance.
     ///
-    /// Returns [`None`] if the `Component` type has not
-    /// yet been initialized using [`Components::init_component`].
+    /// Returns [`None`] if the `Component` type has not been initialized yet.
     ///
     /// ```rust
     /// use bevy_ecs::prelude::*;
