@@ -167,7 +167,7 @@ where
 /// A collection of common adapters for [piping](super::PipeSystem) the result of a system.
 pub mod adapter {
     use crate::system::In;
-    use std::fmt::{Debug, Display};
+    use std::fmt::Debug;
     use bevy_utils::tracing;
 
     /// Converts a regular function into a system adapter.
@@ -233,18 +233,18 @@ pub mod adapter {
         res.unwrap()
     }
 
-    /// System adapter that utilizes the info! macro to print system information.
+    /// System adapter that utilizes the [`info!`] macro to print system information.
     /// 
     /// # Examples
     /// 
     /// ```
     /// 
     /// ```
-    pub fn info<T: Display>(In(data): In<T>) {
-        tracing::info!("{}", data);
+    pub fn info<T: Debug>(In(data): In<T>) {
+        tracing::info!("{:?}", data);
     }
 
-    /// System adapter that utilizes the debug! macro to debug system piping.
+    /// System adapter that utilizes the [`warn!`] macro to print the output of a system.
     ///
     /// # Examples
     /// 
@@ -255,7 +255,7 @@ pub mod adapter {
         tracing::debug!("{:?}", data);
     }
 
-    /// System adapter that utilizes the warn! macro.
+    /// System adapter that utilizes the [`warn!`] macro to print the output of a system.
     /// 
     /// # Examples
     /// 
@@ -268,7 +268,7 @@ pub mod adapter {
         }
     }
 
-    /// System adapter that utilizes the error! macro which useful for fallible systems that should print the error message in the case of an error.
+    /// System adapter that utilizes the [`error!`] macro to print the output of a system.
     /// 
     /// # Examples
     /// 
