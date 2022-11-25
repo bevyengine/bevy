@@ -165,7 +165,10 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>));
 
     /// Bundle the [`Bundle`] together with another bundle into a tuple bundle.
-    fn bundle<B>(self, b: B) -> (Self, B) where Self: Sized {
+    fn bundle<B>(self, b: B) -> (Self, B)
+    where
+        Self: Sized,
+    {
         (self, b)
     }
 }
