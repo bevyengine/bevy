@@ -711,8 +711,11 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor grab, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
+    ///
+    /// Since windows and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     #[inline]
     pub fn cursor_grab_mode(&self) -> CursorGrabMode {
         self.cursor_grab_mode
@@ -723,8 +726,11 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor grab, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
+    ///
+    /// Since windows and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub fn set_cursor_grab_mode(&mut self, grab_mode: CursorGrabMode) {
         self.cursor_grab_mode = grab_mode;
         self.command_queue
