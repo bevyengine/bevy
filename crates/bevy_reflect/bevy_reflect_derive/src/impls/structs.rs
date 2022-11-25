@@ -8,7 +8,7 @@ use syn::{Index, Member};
 pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
     let option = quote!(::core::option::Option);
     let any = quote!(::core::any::Any);
-    let alloc_box = quote!(::alloc::boxed::Box);
+    let std_box = quote!(::std::boxed::Box);
 
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
     let struct_name = reflect_struct.meta().type_name();
@@ -155,7 +155,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
             fn clone_dynamic(&self) -> #bevy_reflect_path::DynamicStruct {
                 let mut dynamic: #bevy_reflect_path::DynamicStruct = ::core::default::Default::default();
-                dynamic.set_name(::alloc::string::ToString::to_string(#bevy_reflect_path::Reflect::type_name(self)));
+                dynamic.set_name(::std::string::ToString::to_string(#bevy_reflect_path::Reflect::type_name(self)));
                 #(dynamic.insert_boxed(#field_names, #bevy_reflect_path::Reflect::clone_value(&self.#field_idents));)*
                 dynamic
             }
@@ -173,7 +173,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             #[inline]
-            fn into_any(self: #alloc_box<Self>) -> #alloc_box<dyn #any> {
+            fn into_any(self: #std_box<Self>) -> #std_box<dyn #any> {
                 self
             }
 
@@ -188,7 +188,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             #[inline]
-            fn into_reflect(self: #alloc_box<Self>) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
+            fn into_reflect(self: #std_box<Self>) -> #std_box<dyn #bevy_reflect_path::Reflect> {
                 self
             }
 
@@ -203,12 +203,12 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
-                #alloc_box::new(#bevy_reflect_path::Struct::clone_dynamic(self))
+            fn clone_value(&self) -> #std_box<dyn #bevy_reflect_path::Reflect> {
+                #std_box::new(#bevy_reflect_path::Struct::clone_dynamic(self))
             }
 
             #[inline]
-            fn set(&mut self, value: #alloc_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #alloc_box<dyn #bevy_reflect_path::Reflect>> {
+            fn set(&mut self, value: #std_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #std_box<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
                 Ok(())
             }
@@ -233,7 +233,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Struct(self)
             }
 
-            fn reflect_owned(self: #alloc_box<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #std_box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Struct(self)
             }
 

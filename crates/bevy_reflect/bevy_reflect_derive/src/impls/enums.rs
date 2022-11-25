@@ -9,7 +9,7 @@ use syn::Fields;
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let option = quote!(::core::option::Option);
     let any = quote!(::core::any::Any);
-    let alloc_box = quote!(::alloc::boxed::Box);
+    let std_box = quote!(::std::boxed::Box);
 
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_name = reflect_enum.meta().type_name();
@@ -192,7 +192,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
-            fn into_any(self: #alloc_box<Self>) -> #alloc_box<dyn #any> {
+            fn into_any(self: #std_box<Self>) -> #std_box<dyn #any> {
                 self
             }
 
@@ -207,7 +207,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
-            fn into_reflect(self: #alloc_box<Self>) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
+            fn into_reflect(self: #std_box<Self>) -> #std_box<dyn #bevy_reflect_path::Reflect> {
                 self
             }
 
@@ -222,12 +222,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
-                #alloc_box::new(#bevy_reflect_path::Enum::clone_dynamic(self))
+            fn clone_value(&self) -> #std_box<dyn #bevy_reflect_path::Reflect> {
+                #std_box::new(#bevy_reflect_path::Enum::clone_dynamic(self))
             }
 
             #[inline]
-            fn set(&mut self, #ref_value: #alloc_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #alloc_box<dyn #bevy_reflect_path::Reflect>> {
+            fn set(&mut self, #ref_value: #std_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #std_box<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(#ref_value)?;
                 Ok(())
             }
@@ -273,7 +273,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Enum(self)
             }
 
-            fn reflect_owned(self: #alloc_box<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #std_box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Enum(self)
             }
 

@@ -28,7 +28,7 @@ impl Parse for TraitInfo {
 pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStream {
     let option = quote!(::core::option::Option);
     let result = quote!(::core::result::Result);
-    let alloc_box = quote!(::alloc::boxed::Box);
+    let std_box = quote!(::std::boxed::Box);
 
     let trait_info = parse_macro_input!(input as TraitInfo);
     let item_trait = &trait_info.item_trait;
@@ -63,7 +63,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
         #trait_vis struct #reflect_trait_ident {
             get_func: fn(&dyn #bevy_reflect_path::Reflect) -> #option<&dyn #trait_ident>,
             get_mut_func: fn(&mut dyn #bevy_reflect_path::Reflect) -> #option<&mut dyn #trait_ident>,
-            get_boxed_func: fn(#alloc_box<dyn #bevy_reflect_path::Reflect>) -> #result<#alloc_box<dyn #trait_ident>, #alloc_box<dyn #bevy_reflect_path::Reflect>>,
+            get_boxed_func: fn(#std_box<dyn #bevy_reflect_path::Reflect>) -> #result<#std_box<dyn #trait_ident>, #std_box<dyn #bevy_reflect_path::Reflect>>,
         }
 
         impl #reflect_trait_ident {
@@ -78,7 +78,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
             }
 
             #[doc = #get_box_doc]
-            pub fn get_boxed(&self, reflect_value: #alloc_box<dyn #bevy_reflect_path::Reflect>) -> #result<#alloc_box<dyn #trait_ident>, #alloc_box<dyn #bevy_reflect_path::Reflect>> {
+            pub fn get_boxed(&self, reflect_value: #std_box<dyn #bevy_reflect_path::Reflect>) -> #result<#std_box<dyn #trait_ident>, #std_box<dyn #bevy_reflect_path::Reflect>> {
                 (self.get_boxed_func)(reflect_value)
             }
         }
@@ -93,7 +93,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
                         <dyn #bevy_reflect_path::Reflect>::downcast_mut::<T>(reflect_value).map(|value| value as &mut dyn #trait_ident)
                     },
                     get_boxed_func: |reflect_value| {
-                        <dyn #bevy_reflect_path::Reflect>::downcast::<T>(reflect_value).map(|value| value as #alloc_box<dyn #trait_ident>)
+                        <dyn #bevy_reflect_path::Reflect>::downcast::<T>(reflect_value).map(|value| value as #std_box<dyn #trait_ident>)
                     }
                 }
             }

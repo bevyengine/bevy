@@ -6,7 +6,7 @@ use quote::quote;
 /// Implements `GetTypeRegistration` and `Reflect` for the given type data.
 pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     let any = quote!(::core::any::Any);
-    let alloc_box = quote!(::alloc::boxed::Box);
+    let std_box = quote!(::std::boxed::Box);
     let clone = quote!(::core::clone::Clone::clone);
 
     let bevy_reflect_path = meta.bevy_reflect_path();
@@ -54,7 +54,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
-            fn into_any(self: #alloc_box<Self>) -> #alloc_box<dyn #any> {
+            fn into_any(self: #std_box<Self>) -> #std_box<dyn #any> {
                 self
             }
 
@@ -69,7 +69,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
-            fn into_reflect(self: #alloc_box<Self>) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
+            fn into_reflect(self: #std_box<Self>) -> #std_box<dyn #bevy_reflect_path::Reflect> {
                 self
             }
 
@@ -84,8 +84,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> #alloc_box<dyn #bevy_reflect_path::Reflect> {
-                #alloc_box::new(#clone(self))
+            fn clone_value(&self) -> #std_box<dyn #bevy_reflect_path::Reflect> {
+                #std_box::new(#clone(self))
             }
 
             #[inline]
@@ -99,7 +99,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             }
 
             #[inline]
-            fn set(&mut self, value: #alloc_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #alloc_box<dyn #bevy_reflect_path::Reflect>> {
+            fn set(&mut self, value: #std_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #std_box<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
                 Ok(())
             }
@@ -112,7 +112,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Value(self)
             }
 
-            fn reflect_owned(self: #alloc_box<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #std_box<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Value(self)
             }
 
