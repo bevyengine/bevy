@@ -115,7 +115,7 @@ impl Plugin for LogPlugin {
         }
 
         let default_filter = { format!("{},{}", self.level, self.filter) };
-        LogTracer::init().unwrap();
+        LogTracer::init().expect("Could not set global logger as it has already been set. Please disable LogPlugin from Bevy's DefaultPlugins");
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
