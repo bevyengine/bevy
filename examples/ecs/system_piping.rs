@@ -7,10 +7,10 @@ use bevy::prelude::*;
 use bevy::utils::tracing::Level;
 use bevy::log::LogPlugin;
 
-
 fn main() {
     App::new()
-        .insert_resource(Message("42A".to_string()))
+        .insert_resource(Message("42".to_string()))
+        .insert_resource(OptionalWarning(Some("Got to rusty?".to_string())))
         .add_plugin(LogPlugin {
             level: Level::TRACE,
             filter: "".to_string(),
@@ -20,13 +20,17 @@ fn main() {
         .add_system(parse_message_system.pipe(system_adapter::dbg))
         .add_system(warning_pipe_system.pipe(system_adapter::warn))
         .add_system(parse_message_system.pipe(system_adapter::error))
+        .add_system(parse_message_system.pipe(system_adapter::ignore))
         .run();
 }
 
 #[derive(Resource, Deref)]
 struct Message(String);
 
-// this system produces a Result<usize> output by trying to parse the Message resource
+#[derive(Resource, Deref)]
+struct OptionalWarning(Option<String>);
+
+// This system produces a Result<usize> output by trying to parse the Message resource.
 fn parse_message_system(message: Res<Message>) -> Result<usize> {
     Ok(message.parse::<usize>()?)
 }
@@ -41,14 +45,14 @@ fn handler_system(In(result): In<Result<usize>>) {
     }
 }
 
+// This system produces a String output by trying to clone the String from the Message resource.
 fn data_pipe_system(message: Res<Message>) -> String {
     message.0.clone()
 }
 
-fn warning_pipe_system(message: Res<Message>) -> Option<String> {
-
-    match message.0.as_str() {
-        "No warning" => None,
-        x => Some(x.to_string()),
-    }
+// This system produces an Option<String> output by trying to extract Some(String) from the 
+// OptionalWarning resource. Try changing the OptionalWarning resource to None. You should 
+// not see the warning message printed.
+fn warning_pipe_system(message: Res<OptionalWarning>) -> Option<String> {
+    Some(message.0.to_owned()?)
 }
