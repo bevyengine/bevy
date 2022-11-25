@@ -209,7 +209,7 @@ impl ComponentInfo {
     }
 }
 
-/// A semi-opaque value which uniquely identifies the type of a [`Component`] within a
+/// An opaque value which uniquely identifies the type of a [`Component`] within a
 /// [`World`](crate::world::World).
 ///
 /// Each time a new `Component` type is registered within a `World` using
@@ -231,12 +231,7 @@ pub struct ComponentId(usize);
 
 impl ComponentId {
     #[inline]
-    pub const fn new(index: usize) -> ComponentId {
-        ComponentId(index)
-    }
-
-    #[inline]
-    pub fn index(self) -> usize {
+    pub(crate) fn index(self) -> usize {
         self.0
     }
 }
