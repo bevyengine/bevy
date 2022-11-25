@@ -126,6 +126,13 @@ pub struct Edges {
 }
 
 impl Edges {
+    /// Checks the cache for the target archetype when adding a bundle to the
+    /// source archetype. For more information, see [`EntityMut::insert`].
+    ///
+    /// If this returns `None`, it means there has not been a transition from
+    /// the source archetype via the provided bundle.
+    ///
+    /// [`EntityMut::insert`]: crate::world::EntityMut::insert
     #[inline]
     pub fn get_add_bundle(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
         self.get_add_bundle_internal(bundle_id)
@@ -138,6 +145,10 @@ impl Edges {
         self.add_bundle.get(bundle_id)
     }
 
+    /// Caches the target archetype when adding a bundle to the source archetype.
+    /// For more information, see [`EntityMut::insert`].
+    ///
+    /// [`EntityMut::insert`]: crate::world::EntityMut::insert
     #[inline]
     pub(crate) fn insert_add_bundle(
         &mut self,
@@ -154,11 +165,25 @@ impl Edges {
         );
     }
 
+    /// Checks the cache for the target archetype when removing a bundle to the
+    /// source archetype. For more information, see [`EntityMut::remove`].
+    ///
+    /// If this returns `None`, it means there has not been a transition from
+    /// the source archetype via the provided bundle.
+    ///
+    /// If this returns `Some(None)`, it means that the bundle cannot be removed
+    /// from the source archetype.
+    ///
+    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
     #[inline]
     pub fn get_remove_bundle(&self, bundle_id: BundleId) -> Option<Option<ArchetypeId>> {
         self.remove_bundle.get(bundle_id).cloned()
     }
 
+    /// Caches the target archetype when removing a bundle to the source archetype.
+    /// For more information, see [`EntityMut::remove`].
+    ///
+    /// [`EntityMut::remove`]: crate::world::EntityMut::remove
     #[inline]
     pub(crate) fn insert_remove_bundle(
         &mut self,
@@ -168,6 +193,13 @@ impl Edges {
         self.remove_bundle.insert(bundle_id, archetype_id);
     }
 
+    /// Checks the cache for the target archetype when removing a bundle to the
+    /// source archetype. For more information, see [`EntityMut::remove_intersection`].
+    ///
+    /// If this returns `None`, it means there has not been a transition from
+    /// the source archetype via the provided bundle.
+    ///
+    /// [`EntityMut::remove_intersection`]: crate::world::EntityMut::remove_intersection
     #[inline]
     pub fn get_remove_bundle_intersection(
         &self,
@@ -176,6 +208,10 @@ impl Edges {
         self.remove_bundle_intersection.get(bundle_id).cloned()
     }
 
+    /// Caches the target archetype when removing a bundle to the source archetype.
+    /// For more information, see [`EntityMut::remove_intersection`].
+    ///
+    /// [`EntityMut::remove_intersection`]: crate::world::EntityMut::remove_intersection
     #[inline]
     pub(crate) fn insert_remove_bundle_intersection(
         &mut self,
@@ -187,17 +223,22 @@ impl Edges {
     }
 }
 
+/// Metadata about an [`Entity`] in a [`Archetype`].
 pub struct ArchetypeEntity {
     entity: Entity,
     table_row: usize,
 }
 
 impl ArchetypeEntity {
+    /// The ID of the entity.
     #[inline]
     pub const fn entity(&self) -> Entity {
         self.entity
     }
 
+    /// The row in the [`Table`] where the entity's components are stored.
+    ///
+    /// [`Table`]: crate::storage::Table
     #[inline]
     pub const fn table_row(&self) -> usize {
         self.table_row
