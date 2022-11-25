@@ -188,7 +188,7 @@ impl ComponentInfo {
 
     /// Gets the component's name.
     ///
-    /// If the component was initialized from a Rust-native type, it's
+    /// If the component was initialized from a Rust-native type, its
     /// name is identical to the output of [`std::any::type_name`].
     #[inline]
     pub fn name(&self) -> &str {
