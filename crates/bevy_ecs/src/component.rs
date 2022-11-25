@@ -376,7 +376,7 @@ impl Components {
     }
 
     #[inline]
-    pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
+    pub(crate) fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();
 
         let Components {
@@ -390,7 +390,7 @@ impl Components {
         ComponentId(*index)
     }
 
-    pub fn init_component_with_descriptor(
+    pub(crate) fn init_component_with_descriptor(
         &mut self,
         storages: &mut Storages,
         descriptor: ComponentDescriptor,
@@ -478,7 +478,7 @@ impl Components {
     }
 
     #[inline]
-    pub fn init_resource<T: Resource>(&mut self) -> ComponentId {
+    pub(crate) fn init_resource<T: Resource>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
@@ -488,7 +488,7 @@ impl Components {
     }
 
     #[inline]
-    pub fn init_non_send<T: Any>(&mut self) -> ComponentId {
+    pub(crate) fn init_non_send<T: Any>(&mut self) -> ComponentId {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
