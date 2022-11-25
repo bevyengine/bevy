@@ -167,7 +167,8 @@ where
 /// A collection of common adapters for [piping](super::PipeSystem) the result of a system.
 pub mod adapter {
     use crate::system::In;
-    use std::fmt::Debug;
+    use std::fmt::{Debug, Display};
+    use bevy_utils::tracing;
 
     /// Converts a regular function into a system adapter.
     ///
@@ -230,6 +231,54 @@ pub mod adapter {
     /// ```
     pub fn unwrap<T, E: Debug>(In(res): In<Result<T, E>>) -> T {
         res.unwrap()
+    }
+
+    /// System adapter that utilizes the info! macro to print system information.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// 
+    /// ```
+    pub fn info<T: Display>(In(data): In<T>) {
+        tracing::info!("{}", data);
+    }
+
+    /// System adapter that utilizes the debug! macro to debug system piping.
+    ///
+    /// # Examples
+    /// 
+    /// ```
+    /// 
+    /// ```
+    pub fn dbg<T: Debug>(In(data): In<T>) {
+        tracing::debug!("{:?}", data);
+    }
+
+    /// System adapter that utilizes the warn! macro.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// 
+    /// ```
+    pub fn warn<T: Debug>(In(res): In<Option<T>>) {
+        if let Some(warn) = res {
+            tracing::warn!("{:?}", warn);
+        }
+    }
+
+    /// System adapter that utilizes the error! macro which useful for fallible systems that should print the error message in the case of an error.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// 
+    /// ```
+    pub fn error<T, E: Debug>(In(res): In<Result<T, E>>) {
+        if let Err(error) = res {
+            tracing::error!("{:?}", error);
+        }
     }
 
     /// System adapter that ignores the output of the previous system in a pipe.
