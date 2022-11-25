@@ -8,6 +8,7 @@ pub enum MapEntitiesError {
     EntityNotFound(Entity),
 }
 
+<<<<<<< HEAD
 impl std::error::Error for MapEntitiesError {}
 
 impl fmt::Display for MapEntitiesError {
@@ -20,7 +21,32 @@ impl fmt::Display for MapEntitiesError {
     }
 }
 
-/// Allows mapping [`Entity`] references from one entity space to another.
+/// Operation to map all contained [`Entity`](crate::entity::Entity) fields in
+/// a component to new values.
+/// 
+/// If a component contains [`Entity`](crate::entity::Entity) values
+/// that refer to other entities in the same world and scene functionality
+/// is used to create such components, this trait must be implemented. The
+/// is to replace all [`Entity`](crate::entity::Entity) values in the
+/// component with values looked up from the given [`EntityMap`].
+///
+/// Implementing this trait is pretty straightforward:
+/// 
+/// ```
+/// #[derive(Component)]
+/// struct MyEntityRefs {
+///     a: Entity,
+///     b: Entity,
+/// }
+///
+/// impl MapEntities for MyEntityRefs {
+///     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+///         self.a = entity_map.get(self.a)?;
+///         self.b = entity_map.get(self.b)?;
+///         Ok(())
+///     }
+/// }
+/// ```
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_map`.
     ///
