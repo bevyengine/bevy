@@ -9,6 +9,7 @@ pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 use std::{
+    collections::HashMap,
     alloc::Layout,
     any::{Any, TypeId},
     borrow::Cow,
@@ -358,14 +359,22 @@ impl ComponentDescriptor {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-    resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    indices: HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    resource_indices: HashMap<TypeId, usize, fxhash::FxBuildHasher>,
 }
 
 impl Components {
+    pub(crate) fn new() -> Components {
+        Components {
+            components: Vec::new(),
+            indices: HashMap::default(),
+            resource_indices: HashMap::default(),
+        }
+    }
+
     #[inline]
     pub fn init_component<T: Component>(&mut self, storages: &mut Storages) -> ComponentId {
         let type_id = TypeId::of::<T>();

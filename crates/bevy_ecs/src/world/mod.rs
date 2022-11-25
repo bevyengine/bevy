@@ -69,7 +69,7 @@ impl Default for World {
         Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Default::default(),
-            components: Default::default(),
+            components: Components::new(),
             archetypes: Default::default(),
             storages: Default::default(),
             bundles: Default::default(),
