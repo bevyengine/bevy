@@ -479,7 +479,7 @@ struct ArchetypeIdentity {
 ///
 /// Every [`Resource`] is also assigned one.
 ///
-/// ArchetypComponentIds are only valid for a given World, and are not globally unique.
+/// These IDs are only valid for a given World, and are not globally unique.
 /// Attempting to use an ID on a world that it wasn't sourced from will
 /// not point to the same archetype nor the same component.
 ///
