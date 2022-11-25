@@ -1117,7 +1117,7 @@ impl GetTypeRegistration for &'static Path {
 
 impl FromReflect for &'static Path {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
-        Some(*reflect.as_any().downcast_ref::<Self>()?)
+        reflect.as_any().downcast_ref::<Self>().copied()
     }
 }
 
