@@ -8,7 +8,6 @@ pub enum MapEntitiesError {
     EntityNotFound(Entity),
 }
 
-<<<<<<< HEAD
 impl std::error::Error for MapEntitiesError {}
 
 impl fmt::Display for MapEntitiesError {
@@ -21,25 +20,28 @@ impl fmt::Display for MapEntitiesError {
     }
 }
 
-/// Operation to map all contained [`Entity`](crate::entity::Entity) fields in
-/// a component to new values.
-/// 
-/// If a component contains [`Entity`](crate::entity::Entity) values
-/// that refer to other entities in the same world and scene functionality
-/// is used to create such components, this trait must be implemented. The
-/// is to replace all [`Entity`](crate::entity::Entity) values in the
-/// component with values looked up from the given [`EntityMap`].
+/// Operation to map all contained [`Entity`] fields in a type to new values.
 ///
-/// Implementing this trait is pretty straightforward:
-/// 
-/// ```
+/// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
+/// as references in components copied from another world will be invalid. This trait
+/// allows defining custom mappings for these references via [`EntityMap`].
+///
+/// Implementing this trait correctly is required for properly loading components
+/// with entity references from scenes.
+///
+/// ## Example
+///
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::{EntityMap, MapEntities, MapEntitiesError};
+///
 /// #[derive(Component)]
-/// struct MyEntityRefs {
+/// struct Spring {
 ///     a: Entity,
 ///     b: Entity,
 /// }
 ///
-/// impl MapEntities for MyEntityRefs {
+/// impl MapEntities for Spring {
 ///     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
 ///         self.a = entity_map.get(self.a)?;
 ///         self.b = entity_map.get(self.b)?;
@@ -47,6 +49,8 @@ impl fmt::Display for MapEntitiesError {
 ///     }
 /// }
 /// ```
+///
+/// [`World`]: crate::world::World
 pub trait MapEntities {
     /// Updates all [`Entity`] references stored inside using `entity_map`.
     ///

@@ -56,6 +56,9 @@ type IdCursor = isize;
 /// The identifier is implemented using a [generational index]: a combination of an index and a generation.
 /// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
 ///
+/// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an `Entity` to
+/// fetch entity components or metadata from a different world will either fail or return unexpected results.
+///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
 ///
 /// # Usage
@@ -103,6 +106,7 @@ type IdCursor = isize;
 /// [`EntityMut::id`]: crate::world::EntityMut::id
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
+/// [`World`]: crate::world::World
 #[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Entity {
     generation: u32,
