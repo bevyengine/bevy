@@ -358,7 +358,7 @@ impl ComponentDescriptor {
         }
     }
 
-    /// Create a new `ComponentDescriptor` for the type `T`.
+    /// Create a new `ComponentDescriptor` for the [`Component`] type `T`.
     fn new_component<T: Component>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
