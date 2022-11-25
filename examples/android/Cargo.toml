@@ -14,8 +14,8 @@ crate-type = ["cdylib"]
 bevy = { path = "../../" }
 
 [package.metadata.android]
-package = "org.bevyengine.example3"
-apk_name = "bevyexample3"
+package = "org.bevyengine.example"
+apk_name = "bevyexample"
 assets = "../../assets"
 resources = "../../assets/android-res"
 build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
