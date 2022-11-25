@@ -84,7 +84,7 @@ use std::{
 /// ```
 ///
 /// [`Table`]: crate::storage::Table
-/// [`SparseSet`]: crate::storage::SparseSet
+/// [`SparseSet`]: crate::storage::ComponentSparseSet
 ///
 /// # Implementing the trait for foreign types
 ///
@@ -157,6 +157,9 @@ pub enum StorageType {
     SparseSet,
 }
 
+/// Metadata for a [`Component`] within a [`World].
+///
+/// [`World`]: crate::world::World
 #[derive(Debug)]
 pub struct ComponentInfo {
     id: ComponentId,
@@ -164,42 +167,64 @@ pub struct ComponentInfo {
 }
 
 impl ComponentInfo {
+    /// Gets the component's unique ID.
     #[inline]
     pub fn id(&self) -> ComponentId {
         self.id
     }
 
+    /// Gets the component's name.
+    ///
+    /// If the component was initialized from a Rust-native type, it's
+    /// name is identical to the output of [`std::any::type_name`].
     #[inline]
     pub fn name(&self) -> &str {
         &self.descriptor.name
     }
 
+    /// Gets the component's type ID, if it has one.
+    ///
+    /// If this returns `None`, there is no matching Rust type for 
+    /// the component.
     #[inline]
     pub fn type_id(&self) -> Option<TypeId> {
         self.descriptor.type_id
     }
 
+    /// Gets the memory layout of the type in memory.
+    /// 
+    /// All components must have a static layout in memory, as enforced
+    /// [`Component`] and [`Resource`] both require [`Sized`].
+    ///
+    /// Foreign type components must also uphold the same invariant.
     #[inline]
     pub fn layout(&self) -> Layout {
         self.descriptor.layout
     }
 
-    #[inline]
     /// Get the function which should be called to clean up values of
     /// the underlying component type. This maps to the
     /// [`Drop`] implementation for 'normal' Rust components
     ///
     /// Returns `None` if values of the underlying component type don't
     /// need to be dropped, e.g. as reported by [`needs_drop`].
+    #[inline]
     pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
         self.descriptor.drop
     }
 
+    /// Gets where the components of this particular type is stored
+    /// within a [`World`]. For more information, see [`StorageType`]'s
+    /// documentation.
     #[inline]
     pub fn storage_type(&self) -> StorageType {
         self.descriptor.storage_type
     }
 
+    /// Checks the thread-safety guarentees of the component type.
+    ///
+    /// If this returns true, values of the type uphold the same invariants
+    /// as `Send` and `Sync`, and can be safely accessed across multiple threads.
     #[inline]
     pub fn is_send_and_sync(&self) -> bool {
         self.descriptor.is_send_and_sync
@@ -210,8 +235,7 @@ impl ComponentInfo {
     }
 }
 
-/// An opaque value which uniquely identifies the type of a [`Component`] within a
-/// [`World`](crate::world::World).
+/// An opaque unique identifier for the type of a [`Component`] within a [`World`](crate::world::World).
 ///
 /// Each time a new `Component` type is registered within a `World` using
 /// [`World::init_component`](crate::world::World::init_component) or
@@ -341,10 +365,13 @@ impl ComponentDescriptor {
         }
     }
 
-    fn new_non_send<T: Any>(storage_type: StorageType) -> Self {
+    /// Create a new `ComponentDescriptor` for a `!Send` resource.
+    ///
+    /// The [`StorageType`] for resources is always [`TableStorage`].
+    fn new_non_send<T: Any>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
-            storage_type,
+            storage_type: StorageType::Table,
             is_send_and_sync: false,
             type_id: Some(TypeId::of::<T>()),
             layout: Layout::new::<T>(),
@@ -486,7 +513,7 @@ impl Components {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>(StorageType::default())
+                ComponentDescriptor::new_non_send::<T>()
             })
         }
     }
