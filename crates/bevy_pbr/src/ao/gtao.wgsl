@@ -38,7 +38,9 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
     let slope_top_bottom = (edge_info.w - edge_info.z) * 0.5;
     let edge_info_slope_adjusted = edge_info + vec4<f32>(slope_left_right, -slope_left_right, slope_top_bottom, -slope_top_bottom);
     edge_info = min(abs(edge_info), abs(edge_info_slope_adjusted));
-    edge_info = saturate(1.25 - edge_info / (depth_center * 0.011)); // TODO: ???
+    let bias = 0.25; // Using the bias and then saturating nudges the values a bit
+    let scale = depth_center * 0.011; // Weight the edges by their distance from the camera
+    edge_info = saturate((1.0 + bias) - edge_info / scale); // Apply the bias and scale, and invert edge_info so that small values become large, and vice versa
 
     // Pack the edge info into the texture
     let edge_info = vec4<u32>(pack4x8unorm(edge_info), 0u, 0u, 0u);
