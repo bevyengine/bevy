@@ -370,7 +370,7 @@ impl ComponentDescriptor {
         }
     }
 
-    /// Create a new `ComponentDescriptor` for a resource.
+    /// Create a new `ComponentDescriptor` for the [`Resource`] type `T`.
     ///
     /// The [`StorageType`] for resources is always [`TableStorage`].
     fn new_resource<T: Resource>() -> Self {
