@@ -17,7 +17,7 @@
 //! Archetypes can be fetched from [`Archetypes`], which is accessible via [`World::archetypes`].
 //!
 //! [`Table`]: crate::storage::Table
-//! [`World::archetypes`]: crate::World::archetypes
+//! [`World::archetypes`]: crate::world::World::archetypes
 
 use crate::{
     bundle::BundleId,
@@ -35,7 +35,7 @@ use std::{
 ///
 /// Archetype IDs are only valid for a given World, and are not globally unique.
 /// Attempting to use an archetype ID on a world that it wasn't sourced from will
-/// not return the archetype with the same components. The only exception to this is 
+/// not return the archetype with the same components. The only exception to this is
 /// [`EMPTY`] which is guarenteed to be identical for all Worlds.
 ///
 /// [`World`]: crate::world::World
@@ -481,7 +481,7 @@ struct ArchetypeIdentity {
 ///
 /// ArchetypComponentIds are only valid for a given World, and are not globally unique.
 /// Attempting to use an ID on a world that it wasn't sourced from will
-/// not point to the same archetype nor the same component. 
+/// not point to the same archetype nor the same component.
 ///
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
@@ -509,7 +509,10 @@ impl SparseSetIndex for ArchetypeComponentId {
 
 /// The backing store of all [`Archetype`]s within a [`World`].
 ///
+/// For more information, see the *[module level documentation]*.
+///
 /// [`World`]: crate::world::World
+/// [*module level documentation]: crate::archetype
 pub struct Archetypes {
     pub(crate) archetypes: Vec<Archetype>,
     pub(crate) archetype_component_count: usize,
