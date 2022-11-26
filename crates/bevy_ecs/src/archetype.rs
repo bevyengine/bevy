@@ -7,7 +7,7 @@
 //! archetype.
 //!
 //! Archetypes are not to be confused with [`Table`]s. Each archetype stores its table
-//! components in one table, and each archetype unqiuely points to one table, but multiple
+//! components in one table, and each archetype uniquely points to one table, but multiple
 //! archetypes may store their table components in the same table. These archetypes
 //! differ only by the [`SparseSet`] components.
 //!
