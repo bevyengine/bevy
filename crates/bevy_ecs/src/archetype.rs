@@ -511,7 +511,7 @@ struct ArchetypeIdentity {
 
 /// An opaque unique joint ID for a [`Component`] in an [`Archetype`] within a [`World`].
 ///
-/// A component may be present within multiple archetypes, but each of those components within
+/// A component may be present within multiple archetypes, but each component within
 /// each archetype has its own unique `ArchetypeComponentId`. This is leveraged by the system
 /// schedulers to opportunistically run multiple systems in parallel that would otherwise
 /// conflict. For example, `Query<&mut A, With<B>>` and `Query<&mut A, Without<B>>` can run in
