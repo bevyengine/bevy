@@ -744,4 +744,14 @@ mod tests {
         let child = world.spawn_empty().id();
         world.spawn_empty().push_children(&[child]);
     }
+
+    #[test]
+    fn push_children_idempotent() {
+        let mut world = World::new();
+        let child = world.spawn_empty().id();
+        world
+            .spawn_empty()
+            .push_children(&[child])
+            .push_children(&[child]); // this second push will warn
+    }
 }
