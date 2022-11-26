@@ -1,11 +1,11 @@
 use crate::{
-    archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
+    archetype::{Archetype, ArchetypeEntity, ArchetypeId, Archetypes},
     entity::{Entities, Entity},
     prelude::World,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
-    storage::{TableId, Tables},
+    storage::{Table, TableId, Tables},
 };
-use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
+use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit, ops::Range};
 
 use super::ReadOnlyWorldQuery;
 
@@ -39,6 +39,72 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
             cursor: QueryIterationCursor::init(world, query_state, last_change_tick, change_tick),
         }
     }
+
+    #[inline]
+    pub(super) unsafe fn fold_table<B, Func>(
+        &mut self,
+        mut accum: B,
+        func: &mut Func,
+        table: &'w Table,
+        rows: Range<usize>,
+    ) -> B
+    where
+        Func: FnMut(B, Q::Item<'w>) -> B,
+    {
+        Q::set_table(&mut self.cursor.fetch, &self.query_state.fetch_state, table);
+        F::set_table(
+            &mut self.cursor.filter,
+            &self.query_state.filter_state,
+            table,
+        );
+
+        let entities = table.entities();
+        for row in rows {
+            let entity = entities.get_unchecked(row);
+            if let Some(item) = self.cursor.fetch(*entity, row) {
+                accum = func(accum, item);
+            }
+        }
+        accum
+    }
+
+    #[inline]
+    pub(super) unsafe fn fold_archetype<B, Func>(
+        &mut self,
+        mut accum: B,
+        func: &mut Func,
+        archetype: &'w Archetype,
+        indices: Range<usize>,
+    ) -> B
+    where
+        Func: FnMut(B, Q::Item<'w>) -> B,
+    {
+        let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
+        Q::set_archetype(
+            &mut self.cursor.fetch,
+            &self.query_state.fetch_state,
+            archetype,
+            table,
+        );
+        F::set_archetype(
+            &mut self.cursor.filter,
+            &self.query_state.filter_state,
+            archetype,
+            table,
+        );
+
+        let entities = archetype.entities();
+        for index in indices {
+            let archetype_entity = entities.get_unchecked(index);
+            if let Some(item) = self
+                .cursor
+                .fetch(archetype_entity.entity, archetype_entity.table_row)
+            {
+                accum = func(accum, item);
+            }
+        }
+        accum
+    }
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's, Q, F> {
@@ -60,6 +126,33 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
         let archetype_query = Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
+    }
+
+    #[inline]
+    fn fold<B, Func>(mut self, init: B, mut func: Func) -> B
+    where
+        Func: FnMut(B, Self::Item) -> B,
+    {
+        let mut accum = init;
+        if Q::IS_DENSE && F::IS_DENSE {
+            for table_id in self.cursor.table_id_iter.clone() {
+                // SAFETY: Matched table IDs are guarenteed to still exist.
+                let table = unsafe { self.tables.get(*table_id).debug_checked_unwrap() };
+                accum =
+                    // SAFETY: The fetched table matches the query
+                    unsafe { self.fold_table(accum, &mut func, table, 0..table.entity_count()) };
+            }
+        } else {
+            for archetype_id in self.cursor.archetype_id_iter.clone() {
+                let archetype =
+                    // SAFETY: Matched archetype IDs are guarenteed to still exist.
+                    unsafe { self.archetypes.get(*archetype_id).debug_checked_unwrap() };
+                accum =
+                    // SAFETY: The fetched archetype and table matches the query
+                    unsafe { self.fold_archetype(accum, &mut func, archetype, 0..archetype.len()) };
+            }
+        }
+        accum
     }
 }
 
@@ -606,26 +699,20 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // SAFETY: set_table was called prior.
                 // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 let entity = self.table_entities.get_unchecked(self.current_index);
-                if !F::filter_fetch(&mut self.filter, *entity, self.current_index) {
+                if let Some(item) = self.fetch(*entity, self.current_index) {
                     self.current_index += 1;
-                    continue;
+                    return Some(item);
                 }
-
-                // SAFETY: set_table was called prior.
-                // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
-                let item = Q::fetch(&mut self.fetch, *entity, self.current_index);
-
                 self.current_index += 1;
-                return Some(item);
             }
         } else {
             loop {
                 if self.current_index == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
+                    let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     Q::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);
                     F::set_archetype(
                         &mut self.filter,
@@ -642,25 +729,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // SAFETY: set_archetype was called prior.
                 // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
                 let archetype_entity = self.archetype_entities.get_unchecked(self.current_index);
-                if !F::filter_fetch(
-                    &mut self.filter,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
-                ) {
-                    self.current_index += 1;
-                    continue;
-                }
-
-                // SAFETY: set_archetype was called prior, `current_index` is an archetype index in range of the current archetype
-                // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let item = Q::fetch(
-                    &mut self.fetch,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
-                );
                 self.current_index += 1;
-                return Some(item);
+                if let Some(item) = self.fetch(archetype_entity.entity, archetype_entity.table_row)
+                {
+                    return Some(item);
+                }
             }
         }
+    }
+
+    #[inline(always)]
+    unsafe fn fetch(&mut self, entity: Entity, table_row: usize) -> Option<Q::Item<'w>> {
+        F::filter_fetch(&mut self.filter, entity, table_row)
+            .then(|| Q::fetch(&mut self.fetch, entity, table_row))
     }
 }

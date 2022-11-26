@@ -651,6 +651,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
 
     /// Runs `f` on each read-only query item.
     ///
+    /// Shorthand for `query.iter().for_each(..)`.
+    ///
     /// # Example
     ///
     /// Here, the `report_names_system` iterates over the `Player` component of every entity that contains it:
@@ -678,16 +680,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY: system runs without conflicts with other systems.
         // same-system queries have runtime borrow checks when they conflict
         unsafe {
-            self.state.as_readonly().for_each_unchecked_manual(
-                self.world,
-                f,
-                self.last_change_tick,
-                self.change_tick,
-            );
+            self.state
+                .as_readonly()
+                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+                .for_each(f);
         };
     }
 
     /// Runs `f` on each query item.
+    ///
+    /// Shorthand for `query.iter_mut().for_each(..)`.
     ///
     /// # Example
     ///
@@ -716,12 +718,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
         // borrow checks when they conflict
         unsafe {
-            self.state.for_each_unchecked_manual(
-                self.world,
-                f,
-                self.last_change_tick,
-                self.change_tick,
-            );
+            self.state
+                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+                .for_each(f);
         };
     }
 
