@@ -454,88 +454,88 @@ impl From<Color> for BackgroundColor {
 /// Used to determine the ordering of the texture's uv coordinates
 #[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
-pub enum ImageOrientation {
+pub enum Orientation {
     #[default]
     /// Not flipped or rotated
     Identity,
-    /// The image is rotated clockwise by 90 degrees
-    Rotate90,
-    /// The image is rotated clockwise by 180 degrees
-    Rotate180,
-    /// The image is rotated clockwise by 270 degrees
-    Rotate270,
+    /// The image is rotated left by 90 degrees
+    RotatedLeft,
+    /// The image is rotated by 180 degrees
+    Rotated180,
+    /// The image is rotated right by 90 degrees
+    RotatedRight,
     /// The image is flipped along its x-axis
-    Flip,
-    /// The image is flipped along its x-axis and then rotated clockwise by 90 degrees
-    FlipRotate90,
-    /// The image is flipped along its x-axis and then rotated clockwise by 180 degrees
-    FlipRotate180,
-    /// The image is flipped along its x-axis and then rotated clockwise by 270 degrees
-    FlipRotate270,
+    FlippedX,
+    /// The image is flipped along its x-axis and then rotated left by 90 degrees
+    FlippedXRotatedLeft,
+    /// The image is flipped along its x-axis and then rotated 180 degrees
+    FlippedXRotated180,
+    /// The image is flipped along its x-axis and then rotated right by 90 degrees
+    FlippedXRotatedRight,
 }
 
-impl ImageOrientation {
-    /// Rotate clockwise by 90 degrees
+impl Orientation {
+    /// Rotate the image to the left by 90 degrees
     #[inline]
-    pub fn rotate_cw(self) -> Self {
-        use ImageOrientation::*;
+    pub fn rotate_left(self) -> Self {
+        use Orientation::*;
         match self {
-            Identity => Rotate90,
-            Rotate90 => Rotate180,
-            Rotate180 => Rotate270,
-            Rotate270 => Identity,
-            Flip => FlipRotate90,
-            FlipRotate90 => FlipRotate180,
-            FlipRotate180 => FlipRotate270,
-            FlipRotate270 => Flip,
+            Identity => RotatedLeft,
+            RotatedLeft => Rotated180,
+            Rotated180 => RotatedRight,
+            RotatedRight => Identity,
+            FlippedX => FlippedXRotatedLeft,
+            FlippedXRotatedLeft => FlippedXRotated180,
+            FlippedXRotated180 => FlippedXRotatedRight,
+            FlippedXRotatedRight => FlippedX,
         }
     }
 
-    /// Rotate counterclockwise by 90 degrees
+    /// Rotate the image to the right by 90 degrees
     #[inline]
-    pub fn rotate_ccw(self) -> Self {
-        use ImageOrientation::*;
+    pub fn rotate_right(self) -> Self {
+        use Orientation::*;
         match self {
-            Identity => Rotate270,
-            Rotate90 => Identity,
-            Rotate180 => Rotate90,
-            Rotate270 => Rotate180,
-            Flip => FlipRotate270,
-            FlipRotate90 => Flip,
-            FlipRotate180 => FlipRotate90,
-            FlipRotate270 => FlipRotate180,
+            Identity => RotatedRight,
+            RotatedLeft => Identity,
+            Rotated180 => RotatedLeft,
+            RotatedRight => Rotated180,
+            FlippedX => FlippedXRotatedRight,
+            FlippedXRotatedLeft => FlippedX,
+            FlippedXRotated180 => FlippedXRotatedLeft,
+            FlippedXRotatedRight => FlippedXRotated180,
         }
     }
 
-    /// flip along the x-axis
+    /// Flip the image along its x-axis
     #[inline]
     pub fn flip_x(self) -> Self {
-        use ImageOrientation::*;
+        use Orientation::*;
         match self {
-            Identity => Flip,
-            Rotate90 => FlipRotate270,
-            Rotate180 => FlipRotate180,
-            Rotate270 => FlipRotate90,
-            Flip => Identity,
-            FlipRotate90 => Rotate270,
-            FlipRotate180 => Rotate180,
-            FlipRotate270 => Rotate90,
+            Identity => FlippedX,
+            RotatedLeft => FlippedXRotatedRight,
+            Rotated180 => FlippedXRotated180,
+            RotatedRight => FlippedXRotatedLeft,
+            FlippedX => Identity,
+            FlippedXRotatedLeft => RotatedRight,
+            FlippedXRotated180 => Rotated180,
+            FlippedXRotatedRight => RotatedLeft,
         }
     }
 
-    /// flip along the y-axis
+    /// Flip the image along its x-axis
     #[inline]
     pub fn flip_y(self) -> Self {
-        use ImageOrientation::*;
+        use Orientation::*;
         match self {
-            Identity => FlipRotate180,
-            Rotate90 => FlipRotate90,
-            Rotate180 => Flip,
-            Rotate270 => FlipRotate270,
-            Flip => Rotate180,
-            FlipRotate90 => Rotate90,
-            FlipRotate180 => Identity,
-            FlipRotate270 => Rotate270,
+            Identity => FlippedXRotated180,
+            RotatedLeft => FlippedXRotatedLeft,
+            Rotated180 => FlippedX,
+            RotatedRight => FlippedXRotatedRight,
+            FlippedX => Rotated180,
+            FlippedXRotatedLeft => RotatedLeft,
+            FlippedXRotated180 => Identity,
+            FlippedXRotatedRight => RotatedRight,
         }
     }
 }
@@ -547,14 +547,14 @@ pub struct UiImage {
     /// Handle to the texture
     pub texture: Handle<Image>,
     /// How the image is flipped and rotated
-    pub orientation: ImageOrientation,
+    pub orientation: Orientation,
 }
 
 impl Default for UiImage {
     fn default() -> UiImage {
         UiImage {
             texture: DEFAULT_IMAGE_HANDLE.typed(),
-            orientation: ImageOrientation::Identity,
+            orientation: Orientation::Identity,
         }
     }
 }

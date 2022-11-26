@@ -5,7 +5,7 @@ use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 pub use pipeline::*;
 pub use render_pass::*;
 
-use crate::ImageOrientation;
+use crate::Orientation;
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
@@ -193,7 +193,7 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
-    pub orientation: ImageOrientation,
+    pub orientation: Orientation,
     pub scale_factor: f32,
 }
 
@@ -232,7 +232,7 @@ pub fn extract_uinodes(
             } else {
                 (
                     DEFAULT_IMAGE_HANDLE.typed().clone_weak(),
-                    ImageOrientation::Identity,
+                    Orientation::Identity,
                 )
             };
             // Skip loading images
@@ -382,7 +382,7 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
-                    orientation: ImageOrientation::Identity,
+                    orientation: Orientation::Identity,
                     scale_factor,
                 });
             }
@@ -538,14 +538,14 @@ pub fn prepare_uinodes(
         .map(|pos| pos / atlas_extent);
 
         uvs = match extracted_uinode.orientation {
-            ImageOrientation::Identity => uvs,
-            ImageOrientation::Rotate90 => [uvs[1], uvs[2], uvs[3], uvs[0]],
-            ImageOrientation::Rotate180 => [uvs[2], uvs[3], uvs[0], uvs[1]],
-            ImageOrientation::Rotate270 => [uvs[3], uvs[0], uvs[1], uvs[2]],
-            ImageOrientation::Flip => [uvs[1], uvs[0], uvs[3], uvs[2]],
-            ImageOrientation::FlipRotate90 => [uvs[0], uvs[3], uvs[2], uvs[1]],
-            ImageOrientation::FlipRotate180 => [uvs[3], uvs[2], uvs[1], uvs[0]],
-            ImageOrientation::FlipRotate270 => [uvs[2], uvs[1], uvs[0], uvs[3]],
+            Orientation::Identity => uvs,
+            Orientation::RotatedLeft => [uvs[1], uvs[2], uvs[3], uvs[0]],
+            Orientation::Rotated180 => [uvs[2], uvs[3], uvs[0], uvs[1]],
+            Orientation::RotatedRight => [uvs[3], uvs[0], uvs[1], uvs[2]],
+            Orientation::FlippedX => [uvs[1], uvs[0], uvs[3], uvs[2]],
+            Orientation::FlippedXRotatedLeft => [uvs[0], uvs[3], uvs[2], uvs[1]],
+            Orientation::FlippedXRotated180 => [uvs[3], uvs[2], uvs[1], uvs[0]],
+            Orientation::FlippedXRotatedRight => [uvs[2], uvs[1], uvs[0], uvs[3]],
         };
 
         for i in QUAD_INDICES {

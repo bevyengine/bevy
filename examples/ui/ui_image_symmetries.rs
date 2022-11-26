@@ -40,7 +40,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ..Default::default()
                     },
                     text: Text::from_section(
-                        format!("{:?}", ImageOrientation::default()),
+                        format!("{:?}", Orientation::default()),
                         text_style.clone(),
                     ),
                     ..Default::default()
@@ -66,10 +66,10 @@ fn update(
     let mut image = image_query.single_mut();
     let mut orientation = image.orientation;
     if input.just_pressed(KeyCode::Z) {
-        orientation = orientation.rotate_cw();
+        orientation = orientation.rotate_left();
     }
     if input.just_pressed(KeyCode::X) {
-        orientation = orientation.rotate_ccw();
+        orientation = orientation.rotate_right();
     }
     if input.just_pressed(KeyCode::C) {
         orientation = orientation.flip_x();

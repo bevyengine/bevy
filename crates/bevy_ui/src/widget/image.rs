@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, UiImage, Val};
+use crate::{CalculatedSize, UiImage, Val, Orientation};
 use bevy_asset::Assets;
 use bevy_ecs::{
     query::Without,
@@ -17,14 +17,14 @@ pub fn update_image_calculated_size_system(
             let width = Val::Px(texture.texture_descriptor.size.width as f32);
             let height = Val::Px(texture.texture_descriptor.size.height as f32);
             let size = match image.orientation {
-                crate::ImageOrientation::Identity
-                | crate::ImageOrientation::Rotate180
-                | crate::ImageOrientation::Flip
-                | crate::ImageOrientation::FlipRotate180 => (width, height),
-                crate::ImageOrientation::Rotate90
-                | crate::ImageOrientation::Rotate270
-                | crate::ImageOrientation::FlipRotate90
-                | crate::ImageOrientation::FlipRotate270 => (height, width),
+                Orientation::Identity
+                | Orientation::Rotated180
+                | Orientation::FlippedX
+                | Orientation::FlippedXRotated180 => (width, height),
+                Orientation::RotatedLeft
+                | Orientation::RotatedRight
+                | Orientation::FlippedXRotatedLeft
+                | Orientation::FlippedXRotatedRight => (height, width),
             }
             .into();
 
