@@ -114,7 +114,6 @@ fn read_buffer_system(
 
     info!("writable_buffer: {:?}", slice);
 
-    drop(slice);
     drop(data);
     writable_buffer.unmap();
 }
