@@ -126,7 +126,7 @@ impl Material for CustomMaterial {
 }
 
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
-#[uuid = "f57038b7-5b14-4abd-896c-cf4748ba80f8"]
+#[uuid = "b83c887a-ad95-4eb4-b150-60f95ef2028a"]
 pub struct CustomMaterial {
     // read only storage buffer
     #[storage(0, read_only)]
