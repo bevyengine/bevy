@@ -55,14 +55,14 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
             if parent == previous {
                 warn!("Entity `{child:?}` is already a child of `{parent:?}`");
                 continue;
-            } else {
-                remove_from_children(world, previous, *child);
-                moved.push(HierarchyEvent::ChildMoved {
-                    child: *child,
-                    previous_parent: previous,
-                    new_parent: parent,
-                });
             }
+
+            remove_from_children(world, previous, *child);
+            moved.push(HierarchyEvent::ChildMoved {
+                child: *child,
+                previous_parent: previous,
+                new_parent: parent,
+            });
         }
     }
     push_events(world, moved);
