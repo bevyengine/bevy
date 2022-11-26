@@ -39,7 +39,7 @@ impl Timer {
         Self {
             duration,
             mode,
-            stopwatch: Stopwatch::new_paused(),
+            stopwatch: Stopwatch::new(true),
             ..Default::default()
         }
     }
