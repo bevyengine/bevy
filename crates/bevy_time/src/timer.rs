@@ -36,13 +36,10 @@ impl Timer {
     ///
     /// See also [`Timer::new`](Timer::new).
     pub fn new_paused(duration: Duration, mode: TimerMode) -> Self {
-        let mut stopwatch = Stopwatch::new();
-        stopwatch.pause();
-
         Self {
             duration,
             mode,
-            stopwatch,
+            stopwatch: Stopwatch::new_paused(),
             ..Default::default()
         }
     }

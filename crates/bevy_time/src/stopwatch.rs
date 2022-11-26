@@ -45,6 +45,14 @@ impl Stopwatch {
         Default::default()
     }
 
+    /// Create a new paused `Stopwatch` with no elapsed time.
+    pub fn new_paused() -> Self {
+        Self {
+            paused: true,
+            ..Default::default()
+        }
+    }
+
     /// Returns the elapsed time since the last [`reset`](Stopwatch::reset)
     /// of the stopwatch.
     ///
