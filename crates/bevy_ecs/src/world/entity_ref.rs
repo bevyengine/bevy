@@ -94,7 +94,7 @@ impl<'w> EntityRef<'w> {
             return None;
         }
 
-        // SAFETY: entity location is valid and component_id exists
+        // SAFETY: Entity location is valid and component_id exists.
         unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
     }
 
@@ -234,7 +234,7 @@ impl<'w> EntityMut<'w> {
             return None;
         }
 
-        // SAFETY: entity location is valid and component_id exists
+        // SAFETY: Entity location is valid and component_id exists.
         unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
     }
 
