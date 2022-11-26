@@ -8,6 +8,8 @@ use std::{
     fmt::Debug,
 };
 
+use thiserror::Error;
+
 use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
 
@@ -60,6 +62,20 @@ pub enum ReflectOwned {
     Map(Box<dyn Map>),
     Enum(Box<dyn Enum>),
     Value(Box<dyn Reflect>),
+}
+
+#[derive(Error, Debug)]
+pub enum ApplyError {
+    #[error("Attempted to apply non-{0} type to {0} type.")]
+    MismatchedTypes(String),
+    #[error("Value is not a {0}.")]
+    WrongType(String),
+    #[error("Attempted to apply different sized {0} types.")]
+    DifferentSize(String),
+    #[error("Field in `Some` variant of {0} should exist")]
+    AbsentField(String),
+    #[error("Field in `Some` variant of {0} should be of type {1}")]
+    MismatchedFieldTypes(String, String),
 }
 
 /// A reflected Rust type.
@@ -142,6 +158,8 @@ pub trait Reflect: Any + Send + Sync {
     ///   `self` and `value` are not of the same type.
     /// - If `T` is a value type and `self` cannot be downcast to `T`
     fn apply(&mut self, value: &dyn Reflect);
+
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError>;
 
     /// Performs a type-checked assignment of a reflected value to this value.
     ///
