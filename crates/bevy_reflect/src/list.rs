@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, Typed,
+    ApplyError, Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -235,6 +235,10 @@ impl Reflect for DynamicList {
         list_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        list_try_apply(self, value)
+    }
+
     #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
@@ -322,6 +326,26 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
     } else {
         panic!("Attempted to apply a non-list type to a list type.");
     }
+}
+
+#[inline]
+pub fn list_try_apply<L: List>(a: &mut L, b: &dyn Reflect) -> Result<(), ApplyError> {
+    if let ReflectRef::List(list_value) = b.reflect_ref() {
+        for (i, value) in list_value.iter().enumerate() {
+            if i < a.len() {
+                if let Some(v) = a.get_mut(i) {
+                    if let Err(e) = v.try_apply(value) {
+                        return Err(e);
+                    }
+                }
+            } else {
+                List::push(a, value.clone_value());
+            }
+        }
+    } else {
+        return Err(ApplyError::MismatchedTypes("list".to_string()));
+    }
+    Ok(())
 }
 
 /// Compares a [`List`] with a [`Reflect`] value.
