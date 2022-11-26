@@ -242,7 +242,11 @@ impl Node for AmbientOcclusionNode {
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
-            denoise_pass.dispatch_workgroups((camera_size.x + 15) / 16, (camera_size.y + 7) / 8, 1);
+            denoise_pass.dispatch_workgroups(
+                (camera_size.x + 15) / 16,
+                (camera_size.y + 15) / 16,
+                1,
+            );
         }
 
         Ok(())
@@ -439,20 +443,20 @@ impl FromWorld for AmbientOcclusionPipelines {
                     BindGroupLayoutEntry {
                         binding: 0,
                         visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::StorageTexture {
-                            access: StorageTextureAccess::WriteOnly,
-                            format: TextureFormat::R32Float,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float { filterable: false },
                             view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
                         },
                         count: None,
                     },
                     BindGroupLayoutEntry {
                         binding: 1,
                         visibility: ShaderStages::COMPUTE,
-                        ty: BindingType::StorageTexture {
-                            access: StorageTextureAccess::WriteOnly,
-                            format: TextureFormat::R32Float,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Uint,
                             view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
                         },
                         count: None,
                     },
@@ -461,7 +465,7 @@ impl FromWorld for AmbientOcclusionPipelines {
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::StorageTexture {
                             access: StorageTextureAccess::WriteOnly,
-                            format: TextureFormat::R32Uint,
+                            format: TextureFormat::R32Float,
                             view_dimension: TextureViewDimension::D2,
                         },
                         count: None,
@@ -826,13 +830,13 @@ fn queue_ambient_occlusion_bind_groups(
                 BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::TextureView(
-                        &ao_textures.ambient_occlusion_texture.default_view,
+                        &ao_textures.depth_differences_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
                     binding: 2,
                     resource: BindingResource::TextureView(
-                        &ao_textures.depth_differences_texture.default_view,
+                        &ao_textures.ambient_occlusion_texture.default_view,
                     ),
                 },
             ],
