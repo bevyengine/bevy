@@ -242,11 +242,7 @@ impl Node for AmbientOcclusionNode {
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
-            denoise_pass.dispatch_workgroups(
-                (camera_size.x + 15) / 16,
-                (camera_size.y + 15) / 16,
-                1,
-            );
+            denoise_pass.dispatch_workgroups((camera_size.x + 7) / 8, (camera_size.y + 7) / 8, 1);
         }
 
         Ok(())
@@ -605,7 +601,7 @@ fn prepare_ambient_occlusion_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R32Float,
-                usage: TextureUsages::STORAGE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
             let ambient_occlusion_noisy_texture = ambient_occlusion_noisy_textures
                 .entry(camera.target.clone())
@@ -633,7 +629,7 @@ fn prepare_ambient_occlusion_textures(
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R32Uint,
-                usage: TextureUsages::STORAGE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
             let depth_differences_texture = depth_differences_textures
                 .entry(camera.target.clone())

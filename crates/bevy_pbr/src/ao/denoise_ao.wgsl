@@ -58,7 +58,7 @@ fn denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let sum = (center_weight * center_visibility) + (left_weight * left_visibility) + (top_weight * top_visibility) + (bottom_weight * bottom_visibility) + (top_left_weight * top_left_visibility) + (top_right_weight * top_right_visibility) + (bottom_left_weight * bottom_left_visibility) + (bottom_right_weight * bottom_right_visibility);
     let sum_weight = center_weight + left_weight + top_weight + bottom_weight + top_left_weight + top_right_weight + bottom_left_weight + bottom_right_weight;
-
     let denoised_visibility = saturate(sum / sum_weight);
+
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(denoised_visibility, 0.0, 0.0, 0.0));
 }
