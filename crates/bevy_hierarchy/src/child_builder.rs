@@ -6,6 +6,7 @@ use bevy_ecs::{
     system::{Command, Commands, EntityCommands},
     world::{EntityMut, World},
 };
+use bevy_log::warn;
 use smallvec::SmallVec;
 
 fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
@@ -51,13 +52,17 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
     let mut moved: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
     for child in children {
         if let Some(previous) = update_parent(world, *child, parent) {
-            debug_assert!(parent != previous);
-            remove_from_children(world, previous, *child);
-            moved.push(HierarchyEvent::ChildMoved {
-                child: *child,
-                previous_parent: previous,
-                new_parent: parent,
-            });
+            if parent == previous {
+                warn!("Entity `{child:?}` is already a child of `{parent:?}`");
+                continue;
+            } else {
+                remove_from_children(world, previous, *child);
+                moved.push(HierarchyEvent::ChildMoved {
+                    child: *child,
+                    previous_parent: previous,
+                    new_parent: parent,
+                });
+            }
         }
     }
     push_events(world, moved);
