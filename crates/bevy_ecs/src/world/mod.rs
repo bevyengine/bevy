@@ -889,7 +889,7 @@ impl World {
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: unique world access
+        // SAFETY: `component_id` was obtained from the type ID of `R`.
         unsafe { self.get_resource_with_id(component_id) }
     }
 
