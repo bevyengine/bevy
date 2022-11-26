@@ -32,6 +32,21 @@ impl Timer {
         }
     }
 
+    /// Creates a new initially paused timer with a given duration.
+    ///
+    /// See also [`Timer::new`](Timer::new).
+    pub fn new_paused(duration: Duration, mode: TimerMode) -> Self {
+        let mut stopwatch = Stopwatch::new();
+        stopwatch.pause();
+
+        Self {
+            duration,
+            mode,
+            stopwatch,
+            ..Default::default()
+        }
+    }
+
     /// Creates a new timer with a given duration in seconds.
     ///
     /// # Example
@@ -562,5 +577,18 @@ mod tests {
         t.tick(Duration::from_secs_f32(5.0));
         assert!(!t.just_finished());
         assert!(!t.finished());
+    }
+
+    #[test]
+    fn initially_paused() {
+        let mut t = Timer::new_paused(Duration::from_secs(10), TimerMode::Once);
+        t.tick(Duration::from_secs_f32(10.0));
+        assert!(t.paused());
+        assert!(!t.just_finished());
+        assert!(!t.finished());
+        t.unpause();
+        t.tick(Duration::from_secs_f32(10.0));
+        assert!(t.just_finished());
+        assert!(t.finished());
     }
 }
