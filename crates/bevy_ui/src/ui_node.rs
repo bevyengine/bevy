@@ -477,7 +477,7 @@ pub enum Orientation {
 impl Orientation {
     /// Rotate the image to the left by 90 degrees
     #[inline]
-    pub fn rotate_left(self) -> Self {
+    pub const fn rotate_left(self) -> Self {
         use Orientation::*;
         match self {
             Identity => RotatedLeft,
@@ -493,7 +493,7 @@ impl Orientation {
 
     /// Rotate the image to the right by 90 degrees
     #[inline]
-    pub fn rotate_right(self) -> Self {
+    pub const fn rotate_right(self) -> Self {
         use Orientation::*;
         match self {
             Identity => RotatedRight,
@@ -507,9 +507,15 @@ impl Orientation {
         }
     }
 
+    /// Rotate the image to the right by 90 degrees
+    #[inline]
+    pub const fn rotate_180(self) -> Self {
+        self.rotate_left().rotate_left()
+    }
+
     /// Flip the image along its x-axis
     #[inline]
-    pub fn flip_x(self) -> Self {
+    pub const fn flip_x(self) -> Self {
         use Orientation::*;
         match self {
             Identity => FlippedX,
@@ -525,7 +531,7 @@ impl Orientation {
 
     /// Flip the image along its x-axis
     #[inline]
-    pub fn flip_y(self) -> Self {
+    pub const fn flip_y(self) -> Self {
         use Orientation::*;
         match self {
             Identity => FlippedXRotated180,
@@ -612,6 +618,7 @@ impl Default for ZIndex {
 
 #[cfg(test)]
 mod tests {
+    use crate::Orientation;
     use crate::ValArithmeticError;
 
     use super::Val;
@@ -771,6 +778,69 @@ mod tests {
         assert_eq!(
             format!("{}", ValArithmeticError::NonEvaluateable),
             "the given variant of Val is not evaluateable (non-numeric)"
+        );
+    }
+
+    #[test]
+    fn orientation_operations_compose_correctly() {
+        assert_eq!(
+            Orientation::Identity.rotate_left().rotate_left(),
+            Orientation::Rotated180
+        );
+        assert_eq!(
+            Orientation::Identity
+                .rotate_left()
+                .rotate_left()
+                .rotate_left(),
+            Orientation::RotatedRight
+        );
+        assert_eq!(
+            Orientation::Identity
+                .rotate_left()
+                .rotate_left()
+                .rotate_left()
+                .rotate_left(),
+            Orientation::Identity
+        );
+        assert_eq!(
+            Orientation::Identity
+                .rotate_right()
+                .rotate_right()
+                .rotate_right()
+                .rotate_right(),
+            Orientation::Identity
+        );
+        assert_eq!(
+            Orientation::Identity.rotate_left().rotate_right(),
+            Orientation::Identity
+        );
+        assert_eq!(
+            Orientation::Identity.rotate_right().rotate_left(),
+            Orientation::Identity
+        );
+        assert_eq!(
+            Orientation::Identity.flip_x().flip_x(),
+            Orientation::Identity
+        );
+        assert_eq!(
+            Orientation::Identity.flip_y().flip_y(),
+            Orientation::Identity
+        );
+        assert_eq!(
+            Orientation::Identity.flip_x().flip_y(),
+            Orientation::Rotated180
+        );
+        assert_eq!(
+            Orientation::Identity.flip_y().flip_x(),
+            Orientation::Rotated180
+        );
+        assert_eq!(
+            Orientation::Identity.flip_x().rotate_left(),
+            Orientation::FlippedXRotatedLeft
+        );
+        assert_eq!(
+            Orientation::Identity.rotate_left().flip_x(),
+            Orientation::FlippedXRotatedRight
         );
     }
 }
