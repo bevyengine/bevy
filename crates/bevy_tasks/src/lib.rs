@@ -4,13 +4,24 @@
 mod slice;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 
+#[cfg(any(target_arch = "wasm32", not(feature = "tokio")))]
 mod task;
+#[cfg(any(target_arch = "wasm32", not(feature = "tokio")))]
 pub use task::Task;
+#[cfg(all(not(target_arch = "wasm32"), feature = "tokio"))]
+mod tokio_task;
+#[cfg(all(not(target_arch = "wasm32"), feature = "tokio"))]
+pub use tokio_task::Task;
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "tokio")))]
 mod task_pool;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), not(feature = "tokio")))]
 pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
+
+#[cfg(all(not(target_arch = "wasm32"), feature = "tokio"))]
+mod tokio_task_pool;
+#[cfg(all(not(target_arch = "wasm32"), feature = "tokio"))]
+pub use tokio_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 #[cfg(target_arch = "wasm32")]
 mod single_threaded_task_pool;

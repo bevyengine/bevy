@@ -2,63 +2,73 @@ use std::{
     future::Future,
     marker::PhantomData,
     mem,
-    sync::Arc,
-    thread::{self, JoinHandle},
+    sync::{atomic::{AtomicUsize, Ordering}, Arc},
+    pin::Pin,
 };
 
-use async_task::FallibleTask;
+use tokio::task::JoinHandle;
+use tokio::runtime::{Runtime, Builder};
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, pin, FutureExt};
+use futures_lite::{future, pin};
 
-use crate::Task;
+use crate::tokio_task::Task;
 
 /// Used to create a [`TaskPool`]
-#[derive(Debug, Default, Clone)]
+#[derive(Debug)]
 #[must_use]
 pub struct TaskPoolBuilder {
-    /// If set, we'll set up the thread pool to use at most `num_threads` threads.
-    /// Otherwise use the logical core count of the system
-    num_threads: Option<usize>,
-    /// If set, we'll use the given stack size rather than the system default
-    stack_size: Option<usize>,
-    /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
-    /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
-    thread_name: Option<String>,
+    thread_count: Option<usize>,
+    builder: Builder,
+}
+
+impl Default for TaskPoolBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TaskPoolBuilder {
     /// Creates a new [`TaskPoolBuilder`] instance
     pub fn new() -> Self {
-        Self::default()
+        let mut builder = Builder::new_multi_thread();
+        builder.enable_all().thread_name(String::from("TaskPool"));
+        Self {
+            thread_count: None,
+            builder,
+        }
     }
 
     /// Override the number of threads created for the pool. If unset, we default to the number
     /// of logical cores of the system
     pub fn num_threads(mut self, num_threads: usize) -> Self {
-        self.num_threads = Some(num_threads);
+        self.thread_count = Some(num_threads);
+        self.builder.worker_threads(num_threads);
         self
     }
 
     /// Override the stack size of the threads created for the pool
     pub fn stack_size(mut self, stack_size: usize) -> Self {
-        self.stack_size = Some(stack_size);
+        self.builder.thread_stack_size(stack_size);
         self
     }
 
     /// Override the name of the threads created for the pool. If set, threads will
     /// be named `<thread_name> (<thread_index>)`, i.e. `MyThreadPool (2)`
     pub fn thread_name(mut self, thread_name: String) -> Self {
-        self.thread_name = Some(thread_name);
+        let counter = Arc::new(AtomicUsize::new(0));
+        self.builder.thread_name_fn(move || {
+            let thread_count = counter.fetch_add(1, Ordering::Relaxed);
+            format!("{} ({})", thread_name, thread_count)
+        });
         self
     }
 
     /// Creates a new [`TaskPool`] based on the current options.
-    pub fn build(self) -> TaskPool {
-        TaskPool::new_internal(
-            self.num_threads,
-            self.stack_size,
-            self.thread_name.as_deref(),
-        )
+    pub fn build(mut self) -> TaskPool {
+        TaskPool {
+            thread_count: self.thread_count.unwrap_or_else(crate::available_parallelism),
+            runtime: self.builder.build().unwrap(),
+        }
     }
 }
 
@@ -66,89 +76,19 @@ impl TaskPoolBuilder {
 /// the pool on threads owned by the pool.
 #[derive(Debug)]
 pub struct TaskPool {
-    /// The executor for the pool
-    ///
-    /// This has to be separate from TaskPoolInner because we have to create an `Arc<Executor>` to
-    /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the `Vec<Task<T>>` contained within `TaskPoolInner`
-    executor: Arc<async_executor::Executor<'static>>,
-
-    /// Inner state of the pool
-    threads: Vec<JoinHandle<()>>,
-    shutdown_tx: async_channel::Sender<()>,
+    runtime: Runtime,
+    thread_count: usize,
 }
 
 impl TaskPool {
-    thread_local! {
-        static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
-    }
-
     /// Create a `TaskPool` with the default configuration.
     pub fn new() -> Self {
         TaskPoolBuilder::new().build()
     }
 
-    fn new_internal(
-        num_threads: Option<usize>,
-        stack_size: Option<usize>,
-        thread_name: Option<&str>,
-    ) -> Self {
-        let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
-
-        let executor = Arc::new(async_executor::Executor::new());
-
-        let num_threads = num_threads.unwrap_or_else(crate::available_parallelism);
-
-        let threads = (0..num_threads)
-            .map(|i| {
-                let ex = Arc::clone(&executor);
-                let shutdown_rx = shutdown_rx.clone();
-
-                let thread_name = if let Some(thread_name) = thread_name {
-                    format!("{thread_name} ({i})")
-                } else {
-                    format!("TaskPool ({i})")
-                };
-                let mut thread_builder = thread::Builder::new().name(thread_name);
-
-                if let Some(stack_size) = stack_size {
-                    thread_builder = thread_builder.stack_size(stack_size);
-                }
-
-                thread_builder
-                    .spawn(move || {
-                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-                            loop {
-                                let res = std::panic::catch_unwind(|| {
-                                    let tick_forever = async move {
-                                        loop {
-                                            local_executor.tick().await;
-                                        }
-                                    };
-                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
-                                });
-                                if let Ok(value) = res {
-                                    // Use unwrap_err because we expect a Closed error
-                                    value.unwrap_err();
-                                    break;
-                                }
-                            }
-                        });
-                    })
-                    .expect("Failed to spawn thread.")
-            })
-            .collect();
-
-        Self {
-            executor,
-            threads,
-            shutdown_tx,
-        }
-    }
-
     /// Return the number of threads owned by the task pool
     pub fn thread_num(&self) -> usize {
-        self.threads.len()
+        self.thread_count
     }
 
     /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
@@ -243,18 +183,18 @@ impl TaskPool {
         // This is guaranteed because we drive all the futures spawned onto the Scope
         // to completion in this function. However, rust has no way of knowing this so we
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
-        let executor: &async_executor::Executor = &self.executor;
-        let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-        let task_scope_executor = &async_executor::Executor::default();
-        let task_scope_executor: &'env async_executor::Executor =
-            unsafe { mem::transmute(task_scope_executor) };
-        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
-        let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
+        let runtime: &Runtime = &self.runtime;
+        let runtime: &'env Runtime = unsafe { mem::transmute(runtime) };
+        let task_scope_runtime: Runtime = Builder::new_current_thread().build().unwrap();
+        let task_scope_runtime: &'env Runtime =
+            unsafe { mem::transmute(&task_scope_runtime) };
+        let spawned: ConcurrentQueue<JoinHandle<T>> = ConcurrentQueue::unbounded();
+        let spawned_ref: &'env ConcurrentQueue<JoinHandle<T>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
-            executor,
-            task_scope_executor,
+            runtime,
+            task_scope_runtime,
             spawned: spawned_ref,
             scope: PhantomData,
             env: PhantomData,
@@ -279,16 +219,14 @@ impl TaskPool {
             // Pin the futures on the stack.
             pin!(get_results);
 
+            let _guard = task_scope_runtime.enter();
             loop {
-                if let Some(result) = future::block_on(future::poll_once(&mut get_results)) {
+                if let Some(result) = self.runtime.block_on(future::poll_once(&mut get_results)) {
                     break result;
-                };
-
-                std::panic::catch_unwind(|| {
-                    executor.try_tick();
-                    task_scope_executor.try_tick();
-                })
-                .ok();
+                }
+                if let Some(result) = task_scope_runtime.block_on(future::poll_once(&mut get_results)) {
+                    break result;
+                }
             }
         }
     }
@@ -302,7 +240,7 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future))
+        Task::new(self.runtime.spawn(future))
     }
 
     /// Spawns a static future on the thread-local async executor for the current thread. The task
@@ -314,7 +252,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+        Task::new(tokio::task::spawn_local(future))
     }
 
     /// Runs a function with the local executor. Typically used to tick
@@ -332,7 +270,9 @@ impl TaskPool {
     where
         F: FnOnce(&async_executor::LocalExecutor) -> R,
     {
-        Self::LOCAL_EXECUTOR.with(f)
+        // TODO: Implement this... somehow.
+        let dummy = async_executor::LocalExecutor::new();
+        f(&dummy)
     }
 }
 
@@ -342,28 +282,14 @@ impl Default for TaskPool {
     }
 }
 
-impl Drop for TaskPool {
-    fn drop(&mut self) {
-        self.shutdown_tx.close();
-
-        let panicking = thread::panicking();
-        for join_handle in self.threads.drain(..) {
-            let res = join_handle.join();
-            if !panicking {
-                res.expect("Task thread panicked while executing.");
-            }
-        }
-    }
-}
-
 /// A `TaskPool` scope for running one or more non-`'static` futures.
 ///
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope async_executor::Executor<'scope>,
-    task_scope_executor: &'scope async_executor::Executor<'scope>,
-    spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
+    runtime: &'scope Runtime,
+    task_scope_runtime: &'scope Runtime,
+    spawned: &'scope ConcurrentQueue<JoinHandle<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -379,10 +305,15 @@ impl<'scope, 'env, T: Send + 'static> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.executor.spawn(f).fallible();
+        let fut: Pin<Box<dyn Future<Output = T> + 'scope + Send>> = Box::pin(f);
+        let fut: Pin<Box<dyn Future<Output = T> + 'static + Send>> = 
+            unsafe { mem::transmute(fut) };
+        let task = self.runtime.spawn(fut);
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
-        self.spawned.push(task).unwrap();
+        if let Err(err) = self.spawned.push(task) {
+            panic!("Failed to scheudle task on scope: {}", err);
+        }
     }
 
     /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
@@ -392,10 +323,15 @@ impl<'scope, 'env, T: Send + 'static> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.task_scope_executor.spawn(f).fallible();
+        let fut: Pin<Box<dyn Future<Output = T> + 'scope + Send>> = Box::pin(f);
+        let fut: Pin<Box<dyn Future<Output = T> + 'static + Send>> = 
+            unsafe { mem::transmute(fut) };
+        let task = self.task_scope_runtime.spawn(fut);
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
-        self.spawned.push(task).unwrap();
+        if let Err(err) = self.spawned.push(task) {
+            panic!("Failed to scheudle task on scope: {}", err);
+        }
     }
 }
 
@@ -406,7 +342,7 @@ where
     fn drop(&mut self) {
         future::block_on(async {
             while let Ok(task) = self.spawned.pop() {
-                task.cancel().await;
+                task.abort();
             }
         });
     }
