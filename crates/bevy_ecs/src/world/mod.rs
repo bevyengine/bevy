@@ -1392,7 +1392,8 @@ impl World {
 
     /// Reads the current change tick of this world.
     ///
-    /// This does the same thing as [`Self::change_tick`], only this method uses atomic synchronization.
+    /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](#method.change_tick),
+    /// which is more efficient since it does not require atomic synchronization.
     #[inline]
     pub fn read_change_tick(&self) -> u32 {
         self.change_tick.load(Ordering::Acquire)
