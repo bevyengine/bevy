@@ -88,9 +88,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         bevy_reflect_path,
     );
 
-    let get_type_registration_impl = reflect_enum
-        .meta()
-        .get_type_registration(&where_clause_options);
+    let get_type_registration_impl = reflect_enum.get_type_registration(&where_clause_options);
+
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().generics().split_for_impl();
 

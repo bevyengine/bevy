@@ -204,7 +204,11 @@ impl<'a> Serialize for StructSerializer<'a> {
         let serialization_data = self
             .registry
             .get(type_info.type_id())
-            .and_then(|registration| registration.data::<SerializationData>());
+            .and_then(|registration| registration.data::<SerializationData>())
+            .and_then(|data| match data {
+                SerializationData::Struct(data) => Some(data),
+                SerializationData::Enum(_) => None,
+            });
         let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
         let mut state = serializer.serialize_struct(
             struct_info.name(),
@@ -253,7 +257,11 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
         let serialization_data = self
             .registry
             .get(type_info.type_id())
-            .and_then(|registration| registration.data::<SerializationData>());
+            .and_then(|registration| registration.data::<SerializationData>())
+            .and_then(|data| match data {
+                SerializationData::Struct(data) => Some(data),
+                SerializationData::Enum(_) => None,
+            });
         let ignored_len = serialization_data.map(|data| data.len()).unwrap_or(0);
         let mut state = serializer.serialize_tuple_struct(
             tuple_struct_info.name(),
@@ -309,7 +317,20 @@ impl<'a> Serialize for EnumSerializer<'a> {
             })?;
         let variant_name = variant_info.name();
         let variant_type = self.enum_value.variant_type();
-        let field_len = self.enum_value.field_len();
+
+        let serialization_data = self
+            .registry
+            .get(type_info.type_id())
+            .and_then(|registration| registration.data::<SerializationData>())
+            .and_then(|data| match data {
+                SerializationData::Struct(_) => None,
+                SerializationData::Enum(data) => Some(data),
+            });
+        let ignored_len = serialization_data
+            .and_then(|data| data.len(variant_name))
+            .unwrap_or(0);
+
+        let field_len = self.enum_value.field_len() - ignored_len;
 
         match variant_type {
             VariantType::Unit => {
@@ -340,6 +361,13 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     field_len,
                 )?;
                 for (index, field) in self.enum_value.iter_fields().enumerate() {
+                    if serialization_data
+                        .and_then(|data| data.is_ignored_field(variant_name, index))
+                        .unwrap_or(false)
+                    {
+                        continue;
+                    }
+
                     let field_info = struct_info.field_at(index).unwrap();
                     state.serialize_field(
                         field_info.name(),
@@ -372,7 +400,14 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     variant_name,
                     field_len,
                 )?;
-                for field in self.enum_value.iter_fields() {
+                for (index, field) in self.enum_value.iter_fields().enumerate() {
+                    if serialization_data
+                        .and_then(|data| data.is_ignored_field(variant_name, index))
+                        .unwrap_or(false)
+                    {
+                        continue;
+                    }
+
                     state.serialize_field(&TypedReflectSerializer::new(
                         field.value(),
                         self.registry,

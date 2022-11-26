@@ -1,10 +1,10 @@
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
-use crate::utility::{members_to_serialization_denylist, WhereClauseOptions};
-use bit_set::BitSet;
+use crate::utility::WhereClauseOptions;
 use quote::quote;
 
+use crate::serialization::SerializationDenylist;
 use crate::{utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
@@ -60,7 +60,7 @@ pub(crate) struct ReflectMeta<'a> {
 /// ```
 pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
-    serialization_denylist: BitSet<u32>,
+    serialization_denylist: SerializationDenylist,
     fields: Vec<StructField<'a>>,
 }
 
@@ -79,6 +79,7 @@ pub(crate) struct ReflectStruct<'a> {
 /// ```
 pub(crate) struct ReflectEnum<'a> {
     meta: ReflectMeta<'a>,
+    serialization_denylist: SerializationDenylist,
     variants: Vec<EnumVariant<'a>>,
 }
 
@@ -199,8 +200,8 @@ impl<'a> ReflectDerive<'a> {
                 let fields = Self::collect_struct_fields(&data.fields)?;
                 let reflect_struct = ReflectStruct {
                     meta,
-                    serialization_denylist: members_to_serialization_denylist(
-                        fields.iter().map(|v| v.attrs.ignore),
+                    serialization_denylist: SerializationDenylist::from_struct_fields(
+                        fields.iter(),
                     ),
                     fields,
                 };
@@ -214,7 +215,13 @@ impl<'a> ReflectDerive<'a> {
             Data::Enum(data) => {
                 let variants = Self::collect_enum_variants(&data.variants)?;
 
-                let reflect_enum = ReflectEnum { meta, variants };
+                let reflect_enum = ReflectEnum {
+                    meta,
+                    serialization_denylist: SerializationDenylist::from_enum_variants(
+                        variants.iter(),
+                    ),
+                    variants,
+                };
                 Ok(Self::Enum(reflect_enum))
             }
             Data::Union(..) => Err(syn::Error::new(
@@ -345,10 +352,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Access the data about which fields should be ignored during serialization.
-    ///
-    /// The returned bitset is a collection of indices obtained from the [`members_to_serialization_denylist`](crate::utility::members_to_serialization_denylist) function.
-    #[allow(dead_code)]
-    pub fn serialization_denylist(&self) -> &BitSet<u32> {
+    pub fn serialization_denylist(&self) -> &SerializationDenylist {
         &self.serialization_denylist
     }
 
@@ -359,15 +363,13 @@ impl<'a> ReflectStruct<'a> {
         &self,
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
-        let reflect_path = self.meta.bevy_reflect_path();
-
         crate::registration::impl_get_type_registration(
             self.meta.type_name(),
-            reflect_path,
+            self.meta.bevy_reflect_path(),
             self.meta.traits().idents(),
             self.meta.generics(),
             where_clause_options,
-            Some(&self.serialization_denylist),
+            Some(self.serialization_denylist()),
         )
     }
 
@@ -430,6 +432,11 @@ impl<'a> ReflectEnum<'a> {
         }
     }
 
+    /// Access the data about which fields should be ignored during serialization.
+    pub fn serialization_denylist(&self) -> &SerializationDenylist {
+        &self.serialization_denylist
+    }
+
     /// The complete set of variants in this enum.
     pub fn variants(&self) -> &[EnumVariant<'a>] {
         &self.variants
@@ -471,6 +478,23 @@ impl<'a> ReflectEnum<'a> {
             ignored_types: self.ignored_types().into(),
             ignored_trait_bounds: quote! { #FQAny + #FQSend + #FQSync + #FQDefault },
         }
+    }
+
+    /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
+    ///
+    /// Returns a specific implementation for enums that should be preferred over the generic [`get_type_registration`](crate::ReflectMeta) method.
+    pub fn get_type_registration(
+        &self,
+        where_clause_options: &WhereClauseOptions,
+    ) -> proc_macro2::TokenStream {
+        crate::registration::impl_get_type_registration(
+            self.meta.type_name(),
+            self.meta.bevy_reflect_path(),
+            self.meta.traits().idents(),
+            self.meta.generics(),
+            where_clause_options,
+            Some(self.serialization_denylist()),
+        )
     }
 }
 

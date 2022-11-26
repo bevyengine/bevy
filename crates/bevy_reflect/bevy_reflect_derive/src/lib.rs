@@ -25,6 +25,7 @@ mod from_reflect;
 mod impls;
 mod reflect_value;
 mod registration;
+mod serialization;
 mod trait_reflection;
 mod type_uuid;
 mod utility;

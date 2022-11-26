@@ -511,7 +511,10 @@ impl<'a, 'de> Visitor<'de> for StructVisitor<'a> {
         let ignored_len = self
             .registration
             .data::<SerializationData>()
-            .map(|data| data.len())
+            .and_then(|data| match data {
+                SerializationData::Struct(data) => Some(data.len()),
+                SerializationData::Enum(_) => None,
+            })
             .unwrap_or(0);
         let field_len = self.struct_info.field_len().saturating_sub(ignored_len);
 
@@ -561,7 +564,10 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
         let ignored_len = self
             .registration
             .data::<SerializationData>()
-            .map(|data| data.len())
+            .and_then(|data| match data {
+                SerializationData::Struct(data) => Some(data.len()),
+                SerializationData::Enum(_) => None,
+            })
             .unwrap_or(0);
         let field_len = self
             .tuple_struct_info
@@ -598,7 +604,10 @@ impl<'a, 'de> Visitor<'de> for TupleStructVisitor<'a> {
         let ignored_len = self
             .registration
             .data::<SerializationData>()
-            .map(|data| data.len())
+            .and_then(|data| match data {
+                SerializationData::Struct(data) => Some(data.len()),
+                SerializationData::Enum(_) => None,
+            })
             .unwrap_or(0);
         if tuple_struct.field_len() != self.tuple_struct_info.field_len() - ignored_len {
             return Err(Error::invalid_length(
@@ -627,7 +636,12 @@ impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
     where
         V: SeqAccess<'de>,
     {
-        visit_tuple(&mut seq, self.tuple_info, self.registry)
+        visit_tuple(
+            &mut seq,
+            self.tuple_info,
+            self.tuple_info.field_len(),
+            self.registry,
+        )
     }
 }
 
@@ -890,7 +904,10 @@ impl<'a, 'de> Visitor<'de> for StructVariantVisitor<'a> {
         let ignored_len = self
             .registration
             .data::<SerializationData>()
-            .map(|data| data.len())
+            .and_then(|data| match data {
+                SerializationData::Struct(_) => None,
+                SerializationData::Enum(data) => data.len(self.struct_info.name()),
+            })
             .unwrap_or(0);
         let field_len = self.struct_info.field_len().saturating_sub(ignored_len);
 
@@ -937,7 +954,10 @@ impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
         let ignored_len = self
             .registration
             .data::<SerializationData>()
-            .map(|data| data.len())
+            .and_then(|data| match data {
+                SerializationData::Struct(_) => None,
+                SerializationData::Enum(data) => data.len(self.tuple_info.name()),
+            })
             .unwrap_or(0);
         let field_len = self.tuple_info.field_len().saturating_sub(ignored_len);
 
@@ -946,7 +966,7 @@ impl<'a, 'de> Visitor<'de> for TupleVariantVisitor<'a> {
             return Ok(DynamicTuple::default());
         }
 
-        visit_tuple(&mut seq, self.tuple_info, self.registry)
+        visit_tuple(&mut seq, self.tuple_info, field_len, self.registry)
     }
 }
 
@@ -1033,6 +1053,7 @@ where
 fn visit_tuple<'de, T, V>(
     seq: &mut V,
     info: &T,
+    expected_len: usize,
     registry: &TypeRegistry,
 ) -> Result<DynamicTuple, V::Error>
 where
@@ -1055,17 +1076,15 @@ where
     })? {
         tuple.insert_boxed(value);
         index += 1;
-        if index >= info.get_field_len() {
+        if index >= expected_len {
             break;
         }
     }
 
-    let len = info.get_field_len();
-
-    if tuple.field_len() != len {
+    if tuple.field_len() != expected_len {
         return Err(Error::invalid_length(
             tuple.field_len(),
-            &len.to_string().as_str(),
+            &expected_len.to_string().as_str(),
         ));
     }
 
