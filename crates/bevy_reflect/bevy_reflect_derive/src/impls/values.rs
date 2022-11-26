@@ -101,7 +101,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             #[inline]
             fn set(&mut self, value: #std_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #std_box<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(value)?;
-                Ok(())
+                ::core::result::Result::Ok(())
             }
 
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {

@@ -229,7 +229,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             #[inline]
             fn set(&mut self, #ref_value: #std_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #std_box<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(#ref_value)?;
-                Ok(())
+                ::core::result::Result::Ok(())
             }
 
             #[inline]
