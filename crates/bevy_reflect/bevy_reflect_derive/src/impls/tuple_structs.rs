@@ -187,6 +187,20 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> proc_macro2::
                 }
             }
 
+            #[inline]
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
+                if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) = #bevy_reflect_path::Reflect::reflect_ref(value) {
+                    for (i, value) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::TupleStruct::iter_fields(struct_value)) {
+                        if let #FQOption::Some(v) = #bevy_reflect_path::TupleStruct::field_mut(self, i) {
+                            v.try_apply(value)?;
+                        }
+                    }
+                } else {
+                    return Err(#bevy_reflect_path::ApplyError::MismatchedTypes("TupleStruct".to_string()));
+                }
+                Ok(())
+            }
+
             fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
                 #bevy_reflect_path::ReflectKind::TupleStruct
             }

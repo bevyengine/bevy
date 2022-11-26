@@ -5,8 +5,8 @@ use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
 use crate::{
-    self as bevy_reflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, TypePathTable,
+    self as bevy_reflect, ApplyError, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypePath, TypePathTable,
 };
 
 /// A trait used to power [map-like] operations via [reflection].
@@ -345,6 +345,10 @@ impl Reflect for DynamicMap {
         map_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        map_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -513,6 +517,30 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
     } else {
         panic!("Attempted to apply a non-map type to a map type.");
     }
+}
+
+/// Tries to apply the elements of reflected map `b` to the corresponding elements of map `a`
+/// and returns a Result.
+///
+/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedTypes`] if `b` is not a reflected map.
+#[inline]
+pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn Reflect) -> Result<(), ApplyError> {
+    if let ReflectRef::Map(map_value) = b.reflect_ref() {
+        for (key, b_value) in map_value.iter() {
+            if let Some(a_value) = a.get_mut(key) {
+                a_value.try_apply(b_value)?;
+            } else {
+                a.insert_boxed(key.clone_value(), b_value.clone_value());
+            }
+        }
+    } else {
+        return Err(ApplyError::MismatchedTypes("map".to_string()));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
