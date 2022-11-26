@@ -5,7 +5,9 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
+use crate::{
+    ApplyError, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -306,6 +308,10 @@ impl Reflect for DynamicMap {
         map_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        map_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -462,6 +468,24 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
     } else {
         panic!("Attempted to apply a non-map type to a map type.");
     }
+}
+
+#[inline]
+pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn Reflect) -> Result<(), ApplyError> {
+    if let ReflectRef::Map(map_value) = b.reflect_ref() {
+        for (key, b_value) in map_value.iter() {
+            if let Some(a_value) = a.get_mut(key) {
+                if let Err(e) = a_value.try_apply(b_value) {
+                    return Err(e);
+                }
+            } else {
+                a.insert_boxed(key.clone_value(), b_value.clone_value());
+            }
+        }
+    } else {
+        return Err(ApplyError::MismatchedTypes("map".to_string()));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
