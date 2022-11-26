@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
-    Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, Typed,
+    enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicInfo, DynamicStruct, DynamicTuple,
+    Enum, Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, Typed,
     VariantFieldIter, VariantType,
 };
 use std::any::Any;
@@ -378,6 +378,62 @@ impl Reflect for DynamicEnum {
         } else {
             panic!("`{}` is not an enum", value.type_name());
         }
+    }
+
+    #[inline]
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        if let ReflectRef::Enum(value) = value.reflect_ref() {
+            if Enum::variant_name(self) == value.variant_name() {
+                // Same variant -> just update fields
+                match value.variant_type() {
+                    VariantType::Struct => {
+                        for field in value.iter_fields() {
+                            let name = field.name().unwrap();
+                            if let Some(v) = Enum::field_mut(self, name) {
+                                if let Err(e) = v.try_apply(field.value()) {
+                                    return Err(e);
+                                }
+                            }
+                        }
+                    }
+                    VariantType::Tuple => {
+                        for (index, field) in value.iter_fields().enumerate() {
+                            if let Some(v) = Enum::field_at_mut(self, index) {
+                                if let Err(e) = v.try_apply(field.value()) {
+                                    return Err(e);
+                                }
+                            }
+                        }
+                    }
+                    _ => {}
+                }
+            } else {
+                // New variant -> perform a switch
+                let dyn_variant = match value.variant_type() {
+                    VariantType::Unit => DynamicVariant::Unit,
+                    VariantType::Tuple => {
+                        let mut dyn_tuple = DynamicTuple::default();
+                        for field in value.iter_fields() {
+                            dyn_tuple.insert_boxed(field.value().clone_value());
+                        }
+                        DynamicVariant::Tuple(dyn_tuple)
+                    }
+                    VariantType::Struct => {
+                        let mut dyn_struct = DynamicStruct::default();
+                        for field in value.iter_fields() {
+                            dyn_struct
+                                .insert_boxed(field.name().unwrap(), field.value().clone_value());
+                        }
+                        DynamicVariant::Struct(dyn_struct)
+                    }
+                };
+                self.set_variant(value.variant_name(), dyn_variant);
+            }
+        } else {
+            /* panic!("`{}` is not an enum", value.type_name()); */
+            return Err(ApplyError::WrongType("enum".to_string()));
+        }
+        Ok(())
     }
 
     #[inline]
