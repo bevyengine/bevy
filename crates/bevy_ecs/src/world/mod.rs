@@ -1392,7 +1392,7 @@ impl World {
 
     /// Reads the current change tick of this world.
     ///
-    /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](#method.change_tick),
+    /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](Self::change_tick),
     /// which is more efficient since it does not require atomic synchronization.
     #[inline]
     pub fn read_change_tick(&self) -> u32 {
@@ -1401,7 +1401,7 @@ impl World {
 
     /// Reads the current change tick of this world.
     ///
-    /// This does the same thing as [`Self::read_change_tick`], only this method
+    /// This does the same thing as [`read_change_tick()`](Self::read_change_tick), only this method
     /// is more efficient since it does not require atomic synchronization.
     #[inline]
     pub fn change_tick(&mut self) -> u32 {
