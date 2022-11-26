@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, UiImage, Val, Orientation};
+use crate::{CalculatedSize, Orientation, UiImage, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     query::Without,
