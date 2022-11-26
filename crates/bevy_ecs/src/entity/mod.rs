@@ -126,7 +126,7 @@ impl Entity {
     ///
     /// ```no_run
     /// # use bevy_ecs::prelude::*;
-    /// // Create a new array of size 10 and initialize it with (invalid) entities.
+    /// // Create a new array of size 10 filled with invalid entity ids.
     /// let mut entities: [Entity; 10] = [Entity::PLACEHOLDER; 10];
     ///
     /// // ... replace the entities with valid ones.
