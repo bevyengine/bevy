@@ -1390,11 +1390,19 @@ impl World {
         self.change_tick.fetch_add(1, Ordering::AcqRel)
     }
 
+    /// Reads the current change tick of this world.
+    ///
+    /// This does the same thing as [`Self::change_tick`], only this method is
+    /// less efficient due to thread synchronization.
     #[inline]
     pub fn read_change_tick(&self) -> u32 {
         self.change_tick.load(Ordering::Acquire)
     }
 
+    /// Reads the current change tick of this world.
+    ///
+    /// This does the same thing as [`Self::read_change_tick`], only this method
+    /// is more efficient since it does not require thread synchronization.
     #[inline]
     pub fn change_tick(&mut self) -> u32 {
         *self.change_tick.get_mut()
