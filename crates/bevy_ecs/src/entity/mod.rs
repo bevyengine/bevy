@@ -116,9 +116,8 @@ pub enum AllocAtWithoutReplacement {
 }
 
 impl Entity {
-    /// A placeholder entity ID with an index of [`u32::MAX`] and a generation of zero.
-    /// This may or may not correspond to an actual entity, and should be
-    /// overwritten by a new value before being used.
+    /// An entity ID with a placeholder value. This may or may not correspond to an actual entity,
+    /// and should be overwritten by a new value before being used.
     ///
     /// ## Examples
     ///
