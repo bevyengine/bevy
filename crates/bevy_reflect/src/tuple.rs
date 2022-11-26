@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypeRegistration, Typed, UnnamedField,
+    ApplyError, DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -355,6 +355,10 @@ impl Reflect for DynamicTuple {
         tuple_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        tuple_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -394,6 +398,22 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     } else {
         panic!("Attempted to apply non-Tuple type to Tuple type.");
     }
+}
+
+#[inline]
+pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), ApplyError> {
+    if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
+        for (i, value) in tuple.iter_fields().enumerate() {
+            if let Some(v) = a.field_mut(i) {
+                if let Err(e) = v.try_apply(value) {
+                    return Err(e);
+                }
+            }
+        }
+    } else {
+        return Err(ApplyError::MismatchedTypes("Tuple".to_string()));
+    }
+    Ok(())
 }
 
 /// Compares a [`Tuple`] with a [`Reflect`] value.
@@ -539,6 +559,10 @@ macro_rules! impl_reflect_tuple {
 
             fn apply(&mut self, value: &dyn Reflect) {
                 crate::tuple_apply(self, value);
+            }
+
+            fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+                crate::tuple_try_apply(self, value)
             }
 
             fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
