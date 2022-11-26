@@ -220,6 +220,23 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 }
             }
 
+            #[inline]
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
+                if let #bevy_reflect_path::ReflectRef::Struct(struct_value) = value.reflect_ref() {
+                    for (i, value) in struct_value.iter_fields().enumerate() {
+                        let name = struct_value.name_at(i).unwrap();
+                        if let Some(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
+                            if let Err(e) = v.try_apply(value) {
+                                return Err(e);
+                            }
+                        }
+                    }
+                } else {
+                    return Err(#bevy_reflect_path::ApplyError::MismatchedTypes("struct".to_string()));
+                }
+                Ok(())
+            }
+
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::Struct(self)
             }
