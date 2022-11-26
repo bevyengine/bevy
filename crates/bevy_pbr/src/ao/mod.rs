@@ -595,7 +595,7 @@ fn prepare_ambient_occlusion_textures(
                 .clone();
 
             let texture_descriptor = TextureDescriptor {
-                label: Some("ambient_occlusion_ambient_occlusion_noisy_texture"),
+                label: Some("ambient_occlusion_noisy_texture"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -609,13 +609,13 @@ fn prepare_ambient_occlusion_textures(
                 .clone();
 
             let texture_descriptor = TextureDescriptor {
-                label: Some("ambient_occlusion_ambient_occlusion_texture"),
+                label: Some("ambient_occlusion_texture"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
                 format: TextureFormat::R32Float,
-                usage: TextureUsages::STORAGE_BINDING,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
             let ambient_occlusion_texture = ambient_occlusion_textures
                 .entry(camera.target.clone())

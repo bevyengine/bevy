@@ -91,8 +91,8 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let noise = load_noise(pixel_coordinates);
 
     var visibility = 0.0;
-    for (var s = 0u; s < slice_count; s += 1u) {
-        let slice = f32(s) + noise.x;
+    for (var slice_t = 0u; slice_t < slice_count; slice_t += 1u) {
+        let slice = f32(slice_t) + noise.x;
         let phi = (pi / f32(slice_count)) * slice;
         let omega = vec2<f32>(cos(phi), sin(phi));
 
@@ -110,11 +110,11 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let side_modifier = -1.0 + (2.0 * f32(slice_side));
             let min_cos_horizon = cos(n + (side_modifier * half_pi));
             var cos_horizon = min_cos_horizon;
-            for (var s = 0u; s < samples_per_slice_side; s += 1u) {
-                var sample_noise = (slice + f32(s) * f32(samples_per_slice_side)) * 0.6180339887498948482;
+            for (var sample_t = 0u; sample_t < samples_per_slice_side; sample_t += 1u) {
+                var sample_noise = f32(slice_t + sample_t * samples_per_slice_side) * 0.6180339887498948482;
                 sample_noise = fract(noise.y + sample_noise);
 
-                var sample = (f32(s) + sample_noise) / f32(samples_per_slice_side);
+                var sample = (f32(sample_t) + sample_noise) / f32(samples_per_slice_side);
                 sample = pow(sample, 2.1); // https://github.com/GameTechDev/XeGTAO#sample-distribution
 
                 let sample_uv = uv + side_modifier * sample * vec2<f32>(omega.x, -omega.y);
