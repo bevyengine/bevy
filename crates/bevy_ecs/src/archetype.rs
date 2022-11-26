@@ -394,7 +394,7 @@ impl Archetype {
         self.entities[index].table_row
     }
 
-    /// Updates where an the components for the entity at `index` can be found
+    /// Updates if the components for the entity at `index` can be found
     /// in the corresponding table.
     ///
     /// # Panics
