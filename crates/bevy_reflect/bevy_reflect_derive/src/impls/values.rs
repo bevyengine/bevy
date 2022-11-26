@@ -94,6 +94,18 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
                 }
             }
 
+             #[inline]
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
+                let value = value.as_any();
+                if let Some(value) = value.downcast_ref::<Self>() {
+                    *self = std::clone::Clone::clone(value);
+                } else {
+                    /* panic!("Value is not {}.", std::any::type_name::<Self>()); */
+                    return Err(#bevy_reflect_path::ApplyError::WrongType(std::any::type_name::<Self>().to_string()));
+                }
+                Ok(())
+            }
+
             #[inline]
             fn set(&mut self, value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<(), Box<dyn #bevy_reflect_path::Reflect>> {
                 *self = value.take()?;
