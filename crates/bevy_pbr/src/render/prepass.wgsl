@@ -101,7 +101,7 @@ struct FragmentOutput {
 
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
-    var out = FragmentOutput;
+    var out: FragmentOutput;
 
 #ifdef PREPASS_NORMALS
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);

@@ -17,6 +17,7 @@ use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
+    extract_component::{DynamicUniformIndex, UniformComponentPlugin},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -85,14 +86,16 @@ where
             Shader::from_wgsl
         );
 
-        app.add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms);
+        app.add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
+            .add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms)
+            .add_plugin(UniformComponentPlugin::<PreviousViewProjection>::default());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
-            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_settings_phase)
+            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_components)
             .add_system_to_stage(RenderStage::Prepare, prepare_prepass_textures)
             .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
             .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
@@ -108,6 +111,38 @@ where
             .init_resource::<SpecializedMeshPipelines<PrepassPipeline<M>>>()
             .add_render_command::<Opaque3dPrepass, DrawPrepass<M>>()
             .add_render_command::<AlphaMask3dPrepass, DrawPrepass<M>>();
+    }
+}
+
+#[derive(Component, ShaderType, Clone)]
+pub struct PreviousViewProjection {
+    pub view_proj: Mat4,
+}
+
+pub fn update_previous_view_projections(
+    mut commands: Commands,
+    query: Query<(Entity, &ExtractedView, &PrepassSettings), With<Camera3d>>,
+) {
+    for (entity, camera, prepass_settings) in &query {
+        if prepass_settings.velocity_enabled {
+            commands.entity(entity).insert(PreviousViewProjection {
+                view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
+            });
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct PreviousGlobalTransform(pub Mat4);
+
+pub fn update_mesh_previous_global_transforms(
+    mut commands: Commands,
+    query: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
+) {
+    for (entity, transform) in &query {
+        commands
+            .entity(entity)
+            .insert(PreviousGlobalTransform(transform.compute_matrix()));
     }
 }
 
@@ -138,6 +173,17 @@ impl<M: Material> FromWorld for PrepassPipeline<M> {
                         ty: BufferBindingType::Uniform,
                         has_dynamic_offset: true,
                         min_binding_size: Some(ViewUniform::min_size()),
+                    },
+                    count: None,
+                },
+                // PreviousViewProjection
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: Some(PreviousViewProjection::min_size()),
                     },
                     count: None,
                 },
@@ -340,31 +386,33 @@ where
     }
 }
 
-#[derive(Component)]
-pub struct PreviousGlobalTransform(pub Mat4);
-
-pub fn update_mesh_previous_global_transforms(
+pub fn extract_camera_prepass_components(
     mut commands: Commands,
-    query: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
+    cameras_3d: Extract<
+        Query<
+            (
+                Entity,
+                &Camera,
+                &PrepassSettings,
+                Option<&PreviousViewProjection>,
+            ),
+            With<Camera3d>,
+        >,
+    >,
 ) {
-    for (entity, transform) in &query {
-        commands
-            .entity(entity)
-            .insert(PreviousGlobalTransform(transform.compute_matrix()));
-    }
-}
-
-pub fn extract_camera_prepass_settings_phase(
-    mut commands: Commands,
-    cameras_3d: Extract<Query<(Entity, &Camera, &PrepassSettings), With<Camera3d>>>,
-) {
-    for (entity, camera, prepass_settings) in cameras_3d.iter() {
+    for (entity, camera, prepass_settings, maybe_previous_view_proj) in cameras_3d.iter() {
         if camera.is_active {
-            commands.get_or_spawn(entity).insert((
+            let mut commands = commands.get_or_spawn(entity);
+
+            commands.insert((
                 RenderPhase::<Opaque3dPrepass>::default(),
                 RenderPhase::<AlphaMask3dPrepass>::default(),
                 prepass_settings.clone(),
             ));
+
+            if let Some(previous_view) = maybe_previous_view_proj {
+                commands.insert(previous_view.clone());
+            }
         }
     }
 }
@@ -599,7 +647,13 @@ pub fn queue_prepass_material_meshes<M: Material>(
 
 pub struct SetPrepassViewBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
-    type Param = (SRes<PrepassViewBindGroup>, SQuery<Read<ViewUniformOffset>>);
+    type Param = (
+        SRes<PrepassViewBindGroup>,
+        SQuery<(
+            Read<ViewUniformOffset>,
+            Read<DynamicUniformIndex<PreviousViewProjection>>,
+        )>,
+    );
     #[inline]
     fn render<'w>(
         view: Entity,
@@ -607,12 +661,16 @@ impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
         (prepass_view_bind_group, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform_offset = view_query.get(view).unwrap();
+        let (view_uniform_offset, previous_view_projection_uniform_offset) =
+            view_query.get(view).unwrap();
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
         pass.set_bind_group(
             I,
             prepass_view_bind_group.bind_group.as_ref().unwrap(),
-            &[view_uniform_offset.offset],
+            &[
+                view_uniform_offset.offset,
+                previous_view_projection_uniform_offset.index(),
+            ],
         );
 
         RenderCommandResult::Success
