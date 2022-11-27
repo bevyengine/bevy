@@ -17,7 +17,7 @@ use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
-    extract_component::{DynamicUniformIndex, UniformComponentPlugin},
+    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -524,19 +524,28 @@ pub fn queue_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
+    previous_view_proj_uniforms: Res<ComponentUniforms<PreviousViewProjection>>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        prepass_view_bind_group.bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
+    let (Some(view_binding), Some(previous_view_proj_binding)) = (view_uniforms.uniforms.binding(), previous_view_proj_uniforms.binding()) else {
+        return;
+    };
+
+    prepass_view_bind_group.bind_group =
+        Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
                     binding: 0,
                     resource: view_binding,
-                }],
-                label: Some("prepass_view_bind_group"),
-                layout: &prepass_pipeline.view_layout,
-            }));
-    }
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: previous_view_proj_binding,
+                },
+            ],
+            label: Some("prepass_view_bind_group"),
+            layout: &prepass_pipeline.view_layout,
+        }));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -661,7 +670,7 @@ impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
         (prepass_view_bind_group, view_query): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform_offset, previous_view_projection_uniform_offset) =
+        let (view_uniform_offset, previous_view_proj_uniform_offset) =
             view_query.get(view).unwrap();
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
         pass.set_bind_group(
@@ -669,7 +678,7 @@ impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
             prepass_view_bind_group.bind_group.as_ref().unwrap(),
             &[
                 view_uniform_offset.offset,
-                previous_view_projection_uniform_offset.index(),
+                previous_view_proj_uniform_offset.index(),
             ],
         );
 
