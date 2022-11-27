@@ -82,6 +82,16 @@ impl Node for PrepassNode {
                     },
                 }));
             }
+            if let Some(view_velocities_texture) = &view_prepass_textures.velocity {
+                color_attachments.push(Some(RenderPassColorAttachment {
+                    view: &view_velocities_texture.default_view,
+                    resolve_target: None,
+                    ops: Operations {
+                        load: LoadOp::Clear(Color::BLACK.into()),
+                        store: true,
+                    },
+                }));
+            }
 
             {
                 // Set up the pass descriptor with the depth attachment and optional color attachments

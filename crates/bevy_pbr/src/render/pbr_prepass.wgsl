@@ -1,6 +1,13 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::pbr_bindings
 
+fn clip_to_uv(clip: vec4<f32>) -> vec2<f32> {
+    var uv = clip.xy / clip.w;
+    uv = (uv + 1.0) * 0.5;
+    uv.y = 1.0 - uv.y;
+    return uv;
+}
+
 // !!!
 // WARN this code is directly copied from pbr_functions.wgsl because of limitations with shader imports.
 // This is a temporary measure until better imports are supported.
@@ -97,10 +104,25 @@ struct FragmentInput {
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
 #endif // PREPASS_NORMALS
+#ifdef PREPASS_VELOCITIES
+    @location(3) world_position: vec4<f32>,
+    @location(4) previous_world_position: vec4<f32>,
+#endif // PREPASS_VELOCITIES
 };
 
+struct FragmentOutput {
+#ifdef PREPASS_NORMALS
+    @location(0) normal: vec4<f32>,
+#endif // PREPASS_NORMALS
+#ifdef PREPASS_VELOCITIES
+    @location(#PREPASS_VELOCITY_LOCATION) velocity: vec2<f32>,
+#endif // PREPASS_VELOCITIES
+}
+
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+fn fragment(in: FragmentInput) -> FragmentOutput {
+    var out: FragmentOutput;
+
 #ifdef ALPHA_MASK
     var output_color: vec4<f32> = material.base_color;
 
@@ -137,13 +159,17 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #endif
         );
 
-        return vec4(normal * 0.5 + vec3(0.5), 1.0);
+        out.normal = vec4(normal * 0.5 + vec3(0.5), 1.0);
     } else {
-        return vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+        out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
     }
-#else
-    // if the prepass normals is not defined then this will be ignored,
-    // but we still need a return to compile the shader
-    return vec4(0.0, 0.0, 0.0, 0.0);
 #endif // PREPASS_NORMALS
+
+#ifdef PREPASS_VELOCITIES
+    let clip_position = view.view_proj * in.world_position;
+    let previous_clip_position = previous_view_proj * in.previous_world_position;
+    out.velocity = clip_to_uv(clip_position) - clip_to_uv(previous_clip_position);
+#endif // PREPASS_VELOCITIES
+
+    return out;
 }

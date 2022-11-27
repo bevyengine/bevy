@@ -1,6 +1,13 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
 
+fn clip_to_uv(clip: vec4<f32>) -> vec2<f32> {
+    var uv = clip.xy / clip.w;
+    uv = (uv + 1.0) * 0.5;
+    uv.y = 1.0 - uv.y;
+    return uv;
+}
+
 struct Vertex {
     @location(0) position: vec3<f32>,
 
@@ -67,20 +74,44 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     return out;
 }
 
-#ifdef PREPASS_NORMALS
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
+#ifdef PREPASS_NORMALS
     @location(0) world_normal: vec3<f32>,
 #ifdef VERTEX_UVS
     @location(1) uv: vec2<f32>,
-#endif
+#endif // VERTEX_UVS
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
-#endif
+#endif // VERTEX_TANGENTS
+#endif // PREPASS_NORMALS
+#ifdef PREPASS_VELOCITIES
+    @location(3) world_position: vec4<f32>,
+    @location(4) previous_world_position: vec4<f32>,
+#endif // PREPASS_VELOCITIES
+}
+
+struct FragmentOutput {
+#ifdef PREPASS_NORMALS
+    @location(0) normal: vec4<f32>,
+#endif // PREPASS_NORMALS
+#ifdef PREPASS_VELOCITIES
+    @location(#PREPASS_VELOCITY_LOCATION) velocity: vec2<f32>,
+#endif // PREPASS_VELOCITIES
 }
 
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
-    return vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
-}
+fn fragment(in: FragmentInput) -> FragmentOutput {
+    var out = FragmentOutput;
+
+#ifdef PREPASS_NORMALS
+    out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif // PREPASS_NORMALS
+
+#ifdef PREPASS_VELOCITIES
+    let clip_position = view.view_proj * in.world_position;
+    let previous_clip_position = previous_view_proj * in.previous_world_position;
+    out.velocity = clip_to_uv(clip_position) - clip_to_uv(previous_clip_position);
+#endif // PREPASS_VELOCITIES
+
+    return out;
+}

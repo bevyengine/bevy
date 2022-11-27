@@ -1,7 +1,7 @@
 use crate::{
     GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
+    PreviousGlobalTransform, ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -112,6 +112,7 @@ impl Plugin for MeshRenderPlugin {
 #[derive(Component, ShaderType, Clone)]
 pub struct MeshUniform {
     pub transform: Mat4,
+    pub previous_transform: Mat4,
     pub inverse_transpose_model: Mat4,
     pub flags: u32,
 }
@@ -138,6 +139,7 @@ pub fn extract_meshes(
             Entity,
             &ComputedVisibility,
             &GlobalTransform,
+            Option<&PreviousGlobalTransform>,
             &Handle<Mesh>,
             Option<With<NotShadowReceiver>>,
             Option<With<NotShadowCaster>>,
@@ -148,8 +150,11 @@ pub fn extract_meshes(
     let mut not_caster_commands = Vec::with_capacity(*prev_not_caster_commands_len);
     let visible_meshes = meshes_query.iter().filter(|(_, vis, ..)| vis.is_visible());
 
-    for (entity, _, transform, handle, not_receiver, not_caster) in visible_meshes {
+    for (entity, _, transform, previous_transform, handle, not_receiver, not_caster) in
+        visible_meshes
+    {
         let transform = transform.compute_matrix();
+        let previous_transform = previous_transform.map(|t| t.0).unwrap_or(transform);
         let mut flags = if not_receiver.is_some() {
             MeshFlags::empty()
         } else {
@@ -161,6 +166,7 @@ pub fn extract_meshes(
         let uniform = MeshUniform {
             flags: flags.bits,
             transform,
+            previous_transform,
             inverse_transpose_model: transform.inverse().transpose(),
         };
         if not_caster.is_some() {
@@ -425,6 +431,17 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Velocity texture
+                BindGroupLayoutEntry {
+                    binding: 12,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
             ]
         }
 
@@ -563,7 +580,8 @@ bitflags::bitflags! {
         const DEBAND_DITHER               = (1 << 3);
         const PREPASS_DEPTH               = (1 << 4);
         const PREPASS_NORMALS             = (1 << 5);
-        const ALPHA_MASK                  = (1 << 6);
+        const PREPASS_VELOCITIES          = (1 << 6);
+        const ALPHA_MASK                  = (1 << 7);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -894,14 +912,23 @@ pub fn queue_mesh_view_bind_groups(
                         .texture_view
                 }
             };
-
-            let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
-                Some(texture) => &texture.default_view,
-                None => {
+            let fallback_view = match prepass_textures {
+                None
+                | Some(ViewPrepassTextures { normal: None, .. })
+                | Some(ViewPrepassTextures { velocity: None, .. }) => Some(
                     &fallback_images
                         .image_for_samplecount(msaa.samples)
-                        .texture_view
-                }
+                        .texture_view,
+                ),
+                _ => None,
+            };
+            let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
+                Some(texture) => &texture.default_view,
+                None => fallback_view.unwrap(),
+            };
+            let velocity_view = match prepass_textures.and_then(|x| x.velocity.as_ref()) {
+                Some(texture) => &texture.default_view,
+                None => fallback_view.unwrap(),
             };
 
             let layout = if msaa.samples > 1 {
@@ -965,6 +992,10 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 11,
                         resource: BindingResource::TextureView(normal_view),
+                    },
+                    BindGroupEntry {
+                        binding: 12,
+                        resource: BindingResource::TextureView(velocity_view),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),

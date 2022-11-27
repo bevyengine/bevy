@@ -1,11 +1,11 @@
-use bevy_app::Plugin;
+use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
     prepass::{AlphaMask3dPrepass, Opaque3dPrepass, PrepassSettings, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::Entity,
+    prelude::{Component, Entity},
     query::With,
     system::{
         lifetimeless::{Read, SQuery, SRes},
@@ -13,6 +13,7 @@ use bevy_ecs::{
     },
     world::{FromWorld, World},
 };
+use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -38,6 +39,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, RenderApp, RenderStage,
 };
+use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{tracing::error, HashMap};
 
 use crate::{
@@ -82,6 +84,8 @@ where
             "prepass_bindings.wgsl",
             Shader::from_wgsl
         );
+
+        app.add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -216,6 +220,20 @@ where
             }
         }
 
+        if key.mesh_key.contains(MeshPipelineKey::PREPASS_VELOCITIES) {
+            shader_defs.push("PREPASS_VELOCITIES".into());
+
+            let mut velocity_output_location = 0;
+            if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
+                velocity_output_location += 1;
+            }
+
+            shader_defs.push(ShaderDefVal::Int(
+                "PREPASS_VELOCITY_LOCATION".to_owned(),
+                velocity_output_location,
+            ));
+        }
+
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
@@ -230,6 +248,7 @@ where
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         let fragment = if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS)
+            || key.mesh_key.contains(MeshPipelineKey::PREPASS_VELOCITIES)
             || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
         {
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
@@ -242,6 +261,13 @@ where
             if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
                 targets.push(Some(ColorTargetState {
                     format: TextureFormat::Rgb10a2Unorm,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                }));
+            }
+            if key.mesh_key.contains(MeshPipelineKey::PREPASS_VELOCITIES) {
+                targets.push(Some(ColorTargetState {
+                    format: TextureFormat::Rg32Float,
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 }));
@@ -314,6 +340,20 @@ where
     }
 }
 
+#[derive(Component)]
+pub struct PreviousGlobalTransform(pub Mat4);
+
+pub fn update_mesh_previous_global_transforms(
+    mut commands: Commands,
+    query: Query<(Entity, &GlobalTransform), With<Handle<Mesh>>>,
+) {
+    for (entity, transform) in &query {
+        commands
+            .entity(entity)
+            .insert(PreviousGlobalTransform(transform.compute_matrix()));
+    }
+}
+
 pub fn extract_camera_prepass_settings_phase(
     mut commands: Commands,
     cameras_3d: Extract<Query<(Entity, &Camera, &PrepassSettings), With<Camera3d>>>,
@@ -344,6 +384,7 @@ pub fn prepare_prepass_textures(
 ) {
     let mut depth_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
+    let mut velocity_textures = HashMap::default();
     for (entity, camera, prepass_settings) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
@@ -396,9 +437,31 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
+        let cached_velocities_texture = prepass_settings.velocity_enabled.then(|| {
+            velocity_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_velocity_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: msaa.samples,
+                            dimension: TextureDimension::D2,
+                            format: TextureFormat::Rg32Float,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                        },
+                    )
+                })
+                .clone()
+        });
+
         commands.entity(entity).insert(ViewPrepassTextures {
             depth: cached_depth_texture,
             normal: cached_normals_texture,
+            velocity: cached_velocities_texture,
             size,
         });
     }
@@ -466,6 +529,9 @@ pub fn queue_prepass_material_meshes<M: Material>(
             MeshPipelineKey::PREPASS_DEPTH | MeshPipelineKey::from_msaa_samples(msaa.samples);
         if prepass_settings.normal_enabled {
             view_key |= MeshPipelineKey::PREPASS_NORMALS;
+        }
+        if prepass_settings.velocity_enabled {
+            view_key |= MeshPipelineKey::PREPASS_VELOCITIES;
         }
 
         for visible_entity in &visible_entities.entities {

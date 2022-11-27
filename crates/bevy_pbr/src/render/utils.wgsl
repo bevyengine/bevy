@@ -26,6 +26,17 @@ fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> 
     return (position - viewport.xy) / viewport.zw;
 }
 
+#ifndef PREPASS_DEPTH
+fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
+#ifdef MULTISAMPLED
+    let depth_sample = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
+#else
+    let depth_sample = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+#endif
+    return depth_sample;
+}
+#endif
+
 #ifndef PREPASS_NORMALS
 fn prepass_normal(frag_coord: vec4<f32>, sample_index: u32) -> vec3<f32> {
 #ifdef MULTISAMPLED
@@ -37,13 +48,13 @@ fn prepass_normal(frag_coord: vec4<f32>, sample_index: u32) -> vec3<f32> {
 }
 #endif
 
-#ifndef PREPASS_DEPTH
-fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
+#ifndef PREPASS_VELOCITIES
+fn prepass_velocity(frag_coord: vec4<f32>, sample_index: u32) -> vec2<f32> {
 #ifdef MULTISAMPLED
-    let depth_sample = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
+    let velocity_sample = textureLoad(velocity_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
 #else
-    let depth_sample = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+    let velocity_sample = textureLoad(velocity_prepass_texture, vec2<i32>(frag_coord.xy), 0);
 #endif
-    return depth_sample;
+    return velocity_sample.rg;
 }
 #endif

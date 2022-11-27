@@ -49,9 +49,13 @@ var<uniform> globals: Globals;
 var depth_prepass_texture: texture_depth_multisampled_2d;
 @group(0) @binding(11)
 var normal_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(12)
+var velocity_prepass_texture: texture_multisampled_2d<f32>;
 #else
 @group(0) @binding(10)
 var depth_prepass_texture: texture_depth_2d;
 @group(0) @binding(11)
 var normal_prepass_texture: texture_2d<f32>;
+@group(0) @binding(12)
+var velocity_prepass_texture: texture_2d<f32>;
 #endif
