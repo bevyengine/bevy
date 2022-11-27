@@ -7,6 +7,7 @@ mod light;
 mod material;
 mod pbr_material;
 mod render;
+mod taa;
 
 pub use alpha::*;
 pub use ao::*;
@@ -16,6 +17,7 @@ pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
 pub use render::*;
+pub use taa::*;
 
 use bevy_window::ModifiesWindows;
 
@@ -154,6 +156,7 @@ impl Plugin for PbrPlugin {
                 prepass_enabled: self.prepass_enabled,
                 ..default()
             })
+            .add_plugin(TemporalAntialiasPlugin)
             .add_plugin(AmbientOcclusionPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
