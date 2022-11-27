@@ -123,8 +123,9 @@ impl Column {
     #[must_use = "The returned pointer should be used to drop the removed component"]
     pub(crate) fn swap_remove_and_forget(
         &mut self,
-        row: usize,
+        row: u32,
     ) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+        let row = row as usize;
         (row < self.data.len()).then(|| {
             // SAFETY: The row was length checked before this.
             let data = unsafe { self.data.swap_remove_and_forget_unchecked(row) };
@@ -263,18 +264,18 @@ impl Column {
     }
 
     #[inline]
-    pub fn get_added_ticks(&self, row: usize) -> Option<&UnsafeCell<Tick>> {
-        self.added_ticks.get(row)
+    pub fn get_added_ticks(&self, row: u32) -> Option<&UnsafeCell<Tick>> {
+        self.added_ticks.get(row as usize)
     }
 
     #[inline]
-    pub fn get_changed_ticks(&self, row: usize) -> Option<&UnsafeCell<Tick>> {
-        self.changed_ticks.get(row)
+    pub fn get_changed_ticks(&self, row: u32) -> Option<&UnsafeCell<Tick>> {
+        self.changed_ticks.get(row as usize)
     }
 
     #[inline]
-    pub fn get_ticks(&self, row: usize) -> Option<ComponentTicks> {
-        if row < self.data.len() {
+    pub fn get_ticks(&self, row: u32) -> Option<ComponentTicks> {
+        if (row as usize) < self.data.len() {
             // SAFETY: The size of the column has already been checked.
             Some(unsafe { self.get_ticks_unchecked(row) })
         } else {
@@ -294,7 +295,7 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub unsafe fn get_changed_ticks_unchecked(&self, row: usize) -> &UnsafeCell<Tick> {
+    pub unsafe fn get_changed_ticks_unchecked(&self, row: u32) -> &UnsafeCell<Tick> {
         let row = row as usize;
         debug_assert!(row < self.changed_ticks.len());
         self.changed_ticks.get_unchecked(row)
@@ -303,7 +304,7 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub unsafe fn get_ticks_unchecked(&self, row: usize) -> ComponentTicks {
+    pub unsafe fn get_ticks_unchecked(&self, row: u32) -> ComponentTicks {
         let row = row as usize;
         debug_assert!(row < self.added_ticks.len());
         debug_assert!(row < self.changed_ticks.len());

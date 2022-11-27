@@ -209,7 +209,7 @@ impl ComponentSparseSet {
     pub fn get_added_ticks(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
-        assert_eq!(entity, self.entities[dense_index]);
+        assert_eq!(entity, self.entities[dense_index as usize]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
         unsafe { Some(self.dense.get_added_ticks_unchecked(dense_index)) }
     }
@@ -218,7 +218,7 @@ impl ComponentSparseSet {
     pub fn get_changed_ticks(&self, entity: Entity) -> Option<&UnsafeCell<Tick>> {
         let dense_index = *self.sparse.get(entity.index())?;
         #[cfg(debug_assertions)]
-        assert_eq!(entity, self.entities[dense_index]);
+        assert_eq!(entity, self.entities[dense_index as usize]);
         // SAFETY: if the sparse index points to something in the dense vec, it exists
         unsafe { Some(self.dense.get_changed_ticks_unchecked(dense_index)) }
     }
