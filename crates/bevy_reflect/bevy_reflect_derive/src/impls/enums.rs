@@ -271,18 +271,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                                 for field in #ref_value.iter_fields() {
                                     let name = field.name().unwrap();
                                     if let Some(v) = #bevy_reflect_path::Enum::field_mut(self, name) {
-                                        if let Err(e) = v.try_apply(field.value()) {
-                                            return Err(e);
-                                        }
+                                       v.try_apply(field.value())?;
                                     }
                                 }
                             }
                             #bevy_reflect_path::VariantType::Tuple => {
                                 for (index, field) in #ref_value.iter_fields().enumerate() {
                                     if let Some(v) = #bevy_reflect_path::Enum::field_at_mut(self, index) {
-                                        if let Err(e) = v.try_apply(field.value()) {
-                                            return Err(e);
-                                        }
+                                        v.try_apply(field.value())?;
                                     }
                                 }
                             }
@@ -294,14 +290,12 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                             #(#variant_names => {
                                 *self = #variant_constructors
                             })*
-                            /* name => panic!("variant with name `{}` does not exist on enum `{}`", name, std::any::type_name::<Self>()), */
                             name => {
                                 return Err(#bevy_reflect_path::ApplyError::WrongType("TODO".to_string()));
                             }
                         }
                     }
                 } else {
-                   /*  panic!("`{}` is not an enum", #ref_value.type_name()); */
                     return Err(#bevy_reflect_path::ApplyError::WrongType("enum".to_string()));
                 }
                 Ok(())

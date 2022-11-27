@@ -372,9 +372,7 @@ pub fn array_try_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) -> Result
         }
         for (i, value) in reflect_array.iter().enumerate() {
             let v = array.get_mut(i).unwrap();
-            if let Err(e) = v.try_apply(value) {
-                return Err(e);
-            }
+            v.try_apply(value)?;
         }
     } else {
         return Err(ApplyError::MismatchedTypes("Array".to_string()));

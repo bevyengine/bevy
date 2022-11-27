@@ -475,9 +475,7 @@ pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn Reflect) -> Result<(), ApplyErro
     if let ReflectRef::Map(map_value) = b.reflect_ref() {
         for (key, b_value) in map_value.iter() {
             if let Some(a_value) = a.get_mut(key) {
-                if let Err(e) = a_value.try_apply(b_value) {
-                    return Err(e);
-                }
+                a_value.try_apply(b_value)?;
             } else {
                 a.insert_boxed(key.clone_value(), b_value.clone_value());
             }

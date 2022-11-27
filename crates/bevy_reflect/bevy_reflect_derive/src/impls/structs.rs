@@ -226,9 +226,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                     for (i, value) in struct_value.iter_fields().enumerate() {
                         let name = struct_value.name_at(i).unwrap();
                         if let Some(v) = #bevy_reflect_path::Struct::field_mut(self, name) {
-                            if let Err(e) = v.try_apply(value) {
-                                return Err(e);
-                            }
+                           v.try_apply(value)?;
                         }
                     }
                 } else {

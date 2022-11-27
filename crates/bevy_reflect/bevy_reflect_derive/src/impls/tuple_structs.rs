@@ -186,9 +186,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) = value.reflect_ref() {
                     for (i, value) in struct_value.iter_fields().enumerate() {
                         if let Some(v) = #bevy_reflect_path::TupleStruct::field_mut(self, i) {
-                            if let Err(e) = v.try_apply(value) {
-                                return Err(e);
-                            }
+                            v.try_apply(value)?;
                         }
                     }
                 } else {

@@ -1023,9 +1023,7 @@ impl<T: FromReflect> Reflect for Option<T> {
                 // Same variant -> just update fields
                 for (index, field) in value.iter_fields().enumerate() {
                     if let Some(v) = self.field_at_mut(index) {
-                        if let Err(e) = v.try_apply(field.value()) {
-                            return Err(e);
-                        }
+                        v.try_apply(field.value())?;
                     }
                 }
             } else {

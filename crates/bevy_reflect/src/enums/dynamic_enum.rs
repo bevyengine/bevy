@@ -390,18 +390,14 @@ impl Reflect for DynamicEnum {
                         for field in value.iter_fields() {
                             let name = field.name().unwrap();
                             if let Some(v) = Enum::field_mut(self, name) {
-                                if let Err(e) = v.try_apply(field.value()) {
-                                    return Err(e);
-                                }
+                                v.try_apply(field.value())?;
                             }
                         }
                     }
                     VariantType::Tuple => {
                         for (index, field) in value.iter_fields().enumerate() {
                             if let Some(v) = Enum::field_at_mut(self, index) {
-                                if let Err(e) = v.try_apply(field.value()) {
-                                    return Err(e);
-                                }
+                                v.try_apply(field.value())?;
                             }
                         }
                     }
@@ -430,7 +426,6 @@ impl Reflect for DynamicEnum {
                 self.set_variant(value.variant_name(), dyn_variant);
             }
         } else {
-            /* panic!("`{}` is not an enum", value.type_name()); */
             return Err(ApplyError::WrongType("enum".to_string()));
         }
         Ok(())

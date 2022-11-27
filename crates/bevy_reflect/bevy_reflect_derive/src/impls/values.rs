@@ -100,7 +100,6 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
                 if let Some(value) = value.downcast_ref::<Self>() {
                     *self = std::clone::Clone::clone(value);
                 } else {
-                    /* panic!("Value is not {}.", std::any::type_name::<Self>()); */
                     return Err(#bevy_reflect_path::ApplyError::WrongType(std::any::type_name::<Self>().to_string()));
                 }
                 Ok(())

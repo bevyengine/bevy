@@ -405,9 +405,7 @@ pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), Apply
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
         for (i, value) in tuple.iter_fields().enumerate() {
             if let Some(v) = a.field_mut(i) {
-                if let Err(e) = v.try_apply(value) {
-                    return Err(e);
-                }
+                v.try_apply(value)?;
             }
         }
     } else {

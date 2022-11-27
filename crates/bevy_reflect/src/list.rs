@@ -334,9 +334,7 @@ pub fn list_try_apply<L: List>(a: &mut L, b: &dyn Reflect) -> Result<(), ApplyEr
         for (i, value) in list_value.iter().enumerate() {
             if i < a.len() {
                 if let Some(v) = a.get_mut(i) {
-                    if let Err(e) = v.try_apply(value) {
-                        return Err(e);
-                    }
+                    v.try_apply(value)?;
                 }
             } else {
                 List::push(a, value.clone_value());

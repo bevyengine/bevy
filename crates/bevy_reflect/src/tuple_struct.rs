@@ -359,9 +359,7 @@ impl Reflect for DynamicTupleStruct {
         if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
             for (i, value) in tuple_struct.iter_fields().enumerate() {
                 if let Some(v) = self.field_mut(i) {
-                    if let Err(e) = v.try_apply(value) {
-                        return Err(e);
-                    }
+                    v.try_apply(value)?;
                 }
             }
         } else {
