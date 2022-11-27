@@ -42,15 +42,12 @@ mod draw_3d_graph {
 
 const TAA_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 656865235226276);
-const TAA_JITTER_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 501046372115024);
 
 pub struct TemporalAntialiasPlugin;
 
 impl Plugin for TemporalAntialiasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, TAA_JITTER_HANDLE, "taa_jitter.wgsl", Shader::from_wgsl);
 
         app.insert_resource(Msaa { samples: 1 });
 
