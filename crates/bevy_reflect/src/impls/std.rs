@@ -817,6 +817,18 @@ impl Reflect for &'static Path {
         }
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let value = value.as_any();
+        if let Some(&value) = value.downcast_ref::<Self>() {
+            *self = value;
+        } else {
+            return Err(ApplyError::WrongType(
+                std::any::type_name::<Self>().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
