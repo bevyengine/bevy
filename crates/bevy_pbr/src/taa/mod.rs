@@ -432,19 +432,6 @@ impl FromWorld for TAAPipelines {
             multisample: MultisampleState::default(),
         });
 
-        let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("taa_nearest_sampler"),
-            mag_filter: FilterMode::Nearest,
-            min_filter: FilterMode::Nearest,
-            ..SamplerDescriptor::default()
-        });
-        let linear_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("taa_linear_sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..SamplerDescriptor::default()
-        });
-
         TAAPipelines {
             taa_sdr_pipeline,
             taa_hdr_pipeline,
