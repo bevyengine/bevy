@@ -496,7 +496,7 @@ impl FromWorld for AmbientOcclusionPipelines {
             shader: GTAO_SHADER_HANDLE.typed(),
             shader_defs: vec![
                 // TODO: Specalize based on AmbientOcclusionSettings (and TemporalAntiAliasSettings)
-                "TEMPOAL_NOISE".into(),
+                "TEMPORAL_NOISE".into(),
                 ShaderDefVal::Int("SLICE_COUNT".to_string(), 3),
                 ShaderDefVal::Int("SAMPLES_PER_SLICE_SIDE".to_string(), 3),
                 // TODO: Remove this hack
