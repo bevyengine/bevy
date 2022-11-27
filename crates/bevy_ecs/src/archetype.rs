@@ -282,7 +282,11 @@ impl Archetype {
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
-    pub(crate) unsafe fn allocate(&mut self, entity: Entity, table_row: TableRow) -> EntityLocation {
+    pub(crate) unsafe fn allocate(
+        &mut self,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> EntityLocation {
         self.entities.push(ArchetypeEntity { entity, table_row });
 
         EntityLocation {

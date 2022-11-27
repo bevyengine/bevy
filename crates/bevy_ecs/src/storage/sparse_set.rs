@@ -151,7 +151,8 @@ impl ComponentSparseSet {
         } else {
             let dense_index = self.dense.len();
             self.dense.push(value, ComponentTicks::new(change_tick));
-            self.sparse.insert(entity.index(), TableRow::new(dense_index));
+            self.sparse
+                .insert(entity.index(), TableRow::new(dense_index));
             #[cfg(debug_assertions)]
             assert_eq!(self.entities.len(), dense_index);
             #[cfg(not(debug_assertions))]
@@ -239,7 +240,7 @@ impl ComponentSparseSet {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense.index()]);
             self.entities.swap_remove(dense.index());
-            let is_last =  dense.index() == self.dense.len() - 1;
+            let is_last = dense.index() == self.dense.len() - 1;
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
             let (value, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense) };
             if !is_last {

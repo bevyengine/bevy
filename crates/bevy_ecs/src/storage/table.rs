@@ -35,8 +35,8 @@ impl TableId {
 /// A opaque newtype for rows in [`Tables`]. Specifies a single row in a specific table.
 ///
 /// Values of this type are retreivable from [`Archetype::entity_table_row`] and can be
-/// used alongside [`Archetype::table_id`] to fetch the exact table and row where an 
-/// [`Entity`]'s 
+/// used alongside [`Archetype::table_id`] to fetch the exact table and row where an
+/// [`Entity`]'s
 ///
 /// Values of this type are only valid so long as entities have not moved around.
 /// Adding and removing components from an entity, or despawning it will invalidate
@@ -191,8 +191,10 @@ impl Column {
         debug_assert!(self.data.layout() == other.data.layout());
         let ptr = self.data.get_unchecked_mut(dst_row.index());
         other.data.swap_remove_unchecked(src_row.index(), ptr);
-        *self.added_ticks.get_unchecked_mut(dst_row.index()) = other.added_ticks.swap_remove(src_row.index());
-        *self.changed_ticks.get_unchecked_mut(dst_row.index()) = other.changed_ticks.swap_remove(src_row.index());
+        *self.added_ticks.get_unchecked_mut(dst_row.index()) =
+            other.added_ticks.swap_remove(src_row.index());
+        *self.changed_ticks.get_unchecked_mut(dst_row.index()) =
+            other.changed_ticks.swap_remove(src_row.index());
     }
 
     // # Safety

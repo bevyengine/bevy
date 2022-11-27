@@ -82,7 +82,10 @@ impl ResourceData {
         if self.is_present() {
             self.column.replace_untracked(Self::ROW, value);
             *self.column.get_added_ticks_unchecked(Self::ROW).deref_mut() = change_ticks.added;
-            *self.column.get_changed_ticks_unchecked(Self::ROW).deref_mut() = change_ticks.changed;
+            *self
+                .column
+                .get_changed_ticks_unchecked(Self::ROW)
+                .deref_mut() = change_ticks.changed;
         } else {
             self.column.push(value, change_ticks);
         }
