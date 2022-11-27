@@ -32,7 +32,7 @@ impl TableId {
     }
 }
 
-/// A opaque newtype for rows in [`Tables`]. Specifies a single row in a specific table.
+/// A opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
 ///
 /// Values of this type are retreivable from [`Archetype::entity_table_row`] and can be
 /// used alongside [`Archetype::table_id`] to fetch the exact table and row where an
@@ -43,6 +43,11 @@ impl TableId {
 /// potentially any table row in the table the entity was previously stored in. Users
 /// should *always* fetch the approripate row from the entity's [`Archetype`] before
 /// fetching the entity's components.
+///
+/// [`Archetype`]: crate::archetype::Archetype
+/// [`Archetype::entity_table_row`]: crate::archetype::Archetype::entity_table_row
+/// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
+/// [`Entity`]: crate::entity::Entity
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TableRow(u32);
 
@@ -718,7 +723,7 @@ mod tests {
     use crate::{
         component::{Components, Tick},
         entity::Entity,
-        storage::TableBuilder,
+        storage::{TableBuilder, TableRow},
     };
     #[derive(Component)]
     struct W<T>(T);
@@ -737,7 +742,7 @@ mod tests {
             // SAFETY: we allocate and immediately set data afterwards
             unsafe {
                 let row = table.allocate(*entity);
-                let value: W<u32> = W(row);
+                let value: W<TableRow> = W(row);
                 OwningPtr::make(value, |value_ptr| {
                     table.get_column_mut(component_id).unwrap().initialize(
                         row,
