@@ -40,6 +40,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         }
     }
 
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
+    /// from an archetype.
+    ///
+    /// # Safety
+    ///  - all `rows` must be in `[0, tables.entity_count)`.
+    ///  - `table` must match the WorldQueries Q and F
+    ///  - Both Q::IS_DENSE and F::IS_DENSE must be true.
     #[inline]
     pub(super) unsafe fn fold_table<B, Func>(
         &mut self,
@@ -61,6 +68,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         let entities = table.entities();
         for row in rows {
             let entity = entities.get_unchecked(row);
+            // SAFETY: `set_table` has been called above for the target table.
             if let Some(item) = self.cursor.fetch(*entity, row) {
                 accum = func(accum, item);
             }
@@ -68,6 +76,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         accum
     }
 
+    /// Executes the equivalent of [`Iterator::fold`] over a contiguous segment
+    /// from an archetype.
+    ///
+    /// # Safety
+    ///  - all `indicies` must be in `[0, archetype.len())`.
+    ///  - `archetype` must match the WorldQueries Q and F
+    ///  - Either Q::IS_DENSE or F::IS_DENSE must be false.
     #[inline]
     pub(super) unsafe fn fold_archetype<B, Func>(
         &mut self,
@@ -96,6 +111,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         let entities = archetype.entities();
         for index in indices {
             let archetype_entity = entities.get_unchecked(index);
+            // SAFETY: `set_archetype` has been called above for the target table.
             if let Some(item) = self
                 .cursor
                 .fetch(archetype_entity.entity, archetype_entity.table_row)
@@ -104,6 +120,46 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
             }
         }
         accum
+    }
+
+    /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
+    /// from an table.
+    ///
+    /// # Safety
+    ///  - all `rows` must be in `[0, tables.entity_count)`.
+    ///  - `table` must match the WorldQueries Q and F
+    ///  - Both Q::IS_DENSE and F::IS_DENSE must be true.
+    #[inline]
+    pub(super) unsafe fn for_each_table<Func>(
+        &mut self,
+        func: &mut Func,
+        table: &'w Table,
+        rows: Range<usize>,
+    )
+    where
+        Func: FnMut(Q::Item<'w>),
+    {
+        self.fold_table((), &mut |_, item| func(item), table, rows);
+    }
+
+    /// Executes the equivalent of [`Iterator::for_each`] over a contiguous segment
+    /// from an archetype.
+    ///
+    /// # Safety
+    ///  - all `indicies` must be in `[0, archetype.len())`.
+    ///  - `archetype` must match the WorldQueries Q and F
+    ///  - Either Q::IS_DENSE or F::IS_DENSE must be false.
+    #[inline]
+    pub(super) unsafe fn for_each_archetype<Func>(
+        &mut self,
+        func: &mut Func,
+        archetype: &'w Archetype,
+        indices: Range<usize>,
+    )
+    where
+        Func: FnMut(Q::Item<'w>),
+    {
+        self.fold_archetype((), &mut |_, item| func(item), archetype, indices);
     }
 }
 
@@ -743,6 +799,14 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         }
     }
 
+    /// Fetches a query item from storage.
+    ///
+    /// Returns `None` if the target entity does not match the filter.
+    ///
+    /// # Safety 
+    /// - `set_archetype` and `set_table` must be called on both Q and F prior for every change in archetype or table.
+    /// - `entity` must belong to the archetype or table that was set
+    /// - `table_row` must be in bounds `0 <= table_row < table.entity_count()` for the table that was set.
     #[inline(always)]
     unsafe fn fetch(&mut self, entity: Entity, table_row: usize) -> Option<Q::Item<'w>> {
         F::filter_fetch(&mut self.filter, entity, table_row)

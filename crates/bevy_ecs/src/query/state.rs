@@ -941,7 +941,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
                     let mut offset = 0;
                     while offset < table.entity_count() {
-                        let func = func.clone();
+                        let mut func = func.clone();
                         let len = batch_size.min(table.entity_count() - offset);
                         let task = async move {
                             let table = &world
@@ -951,7 +951,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 .debug_checked_unwrap();
                             let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_change_tick, change_tick)
-                                .fold_table((), &mut |_, item| func(item), table, batch);
+                                .for_each_table(&mut func, table, batch);
                         };
                         #[cfg(feature = "trace")]
                         let span = bevy_utils::tracing::info_span!(
@@ -976,14 +976,14 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                     }
 
                     while offset < archetype.len() {
-                        let func = func.clone();
+                        let mut func = func.clone();
                         let len = batch_size.min(archetype.len() - offset);
                         let task = async move {
                             let archetype =
                                 world.archetypes.get(*archetype_id).debug_checked_unwrap();
                             let batch = offset..offset + len;
                             self.iter_unchecked_manual(world, last_change_tick, change_tick)
-                                .fold_archetype((), &mut |_, item| func(item), archetype, batch);
+                                .for_each_archetype(&mut func, archetype, batch);
                         };
 
                         #[cfg(feature = "trace")]
