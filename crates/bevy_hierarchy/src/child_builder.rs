@@ -749,9 +749,14 @@ mod tests {
     fn push_children_idempotent() {
         let mut world = World::new();
         let child = world.spawn_empty().id();
-        world
+        let parent = world
             .spawn_empty()
             .push_children(&[child])
-            .push_children(&[child]);
+            .push_children(&[child])
+            .id();
+
+        let mut query = world.query::<&Children>();
+        let children = query.get(&world, parent).unwrap();
+        assert_eq!(**children, [child]);
     }
 }
