@@ -72,45 +72,33 @@ impl Plugin for Core2dPlugin {
             graph::input::VIEW_ENTITY,
             SlotType::Entity,
         )]);
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::MAIN_PASS,
-                MainPass2dNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::TONEMAPPING,
-                TonemappingNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::UPSCALING,
-                UpscalingNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING)
-            .unwrap();
-        draw_2d_graph
-            .add_node_edge(
-                graph::node::TONEMAPPING,
-                graph::node::END_MAIN_PASS_POST_PROCESSING,
-            )
-            .unwrap();
-        draw_2d_graph
-            .add_node_edge(
-                graph::node::END_MAIN_PASS_POST_PROCESSING,
-                graph::node::UPSCALING,
-            )
-            .unwrap();
+        draw_2d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::MAIN_PASS,
+            MainPass2dNode::IN_VIEW,
+        );
+        draw_2d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::TONEMAPPING,
+            TonemappingNode::IN_VIEW,
+        );
+        draw_2d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::UPSCALING,
+            UpscalingNode::IN_VIEW,
+        );
+        draw_2d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
+        draw_2d_graph.add_node_edge(
+            graph::node::TONEMAPPING,
+            graph::node::END_MAIN_PASS_POST_PROCESSING,
+        );
+        draw_2d_graph.add_node_edge(
+            graph::node::END_MAIN_PASS_POST_PROCESSING,
+            graph::node::UPSCALING,
+        );
         graph.add_sub_graph(graph::NAME, draw_2d_graph);
     }
 }

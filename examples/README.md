@@ -320,6 +320,7 @@ Example | Description
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Ui Image Symmetries](../examples/ui/ui_image_symmetries.rs) | Demonstrates rotating and flipping an image
+[Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
 
 ## Window
 
