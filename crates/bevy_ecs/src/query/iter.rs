@@ -135,8 +135,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         func: &mut Func,
         table: &'w Table,
         rows: Range<usize>,
-    )
-    where
+    ) where
         Func: FnMut(Q::Item<'w>),
     {
         self.fold_table((), &mut |_, item| func(item), table, rows);
@@ -155,8 +154,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
         func: &mut Func,
         archetype: &'w Archetype,
         indices: Range<usize>,
-    )
-    where
+    ) where
         Func: FnMut(Q::Item<'w>),
     {
         self.fold_archetype((), &mut |_, item| func(item), archetype, indices);
@@ -803,7 +801,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     ///
     /// Returns `None` if the target entity does not match the filter.
     ///
-    /// # Safety 
+    /// # Safety
     /// - `set_archetype` and `set_table` must be called on both Q and F prior for every change in archetype or table.
     /// - `entity` must belong to the archetype or table that was set
     /// - `table_row` must be in bounds `0 <= table_row < table.entity_count()` for the table that was set.
