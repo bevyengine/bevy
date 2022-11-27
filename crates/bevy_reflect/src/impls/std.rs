@@ -12,19 +12,17 @@ use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
-#[cfg(any(unix, windows))]
-use std::ffi::OsString;
-use std::path::Path;
 use std::{
     any::Any,
     borrow::Cow,
+    ffi::OsString,
     hash::{Hash, Hasher},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
         NonZeroU16, NonZeroU32, NonZeroU64, NonZeroU8, NonZeroUsize,
     },
     ops::{Range, RangeFrom, RangeFull, RangeInclusive, RangeTo, RangeToInclusive},
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 impl_reflect_value!(bool(
@@ -131,10 +129,12 @@ impl_reflect_value!(NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
 impl_reflect_value!(NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
 
-// Only for platforms that can serialize it as in serde:
+// `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
 #[cfg(any(unix, windows))]
 impl_reflect_value!(OsString(Debug, Hash, PartialEq, Serialize, Deserialize));
+#[cfg(not(any(unix, windows)))]
+impl_reflect_value!(OsString(Debug, Hash, PartialEq));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -153,6 +153,8 @@ impl_from_reflect_value!(isize);
 impl_from_reflect_value!(f32);
 impl_from_reflect_value!(f64);
 impl_from_reflect_value!(String);
+impl_from_reflect_value!(PathBuf);
+impl_from_reflect_value!(OsString);
 impl_from_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(Range<T: Clone + Send + Sync + 'static>);
 impl_from_reflect_value!(RangeInclusive<T: Clone + Send + Sync + 'static>);
