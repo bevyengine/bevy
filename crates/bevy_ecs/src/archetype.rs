@@ -5,7 +5,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId},
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
     collections::HashMap,
@@ -154,7 +154,7 @@ impl Edges {
 
 pub struct ArchetypeEntity {
     pub(crate) entity: Entity,
-    pub(crate) table_row: u32,
+    pub(crate) table_row: TableRow,
 }
 
 impl ArchetypeEntity {
@@ -162,14 +162,14 @@ impl ArchetypeEntity {
         self.entity
     }
 
-    pub fn table_row(&self) -> u32 {
+    pub fn table_row(&self) -> TableRow {
         self.table_row
     }
 }
 
 pub(crate) struct ArchetypeSwapRemoveResult {
     pub(crate) swapped_entity: Option<Entity>,
-    pub(crate) table_row: u32,
+    pub(crate) table_row: TableRow,
 }
 
 pub(crate) struct ArchetypeComponentInfo {
@@ -270,19 +270,19 @@ impl Archetype {
     }
 
     #[inline]
-    pub fn entity_table_row(&self, index: u32) -> u32 {
+    pub fn entity_table_row(&self, index: u32) -> TableRow {
         self.entities[index as usize].table_row
     }
 
     #[inline]
-    pub(crate) fn set_entity_table_row(&mut self, index: u32, table_row: u32) {
+    pub(crate) fn set_entity_table_row(&mut self, index: u32, table_row: TableRow) {
         self.entities[index as usize].table_row = table_row;
     }
 
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
-    pub(crate) unsafe fn allocate(&mut self, entity: Entity, table_row: u32) -> EntityLocation {
+    pub(crate) unsafe fn allocate(&mut self, entity: Entity, table_row: TableRow) -> EntityLocation {
         self.entities.push(ArchetypeEntity { entity, table_row });
 
         EntityLocation {

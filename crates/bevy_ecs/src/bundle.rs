@@ -11,7 +11,7 @@ use crate::{
     },
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
-    storage::{SparseSetIndex, SparseSets, Storages, Table},
+    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
@@ -379,7 +379,7 @@ impl BundleInfo {
         sparse_sets: &mut SparseSets,
         bundle_component_status: &S,
         entity: Entity,
-        table_row: u32,
+        table_row: TableRow,
         change_tick: u32,
         bundle: T,
     ) {
