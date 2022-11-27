@@ -95,6 +95,7 @@ where
         render_app
             .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_components)
             .add_system_to_stage(RenderStage::Prepare, prepare_prepass_textures)
+            .add_system_to_stage(RenderStage::Prepare, prepare_previous_view_projection_uniforms)
             .add_system_to_stage(RenderStage::Queue, queue_prepass_view_bind_group::<M>)
             .add_system_to_stage(RenderStage::Queue, queue_prepass_material_meshes::<M>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3dPrepass>)
