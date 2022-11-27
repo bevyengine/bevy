@@ -6,7 +6,6 @@ use bevy_ecs::{
     system::{Command, Commands, EntityCommands},
     world::{EntityMut, World},
 };
-use bevy_log::warn;
 use smallvec::SmallVec;
 
 fn push_events(world: &mut World, events: SmallVec<[HierarchyEvent; 8]>) {
@@ -52,8 +51,8 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
     let mut moved: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
     for child in children {
         if let Some(previous) = update_parent(world, *child, parent) {
+            // Do nothing if the entity already has the correct parent.
             if parent == previous {
-                warn!("Entity `{child:?}` is already a child of `{parent:?}`");
                 continue;
             }
 
@@ -292,7 +291,8 @@ pub trait BuildChildren {
     /// # }
     /// ```
     fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
-    /// Pushes children to the back of the builder's children
+    /// Pushes children to the back of the builder's children. For any entities that are
+    /// already a child of this one, this method does nothing.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
@@ -752,6 +752,6 @@ mod tests {
         world
             .spawn_empty()
             .push_children(&[child])
-            .push_children(&[child]); // this second push will warn
+            .push_children(&[child]);
     }
 }
