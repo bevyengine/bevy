@@ -518,15 +518,23 @@ struct ArchetypeIdentity {
 /// parallel as the matched `ArchetypeComponentId` sets for both queries are disjoint, even
 /// though `&mut A` on both queries point to the same [`ComponentId`].
 ///
-/// Every [`Resource`] is also assigned one.
+/// In SQL terms, these IDs are composite keys on a [many-to-many relationship] between archetypes
+/// and components. Each component type will have only one [`ComponentId`], but may have many 
+/// [`ArchetypeComponentId`]s, one for every archetype the component is present in. Likewise, each 
+/// archetype will have only one [`ArchetypeId`] but may have many [`ArchetypeComponentId`]s, one
+/// for each component that belongs to the archetype.
 ///
-/// These IDs are only valid for a given World, and are not globally unique.
+/// Every [`Resource`] is also assigned one of these IDs. As resources do not belong to any
+/// particular archetype, a resource's ID uniquely identifies it.
+///
+/// These IDs are only valid within a given World, and are not globally unique.
 /// Attempting to use an ID on a world that it wasn't sourced from will
 /// not point to the same archetype nor the same component.
 ///
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
 /// [`Resource`]: crate::system::Resource
+/// [many-to-many relationship]: https://en.wikipedia.org/wiki/Many-to-many_(data_model)
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub struct ArchetypeComponentId(usize);
 
