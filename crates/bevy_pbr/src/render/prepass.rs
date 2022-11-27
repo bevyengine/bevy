@@ -17,7 +17,6 @@ use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
-    extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     mesh::MeshVertexBufferLayout,
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
@@ -28,14 +27,14 @@ use bevy_render::{
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState,
-        ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, Extent3d, FragmentState,
-        FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-        RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages, ShaderType,
-        SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
-        StencilFaceState, StencilState, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages, VertexState,
+        ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, DynamicUniformBuffer,
+        Extent3d, FragmentState, FrontFace, MultisampleState, PipelineCache, PolygonMode,
+        PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages,
+        ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureUsages, VertexState,
     },
-    renderer::RenderDevice,
+    renderer::{RenderDevice, RenderQueue},
     texture::TextureCache,
     view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms, VisibleEntities},
     Extract, RenderApp, RenderStage,
@@ -87,8 +86,7 @@ where
         );
 
         app.add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
-            .add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms)
-            .add_plugin(UniformComponentPlugin::<PreviousViewProjection>::default());
+            .add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -121,14 +119,12 @@ pub struct PreviousViewProjection {
 
 pub fn update_previous_view_projections(
     mut commands: Commands,
-    query: Query<(Entity, &ExtractedView, &PrepassSettings), With<Camera3d>>,
+    query: Query<(Entity, &ExtractedView), (With<Camera3d>, With<PrepassSettings>)>,
 ) {
-    for (entity, camera, prepass_settings) in &query {
-        if prepass_settings.velocity_enabled {
-            commands.entity(entity).insert(PreviousViewProjection {
-                view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
-            });
-        }
+    for (entity, camera) in &query {
+        commands.entity(entity).insert(PreviousViewProjection {
+            view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
+        });
     }
 }
 
@@ -417,6 +413,44 @@ pub fn extract_camera_prepass_components(
     }
 }
 
+#[derive(Resource, Default)]
+pub struct PreviousViewProjectionUniforms {
+    pub uniforms: DynamicUniformBuffer<PreviousViewProjection>,
+}
+
+#[derive(Component)]
+pub struct PreviousViewProjectionUniformOffset {
+    pub offset: u32,
+}
+
+pub fn prepare_previous_view_projection_uniforms(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    mut view_uniforms: ResMut<PreviousViewProjectionUniforms>,
+    views: Query<(Entity, &ExtractedView, Option<&PreviousViewProjection>)>,
+) {
+    view_uniforms.uniforms.clear();
+
+    for (entity, camera, maybe_previous_view_proj) in &views {
+        let view_projection = match maybe_previous_view_proj {
+            Some(previous_view) => previous_view.clone(),
+            None => PreviousViewProjection {
+                view_proj: camera.projection * camera.transform.compute_matrix().inverse(),
+            },
+        };
+        commands
+            .entity(entity)
+            .insert(PreviousViewProjectionUniformOffset {
+                offset: view_uniforms.uniforms.push(view_projection),
+            });
+    }
+
+    view_uniforms
+        .uniforms
+        .write_buffer(&render_device, &render_queue);
+}
+
 pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -524,10 +558,12 @@ pub fn queue_prepass_view_bind_group<M: Material>(
     render_device: Res<RenderDevice>,
     prepass_pipeline: Res<PrepassPipeline<M>>,
     view_uniforms: Res<ViewUniforms>,
-    previous_view_proj_uniforms: Res<ComponentUniforms<PreviousViewProjection>>,
+    previous_view_proj_uniforms: Res<PreviousViewProjectionUniforms>,
     mut prepass_view_bind_group: ResMut<PrepassViewBindGroup>,
 ) {
-    let (Some(view_binding), Some(previous_view_proj_binding)) = (view_uniforms.uniforms.binding(), previous_view_proj_uniforms.binding()) else {
+    let (Some(view_binding), Some(previous_view_proj_binding)) =
+        (view_uniforms.uniforms.binding(), previous_view_proj_uniforms.uniforms.binding())
+    else {
         return;
     };
 
@@ -660,7 +696,7 @@ impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
         SRes<PrepassViewBindGroup>,
         SQuery<(
             Read<ViewUniformOffset>,
-            Read<DynamicUniformIndex<PreviousViewProjection>>,
+            Read<PreviousViewProjectionUniformOffset>,
         )>,
     );
     #[inline]
@@ -678,7 +714,7 @@ impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
             prepass_view_bind_group.bind_group.as_ref().unwrap(),
             &[
                 view_uniform_offset.offset,
-                previous_view_proj_uniform_offset.index(),
+                previous_view_proj_uniform_offset.offset,
             ],
         );
 
