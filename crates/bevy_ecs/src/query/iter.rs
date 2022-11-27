@@ -56,13 +56,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let max_size = self
-            .query_state
-            .matched_archetype_ids
-            .iter()
-            .map(|id| self.archetypes[*id].len())
-            .sum();
-
+        let max_size = self.cursor.max_remaining(self.tables, self.archetypes);
         let archetype_query = Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
@@ -351,11 +345,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             return None;
         }
 
-        // first, iterate from last to first until next item is found
+        // PERF: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
+        // when Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL
+        //
+        // let `i` be the index of `c`, the last cursor in `self.cursors` that
+        // returns `K-i` or more elements.
+        // Make cursor in index `j` for all `j` in `[i, K)` a copy of `c` advanced `j-i+1` times.
+        // If no such `c` exists, return `None`
         'outer: for i in (0..K).rev() {
             match self.cursors[i].next(self.tables, self.archetypes, self.query_state) {
                 Some(_) => {
-                    // walk forward up to last element, propagating cursor state forward
                     for j in (i + 1)..K {
                         self.cursors[j] = self.cursors[j - 1].clone_cursor();
                         match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
@@ -409,36 +408,29 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Itera
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        if K == 0 {
-            return (0, Some(0));
-        }
-
-        let max_size: usize = self
-            .query_state
-            .matched_archetype_ids
-            .iter()
-            .map(|id| self.archetypes[*id].len())
-            .sum();
-
-        if max_size < K {
-            return (0, Some(0));
-        }
-        if max_size == K {
-            return (1, Some(1));
-        }
-
         // binomial coefficient: (n ; k) = n! / k!(n-k)! = (n*n-1*...*n-k+1) / k!
         // See https://en.wikipedia.org/wiki/Binomial_coefficient
         // See https://blog.plover.com/math/choose.html for implementation
         // It was chosen to reduce overflow potential.
         fn choose(n: usize, k: usize) -> Option<usize> {
+            if k > n || n == 0 {
+                return Some(0);
+            }
+            let k = k.min(n - k);
             let ks = 1..=k;
             let ns = (n - k + 1..=n).rev();
             ks.zip(ns)
                 .try_fold(1_usize, |acc, (k, n)| Some(acc.checked_mul(n)? / k))
         }
-        let smallest = K.min(max_size - K);
-        let max_combinations = choose(max_size, smallest);
+        // sum_i=0..k choose(cursors[i].remaining, k-i)
+        let max_combinations = self
+            .cursors
+            .iter()
+            .enumerate()
+            .try_fold(0, |acc, (i, cursor)| {
+                let n = cursor.max_remaining(self.tables, self.archetypes);
+                Some(acc + choose(n, K - i)?)
+            });
 
         let archetype_query = F::IS_ARCHETYPAL && Q::IS_ARCHETYPAL;
         let known_max = max_combinations.unwrap_or(usize::MAX);
@@ -452,11 +444,7 @@ where
     F: ArchetypeFilter,
 {
     fn len(&self) -> usize {
-        self.query_state
-            .matched_archetype_ids
-            .iter()
-            .map(|id| self.archetypes[*id].len())
-            .sum()
+        self.size_hint().0
     }
 }
 
@@ -569,6 +557,21 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         } else {
             None
         }
+    }
+
+    /// How many values will this cursor return at most?
+    ///
+    /// Note that if `Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL`, the return value
+    /// will be **the exact count of remaining values**.
+    fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
+        let remaining_matched: usize = if Self::IS_DENSE {
+            let ids = self.table_id_iter.clone();
+            ids.map(|id| tables[*id].entity_count()).sum()
+        } else {
+            let ids = self.archetype_id_iter.clone();
+            ids.map(|id| archetypes[*id].len()).sum()
+        };
+        remaining_matched + self.current_len - self.current_index
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:

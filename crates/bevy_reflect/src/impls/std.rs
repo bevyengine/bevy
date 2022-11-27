@@ -14,6 +14,7 @@ use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
 #[cfg(any(unix, windows))]
 use std::ffi::OsString;
+use std::path::Path;
 use std::{
     any::Any,
     borrow::Cow,
@@ -745,6 +746,86 @@ impl Reflect for Cow<'static, str> {
     }
 }
 
+impl Reflect for &'static Path {
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        let value = value.as_any();
+        if let Some(&value) = value.downcast_ref::<Self>() {
+            *self = value;
+        } else {
+            panic!("Value is not a {}.", std::any::type_name::<Self>());
+        }
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::Value(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::Value(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Value(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(*self)
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        let mut hasher = crate::ReflectHasher::default();
+        Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+        Hash::hash(self, &mut hasher);
+        Some(hasher.finish())
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            Some(std::cmp::PartialEq::eq(self, value))
+        } else {
+            Some(false)
+        }
+    }
+}
+
 impl<T: FromReflect> GetTypeRegistration for Option<T> {
     fn get_type_registration() -> TypeRegistration {
         TypeRegistration::of::<Option<T>>()
@@ -1019,6 +1100,27 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
+impl Typed for &'static Path {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+}
+
+impl GetTypeRegistration for &'static Path {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<Self>();
+        registration.insert::<ReflectFromPtr>(FromType::<Self>::from_type());
+        registration
+    }
+}
+
+impl FromReflect for &'static Path {
+    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
+        reflect.as_any().downcast_ref::<Self>().copied()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate as bevy_reflect;
@@ -1029,6 +1131,7 @@ mod tests {
     use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
     use std::f32::consts::{PI, TAU};
+    use std::path::Path;
 
     #[test]
     fn can_serialize_duration() {
@@ -1227,5 +1330,12 @@ mod tests {
         let expected = Instant::now();
         let output = <Instant as FromReflect>::from_reflect(&expected).unwrap();
         assert_eq!(expected, output);
+    }
+
+    #[test]
+    fn path_should_from_reflect() {
+        let path = Path::new("hello_world.rs");
+        let output = <&'static Path as FromReflect>::from_reflect(&path).unwrap();
+        assert_eq!(path, output);
     }
 }
