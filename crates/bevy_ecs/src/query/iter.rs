@@ -134,6 +134,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
         Func: FnMut(B, Self::Item) -> B,
     {
         let mut accum = init;
+        // Empty any remaining uniterated values from the current table/archetype
+        while self.cursor.current_index != self.cursor.current_len {
+            let Some(item) = self.next() else { break };
+            accum = func(accum, item);
+        }
         if Q::IS_DENSE && F::IS_DENSE {
             for table_id in self.cursor.table_id_iter.clone() {
                 // SAFETY: Matched table IDs are guarenteed to still exist.
