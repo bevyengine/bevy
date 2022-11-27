@@ -150,7 +150,7 @@ impl Node for TAANode {
         let (Some(taa_pipeline), Some(blit_pipeline), Some(prepass_velocity_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline),
             pipeline_cache.get_render_pipeline(blit_pipeline),
-            prepass_textures.velocity,
+            &prepass_textures.velocity,
         ) else {
             return Ok(());
         };
@@ -260,6 +260,19 @@ struct TAAPipelines {
 impl FromWorld for TAAPipelines {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
+
+        let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: Some("taa_nearest_sampler"),
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            ..SamplerDescriptor::default()
+        });
+        let linear_sampler = render_device.create_sampler(&SamplerDescriptor {
+            label: Some("taa_linear_sampler"),
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            ..SamplerDescriptor::default()
+        });
 
         let taa_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
