@@ -519,8 +519,8 @@ struct ArchetypeIdentity {
 /// though `&mut A` on both queries point to the same [`ComponentId`].
 ///
 /// In SQL terms, these IDs are composite keys on a [many-to-many relationship] between archetypes
-/// and components. Each component type will have only one [`ComponentId`], but may have many 
-/// [`ArchetypeComponentId`]s, one for every archetype the component is present in. Likewise, each 
+/// and components. Each component type will have only one [`ComponentId`], but may have many
+/// [`ArchetypeComponentId`]s, one for every archetype the component is present in. Likewise, each
 /// archetype will have only one [`ArchetypeId`] but may have many [`ArchetypeComponentId`]s, one
 /// for each component that belongs to the archetype.
 ///
