@@ -41,6 +41,11 @@ struct VertexOutput {
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
 #endif // PREPASS_NORMALS
+
+#ifdef PREPASS_VELOCITIES
+    @location(3) world_position: vec4<f32>,
+    @location(4) previous_world_position: vec4<f32>,
+#endif // PREPASS_VELOCITIES
 }
 
 @vertex
@@ -52,6 +57,11 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #else // SKINNED
     var model = mesh.model;
 #endif // SKINNED
+
+#ifdef PREPASS_VELOCITIES
+    out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
+    out.previous_world_position = mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
+#endif // PREPASS_VELOCITIES
 
     out.clip_position = mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 
