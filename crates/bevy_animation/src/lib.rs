@@ -21,12 +21,14 @@ use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
+pub mod tweening;
+use tweening::*;
 
 #[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve,
+        AnimationClip, AnimationPlayer, AnimationPlugin, EntityPath, Keyframes, VariableCurve
     };
 }
 
@@ -59,12 +61,28 @@ pub struct EntityPath {
     pub parts: Vec<Name>,
 }
 
+impl std::fmt::Display for EntityPath {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        std::fmt::Display::fmt(
+            &self
+                .parts
+                .iter()
+                .map(|x| format!("{}", x))
+                .collect::<Vec<String>>()
+                .join("/"),
+            f,
+        )
+    }
+}
+
 /// A list of [`VariableCurve`], and the [`EntityPath`] to which they apply.
 #[derive(Reflect, FromReflect, Clone, TypeUuid, Debug, Default)]
 #[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
 pub struct AnimationClip {
-    curves: HashMap<EntityPath, Vec<VariableCurve>>,
-    duration: f32,
+    // Size of 3: translation, rotation, scale
+    pub curves: HashMap<EntityPath, Vec<VariableCurve>>,
+    pub duration: f32,
 }
 
 impl AnimationClip {
@@ -94,11 +112,16 @@ impl AnimationClip {
 #[derive(Component, Reflect)]
 #[reflect(Component)]
 pub struct AnimationPlayer {
-    paused: bool,
-    repeat: bool,
-    speed: f32,
-    elapsed: f32,
-    animation_clip: Handle<AnimationClip>,
+    pub paused: bool,
+    pub repeat: bool,
+    pub speed: f32,
+    pub elapsed: f32,
+    pub animation_clip: Handle<AnimationClip>,
+    pub start_frame: usize,
+    pub end_frame: usize,
+    pub frames_count: usize,
+    pub transition_duration: f32,
+    pub lerp: f32
 }
 
 impl Default for AnimationPlayer {
@@ -109,6 +132,11 @@ impl Default for AnimationPlayer {
             speed: 1.0,
             elapsed: 0.0,
             animation_clip: Default::default(),
+            start_frame: 0,
+            end_frame: 1,
+            frames_count: 1, // assume at least one
+            transition_duration: 1.0,
+            lerp: 0.0
         }
     }
 }
@@ -202,9 +230,6 @@ pub fn animation_player(
                 player.elapsed += time.delta_seconds() * player.speed;
             }
             let mut elapsed = player.elapsed;
-            if player.repeat {
-                elapsed %= animation_clip.duration;
-            }
             if elapsed < 0.0 {
                 elapsed += animation_clip.duration;
             }
@@ -247,43 +272,40 @@ pub fn animation_player(
 
                         // Find the current keyframe
                         // PERF: finding the current keyframe can be optimised
-                        let step_start = match curve
-                            .keyframe_timestamps
-                            .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
-                        {
-                            Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                            Ok(i) => i,
-                            Err(0) => continue, // this curve isn't started yet
-                            Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                            Err(i) => i - 1,
-                        };
-                        let ts_start = curve.keyframe_timestamps[step_start];
-                        let ts_end = curve.keyframe_timestamps[step_start + 1];
-                        let lerp = (elapsed - ts_start) / (ts_end - ts_start);
+
+                        // TODO: implement keyframe iterator (provider) so that I can pass different keyframe index sequences
+                        let step_start = player.start_frame;
+                        let step_end = player.end_frame;
+
+                        let mut lerp = (elapsed % player.transition_duration) / player.transition_duration;
+                        if f32::floor(elapsed / player.transition_duration) as i32 % 2 == 1 {
+                            lerp = 1.0 - lerp
+                        }
+                        player.lerp = lerp;
 
                         // Apply the keyframe
                         match &curve.keyframes {
                             Keyframes::Rotation(keyframes) => {
                                 let rot_start = keyframes[step_start];
-                                let mut rot_end = keyframes[step_start + 1];
+                                let mut rot_end = keyframes[step_end];
                                 // Choose the smallest angle for the rotation
                                 if rot_end.dot(rot_start) < 0.0 {
                                     rot_end = -rot_end;
                                 }
                                 // Rotations are using a spherical linear interpolation
                                 transform.rotation =
-                                    rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                                    rot_start.normalize().tween_bounce_in(rot_end.normalize(), lerp);
                             }
                             Keyframes::Translation(keyframes) => {
                                 let translation_start = keyframes[step_start];
-                                let translation_end = keyframes[step_start + 1];
-                                let result = translation_start.lerp(translation_end, lerp);
+                                let translation_end = keyframes[step_end];
+                                let result = translation_start.tween_bounce_in(translation_end, lerp);
                                 transform.translation = result;
                             }
                             Keyframes::Scale(keyframes) => {
                                 let scale_start = keyframes[step_start];
-                                let scale_end = keyframes[step_start + 1];
-                                let result = scale_start.lerp(scale_end, lerp);
+                                let scale_end = keyframes[step_end];
+                                let result = scale_start.tween_bounce_in(scale_end, lerp);
                                 transform.scale = result;
                             }
                         }
