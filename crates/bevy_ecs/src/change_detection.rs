@@ -28,8 +28,10 @@ use cfg_if::cfg_if;
 cfg_if! {
     if #[cfg(target_has_atomic = "64")] {
         type AtomicTick = core::sync::atomic::AtomicU64;
+        type AtomicTickValue = u64;
     } else {
         type AtomicTick = core::sync::atomic::AtomicU32;
+        type AtomicTickValue = u32;
         const ATOMIC_PANIC_THRESHOLD: u32 = u32::MAX;
     }
 }
@@ -51,9 +53,18 @@ impl Display for Tick {
     }
 }
 
+impl Default for Tick {
+    #[inline(always)]
+    fn default() -> Self {
+        Tick::new()
+    }
+}
+
 impl Tick {
     #[inline(always)]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
+        // Safety:
+        // `TICK_BASE_VALUE` is nonzero
         Tick(unsafe { NonZeroU64::new_unchecked(TICK_BASE_VALUE) })
     }
 }
@@ -77,9 +88,16 @@ impl Tick {
 #[derive(Clone, Copy, Debug)]
 pub struct SmallTick(pub u32);
 
+impl Default for SmallTick {
+    #[inline(always)]
+    fn default() -> Self {
+        SmallTick::new()
+    }
+}
+
 impl SmallTick {
     #[inline(always)]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         SmallTick(0)
     }
 }
@@ -126,7 +144,7 @@ impl SmallTick {
     /// [`TickCounter::maintain`] returns `true`.
     #[inline(always)]
     pub fn check_tick(&mut self, change_tick: Tick) {
-        let age = (change_tick.0.get() as u32).wrapping_sub(self.0.into());
+        let age = (change_tick.0.get() as u32).wrapping_sub(self.0);
         if age > MAX_CHANGE_AGE {
             self.0 = (change_tick.0.get() as u32).wrapping_sub(MAX_CHANGE_AGE);
         }
@@ -134,7 +152,7 @@ impl SmallTick {
 
     #[cfg(test)]
     fn needs_check(&self, change_tick: Tick) -> bool {
-        let age = (change_tick.0.get() as u32).wrapping_sub(self.0.into());
+        let age = (change_tick.0.get() as u32).wrapping_sub(self.0);
         age > MAX_CHANGE_AGE
     }
 }
@@ -159,6 +177,14 @@ pub struct TickCounter {
     last_maintenance: u64,
 }
 
+impl Default for TickCounter {
+    #[inline(always)]
+    fn default() -> Self {
+        TickCounter::new()
+    }
+}
+
+// #[allow(clippy::useless_conversion)]
 impl TickCounter {
     #[inline]
     pub fn new() -> TickCounter {
@@ -186,10 +212,10 @@ impl TickCounter {
     pub fn maintain(&mut self) -> bool {
         #[cfg(not(target_has_atomic = "64"))]
         {
-            self.offset += std::mem::replace(self.atomic.get_mut(), 0);
+            self.offset += std::mem::replace(self.atomic.get_mut(), 0) as u64;
         }
 
-        let atomic = u64::from(*self.atomic.get_mut());
+        let atomic = *self.atomic.get_mut();
         let tick_index = self.tick_index(atomic);
         if tick_index > self.last_maintenance + CHECK_TICK_THRESHOLD as u64 {
             self.last_maintenance = tick_index;
@@ -202,43 +228,41 @@ impl TickCounter {
     #[inline(always)]
     pub fn current(&self) -> Tick {
         let atomic = self.atomic.load(Relaxed);
-        self.make_tick(atomic.into())
+        self.make_tick(atomic)
     }
 
     #[inline(always)]
     pub fn current_mut(&mut self) -> Tick {
         let atomic = *self.atomic.get_mut();
-        self.make_tick(atomic.into())
+        self.make_tick(atomic)
     }
 
     #[inline(always)]
     pub fn next(&self) -> Tick {
         let atomic = self.atomic.fetch_add(1, Relaxed);
-        self.make_tick(atomic.into())
+        self.make_tick(atomic)
     }
 
     #[inline]
-    fn tick_index(&self, atomic: u64) -> u64 {
+    fn tick_index(&self, atomic: AtomicTickValue) -> u64 {
         cfg_if! {
             if #[cfg(target_has_atomic = "64")] {
                 atomic
             } else {
-                if atomic >= ATOMIC_PANIC_THRESHOLD as u64 {
+                if atomic >= ATOMIC_PANIC_THRESHOLD {
                     panic!("Too many `TickCounter::next` calls between `TickCounter::maintain` calls")
                 }
-                self.offset + atomic
+                self.offset + atomic as u64
             }
         }
     }
 
     #[inline(always)]
-    fn make_tick(&self, atomic: u64) -> Tick {
+    fn make_tick(&self, atomic: AtomicTickValue) -> Tick {
         let index = self.tick_index(atomic);
-        Tick(unsafe {
-            // # Safety
-            // `TICK_BASE_VALUE` is nonzero
-            NonZeroU64::new(TICK_BASE_VALUE | index).unwrap_unchecked()
-        })
+        // Safety:
+        // `TICK_BASE_VALUE` is nonzero
+        Tick(unsafe { NonZeroU64::new(TICK_BASE_VALUE | index).unwrap_unchecked() })
     }
 
     #[cfg(test)]
