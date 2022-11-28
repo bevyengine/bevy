@@ -467,34 +467,15 @@ impl Volume for Extent3d {
     }
 }
 
-/// Information about the pixel size in bytes and the number of different components.
-pub struct PixelInfo {
-    /// The size of a component of a pixel in bytes.
-    pub type_size: usize,
-    /// The amount of different components (color channels).
-    pub num_components: usize,
-}
-
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
 pub trait TextureFormatPixelInfo {
-    /// Returns the pixel information of the format.
-    fn pixel_info(&self) -> PixelInfo;
-    /// Returns the size of a pixel of the format.
-    fn pixel_size(&self) -> usize {
-        let info = self.pixel_info();
-        info.type_size * info.num_components
-    }
+    /// Returns the size in bytes of a pixel of the format.
+    fn pixel_size(&self) -> usize;
 }
 
 impl TextureFormatPixelInfo for TextureFormat {
-    #[allow(clippy::match_same_arms)]
-    fn pixel_info(&self) -> PixelInfo {
-        let info = self.describe();
-
-        PixelInfo {
-            type_size: info.block_size.into(),
-            num_components: info.components.into(),
-        }
+    fn pixel_size(&self) -> usize {
+        self.describe().block_size.into()
     }
 }
 
