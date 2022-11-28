@@ -156,7 +156,6 @@ impl Plugin for PbrPlugin {
                 prepass_enabled: self.prepass_enabled,
                 ..default()
             })
-            .add_plugin(TemporalAntialiasPlugin)
             .add_plugin(AmbientOcclusionPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
