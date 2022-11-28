@@ -68,7 +68,7 @@ impl Default for World {
     fn default() -> Self {
         Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
-            entities: Default::default(),
+            entities: Entities::new(),
             components: Default::default(),
             archetypes: Archetypes::new(),
             storages: Default::default(),
@@ -480,10 +480,7 @@ impl World {
         // empty
         let location = archetype.allocate(entity, table_row);
         // SAFETY: entity index was just allocated
-        self.entities
-            .meta
-            .get_unchecked_mut(entity.index() as usize)
-            .location = location;
+        self.entities.set(entity.index(), location);
         EntityMut::new(self, entity, location)
     }
 
