@@ -163,7 +163,7 @@ pub struct StandardMaterial {
     /// This is usually generated and stored automatically ("baked") by 3D-modelling software.
     ///
     /// Typically, steep concave parts of a model (such as the armpit of a shirt) are darker,
-    /// because they have little exposed to light.
+    /// because they have little explosure to light.
     /// An occlusion map specifies those parts of the model that light doesn't reach well.
     ///
     /// The material will be less lit in places where this texture is dark.
