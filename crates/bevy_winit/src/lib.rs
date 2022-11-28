@@ -14,6 +14,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_input::mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel};
+use bevy_input::keyboard::KeyboardInput;
 use bevy_math::{ivec2, DVec2, UVec2, Vec2};
 use bevy_utils::{
     tracing::{error, info, trace, warn},
@@ -413,7 +414,7 @@ pub fn winit_runner_with(mut app: App) {
                         world.send_event(WindowCloseRequested { id: window_id });
                     }
                     WindowEvent::KeyboardInput { ref input, .. } => {
-                        world.send_event(input.into());
+                        world.send_event::<KeyboardInput>(input.into());
                     }
                     WindowEvent::CursorMoved { position, .. } => {
                         let physical_position = DVec2::new(position.x, position.y);
