@@ -238,6 +238,8 @@ pub struct Style {
     /// How to handle overflow
     pub overflow: Overflow,
     /// The size of the gutters between the rows and columns of the flexbox layout
+    ///
+    /// Values of `Size::UNDEFINED` and `Size::AUTO` are treated as zero.
     pub gap: Size,
 }
 
