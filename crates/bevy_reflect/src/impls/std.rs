@@ -1043,7 +1043,7 @@ impl<T: FromReflect> Reflect for Option<T> {
                 match value.variant_name() {
                     "Some" => {
                         let field = value.field_at(0);
-                        if let None = field {
+                        if field.is_none() {
                             return Err(ApplyError::AbsentField(
                                 std::any::type_name::<Option<T>>().to_string(),
                             ));
