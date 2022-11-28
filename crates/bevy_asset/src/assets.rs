@@ -1,13 +1,14 @@
 use crate::{
     update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
-    RefChange,
+    RefChange, ReflectAsset, ReflectHandle,
 };
-use bevy_app::App;
+use bevy_app::{App, AppTypeRegistry};
 use bevy_ecs::{
     event::{EventWriter, Events},
-    system::ResMut,
+    system::{ResMut, Resource},
     world::FromWorld,
 };
+use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -33,21 +34,21 @@ impl<T: Asset> Debug for AssetEvent<T> {
                     "AssetEvent<{}>::Created",
                     std::any::type_name::<T>()
                 ))
-                .field("handle", &handle.id)
+                .field("handle", &handle.id())
                 .finish(),
             AssetEvent::Modified { handle } => f
                 .debug_struct(&format!(
                     "AssetEvent<{}>::Modified",
                     std::any::type_name::<T>()
                 ))
-                .field("handle", &handle.id)
+                .field("handle", &handle.id())
                 .finish(),
             AssetEvent::Removed { handle } => f
                 .debug_struct(&format!(
                     "AssetEvent<{}>::Removed",
                     std::any::type_name::<T>()
                 ))
-                .field("handle", &handle.id)
+                .field("handle", &handle.id())
                 .finish(),
         }
     }
@@ -66,7 +67,7 @@ impl<T: Asset> Debug for AssetEvent<T> {
 /// Remember, if there are no Strong handles for an asset (i.e. they have all been dropped), the
 /// asset will unload. Make sure you always have a Strong handle when you want to keep an asset
 /// loaded!
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct Assets<T: Asset> {
     assets: HashMap<HandleId, T>,
     events: Events<AssetEvent<T>>,
@@ -279,6 +280,14 @@ pub trait AddAsset {
     where
         T: Asset;
 
+    /// Registers the asset type `T` using `[App::register]`,
+    /// and adds [`ReflectAsset`] type data to `T` and [`ReflectHandle`] type data to [`Handle<T>`] in the type registry.
+    ///
+    /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
+    fn register_asset_reflect<T>(&mut self) -> &mut Self
+    where
+        T: Asset + Reflect + FromReflect + GetTypeRegistration;
+
     /// Registers `T` as a supported internal asset in the application.
     ///
     /// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
@@ -330,6 +339,23 @@ impl AddAsset for App {
             .add_system_to_stage(AssetStage::LoadAssets, update_asset_storage_system::<T>)
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
+    }
+
+    fn register_asset_reflect<T>(&mut self) -> &mut Self
+    where
+        T: Asset + Reflect + FromReflect + GetTypeRegistration,
+    {
+        let type_registry = self.world.resource::<AppTypeRegistry>();
+        {
+            let mut type_registry = type_registry.write();
+
+            type_registry.register::<T>();
+            type_registry.register::<Handle<T>>();
+            type_registry.register_type_data::<T, ReflectAsset>();
+            type_registry.register_type_data::<Handle<T>, ReflectHandle>();
+        }
+
+        self
     }
 
     fn add_debug_asset<T: Clone>(&mut self) -> &mut Self
@@ -417,6 +443,44 @@ macro_rules! load_internal_asset {
     }};
 }
 
+/// Loads an internal binary asset.
+///
+/// Internal binary assets (e.g. spir-v shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See `DebugAssetServerPlugin`.
+#[cfg(feature = "debug_asset_server")]
+#[macro_export]
+macro_rules! load_internal_binary_asset {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+        {
+            let mut debug_app = $app
+                .world
+                .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
+            $crate::debug_asset_server::register_handle_with_loader(
+                $loader,
+                &mut debug_app,
+                $handle,
+                file!(),
+                $path_str,
+            );
+        }
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+    }};
+}
+
+/// Loads an internal binary asset.
+///
+/// Internal binary assets (e.g. spir-v shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See `DebugAssetServerPlugin`.
+#[cfg(not(feature = "debug_asset_server"))]
+#[macro_export]
+macro_rules! load_internal_binary_asset {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        assets.set_untracked($handle, ($loader)(include_bytes!($path_str).as_ref()));
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
@@ -429,8 +493,8 @@ mod tests {
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();
-        app.add_plugin(bevy_core::CorePlugin)
-            .add_plugin(crate::AssetPlugin);
+        app.add_plugin(bevy_core::CorePlugin::default())
+            .add_plugin(crate::AssetPlugin::default());
         app.add_asset::<MyAsset>();
         let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();
         let handle = assets_before.add(MyAsset);

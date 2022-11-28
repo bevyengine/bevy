@@ -19,19 +19,17 @@ var texture_sampler: sampler;
 var<uniform> mesh: Mesh2d;
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
     #import bevy_sprite::mesh2d_vertex_output
 };
 
 @fragment
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.color;
-    if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
 #ifdef VERTEX_COLORS
-        output_color = output_color * textureSample(texture, texture_sampler, in.uv) * in.color;
-#else
-        output_color = output_color * textureSample(texture, texture_sampler, in.uv);
+    output_color = output_color * in.color;
 #endif
+    if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
+        output_color = output_color * textureSample(texture, texture_sampler, in.uv);
     }
     return output_color;
 }

@@ -14,11 +14,11 @@ fn main() {
 }
 
 #[derive(Component, PartialEq, Debug)]
-struct MyComponent(f64);
+struct MyComponent(f32);
 
 fn setup(mut commands: Commands) {
-    commands.spawn().insert(MyComponent(0.));
-    commands.spawn().insert(Transform::identity());
+    commands.spawn(MyComponent(0.));
+    commands.spawn(Transform::IDENTITY);
 }
 
 fn change_component(time: Res<Time>, mut query: Query<(Entity, &mut MyComponent)>) {

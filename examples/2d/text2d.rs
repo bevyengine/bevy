@@ -19,8 +19,10 @@ fn main() {
 
 #[derive(Component)]
 struct AnimateTranslation;
+
 #[derive(Component)]
 struct AnimateRotation;
+
 #[derive(Component)]
 struct AnimateScale;
 
@@ -33,33 +35,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     let text_alignment = TextAlignment::CENTER;
     // 2d camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
-    commands
-        .spawn_bundle(Text2dBundle {
+    commands.spawn((
+        Text2dBundle {
             text: Text::from_section("translation", text_style.clone())
                 .with_alignment(text_alignment),
             ..default()
-        })
-        .insert(AnimateTranslation);
+        },
+        AnimateTranslation,
+    ));
     // Demonstrate changing rotation
-    commands
-        .spawn_bundle(Text2dBundle {
+    commands.spawn((
+        Text2dBundle {
             text: Text::from_section("rotation", text_style.clone()).with_alignment(text_alignment),
             ..default()
-        })
-        .insert(AnimateRotation);
+        },
+        AnimateRotation,
+    ));
     // Demonstrate changing scale
-    commands
-        .spawn_bundle(Text2dBundle {
+    commands.spawn((
+        Text2dBundle {
             text: Text::from_section("scale", text_style.clone()).with_alignment(text_alignment),
             ..default()
-        })
-        .insert(AnimateScale);
+        },
+        AnimateScale,
+    ));
     // Demonstrate text wrapping
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         sprite: Sprite {
             color: Color::rgb(0.25, 0.25, 0.75),
             custom_size: Some(Vec2::new(box_size.x, box_size.y)),
@@ -68,7 +73,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_translation(box_position.extend(0.0)),
         ..default()
     });
-    commands.spawn_bundle(Text2dBundle {
+    commands.spawn(Text2dBundle {
         text: Text::from_section("this text wraps in the box", text_style),
         text_2d_bounds: Text2dBounds {
             // Wrap text in the rectangle
@@ -91,8 +96,8 @@ fn animate_translation(
     mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
-        transform.translation.x = 100.0 * time.seconds_since_startup().sin() as f32 - 400.0;
-        transform.translation.y = 100.0 * time.seconds_since_startup().cos() as f32;
+        transform.translation.x = 100.0 * time.elapsed_seconds().sin() - 400.0;
+        transform.translation.y = 100.0 * time.elapsed_seconds().cos();
     }
 }
 
@@ -101,7 +106,7 @@ fn animate_rotation(
     mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
-        transform.rotation = Quat::from_rotation_z(time.seconds_since_startup().cos() as f32);
+        transform.rotation = Quat::from_rotation_z(time.elapsed_seconds().cos());
     }
 }
 
@@ -113,6 +118,6 @@ fn animate_scale(
     // rendered quad, resulting in a pixellated look.
     for mut transform in &mut query {
         transform.translation = Vec3::new(400.0, 0.0, 0.0);
-        transform.scale = Vec3::splat((time.seconds_since_startup().sin() as f32 + 1.1) * 2.0);
+        transform.scale = Vec3::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
     }
 }

@@ -7,9 +7,7 @@ use bevy_ecs::{
 use bevy_render::{
     render_graph::*,
     render_phase::*,
-    render_resource::{
-        CachedRenderPipelineId, LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor,
-    },
+    render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
     renderer::*,
     view::*,
 };
@@ -56,10 +54,9 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
-        let (transparent_phase, target, camera_ui) =
-            if let Ok(result) = self.ui_view_query.get_manual(world, input_view_entity) {
-                result
-            } else {
+        let Ok((transparent_phase, target, camera_ui)) =
+                self.ui_view_query.get_manual(world, input_view_entity)
+             else {
                 return Ok(());
             };
         if transparent_phase.items.is_empty() {
@@ -81,14 +78,10 @@ impl Node for UiPassNode {
         };
         let pass_descriptor = RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[Some(RenderPassColorAttachment {
-                view: &target.view,
-                resolve_target: None,
-                ops: Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                },
-            })],
+            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
+                load: LoadOp::Load,
+                store: true,
+            }))],
             depth_stencil_attachment: None,
         };
 

@@ -55,6 +55,35 @@ Add your arch to the end of the package to remove the linker error. For example:
 sudo dnf install alsa-lib-devel.x86_64
 ```
 
+Or if there are errors such as:
+
+```txt
+  --- stderr
+  thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: "`\"pkg-config\" \"--libs\" \"--cflags\" \"libudev\"` did not exit successfully: exit status: 1\n--- stderr\nPackage libudev was not found in the pkg-config search path.\nPerhaps you should add the directory containing `libudev.pc'\nto the PKG_CONFIG_PATH environment variable\nNo package 'libudev' found\n"', /home/<user>/.cargo/registry/src/github.com-1ecc6299db9ec823/libudev-sys-0.1.4/build.rs:38:41
+  stack backtrace:
+     0: rust_begin_unwind
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/std/src/panicking.rs:517:5
+     1: core::panicking::panic_fmt
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/core/src/panicking.rs:96:14
+     2: core::result::unwrap_failed
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/core/src/result.rs:1617:5
+     3: core::result::Result<T,E>::unwrap
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/core/src/result.rs:1299:23
+     4: build_script_build::main
+               at ./build.rs:38:5
+     5: core::ops::function::FnOnce::call_once
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/core/src/ops/function.rs:227:5
+  note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+warning: build failed, waiting for other jobs to finish...
+error: build failed
+```
+
+Set the `PKG_CONFIG_PATH` env var to `/usr/lib/<target>/pkgconfig/`. For example on an x86_64 system:
+
+```txt
+export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
+```
+
 ## Arch / Manjaro
 
 ```bash
@@ -62,6 +91,9 @@ sudo pacman -S libx11 pkgconf alsa-lib
 ```
 
 Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
+
+Note that for Intel GPUs, Vulkan drivers are not installed by default, you must also install
+the `vulkan-intel` for bevy to work.
 
 ## Void
 
@@ -77,7 +109,7 @@ Add a `shell.nix` file to the root of the project containing:
 { pkgs ? import <nixpkgs> {} }:
 with pkgs; mkShell rec {
   nativeBuildInputs = [
-    pkgconfig
+    pkg-config
     llvmPackages.bintools # To use lld linker
   ];
   buildInputs = [

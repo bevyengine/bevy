@@ -9,9 +9,7 @@
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    math::Quat,
     prelude::*,
-    render::camera::Camera,
     window::PresentMode,
 };
 
@@ -21,21 +19,24 @@ const CAMERA_SPEED: f32 = 1000.0;
 
 const COLORS: [Color; 3] = [Color::BLUE, Color::WHITE, Color::RED];
 
+#[derive(Resource)]
 struct ColorTint(bool);
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            present_mode: PresentMode::AutoNoVsync,
-            ..default()
-        })
         .insert_resource(ColorTint(
             std::env::args().nth(1).unwrap_or_default() == "--colored",
         ))
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
+            ..default()
+        }))
         .add_startup_system(setup)
         .add_system(print_sprite_count)
         .add_system(move_camera.after(print_sprite_count))
@@ -56,10 +57,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
     let sprite_handle = assets.load("branding/icon.png");
 
     // Spawns the camera
-    commands
-        .spawn()
-        .insert_bundle(Camera2dBundle::default())
-        .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
+
+    commands.spawn(Camera2dBundle::default());
 
     // Builds and spawns the sprites
     let mut sprites = vec![];
@@ -106,7 +105,7 @@ struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }
 

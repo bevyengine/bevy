@@ -6,7 +6,6 @@ pub mod mouse;
 pub mod touch;
 
 pub use axis::*;
-use bevy_ecs::schedule::{ParallelSystemDescriptorCoercion, SystemLabel};
 pub use input::*;
 
 pub mod prelude {
@@ -16,7 +15,7 @@ pub mod prelude {
             Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType, GamepadEvent,
             GamepadEventType, Gamepads,
         },
-        keyboard::KeyCode,
+        keyboard::{KeyCode, ScanCode},
         mouse::MouseButton,
         touch::{TouchInput, Touches},
         Axis, Input,
@@ -24,15 +23,23 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use keyboard::{keyboard_input_system, KeyCode, KeyboardInput};
-use mouse::{mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseWheel};
-use prelude::Gamepads;
-use touch::{touch_screen_input_system, TouchInput, Touches};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use bevy_reflect::{FromReflect, Reflect};
+use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
+use mouse::{
+    mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,
+    MouseWheel,
+};
+use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
 
 use gamepad::{
-    gamepad_connection_system, gamepad_event_system, GamepadAxis, GamepadButton, GamepadEvent,
-    GamepadEventRaw, GamepadSettings,
+    gamepad_connection_system, gamepad_event_system, AxisSettings, ButtonAxisSettings,
+    ButtonSettings, Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType,
+    GamepadEvent, GamepadEventRaw, GamepadEventType, GamepadSettings, Gamepads,
 };
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Adds keyboard and mouse input to an App
 #[derive(Default)]
@@ -47,6 +54,7 @@ impl Plugin for InputPlugin {
             // keyboard
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
+            .init_resource::<Input<ScanCode>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 keyboard_input_system.label(InputSystem),
@@ -83,12 +91,51 @@ impl Plugin for InputPlugin {
                 CoreStage::PreUpdate,
                 touch_screen_input_system.label(InputSystem),
             );
+
+        // Register common types
+        app.register_type::<ButtonState>();
+
+        // Register keyboard types
+        app.register_type::<KeyboardInput>()
+            .register_type::<KeyCode>()
+            .register_type::<ScanCode>();
+
+        // Register mouse types
+        app.register_type::<MouseButtonInput>()
+            .register_type::<MouseButton>()
+            .register_type::<MouseMotion>()
+            .register_type::<MouseScrollUnit>()
+            .register_type::<MouseWheel>();
+
+        // Register touch types
+        app.register_type::<TouchInput>()
+            .register_type::<ForceTouch>()
+            .register_type::<TouchPhase>();
+
+        // Register gamepad types
+        app.register_type::<Gamepad>()
+            .register_type::<GamepadEventType>()
+            .register_type::<GamepadEvent>()
+            .register_type::<GamepadEventRaw>()
+            .register_type::<GamepadButtonType>()
+            .register_type::<GamepadButton>()
+            .register_type::<GamepadAxisType>()
+            .register_type::<GamepadAxis>()
+            .register_type::<GamepadSettings>()
+            .register_type::<ButtonSettings>()
+            .register_type::<AxisSettings>()
+            .register_type::<ButtonAxisSettings>();
     }
 }
 
 /// The current "press" state of an element
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Reflect, FromReflect)]
+#[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub enum ButtonState {
     Pressed,
     Released,

@@ -78,9 +78,7 @@ impl Node for CameraDriverNode {
                 continue;
             }
 
-            let swap_chain_texture = if let Some(swap_chain_texture) = &window.swap_chain_texture {
-                swap_chain_texture
-            } else {
+            let Some(swap_chain_texture) = &window.swap_chain_texture else {
                 continue;
             };
 

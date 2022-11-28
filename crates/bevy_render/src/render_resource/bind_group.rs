@@ -9,8 +9,11 @@ use crate::{
     texture::FallbackImage,
 };
 use bevy_reflect::Uuid;
-use std::{ops::Deref, sync::Arc};
+use std::ops::Deref;
 use wgpu::BindingResource;
+
+use crate::render_resource::resource_macros::*;
+render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 
 /// A [`BindGroup`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
@@ -25,7 +28,7 @@ pub struct BindGroupId(Uuid);
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
-    value: Arc<wgpu::BindGroup>,
+    value: ErasedBindGroup,
 }
 
 impl BindGroup {
@@ -40,7 +43,7 @@ impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
             id: BindGroupId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: ErasedBindGroup::new(value),
         }
     }
 }
