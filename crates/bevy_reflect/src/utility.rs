@@ -82,7 +82,7 @@ impl NonGenericTypeInfoCell {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
+/// # use bevy_reflect::{ApplyError, Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T: Reflect>(T);
