@@ -380,9 +380,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let w = format_ident!("w");
         let s = format_ident!("s");
         if ident != &w && ident != &s {
-            return syn::Error::new_spanned(lt, "invalid lifetime name: expected `'w` or `'s`")
-                .into_compile_error()
-                .into();
+            return syn::Error::new_spanned(
+                lt,
+                r#"invalid lifetime name: expected `'w` or `'s`
+ 'w -- refers to data stored in the World.
+ 's -- refers to data stored in the SystemParam's state.'"#,
+            )
+            .into_compile_error()
+            .into();
         }
     }
 
