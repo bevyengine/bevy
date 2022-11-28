@@ -11,7 +11,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::ExtractedCamera,
     prelude::Camera,
@@ -49,7 +49,8 @@ impl Plugin for TemporalAntialiasPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(app, TAA_SHADER_HANDLE, "taa.wgsl", Shader::from_wgsl);
 
-        app.insert_resource(Msaa { samples: 1 });
+        app.insert_resource(Msaa { samples: 1 })
+            .register_type::<TemporalAntialiasSettings>();
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
@@ -83,14 +84,8 @@ impl Plugin for TemporalAntialiasPlugin {
     }
 }
 
-#[derive(Component, Clone)]
-pub struct TemporalAntialiasSettings {}
-
-impl Default for TemporalAntialiasSettings {
-    fn default() -> Self {
-        Self {}
-    }
-}
+#[derive(Component, Reflect, Default, Clone)]
+pub struct TemporalAntialiasSettings;
 
 struct TAANode {
     view_query: QueryState<(

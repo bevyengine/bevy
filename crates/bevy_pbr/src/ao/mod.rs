@@ -121,7 +121,7 @@ pub enum AmbientOcclusionSettings {
 
 impl Default for AmbientOcclusionSettings {
     fn default() -> Self {
-        Self::High
+        Self::Medium
     }
 }
 
@@ -555,10 +555,10 @@ fn extract_ambient_occlusion_settings(
 }
 
 #[derive(Component)]
-struct AmbientOcclusionTextures {
+pub struct AmbientOcclusionTextures {
     prefiltered_depth_texture: CachedTexture,
     ambient_occlusion_noisy_texture: CachedTexture, // Pre-denoised texture
-    ambient_occlusion_texture: CachedTexture,       // Denoised texture
+    pub ambient_occlusion_texture: CachedTexture,   // Denoised texture
     depth_differences_texture: CachedTexture,
 }
 
