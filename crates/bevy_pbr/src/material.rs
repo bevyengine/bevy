@@ -100,12 +100,8 @@ use std::marker::PhantomData;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// struct CustomMaterial {
-///     color: vec4<f32>,
-/// }
-///
 /// @group(1) @binding(0)
-/// var<uniform> material: CustomMaterial;
+/// var<uniform> color: vec4<f32>;
 /// @group(1) @binding(1)
 /// var color_texture: texture_2d<f32>;
 /// @group(1) @binding(2)
