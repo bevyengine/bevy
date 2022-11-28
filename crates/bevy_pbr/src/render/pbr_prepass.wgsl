@@ -18,8 +18,8 @@ fn prepare_world_normal(
     is_front: bool,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
-#ifndef VERTEX_TANGENTS
-#ifndef STANDARDMATERIAL_NORMAL_MAP
+    #ifndef VERTEX_TANGENTS
+    #ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted. This is a branchless version of that.
     output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
@@ -166,7 +166,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif // PREPASS_NORMALS
 
 #ifdef PREPASS_VELOCITIES
-    let clip_position = view.view_proj * in.world_position;
+    let clip_position = view.unjittered_view_proj * in.world_position;
     let previous_clip_position = previous_view_proj * in.previous_world_position;
     out.velocity = clip_to_uv(clip_position) - clip_to_uv(previous_clip_position);
 #endif // PREPASS_VELOCITIES

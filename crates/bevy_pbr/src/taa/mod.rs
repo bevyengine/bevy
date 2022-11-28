@@ -6,14 +6,14 @@ use bevy_core_pipeline::{
     prepass::{PrepassSettings, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{Component, Entity},
+    prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, TemporalJitter},
     prelude::Camera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
@@ -82,6 +82,12 @@ impl Plugin for TemporalAntialiasPlugin {
             bevy_core_pipeline::core_3d::graph::node::TONEMAPPING,
         );
     }
+}
+
+#[derive(Bundle, Default)]
+pub struct TemporalAntialiasBundle {
+    pub settings: TemporalAntialiasSettings,
+    pub jitter: TemporalJitter,
 }
 
 #[derive(Component, Reflect, Default, Clone)]
@@ -460,7 +466,7 @@ fn extract_taa_settings(
     cameras_3d: Extract<
         Query<
             (Entity, &Camera, &TemporalAntialiasSettings),
-            (With<Camera3d>, With<PrepassSettings>),
+            (With<Camera3d>, With<PrepassSettings>, With<TemporalJitter>),
         >,
     >,
 ) {
