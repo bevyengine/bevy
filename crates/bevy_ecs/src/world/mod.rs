@@ -12,18 +12,17 @@ use crate::{
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
-    cell::UnsafeCell,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -71,7 +70,7 @@ impl Default for World {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Default::default(),
             components: Default::default(),
-            archetypes: Default::default(),
+            archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
             removed_components: Default::default(),
@@ -328,7 +327,7 @@ impl World {
         self.archetypes
             .iter()
             .flat_map(|archetype| archetype.entities().iter())
-            .map(|archetype_entity| archetype_entity.entity)
+            .map(|archetype_entity| archetype_entity.entity())
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -890,7 +889,7 @@ impl World {
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: unique world access
+        // SAFETY: `component_id` was obtained from the type ID of `R`.
         unsafe { self.get_resource_with_id(component_id) }
     }
 
@@ -1001,7 +1000,7 @@ impl World {
     pub(crate) fn get_resource_with_ticks(
         &self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
         self.storages.resources.get(component_id)?.get_with_ticks()
     }
 
@@ -1194,7 +1193,8 @@ impl World {
         let value_mut = Mut {
             value: &mut value,
             ticks: Ticks {
-                component_ticks: &mut ticks,
+                added: &mut ticks.added,
+                changed: &mut ticks.changed,
                 last_change_tick,
                 change_tick,
             },
@@ -1273,11 +1273,7 @@ impl World {
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks {
-                component_ticks: ticks.deref_mut(),
-                last_change_tick: self.last_change_tick(),
-                change_tick: self.read_change_tick(),
-            },
+            ticks: Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick()),
         })
     }
 
@@ -1457,14 +1453,11 @@ impl World {
 
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
-        // SAFE: This function has exclusive access to the world so nothing aliases `ticks`.
-        let ticks = Ticks {
-            // SAFETY:
-            // - index is in-bounds because the column is initialized and non-empty
-            // - no other reference to the ticks of the same row can exist at the same time
-            component_ticks: unsafe { ticks.deref_mut() },
-            last_change_tick: self.last_change_tick(),
-            change_tick: self.read_change_tick(),
+        // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
+        // - index is in-bounds because the column is initialized and non-empty
+        // - no other reference to the ticks of the same row can exist at the same time
+        let ticks = unsafe {
+            Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
         };
 
         Some(MutUntyped {

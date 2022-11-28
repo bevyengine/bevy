@@ -69,9 +69,10 @@ struct InstanceMaterialData(Vec<InstanceData>);
 impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
     type Filter = ();
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
-        InstanceMaterialData(item.0.clone())
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(InstanceMaterialData(item.0.clone()))
     }
 }
 
@@ -108,19 +109,17 @@ fn queue_custom(
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
-    let draw_custom = transparent_3d_draw_functions
-        .read()
-        .get_id::<DrawCustom>()
-        .unwrap();
+    let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
     for (view, mut transparent_phase) in &mut views {
+        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for (entity, mesh_uniform, mesh_handle) in &material_meshes {
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
-                    msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
                     .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
                     .unwrap();

@@ -19,7 +19,6 @@ mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
-use bevy_core::FrameCount;
 use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 
@@ -38,14 +37,10 @@ pub mod prelude {
 
 use globals::GlobalsPlugin;
 pub use once_cell;
-use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
-    color::Color,
     mesh::MeshPlugin,
-    primitives::{CubemapFrusta, Frustum},
-    render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     view::{ViewPlugin, WindowRenderPlugin},
@@ -138,8 +133,7 @@ impl Plugin for RenderPlugin {
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>()
-            .register_type::<Color>();
+            .init_debug_asset_loader::<ShaderLoader>();
 
         if let Some(backends) = options.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
@@ -167,9 +161,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone())
-                .init_resource::<ScratchMainWorld>()
-                .register_type::<Frustum>()
-                .register_type::<CubemapFrusta>();
+                .init_resource::<ScratchMainWorld>();
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -204,7 +196,7 @@ impl Plugin for RenderPlugin {
                         .with_system(render_system.at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
-                .init_resource::<RenderGraph>()
+                .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
@@ -328,13 +320,17 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+        app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
             .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin)
-            .add_plugin(FrameCountPlugin);
+            .add_plugin(GlobalsPlugin);
+
+        app.register_type::<color::Color>()
+            .register_type::<primitives::Aabb>()
+            .register_type::<primitives::CubemapFrusta>()
+            .register_type::<primitives::Frustum>();
     }
 }
 
@@ -367,23 +363,4 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     // so that in future, pipelining will be able to do this too without any code relying on it.
     // see <https://github.com/bevyengine/bevy/issues/5082>
     extract.apply_buffers(running_world);
-}
-
-pub struct FrameCountPlugin;
-impl Plugin for FrameCountPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.add_system(update_frame_count);
-
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_frame_count);
-        }
-    }
-}
-
-fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
-    frame_count.0 = frame_count.0.wrapping_add(1);
-}
-
-fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCount>>) {
-    commands.insert_resource(**frame_count);
 }

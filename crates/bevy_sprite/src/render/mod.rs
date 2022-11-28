@@ -151,6 +151,7 @@ bitflags::bitflags! {
         const COLORED                     = (1 << 0);
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
+        const DEBAND_DITHER               = (1 << 3);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
     }
 }
@@ -207,11 +208,16 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
         let mut shader_defs = Vec::new();
         if key.contains(SpritePipelineKey::COLORED) {
-            shader_defs.push("COLORED".to_string());
+            shader_defs.push("COLORED".into());
         }
 
         if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
-            shader_defs.push("TONEMAP_IN_SHADER".to_string());
+            shader_defs.push("TONEMAP_IN_SHADER".into());
+
+            // Debanding is tied to tonemapping in the shader, cannot run without it.
+            if key.contains(SpritePipelineKey::DEBAND_DITHER) {
+                shader_defs.push("DEBAND_DITHER".into());
+            }
         }
 
         let format = match key.contains(SpritePipelineKey::HDR) {
@@ -482,7 +488,7 @@ pub fn queue_sprites(
             layout: &sprite_pipeline.view_layout,
         }));
 
-        let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
+        let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
         // Vertex buffer indices
         let mut index = 0;
@@ -508,9 +514,13 @@ pub fn queue_sprites(
 
         for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
-            if let Some(tonemapping) = tonemapping {
-                if tonemapping.is_enabled && !view.hdr {
+            if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+                if !view.hdr {
                     view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;
+
+                    if *deband_dither {
+                        view_key |= SpritePipelineKey::DEBAND_DITHER;
+                    }
                 }
             }
             let pipeline = pipelines.specialize(
@@ -533,7 +543,7 @@ pub fn queue_sprites(
                 image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
                 colored: false,
             };
-            let mut current_batch_entity = Entity::from_raw(u32::MAX);
+            let mut current_batch_entity = Entity::PLACEHOLDER;
             let mut current_image_size = Vec2::ZERO;
             // Add a phase item for each sprite, and detect when succesive items can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.

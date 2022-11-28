@@ -92,7 +92,7 @@ impl WindowId {
         WindowId(Uuid::new_v4())
     }
     /// The [`WindowId`] for the primary window.
-    pub fn primary() -> Self {
+    pub const fn primary() -> Self {
         WindowId(Uuid::from_u128(0))
     }
     /// Get whether or not this [`WindowId`] is for the primary window.
@@ -286,6 +286,7 @@ pub struct Window {
     cursor_icon: CursorIcon,
     cursor_visible: bool,
     cursor_grab_mode: CursorGrabMode,
+    hittest: bool,
     physical_cursor_position: Option<DVec2>,
     raw_handle: Option<RawHandleWrapper>,
     focused: bool,
@@ -294,6 +295,7 @@ pub struct Window {
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
     alpha_mode: CompositeAlphaMode,
+    always_on_top: bool,
 }
 /// A command to be sent to a window.
 ///
@@ -350,6 +352,10 @@ pub enum WindowCommand {
     SetCursorPosition {
         position: Vec2,
     },
+    /// Set whether or not mouse events within *this* window are captured, or fall through to the Window below.
+    SetCursorHitTest {
+        hittest: bool,
+    },
     /// Set whether or not the window is maximized.
     SetMaximized {
         maximized: bool,
@@ -368,6 +374,10 @@ pub enum WindowCommand {
     /// Set the window's [`WindowResizeConstraints`]
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
+    },
+    /// Set whether the window is always on top.
+    SetAlwaysOnTop {
+        always_on_top: bool,
     },
     Close,
 }
@@ -441,14 +451,16 @@ impl Window {
             cursor_visible: window_descriptor.cursor_visible,
             cursor_grab_mode: window_descriptor.cursor_grab_mode,
             cursor_icon: CursorIcon::Default,
+            hittest: true,
             physical_cursor_position: None,
             raw_handle,
-            focused: true,
+            focused: false,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
             alpha_mode: window_descriptor.alpha_mode,
+            always_on_top: window_descriptor.always_on_top,
         }
     }
     /// Get the window's [`WindowId`].
@@ -710,8 +722,11 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor grab, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
+    ///
+    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, it's possible the value returned here is not the same as the one actually sent to winit.
     #[inline]
     pub fn cursor_grab_mode(&self) -> CursorGrabMode {
         self.cursor_grab_mode
@@ -722,8 +737,11 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor grab, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
+    ///
+    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub fn set_cursor_grab_mode(&mut self, grab_mode: CursorGrabMode) {
         self.cursor_grab_mode = grab_mode;
         self.command_queue
@@ -782,7 +800,20 @@ impl Window {
         self.command_queue
             .push(WindowCommand::SetCursorPosition { position });
     }
-
+    /// Modifies whether the window catches cursor events.
+    ///
+    /// If true, the window will catch the cursor events.
+    /// If false, events are passed through the window such that any other window behind it receives them. By default hittest is enabled.
+    pub fn set_cursor_hittest(&mut self, hittest: bool) {
+        self.hittest = hittest;
+        self.command_queue
+            .push(WindowCommand::SetCursorHitTest { hittest });
+    }
+    /// Get whether or not the hittest is active.
+    #[inline]
+    pub fn hittest(&self) -> bool {
+        self.hittest
+    }
     #[allow(missing_docs)]
     #[inline]
     pub fn update_focused_status_from_backend(&mut self, focused: bool) {
@@ -807,13 +838,25 @@ impl Window {
             resolution: UVec2::new(self.physical_width, self.physical_height),
         });
     }
+    /// Get whether or not the window is always on top.
+    #[inline]
+    pub fn always_on_top(&self) -> bool {
+        self.always_on_top
+    }
+
+    /// Set whether of not the window is always on top.
+    pub fn set_always_on_top(&mut self, always_on_top: bool) {
+        self.always_on_top = always_on_top;
+        self.command_queue
+            .push(WindowCommand::SetAlwaysOnTop { always_on_top });
+    }
     /// Close the operating system window corresponding to this [`Window`].
-    ///  
+    ///
     /// This will also lead to this [`Window`] being removed from the
     /// [`Windows`] resource.
     ///
     /// If the default [`WindowPlugin`] is used, when no windows are
-    /// open, the [app will exit](bevy_app::AppExit).  
+    /// open, the [app will exit](bevy_app::AppExit).
     /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
     /// to `false`
     ///
@@ -843,7 +886,7 @@ impl Window {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -954,6 +997,8 @@ pub struct WindowDescriptor {
     pub cursor_visible: bool,
     /// Sets whether and how the window grabs the cursor.
     pub cursor_grab_mode: CursorGrabMode,
+    /// Sets whether or not the window listens for 'hits' of mouse activity over _this_ window.
+    pub hittest: bool,
     /// Sets the [`WindowMode`](crate::WindowMode).
     ///
     /// The monitor to go fullscreen on can be selected with the `monitor` field.
@@ -968,7 +1013,7 @@ pub struct WindowDescriptor {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -983,6 +1028,12 @@ pub struct WindowDescriptor {
     pub fit_canvas_to_parent: bool,
     /// Specifies how the alpha channel of the textures should be handled during compositing.
     pub alpha_mode: CompositeAlphaMode,
+    /// Sets the window to always be on top of other windows.
+    ///
+    /// ## Platform-specific
+    /// - iOS / Android / Web: Unsupported.
+    /// - Linux (Wayland): Unsupported.
+    pub always_on_top: bool,
 }
 
 impl Default for WindowDescriptor {
@@ -1000,11 +1051,13 @@ impl Default for WindowDescriptor {
             decorations: true,
             cursor_grab_mode: CursorGrabMode::None,
             cursor_visible: true,
+            hittest: true,
             mode: WindowMode::Windowed,
             transparent: false,
             canvas: None,
             fit_canvas_to_parent: false,
             alpha_mode: CompositeAlphaMode::Auto,
+            always_on_top: false,
         }
     }
 }

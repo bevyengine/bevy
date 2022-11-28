@@ -9,7 +9,7 @@ use crate::{
         Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, ComponentTicks, Components, StorageType},
+    component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
@@ -50,7 +50,7 @@ use std::{any::TypeId, collections::HashMap};
 /// component, but specifying different render graphs to use.
 /// If the bundles were both added to the same entity, only one of these two bundles would work.
 ///
-/// For this reason, There is intentionally no [`Query`] to match whether an entity
+/// For this reason, there is intentionally no [`Query`] to match whether an entity
 /// contains the components of a bundle.
 /// Queries should instead only select the components they logically operate on.
 ///
@@ -394,11 +394,7 @@ impl BundleInfo {
                     // SAFETY: bundle_component is a valid index for this bundle
                     match bundle_component_status.get_status(bundle_component) {
                         ComponentStatus::Added => {
-                            column.initialize(
-                                table_row,
-                                component_ptr,
-                                ComponentTicks::new(change_tick),
-                            );
+                            column.initialize(table_row, component_ptr, Tick::new(change_tick));
                         }
                         ComponentStatus::Mutated => {
                             column.replace(table_row, component_ptr, change_tick);
@@ -424,8 +420,8 @@ impl BundleInfo {
         components: &mut Components,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
-        if let Some(add_bundle) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
-            return add_bundle.archetype_id;
+        if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
+            return add_bundle_id;
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
@@ -461,7 +457,7 @@ impl BundleInfo {
                 table_components = if new_table_components.is_empty() {
                     // if there are no new table components, we can keep using this table
                     table_id = current_archetype.table_id();
-                    current_archetype.table_components().to_vec()
+                    current_archetype.table_components().collect()
                 } else {
                     new_table_components.extend(current_archetype.table_components());
                     // sort to ignore order while hashing
@@ -477,7 +473,7 @@ impl BundleInfo {
                 };
 
                 sparse_set_components = if new_sparse_set_components.is_empty() {
-                    current_archetype.sparse_set_components().to_vec()
+                    current_archetype.sparse_set_components().collect()
                 } else {
                     new_sparse_set_components.extend(current_archetype.sparse_set_components());
                     // sort to ignore order while hashing
@@ -541,7 +537,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     self.table,
@@ -566,7 +562,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     self.table,
@@ -618,7 +614,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     new_table,
