@@ -6,14 +6,14 @@ use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_struct, impl_ref
 use glam::*;
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct IVec2 {
         x: i32,
         y: i32,
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct IVec3 {
         x: i32,
         y: i32,
@@ -21,7 +21,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct IVec4 {
         x: i32,
         y: i32,
@@ -31,14 +31,14 @@ impl_reflect_struct!(
 );
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct UVec2 {
         x: u32,
         y: u32,
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct UVec3 {
         x: u32,
         y: u32,
@@ -46,7 +46,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct UVec4 {
         x: u32,
         y: u32,
@@ -139,14 +139,14 @@ impl_reflect_struct!(
 );
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct Mat2 {
         x_axis: Vec2,
         y_axis: Vec2,
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct Mat3 {
         x_axis: Vec3,
         y_axis: Vec3,
@@ -154,7 +154,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct Mat3A {
         x_axis: Vec3A,
         y_axis: Vec3A,
@@ -162,7 +162,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct Mat4 {
         x_axis: Vec4,
         y_axis: Vec4,
@@ -172,14 +172,14 @@ impl_reflect_struct!(
 );
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct DMat2 {
         x_axis: DVec2,
         y_axis: DVec2,
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct DMat3 {
         x_axis: DVec3,
         y_axis: DVec3,
@@ -187,7 +187,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct DMat4 {
         x_axis: DVec4,
         y_axis: DVec4,
@@ -197,14 +197,14 @@ impl_reflect_struct!(
 );
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct Affine2 {
         matrix2: Mat2,
         translation: Vec2,
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct Affine3A {
         matrix3: Mat3A,
         translation: Vec3A,
@@ -212,14 +212,14 @@ impl_reflect_struct!(
 );
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct DAffine2 {
         matrix2: DMat2,
         translation: DVec2,
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Serialize, Deserialize, Default)]
+    #[reflect(Debug, PartialEq, Default)]
     struct DAffine3 {
         matrix3: DMat3,
         translation: DVec3,
