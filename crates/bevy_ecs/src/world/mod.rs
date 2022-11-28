@@ -70,7 +70,7 @@ impl Default for World {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
             entities: Default::default(),
             components: Default::default(),
-            archetypes: Default::default(),
+            archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
             removed_components: Default::default(),
@@ -327,7 +327,7 @@ impl World {
         self.archetypes
             .iter()
             .flat_map(|archetype| archetype.entities().iter())
-            .map(|archetype_entity| archetype_entity.entity)
+            .map(|archetype_entity| archetype_entity.entity())
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
