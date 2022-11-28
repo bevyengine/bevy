@@ -21,13 +21,13 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     output_color = output_color * in.color;
 #endif
 #ifdef VERTEX_UVS
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u) {
+    if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
 #endif
 
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u) {
+    if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
         // the material members
         var pbr_input: PbrInput;
@@ -40,7 +40,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         // TODO use .a for exposure compensation in HDR
         var emissive: vec4<f32> = material.emissive;
 #ifdef VERTEX_UVS
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u) {
+        if (material.flags & STANDARD_MATERIAL_FLAGS_EMISSIVE_TEXTURE_BIT) != 0u {
             emissive = vec4<f32>(emissive.rgb * textureSample(emissive_texture, emissive_sampler, in.uv).rgb, 1.0);
         }
 #endif
@@ -49,7 +49,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         var metallic: f32 = material.metallic;
         var perceptual_roughness: f32 = material.perceptual_roughness;
 #ifdef VERTEX_UVS
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u) {
+        if (material.flags & STANDARD_MATERIAL_FLAGS_METALLIC_ROUGHNESS_TEXTURE_BIT) != 0u {
             let metallic_roughness = textureSample(metallic_roughness_texture, metallic_roughness_sampler, in.uv);
             // Sampling from GLTF standard channels for now
             metallic = metallic * metallic_roughness.b;
@@ -61,9 +61,12 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 
         var occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
-        if ((material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u) {
+        if (material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u {
             occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
+#endif
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+        occlusion = min(occlusion, textureSample(screen_sace_ambient_occlusion_texture, occlusion_sampler, in.uv).r);
 #endif
         pbr_input.occlusion = occlusion;
 

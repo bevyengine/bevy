@@ -51,6 +51,8 @@ var depth_prepass_texture: texture_depth_multisampled_2d;
 var normal_prepass_texture: texture_multisampled_2d<f32>;
 @group(0) @binding(12)
 var velocity_prepass_texture: texture_multisampled_2d<f32>;
+@group(0) @binding(13)
+var screen_space_ambient_occlusion_texture: texture_multisampled_2d<f32>;
 #else
 @group(0) @binding(10)
 var depth_prepass_texture: texture_depth_2d;
@@ -58,4 +60,6 @@ var depth_prepass_texture: texture_depth_2d;
 var normal_prepass_texture: texture_2d<f32>;
 @group(0) @binding(12)
 var velocity_prepass_texture: texture_2d<f32>;
+@group(0) @binding(13)
+var screen_space_ambient_occlusion_texture: texture_2d<f32>;
 #endif

@@ -1,7 +1,8 @@
 use crate::{
-    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset,
-    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
+    AmbientOcclusionTextures, GlobalLightMeta, GpuLights, GpuPointLights, LightMeta,
+    NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, ShadowPipeline,
+    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -442,6 +443,17 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Screen space ambient occlusion texture
+                BindGroupLayoutEntry {
+                    binding: 13,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                },
             ]
         }
 
@@ -573,15 +585,16 @@ bitflags::bitflags! {
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
     pub struct MeshPipelineKey: u32 {
-        const NONE                        = 0;
-        const TRANSPARENT_MAIN_PASS       = (1 << 0);
-        const HDR                         = (1 << 1);
-        const TONEMAP_IN_SHADER           = (1 << 2);
-        const DEBAND_DITHER               = (1 << 3);
-        const PREPASS_DEPTH               = (1 << 4);
-        const PREPASS_NORMALS             = (1 << 5);
-        const PREPASS_VELOCITIES          = (1 << 6);
-        const ALPHA_MASK                  = (1 << 7);
+        const NONE                           = 0;
+        const TRANSPARENT_MAIN_PASS          = (1 << 0);
+        const HDR                            = (1 << 1);
+        const TONEMAP_IN_SHADER              = (1 << 2);
+        const DEBAND_DITHER                  = (1 << 3);
+        const PREPASS_DEPTH                  = (1 << 4);
+        const PREPASS_NORMALS                = (1 << 5);
+        const PREPASS_VELOCITIES             = (1 << 6);
+        const ALPHA_MASK                     = (1 << 7);
+        const SCREEN_SPACE_AMBIENT_OCCLUSION = (1 << 8);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -717,6 +730,10 @@ impl SpecializedMeshPipeline for MeshPipeline {
             if key.contains(MeshPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
             }
+        }
+
+        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
+            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
         let format = match key.contains(MeshPipelineKey::HDR) {
@@ -891,6 +908,7 @@ pub fn queue_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         Option<&ViewPrepassTextures>,
+        Option<&AmbientOcclusionTextures>,
     )>,
     mut fallback_images: FallbackImagesMsaa,
     mut fallback_depths: FallbackImagesDepth,
@@ -903,32 +921,36 @@ pub fn queue_mesh_view_bind_groups(
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
+        let fallback_depth = &fallback_depths
+            .image_for_samplecount(msaa.samples)
+            .texture_view;
+        let fallback_view = &fallback_images
+            .image_for_samplecount(msaa.samples)
+            .texture_view;
+
+        for (
+            entity,
+            view_shadow_bindings,
+            view_cluster_bindings,
+            prepass_textures,
+            ambient_occlusion_textures,
+        ) in &views
+        {
             let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
                 Some(texture) => &texture.default_view,
-                None => {
-                    &fallback_depths
-                        .image_for_samplecount(msaa.samples)
-                        .texture_view
-                }
-            };
-            let fallback_view = match prepass_textures {
-                None
-                | Some(ViewPrepassTextures { normal: None, .. })
-                | Some(ViewPrepassTextures { velocity: None, .. }) => Some(
-                    &fallback_images
-                        .image_for_samplecount(msaa.samples)
-                        .texture_view,
-                ),
-                _ => None,
+                None => fallback_depth,
             };
             let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
                 Some(texture) => &texture.default_view,
-                None => fallback_view.unwrap(),
+                None => fallback_view,
             };
             let velocity_view = match prepass_textures.and_then(|x| x.velocity.as_ref()) {
                 Some(texture) => &texture.default_view,
-                None => fallback_view.unwrap(),
+                None => fallback_view,
+            };
+            let ambient_occlusion_texture = match ambient_occlusion_textures {
+                Some(texture) => &texture.ambient_occlusion_texture.default_view,
+                None => fallback_view,
             };
 
             let layout = if msaa.samples > 1 {
@@ -996,6 +1018,10 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 12,
                         resource: BindingResource::TextureView(velocity_view),
+                    },
+                    BindGroupEntry {
+                        binding: 13,
+                        resource: BindingResource::TextureView(ambient_occlusion_texture),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
