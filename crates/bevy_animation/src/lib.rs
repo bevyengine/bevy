@@ -8,25 +8,25 @@ use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{
-    prelude::*,
     change_detection::DetectChanges,
     entity::Entity,
-    storage::SparseSet,
     prelude::Component,
+    prelude::*,
     reflect::ReflectComponent,
     schedule::IntoSystemDescriptor,
+    storage::SparseSet,
     system::{Query, Res},
 };
 use bevy_hierarchy::Children;
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
+use bevy_tasks::{ComputeTaskPool, ParallelSlice};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
-use bevy_tasks::{ParallelSlice, ComputeTaskPool};
 use smallvec::{smallvec, SmallVec};
-use thread_local::ThreadLocal;
 use std::cell::Cell;
+use thread_local::ThreadLocal;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -81,11 +81,17 @@ impl AnimationClip {
         &self.curves
     }
 
+    /// Gets the curves for a bone.
+    ///
+    /// Returns `None` if the bone is invalid.
     #[inline]
     pub fn get_curves(&self, bone_id: usize) -> Option<&'_ Vec<VariableCurve>> {
         self.curves.get(bone_id)
     }
 
+    /// Gets the curves by it's [`EntityPath`].
+    ///
+    /// Returns `None` if the bone is invalid.
     #[inline]
     pub fn get_curves_by_path(&self, path: &EntityPath) -> Option<&'_ Vec<VariableCurve>> {
         self.paths.get(path).and_then(|id| self.curves.get(*id))
@@ -204,6 +210,7 @@ impl AnimationPlayer {
     }
 }
 
+/// A singular bone binding that between an [`AnimationPlayer`] and the target entity it animates.
 #[derive(Clone)]
 pub struct BoneBinding {
     root: Entity,
@@ -211,13 +218,19 @@ pub struct BoneBinding {
     elapsed: f32,
 }
 
+/// A [`Resource`] that contains the intermediate state of the animation system.
 #[derive(Resource, Default)]
 pub struct BoneBindings {
     // Entity must be globally unique.
     bindings: Vec<(Entity, SmallVec<[BoneBinding; 2]>)>,
 }
 
-fn find_bone(root: Entity, path: &EntityPath, children: &Query<&Children>, names: &Query<&Name>) -> Option<Entity> {
+fn find_bone(
+    root: Entity,
+    path: &EntityPath,
+    children: &Query<&Children>,
+    names: &Query<&Name>,
+) -> Option<Entity> {
     // PERF: finding the target entity can be optimised
     let mut current_entity = root;
     // Ignore the first name, it is the root node which we already have
@@ -242,6 +255,9 @@ fn find_bone(root: Entity, path: &EntityPath, children: &Query<&Children>, names
     Some(current_entity)
 }
 
+/// Binds the bones used by [`AnimationPlayer`] into [`BoneBindings`]
+/// for use in [`animation_player`].
+#[allow(clippy::too_many_arguments)]
 pub fn bind_bones(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
@@ -273,8 +289,15 @@ pub fn bind_bones(
         let queue_cell = queues.get_or_default();
         let mut queue = queue_cell.take();
         for (path, bone_id) in &animation_clip.paths {
-            if let Some(target) = find_bone(root, &path, &children, &names) { 
-                queue.push((target, BoneBinding { root, bone_id: *bone_id, elapsed }));
+            if let Some(target) = find_bone(root, path, &children, &names) {
+                queue.push((
+                    target,
+                    BoneBinding {
+                        root,
+                        bone_id: *bone_id,
+                        elapsed,
+                    },
+                ));
             }
         }
         queue_cell.set(queue);
@@ -286,7 +309,9 @@ pub fn bind_bones(
                 bone_bindings.bindings[*idx].1.push(binding.clone());
             } else {
                 let idx = bone_bindings.bindings.len();
-                bone_bindings.bindings.push((*entity, smallvec![binding.clone()]));
+                bone_bindings
+                    .bindings
+                    .push((*entity, smallvec![binding.clone()]));
                 dedup.insert(*entity, idx);
             }
         }
@@ -306,7 +331,7 @@ pub fn animation_player(
     if bone_bindings.bindings.is_empty() {
         return;
     }
-    let task_pool = &*ComputeTaskPool::get();
+    let task_pool = ComputeTaskPool::get();
     let thread_count = task_pool.thread_num().max(1);
     let batch_size = bone_bindings.bindings.len() / thread_count;
     bone_bindings.bindings.par_chunk_map(task_pool, batch_size, |chunk| {
@@ -389,10 +414,7 @@ impl Plugin for AnimationPlugin {
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
             .init_resource::<BoneBindings>()
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                bind_bones.before(animation_player),
-            )
+            .add_system_to_stage(CoreStage::PostUpdate, bind_bones.before(animation_player))
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),
