@@ -1,12 +1,12 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{
-    component::{Tick, TickCells},
-    ptr::PtrMut,
-    system::Resource,
+use crate::{component::TickCells, ptr::PtrMut, system::Resource};
+use std::{
+    fmt::{self, Display},
+    num::NonZeroU64,
+    ops::{Deref, DerefMut},
+    sync::atomic::Ordering::Relaxed,
 };
-use bevy_ptr::UnsafeCellDeref;
-use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
 ///
@@ -22,6 +22,237 @@ pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
 ///
 /// Changes stop being detected once they become this old.
 pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
+
+use cfg_if::cfg_if;
+
+cfg_if! {
+    if #[cfg(target_has_atomic = "64")] {
+        type AtomicTick = core::sync::atomic::AtomicU64;
+    } else {
+        type AtomicTick = core::sync::atomic::AtomicU32;
+        const ATOMIC_PANIC_THRESHOLD: u32 = u32::MAX;
+    }
+}
+
+// This base value ensures that tick value are never zero.
+// Yield nonsense instead of UB after u64 increment overflows (virtually impossible).
+const TICK_BASE_VALUE: u64 = 1 + (u64::MAX >> 1);
+
+/// Tick value.
+/// Ticks are cheap to copy, comparable and has total order.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct Tick(pub NonZeroU64);
+
+impl Display for Tick {
+    #[inline(always)]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        Display::fmt(&self.0.get(), f)
+    }
+}
+
+impl Tick {
+    #[inline(always)]
+    pub fn new() -> Self {
+        Tick(unsafe { NonZeroU64::new_unchecked(TICK_BASE_VALUE) })
+    }
+}
+
+/// Tick value with smaller range.
+/// Unlike [`Tick`] this value contains only lower bits of tick value
+/// in order to reduce space required to store it and memory bandwidth
+/// required to read it.
+///
+/// [`SmallTick`] values should be periodically updated to not fall
+/// too far behind [`TickCounter`]'s last tick.
+/// When [`SmallTick`] value gets too old it is periodically updated to
+/// [`TickCounter::current() - SMALL_TICK_AGE_THRESHOLD`].
+///
+/// This way [`SmallTick::is_later`] with target older
+/// than `SMALL_TICK_AGE_THRESHOLD` may return false positive.
+/// Which is acceptable tradeoff given that too old targets should
+/// not occur outside some edge cases.
+///
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug)]
+pub struct SmallTick(pub u32);
+
+impl SmallTick {
+    #[inline(always)]
+    pub fn new() -> Self {
+        SmallTick(0)
+    }
+}
+
+impl From<Tick> for SmallTick {
+    #[inline(always)]
+    fn from(tick: Tick) -> Self {
+        // Taking only lower 32 bits.
+        SmallTick(tick.0.get() as u32)
+    }
+}
+
+impl SmallTick {
+    // Returns true if this `SmallTick` is "newer" (or later) than `target` tick.
+    // uses `change_tick` tick to restore upper 32 bits.
+    // `change_tick` must be newer than `target`.x
+    // It returns false positive if `target` is
+    // `2^32` or more earlier than `change_tick`.
+    #[inline]
+    pub fn is_newer_than(&self, target: Tick, change_tick: Tick) -> bool {
+        debug_assert!(target.0.get() <= change_tick.0.get());
+
+        let target_age = change_tick.0.get() - target.0.get();
+        if target_age > u32::MAX as u64 {
+            return true;
+        }
+
+        let change_tick = change_tick.0.get() as u32;
+
+        let age = change_tick.wrapping_sub(self.0);
+
+        age < target_age as u32
+    }
+
+    #[inline]
+    pub fn set_changed(&mut self, change_tick: Tick) {
+        self.0 = change_tick.0.get() as u32;
+    }
+
+    /// Maintain this tick value to keep its age from overflowing.
+    /// This method should be called frequently enough.
+    ///
+    /// Preferably calls this for all [`SmallTick`] values when
+    /// [`TickCounter::maintain`] returns `true`.
+    #[inline(always)]
+    pub fn check_tick(&mut self, change_tick: Tick) {
+        let age = (change_tick.0.get() as u32).wrapping_sub(self.0.into());
+        if age > MAX_CHANGE_AGE {
+            self.0 = (change_tick.0.get() as u32).wrapping_sub(MAX_CHANGE_AGE);
+        }
+    }
+
+    #[cfg(test)]
+    fn needs_check(&self, change_tick: Tick) -> bool {
+        let age = (change_tick.0.get() as u32).wrapping_sub(self.0.into());
+        age > MAX_CHANGE_AGE
+    }
+}
+
+/// Atomic counter for ticks.
+/// Allows incrementing ticks atomically.
+/// Yields [`Tick`] values.
+///
+/// On system without 64-bit atomics requires calls to
+/// [`TickCounter::maintenance`] to keep 32-bit atomic value from overflowing.
+/// If overflow do occur then one of the calls to [`TickCounter::next`] would panic
+/// and successful calls to [`TickCounter::next`] and [`TickCounter::current`] would return
+/// out-of-order [`Tick`] values.
+/// Make sure to configure your code to either require `cfg(target_has_atomic = "64")`
+/// or arrange calls to [`TickCounter::maintenance`] frequently enough.
+pub struct TickCounter {
+    #[cfg(not(target_has_atomic = "64"))]
+    offset: NonZeroU64,
+    atomic: AtomicTick,
+
+    /// Tick when last maintenance was recommended.
+    last_maintenance: u64,
+}
+
+impl TickCounter {
+    #[inline]
+    pub fn new() -> TickCounter {
+        cfg_if! {
+            if #[cfg(target_has_atomic = "64")] {
+                TickCounter {
+                    atomic: AtomicTick::new(1),
+                    last_maintenance: 0,
+                }
+            } else {
+                TickCounter {
+                    atomic: AtomicTick::new(0),
+                    offset: unsafe {
+                        // # Safety
+                        // duh
+                        NonZeroU64::new_unchecked(1)
+                    },
+                    last_maintenance: 0,
+                }
+            }
+        }
+    }
+
+    #[inline(always)]
+    pub fn maintain(&mut self) -> bool {
+        #[cfg(not(target_has_atomic = "64"))]
+        {
+            self.offset += std::mem::replace(self.atomic.get_mut(), 0);
+        }
+
+        let atomic = u64::from(*self.atomic.get_mut());
+        let tick_index = self.tick_index(atomic);
+        if tick_index > self.last_maintenance + CHECK_TICK_THRESHOLD as u64 {
+            self.last_maintenance = tick_index;
+            true
+        } else {
+            false
+        }
+    }
+
+    #[inline(always)]
+    pub fn current(&self) -> Tick {
+        let atomic = self.atomic.load(Relaxed);
+        self.make_tick(atomic.into())
+    }
+
+    #[inline(always)]
+    pub fn current_mut(&mut self) -> Tick {
+        let atomic = *self.atomic.get_mut();
+        self.make_tick(atomic.into())
+    }
+
+    #[inline(always)]
+    pub fn next(&self) -> Tick {
+        let atomic = self.atomic.fetch_add(1, Relaxed);
+        self.make_tick(atomic.into())
+    }
+
+    #[inline]
+    fn tick_index(&self, atomic: u64) -> u64 {
+        cfg_if! {
+            if #[cfg(target_has_atomic = "64")] {
+                atomic
+            } else {
+                if atomic >= ATOMIC_PANIC_THRESHOLD as u64 {
+                    panic!("Too many `TickCounter::next` calls between `TickCounter::maintain` calls")
+                }
+                self.offset + atomic
+            }
+        }
+    }
+
+    #[inline(always)]
+    fn make_tick(&self, atomic: u64) -> Tick {
+        let index = self.tick_index(atomic);
+        Tick(unsafe {
+            // # Safety
+            // `TICK_BASE_VALUE` is nonzero
+            NonZeroU64::new(TICK_BASE_VALUE | index).unwrap_unchecked()
+        })
+    }
+
+    #[cfg(test)]
+    fn skip(&mut self, n: u64) {
+        #[cfg(target_has_atomic = "64")]
+        {
+            *self.atomic.get_mut() += n;
+        }
+        #[cfg(not(target_has_atomic = "64"))]
+        {
+            self.offset += n;
+        }
+    }
+}
 
 /// Types that implement reliable change detection.
 ///
@@ -73,7 +304,7 @@ pub trait DetectChanges {
     /// For comparison, the previous change tick of a system can be read using the
     /// [`SystemChangeTick`](crate::system::SystemChangeTick)
     /// [`SystemParam`](crate::system::SystemParam).
-    fn last_changed(&self) -> u32;
+    fn last_changed(&self) -> Tick;
 
     /// Manually sets the change tick recording the previous time this data was mutated.
     ///
@@ -81,7 +312,7 @@ pub trait DetectChanges {
     /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
     /// If you merely want to flag this data as changed, use [`set_changed`](DetectChanges::set_changed) instead.
     /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChanges::bypass_change_detection) instead.
-    fn set_last_changed(&mut self, last_change_tick: u32);
+    fn set_last_changed(&mut self, last_change_tick: Tick);
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
     ///
@@ -101,31 +332,31 @@ macro_rules! change_detection_impl {
             fn is_added(&self) -> bool {
                 self.ticks
                     .added
-                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
                 self.ticks
                     .changed
-                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn set_changed(&mut self) {
                 self.ticks
                     .changed
-                    .set_changed(self.ticks.change_tick);
+                    .set_changed(self.ticks.change_tick.into());
             }
 
             #[inline]
-            fn last_changed(&self) -> u32 {
+            fn last_changed(&self) -> Tick {
                 self.ticks.last_change_tick
             }
 
             #[inline]
-            fn set_last_changed(&mut self, last_change_tick: u32) {
-                self.ticks.last_change_tick = last_change_tick
+            fn set_last_changed(&mut self, last_change_tick: Tick) {
+                self.ticks.last_change_tick = last_change_tick;
             }
 
             #[inline]
@@ -229,10 +460,10 @@ macro_rules! impl_debug {
 }
 
 pub(crate) struct Ticks<'a> {
-    pub(crate) added: &'a mut Tick,
-    pub(crate) changed: &'a mut Tick,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    pub(crate) added: &'a mut SmallTick,
+    pub(crate) changed: &'a mut SmallTick,
+    pub(crate) last_change_tick: Tick,
+    pub(crate) change_tick: Tick,
 }
 
 impl<'a> Ticks<'a> {
@@ -241,12 +472,12 @@ impl<'a> Ticks<'a> {
     #[inline]
     pub(crate) unsafe fn from_tick_cells(
         cells: TickCells<'a>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self {
         Self {
-            added: cells.added.deref_mut(),
-            changed: cells.changed.deref_mut(),
+            added: &mut *cells.added.get(),
+            changed: &mut *cells.changed.get(),
             last_change_tick,
             change_tick,
         }
@@ -406,28 +637,30 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     fn is_added(&self) -> bool {
         self.ticks
             .added
-            .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+            .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
             .changed
-            .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+            .is_newer_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn set_changed(&mut self) {
-        self.ticks.changed.set_changed(self.ticks.change_tick);
+        self.ticks
+            .changed
+            .set_changed(self.ticks.change_tick.into());
     }
 
     #[inline]
-    fn last_changed(&self) -> u32 {
+    fn last_changed(&self) -> Tick {
         self.ticks.last_change_tick
     }
 
     #[inline]
-    fn set_last_changed(&mut self, last_change_tick: u32) {
+    fn set_last_changed(&mut self, last_change_tick: Tick) {
         self.ticks.last_change_tick = last_change_tick;
     }
 
@@ -447,12 +680,16 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::num::NonZeroU64;
+
     use bevy_ecs_macros::Resource;
 
     use crate::{
         self as bevy_ecs,
-        change_detection::{Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
-        component::{Component, ComponentTicks, Tick},
+        change_detection::{
+            Mut, NonSendMut, ResMut, SmallTick, Tick, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+        },
+        component::{Component, ComponentTicks},
         query::ChangeTrackers,
         system::{IntoSystem, Query, System},
         world::World,
@@ -488,37 +725,14 @@ mod tests {
         // The spawn will be detected since it happened after the system "last ran".
         assert!(change_detected_system.run((), &mut world));
 
-        // world: 1 + MAX_CHANGE_AGE
-        let change_tick = world.change_tick.get_mut();
-        *change_tick = change_tick.wrapping_add(MAX_CHANGE_AGE);
+        // world: MAX_CHANGE_AGE + 1
+        world.change_tick.skip(MAX_CHANGE_AGE as u64);
 
-        // Both the system and component appeared `MAX_CHANGE_AGE` ticks ago.
-        // Since we clamp things to `MAX_CHANGE_AGE` for determinism,
-        // `ComponentTicks::is_changed` will now see `MAX_CHANGE_AGE > MAX_CHANGE_AGE`
-        // and return `false`.
-        assert!(!change_expired_system.run((), &mut world));
-    }
-
-    #[test]
-    fn change_tick_wraparound() {
-        fn change_detected(query: Query<ChangeTrackers<C>>) -> bool {
-            query.single().is_changed()
-        }
-
-        let mut world = World::new();
-        world.last_change_tick = u32::MAX;
-        *world.change_tick.get_mut() = 0;
-
-        // component added: 0, changed: 0
-        world.spawn(C);
-
-        // system last ran: u32::MAX
-        let mut change_detected_system = IntoSystem::into_system(change_detected);
-        change_detected_system.initialize(&mut world);
-
-        // Since the world is always ahead, as long as changes can't get older than `u32::MAX` (which we ensure),
-        // the wrapping difference will always be positive, so wraparound doesn't matter.
-        assert!(change_detected_system.run((), &mut world));
+        // Both the system and component appeared `MAX_CHANGE_AGE + 1` ticks ago.
+        // Since we clamp component ticks to `MAX_CHANGE_AGE` for determinism,
+        // `ComponentTicks::is_changed` will now see `MAX_CHANGE_AGE + 1 > MAX_CHANGE_AGE`
+        // and return `true`.
+        assert!(change_expired_system.run((), &mut world));
     }
 
     #[test]
@@ -529,39 +743,37 @@ mod tests {
         world.spawn(C);
 
         // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
-        *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
+        world
+            .change_tick
+            .skip(MAX_CHANGE_AGE as u64 + CHECK_TICK_THRESHOLD as u64);
         let change_tick = world.change_tick();
 
         let mut query = world.query::<ChangeTrackers<C>>();
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added.tick);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed.tick);
-            assert!(ticks_since_insert > MAX_CHANGE_AGE);
-            assert!(ticks_since_change > MAX_CHANGE_AGE);
+            assert!(tracker.component_ticks.added.needs_check(change_tick));
+            assert!(tracker.component_ticks.changed.needs_check(change_tick));
         }
 
         // scan change ticks and clamp those at risk of overflow
         world.check_change_ticks();
 
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added.tick);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed.tick);
-            assert!(ticks_since_insert == MAX_CHANGE_AGE);
-            assert!(ticks_since_change == MAX_CHANGE_AGE);
+            assert!(!tracker.component_ticks.added.needs_check(change_tick));
+            assert!(!tracker.component_ticks.changed.needs_check(change_tick));
         }
     }
 
     #[test]
     fn mut_from_res_mut() {
         let mut component_ticks = ComponentTicks {
-            added: Tick::new(1),
-            changed: Tick::new(2),
+            added: SmallTick(1),
+            changed: SmallTick(2),
         };
         let ticks = Ticks {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
-            last_change_tick: 3,
-            change_tick: 4,
+            last_change_tick: Tick(NonZeroU64::new(3).unwrap()),
+            change_tick: Tick(NonZeroU64::new(4).unwrap()),
         };
         let mut res = R {};
         let res_mut = ResMut {
@@ -570,23 +782,23 @@ mod tests {
         };
 
         let into_mut: Mut<R> = res_mut.into();
-        assert_eq!(1, into_mut.ticks.added.tick);
-        assert_eq!(2, into_mut.ticks.changed.tick);
-        assert_eq!(3, into_mut.ticks.last_change_tick);
-        assert_eq!(4, into_mut.ticks.change_tick);
+        assert_eq!(1, into_mut.ticks.added.0);
+        assert_eq!(2, into_mut.ticks.changed.0);
+        assert_eq!(3, into_mut.ticks.last_change_tick.0.get());
+        assert_eq!(4, into_mut.ticks.change_tick.0.get());
     }
 
     #[test]
     fn mut_from_non_send_mut() {
         let mut component_ticks = ComponentTicks {
-            added: Tick::new(1),
-            changed: Tick::new(2),
+            added: SmallTick(1),
+            changed: SmallTick(2),
         };
         let ticks = Ticks {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
-            last_change_tick: 3,
-            change_tick: 4,
+            last_change_tick: Tick(NonZeroU64::new(3).unwrap()),
+            change_tick: Tick(NonZeroU64::new(4).unwrap()),
         };
         let mut res = R {};
         let non_send_mut = NonSendMut {
@@ -595,10 +807,10 @@ mod tests {
         };
 
         let into_mut: Mut<R> = non_send_mut.into();
-        assert_eq!(1, into_mut.ticks.added.tick);
-        assert_eq!(2, into_mut.ticks.changed.tick);
-        assert_eq!(3, into_mut.ticks.last_change_tick);
-        assert_eq!(4, into_mut.ticks.change_tick);
+        assert_eq!(1, into_mut.ticks.added.0);
+        assert_eq!(2, into_mut.ticks.changed.0);
+        assert_eq!(3, into_mut.ticks.last_change_tick.0.get());
+        assert_eq!(4, into_mut.ticks.change_tick.0.get());
     }
 
     #[test]
@@ -606,11 +818,14 @@ mod tests {
         use super::*;
         struct Outer(i64);
 
-        let (last_change_tick, change_tick) = (2, 3);
         let mut component_ticks = ComponentTicks {
-            added: Tick::new(1),
-            changed: Tick::new(2),
+            added: SmallTick(1),
+            changed: SmallTick(2),
         };
+        let (last_change_tick, change_tick) = (
+            Tick(NonZeroU64::new(2).unwrap()),
+            Tick(NonZeroU64::new(3).unwrap()),
+        );
         let ticks = Ticks {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
@@ -635,4 +850,74 @@ mod tests {
         // Modifying one field of a component should flag a change for the entire component.
         assert!(component_ticks.is_changed(last_change_tick, change_tick));
     }
+}
+
+#[test]
+fn test_later() {
+    let counter = TickCounter::new();
+    let target = counter.next();
+    let small_tick = SmallTick::from(counter.next());
+
+    assert!(small_tick.is_newer_than(target, counter.current()));
+}
+
+#[test]
+fn test_earlier() {
+    let counter = TickCounter::new();
+    let small_tick = SmallTick::from(counter.next());
+    let target = counter.next();
+
+    assert!(!small_tick.is_newer_than(target, counter.current()));
+}
+
+#[test]
+fn old_tick() {
+    let mut counter = TickCounter::new();
+    let mut small_tick = SmallTick::from(counter.next());
+
+    counter.skip(MAX_CHANGE_AGE.into());
+
+    if counter.maintain() {
+        small_tick.check_tick(counter.current_mut());
+    }
+
+    let target = counter.next();
+
+    // Old small tick age is bumped to `MAX_CHANGE_AGE`
+    // which should not cause false positive for fresh enough targets.
+    assert!(!small_tick.is_newer_than(target, counter.current()));
+}
+
+#[test]
+fn old_tick_false_positive() {
+    let mut counter = TickCounter::new();
+    let mut small_tick = SmallTick::from(counter.next());
+    let target = counter.next();
+
+    counter.skip(MAX_CHANGE_AGE.into());
+    counter.skip(1);
+
+    if counter.maintain() {
+        small_tick.check_tick(counter.current_mut());
+    }
+
+    // Old small tick age is bumped to `MAX_CHANGE_AGE`
+    // and target older than this threshold causes false positive here.
+    assert!(small_tick.is_newer_than(target, counter.current()));
+}
+
+#[test]
+fn old_target() {
+    let mut counter = TickCounter::new();
+    let target = counter.next();
+
+    counter.skip(MAX_CHANGE_AGE.into());
+    counter.skip(1);
+
+    counter.maintain();
+
+    let small_tick = SmallTick::from(counter.next());
+
+    // Old target would never be considered newer than small tick.
+    assert!(small_tick.is_newer_than(target, counter.current()));
 }

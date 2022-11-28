@@ -518,28 +518,7 @@ impl SystemStage {
     /// During each scan, any change ticks older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE)
     /// are clamped to that age. This prevents false positives from appearing due to overflow.
     fn check_change_ticks(&mut self, world: &mut World) {
-        let change_tick = world.change_tick();
-        let ticks_since_last_check = change_tick.wrapping_sub(self.last_tick_check);
-
-        if ticks_since_last_check >= CHECK_TICK_THRESHOLD {
-            // Check all system change ticks.
-            for exclusive_system in &mut self.exclusive_at_start {
-                exclusive_system.system_mut().check_change_tick(change_tick);
-            }
-            for exclusive_system in &mut self.exclusive_before_commands {
-                exclusive_system.system_mut().check_change_tick(change_tick);
-            }
-            for exclusive_system in &mut self.exclusive_at_end {
-                exclusive_system.system_mut().check_change_tick(change_tick);
-            }
-            for parallel_system in &mut self.parallel {
-                parallel_system.system_mut().check_change_tick(change_tick);
-            }
-
-            // Check all component change ticks.
-            world.check_change_ticks();
-            self.last_tick_check = change_tick;
-        }
+        world.check_change_ticks();
     }
 
     /// Sorts run criteria and populates resolved input-criteria for piping.

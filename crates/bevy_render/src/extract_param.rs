@@ -84,7 +84,7 @@ where
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         let main_world = ResState::<MainWorld>::get_param(
             &mut state.main_world_state,

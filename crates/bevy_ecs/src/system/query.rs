@@ -1,4 +1,5 @@
 use crate::{
+    change_detection::Tick,
     component::Component,
     entity::Entity,
     query::{
@@ -276,8 +277,8 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
     pub(crate) world: &'world World,
     pub(crate) state: &'state QueryState<Q, F>,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    pub(crate) last_change_tick: Tick,
+    pub(crate) change_tick: Tick,
     // SAFETY: This is used to ensure that `get_component_mut::<C>` properly fails when a Query writes C
     // and gets converted to a read-only query using `to_readonly`. Without checking this, `get_component_mut` relies on
     // QueryState's archetype_component_access, which will continue allowing write access to C after being cast to
@@ -303,8 +304,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub(crate) unsafe fn new(
         world: &'w World,
         state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self {
         Self {
             force_read_only_component_access: false,

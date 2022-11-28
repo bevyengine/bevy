@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    change_detection::Ticks,
-    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
+    change_detection::{SmallTick, Tick, Ticks},
+    component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table},
@@ -333,8 +333,8 @@ pub unsafe trait WorldQuery {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &Self::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self::Fetch<'w>;
 
     /// While this function can be called for any query, it is always safe to call if `Self: ReadOnlyWorldQuery` holds.
@@ -460,8 +460,8 @@ unsafe impl WorldQuery for Entity {
     unsafe fn init_fetch<'w>(
         _world: &'w World,
         _state: &Self::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) -> Self::Fetch<'w> {
     }
 
@@ -542,8 +542,8 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) -> ReadFetch<'w, T> {
         ReadFetch {
             table_components: None,
@@ -654,14 +654,14 @@ pub struct WriteFetch<'w, T> {
     // T::Storage = TableStorage
     table_data: Option<(
         ThinSlicePtr<'w, UnsafeCell<T>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
-        ThinSlicePtr<'w, UnsafeCell<Tick>>,
+        ThinSlicePtr<'w, UnsafeCell<SmallTick>>,
+        ThinSlicePtr<'w, UnsafeCell<SmallTick>>,
     )>,
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
-    last_change_tick: u32,
-    change_tick: u32,
+    last_change_tick: Tick,
+    change_tick: Tick,
 }
 
 /// SAFETY: access of `&T` is a subset of `&mut T`
@@ -687,8 +687,8 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> WriteFetch<'w, T> {
         WriteFetch {
             table_data: None,
@@ -831,8 +831,8 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &T::State,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> OptionFetch<'w, T> {
         OptionFetch {
             fetch: T::init_fetch(world, state, last_change_tick, change_tick),
@@ -948,8 +948,8 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// ```
 pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    pub(crate) last_change_tick: Tick,
+    pub(crate) change_tick: Tick,
     marker: PhantomData<T>,
 }
 
@@ -992,14 +992,14 @@ impl<T: Component> ChangeTrackers<T> {
 #[doc(hidden)]
 pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
-    table_added: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
-    table_changed: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+    table_added: Option<ThinSlicePtr<'w, UnsafeCell<SmallTick>>>,
+    table_changed: Option<ThinSlicePtr<'w, UnsafeCell<SmallTick>>>,
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
     marker: PhantomData<T>,
-    last_change_tick: u32,
-    change_tick: u32,
+    last_change_tick: Tick,
+    change_tick: Tick,
 }
 
 // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
@@ -1025,8 +1025,8 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     unsafe fn init_fetch<'w>(
         world: &'w World,
         &component_id: &ComponentId,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> ChangeTrackersFetch<'w, T> {
         ChangeTrackersFetch {
             table_added: None,
@@ -1170,7 +1170,7 @@ macro_rules! impl_tuple_fetch {
             }
 
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: Tick, _change_tick: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 ($($name::init_fetch(_world, $name, _last_change_tick, _change_tick),)*)
             }
@@ -1279,7 +1279,7 @@ macro_rules! impl_anytuple_fetch {
             }
 
             #[allow(clippy::unused_unit)]
-            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: u32, _change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(_world: &'w World, state: &Self::State, _last_change_tick: Tick, _change_tick: Tick) -> Self::Fetch<'w> {
                 let ($($name,)*) = state;
                 ($(($name::init_fetch(_world, $name, _last_change_tick, _change_tick), false),)*)
             }
@@ -1420,8 +1420,8 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     unsafe fn init_fetch(
         _world: &World,
         _state: &Q::State,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) {
     }
 

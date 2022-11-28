@@ -27,6 +27,7 @@ fixedbitset = "0.4"
 fxhash = "0.2"
 downcast-rs = "1.2"
 serde = { version = "1", features = ["derive"] }
+cfg-if = "1.0"
 
 [dev-dependencies]
 rand = "0.8"

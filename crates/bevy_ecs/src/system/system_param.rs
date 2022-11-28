@@ -2,8 +2,8 @@ pub use crate::change_detection::{NonSendMut, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, Components, Tick},
+    change_detection::{SmallTick, Tick, Ticks},
+    component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
@@ -131,7 +131,7 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
         state: &'state mut Self,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item;
 }
 
@@ -189,7 +189,7 @@ impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPar
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         Query::new(world, state, system_meta.last_change_tick, change_tick)
     }
@@ -220,7 +220,7 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::Fetch,
     world: &'w World,
     system_meta: SystemMeta,
-    change_tick: u32,
+    change_tick: Tick,
 }
 /// The [`SystemParamState`] of [`ParamSet<T::Item>`].
 pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
@@ -273,10 +273,10 @@ pub trait Resource: Send + Sync + 'static {}
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
 pub struct Res<'w, T: Resource> {
     value: &'w T,
-    added: &'w Tick,
-    changed: &'w Tick,
-    last_change_tick: u32,
-    change_tick: u32,
+    added: &'w SmallTick,
+    changed: &'w SmallTick,
+    last_change_tick: Tick,
+    change_tick: Tick,
 }
 
 // SAFETY: Res only reads a single World resource
@@ -307,13 +307,13 @@ impl<'w, T: Resource> Res<'w, T> {
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
         self.added
-            .is_older_than(self.last_change_tick, self.change_tick)
+            .is_newer_than(self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
         self.changed
-            .is_older_than(self.last_change_tick, self.change_tick)
+            .is_newer_than(self.last_change_tick, self.change_tick)
     }
 
     pub fn into_inner(self) -> &'w T {
@@ -408,7 +408,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         let (ptr, ticks) = world
             .get_resource_with_ticks(state.component_id)
@@ -457,7 +457,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         world
             .get_resource_with_ticks(state.0.component_id)
@@ -522,7 +522,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         let value = world
             .get_resource_unchecked_mut_with_id(state.component_id)
@@ -570,7 +570,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         world
             .get_resource_unchecked_mut_with_id(state.0.component_id)
@@ -612,7 +612,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
         state: &'s mut Self,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         Commands::new(state, world)
     }
@@ -664,7 +664,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         world
     }
@@ -790,7 +790,7 @@ impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalSt
         state: &'s mut Self,
         _system_meta: &SystemMeta,
         _world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         Local(state.0.get())
     }
@@ -885,7 +885,7 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T
         state: &'s mut Self,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         RemovedComponents {
             world,
@@ -910,8 +910,8 @@ impl<'w, 's, T: Component> SystemParamFetch<'w, 's> for RemovedComponentsState<T
 pub struct NonSend<'w, T: 'static> {
     pub(crate) value: &'w T,
     ticks: ComponentTicks,
-    last_change_tick: u32,
-    change_tick: u32,
+    last_change_tick: Tick,
+    change_tick: Tick,
 }
 
 // SAFETY: Only reads a single World non-send resource
@@ -1010,7 +1010,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
@@ -1060,7 +1060,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         world
@@ -1127,7 +1127,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
@@ -1171,7 +1171,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
         state: &'s mut Self,
         system_meta: &SystemMeta,
         world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         world
@@ -1209,7 +1209,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ArchetypesState {
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         world.archetypes()
     }
@@ -1241,7 +1241,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ComponentsState {
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         world.components()
     }
@@ -1273,7 +1273,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for EntitiesState {
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         world.entities()
     }
@@ -1305,7 +1305,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
         _state: &'s mut Self,
         _system_meta: &SystemMeta,
         world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         world.bundles()
     }
@@ -1322,20 +1322,20 @@ impl<'w, 's> SystemParamFetch<'w, 's> for BundlesState {
 /// on a [`Mut<T>`](crate::change_detection::Mut) or [`ResMut<T>`](crate::change_detection::ResMut).
 #[derive(Debug)]
 pub struct SystemChangeTick {
-    last_change_tick: u32,
-    change_tick: u32,
+    last_change_tick: Tick,
+    change_tick: Tick,
 }
 
 impl SystemChangeTick {
     /// Returns the current [`World`] change tick seen by the system.
     #[inline]
-    pub fn change_tick(&self) -> u32 {
+    pub fn change_tick(&self) -> Tick {
         self.change_tick
     }
 
     /// Returns the [`World`] change tick seen by the system the previous time it ran.
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
+    pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick
     }
 }
@@ -1365,7 +1365,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemChangeTickState {
         _state: &'s mut Self,
         system_meta: &SystemMeta,
         _world: &'w World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         SystemChangeTick {
             last_change_tick: system_meta.last_change_tick,
@@ -1451,7 +1451,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for SystemNameState {
         state: &'s mut Self,
         _system_meta: &SystemMeta,
         _world: &'w World,
-        _change_tick: u32,
+        _change_tick: Tick,
     ) -> Self::Item {
         SystemName {
             name: state.name.as_ref(),
@@ -1479,7 +1479,7 @@ macro_rules! impl_system_param_tuple {
                 state: &'s mut Self,
                 system_meta: &SystemMeta,
                 world: &'w World,
-                change_tick: u32,
+                change_tick: Tick,
             ) -> Self::Item {
 
                 let ($($param,)*) = state;
@@ -1625,7 +1625,7 @@ where
         state: &'state mut Self,
         system_meta: &SystemMeta,
         world: &'world World,
-        change_tick: u32,
+        change_tick: Tick,
     ) -> Self::Item {
         // SAFETY: We properly delegate SystemParamState
         StaticSystemParam(S::get_param(&mut state.0, system_meta, world, change_tick))

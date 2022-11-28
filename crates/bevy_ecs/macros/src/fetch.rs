@@ -224,8 +224,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 unsafe fn init_fetch<'__w>(
                     _world: &'__w #path::world::World,
                     state: &Self::State,
-                    _last_change_tick: u32,
-                    _change_tick: u32
+                    _last_change_tick: #path::change_detection::Tick,
+                    _change_tick: #path::change_detection::Tick
                 ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
                     #fetch_struct_name {
                         #(#field_idents:

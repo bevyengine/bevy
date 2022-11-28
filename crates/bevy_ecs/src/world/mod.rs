@@ -10,7 +10,7 @@ pub use world_cell::*;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
-    change_detection::{MutUntyped, Ticks},
+    change_detection::{MutUntyped, Tick, TickCounter, Ticks},
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
@@ -24,7 +24,6 @@ use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
     fmt,
-    sync::atomic::{AtomicU32, Ordering},
 };
 mod identifier;
 
@@ -60,8 +59,8 @@ pub struct World {
     /// Access cache used by [WorldCell].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
-    pub(crate) change_tick: AtomicU32,
-    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: TickCounter,
+    pub(crate) last_change_tick: Tick,
 }
 
 impl Default for World {
@@ -78,8 +77,8 @@ impl Default for World {
             main_thread_validator: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
-            change_tick: AtomicU32::new(1),
-            last_change_tick: 0,
+            change_tick: TickCounter::new(),
+            last_change_tick: Tick::new(),
         }
     }
 }
@@ -459,7 +458,7 @@ impl World {
                 &mut self.archetypes,
                 &mut self.components,
                 &mut self.storages,
-                *self.change_tick.get_mut(),
+                self.change_tick.current_mut().into(),
             );
 
             // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
@@ -1052,7 +1051,7 @@ impl World {
         self.flush();
 
         let iter = iter.into_iter();
-        let change_tick = *self.change_tick.get_mut();
+        let change_tick = self.change_tick.current_mut().into();
 
         let bundle_info = self
             .bundles
@@ -1314,7 +1313,7 @@ impl World {
         component_id: ComponentId,
         value: OwningPtr<'_>,
     ) {
-        let change_tick = self.change_tick();
+        let change_tick = self.change_tick().into();
 
         // SAFETY: component_id is valid, ensured by caller
         self.initialize_resource_internal(component_id)
@@ -1386,32 +1385,37 @@ impl World {
     }
 
     #[inline]
-    pub fn increment_change_tick(&self) -> u32 {
-        self.change_tick.fetch_add(1, Ordering::AcqRel)
+    pub fn increment_change_tick(&self) -> Tick {
+        self.change_tick.next()
     }
 
     #[inline]
-    pub fn read_change_tick(&self) -> u32 {
-        self.change_tick.load(Ordering::Acquire)
+    pub fn read_change_tick(&self) -> Tick {
+        self.change_tick.current()
     }
 
     #[inline]
-    pub fn change_tick(&mut self) -> u32 {
-        *self.change_tick.get_mut()
+    pub fn change_tick(&mut self) -> Tick {
+        self.change_tick.current_mut()
     }
 
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
+    pub fn last_change_tick(&self) -> Tick {
         self.last_change_tick
     }
 
     pub fn check_change_ticks(&mut self) {
-        // Iterate over all component change ticks, clamping their age to max age
-        // PERF: parallelize
-        let change_tick = self.change_tick();
-        self.storages.tables.check_change_ticks(change_tick);
-        self.storages.sparse_sets.check_change_ticks(change_tick);
-        self.storages.resources.check_change_ticks(change_tick);
+        if self.change_tick.maintain() {
+            self.storages
+                .tables
+                .check_change_ticks(self.change_tick.current_mut());
+            self.storages
+                .sparse_sets
+                .check_change_ticks(self.change_tick.current_mut());
+            self.storages
+                .resources
+                .check_change_ticks(self.change_tick.current_mut());
+        }
     }
 
     pub fn clear_entities(&mut self) {

@@ -1,13 +1,12 @@
 use crate::{
     archetype::ArchetypeComponentId,
-    change_detection::MAX_CHANGE_AGE,
+    change_detection::Tick,
     component::ComponentId,
     query::Access,
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamFetch,
-        ExclusiveSystemParamItem, ExclusiveSystemParamState, IntoSystem, System, SystemMeta,
-        SystemTypeIdLabel,
+        AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamFetch, ExclusiveSystemParamItem,
+        ExclusiveSystemParamState, IntoSystem, System, SystemMeta, SystemTypeIdLabel,
     },
     world::{World, WorldId},
 };
@@ -101,9 +100,8 @@ where
         );
         self.func.run(world, params);
 
-        let change_tick = world.change_tick.get_mut();
-        self.system_meta.last_change_tick = *change_tick;
-        *change_tick += 1;
+        self.system_meta.last_change_tick = world.change_tick.current_mut();
+        world.change_tick.next();
         world.last_change_tick = saved_last_tick;
     }
 
@@ -112,11 +110,11 @@ where
         true
     }
 
-    fn get_last_change_tick(&self) -> u32 {
+    fn get_last_change_tick(&self) -> Tick {
         self.system_meta.last_change_tick
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+    fn set_last_change_tick(&mut self, last_change_tick: Tick) {
         self.system_meta.last_change_tick = last_change_tick;
     }
 
@@ -129,7 +127,7 @@ where
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
-        self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
+        self.system_meta.last_change_tick = Tick::new();
         self.param_state = Some(<Param::Fetch as ExclusiveSystemParamState>::init(
             world,
             &mut self.system_meta,
@@ -138,14 +136,6 @@ where
 
     fn update_archetype_component_access(&mut self, _world: &World) {}
 
-    #[inline]
-    fn check_change_tick(&mut self, change_tick: u32) {
-        check_system_change_tick(
-            &mut self.system_meta.last_change_tick,
-            change_tick,
-            self.system_meta.name.as_ref(),
-        );
-    }
     fn default_labels(&self) -> Vec<SystemLabelId> {
         vec![self.func.as_system_label().as_label()]
     }

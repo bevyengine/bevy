@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
-    change_detection::{MutUntyped, Ticks},
+    change_detection::{MutUntyped, Tick, Ticks},
     component::{Component, ComponentId, ComponentTicks, Components, StorageType, TickCells},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSet, Storages},
@@ -95,8 +95,8 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(
         &self,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Option<Mut<'w, T>> {
         get_component_and_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location)
             .map(|(value, ticks)| Mut {
@@ -241,7 +241,7 @@ impl<'w> EntityMut<'w> {
     ///
     /// This will overwrite any previous value(s) of the same component type.
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        let change_tick = self.world.change_tick();
+        let change_tick = self.world.change_tick().into();
         let bundle_info = self
             .world
             .bundles

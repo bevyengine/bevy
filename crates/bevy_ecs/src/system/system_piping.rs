@@ -1,5 +1,6 @@
 use crate::{
     archetype::ArchetypeComponentId,
+    change_detection::Tick,
     component::ComponentId,
     query::Access,
     system::{IntoSystem, System},
@@ -113,16 +114,11 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
             .extend(self.system_b.archetype_component_access());
     }
 
-    fn check_change_tick(&mut self, change_tick: u32) {
-        self.system_a.check_change_tick(change_tick);
-        self.system_b.check_change_tick(change_tick);
-    }
-
-    fn get_last_change_tick(&self) -> u32 {
+    fn get_last_change_tick(&self) -> Tick {
         self.system_a.get_last_change_tick()
     }
 
-    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+    fn set_last_change_tick(&mut self, last_change_tick: Tick) {
         self.system_a.set_last_change_tick(last_change_tick);
         self.system_b.set_last_change_tick(last_change_tick);
     }
