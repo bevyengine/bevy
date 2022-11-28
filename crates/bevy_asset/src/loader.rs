@@ -86,11 +86,18 @@ impl<T: Asset> LoadedAsset<T> {
 
     /// Adds dependencies on other assets at the provided paths.
     #[must_use]
-    pub fn with_dependencies(mut self, asset_paths: Vec<AssetPath<'static>>) -> Self {
-        for asset_path in asset_paths {
-            self.add_dependency(asset_path);
-        }
+    pub fn with_dependencies(
+        mut self,
+        asset_paths: impl IntoIterator<Item = AssetPath<'static>>,
+    ) -> Self {
+        self.dependencies.extend(asset_paths.into_iter());
         self
+    }
+}
+
+impl<T: Asset> From<T> for LoadedAsset<T> {
+    fn from(value: T) -> Self {
+        Self::new(value)
     }
 }
 
@@ -154,15 +161,19 @@ impl<'a> LoadContext<'a> {
     }
 
     /// Sets the primary asset loaded from the asset source.
-    pub fn set_default_asset<T: Asset>(&mut self, asset: LoadedAsset<T>) {
-        self.labeled_assets.insert(None, asset.into());
+    pub fn set_default_asset<T: Asset>(&mut self, asset: impl Into<LoadedAsset<T>>) {
+        self.labeled_assets.insert(None, asset.into().into());
     }
 
     /// Sets a secondary asset loaded from the asset source.
-    pub fn set_labeled_asset<T: Asset>(&mut self, label: &str, asset: LoadedAsset<T>) -> Handle<T> {
+    pub fn set_labeled_asset<T: Asset>(
+        &mut self,
+        label: &str,
+        asset: impl Into<LoadedAsset<T>>,
+    ) -> Handle<T> {
         assert!(!label.is_empty());
         self.labeled_assets
-            .insert(Some(label.to_string()), asset.into());
+            .insert(Some(label.to_string()), asset.into().into());
         self.get_handle(AssetPath::new_ref(self.path(), Some(label)))
     }
 
