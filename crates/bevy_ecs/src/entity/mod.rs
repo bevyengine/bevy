@@ -116,21 +116,8 @@ pub enum AllocAtWithoutReplacement {
 }
 
 impl Entity {
-    /// Creates a new entity reference with the specified `index` and a generation of 0.
-    ///
-    /// # Note
-    ///
-    /// Spawning a specific `entity` value is __rarely the right choice__. Most apps should favor
-    /// [`Commands::spawn`](crate::system::Commands::spawn). This method should generally
-    /// only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an index space (which doesn't happen by default).
-    ///
-    /// In general, one should not try to synchronize the ECS by attempting to ensure that
-    /// `Entity` lines up between instances, but instead insert a secondary identifier as
-    /// a component.
-    ///
-    /// There are still some use cases where it might be appropriate to use this function
-    /// externally.
+    /// An entity ID with a placeholder value. This may or may not correspond to an actual entity,
+    /// and should be overwritten by a new value before being used.
     ///
     /// ## Examples
     ///
@@ -138,8 +125,8 @@ impl Entity {
     ///
     /// ```no_run
     /// # use bevy_ecs::prelude::*;
-    /// // Create a new array of size 10 and initialize it with (invalid) entities.
-    /// let mut entities: [Entity; 10] = [Entity::from_raw(0); 10];
+    /// // Create a new array of size 10 filled with invalid entity ids.
+    /// let mut entities: [Entity; 10] = [Entity::PLACEHOLDER; 10];
     ///
     /// // ... replace the entities with valid ones.
     /// ```
@@ -158,11 +145,25 @@ impl Entity {
     /// impl FromWorld for MyStruct {
     ///     fn from_world(_world: &mut World) -> Self {
     ///         Self {
-    ///             entity: Entity::from_raw(u32::MAX),
+    ///             entity: Entity::PLACEHOLDER,
     ///         }
     ///     }
     /// }
     /// ```
+    pub const PLACEHOLDER: Self = Self::from_raw(u32::MAX);
+
+    /// Creates a new entity ID with the specified `index` and a generation of 0.
+    ///
+    /// # Note
+    ///
+    /// Spawning a specific `entity` value is __rarely the right choice__. Most apps should favor
+    /// [`Commands::spawn`](crate::system::Commands::spawn). This method should generally
+    /// only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an index space (which doesn't happen by default).
+    ///
+    /// In general, one should not try to synchronize the ECS by attempting to ensure that
+    /// `Entity` lines up between instances, but instead insert a secondary identifier as
+    /// a component.
     pub const fn from_raw(index: u32) -> Entity {
         Entity {
             index,
