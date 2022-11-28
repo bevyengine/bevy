@@ -66,7 +66,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-        occlusion = min(occlusion, textureSample(screen_sace_ambient_occlusion_texture, occlusion_sampler, in.uv).r);
+        occlusion = min(occlusion, textureSample(screen_space_ambient_occlusion_texture, occlusion_sampler, in.uv).r);
 #endif
         pbr_input.occlusion = occlusion;
 
@@ -99,7 +99,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     }
 
 #ifdef TONEMAP_IN_SHADER
-        output_color = tone_mapping(output_color);
+    output_color = tone_mapping(output_color);
 #endif
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
