@@ -104,17 +104,10 @@ pub trait DetectChanges {
     ///
     /// This is useful to ensure change detection is only triggered when the underlying value
     /// changes, instead of every time [`DerefMut`] is used.
-    #[inline]
-    fn set_if_neq<T>(&mut self, value: T)
+    fn set_if_neq<Target>(&mut self, value: Target)
     where
-        Self: Deref<Target = T> + DerefMut<Target = T>,
-        T: PartialEq,
-    {
-        // This dereference is immutable, so does not trigger change detection
-        if **self != value {
-            **self = value;
-        }
-    }
+        Self: Deref<Target = Target> + DerefMut<Target = Target>,
+        Target: PartialEq;
 }
 
 macro_rules! change_detection_impl {
@@ -156,6 +149,18 @@ macro_rules! change_detection_impl {
             #[inline]
             fn bypass_change_detection(&mut self) -> &mut Self::Inner {
                 self.value
+            }
+
+            #[inline]
+            fn set_if_neq<Target>(&mut self, value: Target)
+            where
+                Self: Deref<Target = Target> + DerefMut<Target = Target>,
+                Target: PartialEq,
+            {
+                // This dereference is immutable, so does not trigger change detection
+                if **self != value {
+                    **self = value;
+                }
             }
         }
 
@@ -459,6 +464,18 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     #[inline]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         &mut self.value
+    }
+
+    #[inline]
+    fn set_if_neq<Target>(&mut self, value: Target)
+    where
+        Self: Deref<Target = Target> + DerefMut<Target = Target>,
+        Target: PartialEq,
+    {
+        // This dereference is immutable, so does not trigger change detection
+        if **self != value {
+            **self = value;
+        }
     }
 }
 
