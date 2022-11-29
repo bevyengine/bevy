@@ -530,7 +530,7 @@ impl Components {
     /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
     /// ```
     #[inline]
-    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
+    pub fn get_component_id<T: Component>(&self) -> Option<ComponentId> {
         self.get_id(TypeId::of::<T>())
     }
 
@@ -538,7 +538,7 @@ impl Components {
     ///
     /// Returns `None` if no such component has been registered.
     #[inline]
-    pub fn resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.resource_ids.get(&type_id).copied()
     }
 

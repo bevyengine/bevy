@@ -195,7 +195,7 @@ impl World {
     /// ```
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.components.component_id::<T>()
+        self.components.get_component_id::<T>()
     }
 
     /// Retrieves an [`EntityRef`] that exposes read-only operations for the given `entity`.
@@ -802,7 +802,7 @@ impl World {
     /// as they cannot be sent across threads
     #[allow(unused_unsafe)]
     pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
-        let component_id = self.components.resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         // SAFETY: the resource is of type R and the value is returned back to the caller.
         unsafe {
             let (ptr, _) = self.storages.resources.get_mut(component_id)?.remove()?;
@@ -814,7 +814,7 @@ impl World {
     #[inline]
     pub fn contains_resource<R: 'static>(&self) -> bool {
         self.components
-            .resource_id(TypeId::of::<R>())
+            .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id))
             .map(|info| info.is_present())
             .unwrap_or(false)
@@ -822,7 +822,7 @@ impl World {
 
     pub fn is_resource_added<R: Resource>(&self) -> bool {
         self.components
-            .resource_id(TypeId::of::<R>())
+            .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id)?.get_ticks())
             .map(|ticks| ticks.is_added(self.last_change_tick(), self.read_change_tick()))
             .unwrap_or(false)
@@ -830,7 +830,7 @@ impl World {
 
     pub fn is_resource_changed<R: Resource>(&self) -> bool {
         self.components
-            .resource_id(TypeId::of::<R>())
+            .get_resource_id(TypeId::of::<R>())
             .and_then(|component_id| self.storages.resources.get(component_id)?.get_ticks())
             .map(|ticks| ticks.is_changed(self.last_change_tick(), self.read_change_tick()))
             .unwrap_or(false)
@@ -887,7 +887,7 @@ impl World {
     /// Gets a reference to the resource of the given type if it exists
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
-        let component_id = self.components.resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         // SAFETY: `component_id` was obtained from the type ID of `R`.
         unsafe { self.get_resource_with_id(component_id) }
     }
@@ -921,7 +921,7 @@ impl World {
     /// that there is either only one mutable access or multiple immutable accesses at a time.
     #[inline]
     pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         self.get_resource_unchecked_mut_with_id(component_id)
     }
 
@@ -969,7 +969,7 @@ impl World {
     /// Otherwise returns [None]
     #[inline]
     pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        let component_id = self.components.resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         // SAFETY: component id matches type T
         unsafe { self.get_non_send_with_id(component_id) }
     }
@@ -990,7 +990,7 @@ impl World {
     /// ensure that there is either only one mutable access or multiple immutable accesses at a time.
     #[inline]
     pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.resource_id(TypeId::of::<R>())?;
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
@@ -1171,7 +1171,7 @@ impl World {
 
         let component_id = self
             .components
-            .resource_id(TypeId::of::<R>())
+            .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
         let component_info = self.components().get_info(component_id).unwrap();
