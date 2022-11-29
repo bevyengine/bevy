@@ -642,7 +642,6 @@ enum TextureFormat {
     Rgba32Float,
 }
 
-
 #[derive(Default)]
 enum BindingTextureDimension {
     D1,
@@ -867,8 +866,6 @@ fn get_texture_format_value(lit_str: &LitStr) -> Result<TextureFormat> {
         )),
     }
 }
-
-
 
 fn get_texture_dimension_value(lit_str: &LitStr) -> Result<BindingTextureDimension> {
     match lit_str.value().as_str() {
