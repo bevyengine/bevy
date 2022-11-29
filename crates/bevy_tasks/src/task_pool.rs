@@ -117,23 +117,23 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
-                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-                            loop {
-                                let res = std::panic::catch_unwind(|| {
+                        loop {
+                            let res = std::panic::catch_unwind(|| {
+                                TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
                                     let tick_forever = async move {
                                         loop {
                                             local_executor.tick().await;
                                         }
                                     };
                                     future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
-                                });
-                                if let Ok(value) = res {
-                                    // Use unwrap_err because we expect a Closed error
-                                    value.unwrap_err();
-                                    break;
-                                }
+                                })
+                            });
+                            if let Ok(value) = res {
+                                // Use unwrap_err because we expect a Closed error
+                                value.unwrap_err();
+                                break;
                             }
-                        });
+                        }
                     })
                     .expect("Failed to spawn thread.")
             })
