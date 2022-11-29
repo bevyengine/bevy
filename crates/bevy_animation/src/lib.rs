@@ -128,6 +128,7 @@ pub struct AnimationPlayer {
     speed: f32,
     elapsed: f32,
     animation_clip: Handle<AnimationClip>,
+    path_cache: Vec<Vec<Option<Entity>>>,
 }
 
 impl Default for AnimationPlayer {
@@ -138,6 +139,7 @@ impl Default for AnimationPlayer {
             speed: 1.0,
             elapsed: 0.0,
             animation_clip: Default::default(),
+            path_cache: Vec::new(),
         }
     }
 }
@@ -230,20 +232,35 @@ fn find_bone(
     path: &EntityPath,
     children: &Query<&Children>,
     names: &Query<&Name>,
+    path_cache: &mut Vec<Option<Entity>>,
 ) -> Option<Entity> {
     // PERF: finding the target entity can be optimised
     let mut current_entity = root;
+    path_cache.resize(path.parts.len(), None);
     // Ignore the first name, it is the root node which we already have
-    for part in path.parts.iter().skip(1) {
+    for (idx, part) in path.parts.iter().enumerate().skip(1) {
         let mut found = false;
         let children = children.get(current_entity).ok()?;
-        for child in children.deref() {
-            if let Ok(name) = names.get(*child) {
-                if name == part {
-                    // Found a children with the right name, continue to the next part
-                    current_entity = *child;
-                    found = true;
-                    break;
+        if let Some(cached) = path_cache[idx] {
+            if children.contains(&cached) {
+                if let Ok(name) = names.get(cached) {
+                    if name == part {
+                        current_entity = cached;
+                        found = true;
+                    }
+                }
+            }
+        }
+        if !found {
+            for child in children.deref() {
+                if let Ok(name) = names.get(*child) {
+                    if name == part {
+                        // Found a children with the right name, continue to the next part
+                        current_entity = *child;
+                        path_cache[idx] = Some(*child);
+                        found = true;
+                        break;
+                    }
                 }
             }
         }
@@ -288,8 +305,12 @@ pub fn bind_bones(
         }
         let queue_cell = queues.get_or_default();
         let mut queue = queue_cell.take();
+        if player.path_cache.len() != animation_clip.paths.len() {
+            player.path_cache = vec![Vec::new(); animation_clip.paths.len()];
+        }
         for (path, bone_id) in &animation_clip.paths {
-            if let Some(target) = find_bone(root, path, &children, &names) {
+            let cached_path = &mut player.path_cache[*bone_id];
+            if let Some(target) = find_bone(root, path, &children, &names, cached_path) {
                 queue.push((
                     target,
                     BoneBinding {
