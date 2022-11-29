@@ -66,16 +66,18 @@ pub enum ReflectOwned {
 
 #[derive(Error, Debug)]
 pub enum ApplyError {
-    #[error("Attempted to apply non-{0} type to {0} type.")]
+    #[error("Attempted to apply `non-{0}` type to `{0}` type.")]
     MismatchedTypes(String),
-    #[error("Value is not a {0}.")]
+    #[error("Value is not a `{0}`.")]
     WrongType(String),
-    #[error("Attempted to apply different sized {0} types.")]
+    #[error("Attempted to apply different sized `{0}` types.")]
     DifferentSize(String),
-    #[error("Field in `Some` variant of {0} should exist")]
+    #[error("Field in `Some` variant of `{0}` should exist.")]
     AbsentField(String),
-    #[error("Field in `Some` variant of {0} should be of type {1}")]
+    #[error("Field in `Some` variant of `{0}` should be of type `{1}`.")]
     MismatchedFieldTypes(String, String),
+    #[error("Variant with name `{0}` does not exist on enum `{1}`.")]
+    UnknownVariant(String, String),
 }
 
 /// A reflected Rust type.
