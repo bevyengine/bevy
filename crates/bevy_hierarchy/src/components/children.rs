@@ -23,7 +23,9 @@ pub struct Children(pub(crate) SmallVec<[Entity; 8]>);
 impl MapEntities for Children {
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
         for entity in &mut self.0 {
-            *entity = entity_map.get(*entity)?;
+            if let Ok(new_entity) = entity_map.get(*entity) {
+                *entity = new_entity;
+            }
         }
 
         Ok(())
