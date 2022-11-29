@@ -233,9 +233,10 @@ fn pbr(
 
     let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV) * ambient_occlusion;
     let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV) * specular_occlusion;
+    let light_ambient = (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb;
 
     output_color = vec4<f32>(
-        light_accum + (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb + emissive.rgb * output_color.a,
+        light_accum + light_ambient + emissive.rgb * output_color.a,
         output_color.a
     );
 
