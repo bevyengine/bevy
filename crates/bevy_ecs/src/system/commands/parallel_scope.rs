@@ -3,9 +3,10 @@ use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{
+    self as bevy_ecs,
     entity::Entities,
     prelude::World,
-    system::{SystemParam, SystemParamFetch, SystemParamState},
+    system::{Buf, Buffer, SystemParam},
 };
 
 use super::{CommandQueue, Commands};
@@ -13,7 +14,7 @@ use super::{CommandQueue, Commands};
 #[doc(hidden)]
 #[derive(Default)]
 /// The internal [`SystemParamState`] of the [`ParallelCommands`] type
-pub struct ParallelCommandsState {
+pub struct ParallelCommandQueue {
     thread_local_storage: ThreadLocal<Cell<CommandQueue>>,
 }
 
@@ -43,37 +44,14 @@ pub struct ParallelCommandsState {
 /// }
 /// # bevy_ecs::system::assert_is_system(parallel_command_system);
 ///```
+#[derive(SystemParam)]
 pub struct ParallelCommands<'w, 's> {
-    state: &'s mut ParallelCommandsState,
+    state: Buf<'s, ParallelCommandQueue>,
     entities: &'w Entities,
 }
 
-impl SystemParam for ParallelCommands<'_, '_> {
-    type Fetch = ParallelCommandsState;
-}
-
-impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
-    type Item = ParallelCommands<'w, 's>;
-
-    unsafe fn get_param(
-        state: &'s mut Self,
-        _: &crate::system::SystemMeta,
-        world: &'w World,
-        _: u32,
-    ) -> Self::Item {
-        ParallelCommands {
-            state,
-            entities: world.entities(),
-        }
-    }
-}
-
-// SAFETY: no component or resource access to report
-unsafe impl SystemParamState for ParallelCommandsState {
-    fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self {
-        Self::default()
-    }
-
+impl Buffer for ParallelCommandQueue {
+    #[inline]
     fn apply(&mut self, world: &mut World) {
         for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
