@@ -765,7 +765,7 @@ impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalSt
 }
 
 /// Types that can be used with [`Buf<T>`].
-pub trait Buffer: FromWorld + Send + 'static {
+pub trait SystemBuffer: FromWorld + Send + 'static {
     fn apply(&mut self, world: &mut World);
 }
 
@@ -774,9 +774,9 @@ pub trait Buffer: FromWorld + Send + 'static {
 /// This parameter has no access conflicts, so it can be used to defer writes and increase parallelism.
 ///
 /// todo: make these docs good
-pub struct Buf<'a, T: Buffer>(pub(crate) &'a mut T);
+pub struct Buf<'a, T: SystemBuffer>(pub(crate) &'a mut T);
 
-impl<'a, T: Buffer> Deref for Buf<'a, T> {
+impl<'a, T: SystemBuffer> Deref for Buf<'a, T> {
     type Target = T;
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -784,7 +784,7 @@ impl<'a, T: Buffer> Deref for Buf<'a, T> {
     }
 }
 
-impl<'a, T: Buffer> DerefMut for Buf<'a, T> {
+impl<'a, T: SystemBuffer> DerefMut for Buf<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -792,14 +792,14 @@ impl<'a, T: Buffer> DerefMut for Buf<'a, T> {
 }
 
 #[doc(hidden)]
-pub struct BufState<T: Buffer>(SyncCell<T>);
+pub struct BufState<T: SystemBuffer>(SyncCell<T>);
 
-impl<'a, T: Buffer> SystemParam for Buf<'a, T> {
+impl<'a, T: SystemBuffer> SystemParam for Buf<'a, T> {
     type Fetch = BufState<T>;
 }
 
 // SAFETY: Only local state is accessed.
-unsafe impl<T: Buffer> SystemParamState for BufState<T> {
+unsafe impl<T: SystemBuffer> SystemParamState for BufState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self(SyncCell::new(T::from_world(world)))
     }
@@ -809,9 +809,9 @@ unsafe impl<T: Buffer> SystemParamState for BufState<T> {
 }
 
 // SAFETY: Only local state is accessed.
-unsafe impl<T: Buffer> ReadOnlySystemParamFetch for BufState<T> {}
+unsafe impl<T: SystemBuffer> ReadOnlySystemParamFetch for BufState<T> {}
 
-impl<'w, 's, T: Buffer> SystemParamFetch<'w, 's> for BufState<T> {
+impl<'w, 's, T: SystemBuffer> SystemParamFetch<'w, 's> for BufState<T> {
     type Item = Buf<'s, T>;
 
     unsafe fn get_param(

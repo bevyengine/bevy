@@ -6,7 +6,7 @@ use crate::{
     self as bevy_ecs,
     entity::Entities,
     prelude::World,
-    system::{Buf, Buffer, SystemParam},
+    system::{Buf, SystemBuffer, SystemParam},
 };
 
 use super::{CommandQueue, Commands};
@@ -50,7 +50,7 @@ pub struct ParallelCommands<'w, 's> {
     entities: &'w Entities,
 }
 
-impl Buffer for ParallelCommandQueue {
+impl SystemBuffer for ParallelCommandQueue {
     #[inline]
     fn apply(&mut self, world: &mut World) {
         for cq in &mut self.thread_local_storage {

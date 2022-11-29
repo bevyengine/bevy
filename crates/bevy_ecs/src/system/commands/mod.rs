@@ -13,7 +13,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Buf, Buffer, Resource};
+use super::{Buf, Resource, SystemBuffer};
 
 /// A [`World`] mutation.
 ///
@@ -103,7 +103,7 @@ pub struct Commands<'w, 's> {
     entities: &'w Entities,
 }
 
-impl Buffer for CommandQueue {
+impl SystemBuffer for CommandQueue {
     #[inline]
     fn apply(&mut self, world: &mut World) {
         self.apply(world);
