@@ -24,6 +24,7 @@ pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 mod iter;
 pub use iter::ParallelIterator;
+pub use core_affinity;
 
 #[allow(missing_docs)]
 pub mod prelude {

@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::Resource;
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
+use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder, core_affinity};
 use bevy_utils::tracing::trace;
+use std::sync::{Arc, Mutex};
 
 /// Defines a simple way to determine how many threads to use given the number of remaining cores
 /// and number of total cores
@@ -13,6 +14,8 @@ pub struct TaskPoolThreadAssignmentPolicy {
     /// Target using this percentage of total cores, clamped by min_threads and max_threads. It is
     /// permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
+
+    pub use_core_affinity: bool,
 }
 
 impl TaskPoolThreadAssignmentPolicy {
@@ -62,6 +65,7 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: 4,
                 percent: 0.25,
+                use_core_affinity: true,
             },
 
             // Use 25% of cores for async compute, at least 1, no more than 4
@@ -69,6 +73,7 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: 4,
                 percent: 0.25,
+                use_core_affinity: true,
             },
 
             // Use all remaining cores for compute (at least 1)
@@ -76,6 +81,7 @@ impl Default for TaskPoolOptions {
                 min_threads: 1,
                 max_threads: std::usize::MAX,
                 percent: 1.0, // This 1.0 here means "whatever is left over"
+                use_core_affinity: true,
             },
         }
     }
@@ -98,6 +104,8 @@ impl TaskPoolOptions {
         trace!("Assigning {} cores to default task pools", total_threads);
 
         let mut remaining_threads = total_threads;
+        let core_ids = core_affinity::get_core_ids()
+            .map(|core_ids| Arc::new(Mutex::new(core_ids)));
 
         {
             // Determine the number of IO threads we will use
@@ -109,10 +117,15 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
             IoTaskPool::init(|| {
-                TaskPoolBuilder::default()
+                let mut builder = TaskPoolBuilder::new()
                     .num_threads(io_threads)
-                    .thread_name("IO Task Pool".to_string())
-                    .build()
+                    .thread_name("IO Task Pool".to_string());
+                if let Some(core_ids) = core_ids.clone() {
+                    builder = builder.core_id_fn(move || {
+                        core_ids.lock().ok()?.pop()
+                    });
+                }
+                builder.build()
             });
         }
 
@@ -126,10 +139,15 @@ impl TaskPoolOptions {
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
             AsyncComputeTaskPool::init(|| {
-                TaskPoolBuilder::default()
+                let mut builder = TaskPoolBuilder::new()
                     .num_threads(async_compute_threads)
-                    .thread_name("Async Compute Task Pool".to_string())
-                    .build()
+                    .thread_name("Async Compute Task Pool".to_string());
+                if let Some(core_ids) = core_ids.clone() {
+                    builder = builder.core_id_fn(move || {
+                        core_ids.lock().ok()?.pop()
+                    });
+                }
+                builder.build()
             });
         }
 
@@ -143,10 +161,15 @@ impl TaskPoolOptions {
             trace!("Compute Threads: {}", compute_threads);
 
             ComputeTaskPool::init(|| {
-                TaskPoolBuilder::default()
+                let mut builder = TaskPoolBuilder::new()
                     .num_threads(compute_threads)
-                    .thread_name("Compute Task Pool".to_string())
-                    .build()
+                    .thread_name("Compute Task Pool".to_string());
+                if let Some(core_ids) = core_ids.clone() {
+                    builder = builder.core_id_fn(move || {
+                        core_ids.lock().ok()?.pop()
+                    });
+                }
+                builder.build()
             });
         }
     }
