@@ -62,7 +62,7 @@
 /// - a module `a` containing a function `f`,
 /// - a module `b` that imports `a`, and containing an `override a::f` function,
 /// - a module `c` that imports `a` and `b`, and containing an `override a::f` function,
-/// then b and c both specify an override for a::f.
+/// then b and c both specify an override for `a::f`.
 /// the `override fn a::f` declared in module `b` may call to `a::f` within its body.
 /// the `override fn a::f` declared in module 'c' may call to `a::f` within its body, but the call will be redirected to `b::f`.
 /// any other calls to `a::f` (within modules 'a' or `b`, or anywhere else) will end up redirected to `c::f`
@@ -77,7 +77,7 @@
 ///
 /// modules can we written in GLSL or WGSL. shaders with entry points can be imported as modules (provided they have a `#define_import_path` directive). entry points are available to call from imported modules either via their name (for WGSL) or via `module::main` (for GLSL).
 ///
-/// final shaders can also be written in GLSL or WGSL. for GLSL users must specify whether the shader is a vertex shader or fragment shader via the ShaderType argument (GLSL compute shaders are not supported).
+/// final shaders can also be written in GLSL or WGSL. for GLSL users must specify whether the shader is a vertex shader or fragment shader via the `ShaderType` argument (GLSL compute shaders are not supported).
 ///
 /// ## conditional compilation
 ///
@@ -288,7 +288,7 @@ impl ErrSource {
 
     fn offset(&self) -> usize {
         match self {
-            ErrSource::Module(_, offset) => *offset,
+            ErrSource::Module(_, offset) |
             ErrSource::Constructing { offset, .. } => *offset,
         }
     }
@@ -629,7 +629,7 @@ impl Composer {
         let mut imports = imports.to_vec();
         imports.sort_by_key(|import| usize::MAX - import.definition.as_name().len());
 
-        for import in imports.iter() {
+        for import in imports {
             substituted_source = substituted_source.replace(
                 format!("{}::", import.definition.as_name()).as_str(),
                 &Self::decorate(&import.definition.import),
@@ -689,7 +689,7 @@ impl Composer {
 
             // gather overrides
             if !module.virtual_functions.is_empty() {
-                for (original, replacements) in module.virtual_functions.iter() {
+                for (original, replacements) in &module.virtual_functions {
                     match virtual_functions.entry(original.clone()) {
                         Entry::Occupied(o) => {
                             let existing = o.into_mut();
@@ -1063,7 +1063,7 @@ impl Composer {
         )?;
 
         // add our local override to the total set of overrides for the given function
-        for (rename, base_name) in local_virtual_functions.iter() {
+        for (rename, base_name) in &local_virtual_functions {
             virtual_functions
                 .entry(base_name.clone())
                 .or_default()
@@ -1117,7 +1117,7 @@ impl Composer {
 
         if demote_entrypoints {
             // make normal functions out of the source entry points
-            for ep in source_ir.entry_points.iter_mut() {
+            for ep in &mut source_ir.entry_points {
                 ep.function.name = Some(format!(
                     "{}{}",
                     module_decoration,
@@ -1173,18 +1173,18 @@ impl Composer {
         }
 
         // copy owned types into header and module
-        for (_, h) in owned_constants.iter() {
+        for h in owned_constants.values() {
             header_builder.import_const(h);
             module_builder.import_const(h);
         }
 
-        for (_, h) in owned_vars.iter() {
+        for h in owned_vars.values() {
             header_builder.import_global(h);
             module_builder.import_global(h);
         }
 
         // only stubs of owned functions into the header
-        for (_, (h_f, f)) in owned_functions.iter() {
+        for (h_f, f) in owned_functions.values() {
             let span = h_f
                 .map(|h_f| source_ir.functions.get_span(h_f))
                 .unwrap_or(naga::Span::UNDEFINED);
@@ -1197,7 +1197,7 @@ impl Composer {
         }
         // // including entry points as vanilla functions if required
         if demote_entrypoints {
-            for ep in source_ir.entry_points.iter() {
+            for ep in &source_ir.entry_points {
                 let mut f = ep.function.clone();
                 f.arguments = f
                     .arguments
@@ -1445,7 +1445,7 @@ impl Composer {
         let import_module_set = self.module_sets.get(import).unwrap();
         let module = import_module_set.get_module(shader_defs).unwrap();
 
-        for import in module.imports.iter() {
+        for import in &module.imports {
             self.add_import(derived, import, shader_defs, already_added);
         }
 
@@ -1633,7 +1633,7 @@ impl Composer {
         let substituted_source = self.sanitize_and_substitute_shader_string(source, &imports);
 
         let mut effective_defs = HashSet::new();
-        for import in imports.iter() {
+        for import in &imports {
             // we require modules already added so that we can capture the shader_defs that may impact us by impacting our dependencies
             let module_set = self
                 .module_sets
@@ -1786,7 +1786,7 @@ impl Composer {
         let mut derived = DerivedModule::default();
 
         let mut already_added = Default::default();
-        for import in composable.imports.iter() {
+        for import in &composable.imports {
             self.add_import(&mut derived, import, &shader_defs, &mut already_added);
         }
 
@@ -1800,7 +1800,7 @@ impl Composer {
 
         let mut entry_points = Vec::default();
         derived.set_shader_source(&composable.module_ir, 0);
-        for ep in composable.module_ir.entry_points.iter() {
+        for ep in &composable.module_ir.entry_points {
             let mapped_func = derived.localize_function(&ep.function);
             entry_points.push(EntryPoint {
                 name: ep.name.clone(),
