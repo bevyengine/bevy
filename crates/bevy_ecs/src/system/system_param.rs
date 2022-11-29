@@ -8,7 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
-    system::{CommandQueue, Commands, Query, SystemMeta},
+    system::{Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Resource;
@@ -596,7 +596,7 @@ pub trait Buffer: FromWorld + Send + 'static {
 /// This parameter has no access conflicts, so it can be used to defer writes and increase parallelism.
 ///
 /// todo: make these docs good
-pub struct Buf<'a, T: Buffer>(&'a mut T);
+pub struct Buf<'a, T: Buffer>(pub(crate) &'a mut T);
 
 impl<'a, T: Buffer> Deref for Buf<'a, T> {
     type Target = T;
@@ -643,38 +643,6 @@ impl<'w, 's, T: Buffer> SystemParamFetch<'w, 's> for BufState<T> {
         _change_tick: u32,
     ) -> Self::Item {
         Buf(state.0.get())
-    }
-}
-
-impl<'w, 's> SystemParam for Commands<'w, 's> {
-    type Fetch = CommandQueue;
-}
-
-// SAFETY: Commands only accesses internal state
-unsafe impl ReadOnlySystemParamFetch for CommandQueue {}
-
-// SAFETY: only local state is accessed
-unsafe impl SystemParamState for CommandQueue {
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self {
-        Default::default()
-    }
-
-    fn apply(&mut self, world: &mut World) {
-        self.apply(world);
-    }
-}
-
-impl<'w, 's> SystemParamFetch<'w, 's> for CommandQueue {
-    type Item = Commands<'w, 's>;
-
-    #[inline]
-    unsafe fn get_param(
-        state: &'s mut Self,
-        _system_meta: &SystemMeta,
-        world: &'w World,
-        _change_tick: u32,
-    ) -> Self::Item {
-        Commands::new(state, world)
     }
 }
 

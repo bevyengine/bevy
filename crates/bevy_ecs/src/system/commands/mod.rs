@@ -2,16 +2,18 @@ mod command_queue;
 mod parallel_scope;
 
 use crate::{
+    self as bevy_ecs,
     bundle::Bundle,
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
+use bevy_ecs_macros::SystemParam;
 use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::Resource;
+use super::{Buf, Buffer, Resource};
 
 /// A [`World`] mutation.
 ///
@@ -95,9 +97,17 @@ pub trait Command: Send + 'static {
 ///
 /// [stage]: crate::schedule::SystemStage
 /// [`System::apply_buffers`]: crate::system::System::apply_buffers
+#[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: &'s mut CommandQueue,
+    queue: Buf<'s, CommandQueue>,
     entities: &'w Entities,
+}
+
+impl Buffer for CommandQueue {
+    #[inline]
+    fn apply(&mut self, world: &mut World) {
+        self.apply(world);
+    }
 }
 
 impl<'w, 's> Commands<'w, 's> {
@@ -107,10 +117,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new(queue: &'s mut CommandQueue, world: &'w World) -> Self {
-        Self {
-            queue,
-            entities: world.entities(),
-        }
+        Self::new_from_entities(queue, world.entities())
     }
 
     /// Returns a new `Commands` instance from a [`CommandQueue`] and an [`Entities`] reference.
@@ -119,7 +126,10 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// [system parameter]: crate::system::SystemParam
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
-        Self { queue, entities }
+        Self {
+            queue: Buf(queue),
+            entities,
+        }
     }
 
     /// Pushes a [`Command`] to the queue for creating a new empty [`Entity`],
