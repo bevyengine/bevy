@@ -66,7 +66,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-        ambient_occlusion = min(ambient_occlusion, textureSample(screen_space_ambient_occlusion_texture, occlusion_sampler, in.frag_coord.xy).r);
+        let ssao = textureSample(screen_space_ambient_occlusion_texture, occlusion_sampler, in.frag_coord.xy).r;
+        ambient_occlusion = min(ambient_occlusion, ssao);
 #endif
         pbr_input.ambient_occlusion = ambient_occlusion;
 
