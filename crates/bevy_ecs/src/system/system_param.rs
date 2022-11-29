@@ -764,7 +764,7 @@ impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalSt
     }
 }
 
-/// Types that can be used with [`Buf<T>`].
+/// Types that can be used with [`Buffer<T>`] in systems.
 pub trait SystemBuffer: FromWorld + Send + 'static {
     fn apply(&mut self, world: &mut World);
 }
@@ -774,9 +774,9 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// This parameter has no access conflicts, so it can be used to defer writes and increase parallelism.
 ///
 /// todo: make these docs good
-pub struct Buf<'a, T: SystemBuffer>(pub(crate) &'a mut T);
+pub struct Buffer<'a, T: SystemBuffer>(pub(crate) &'a mut T);
 
-impl<'a, T: SystemBuffer> Deref for Buf<'a, T> {
+impl<'a, T: SystemBuffer> Deref for Buffer<'a, T> {
     type Target = T;
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -784,7 +784,7 @@ impl<'a, T: SystemBuffer> Deref for Buf<'a, T> {
     }
 }
 
-impl<'a, T: SystemBuffer> DerefMut for Buf<'a, T> {
+impl<'a, T: SystemBuffer> DerefMut for Buffer<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -794,7 +794,7 @@ impl<'a, T: SystemBuffer> DerefMut for Buf<'a, T> {
 #[doc(hidden)]
 pub struct BufState<T: SystemBuffer>(SyncCell<T>);
 
-impl<'a, T: SystemBuffer> SystemParam for Buf<'a, T> {
+impl<'a, T: SystemBuffer> SystemParam for Buffer<'a, T> {
     type Fetch = BufState<T>;
 }
 
@@ -812,7 +812,7 @@ unsafe impl<T: SystemBuffer> SystemParamState for BufState<T> {
 unsafe impl<T: SystemBuffer> ReadOnlySystemParamFetch for BufState<T> {}
 
 impl<'w, 's, T: SystemBuffer> SystemParamFetch<'w, 's> for BufState<T> {
-    type Item = Buf<'s, T>;
+    type Item = Buffer<'s, T>;
 
     unsafe fn get_param(
         state: &'s mut Self,
@@ -820,7 +820,7 @@ impl<'w, 's, T: SystemBuffer> SystemParamFetch<'w, 's> for BufState<T> {
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
-        Buf(state.0.get())
+        Buffer(state.0.get())
     }
 }
 
