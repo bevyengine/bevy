@@ -293,7 +293,7 @@ impl SparseSetIndex for ComponentId {
     }
 }
 
-/// A low-level descriptor for initializing [`Component`]s in a [`World`].
+/// A low-level configuration for initializing [`Component`]s in a [`World`].
 ///
 /// Typical users will not need to use this type. Systems and other ECS APIs will
 /// automatically initialize components. The primary API that consumes this type is
