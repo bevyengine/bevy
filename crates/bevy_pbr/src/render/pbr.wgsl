@@ -59,16 +59,16 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
-        var occlusion: f32 = 1.0;
+        var ambient_occlusion: f32 = 1.0;
 #ifdef VERTEX_UVS
         if (material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u {
-            occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
+            ambient_occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-        occlusion = min(occlusion, textureSample(screen_space_ambient_occlusion_texture, occlusion_sampler, in.uv).r);
+        ambient_occlusion = min(ambient_occlusion, textureSample(screen_space_ambient_occlusion_texture, occlusion_sampler, in.uv).r);
 #endif
-        pbr_input.occlusion = occlusion;
+        pbr_input.ambient_occlusion = ambient_occlusion;
 
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;

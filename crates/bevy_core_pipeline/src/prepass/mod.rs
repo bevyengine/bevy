@@ -36,6 +36,16 @@ pub struct PrepassSettings {
     pub velocity_enabled: bool,
 }
 
+impl PrepassSettings {
+    pub fn all() -> Self {
+        Self {
+            depth_enabled: true,
+            normal_enabled: true,
+            velocity_enabled: true,
+        }
+    }
+}
+
 impl Default for PrepassSettings {
     fn default() -> Self {
         Self {
