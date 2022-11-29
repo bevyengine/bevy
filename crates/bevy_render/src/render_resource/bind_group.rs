@@ -282,8 +282,7 @@ impl OwnedBindingResource {
     pub fn get_binding(&self) -> BindingResource {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
-            OwnedBindingResource::TextureView(view) => BindingResource::TextureView(view),
-            OwnedBindingResource::StorageTexture(view) => BindingResource::TextureView(view),
+            OwnedBindingResource::TextureView(view) | OwnedBindingResource::StorageTexture(view) => BindingResource::TextureView(view),
             OwnedBindingResource::Sampler(sampler) => BindingResource::Sampler(sampler),
         }
     }
