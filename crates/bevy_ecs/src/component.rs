@@ -188,7 +188,7 @@ impl ComponentInfo {
 
     /// Gets the component's name.
     ///
-    /// If the component was initialized from a Rust-native type, it's
+    /// If the component was initialized from a Rust-native type, its
     /// name is identical to the output of [`std::any::type_name`].
     #[inline]
     pub fn name(&self) -> &str {
@@ -219,7 +219,7 @@ impl ComponentInfo {
     /// the underlying component type. This maps to the
     /// [`Drop`] implementation for 'normal' Rust components
     ///
-    /// Returns `None` if values of the underlying component type don't
+    /// Returns `None` if values of the underlying component type doesn't
     /// need to be dropped, e.g. as reported by [`needs_drop`].
     #[inline]
     pub fn drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
@@ -392,7 +392,7 @@ impl ComponentDescriptor {
         }
     }
 
-    /// Create a new `ComponentDescriptor` for a resource.
+    /// Create a new `ComponentDescriptor` for the [`Resource`] type `T`.
     ///
     /// The [`StorageType`] for resources is always [`TableStorage`].
     fn resource_from_type<T: Resource>() -> Self {
