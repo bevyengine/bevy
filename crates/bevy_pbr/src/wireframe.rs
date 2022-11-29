@@ -116,10 +116,7 @@ fn queue_wireframes(
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
-    let draw_custom = opaque_3d_draw_functions
-        .read()
-        .get_id::<DrawWireframes>()
-        .unwrap();
+    let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
