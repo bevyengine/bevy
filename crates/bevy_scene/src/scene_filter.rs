@@ -1,0 +1,105 @@
+use bevy_utils::HashSet;
+use std::any::{Any, TypeId};
+
+/// A filter used to control which types can be added to a [`DynamicScene`].
+///
+/// This scene filter _can_ be used more generically to represent a filter for any given type;
+/// however, note that its intended usage with `DynamicScene` only considers [components] and [resources].
+/// Adding types that are not a component or resource will have no effect when used with `DynamicScene`.
+///
+/// [`DynamicScene`]: crate::DynamicScene
+/// [components]: bevy_ecs::prelude::Component
+/// [resources]: bevy_ecs::prelude::Resource
+pub enum SceneFilter {
+    /// Contains the set of permitted types by their [`TypeId`].
+    ///
+    /// Types not contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
+    ///
+    /// [`DynamicScene`]: crate::DynamicScene
+    Allowlist(HashSet<TypeId>),
+    /// Contains the set of prohibited types by their [`TypeId`].
+    ///
+    /// Types contained within this set should not be allowed to be saved to an associated [`DynamicScene`].
+    ///
+    /// [`DynamicScene`]: crate::DynamicScene
+    Denylist(HashSet<TypeId>),
+}
+
+impl SceneFilter {
+    /// Create a new [allowlist](Self::Allowlist).
+    pub fn new_allowlist() -> Self {
+        Self::Allowlist(HashSet::new())
+    }
+
+    /// Create a new [denylist](Self::Denylist).
+    pub fn new_denylist() -> Self {
+        Self::Denylist(HashSet::new())
+    }
+
+    /// Allow the given type, `T`.
+    ///
+    /// If this filter is already set as a [denylist](Self::Denylist),
+    /// then it will be completely replaced by a new [allowlist](Self::Allowlist).
+    pub fn allow<T: Any>(self) -> Self {
+        self.allow_by_id(TypeId::of::<T>())
+    }
+
+    /// Allow the given type.
+    ///
+    /// If this filter is already set as a [denylist](Self::Denylist),
+    /// then it will be completely replaced by a new [allowlist](Self::Allowlist).
+    pub fn allow_by_id(mut self, type_id: TypeId) -> Self {
+        match self {
+            Self::Allowlist(ref mut list) => {
+                list.insert(type_id);
+                self
+            }
+            Self::Denylist(_) => Self::Allowlist(HashSet::from([type_id])),
+        }
+    }
+
+    /// Deny the given type, `T`.
+    ///
+    /// If this filter is already set as an [allowlist](Self::Allowlist),
+    /// then it will be completely replaced by a new [denylist](Self::Denylist).
+    pub fn deny<T: Any>(self) -> Self {
+        self.deny_by_id(TypeId::of::<T>())
+    }
+
+    /// Deny the given type.
+    ///
+    /// If this filter is already set as an [allowlist](Self::Allowlist),
+    /// then it will be completely replaced by a new [denylist](Self::Denylist).
+    pub fn deny_by_id(mut self, type_id: TypeId) -> Self {
+        match self {
+            Self::Allowlist(_) => Self::Denylist(HashSet::from([type_id])),
+            Self::Denylist(ref mut list) => {
+                list.insert(type_id);
+                self
+            }
+        }
+    }
+
+    /// Returns true if the given type, `T`, is allowed by the filter.
+    pub fn is_allowed<T: Any>(&self) -> bool {
+        self.is_allowed_by_id(TypeId::of::<T>())
+    }
+
+    /// Returns true if the given type is allowed by the filter.
+    pub fn is_allowed_by_id(&self, type_id: TypeId) -> bool {
+        match self {
+            SceneFilter::Allowlist(list) => list.contains(&type_id),
+            SceneFilter::Denylist(list) => !list.contains(&type_id),
+        }
+    }
+
+    /// Returns true if the given type, `T`, is denied by the filter.
+    pub fn is_denied<T: Any>(&self) -> bool {
+        self.is_denied_by_id(TypeId::of::<T>())
+    }
+
+    /// Returns true if the given type is denied by the filter.
+    pub fn is_denied_by_id(&self, type_id: TypeId) -> bool {
+        !self.is_allowed_by_id(type_id)
+    }
+}

@@ -1,5 +1,6 @@
-use crate::{DynamicEntity, DynamicScene};
-use bevy_ecs::component::ComponentId;
+use crate::{DynamicEntity, DynamicScene, SceneFilter};
+use bevy_ecs::component::{Component, ComponentId};
+use bevy_ecs::system::Resource;
 use bevy_ecs::{
     prelude::Entity,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
@@ -11,9 +12,23 @@ use std::collections::BTreeMap;
 
 /// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
 ///
+/// # Component Extraction
+///
+/// By default, all components registered with [`ReflectComponent`] type data in a world's [`AppTypeRegistry`] will be extracted.
+/// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Component)]` attribute).
+/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_filter) or by explicitly
+/// [allowing](DynamicSceneBuilder::allow)/[denying](DynamicSceneBuilder::deny) certain components.
+///
+/// # Resource Extraction
+///
+/// By default, all resources registered with [`ReflectResource`] type data in a world's [`AppTypeRegistry`] will be extracted.
+/// (this type data is added automatically during registration if [`Reflect`] is derived with the `#[reflect(Resource)]` attribute).
+/// This can be changed by [specifying a filter](DynamicSceneBuilder::with_resource_filter) or by explicitly
+/// [allowing](DynamicSceneBuilder::allow_resource)/[denying](DynamicSceneBuilder::deny_resource) certain resources.
+///
 /// # Entity Order
 ///
-/// Extracted entities will always be stored in ascending order based on their [id](Entity::index).
+/// Extracted entities will always be stored in ascending order based on their [index](Entity::index).
 /// This means that inserting `Entity(1v0)` then `Entity(0v0)` will always result in the entities
 /// being ordered as `[Entity(0v0), Entity(1v0)]`.
 ///
@@ -38,31 +53,101 @@ use std::collections::BTreeMap;
 pub struct DynamicSceneBuilder<'w> {
     extracted_resources: BTreeMap<ComponentId, Box<dyn Reflect>>,
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
-    type_registry: AppTypeRegistry,
+    component_filter: Option<SceneFilter>,
+    resource_filter: Option<SceneFilter>,
     original_world: &'w World,
 }
 
 impl<'w> DynamicSceneBuilder<'w> {
     /// Prepare a builder that will extract entities and their component from the given [`World`].
-    /// All components registered in that world's [`AppTypeRegistry`] resource will be extracted.
     pub fn from_world(world: &'w World) -> Self {
         Self {
             extracted_resources: default(),
             extracted_scene: default(),
-            type_registry: world.resource::<AppTypeRegistry>().clone(),
+            component_filter: None,
+            resource_filter: None,
             original_world: world,
         }
     }
 
-    /// Prepare a builder that will extract entities and their component from the given [`World`].
-    /// Only components registered in the given [`AppTypeRegistry`] will be extracted.
-    pub fn from_world_with_type_registry(world: &'w World, type_registry: AppTypeRegistry) -> Self {
-        Self {
-            extracted_resources: default(),
-            extracted_scene: default(),
-            type_registry,
-            original_world: world,
-        }
+    /// Specify a custom component [`SceneFilter`] to be used with this builder.
+    pub fn with_filter(&mut self, filter: Option<SceneFilter>) -> &mut Self {
+        self.component_filter = filter;
+        self
+    }
+
+    /// Specify a custom resource [`SceneFilter`] to be used with this builder.
+    pub fn with_resource_filter(&mut self, filter: Option<SceneFilter>) -> &mut Self {
+        self.resource_filter = filter;
+        self
+    }
+
+    /// Allows the given component type, `T`, to be included in the generated scene.
+    ///
+    /// This method may be called for multiple components.
+    ///
+    /// Please note that this method is mutually exclusive with the [`deny`](Self::deny) method.
+    /// Calling this one will replace the denylist with a new allowlist.
+    pub fn allow<T: Component>(&mut self) -> &mut Self {
+        self.component_filter = Some(
+            self.component_filter
+                .take()
+                .unwrap_or_else(SceneFilter::new_allowlist)
+                .allow::<T>(),
+        );
+
+        self
+    }
+
+    /// Denies the given component type, `T`, from being included in the generated scene.
+    ///
+    /// This method may be called for multiple components.
+    ///
+    /// Please note that this method is mutually exclusive with the [`allow`](Self::allow) method.
+    /// Calling this one will replace the allowlist with a new denylist.
+    pub fn deny<T: Component>(&mut self) -> &mut Self {
+        self.component_filter = Some(
+            self.component_filter
+                .take()
+                .unwrap_or_else(SceneFilter::new_denylist)
+                .deny::<T>(),
+        );
+
+        self
+    }
+
+    /// Allows the given resource type, `T`, to be included in the generated scene.
+    ///
+    /// This method may be called for multiple resources.
+    ///
+    /// Please note that this method is mutually exclusive with the [`deny_resource`](Self::deny_resource) method.
+    /// Calling this one will replace the denylist with a new allowlist.
+    pub fn allow_resource<T: Resource>(&mut self) -> &mut Self {
+        self.resource_filter = Some(
+            self.resource_filter
+                .take()
+                .unwrap_or_else(SceneFilter::new_allowlist)
+                .allow::<T>(),
+        );
+
+        self
+    }
+
+    /// Denies the given resource type, `T`, from being included in the generated scene.
+    ///
+    /// This method may be called for multiple resources.
+    ///
+    /// Please note that this method is mutually exclusive with the [`allow_resource`](Self::allow_resource) method.
+    /// Calling this one will replace the allowlist with a new denylist.
+    pub fn deny_resource<T: Resource>(&mut self) -> &mut Self {
+        self.resource_filter = Some(
+            self.resource_filter
+                .take()
+                .unwrap_or_else(SceneFilter::new_denylist)
+                .deny::<T>(),
+        );
+
+        self
     }
 
     /// Consume the builder, producing a [`DynamicScene`].
@@ -97,7 +182,10 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// Re-extracting an entity that was already extracted will have no effect.
     ///
-    /// Extracting entities can be used to extract entities from a query:
+    /// To control which components are extracted, use the [`allow`] or
+    /// [`deny`] helper methods.
+    ///
+    /// This method may be used to extract entities from a query:
     /// ```
     /// # use bevy_scene::DynamicSceneBuilder;
     /// # use bevy_ecs::reflect::AppTypeRegistry;
@@ -118,8 +206,13 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// builder.extract_entities(query.iter(&world));
     /// let scene = builder.build();
     /// ```
+    ///
+    /// Note that components extracted from queried entities must still pass through the filter if one is set.
+    ///
+    /// [`allow`]: Self::allow
+    /// [`deny`]: Self::deny
     pub fn extract_entities(&mut self, entities: impl Iterator<Item = Entity>) -> &mut Self {
-        let type_registry = self.type_registry.read();
+        let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
         for entity in entities {
             if self.extracted_scene.contains_key(&entity) {
@@ -139,6 +232,18 @@ impl<'w> DynamicSceneBuilder<'w> {
                         .components()
                         .get_info(component_id)?
                         .type_id()?;
+
+                    let is_denied = self
+                        .component_filter
+                        .as_ref()
+                        .map(|filter| filter.is_denied_by_id(type_id))
+                        .unwrap_or_default();
+
+                    if is_denied {
+                        // Component is either in the denylist or _not_ in the allowlist
+                        return None;
+                    }
+
                     let component = type_registry
                         .get(type_id)?
                         .data::<ReflectComponent>()?
@@ -151,14 +256,16 @@ impl<'w> DynamicSceneBuilder<'w> {
             self.extracted_scene.insert(entity, entry);
         }
 
-        drop(type_registry);
         self
     }
 
     /// Extract resources from the builder's [`World`].
     ///
-    /// Only resources registered in the builder's [`AppTypeRegistry`] will be extracted.
     /// Re-extracting a resource that was already extracted will have no effect.
+    ///
+    /// To control which resources are extracted, use the [`allow_resource`] or
+    /// [`deny_resource`] helper methods.
+    ///
     /// ```
     /// # use bevy_scene::DynamicSceneBuilder;
     /// # use bevy_ecs::reflect::AppTypeRegistry;
@@ -176,8 +283,12 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// builder.extract_resources();
     /// let scene = builder.build();
     /// ```
+    ///
+    /// [`allow_resource`]: Self::allow_resource
+    /// [`deny_resource`]: Self::deny_resource
     pub fn extract_resources(&mut self) -> &mut Self {
-        let type_registry = self.type_registry.read();
+        let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
+
         for (component_id, _) in self.original_world.storages().resources.iter() {
             let mut extract_and_push = || {
                 let type_id = self
@@ -185,6 +296,18 @@ impl<'w> DynamicSceneBuilder<'w> {
                     .components()
                     .get_info(component_id)?
                     .type_id()?;
+
+                let is_denied = self
+                    .resource_filter
+                    .as_ref()
+                    .map(|filter| filter.is_denied_by_id(type_id))
+                    .unwrap_or_default();
+
+                if is_denied {
+                    // Resource is either in the denylist or _not_ in the allowlist
+                    return None;
+                }
+
                 let resource = type_registry
                     .get(type_id)?
                     .data::<ReflectResource>()?
@@ -224,6 +347,10 @@ mod tests {
     #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
     #[reflect(Resource)]
     struct ResourceA;
+
+    #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
+    #[reflect(Resource)]
+    struct ResourceB;
 
     #[test]
     fn extract_one_entity() {
@@ -400,5 +527,107 @@ mod tests {
 
         assert_eq!(scene.resources.len(), 1);
         assert!(scene.resources[0].represents::<ResourceA>());
+    }
+
+    #[test]
+    fn should_extract_allowed_components() {
+        let mut world = World::default();
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<ComponentA>();
+            register.register::<ComponentB>();
+        }
+        world.insert_resource(atr);
+
+        let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
+        let entity_a = world.spawn(ComponentA).id();
+        let entity_b = world.spawn(ComponentB).id();
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+        builder
+            .allow::<ComponentA>()
+            .extract_entities([entity_a_b, entity_a, entity_b].into_iter());
+        let scene = builder.build();
+
+        assert_eq!(scene.entities.len(), 3);
+        assert!(scene.entities[0].components[0].represents::<ComponentA>());
+        assert!(scene.entities[1].components[0].represents::<ComponentA>());
+        assert_eq!(scene.entities[2].components.len(), 0);
+    }
+
+    #[test]
+    fn should_not_extract_denied_components() {
+        let mut world = World::default();
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<ComponentA>();
+            register.register::<ComponentB>();
+        }
+        world.insert_resource(atr);
+
+        let entity_a_b = world.spawn((ComponentA, ComponentB)).id();
+        let entity_a = world.spawn(ComponentA).id();
+        let entity_b = world.spawn(ComponentB).id();
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+        builder
+            .deny::<ComponentA>()
+            .extract_entities([entity_a_b, entity_a, entity_b].into_iter());
+        let scene = builder.build();
+
+        assert_eq!(scene.entities.len(), 3);
+        assert!(scene.entities[0].components[0].represents::<ComponentB>());
+        assert_eq!(scene.entities[1].components.len(), 0);
+        assert!(scene.entities[2].components[0].represents::<ComponentB>());
+    }
+
+    #[test]
+    fn should_extract_allowed_resources() {
+        let mut world = World::default();
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<ResourceA>();
+            register.register::<ResourceB>();
+        }
+        world.insert_resource(atr);
+
+        world.insert_resource(ResourceA);
+        world.insert_resource(ResourceB);
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+        builder.allow_resource::<ResourceA>().extract_resources();
+        let scene = builder.build();
+
+        assert_eq!(scene.resources.len(), 1);
+        assert!(scene.resources[0].represents::<ResourceA>());
+    }
+
+    #[test]
+    fn should_not_extract_denied_resources() {
+        let mut world = World::default();
+
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<ResourceA>();
+            register.register::<ResourceB>();
+        }
+        world.insert_resource(atr);
+
+        world.insert_resource(ResourceA);
+        world.insert_resource(ResourceB);
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+        builder.deny_resource::<ResourceA>().extract_resources();
+        let scene = builder.build();
+
+        assert_eq!(scene.resources.len(), 1);
+        assert!(scene.resources[0].represents::<ResourceB>());
     }
 }
