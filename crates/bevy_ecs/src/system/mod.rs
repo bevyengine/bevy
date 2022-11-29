@@ -678,7 +678,10 @@ mod tests {
         y.initialize(&mut world);
 
         let conflicts = x.component_access().get_conflicts(y.component_access());
-        let b_id = world.components().resource_id(TypeId::of::<B>()).unwrap();
+        let b_id = world
+            .components()
+            .get_resource_id(TypeId::of::<B>())
+            .unwrap();
         let d_id = world.components().get_id(TypeId::of::<D>()).unwrap();
         assert_eq!(conflicts, vec![b_id, d_id]);
     }

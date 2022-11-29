@@ -362,7 +362,7 @@ impl ComponentDescriptor {
     ///
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
-    /// - `is_send_and_sync` must accurately reflect the thread safety of the created resource type (Send + Sync 
+    /// - `is_send_and_sync` must accurately reflect the thread safety of the created resource type (Send + Sync
     ///    in rust terms if set to true)
     pub unsafe fn new_resource(
         name: impl Into<Cow<'static, str>>,
@@ -525,7 +525,8 @@ impl Components {
         self.components.get_unchecked(id.0)
     }
 
-    /// Type-erased equivalent of [`Components::component_id`].
+    /// Type-erased equivalent of [`Components::get_component_id`] or 
+    /// [`Components::get_resource_id`].
     #[inline]
     pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
         self.ids.get(&type_id).copied()
@@ -549,7 +550,7 @@ impl Components {
     ///
     /// let component_a_id = world.init_component::<ComponentA>();
     ///
-    /// assert_eq!(component_a_id, world.components().component_id::<ComponentA>().unwrap())
+    /// assert_eq!(component_a_id, world.components().get_component_id::<ComponentA>().unwrap())
     /// ```
     #[inline]
     pub fn get_component_id<T: Component>(&self) -> Option<ComponentId> {
