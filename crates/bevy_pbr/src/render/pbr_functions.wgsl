@@ -4,6 +4,9 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#import bevy_pbr::gtao_multibounce
+#endif
 
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
@@ -167,6 +170,9 @@ fn pbr(
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
     let ambient_occlusion = in.ambient_occlusion;
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+    let ambient_occlusion = gtao_multibounce(ambient_occlusion, in.material.base_color.rgb);
+#endif
     let specular_occlusion = in.specular_occlusion;
 
     output_color = alpha_discard(in.material, output_color);

@@ -56,6 +56,8 @@ const GTAO_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 253938746510568);
 const DENOISE_AO_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 466162052558226);
+const GTAO_MULTIBOUNCE_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 366465052568786);
 
 // TODO: Support MSAA
 
@@ -74,6 +76,12 @@ impl Plugin for AmbientOcclusionPlugin {
             app,
             DENOISE_AO_SHADER_HANDLE,
             "denoise_ao.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_asset!(
+            app,
+            GTAO_MULTIBOUNCE_SHADER_HANDLE,
+            "gtao_multibounce.wgsl",
             Shader::from_wgsl
         );
 
