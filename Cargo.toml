@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -15,6 +15,7 @@ repository = "https://github.com/bevyengine/bevy"
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
 members = [
   "crates/*",
+  "examples/android",
   "examples/ios",
   "tools/ci",
   "tools/spancmp",
@@ -116,11 +117,11 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 animation = ["bevy_internal/animation"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev", default-features = false, features = [
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0", default-features = false, features = [
   "webgl",
 ] }
 
@@ -259,6 +260,16 @@ path = "examples/2d/transparency_2d.rs"
 [package.metadata.example.transparency_2d]
 name = "Transparency in 2D"
 description = "Demonstrates transparency in 2d"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "pixel_perfect"
+path = "examples/2d/pixel_perfect.rs"
+
+[package.metadata.example.pixel_perfect]
+name = "Pixel Perfect"
+description = "Demonstrates pixel perfect in 2d"
 category = "2D Rendering"
 wasm = true
 
@@ -1433,6 +1444,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "window_fallthrough"
+path = "examples/ui/window_fallthrough.rs"
+
+[package.metadata.example.window_fallthrough]
+name = "Window Fallthrough"
+description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
@@ -1586,32 +1607,6 @@ name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
 wasm = true
-
-# Android
-[[example]]
-crate-type = ["cdylib"]
-name = "android_example"
-path = "examples/android/android.rs"
-
-[package.metadata.example.android_example]
-hidden = true
-
-[package.metadata.android]
-package = "org.bevyengine.example"
-apk_name = "bevyexample"
-assets = "assets"
-resources = "assets/android-res"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
-
-[package.metadata.android.application]
-icon = "@mipmap/ic_launcher"
-label = "Bevy Example"
-
-[profile.release]
-lto = true
 
 [profile.wasm-release]
 inherits = "release"

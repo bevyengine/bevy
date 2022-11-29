@@ -320,17 +320,18 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 
     for (view, visible_entities, tonemapping, mut transparent_phase) in &mut views {
-        let draw_transparent_pbr = transparent_draw_functions
-            .read()
-            .get_id::<DrawMaterial2d<M>>()
-            .unwrap();
+        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        if let Some(tonemapping) = tonemapping {
-            if tonemapping.is_enabled && !view.hdr {
+        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+            if !view.hdr {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+
+                if *deband_dither {
+                    view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
+                }
             }
         }
 
@@ -471,8 +472,8 @@ fn prepare_materials_2d<M: Material2d>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<Material2dPipeline<M>>,
 ) {
-    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.drain(..) {
+    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, material) in queued_assets {
         match prepare_material2d(
             &material,
             &render_device,

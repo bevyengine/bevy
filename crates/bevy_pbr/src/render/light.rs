@@ -10,7 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -66,7 +66,7 @@ pub struct ExtractedPointLight {
 pub struct ExtractedDirectionalLight {
     color: Color,
     illuminance: f32,
-    direction: Vec3,
+    transform: GlobalTransform,
     projection: Mat4,
     shadows_enabled: bool,
     shadow_depth_bias: f32,
@@ -321,11 +321,15 @@ impl SpecializedMeshPipeline for ShadowPipeline {
 
         let mut bind_group_layout = vec![self.view_layout.clone()];
         let mut shader_defs = Vec::new();
+        shader_defs.push(ShaderDefVal::Int(
+            "MAX_DIRECTIONAL_LIGHTS".to_string(),
+            MAX_DIRECTIONAL_LIGHTS as i32,
+        ));
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
-            shader_defs.push(String::from("SKINNED"));
+            shader_defs.push("SKINNED".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
@@ -550,32 +554,27 @@ pub fn extract_lights(
             continue;
         }
 
-        // Calulate the directional light shadow map texel size using the largest x,y dimension of
+        // Calculate the directional light shadow map texel size using the scaled x,y length of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
         // https://catlikecoding.com/unity/tutorials/custom-srp/directional-shadows/
-        let largest_dimension = (directional_light.shadow_projection.right
-            - directional_light.shadow_projection.left)
-            .max(
-                directional_light.shadow_projection.top
-                    - directional_light.shadow_projection.bottom,
-            );
-        let directional_light_texel_size =
-            largest_dimension / directional_light_shadow_map.size as f32;
+        let directional_light_texel_size = transform.radius_vec3a(Vec3A::new(
+            directional_light.shadow_projection.right - directional_light.shadow_projection.left,
+            directional_light.shadow_projection.top - directional_light.shadow_projection.bottom,
+            0.,
+        )) / directional_light_shadow_map.size as f32;
         // TODO: As above
         let render_visible_entities = visible_entities.clone();
         commands.get_or_spawn(entity).insert((
             ExtractedDirectionalLight {
                 color: directional_light.color,
                 illuminance: directional_light.illuminance,
-                direction: transform.forward(),
+                transform: *transform,
                 projection: directional_light.shadow_projection.get_projection_matrix(),
                 shadows_enabled: directional_light.shadows_enabled,
                 shadow_depth_bias: directional_light.shadow_depth_bias,
-                // The factor of SQRT_2 is for the worst-case diagonal offset
                 shadow_normal_bias: directional_light.shadow_normal_bias
-                    * directional_light_texel_size
-                    * std::f32::consts::SQRT_2,
+                    * directional_light_texel_size,
             },
             render_visible_entities,
         ));
@@ -947,7 +946,7 @@ pub fn prepare_lights(
         }
 
         // direction is negated to be ready for N.L
-        let dir_to_light = -light.direction;
+        let dir_to_light = light.transform.back();
 
         // convert from illuminance (lux) to candelas
         //
@@ -961,9 +960,8 @@ pub fn prepare_lights(
         let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
         let intensity = light.illuminance * exposure;
 
-        // NOTE: A directional light seems to have to have an eye position on the line along the direction of the light
-        // through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
-        let view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
+        // NOTE: For the purpose of rendering shadow maps, we apply the directional light's transform to an orthographic camera
+        let view = light.transform.compute_matrix().inverse();
         // NOTE: This orthographic projection defines the volume within which shadows from a directional light can be cast
         let projection = light.projection;
 
@@ -1175,10 +1173,6 @@ pub fn prepare_lights(
             .enumerate()
             .take(directional_shadow_maps_count)
         {
-            // NOTE: A directional light seems to have to have an eye position on the line along the direction of the light
-            // through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
-            let view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
-
             let depth_texture_view =
                 directional_light_depth_texture
                     .texture
@@ -1206,7 +1200,7 @@ pub fn prepare_lights(
                             directional_light_shadow_map.size as u32,
                             directional_light_shadow_map.size as u32,
                         ),
-                        transform: GlobalTransform::from(view.inverse()),
+                        transform: light.transform,
                         projection: light.projection,
                         hdr: false,
                     },
@@ -1641,10 +1635,7 @@ pub fn queue_shadows(
     spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
 ) {
     for view_lights in &view_lights {
-        let draw_shadow_mesh = shadow_draw_functions
-            .read()
-            .get_id::<DrawShadowMesh>()
-            .unwrap();
+        let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawShadowMesh>();
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, mut shadow_phase) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();

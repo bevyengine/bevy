@@ -1,7 +1,8 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
-    Reflect, ReflectMut, ReflectRef, Struct, Tuple, TypeInfo, Typed, VariantFieldIter, VariantType,
+    Reflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, Typed,
+    VariantFieldIter, VariantType,
 };
 use std::any::Any;
 use std::fmt::Formatter;
@@ -315,6 +316,11 @@ impl Reflect for DynamicEnum {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -388,6 +394,11 @@ impl Reflect for DynamicEnum {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Enum(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Enum(self)
     }
 
     #[inline]

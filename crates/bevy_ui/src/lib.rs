@@ -1,6 +1,6 @@
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`entity::ButtonBundle`], [`entity::ImageBundle`], [`entity::TextBundle`] and [`entity::NodeBundle`]
+//! Spawn UI elements with [`node_bundles::ButtonBundle`], [`node_bundles::ImageBundle`], [`node_bundles::TextBundle`] and [`node_bundles::NodeBundle`]
 //! This UI is laid out with the Flexbox paradigm (see <https://cssreference.io/flexbox/>)
 mod flex;
 mod focus;
@@ -9,7 +9,8 @@ mod render;
 mod stack;
 mod ui_node;
 
-pub mod entity;
+pub mod camera_config;
+pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
@@ -23,7 +24,10 @@ pub use ui_node::*;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{entity::*, geometry::*, ui_node::*, widget::Button, Interaction, UiScale};
+    pub use crate::{
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
+        UiScale,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -100,7 +104,6 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
-            .register_type::<widget::ImageMode>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
@@ -123,7 +126,7 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::image_node_system
+                widget::update_image_calculated_size_system
                     .before(UiSystem::Flex)
                     // Potential conflicts: `Assets<Image>`
                     // They run independently since `widget::image_node_system` will only ever observe
