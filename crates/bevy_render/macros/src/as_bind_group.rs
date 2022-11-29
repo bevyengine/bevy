@@ -10,6 +10,7 @@ use syn::{
 
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
 const TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("texture");
+const STORAGE_TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("storage_texture");
 const SAMPLER_ATTRIBUTE_NAME: Symbol = Symbol("sampler");
 const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
 
@@ -18,6 +19,7 @@ enum BindingType {
     Uniform,
     Texture,
     Sampler,
+    StorageTexture,
 }
 
 #[derive(Clone)]
@@ -126,6 +128,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 BindingType::Texture
             } else if attr_ident == SAMPLER_ATTRIBUTE_NAME {
                 BindingType::Sampler
+            } else if attr_ident == STORAGE_TEXTURE_ATTRIBUTE_NAME {
+                BindingType::StorageTexture
             } else {
                 continue;
             };
@@ -192,12 +196,51 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             match binding_type {
                 BindingType::Uniform => { /* uniform codegen is deferred to account for combined uniform bindings */
                 }
+
+                BindingType::StorageTexture => {
+                    let TextureAttrs {
+                        dimension,
+                        sample_type: _sample_type,
+                        multisampled: _multisampled,
+                        visibility,
+                        format,
+                    } = get_texture_attrs(nested_meta_items.clone())?;
+
+                    let visibility =
+                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
+                    binding_impls.push(quote! {
+                        #render_path::render_resource::OwnedBindingResource::TextureView({
+                            let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
+                            if let Some(handle) = handle {
+                                images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                            } else {
+                                fallback_image.texture_view.clone()
+                            }
+                        })
+                    });
+
+                    binding_layouts.push(quote! {
+                        #render_path::render_resource::BindGroupLayoutEntry {
+                            binding: #binding_index,
+                            visibility: #visibility,
+                            ty: #render_path::render_resource::BindingType::StorageTexture {
+                                access: #render_path::render_resource::StorageTextureAccess::ReadWrite,
+                                format: #render_path::render_resource::#format,
+                                view_dimension: #render_path::render_resource::#dimension,
+                            },
+                            count: None,
+                        }
+                    });
+                }
+
                 BindingType::Texture => {
                     let TextureAttrs {
                         dimension,
                         sample_type,
                         multisampled,
                         visibility,
+                        format: _format,
                     } = get_texture_attrs(nested_meta_items)?;
 
                     let visibility =
@@ -585,6 +628,22 @@ fn get_visibility_flag_value(
 }
 
 #[derive(Default)]
+enum TextureFormat {
+    Rgba8Snorm,
+    #[default]
+    Rgba8Unorm,
+    Rgba8Uint,
+    Rgba8Sint,
+    Rgba16Uint,
+    Rgba16Sint,
+    Rgba16Float,
+    Rgba32Uint,
+    Rgba32Sint,
+    Rgba32Float,
+}
+
+
+#[derive(Default)]
 enum BindingTextureDimension {
     D1,
     #[default]
@@ -600,6 +659,23 @@ enum BindingTextureSampleType {
     Depth,
     Sint,
     Uint,
+}
+
+impl ToTokens for TextureFormat {
+    fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
+        tokens.extend(match self {
+            TextureFormat::Rgba8Snorm => quote! { TextureFormat::Rgba8Snorm },
+            TextureFormat::Rgba8Unorm => quote! { TextureFormat::Rgba8Unorm },
+            TextureFormat::Rgba8Uint => quote! { TextureFormat::Rgba8Uint },
+            TextureFormat::Rgba8Sint => quote! { TextureFormat::Rgba8Sint },
+            TextureFormat::Rgba16Uint => quote! { TextureFormat::Rgba16Uint },
+            TextureFormat::Rgba16Sint => quote! { TextureFormat::Rgba16Sint },
+            TextureFormat::Rgba16Float => quote! { TextureFormat::Rgba16Float },
+            TextureFormat::Rgba32Uint => quote! { TextureFormat::Rgba32Uint },
+            TextureFormat::Rgba32Sint => quote! { TextureFormat::Rgba32Sint },
+            TextureFormat::Rgba32Float => quote! { TextureFormat::Rgba32Float },
+        });
+    }
 }
 
 impl ToTokens for BindingTextureDimension {
@@ -633,6 +709,7 @@ struct TextureAttrs {
     sample_type: BindingTextureSampleType,
     multisampled: bool,
     visibility: ShaderStageVisibility,
+    format: TextureFormat,
 }
 
 impl Default for BindingTextureSampleType {
@@ -648,6 +725,7 @@ impl Default for TextureAttrs {
             sample_type: Default::default(),
             multisampled: true,
             visibility: Default::default(),
+            format: Default::default(),
         }
     }
 }
@@ -656,6 +734,19 @@ const DIMENSION: Symbol = Symbol("dimension");
 const SAMPLE_TYPE: Symbol = Symbol("sample_type");
 const FILTERABLE: Symbol = Symbol("filterable");
 const MULTISAMPLED: Symbol = Symbol("multisampled");
+const FORMAT: Symbol = Symbol("format");
+
+// Values for `format` attribute.
+const RGBA8UNORM: &str = "rgba8unorm";
+const RGBA8SNORM: &str = "rgba8snorm";
+const RGBA8UINT: &str = "rgba8uint";
+const RGBA8SINT: &str = "rgba8sint";
+const RGBA16UINT: &str = "rgba16uint";
+const RGBA16SINT: &str = "rgba16sint";
+const RGBA16FLOAT: &str = "rgba16float";
+const RGBA32UINT: &str = "rgba32uint";
+const RGBA32SINT: &str = "rgba32sint";
+const RGBA32FLOAT: &str = "rgba32float";
 
 // Values for `dimension` attribute.
 const DIM_1D: &str = "1d";
@@ -677,6 +768,7 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
     let mut multisampled = Default::default();
     let mut filterable = None;
     let mut filterable_ident = None;
+    let mut format = Default::default();
 
     let mut visibility = ShaderStageVisibility::vertex_fragment();
 
@@ -709,10 +801,16 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
             Meta(List(m)) if m.path == VISIBILITY => {
                 visibility = get_visibility_flag_value(&m.nested)?;
             }
+
+            Meta(NameValue(m)) if m.path == FORMAT => {
+                let value = get_lit_str(FORMAT, &m.lit)?;
+                format = get_texture_format_value(value)?;
+            }
+
             Meta(NameValue(m)) => {
                 return Err(Error::new_spanned(
                     m.path,
-                    "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, or `filterable`."
+                    "Not a valid name. Available attributes: `dimension`, `sample_type`, `multisampled`, `filterable` or `format`."
                 ));
             }
             _ => {
@@ -746,8 +844,31 @@ fn get_texture_attrs(metas: Vec<NestedMeta>) -> Result<TextureAttrs> {
         sample_type,
         multisampled,
         visibility,
+        format,
     })
 }
+
+fn get_texture_format_value(lit_str: &LitStr) -> Result<TextureFormat> {
+    match lit_str.value().as_str() {
+        RGBA8UNORM => Ok(TextureFormat::Rgba8Unorm),
+        RGBA8SNORM => Ok(TextureFormat::Rgba8Snorm),
+        RGBA8UINT => Ok(TextureFormat::Rgba8Uint),
+        RGBA8SINT => Ok(TextureFormat::Rgba8Sint),
+        RGBA16UINT => Ok(TextureFormat::Rgba16Uint),
+        RGBA16SINT => Ok(TextureFormat::Rgba16Sint),
+        RGBA16FLOAT => Ok(TextureFormat::Rgba16Float),
+        RGBA32UINT => Ok(TextureFormat::Rgba32Uint),
+        RGBA32SINT => Ok(TextureFormat::Rgba32Sint),
+        RGBA32FLOAT => Ok(TextureFormat::Rgba32Float),
+
+        _ => Err(Error::new_spanned(
+            lit_str,
+            "Not a valid format. Must be `rgba8unorm`, `rgba8snorm`, `rgba8uint`, `rgba8sint`, `rgba16uint`, `rgba16sint` `rgba16float`, `rgba32uint`, `rgba32sint` or `rgba32float`.",
+        )),
+    }
+}
+
+
 
 fn get_texture_dimension_value(lit_str: &LitStr) -> Result<BindingTextureDimension> {
     match lit_str.value().as_str() {

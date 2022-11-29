@@ -274,6 +274,7 @@ pub struct PreparedBindGroup<T: AsBindGroup> {
 pub enum OwnedBindingResource {
     Buffer(Buffer),
     TextureView(TextureView),
+    StorageTexture(TextureView),
     Sampler(Sampler),
 }
 
@@ -282,6 +283,7 @@ impl OwnedBindingResource {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
             OwnedBindingResource::TextureView(view) => BindingResource::TextureView(view),
+            OwnedBindingResource::StorageTexture(view) => BindingResource::TextureView(view),
             OwnedBindingResource::Sampler(sampler) => BindingResource::Sampler(sampler),
         }
     }

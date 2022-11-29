@@ -1256,6 +1256,16 @@ description = "A shader that shows how to reuse the core bevy PBR shading functi
 category = "Shaders"
 wasm = true
 
+[[example]]
+name = "post_processing_motion_blur"
+path = "examples/shader/post_processing_motion_blur.rs"
+
+[package.metadata.example.post_processing_motion_blur.rs]
+name = "Temporal blur post processing shader"
+description = "A shader that uses a storage texture to keep color data between frames."
+category = "Shaders"
+wasm = false
+
 # Stress tests
 [[package.metadata.category]]
 name = "Stress Tests"
