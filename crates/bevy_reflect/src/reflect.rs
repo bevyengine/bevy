@@ -167,7 +167,7 @@ pub trait Reflect: Any + Send + Sync {
     /// panicking.
     ///
     /// Note: the value you call this function on will end up being partially mutated
-    /// if this function runs into an error along the way (types with nested values like lists).
+    /// if this function runs into an error along the way (i.e. types with nested values like lists).
     ///
     /// If a type implements a subtrait of `Reflect`, then the semantics of this
     /// method are as follows:
@@ -201,7 +201,7 @@ pub trait Reflect: Any + Send + Sync {
     ///
     /// # Errors
     ///
-    /// Derived implementations of this method will return an error:
+    /// Derived implementations of this method will return an [`ApplyError`]:
     /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
     ///   a `List`, while `value` is a `Struct`).
     /// - If `T` is any complex type and the corresponding fields or elements of

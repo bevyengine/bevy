@@ -364,6 +364,15 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
     }
 }
 
+/// Tries to apply the reflected [array](Array) data to the given [array](Array) and
+/// returns a Result.
+///
+/// # Errors
+///
+/// * Returns an [`ApplyError::DifferentSize`] if the two arrays have differing lengths.
+/// * Returns an [`ApplyError::MismatchedTypes`] if the reflected value is not a
+///   [valid array](ReflectRef::Array).
+///
 #[inline]
 pub fn array_try_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {

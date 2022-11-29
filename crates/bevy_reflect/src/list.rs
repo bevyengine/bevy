@@ -328,6 +328,15 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
     }
 }
 
+/// Tries to apply the elements of `b` to the corresponding elements of `a` and
+/// returns a Result.
+///
+/// If the length of `b` is greater than that of `a`, the excess elements of `b`
+/// are cloned and appended to `a`.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedTypes`] if `b` is not a list.
 #[inline]
 pub fn list_try_apply<L: List>(a: &mut L, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::List(list_value) = b.reflect_ref() {

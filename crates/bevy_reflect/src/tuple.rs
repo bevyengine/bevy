@@ -400,6 +400,12 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
     }
 }
 
+/// Tries to apply the elements of `b` to the corresponding elements of `a` and
+/// returns a Result.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedTypes`] if `b` is not a tuple.
 #[inline]
 pub fn tuple_try_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Tuple(tuple) = b.reflect_ref() {

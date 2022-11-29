@@ -470,6 +470,14 @@ pub fn map_apply<M: Map>(a: &mut M, b: &dyn Reflect) {
     }
 }
 
+/// Tries to apply the elements of reflected map `b` to the corresponding elements of map `a`
+/// and returns a Result.
+///
+/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+///
+/// # Errors
+///
+/// This function returns an [`ApplyError::MismatchedTypes`] if `b` is not a reflected map.
 #[inline]
 pub fn map_try_apply<M: Map>(a: &mut M, b: &dyn Reflect) -> Result<(), ApplyError> {
     if let ReflectRef::Map(map_value) = b.reflect_ref() {

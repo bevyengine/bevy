@@ -291,7 +291,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                                 *self = #variant_constructors
                             })*
                             name => {
-                                return Err(#bevy_reflect_path::ApplyError::WrongType("TODO".to_string()));
+                                return Err(#bevy_reflect_path::ApplyError::UnknownVariant(name.to_string(), std::any::type_name::<Self>().to_string()));
                             }
                         }
                     }
