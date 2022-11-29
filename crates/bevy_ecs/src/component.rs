@@ -337,12 +337,12 @@ impl ComponentDescriptor {
         x.drop_as::<T>();
     }
 
-    /// Create a new `ComponentDescriptor`.
+    /// Create a new `ComponentDescriptor` for a [`Component`] type.
     ///
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
-    pub unsafe fn new(
+    pub unsafe fn new_component(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
         layout: Layout,
@@ -358,8 +358,30 @@ impl ComponentDescriptor {
         }
     }
 
-    /// Create a new `ComponentDescriptor` for the type `T`.
-    fn new_component<T: Component>() -> Self {
+    /// Create a new `ComponentDescriptor` for a [`Resource`] type.
+    ///
+    /// # Safety
+    /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
+    /// - `is_send_and_sync` must accurately reflect the thread safety of the created resource type (Send + Sync 
+    ///    in rust terms if set to true)
+    pub unsafe fn new_resource(
+        name: impl Into<Cow<'static, str>>,
+        layout: Layout,
+        is_send_and_sync: bool,
+        drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
+    ) -> Self {
+        Self {
+            name: name.into(),
+            storage_type: StorageType::Table,
+            is_send_and_sync,
+            type_id: None,
+            layout,
+            drop,
+        }
+    }
+
+    /// Create a new `ComponentDescriptor` for the [`Component`] type `T`.
+    fn component_from_type<T: Component>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type: T::Storage::STORAGE_TYPE,
@@ -373,7 +395,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for a resource.
     ///
     /// The [`StorageType`] for resources is always [`TableStorage`].
-    fn new_resource<T: Resource>() -> Self {
+    fn resource_from_type<T: Resource>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             // PERF: `SparseStorage` may actually be a more
@@ -389,7 +411,7 @@ impl ComponentDescriptor {
     /// Create a new `ComponentDescriptor` for a `!Send` resource.
     ///
     /// The [`StorageType`] for resources is always [`TableStorage`].
-    fn new_non_send<T: Any>() -> Self {
+    fn non_send_from_type<T: Any>() -> Self {
         Self {
             name: Cow::Borrowed(std::any::type_name::<T>()),
             storage_type: StorageType::Table,
@@ -440,7 +462,7 @@ impl Components {
             let index = Components::init_component_inner(
                 components,
                 storages,
-                ComponentDescriptor::new_component::<T>(),
+                ComponentDescriptor::component_from_type::<T>(),
             );
             ComponentId(index)
         });
@@ -547,7 +569,7 @@ impl Components {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_resource::<T>()
+                ComponentDescriptor::resource_from_type::<T>()
             })
         }
     }
@@ -557,7 +579,7 @@ impl Components {
         // SAFETY: The [`ComponentDescriptor`] matches the [`TypeId`]
         unsafe {
             self.get_or_insert_resource_with(TypeId::of::<T>(), || {
-                ComponentDescriptor::new_non_send::<T>()
+                ComponentDescriptor::non_send_from_type::<T>()
             })
         }
     }
