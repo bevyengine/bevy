@@ -29,9 +29,15 @@ pub struct TaskPoolBuilder {
     core_id_gen: Option<Arc<dyn Fn() -> Option<CoreId> + Send + Sync>>,
 }
 
+impl Default for TaskPoolBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TaskPoolBuilder {
     /// Creates a new [`TaskPoolBuilder`] instance
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             num_threads: None,
             thread_name: None,
@@ -60,6 +66,8 @@ impl TaskPoolBuilder {
         self
     }
 
+    /// Sets a callback for getting a per-thread [`CoreId`]. If set, it'll be
+    /// called once when starting up each thread in the [`TaskPool`].
     pub fn core_id_fn<F>(mut self, f: F) -> Self
     where
         F: Fn() -> Option<CoreId> + Send + Sync + 'static,
@@ -131,7 +139,11 @@ impl TaskPool {
                         if let Some(core_id_gen) = core_id_gen {
                             if let Some(core_id) = core_id_gen() {
                                 core_affinity::set_for_current(core_id);
-                                println!("Assigned thread {:?} to core {:?}", std::thread::current().name(), core_id);
+                                println!(
+                                    "Assigned thread {:?} to core {:?}",
+                                    std::thread::current().name(),
+                                    core_id
+                                );
                             }
                         }
 

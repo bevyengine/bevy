@@ -1,5 +1,7 @@
 use bevy_ecs::prelude::Resource;
-use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder, core_affinity};
+use bevy_tasks::{
+    core_affinity, AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder,
+};
 use bevy_utils::tracing::trace;
 use std::sync::{Arc, Mutex};
 
@@ -14,7 +16,14 @@ pub struct TaskPoolThreadAssignmentPolicy {
     /// Target using this percentage of total cores, clamped by min_threads and max_threads. It is
     /// permitted to use 1.0 to try to use all remaining threads
     pub percent: f32,
-
+    /// If set to true, this will use [processor affinity] to forcibly pin each thread to a different
+    /// physical CPU core.
+    ///
+    /// Only has an effect on Windows, Mac OSX, Linux, Android. This is a no-op on other platforms.
+    ///
+    /// Defaults to true.
+    ///
+    /// [processor affinity]: https://en.wikipedia.org/wiki/Processor_affinity
     pub use_core_affinity: bool,
 }
 
@@ -104,8 +113,7 @@ impl TaskPoolOptions {
         trace!("Assigning {} cores to default task pools", total_threads);
 
         let mut remaining_threads = total_threads;
-        let core_ids = core_affinity::get_core_ids()
-            .map(|core_ids| Arc::new(Mutex::new(core_ids)));
+        let core_ids = core_affinity::get_core_ids().map(|core_ids| Arc::new(Mutex::new(core_ids)));
 
         {
             // Determine the number of IO threads we will use
@@ -121,9 +129,7 @@ impl TaskPoolOptions {
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string());
                 if let Some(core_ids) = core_ids.clone() {
-                    builder = builder.core_id_fn(move || {
-                        core_ids.lock().ok()?.pop()
-                    });
+                    builder = builder.core_id_fn(move || core_ids.lock().ok()?.pop());
                 }
                 builder.build()
             });
@@ -143,9 +149,7 @@ impl TaskPoolOptions {
                     .num_threads(async_compute_threads)
                     .thread_name("Async Compute Task Pool".to_string());
                 if let Some(core_ids) = core_ids.clone() {
-                    builder = builder.core_id_fn(move || {
-                        core_ids.lock().ok()?.pop()
-                    });
+                    builder = builder.core_id_fn(move || core_ids.lock().ok()?.pop());
                 }
                 builder.build()
             });
@@ -165,9 +169,7 @@ impl TaskPoolOptions {
                     .num_threads(compute_threads)
                     .thread_name("Compute Task Pool".to_string());
                 if let Some(core_ids) = core_ids.clone() {
-                    builder = builder.core_id_fn(move || {
-                        core_ids.lock().ok()?.pop()
-                    });
+                    builder = builder.core_id_fn(move || core_ids.lock().ok()?.pop());
                 }
                 builder.build()
             });
