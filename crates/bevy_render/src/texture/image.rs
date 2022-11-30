@@ -280,10 +280,14 @@ impl Image {
     /// same.
     ///
     /// # Panics
-    /// Panics if the `new_size` does not have the same volume as to old one.
+    /// Panics if the `new_size` does not have the same number of bytes as the old one.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
         assert!(
-            new_size.volume() == self.texture_descriptor.size.volume(),
+            new_size.total_bytes(self.texture_descriptor.format)
+                == self
+                    .texture_descriptor
+                    .size
+                    .total_bytes(self.texture_descriptor.format),
             "Incompatible sizes: old = {:?} new = {:?}",
             self.texture_descriptor.size,
             new_size
@@ -454,44 +458,26 @@ impl<'a> ImageType<'a> {
     }
 }
 
-/// Used to calculate the volume of an item.
-pub trait Volume {
-    fn volume(&self) -> usize;
-}
-
-impl Volume for Extent3d {
-    /// Calculates the volume of the [`Extent3d`].
-    fn volume(&self) -> usize {
-        (self.width * self.height * self.depth_or_array_layers) as usize
-    }
-}
-
-pub trait BytesPerRow {
+/// Extends Extent3d with some convenience methods to calculate some useful values related to the dimensions of a texture
+pub trait Extent3dDimensions {
+    /// calculates the bytes per row in a texture
     fn bytes_per_row(&self, format: TextureFormat) -> u32;
+    /// calculates the total bytes in the data buffer for a texture
+    fn total_bytes(&self, format: TextureFormat) -> u32;
+    /// calculates the rows in an image
+    fn rows_per_image(&self, format: TextureFormat) -> u32;
 }
 
-impl BytesPerRow for Extent3d {
+impl Extent3dDimensions for Extent3d {
     fn bytes_per_row(&self, format: TextureFormat) -> u32 {
         let info = format.describe();
         self.physical_size(format).width * info.block_size as u32 / info.block_dimensions.0 as u32
     }
-}
 
-pub trait TotalBytes {
-    fn total_bytes(&self, format: TextureFormat) -> u32;
-}
-
-impl TotalBytes for Extent3d {
     fn total_bytes(&self, format: TextureFormat) -> u32 {
         self.rows_per_image(format) * self.bytes_per_row(format) * self.depth_or_array_layers
     }
-}
 
-pub trait RowsPerImage {
-    fn rows_per_image(&self, format: TextureFormat) -> u32;
-}
-
-impl RowsPerImage for Extent3d {
     fn rows_per_image(&self, format: TextureFormat) -> u32 {
         let info = format.describe();
         self.physical_size(format).height / info.block_dimensions.1 as u32
