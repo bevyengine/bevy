@@ -20,7 +20,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 14.;
+const X_EXTENT: f32 = 14.5;
 
 fn setup(
     mut commands: Commands,
@@ -38,6 +38,7 @@ fn setup(
         meshes.add(shape::Box::default().into()),
         meshes.add(shape::Capsule::default().into()),
         meshes.add(shape::Torus::default().into()),
+        meshes.add(shape::Cylinder::default().into()),
         meshes.add(shape::Icosphere::default().try_into().unwrap()),
         meshes.add(shape::UVSphere::default().into()),
     ];

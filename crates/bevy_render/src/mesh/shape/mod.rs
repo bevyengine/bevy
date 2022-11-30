@@ -221,12 +221,14 @@ impl From<Plane> for Mesh {
 }
 
 mod capsule;
+mod cylinder;
 mod icosphere;
 mod regular_polygon;
 mod torus;
 mod uvsphere;
 
 pub use capsule::{Capsule, CapsuleUvProfile};
+pub use cylinder::Cylinder;
 pub use icosphere::Icosphere;
 pub use regular_polygon::{Circle, RegularPolygon};
 pub use torus::Torus;
