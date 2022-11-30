@@ -58,7 +58,7 @@ pub fn empty_systems(criterion: &mut Criterion) {
             });
         });
     }
-    group.finish()
+    group.finish();
 }
 
 pub fn busy_systems(criterion: &mut Criterion) {
@@ -107,7 +107,7 @@ pub fn busy_systems(criterion: &mut Criterion) {
             );
         }
     }
-    group.finish()
+    group.finish();
 }
 
 pub fn contrived(criterion: &mut Criterion) {
@@ -158,5 +158,5 @@ pub fn contrived(criterion: &mut Criterion) {
             );
         }
     }
-    group.finish()
+    group.finish();
 }

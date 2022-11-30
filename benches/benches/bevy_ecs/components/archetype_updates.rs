@@ -109,7 +109,7 @@ pub fn added_archetypes(criterion: &mut Criterion) {
                         stage.run(&mut world);
                     },
                     criterion::BatchSize::LargeInput,
-                )
+                );
             },
         );
     }
