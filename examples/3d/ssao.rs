@@ -2,7 +2,10 @@
 
 use bevy::{
     core_pipeline::prepass::PrepassSettings,
-    pbr::{AmbientOcclusionSettings, PbrPlugin, TemporalAntialiasBundle, TemporalAntialiasPlugin},
+    pbr::{
+        AmbientOcclusionSettings, PbrPlugin, TemporalAntialiasBundle, TemporalAntialiasPlugin,
+        TemporalAntialiasSettings,
+    },
     prelude::*,
     render::camera::TemporalJitter,
 };
@@ -121,9 +124,14 @@ fn update(
     }
     if keycode.just_pressed(KeyCode::Space) {
         if temporal_jitter.is_some() {
-            commands.entity(camera_entity).remove::<TemporalJitter>();
+            commands
+                .entity(camera_entity)
+                .remove::<TemporalJitter>()
+                .remove::<TemporalAntialiasSettings>();
         } else {
-            commands.entity(camera_entity).insert(TemporalJitter);
+            commands
+                .entity(camera_entity)
+                .insert(TemporalAntialiasBundle::default());
         }
     }
 
