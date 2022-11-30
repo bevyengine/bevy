@@ -40,11 +40,14 @@ pub struct Text2dBounds {
 }
 
 impl Default for Text2dBounds {
+    #[inline]
     fn default() -> Self {
-        Self {
-            size: Vec2::splat(f32::MAX),
-        }
+        Self::UNBOUNDED        
     }
+}
+
+impl Text2dBounds {
+    pub const UNBOUNDED: Self = Self { size: Vec2::splat(f32::MAX) };
 }
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
