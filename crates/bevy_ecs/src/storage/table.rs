@@ -49,17 +49,17 @@ impl TableId {
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 /// [`Entity`]: crate::entity::Entity
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TableRow(u32);
+pub struct TableRow(usize);
 
 impl TableRow {
     #[inline]
     pub(super) const fn new(index: usize) -> Self {
-        Self(index as u32)
+        Self(index)
     }
 
     #[inline]
     pub(crate) fn index(self) -> usize {
-        self.0 as usize
+        self.0
     }
 }
 
@@ -559,7 +559,7 @@ impl Table {
     /// the allocated row must be written to immediately with valid values in each column
     pub(crate) unsafe fn allocate(&mut self, entity: Entity) -> TableRow {
         self.reserve(1);
-        let index = self.entities.len() as u32;
+        let index = self.entities.len();
         self.entities.push(entity);
         for column in self.columns.values_mut() {
             column.data.set_len(self.entities.len());
