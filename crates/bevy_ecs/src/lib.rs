@@ -17,6 +17,7 @@ pub mod schedule;
 pub mod storage;
 pub mod system;
 pub mod world;
+pub mod non_send_resources;
 
 pub use bevy_ptr as ptr;
 
