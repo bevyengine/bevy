@@ -10,6 +10,8 @@ use crate::Font;
 #[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
+    /// The text's internal alignment.
+    /// Should not affect its position.
     pub alignment: TextAlignment,
 }
 
@@ -22,19 +24,13 @@ impl Default for Text {
     }
 }
 
-pub trait TextBlock<A>: Sized {
-    fn from_section(value: impl Into<String>, style: TextStyle) -> Self;
-    fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self;
-    fn with_alignment(self, alignment: A) -> Self;
-}
-
-impl TextBlock<TextAlignment> for Text {
+impl Text {
     /// Constructs a [`Text`] with a single section.
     ///
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextBlock, TextStyle, TextAlignment};
+    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -59,7 +55,7 @@ impl TextBlock<TextAlignment> for Text {
     /// ) // You can still add an alignment.
     /// .with_alignment(TextAlignment::Center);
     /// ```
-    fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             sections: vec![TextSection::new(value, style)],
             ..Default::default()
@@ -71,7 +67,7 @@ impl TextBlock<TextAlignment> for Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextBlock, TextStyle, TextSection};
+    /// # use bevy_text::{Font, Text, TextStyle, TextSection};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -94,7 +90,7 @@ impl TextBlock<TextAlignment> for Text {
     ///     ),
     /// ]);
     /// ```
-    fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
             sections: sections.into_iter().collect(),
             ..Default::default()
@@ -102,7 +98,7 @@ impl TextBlock<TextAlignment> for Text {
     }
 
     /// Returns this [`Text`] with a new [`TextAlignment`].
-    fn with_alignment(mut self, alignment: TextAlignment) -> Self {
+    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
         self.alignment = alignment;
         self
     }

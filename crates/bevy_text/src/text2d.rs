@@ -22,7 +22,7 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    Font, FontAtlasSet, FontAtlasWarning, Text2dAlignment, TextAlignment, TextBlock, TextError,
+    Font, FontAtlasSet, FontAtlasWarning, Text2dAlignment, TextAlignment, TextError,
     TextLayoutInfo, TextPipeline, TextSection, TextSettings, TextStyle, VerticalAlign,
     YAxisOrientation,
 };
@@ -34,15 +34,17 @@ pub struct Text2d {
     pub alignment: Text2dAlignment,
 }
 
-impl TextBlock<Text2dAlignment> for Text2d {
-    fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+impl Text2d {
+    /// Constructs a [`Text2d`] with a single section.
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             sections: vec![TextSection::new(value, style)],
             ..Default::default()
         }
     }
 
-    fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+    /// Constructs a [`Text2d`] from a list of sections.
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
             sections: sections.into_iter().collect(),
             ..Default::default()
@@ -50,7 +52,7 @@ impl TextBlock<Text2dAlignment> for Text2d {
     }
 
     /// Returns this [`Text2d`] with a new [`Text2dAlignment`].
-    fn with_alignment(mut self, alignment: Text2dAlignment) -> Self {
+    pub const fn with_alignment(mut self, alignment: Text2dAlignment) -> Self {
         self.alignment = alignment;
         self
     }
@@ -77,6 +79,7 @@ impl Default for Text2dBounds {
 }
 
 impl Text2dBounds {
+    /// Unbounded text will not be truncated or wrapped.
     pub const UNBOUNDED: Self = Self {
         size: Vec2::splat(f32::MAX),
     };
