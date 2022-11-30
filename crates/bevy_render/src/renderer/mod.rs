@@ -44,7 +44,7 @@ pub fn render_system(world: &mut World) {
             }
         }
 
-        panic!("Error running render graph: {}", e);
+        panic!("Error running render graph: {e}");
     }
 
     {
@@ -261,8 +261,6 @@ pub async fn initialize_renderer(
         )
         .await
         .unwrap();
-
-    let device = Arc::new(device);
     let queue = Arc::new(queue);
     let adapter = Arc::new(adapter);
     (

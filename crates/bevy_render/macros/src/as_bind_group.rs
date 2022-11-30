@@ -116,9 +116,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     // Read field-level attributes
     for field in fields.iter() {
         for attr in &field.attrs {
-            let attr_ident = if let Some(ident) = attr.path.get_ident() {
-                ident
-            } else {
+            let Some(attr_ident) = attr.path.get_ident() else {
                 continue;
             };
 

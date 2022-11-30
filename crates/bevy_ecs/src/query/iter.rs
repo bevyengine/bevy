@@ -3,7 +3,7 @@ use crate::{
     entity::{Entities, Entity},
     prelude::World,
     ptr::ThinSlicePtr,
-    query::{debug_checked_unreachable, ArchetypeFilter, QueryState, WorldQuery},
+    query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
     storage::{TableId, Tables},
 };
 use std::{
@@ -13,7 +13,7 @@ use std::{
     mem::{ManuallyDrop, MaybeUninit},
 };
 
-use super::{QueryFetch, QueryItem, ReadOnlyWorldQuery};
+use super::ReadOnlyWorldQuery;
 
 /// An [`Iterator`] over query results of a [`Query`](crate::system::Query).
 ///
@@ -48,7 +48,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's, Q, F> {
-    type Item = QueryItem<'w, Q>;
+    type Item = Q::Item<'w>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -62,13 +62,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Iterator for QueryIter<'w, 's
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        let max_size = self
-            .query_state
-            .matched_archetype_ids
-            .iter()
-            .map(|id| self.archetypes[*id].len())
-            .sum();
-
+        let max_size = self.cursor.max_remaining(self.tables, self.archetypes);
         let archetype_query = Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL;
         let min_size = if archetype_query { max_size } else { 0 };
         (min_size, Some(max_size))
@@ -92,8 +86,8 @@ where
     entities: &'w Entities,
     tables: &'w Tables,
     archetypes: &'w Archetypes,
-    fetch: QueryFetch<'w, Q>,
-    filter: QueryFetch<'w, F>,
+    fetch: Q::Fetch<'w>,
+    filter: F::Fetch<'w>,
     query_state: &'s QueryState<Q, F>,
 }
 
@@ -143,7 +137,7 @@ where
     ///
     /// It is always safe for shared access.
     #[inline(always)]
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<QueryItem<'w, Q>> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<Q::Item<'w>> {
         for entity in self.entity_iter.by_ref() {
             let entity = *entity.borrow();
             let location = match self.entities.get(entity) {
@@ -159,8 +153,11 @@ where
                 continue;
             }
 
-            let archetype = &self.archetypes[location.archetype_id];
-            let table = &self.tables[archetype.table_id()];
+            let archetype = self
+                .archetypes
+                .get(location.archetype_id)
+                .debug_checked_unwrap();
+            let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -192,7 +189,7 @@ where
 
     /// Get next result from the query
     #[inline(always)]
-    pub fn fetch_next(&mut self) -> Option<QueryItem<'_, Q>> {
+    pub fn fetch_next(&mut self) -> Option<Q::Item<'_>> {
         // SAFETY: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
@@ -205,7 +202,7 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, I: Iterator> Iterator
 where
     I::Item: Borrow<Entity>,
 {
-    type Item = QueryItem<'w, Q>;
+    type Item = Q::Item<'w>;
 
     #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
@@ -349,16 +346,21 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     /// references to the same component, leading to unique reference aliasing.
     ///.
     /// It is always safe for shared access.
-    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[QueryItem<'w, Q>; K]> {
+    unsafe fn fetch_next_aliased_unchecked(&mut self) -> Option<[Q::Item<'w>; K]> {
         if K == 0 {
             return None;
         }
 
-        // first, iterate from last to first until next item is found
+        // PERF: can speed up the following code using `cursor.remaining()` instead of `next_item.is_none()`
+        // when Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL
+        //
+        // let `i` be the index of `c`, the last cursor in `self.cursors` that
+        // returns `K-i` or more elements.
+        // Make cursor in index `j` for all `j` in `[i, K)` a copy of `c` advanced `j-i+1` times.
+        // If no such `c` exists, return `None`
         'outer: for i in (0..K).rev() {
             match self.cursors[i].next(self.tables, self.archetypes, self.query_state) {
                 Some(_) => {
-                    // walk forward up to last element, propagating cursor state forward
                     for j in (i + 1)..K {
                         self.cursors[j] = self.cursors[j - 1].clone_cursor();
                         match self.cursors[j].next(self.tables, self.archetypes, self.query_state) {
@@ -374,9 +376,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
             }
         }
 
-        let mut values = MaybeUninit::<[QueryItem<'w, Q>; K]>::uninit();
+        let mut values = MaybeUninit::<[Q::Item<'w>; K]>::uninit();
 
-        let ptr = values.as_mut_ptr().cast::<QueryItem<'w, Q>>();
+        let ptr = values.as_mut_ptr().cast::<Q::Item<'w>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
             ptr.add(offset).write(cursor.peek_last().unwrap());
         }
@@ -386,7 +388,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
 
     /// Get next combination of queried components
     #[inline]
-    pub fn fetch_next(&mut self) -> Option<[QueryItem<'_, Q>; K]> {
+    pub fn fetch_next(&mut self) -> Option<[Q::Item<'_>; K]> {
         // SAFETY: we are limiting the returned reference to self,
         // making sure this method cannot be called multiple times without getting rid
         // of any previously returned unique references first, thus preventing aliasing.
@@ -403,7 +405,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Iterator
     for QueryCombinationIter<'w, 's, Q, F, K>
 {
-    type Item = [QueryItem<'w, Q>; K];
+    type Item = [Q::Item<'w>; K];
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
@@ -412,36 +414,29 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Itera
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        if K == 0 {
-            return (0, Some(0));
-        }
-
-        let max_size: usize = self
-            .query_state
-            .matched_archetype_ids
-            .iter()
-            .map(|id| self.archetypes[*id].len())
-            .sum();
-
-        if max_size < K {
-            return (0, Some(0));
-        }
-        if max_size == K {
-            return (1, Some(1));
-        }
-
         // binomial coefficient: (n ; k) = n! / k!(n-k)! = (n*n-1*...*n-k+1) / k!
         // See https://en.wikipedia.org/wiki/Binomial_coefficient
         // See https://blog.plover.com/math/choose.html for implementation
         // It was chosen to reduce overflow potential.
         fn choose(n: usize, k: usize) -> Option<usize> {
+            if k > n || n == 0 {
+                return Some(0);
+            }
+            let k = k.min(n - k);
             let ks = 1..=k;
             let ns = (n - k + 1..=n).rev();
             ks.zip(ns)
                 .try_fold(1_usize, |acc, (k, n)| Some(acc.checked_mul(n)? / k))
         }
-        let smallest = K.min(max_size - K);
-        let max_combinations = choose(max_size, smallest);
+        // sum_i=0..k choose(cursors[i].remaining, k-i)
+        let max_combinations = self
+            .cursors
+            .iter()
+            .enumerate()
+            .try_fold(0, |acc, (i, cursor)| {
+                let n = cursor.max_remaining(self.tables, self.archetypes);
+                Some(acc + choose(n, K - i)?)
+            });
 
         let archetype_query = F::IS_ARCHETYPAL && Q::IS_ARCHETYPAL;
         let known_max = max_combinations.unwrap_or(usize::MAX);
@@ -455,11 +450,7 @@ where
     F: ArchetypeFilter,
 {
     fn len(&self) -> usize {
-        self.query_state
-            .matched_archetype_ids
-            .iter()
-            .map(|id| self.archetypes[*id].len())
-            .sum()
+        self.size_hint().0
     }
 }
 
@@ -472,8 +463,8 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Fused
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     id_iter: QuerySwitch<Q, F, std::slice::Iter<'s, TableId>, std::slice::Iter<'s, ArchetypeId>>,
     entities: QuerySwitch<Q, F, ThinSlicePtr<'w, Entity>, ThinSlicePtr<'w, ArchetypeEntity>>,
-    fetch: QueryFetch<'w, Q>,
-    filter: QueryFetch<'w, F>,
+    fetch: Q::Fetch<'w>,
+    filter: F::Fetch<'w>,
     // length of the table table or length of the archetype, depending on whether both `Q`'s and `F`'s fetches are dense
     current_len: usize,
     // either table row or archetype index, depending on whether both `Q`'s and `F`'s fetches are dense
@@ -562,7 +553,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
 
     /// retrieve item returned from most recent `next` call again.
     #[inline]
-    unsafe fn peek_last(&mut self) -> Option<QueryItem<'w, Q>> {
+    unsafe fn peek_last(&mut self) -> Option<Q::Item<'w>> {
         if self.current_index > 0 {
             let index = self.current_index - 1;
             if Self::IS_DENSE {
@@ -572,13 +563,28 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 let archetype_entity = self.entities.sparse().get(index);
                 Some(Q::fetch(
                     &mut self.fetch,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.entity(),
+                    archetype_entity.table_row(),
                 ))
             }
         } else {
             None
         }
+    }
+
+    /// How many values will this cursor return at most?
+    ///
+    /// Note that if `Q::IS_ARCHETYPAL && F::IS_ARCHETYPAL`, the return value
+    /// will be **the exact count of remaining values**.
+    fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
+        let remaining_matched: usize = if Self::IS_DENSE {
+            let ids = self.table_id_iter.clone();
+            ids.map(|id| tables[*id].entity_count()).sum()
+        } else {
+            let ids = self.archetype_id_iter.clone();
+            ids.map(|id| archetypes[*id].len()).sum()
+        };
+        remaining_matched + self.current_len - self.current_index
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
@@ -593,13 +599,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         tables: &'w Tables,
         archetypes: &'w Archetypes,
         query_state: &'s QueryState<Q, F>,
-    ) -> Option<QueryItem<'w, Q>> {
+    ) -> Option<Q::Item<'w>> {
         if Self::IS_DENSE {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_index == self.current_len {
                     let table_id = self.id_iter.dense().next()?;
-                    let table = &tables[*table_id];
+                    let table = tables.get(*table_id).debug_checked_unwrap();
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
@@ -629,10 +635,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             loop {
                 if self.current_index == self.current_len {
                     let archetype_id = self.id_iter.sparse().next()?;
-                    let archetype = &archetypes[*archetype_id];
+                    let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
-                    let table = &tables[archetype.table_id()];
+                    let table = tables.get(archetype.table_id()).debug_checked_unwrap();
                     Q::set_archetype(&mut self.fetch, &query_state.fetch_state, archetype, table);
                     F::set_archetype(
                         &mut self.filter,
@@ -651,8 +657,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 let archetype_entity = self.entities.sparse().get(self.current_index);
                 if !F::filter_fetch(
                     &mut self.filter,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.entity(),
+                    archetype_entity.table_row(),
                 ) {
                     self.current_index += 1;
                     continue;
@@ -662,8 +668,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
                 let item = Q::fetch(
                     &mut self.fetch,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.entity(),
+                    archetype_entity.table_row(),
                 );
                 self.current_index += 1;
                 return Some(item);

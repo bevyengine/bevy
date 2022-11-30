@@ -9,7 +9,7 @@ use bevy_utils::Duration;
 /// exceeded, and can still be reset at any given point.
 ///
 /// Paused timers will not have elapsed time increased.
-#[derive(Clone, Debug, Default, Reflect)]
+#[derive(Clone, Debug, Default, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub struct Timer {
@@ -155,7 +155,7 @@ impl Timer {
         self.duration = duration;
     }
 
-    /// Returns `true` if the timer is repeating.
+    /// Returns the mode of the timer.
     ///
     /// # Examples
     /// ```
@@ -168,7 +168,7 @@ impl Timer {
         self.mode
     }
 
-    /// Sets whether the timer is repeating or not.
+    /// Sets the mode of the timer.
     ///
     /// # Examples
     /// ```
@@ -177,6 +177,7 @@ impl Timer {
     /// timer.set_mode(TimerMode::Once);
     /// assert_eq!(timer.mode(), TimerMode::Once);
     /// ```
+    #[doc(alias = "repeating")]
     #[inline]
     pub fn set_mode(&mut self, mode: TimerMode) {
         if self.mode != TimerMode::Repeating && mode == TimerMode::Repeating && self.finished {
@@ -403,7 +404,7 @@ impl Timer {
 }
 
 /// Specifies [`Timer`] behavior.
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Hash, Default, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[reflect(Default)]
 pub enum TimerMode {

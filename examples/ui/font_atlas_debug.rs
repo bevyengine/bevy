@@ -37,7 +37,7 @@ fn atlas_render_system(
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle.as_weak::<FontAtlasSet>()) {
+    if let Some(set) = font_atlas_sets.get(&state.handle.cast_weak::<FontAtlasSet>()) {
         if let Some((_size, font_atlas)) = set.iter().next() {
             let x_offset = state.atlas_count as f32;
             if state.atlas_count == font_atlas.len() as u32 {
