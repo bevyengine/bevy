@@ -3,7 +3,7 @@ use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, Vec2};
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::{Image, TextureFormatPixelInfo},
+    texture::Image,
 };
 use bevy_utils::HashMap;
 use rectangle_pack::{
@@ -97,12 +97,26 @@ impl TextureAtlasBuilder {
         texture: &Image,
         packed_location: &PackedLocation,
     ) {
+        debug_assert_eq!(
+            atlas_texture
+                .texture_descriptor
+                .format
+                .describe()
+                .block_dimensions,
+            (1, 1),
+            "Compressed textures are unsupported"
+        );
+
         let rect_width = packed_location.width() as usize;
         let rect_height = packed_location.height() as usize;
         let rect_x = packed_location.x() as usize;
         let rect_y = packed_location.y() as usize;
         let atlas_width = atlas_texture.texture_descriptor.size.width as usize;
-        let format_size = atlas_texture.texture_descriptor.format.pixel_size();
+        let format_size = atlas_texture
+            .texture_descriptor
+            .format
+            .describe()
+            .block_size as usize;
 
         for (texture_y, bound_y) in (rect_y..rect_y + rect_height).enumerate() {
             let begin = (bound_y * atlas_width + rect_x) * format_size;
@@ -161,6 +175,16 @@ impl TextureAtlasBuilder {
         let mut rect_placements = None;
         let mut atlas_texture = Image::default();
 
+        debug_assert_eq!(
+            atlas_texture
+                .texture_descriptor
+                .format
+                .describe()
+                .block_dimensions,
+            (1, 1),
+            "Compressed textures are unsupported"
+        );
+
         while rect_placements.is_none() {
             if current_width > max_width || current_height > max_height {
                 break;
@@ -186,7 +210,8 @@ impl TextureAtlasBuilder {
                         TextureDimension::D2,
                         vec![
                             0;
-                            self.format.pixel_size() * (current_width * current_height) as usize
+                            self.format.describe().block_size as usize
+                                * (current_width * current_height) as usize
                         ],
                         self.format,
                     );

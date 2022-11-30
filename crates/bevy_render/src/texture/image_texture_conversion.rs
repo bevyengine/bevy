@@ -1,4 +1,4 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::texture::Image;
 use anyhow::anyhow;
 use image::{DynamicImage, ImageBuffer};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
@@ -84,8 +84,9 @@ impl Image {
                 height = image.height();
                 format = TextureFormat::Rgba16Uint;
 
-                let mut local_data =
-                    Vec::with_capacity(width as usize * height as usize * format.pixel_size());
+                let mut local_data = Vec::with_capacity(
+                    width as usize * height as usize * format.describe().block_size as usize,
+                );
 
                 for pixel in image.into_raw().chunks_exact(3) {
                     // TODO: use the array_chunks method once stabilised
@@ -117,8 +118,9 @@ impl Image {
                 height = image.height();
                 format = TextureFormat::Rgba32Float;
 
-                let mut local_data =
-                    Vec::with_capacity(width as usize * height as usize * format.pixel_size());
+                let mut local_data = Vec::with_capacity(
+                    width as usize * height as usize * format.describe().block_size as usize,
+                );
 
                 for pixel in image.into_raw().chunks_exact(3) {
                     // TODO: use the array_chunks method once stabilised

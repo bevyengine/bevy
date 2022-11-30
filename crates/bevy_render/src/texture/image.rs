@@ -172,7 +172,8 @@ pub struct DefaultImageSampler(pub(crate) Sampler);
 impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size()];
+        // TODO: check if this breaks if bevy_default is a compressed texture
+        let data = vec![255; format.describe().block_size as usize];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
@@ -207,7 +208,7 @@ impl Image {
         format: TextureFormat,
     ) -> Self {
         debug_assert_eq!(
-            size.volume() * format.pixel_size(),
+            size.total_bytes(format) as usize,
             data.len(),
             "Pixel data, size and format have to match",
         );
@@ -239,7 +240,7 @@ impl Image {
         value.resize(size);
 
         debug_assert_eq!(
-            pixel.len() % format.pixel_size(),
+            pixel.len() % format.describe().block_size as usize,
             0,
             "Must not have incomplete pixel data."
         );
@@ -271,10 +272,8 @@ impl Image {
     /// Does not properly resize the contents of the image, but only its internal `data` buffer.
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
-        self.data.resize(
-            size.volume() * self.texture_descriptor.format.pixel_size(),
-            0,
-        );
+        self.data
+            .resize(size.total_bytes(self.texture_descriptor.format) as usize, 0);
     }
 
     /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
@@ -467,15 +466,35 @@ impl Volume for Extent3d {
     }
 }
 
-/// Extends the wgpu [`TextureFormat`] with information about the pixel.
-pub trait TextureFormatPixelInfo {
-    /// Returns the size in bytes of a pixel of the format.
-    fn pixel_size(&self) -> usize;
+pub trait BytesPerRow {
+    fn bytes_per_row(&self, format: TextureFormat) -> u32;
 }
 
-impl TextureFormatPixelInfo for TextureFormat {
-    fn pixel_size(&self) -> usize {
-        self.describe().block_size.into()
+impl BytesPerRow for Extent3d {
+    fn bytes_per_row(&self, format: TextureFormat) -> u32 {
+        let info = format.describe();
+        self.physical_size(format).width * info.block_size as u32 / info.block_dimensions.0 as u32
+    }
+}
+
+pub trait TotalBytes {
+    fn total_bytes(&self, format: TextureFormat) -> u32;
+}
+
+impl TotalBytes for Extent3d {
+    fn total_bytes(&self, format: TextureFormat) -> u32 {
+        self.rows_per_image(format) * self.bytes_per_row(format) * self.depth_or_array_layers
+    }
+}
+
+pub trait RowsPerImage {
+    fn rows_per_image(&self, format: TextureFormat) -> u32;
+}
+
+impl RowsPerImage for Extent3d {
+    fn rows_per_image(&self, format: TextureFormat) -> u32 {
+        let info = format.describe();
+        self.physical_size(format).height / info.block_dimensions.1 as u32
     }
 }
 
@@ -517,7 +536,6 @@ impl RenderAsset for Image {
             )
         } else {
             let texture = render_device.create_texture(&image.texture_descriptor);
-            let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -530,12 +548,20 @@ impl RenderAsset for Image {
                     offset: 0,
                     bytes_per_row: Some(
                         std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
+                            image
+                                .texture_descriptor
+                                .size
+                                .bytes_per_row(image.texture_descriptor.format),
                         )
                         .unwrap(),
                     ),
                     rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
+                        std::num::NonZeroU32::new(
+                            image
+                                .texture_descriptor
+                                .size
+                                .rows_per_image(image.texture_descriptor.format),
+                        )
                     } else {
                         None
                     },

@@ -1,4 +1,4 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::texture::Image;
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_utils::BoxedFuture;
@@ -16,16 +16,12 @@ impl AssetLoader for HdrTextureLoader {
     ) -> BoxedFuture<'a, Result<()>> {
         Box::pin(async move {
             let format = TextureFormat::Rgba32Float;
-            debug_assert_eq!(
-                format.pixel_size(),
-                4 * 4,
-                "Format should have 32bit x 4 size"
-            );
 
             let decoder = image::codecs::hdr::HdrDecoder::new(bytes)?;
             let info = decoder.metadata();
             let rgb_data = decoder.read_image_hdr()?;
-            let mut rgba_data = Vec::with_capacity(rgb_data.len() * format.pixel_size());
+            let mut rgba_data =
+                Vec::with_capacity(rgb_data.len() * format.describe().block_size as usize);
 
             for rgb in rgb_data {
                 let alpha = 1.0f32;

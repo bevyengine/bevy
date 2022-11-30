@@ -21,9 +21,7 @@ use bevy_render::{
     },
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
+    texture::{BevyDefault, BytesPerRow, DefaultImageSampler, GpuImage, Image, ImageSampler},
     view::{
         ComputedVisibility, ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset,
         ViewUniforms, VisibleEntities,
@@ -100,7 +98,6 @@ impl FromWorld for SpritePipeline {
                 ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
             };
 
-            let format_size = image.texture_descriptor.format.pixel_size();
             render_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -113,7 +110,10 @@ impl FromWorld for SpritePipeline {
                     offset: 0,
                     bytes_per_row: Some(
                         std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
+                            image
+                                .texture_descriptor
+                                .size
+                                .bytes_per_row(image.texture_descriptor.format),
                         )
                         .unwrap(),
                     ),
