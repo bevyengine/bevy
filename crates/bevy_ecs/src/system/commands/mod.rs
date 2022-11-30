@@ -387,7 +387,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This method is equivalent to iterating `bundles_iter`,
     /// calling [`get_or_spawn`](Self::get_or_spawn) for each bundle,
-    /// and passing it to [`insert_bundle`](EntityCommands::insert_bundle),
+    /// and passing it to [`insert`](EntityCommands::insert),
     /// but it is faster due to memory pre-allocation.
     ///
     /// # Note
