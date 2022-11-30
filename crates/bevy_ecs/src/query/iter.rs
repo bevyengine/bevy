@@ -578,10 +578,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let remaining_matched: usize = if Self::IS_DENSE {
-            let ids = self.table_id_iter.clone();
+            // SAFETY: The sparse/dense status is checked above
+            let ids = unsafe { self.id_iter.dense().clone() };
             ids.map(|id| tables[*id].entity_count()).sum()
         } else {
-            let ids = self.archetype_id_iter.clone();
+            // SAFETY: The sparse/dense status is checked above
+            let ids = unsafe { self.id_iter.sparse().clone() };
             ids.map(|id| archetypes[*id].len()).sum()
         };
         remaining_matched + self.current_len - self.current_index
@@ -604,7 +606,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_index == self.current_len {
-                    let table_id = self.id_iter.dense().next()?;
+                    let table_id = self.id_iter.dense_mut().next()?;
                     let table = tables.get(*table_id).debug_checked_unwrap();
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -634,7 +636,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         } else {
             loop {
                 if self.current_index == self.current_len {
-                    let archetype_id = self.id_iter.sparse().next()?;
+                    let archetype_id = self.id_iter.sparse_mut().next()?;
                     let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -702,13 +704,16 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     /// # Safety
     /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
     #[inline]
-    pub const unsafe fn new_dense(dense: A) -> Self {
+    const unsafe fn new_dense(dense: A) -> Self {
         if Self::IS_DENSE {
             Self {
                 dense: ManuallyDrop::new(dense),
             }
         } else {
-            debug_checked_unreachable()
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
         }
     }
 
@@ -721,13 +726,56 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     /// # Safety
     /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
-    pub const unsafe fn new_sparse(sparse: B) -> Self {
+    const unsafe fn new_sparse(sparse: B) -> Self {
         if !Self::IS_DENSE {
             Self {
                 sparse: ManuallyDrop::new(sparse),
             }
         } else {
-            debug_checked_unreachable()
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
+        }
+    }
+
+    /// Fetches a reference to the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if either `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are not true.
+    ///
+    /// # Safety
+    /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
+    unsafe fn dense(&self) -> &A {
+        if Self::IS_DENSE {
+            &self.dense
+        } else {
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
+        }
+    }
+
+    /// Fetches a reference to the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if both `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are true.
+    ///
+    /// # Safety
+    /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
+    unsafe fn sparse(&self) -> &B {
+        if !Self::IS_DENSE {
+            &self.sparse
+        } else {
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
         }
     }
 
@@ -740,11 +788,14 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     /// # Safety
     /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
     #[inline]
-    pub unsafe fn dense(&mut self) -> &mut A {
+    unsafe fn dense_mut(&mut self) -> &mut A {
         if Self::IS_DENSE {
             &mut self.dense
         } else {
-            debug_checked_unreachable()
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
         }
     }
 
@@ -757,11 +808,14 @@ impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
     /// # Safety
     /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
-    pub unsafe fn sparse(&mut self) -> &mut B {
+    unsafe fn sparse_mut(&mut self) -> &mut B {
         if !Self::IS_DENSE {
             &mut self.sparse
         } else {
-            debug_checked_unreachable()
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
         }
     }
 }

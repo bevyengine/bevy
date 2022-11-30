@@ -2,10 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
-    query::{
-        fetch::StorageSwitch, Access, FilteredAccess, QueryFetch,
-        WorldQuery, WorldQueryGats,
-    },
+    query::{fetch::StorageSwitch, Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table},
     world::World,
 };
@@ -506,7 +503,6 @@ macro_rules! impl_tick_filter {
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-<<<<<<< HEAD
                         fetch
                             .components
                             .table()
@@ -517,8 +513,8 @@ macro_rules! impl_tick_filter {
                     }
                     StorageType::SparseSet => {
                         let sparse_set = &fetch
-                            .sparse_set
-                            .debug_checked_unwrap();
+                            .components
+                            .sparse_set();
                         $get_sparse_set(sparse_set, entity)
                             .debug_checked_unwrap()
                             .deref()
