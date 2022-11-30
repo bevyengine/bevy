@@ -34,7 +34,7 @@ impl TextBlock<TextAlignment> for Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, HorizontalAlign, VerticalAlign};
+    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -57,7 +57,7 @@ impl TextBlock<TextAlignment> for Text {
     ///         color: Color::WHITE,
     ///     },
     /// ) // You can still add an alignment.
-    /// .with_alignment(HorizontalAlign::CENTER);
+    /// .with_alignment(TextAlignment::Center);
     /// ```
     fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
