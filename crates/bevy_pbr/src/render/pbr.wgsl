@@ -8,6 +8,10 @@
 #import bevy_pbr::shadows
 #import bevy_pbr::pbr_functions
 
+#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
+#import bevy_pbr::gtao_multibounce
+#endif
+
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
@@ -59,19 +63,20 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         pbr_input.material.metallic = metallic;
         pbr_input.material.perceptual_roughness = perceptual_roughness;
 
-        var ambient_occlusion: f32 = 1.0;
+        var ambient_occlusion = vec3<f32>(1.0, 1.0, 1.0);
 #ifdef VERTEX_UVS
         if (material.flags & STANDARD_MATERIAL_FLAGS_OCCLUSION_TEXTURE_BIT) != 0u {
-            ambient_occlusion = textureSample(occlusion_texture, occlusion_sampler, in.uv).r;
+            ambient_occlusion = vec3<f32>(textureSample(occlusion_texture, occlusion_sampler, in.uv).r);
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let uv = in.frag_coord.xy / view.viewport.zw;
         let ssao = textureSample(screen_space_ambient_occlusion_texture, occlusion_sampler, uv).r;
+        let ssao = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
         ambient_occlusion = min(ambient_occlusion, ssao);
 #endif
         pbr_input.ambient_occlusion = ambient_occlusion;
-        pbr_input.specular_occlusion = 1.0;
+        pbr_input.specular_occlusion = vec3<f32>(1.0, 1.0, 1.0);
 
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;

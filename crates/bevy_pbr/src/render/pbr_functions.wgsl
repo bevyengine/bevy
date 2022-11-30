@@ -4,10 +4,6 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
-#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-#import bevy_pbr::gtao_multibounce
-#endif
-
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
     if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u {
@@ -121,8 +117,8 @@ fn calculate_view(
 
 struct PbrInput {
     material: StandardMaterial,
-    ambient_occlusion: f32,
-    specular_occlusion: f32,
+    ambient_occlusion: vec3<f32>,
+    specular_occlusion: vec3<f32>,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
     // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
@@ -141,8 +137,8 @@ fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
     pbr_input.material = standard_material_new();
-    pbr_input.ambient_occlusion = 1.0;
-    pbr_input.specular_occlusion = 1.0;
+    pbr_input.ambient_occlusion = vec3<f32>(1.0, 1.0, 1.0);
+    pbr_input.specular_occlusion = vec3<f32>(1.0, 1.0, 1.0);
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
     pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
@@ -170,9 +166,6 @@ fn pbr(
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
     let ambient_occlusion = in.ambient_occlusion;
-#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-    let ambient_occlusion = gtao_multibounce(ambient_occlusion, in.material.base_color.rgb);
-#endif
     let specular_occlusion = in.specular_occlusion;
 
     output_color = alpha_discard(in.material, output_color);
