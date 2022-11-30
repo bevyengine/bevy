@@ -70,7 +70,10 @@ impl<'w> EntityRef<'w> {
 
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
-        // SAFETY: entity location is valid and returned component is of type T
+        // SAFETY:
+        // - entity location and entity is valid
+        // - returned component is of type T
+        // - the storage type provided is correct for T
         unsafe {
             get_component_with_type(
                 self.world,
@@ -87,7 +90,9 @@ impl<'w> EntityRef<'w> {
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY: entity location is valid
+        // SAFETY:
+        // - entity location and entity is valid
+        // - the storage type provided is correct for T
         unsafe {
             get_ticks_with_type(
                 self.world,
@@ -115,6 +120,10 @@ impl<'w> EntityRef<'w> {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Option<Mut<'w, T>> {
+        // SAFETY:
+        // - entity location and entity is valid
+        // - returned component is of type T
+        // - the storage type provided is correct for T
         get_component_and_ticks_with_type(
             self.world,
             TypeId::of::<T>(),
@@ -141,7 +150,10 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         let info = self.world.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY:
+        // - entity_location is valid,
+        // - component_id is valid as checked by the line above
+        // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
             get_component(
                 self.world,
@@ -216,7 +228,11 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
-        // SAFETY: lifetimes enforce correct usage of returned borrow
+        // SAFETY:
+        // - lifetimes enforce correct usage of returned borrow
+        // - entity location and entity is valid
+        // - returned component is of type T
+        // - the storage type provided is correct for T
         unsafe {
             get_component_with_type(
                 self.world,
@@ -239,7 +255,9 @@ impl<'w> EntityMut<'w> {
     /// detection in custom runtimes.
     #[inline]
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
-        // SAFETY: entity location is valid
+        // SAFETY:
+        // - entity location and entity is valid
+        // - the storage type provided is correct for T
         unsafe {
             get_ticks_with_type(
                 self.world,
@@ -263,6 +281,10 @@ impl<'w> EntityMut<'w> {
     ///   operation on this world (non-exhaustive list).
     #[inline]
     pub unsafe fn get_unchecked_mut<T: Component>(&self) -> Option<Mut<'_, T>> {
+        // SAFETY:
+        // - entity location and entity is valid
+        // - returned component is of type T
+        // - the storage type provided is correct for T
         get_component_and_ticks_with_type(
             self.world,
             TypeId::of::<T>(),
@@ -617,7 +639,10 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         let info = self.world.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY:
+        // - entity_location is valid
+        // - component_id is valid as checked by the line above
+        // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
             get_component(
                 self.world,
@@ -670,6 +695,7 @@ fn fetch_sparse_set(world: &World, component_id: ComponentId) -> Option<&Compone
 /// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
 /// the archetype
 /// - `component_id` must be valid
+/// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 #[inline]
 pub(crate) unsafe fn get_component(
     world: &World,
@@ -692,7 +718,10 @@ pub(crate) unsafe fn get_component(
 /// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] on a particular [`Entity`] in the provided [World].
 ///
 /// # Safety
-/// Caller must ensure that `component_id` is valid
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+/// the archetype
+/// - `component_id` must be valid
+/// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 #[inline]
 unsafe fn get_component_and_ticks(
     world: &World,
@@ -718,7 +747,10 @@ unsafe fn get_component_and_ticks(
 }
 
 /// # Safety
-/// `entity_location` must be within bounds of an archetype that exists.
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+/// the archetype
+/// - `component_id` must be valid
+/// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 unsafe fn get_ticks(
     world: &World,
     component_id: ComponentId,
@@ -781,7 +813,10 @@ unsafe fn take_component<'a>(
 /// Get a raw pointer to a particular [`Component`] by [`TypeId`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
-/// `entity_location` must be within bounds of an archetype that exists.
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+/// the archetype
+/// - `type_id` must be correspond to a type that implements [`Component`]
+/// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 #[inline]
 unsafe fn get_component_with_type(
     world: &World,
@@ -802,7 +837,10 @@ unsafe fn get_component_with_type(
 /// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] by [`TypeId`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
-/// `entity_location` must be within bounds of an archetype that exists.
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+/// the archetype
+/// - `type_id` must be correspond to a type that implements [`Component`]
+/// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 #[inline]
 unsafe fn get_component_and_ticks_with_type(
     world: &World,
@@ -821,7 +859,10 @@ unsafe fn get_component_and_ticks_with_type(
 }
 
 /// # Safety
-/// `entity_location` must be within bounds of an archetype that exists.
+/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+/// the archetype
+/// - `type_id` must be correspond to a type that implements [`Component`]
+/// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 #[inline]
 unsafe fn get_ticks_with_type(
     world: &World,

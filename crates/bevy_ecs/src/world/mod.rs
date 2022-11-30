@@ -1491,7 +1491,10 @@ impl World {
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
         let info = self.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        // SAFETY:
+        // - entity_location is valid
+        // - component_id is valid as checked by the line above
+        // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
             get_component(
                 self,
