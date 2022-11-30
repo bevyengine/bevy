@@ -31,6 +31,22 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+/// An opaque location within a [`Archetype`].
+///
+/// This can be used in conjunction with [`ArchetypeId`] to find the exact location
+/// of an [`Entity`] within a [`World`]. An entity's archetype and index can be
+/// retrieved via [`Entities::get`].
+///
+/// [`World`]: crate::world::World
+/// [`Entities::get`]: crate::entity::Entities
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct ArchetypeIndex(usize);
+
+impl ArchetypeIndex {
+    pub(crate) const INVALID: ArchetypeIndex = ArchetypeIndex(usize::MAX);
+}
+
 /// An opaque unique ID for a single [`Archetype`] within a [`World`].
 ///
 /// Archetype IDs are only valid for a given World, and are not globally unique.
@@ -390,8 +406,8 @@ impl Archetype {
     /// [`EntityLocation`]: crate::entity::EntityLocation::index
     /// [`Entities::get`]: crate::entity::Entities::get
     #[inline]
-    pub fn entity_table_row(&self, index: usize) -> TableRow {
-        self.entities[index].table_row
+    pub fn entity_table_row(&self, index: ArchetypeIndex) -> TableRow {
+        self.entities[index.0].table_row
     }
 
     /// Updates if the components for the entity at `index` can be found
@@ -400,8 +416,8 @@ impl Archetype {
     /// # Panics
     /// This function will panic if `index >= self.len()`.
     #[inline]
-    pub(crate) fn set_entity_table_row(&mut self, index: usize, table_row: TableRow) {
-        self.entities[index].table_row = table_row;
+    pub(crate) fn set_entity_table_row(&mut self, index: ArchetypeIndex, table_row: TableRow) {
+        self.entities[index.0].table_row = table_row;
     }
 
     /// Allocates an entity to the archetype.
@@ -418,7 +434,7 @@ impl Archetype {
 
         EntityLocation {
             archetype_id: self.id,
-            index: self.entities.len() - 1,
+            index: ArchetypeIndex(self.entities.len() - 1),
         }
     }
 
@@ -431,14 +447,14 @@ impl Archetype {
     ///
     /// # Panics
     /// This function will panic if `index >= self.len()`
-    pub(crate) fn swap_remove(&mut self, index: usize) -> ArchetypeSwapRemoveResult {
-        let is_last = index == self.entities.len() - 1;
-        let entity = self.entities.swap_remove(index);
+    pub(crate) fn swap_remove(&mut self, index: ArchetypeIndex) -> ArchetypeSwapRemoveResult {
+        let is_last = index.0 == self.entities.len() - 1;
+        let entity = self.entities.swap_remove(index.0);
         ArchetypeSwapRemoveResult {
             swapped_entity: if is_last {
                 None
             } else {
-                Some(self.entities[index as usize].entity)
+                Some(self.entities[index.0].entity)
             },
             table_row: entity.table_row,
         }

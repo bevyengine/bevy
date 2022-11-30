@@ -6,7 +6,7 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::{
-        Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
+        Archetype, ArchetypeId, ArchetypeIndex, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
     component::{Component, ComponentId, Components, StorageType, Tick},
@@ -524,7 +524,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
     pub unsafe fn insert<T: Bundle>(
         &mut self,
         entity: Entity,
-        archetype_index: usize,
+        archetype_index: ArchetypeIndex,
         bundle: T,
     ) -> EntityLocation {
         let location = EntityLocation {
