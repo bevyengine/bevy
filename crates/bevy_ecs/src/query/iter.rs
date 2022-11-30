@@ -3,7 +3,7 @@ use crate::{
     entity::{Entities, Entity},
     prelude::World,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
-    storage::{TableId, Tables},
+    storage::{TableId, TableRow, Tables},
 };
 use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
 
@@ -173,9 +173,9 @@ where
             let table_row = archetype.entity_table_row(location.index);
             // SAFETY: set_archetype was called prior.
             // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::filter_fetch(&mut self.filter, entity, table_row.index()) {
+            if F::filter_fetch(&mut self.filter, entity, table_row) {
                 // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
-                return Some(Q::fetch(&mut self.fetch, entity, table_row.index()));
+                return Some(Q::fetch(&mut self.fetch, entity, table_row));
             }
         }
         None
@@ -545,13 +545,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             let index = self.current_index - 1;
             if Self::IS_DENSE {
                 let entity = self.table_entities.get_unchecked(index);
-                Some(Q::fetch(&mut self.fetch, *entity, index))
+                Some(Q::fetch(&mut self.fetch, *entity, TableRow::new(index)))
             } else {
                 let archetype_entity = self.archetype_entities.get_unchecked(index);
                 Some(Q::fetch(
                     &mut self.fetch,
                     archetype_entity.entity(),
-                    archetype_entity.table_row().index(),
+                    archetype_entity.table_row(),
                 ))
             }
         } else {
@@ -606,14 +606,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // SAFETY: set_table was called prior.
                 // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 let entity = self.table_entities.get_unchecked(self.current_index);
-                if !F::filter_fetch(&mut self.filter, *entity, self.current_index) {
+                let row = TableRow::new(self.current_index);
+                if !F::filter_fetch(&mut self.filter, *entity, row) {
                     self.current_index += 1;
                     continue;
                 }
 
                 // SAFETY: set_table was called prior.
                 // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
-                let item = Q::fetch(&mut self.fetch, *entity, self.current_index);
+                let item = Q::fetch(&mut self.fetch, *entity, row);
 
                 self.current_index += 1;
                 return Some(item);
@@ -645,7 +646,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 if !F::filter_fetch(
                     &mut self.filter,
                     archetype_entity.entity(),
-                    archetype_entity.table_row().index(),
+                    archetype_entity.table_row(),
                 ) {
                     self.current_index += 1;
                     continue;
@@ -656,7 +657,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 let item = Q::fetch(
                     &mut self.fetch,
                     archetype_entity.entity(),
-                    archetype_entity.table_row().index(),
+                    archetype_entity.table_row(),
                 );
                 self.current_index += 1;
                 return Some(item);
