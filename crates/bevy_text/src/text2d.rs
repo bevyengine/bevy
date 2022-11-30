@@ -49,7 +49,7 @@ impl TextBlock<Text2dAlignment> for Text2d {
         }
     }
 
-    /// Returns this [`Text`] with a new [`Text2dAlignment`].
+    /// Returns this [`Text2d`] with a new [`Text2dAlignment`].
     fn with_alignment(mut self, alignment: Text2dAlignment) -> Self {
         self.alignment = alignment;
         self

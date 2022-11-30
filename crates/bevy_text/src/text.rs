@@ -34,7 +34,7 @@ impl TextBlock<TextAlignment> for Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
+    /// # use bevy_text::{Font, Text, TextBlock, TextStyle, TextAlignment};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -71,7 +71,7 @@ impl TextBlock<TextAlignment> for Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, TextSection};
+    /// # use bevy_text::{Font, Text, TextBlock, TextStyle, TextSection};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -101,7 +101,7 @@ impl TextBlock<TextAlignment> for Text {
         }
     }
 
-    /// Returns this [`Text`] with a new [`HorizontalAlign`].
+    /// Returns this [`Text`] with a new [`TextAlignment`].
     fn with_alignment(mut self, alignment: TextAlignment) -> Self {
         self.alignment = alignment;
         self
