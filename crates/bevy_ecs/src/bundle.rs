@@ -50,7 +50,7 @@ use std::{any::TypeId, collections::HashMap};
 /// component, but specifying different render graphs to use.
 /// If the bundles were both added to the same entity, only one of these two bundles would work.
 ///
-/// For this reason, There is intentionally no [`Query`] to match whether an entity
+/// For this reason, there is intentionally no [`Query`] to match whether an entity
 /// contains the components of a bundle.
 /// Queries should instead only select the components they logically operate on.
 ///
@@ -428,8 +428,8 @@ impl BundleInfo {
         components: &mut Components,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
-        if let Some(add_bundle) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
-            return add_bundle.archetype_id;
+        if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
+            return add_bundle_id;
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
@@ -545,7 +545,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     self.table,
@@ -561,16 +561,16 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let result = self.archetype.swap_remove(location.index);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.meta[swapped_entity.index as usize].location = location;
+                    self.entities.set(swapped_entity.index(), location);
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                self.entities.meta[entity.index as usize].location = new_location;
+                self.entities.set(entity.index(), new_location);
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     self.table,
@@ -589,7 +589,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             } => {
                 let result = self.archetype.swap_remove(location.index);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.meta[swapped_entity.index as usize].location = location;
+                    self.entities.set(swapped_entity.index(), location);
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
@@ -597,7 +597,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     .table
                     .move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                self.entities.meta[entity.index as usize].location = new_location;
+                self.entities.set(entity.index(), new_location);
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -622,7 +622,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     new_table,
@@ -672,7 +672,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
             self.change_tick,
             bundle,
         );
-        self.entities.meta[entity.index as usize].location = location;
+        self.entities.set(entity.index(), location);
 
         location
     }

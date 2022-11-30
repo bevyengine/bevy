@@ -550,8 +550,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 let archetype_entity = self.archetype_entities.get_unchecked(index);
                 Some(Q::fetch(
                     &mut self.fetch,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.entity(),
+                    archetype_entity.table_row(),
                 ))
             }
         } else {
@@ -644,8 +644,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 let archetype_entity = self.archetype_entities.get_unchecked(self.current_index);
                 if !F::filter_fetch(
                     &mut self.filter,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.entity(),
+                    archetype_entity.table_row(),
                 ) {
                     self.current_index += 1;
                     continue;
@@ -655,8 +655,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
                 let item = Q::fetch(
                     &mut self.fetch,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.entity(),
+                    archetype_entity.table_row(),
                 );
                 self.current_index += 1;
                 return Some(item);

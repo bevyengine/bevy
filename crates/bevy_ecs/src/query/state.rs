@@ -966,15 +966,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                     let archetype_entity = entities.get_unchecked(idx);
                     if !F::filter_fetch(
                         &mut filter,
-                        archetype_entity.entity,
-                        archetype_entity.table_row,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
                     ) {
                         continue;
                     }
                     func(Q::fetch(
                         &mut fetch,
-                        archetype_entity.entity,
-                        archetype_entity.table_row,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
                     ));
                 }
             }
@@ -1097,15 +1097,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 let archetype_entity = entities.get_unchecked(archetype_index);
                                 if !F::filter_fetch(
                                     &mut filter,
-                                    archetype_entity.entity,
-                                    archetype_entity.table_row,
+                                    archetype_entity.entity(),
+                                    archetype_entity.table_row(),
                                 ) {
                                     continue;
                                 }
                                 func(Q::fetch(
                                     &mut fetch,
-                                    archetype_entity.entity,
-                                    archetype_entity.table_row,
+                                    archetype_entity.entity(),
+                                    archetype_entity.table_row(),
                                 ));
                             }
                         };
