@@ -557,7 +557,7 @@ impl Components {
         self.get_id(TypeId::of::<T>())
     }
 
-    /// Gets the [`ComponentId`] of a resource by its type ID.k
+    /// Gets the [`ComponentId`] of a resource by its type ID.
     ///
     /// Returns `None` if no such component has been registered.
     #[inline]
