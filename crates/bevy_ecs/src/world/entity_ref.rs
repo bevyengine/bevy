@@ -592,7 +592,7 @@ impl<'w> EntityMut<'w> {
 }
 
 #[inline]
-unsafe fn fetch_table(
+fn fetch_table(
     world: &World,
     location: EntityLocation,
     component_id: ComponentId,
@@ -605,7 +605,7 @@ unsafe fn fetch_table(
 }
 
 #[inline]
-unsafe fn fetch_sparse_set(
+fn fetch_sparse_set(
     world: &World,
     component_id: ComponentId,
 ) -> Option<&ComponentSparseSet> {
