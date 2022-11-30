@@ -168,6 +168,7 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     fn bundle<B>(self, b: B) -> (Self, B)
     where
         Self: Sized,
+        B: Bundle,
     {
         (self, b)
     }
