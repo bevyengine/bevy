@@ -71,6 +71,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         ambient_occlusion = min(ambient_occlusion, ssao);
 #endif
         pbr_input.ambient_occlusion = ambient_occlusion;
+        pbr_input.specular_occlusion = 1.0;
 
         pbr_input.frag_coord = in.frag_coord;
         pbr_input.world_position = in.world_position;
