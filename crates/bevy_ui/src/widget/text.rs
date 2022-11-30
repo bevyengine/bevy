@@ -9,8 +9,8 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, Text, Text2dAlignment, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, VerticalAlign, YAxisOrientation,
 };
 use bevy_window::Windows;
 
@@ -121,7 +121,10 @@ pub fn text_system(
                 &fonts,
                 &text.sections,
                 scale_factor,
-                text.alignment,
+                Text2dAlignment {
+                    horizontal: text.alignment,
+                    vertical: VerticalAlign::Top,
+                },
                 node_size,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,

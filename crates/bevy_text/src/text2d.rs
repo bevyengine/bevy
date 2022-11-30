@@ -4,12 +4,12 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::{Changed, With},
+    query::Changed,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
-use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     prelude::Color,
     texture::Image,
@@ -22,9 +22,39 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    Font, FontAtlasSet, FontAtlasWarning, HorizontalAlign, Text, TextError, TextLayoutInfo,
-    TextPipeline, TextSettings, VerticalAlign, YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, Text2dAlignment, TextAlignment, TextBlock, TextError,
+    TextLayoutInfo, TextPipeline, TextSection, TextSettings, TextStyle, VerticalAlign,
+    YAxisOrientation,
 };
+
+#[derive(Component, Debug, Default, Clone, Reflect)]
+#[reflect(Component, Default)]
+pub struct Text2d {
+    pub sections: Vec<TextSection>,
+    pub alignment: Text2dAlignment,
+}
+
+impl TextBlock<Text2dAlignment> for Text2d {
+    fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+        Self {
+            sections: vec![TextSection::new(value, style)],
+            ..Default::default()
+        }
+    }
+
+    fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+        Self {
+            sections: sections.into_iter().collect(),
+            ..Default::default()
+        }
+    }
+
+    /// Returns this [`Text`] with a new [`Text2dAlignment`].
+    fn with_alignment(mut self, alignment: Text2dAlignment) -> Self {
+        self.alignment = alignment;
+        self
+    }
+}
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
@@ -42,19 +72,21 @@ pub struct Text2dBounds {
 impl Default for Text2dBounds {
     #[inline]
     fn default() -> Self {
-        Self::UNBOUNDED        
+        Self::UNBOUNDED
     }
 }
 
 impl Text2dBounds {
-    pub const UNBOUNDED: Self = Self { size: Vec2::splat(f32::MAX) };
+    pub const UNBOUNDED: Self = Self {
+        size: Vec2::splat(f32::MAX),
+    };
 }
 
 /// The bundle of components needed to draw text in a 2D scene via a 2D `Camera2dBundle`.
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
-    pub text: Text,
+    pub text: Text2d,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub text_2d_bounds: Text2dBounds,
@@ -67,16 +99,13 @@ pub fn extract_text2d_sprite(
     texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
     windows: Extract<Res<Windows>>,
     text2d_query: Extract<
-        Query<
-            (
-                Entity,
-                &ComputedVisibility,
-                &Text,
-                &TextLayoutInfo,
-                &GlobalTransform,
-            ),
-            With<Text2dBounds>,
-        >,
+        Query<(
+            Entity,
+            &ComputedVisibility,
+            &Text2d,
+            &TextLayoutInfo,
+            &GlobalTransform,
+        )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
@@ -91,9 +120,9 @@ pub fn extract_text2d_sprite(
         let alignment_offset = -text_layout_info.size
             * Vec2::new(
                 match text.alignment.horizontal {
-                    HorizontalAlign::Left => 0.,
-                    HorizontalAlign::Center => 0.5,
-                    HorizontalAlign::Right => 1.,
+                    TextAlignment::Left => 0.,
+                    TextAlignment::Center => 0.5,
+                    TextAlignment::Right => 1.,
                 },
                 match text.alignment.vertical {
                     VerticalAlign::Bottom => 0.,
@@ -164,8 +193,8 @@ pub fn update_text2d_layout(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Changed<Text>,
-        &Text,
+        Changed<Text2d>,
+        &Text2d,
         &Text2dBounds,
         Option<&mut TextLayoutInfo>,
     )>,

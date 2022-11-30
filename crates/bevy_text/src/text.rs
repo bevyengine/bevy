@@ -6,20 +6,35 @@ use serde::{Deserialize, Serialize};
 
 use crate::Font;
 
-#[derive(Component, Debug, Default, Clone, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
     pub alignment: TextAlignment,
 }
 
-impl Text {
+impl Default for Text {
+    fn default() -> Self {
+        Self {
+            sections: Default::default(),
+            alignment: TextAlignment::Left,
+        }
+    }
+}
+
+pub trait TextBlock<A>: Sized {
+    fn from_section(value: impl Into<String>, style: TextStyle) -> Self;
+    fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self;
+    fn with_alignment(self, alignment: A) -> Self;
+}
+
+impl TextBlock<TextAlignment> for Text {
     /// Constructs a [`Text`] with a single section.
     ///
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextAlignment, TextStyle, HorizontalAlign, VerticalAlign};
+    /// # use bevy_text::{Font, Text, TextStyle, HorizontalAlign, VerticalAlign};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -42,12 +57,12 @@ impl Text {
     ///         color: Color::WHITE,
     ///     },
     /// ) // You can still add an alignment.
-    /// .with_alignment(TextAlignment::CENTER);
+    /// .with_alignment(HorizontalAlign::CENTER);
     /// ```
-    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+    fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             sections: vec![TextSection::new(value, style)],
-            alignment: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -79,15 +94,15 @@ impl Text {
     ///     ),
     /// ]);
     /// ```
-    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+    fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
             sections: sections.into_iter().collect(),
-            alignment: Default::default(),
+            ..Default::default()
         }
     }
 
-    /// Returns this [`Text`] with a new [`TextAlignment`].
-    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
+    /// Returns this [`Text`] with a new [`HorizontalAlign`].
+    fn with_alignment(mut self, alignment: TextAlignment) -> Self {
         self.alignment = alignment;
         self
     }
@@ -118,77 +133,77 @@ impl TextSection {
 }
 
 #[derive(Debug, Clone, Copy, Reflect)]
-pub struct TextAlignment {
+pub struct Text2dAlignment {
     pub vertical: VerticalAlign,
-    pub horizontal: HorizontalAlign,
+    pub horizontal: TextAlignment,
 }
 
-impl TextAlignment {
+impl Text2dAlignment {
     /// A [`TextAlignment`] set to the top-left.
-    pub const TOP_LEFT: Self = TextAlignment {
+    pub const TOP_LEFT: Self = Text2dAlignment {
         vertical: VerticalAlign::Top,
-        horizontal: HorizontalAlign::Left,
+        horizontal: TextAlignment::Left,
     };
 
     /// A [`TextAlignment`] set to the top-center.
-    pub const TOP_CENTER: Self = TextAlignment {
+    pub const TOP_CENTER: Self = Text2dAlignment {
         vertical: VerticalAlign::Top,
-        horizontal: HorizontalAlign::Center,
+        horizontal: TextAlignment::Center,
     };
 
     /// A [`TextAlignment`] set to the top-right.
-    pub const TOP_RIGHT: Self = TextAlignment {
+    pub const TOP_RIGHT: Self = Text2dAlignment {
         vertical: VerticalAlign::Top,
-        horizontal: HorizontalAlign::Right,
+        horizontal: TextAlignment::Right,
     };
 
     /// A [`TextAlignment`] set to center the center-left.
-    pub const CENTER_LEFT: Self = TextAlignment {
+    pub const CENTER_LEFT: Self = Text2dAlignment {
         vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Left,
+        horizontal: TextAlignment::Left,
     };
 
     /// A [`TextAlignment`] set to center on both axes.
-    pub const CENTER: Self = TextAlignment {
+    pub const CENTER: Self = Text2dAlignment {
         vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Center,
+        horizontal: TextAlignment::Center,
     };
 
     /// A [`TextAlignment`] set to the center-right.
-    pub const CENTER_RIGHT: Self = TextAlignment {
+    pub const CENTER_RIGHT: Self = Text2dAlignment {
         vertical: VerticalAlign::Center,
-        horizontal: HorizontalAlign::Right,
+        horizontal: TextAlignment::Right,
     };
 
     /// A [`TextAlignment`] set to the bottom-left.
-    pub const BOTTOM_LEFT: Self = TextAlignment {
+    pub const BOTTOM_LEFT: Self = Text2dAlignment {
         vertical: VerticalAlign::Bottom,
-        horizontal: HorizontalAlign::Left,
+        horizontal: TextAlignment::Left,
     };
 
     /// A [`TextAlignment`] set to the bottom-center.
-    pub const BOTTOM_CENTER: Self = TextAlignment {
+    pub const BOTTOM_CENTER: Self = Text2dAlignment {
         vertical: VerticalAlign::Bottom,
-        horizontal: HorizontalAlign::Center,
+        horizontal: TextAlignment::Center,
     };
 
     /// A [`TextAlignment`] set to the bottom-right.
-    pub const BOTTOM_RIGHT: Self = TextAlignment {
+    pub const BOTTOM_RIGHT: Self = Text2dAlignment {
         vertical: VerticalAlign::Bottom,
-        horizontal: HorizontalAlign::Right,
+        horizontal: TextAlignment::Right,
     };
 }
 
-impl Default for TextAlignment {
+impl Default for Text2dAlignment {
     fn default() -> Self {
-        TextAlignment::TOP_LEFT
+        Text2dAlignment::TOP_LEFT
     }
 }
 
 /// Describes horizontal alignment preference for positioning & bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum HorizontalAlign {
+pub enum TextAlignment {
     /// Leftmost character is immediately to the right of the render position.<br/>
     /// Bounds start from the render position and advance rightwards.
     Left,
@@ -200,12 +215,12 @@ pub enum HorizontalAlign {
     Right,
 }
 
-impl From<HorizontalAlign> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: HorizontalAlign) -> Self {
+impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
+    fn from(val: TextAlignment) -> Self {
         match val {
-            HorizontalAlign::Left => glyph_brush_layout::HorizontalAlign::Left,
-            HorizontalAlign::Center => glyph_brush_layout::HorizontalAlign::Center,
-            HorizontalAlign::Right => glyph_brush_layout::HorizontalAlign::Right,
+            TextAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
+            TextAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
+            TextAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
         }
     }
 }
