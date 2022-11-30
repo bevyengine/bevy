@@ -505,7 +505,7 @@ impl Components {
         self.components.len() == 0
     }
 
-    /// Fetches the component metadata for by it's ID.
+    /// Fetches the component metadata by its ID.
     ///
     /// Returns `None` if no such component has been registered.
     #[inline]
@@ -513,7 +513,7 @@ impl Components {
         self.components.get(id.0)
     }
 
-    /// Fetches the component metadata for by it's ID without checking it's validity.
+    /// Fetches the component metadata by its ID without checking whether the [`ComponentId`] exists in the world.
     ///
     /// # Safety
     /// `id` must be a valid [`ComponentId`] registered with the parent [`World`]
