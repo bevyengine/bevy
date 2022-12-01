@@ -924,9 +924,14 @@ pub fn queue_mesh_view_bind_groups(
         let fallback_depth = &fallback_depths
             .image_for_samplecount(msaa.samples)
             .texture_view;
-        let fallback_view = &fallback_images
+        let fallback_view = fallback_images
             .image_for_samplecount(msaa.samples)
-            .texture_view;
+            .texture_view
+            .clone();
+        let fallback_ssao = fallback_images
+            .image_for_samplecount(1)
+            .texture_view
+            .clone();
 
         for (
             entity,
@@ -942,15 +947,15 @@ pub fn queue_mesh_view_bind_groups(
             };
             let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
                 Some(texture) => &texture.default_view,
-                None => fallback_view,
+                None => &fallback_view,
             };
             let velocity_view = match prepass_textures.and_then(|x| x.velocity.as_ref()) {
                 Some(texture) => &texture.default_view,
-                None => fallback_view,
+                None => &fallback_view,
             };
-            let ambient_occlusion_texture = match ambient_occlusion_textures {
+            let screen_space_ambient_occlusion_texture = match ambient_occlusion_textures {
                 Some(texture) => &texture.screen_space_ambient_occlusion_texture.default_view,
-                None => fallback_view,
+                None => &fallback_ssao,
             };
 
             let layout = if msaa.samples > 1 {
@@ -1021,7 +1026,9 @@ pub fn queue_mesh_view_bind_groups(
                     },
                     BindGroupEntry {
                         binding: 13,
-                        resource: BindingResource::TextureView(ambient_occlusion_texture),
+                        resource: BindingResource::TextureView(
+                            screen_space_ambient_occlusion_texture,
+                        ),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),
