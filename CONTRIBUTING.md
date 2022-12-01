@@ -277,7 +277,7 @@ As discussed in [*How we're organized*](#how-were-organized), this role only req
 
 ### Maintaining code
 
-Maintainers can merge uncontroversial pull requests  that have at least two approvals (or at least one for trivial changes).
+Maintainers can merge uncontroversial pull requests that have at least two approvals (or at least one for trivial changes).
 
 These search filters show the requests that can be merged by maintainers, and those which need a final approval from @cart.
 
