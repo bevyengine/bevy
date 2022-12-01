@@ -949,7 +949,7 @@ pub fn queue_mesh_view_bind_groups(
                 None => fallback_view,
             };
             let ambient_occlusion_texture = match ambient_occlusion_textures {
-                Some(texture) => &texture.ambient_occlusion_texture.default_view,
+                Some(texture) => &texture.screen_space_ambient_occlusion_texture.default_view,
                 None => fallback_view,
             };
 

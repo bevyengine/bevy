@@ -3,8 +3,8 @@
 use bevy::{
     core_pipeline::prepass::PrepassSettings,
     pbr::{
-        AmbientOcclusionSettings, PbrPlugin, TemporalAntialiasBundle, TemporalAntialiasPlugin,
-        TemporalAntialiasSettings,
+        PbrPlugin, ScreenSpaceAmbientOcclusionSettings, TemporalAntialiasBundle,
+        TemporalAntialiasPlugin, TemporalAntialiasSettings,
     },
     prelude::*,
     render::camera::TemporalJitter,
@@ -38,7 +38,7 @@ fn setup(
             prepass_settings: PrepassSettings::all(),
             ..default()
         },
-        AmbientOcclusionSettings::default(),
+        ScreenSpaceAmbientOcclusionSettings::default(),
         TemporalAntialiasBundle::default(),
     ));
 
@@ -113,7 +113,7 @@ fn update(
     camera: Query<
         (
             Entity,
-            Option<&AmbientOcclusionSettings>,
+            Option<&ScreenSpaceAmbientOcclusionSettings>,
             Option<&TemporalJitter>,
         ),
         With<Camera>,
@@ -132,27 +132,27 @@ fn update(
     if keycode.just_pressed(KeyCode::Key1) {
         commands
             .entity(camera_entity)
-            .remove::<AmbientOcclusionSettings>();
+            .remove::<ScreenSpaceAmbientOcclusionSettings>();
     }
     if keycode.just_pressed(KeyCode::Key2) {
         commands
             .entity(camera_entity)
-            .insert(AmbientOcclusionSettings::Low);
+            .insert(ScreenSpaceAmbientOcclusionSettings::Low);
     }
     if keycode.just_pressed(KeyCode::Key3) {
         commands
             .entity(camera_entity)
-            .insert(AmbientOcclusionSettings::Medium);
+            .insert(ScreenSpaceAmbientOcclusionSettings::Medium);
     }
     if keycode.just_pressed(KeyCode::Key4) {
         commands
             .entity(camera_entity)
-            .insert(AmbientOcclusionSettings::High);
+            .insert(ScreenSpaceAmbientOcclusionSettings::High);
     }
     if keycode.just_pressed(KeyCode::Key5) {
         commands
             .entity(camera_entity)
-            .insert(AmbientOcclusionSettings::Ultra);
+            .insert(ScreenSpaceAmbientOcclusionSettings::Ultra);
     }
     if keycode.just_pressed(KeyCode::Space) {
         if temporal_jitter.is_some() {
@@ -173,20 +173,20 @@ fn update(
 
     let (o, l, m, h, u) = match ssao_settings {
         None => ("*", "", "", "", ""),
-        Some(AmbientOcclusionSettings::Low) => ("", "*", "", "", ""),
-        Some(AmbientOcclusionSettings::Medium) => ("", "", "*", "", ""),
-        Some(AmbientOcclusionSettings::High) => ("", "", "", "*", ""),
-        Some(AmbientOcclusionSettings::Ultra) => ("", "", "", "", "*"),
+        Some(ScreenSpaceAmbientOcclusionSettings::Low) => ("", "*", "", "", ""),
+        Some(ScreenSpaceAmbientOcclusionSettings::Medium) => ("", "", "*", "", ""),
+        Some(ScreenSpaceAmbientOcclusionSettings::High) => ("", "", "", "*", ""),
+        Some(ScreenSpaceAmbientOcclusionSettings::Ultra) => ("", "", "", "", "*"),
     };
 
-    text.push_str("Ambient Occlusion Quality:\n");
+    text.push_str("SSAO Quality:\n");
     text.push_str(&format!("(1) {o}Off{o}\n"));
     text.push_str(&format!("(2) {l}Low{l}\n"));
     text.push_str(&format!("(3) {m}Medium{m}\n"));
     text.push_str(&format!("(4) {h}High{h}\n"));
     text.push_str(&format!("(5) {u}Ultra{u}\n\n"));
 
-    text.push_str("Temporal Antialiasing Toggle:\n");
+    text.push_str("Temporal Antialiasing:\n");
     text.push_str(match temporal_jitter {
         Some(_) => "(Space) Enabled",
         None => "(Space) Disabled",

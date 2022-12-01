@@ -1,22 +1,22 @@
 pub mod wireframe;
 
 mod alpha;
-mod ao;
 mod bundle;
 mod light;
 mod material;
 mod pbr_material;
 mod render;
+mod ssao;
 mod taa;
 
 pub use alpha::*;
-pub use ao::*;
 use bevy_utils::default;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
 pub use render::*;
+pub use ssao::*;
 pub use taa::*;
 
 use bevy_window::ModifiesWindows;
@@ -156,7 +156,7 @@ impl Plugin for PbrPlugin {
                 prepass_enabled: self.prepass_enabled,
                 ..default()
             })
-            .add_plugin(AmbientOcclusionPlugin)
+            .add_plugin(ScreenSpaceAmbientOcclusionPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()

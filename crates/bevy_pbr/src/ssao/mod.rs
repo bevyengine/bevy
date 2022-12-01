@@ -46,37 +46,37 @@ use std::{mem, num::NonZeroU32};
 
 pub mod draw_3d_graph {
     pub mod node {
-        /// Label for the ambient occlusion render node.
-        pub const AMBIENT_OCCLUSION: &str = "ambient_occlusion";
+        /// Label for the screen space ambient occlusion render node.
+        pub const SCREEN_SPACE_AMBIENT_OCCLUSION: &str = "screen_space_ambient_occlusion";
     }
 }
 
-const PREFILTER_DEPTH_SHADER_HANDLE: HandleUntyped =
+const PREPROCESS_DEPTH_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 102258915420479);
 const GTAO_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 253938746510568);
-const DENOISE_AO_SHADER_HANDLE: HandleUntyped =
+const DENOISE_SSAO_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 466162052558226);
 const GTAO_MULTIBOUNCE_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 366465052568786);
 
 // TODO: Support MSAA
 
-pub struct AmbientOcclusionPlugin;
+pub struct ScreenSpaceAmbientOcclusionPlugin;
 
-impl Plugin for AmbientOcclusionPlugin {
+impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
     fn build(&self, app: &mut App) {
         load_internal_asset!(
             app,
-            PREFILTER_DEPTH_SHADER_HANDLE,
-            "prefilter_depth.wgsl",
+            PREPROCESS_DEPTH_SHADER_HANDLE,
+            "preprocess_depth.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(app, GTAO_SHADER_HANDLE, "gtao.wgsl", Shader::from_wgsl);
         load_internal_asset!(
             app,
-            DENOISE_AO_SHADER_HANDLE,
-            "denoise_ao.wgsl",
+            DENOISE_SSAO_SHADER_HANDLE,
+            "denoise_ssao.wgsl",
             Shader::from_wgsl
         );
         load_internal_asset!(
@@ -86,77 +86,80 @@ impl Plugin for AmbientOcclusionPlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<AmbientOcclusionSettings>();
+        app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
-            .init_resource::<AmbientOcclusionPipelines>()
-            .init_resource::<SpecializedComputePipelines<AmbientOcclusionPipelines>>()
-            .add_system_to_stage(RenderStage::Extract, extract_ambient_occlusion_settings)
-            .add_system_to_stage(RenderStage::Prepare, prepare_ambient_occlusion_textures)
-            .add_system_to_stage(RenderStage::Prepare, prepare_ambient_occlusion_pipelines)
-            .add_system_to_stage(RenderStage::Queue, queue_ambient_occlusion_bind_groups);
+            .init_resource::<SSAOPipelines>()
+            .init_resource::<SpecializedComputePipelines<SSAOPipelines>>()
+            .add_system_to_stage(RenderStage::Extract, extract_ssao_settings)
+            .add_system_to_stage(RenderStage::Prepare, prepare_ssao_textures)
+            .add_system_to_stage(RenderStage::Prepare, prepare_ssao_pipelines)
+            .add_system_to_stage(RenderStage::Queue, queue_ssao_bind_groups);
 
-        let ao_node = AmbientOcclusionNode::new(&mut render_app.world);
+        let ssao_node = SSAONode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
         let draw_3d_graph = graph
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
             .unwrap();
-        draw_3d_graph.add_node(draw_3d_graph::node::AMBIENT_OCCLUSION, ao_node);
+        draw_3d_graph.add_node(
+            draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
+            ssao_node,
+        );
         draw_3d_graph.add_slot_edge(
             draw_3d_graph.input_node().id,
             bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-            draw_3d_graph::node::AMBIENT_OCCLUSION,
-            AmbientOcclusionNode::IN_VIEW,
+            draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
+            SSAONode::IN_VIEW,
         );
-        // PREPASS -> AMBIENT_OCCLUSION -> MAIN_PASS
+        // PREPASS -> SCREEN_SPACE_AMBIENT_OCCLUSION -> MAIN_PASS
         draw_3d_graph.add_node_edge(
             bevy_core_pipeline::core_3d::graph::node::PREPASS,
-            draw_3d_graph::node::AMBIENT_OCCLUSION,
+            draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
         );
         draw_3d_graph.add_node_edge(
-            draw_3d_graph::node::AMBIENT_OCCLUSION,
+            draw_3d_graph::node::SCREEN_SPACE_AMBIENT_OCCLUSION,
             bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
         );
     }
 }
 
 #[derive(Component, Reflect, PartialEq, Eq, Hash, Clone)]
-pub enum AmbientOcclusionSettings {
+pub enum ScreenSpaceAmbientOcclusionSettings {
     Low,
     Medium,
     High,
     Ultra,
 }
 
-impl Default for AmbientOcclusionSettings {
+impl Default for ScreenSpaceAmbientOcclusionSettings {
     fn default() -> Self {
         Self::Medium
     }
 }
 
-impl AmbientOcclusionSettings {
+impl ScreenSpaceAmbientOcclusionSettings {
     fn sample_counts(&self) -> (u32, u32) {
         match self {
-            AmbientOcclusionSettings::Low => (1, 2), // 4 spp (1 * (2 * 2)), plus optional temporal samples
-            AmbientOcclusionSettings::Medium => (2, 2), // 8 spp (2 * (2 * 2)), plus optional temporal samples
-            AmbientOcclusionSettings::High => (3, 3), // 18 spp (3 * (3 * 2)), plus optional temporal samples
-            AmbientOcclusionSettings::Ultra => (9, 3), // 54 spp (9 * (3 * 2)), plus optional temporal samples
+            ScreenSpaceAmbientOcclusionSettings::Low => (1, 2), // 4 spp (1 * (2 * 2)), plus optional temporal samples
+            ScreenSpaceAmbientOcclusionSettings::Medium => (2, 2), // 8 spp (2 * (2 * 2)), plus optional temporal samples
+            ScreenSpaceAmbientOcclusionSettings::High => (3, 3), // 18 spp (3 * (3 * 2)), plus optional temporal samples
+            ScreenSpaceAmbientOcclusionSettings::Ultra => (9, 3), // 54 spp (9 * (3 * 2)), plus optional temporal samples
         }
     }
 }
 
-struct AmbientOcclusionNode {
+struct SSAONode {
     view_query: QueryState<(
         &'static ExtractedCamera,
-        &'static AmbientOcclusionPipelineId,
-        &'static AmbientOcclusionBindGroups,
+        &'static SSAOPipelineId,
+        &'static SSAOBindGroups,
         &'static ViewUniformOffset,
     )>,
 }
 
-impl AmbientOcclusionNode {
+impl SSAONode {
     const IN_VIEW: &'static str = "view";
 
     fn new(world: &mut World) -> Self {
@@ -166,7 +169,7 @@ impl AmbientOcclusionNode {
     }
 }
 
-impl Node for AmbientOcclusionNode {
+impl Node for SSAONode {
     fn input(&self) -> Vec<SlotInfo> {
         vec![SlotInfo::new(Self::IN_VIEW, SlotType::Entity)]
     }
@@ -182,18 +185,18 @@ impl Node for AmbientOcclusionNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         #[cfg(feature = "trace")]
-        let _ao_span = info_span!("ambient_occlusion").entered();
+        let _ssao_span = info_span!("screen_space_ambient_occlusion").entered();
 
-        let pipelines = world.resource::<AmbientOcclusionPipelines>();
+        let pipelines = world.resource::<SSAOPipelines>();
         let pipeline_cache = world.resource::<PipelineCache>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
             Ok((camera, pipeline_id, bind_groups, view_uniform_offset)),
-            Some(prefilter_depth_pipeline),
+            Some(preprocess_depth_pipeline),
             Some(denoise_pipeline),
         ) = (
             self.view_query.get_manual(world, view_entity),
-            pipeline_cache.get_compute_pipeline(pipelines.prefilter_depth_pipeline),
+            pipeline_cache.get_compute_pipeline(pipelines.preprocess_depth_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.denoise_pipeline),
         ) else {
             return Ok(());
@@ -202,20 +205,20 @@ impl Node for AmbientOcclusionNode {
         let Some(camera_size) = camera.physical_viewport_size else { return Ok(()) };
 
         {
-            let mut prefilter_depth_pass =
+            let mut preprocess_depth_pass =
                 render_context
                     .command_encoder
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("ambient_occlusion_prefilter_depth_pass"),
+                        label: Some("ssao_preprocess_depth_pass"),
                     });
-            prefilter_depth_pass.set_pipeline(prefilter_depth_pipeline);
-            prefilter_depth_pass.set_bind_group(0, &bind_groups.prefilter_depth_bind_group, &[]);
-            prefilter_depth_pass.set_bind_group(
+            preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
+            preprocess_depth_pass.set_bind_group(0, &bind_groups.preprocess_depth_bind_group, &[]);
+            preprocess_depth_pass.set_bind_group(
                 1,
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
-            prefilter_depth_pass.dispatch_workgroups(
+            preprocess_depth_pass.dispatch_workgroups(
                 (camera_size.x + 15) / 16,
                 (camera_size.y + 15) / 16,
                 1,
@@ -227,7 +230,7 @@ impl Node for AmbientOcclusionNode {
                 render_context
                     .command_encoder
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("ambient_occlusion_gtao_pass"),
+                        label: Some("ssao_gtao_pass"),
                     });
             gtao_pass.set_pipeline(gtao_pipeline);
             gtao_pass.set_bind_group(0, &bind_groups.gtao_bind_group, &[]);
@@ -244,7 +247,7 @@ impl Node for AmbientOcclusionNode {
                 render_context
                     .command_encoder
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("ambient_occlusion_denoise_pass"),
+                        label: Some("ssao_denoise_pass"),
                     });
             denoise_pass.set_pipeline(&denoise_pipeline);
             denoise_pass.set_bind_group(0, &bind_groups.denoise_bind_group, &[]);
@@ -261,12 +264,12 @@ impl Node for AmbientOcclusionNode {
 }
 
 #[derive(Resource)]
-struct AmbientOcclusionPipelines {
-    prefilter_depth_pipeline: CachedComputePipelineId,
+struct SSAOPipelines {
+    preprocess_depth_pipeline: CachedComputePipelineId,
     denoise_pipeline: CachedComputePipelineId,
 
     common_bind_group_layout: BindGroupLayout,
-    prefilter_depth_bind_group_layout: BindGroupLayout,
+    preprocess_depth_bind_group_layout: BindGroupLayout,
     gtao_bind_group_layout: BindGroupLayout,
     denoise_bind_group_layout: BindGroupLayout,
 
@@ -274,7 +277,7 @@ struct AmbientOcclusionPipelines {
     point_clamp_sampler: Sampler,
 }
 
-impl FromWorld for AmbientOcclusionPipelines {
+impl FromWorld for SSAOPipelines {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let render_queue = world.resource::<RenderQueue>();
@@ -283,7 +286,7 @@ impl FromWorld for AmbientOcclusionPipelines {
             .create_texture_with_data(
                 render_queue,
                 &(TextureDescriptor {
-                    label: Some("ambient_occlusion_hilbert_index_texture"),
+                    label: Some("ssao_hilbert_index_texture"),
                     size: Extent3d {
                         width: 64,
                         height: 64,
@@ -310,7 +313,7 @@ impl FromWorld for AmbientOcclusionPipelines {
 
         let common_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("ambient_occlusion_common_bind_group_layout"),
+                label: Some("ssao_common_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
@@ -341,9 +344,9 @@ impl FromWorld for AmbientOcclusionPipelines {
             },
             count: None,
         };
-        let prefilter_depth_bind_group_layout =
+        let preprocess_depth_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("ambient_occlusion_prefilter_depth_bind_group_layout"),
+                label: Some("ssao_preprocess_depth_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
@@ -377,7 +380,7 @@ impl FromWorld for AmbientOcclusionPipelines {
 
         let gtao_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("ambient_occlusion_gtao_bind_group_layout"),
+                label: Some("ssao_gtao_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
@@ -444,7 +447,7 @@ impl FromWorld for AmbientOcclusionPipelines {
 
         let denoise_bind_group_layout =
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("ambient_occlusion_denoise_bind_group_layout"),
+                label: Some("ssao_denoise_bind_group_layout"),
                 entries: &[
                     BindGroupLayoutEntry {
                         binding: 0,
@@ -481,29 +484,29 @@ impl FromWorld for AmbientOcclusionPipelines {
 
         let mut pipeline_cache = world.resource_mut::<PipelineCache>();
 
-        let prefilter_depth_pipeline =
+        let preprocess_depth_pipeline =
             pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                label: Some("ambient_occlusion_prefilter_depth_pipeline".into()),
+                label: Some("ssao_preprocess_depth_pipeline".into()),
                 layout: Some(vec![
-                    prefilter_depth_bind_group_layout.clone(),
+                    preprocess_depth_bind_group_layout.clone(),
                     common_bind_group_layout.clone(),
                 ]),
-                shader: PREFILTER_DEPTH_SHADER_HANDLE.typed(),
+                shader: PREPROCESS_DEPTH_SHADER_HANDLE.typed(),
                 shader_defs: vec![ShaderDefVal::Int(
                     // TODO: Remove this hack
                     "MAX_DIRECTIONAL_LIGHTS".to_string(),
                     MAX_DIRECTIONAL_LIGHTS as i32,
                 )],
-                entry_point: "prefilter_depth".into(),
+                entry_point: "preprocess_depth".into(),
             });
 
         let denoise_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("ambient_occlusion_denoise_pipeline".into()),
+            label: Some("ssao_denoise_pipeline".into()),
             layout: Some(vec![
                 denoise_bind_group_layout.clone(),
                 common_bind_group_layout.clone(),
             ]),
-            shader: DENOISE_AO_SHADER_HANDLE.typed(),
+            shader: DENOISE_SSAO_SHADER_HANDLE.typed(),
             shader_defs: vec![
                 // TODO: Remove this hack
                 ShaderDefVal::Int(
@@ -515,11 +518,11 @@ impl FromWorld for AmbientOcclusionPipelines {
         });
 
         Self {
-            prefilter_depth_pipeline,
+            preprocess_depth_pipeline,
             denoise_pipeline,
 
             common_bind_group_layout,
-            prefilter_depth_bind_group_layout,
+            preprocess_depth_bind_group_layout,
             gtao_bind_group_layout,
             denoise_bind_group_layout,
 
@@ -531,15 +534,15 @@ impl FromWorld for AmbientOcclusionPipelines {
 
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct AmbientOcclusionPipelineKey {
-    ao_quality: AmbientOcclusionSettings,
+    ssao_quality: ScreenSpaceAmbientOcclusionSettings,
     temporal_noise: bool,
 }
 
-impl SpecializedComputePipeline for AmbientOcclusionPipelines {
+impl SpecializedComputePipeline for SSAOPipelines {
     type Key = AmbientOcclusionPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
-        let (slice_count, samples_per_slice_side) = key.ao_quality.sample_counts();
+        let (slice_count, samples_per_slice_side) = key.ssao_quality.sample_counts();
 
         let mut shader_defs = vec![
             ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
@@ -559,7 +562,7 @@ impl SpecializedComputePipeline for AmbientOcclusionPipelines {
         }
 
         ComputePipelineDescriptor {
-            label: Some("ambient_occlusion_gtao_pipeline".into()),
+            label: Some("ssao_gtao_pipeline".into()),
             layout: Some(vec![
                 self.gtao_bind_group_layout.clone(),
                 self.common_bind_group_layout.clone(),
@@ -571,36 +574,44 @@ impl SpecializedComputePipeline for AmbientOcclusionPipelines {
     }
 }
 
-fn extract_ambient_occlusion_settings(
+fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
-        Query<(Entity, &Camera, &AmbientOcclusionSettings, &PrepassSettings), With<Camera3d>>,
+        Query<
+            (
+                Entity,
+                &Camera,
+                &ScreenSpaceAmbientOcclusionSettings,
+                &PrepassSettings,
+            ),
+            With<Camera3d>,
+        >,
     >,
 ) {
-    for (entity, camera, ao_settings, prepass_settings) in &cameras {
+    for (entity, camera, ssao_settings, prepass_settings) in &cameras {
         if camera.is_active && prepass_settings.depth_enabled && prepass_settings.normal_enabled {
-            commands.get_or_spawn(entity).insert(ao_settings.clone());
+            commands.get_or_spawn(entity).insert(ssao_settings.clone());
         }
     }
 }
 
 #[derive(Component)]
 pub struct AmbientOcclusionTextures {
-    prefiltered_depth_texture: CachedTexture,
-    ambient_occlusion_noisy_texture: CachedTexture, // Pre-denoised texture
-    pub ambient_occlusion_texture: CachedTexture,   // Denoised texture
+    preprocessed_depth_texture: CachedTexture,
+    ssao_noisy_texture: CachedTexture, // Pre-denoised texture
+    pub screen_space_ambient_occlusion_texture: CachedTexture, // Denoised texture
     depth_differences_texture: CachedTexture,
 }
 
-fn prepare_ambient_occlusion_textures(
+fn prepare_ssao_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<AmbientOcclusionSettings>>,
+    views: Query<(Entity, &ExtractedCamera), With<ScreenSpaceAmbientOcclusionSettings>>,
 ) {
-    let mut prefiltered_depth_textures = HashMap::default();
-    let mut ambient_occlusion_noisy_textures = HashMap::default();
-    let mut ambient_occlusion_textures = HashMap::default();
+    let mut preprocessed_depth_textures = HashMap::default();
+    let mut ssao_noisy_textures = HashMap::default();
+    let mut ssao_textures = HashMap::default();
     let mut depth_differences_textures = HashMap::default();
     for (entity, camera) in &views {
         if let Some(physical_viewport_size) = camera.physical_viewport_size {
@@ -611,7 +622,7 @@ fn prepare_ambient_occlusion_textures(
             };
 
             let texture_descriptor = TextureDescriptor {
-                label: Some("ambient_occlusion_prefiltered_depth_texture"),
+                label: Some("ssao_preprocessed_depth_texture"),
                 size,
                 mip_level_count: 5,
                 sample_count: 1,
@@ -619,13 +630,13 @@ fn prepare_ambient_occlusion_textures(
                 format: TextureFormat::R32Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
-            let prefiltered_depth_texture = prefiltered_depth_textures
+            let preprocessed_depth_texture = preprocessed_depth_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
                 .clone();
 
             let texture_descriptor = TextureDescriptor {
-                label: Some("ambient_occlusion_noisy_texture"),
+                label: Some("ssao_noisy_texture"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -633,13 +644,13 @@ fn prepare_ambient_occlusion_textures(
                 format: TextureFormat::R32Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
-            let ambient_occlusion_noisy_texture = ambient_occlusion_noisy_textures
+            let ssao_noisy_texture = ssao_noisy_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
                 .clone();
 
             let texture_descriptor = TextureDescriptor {
-                label: Some("ambient_occlusion_texture"),
+                label: Some("ssao_texture"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -647,13 +658,13 @@ fn prepare_ambient_occlusion_textures(
                 format: TextureFormat::R32Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
-            let ambient_occlusion_texture = ambient_occlusion_textures
+            let ssao_texture = ssao_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
                 .clone();
 
             let texture_descriptor = TextureDescriptor {
-                label: Some("ambient_occlusion_depth_differences_texture"),
+                label: Some("ssao_depth_differences_texture"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -667,9 +678,9 @@ fn prepare_ambient_occlusion_textures(
                 .clone();
 
             commands.entity(entity).insert(AmbientOcclusionTextures {
-                prefiltered_depth_texture,
-                ambient_occlusion_noisy_texture,
-                ambient_occlusion_texture,
+                preprocessed_depth_texture,
+                ssao_noisy_texture,
+                screen_space_ambient_occlusion_texture: ssao_texture,
                 depth_differences_texture,
             });
         }
@@ -677,43 +688,45 @@ fn prepare_ambient_occlusion_textures(
 }
 
 #[derive(Component)]
-struct AmbientOcclusionPipelineId(CachedComputePipelineId);
+struct SSAOPipelineId(CachedComputePipelineId);
 
-fn prepare_ambient_occlusion_pipelines(
+fn prepare_ssao_pipelines(
     mut commands: Commands,
     mut pipeline_cache: ResMut<PipelineCache>,
-    mut pipelines: ResMut<SpecializedComputePipelines<AmbientOcclusionPipelines>>,
-    pipeline: Res<AmbientOcclusionPipelines>,
-    views: Query<(Entity, &AmbientOcclusionSettings, Option<&TemporalJitter>)>,
+    mut pipelines: ResMut<SpecializedComputePipelines<SSAOPipelines>>,
+    pipeline: Res<SSAOPipelines>,
+    views: Query<(
+        Entity,
+        &ScreenSpaceAmbientOcclusionSettings,
+        Option<&TemporalJitter>,
+    )>,
 ) {
-    for (entity, ao_settings, temporal_jitter) in &views {
+    for (entity, ssao_settings, temporal_jitter) in &views {
         let pipeline_id = pipelines.specialize(
             &mut pipeline_cache,
             &pipeline,
             AmbientOcclusionPipelineKey {
-                ao_quality: ao_settings.clone(),
+                ssao_quality: ssao_settings.clone(),
                 temporal_noise: temporal_jitter.is_some(),
             },
         );
 
-        commands
-            .entity(entity)
-            .insert(AmbientOcclusionPipelineId(pipeline_id));
+        commands.entity(entity).insert(SSAOPipelineId(pipeline_id));
     }
 }
 
 #[derive(Component)]
-struct AmbientOcclusionBindGroups {
+struct SSAOBindGroups {
     common_bind_group: BindGroup,
-    prefilter_depth_bind_group: BindGroup,
+    preprocess_depth_bind_group: BindGroup,
     gtao_bind_group: BindGroup,
     denoise_bind_group: BindGroup,
 }
 
-fn queue_ambient_occlusion_bind_groups(
+fn queue_ssao_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
-    pipelines: Res<AmbientOcclusionPipelines>,
+    pipelines: Res<SSAOPipelines>,
     view_uniforms: Res<ViewUniforms>,
     global_uniforms: Res<GlobalsBuffer>,
     views: Query<(Entity, &AmbientOcclusionTextures, &ViewPrepassTextures)>,
@@ -725,9 +738,9 @@ fn queue_ambient_occlusion_bind_groups(
         return;
     };
 
-    for (entity, ao_textures, prepass_textures) in &views {
+    for (entity, ssao_textures, prepass_textures) in &views {
         let common_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ambient_occlusion_common_bind_group"),
+            label: Some("ssao_common_bind_group"),
             layout: &pipelines.common_bind_group_layout,
             entries: &[
                 BindGroupEntry {
@@ -741,15 +754,15 @@ fn queue_ambient_occlusion_bind_groups(
             ],
         });
 
-        let prefilter_depth_mip_view_descriptor = TextureViewDescriptor {
+        let preprocess_depth_mip_view_descriptor = TextureViewDescriptor {
             format: Some(TextureFormat::R32Float),
             dimension: Some(TextureViewDimension::D2),
             mip_level_count: NonZeroU32::new(1),
             ..default()
         };
-        let prefilter_depth_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ambient_occlusion_prefilter_depth_bind_group"),
-            layout: &pipelines.prefilter_depth_bind_group_layout,
+        let preprocess_depth_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("ssao_preprocess_depth_bind_group"),
+            layout: &pipelines.preprocess_depth_bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
@@ -760,84 +773,79 @@ fn queue_ambient_occlusion_bind_groups(
                 BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::TextureView(
-                        &ao_textures.prefiltered_depth_texture.texture.create_view(
-                            &TextureViewDescriptor {
-                                label: Some(
-                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_0",
-                                ),
+                        &ssao_textures
+                            .preprocessed_depth_texture
+                            .texture
+                            .create_view(&TextureViewDescriptor {
+                                label: Some("ssao_preprocessed_depth_texture_mip_view_0"),
                                 base_mip_level: 0,
-                                ..prefilter_depth_mip_view_descriptor
-                            },
-                        ),
+                                ..preprocess_depth_mip_view_descriptor
+                            }),
                     ),
                 },
                 BindGroupEntry {
                     binding: 2,
                     resource: BindingResource::TextureView(
-                        &ao_textures.prefiltered_depth_texture.texture.create_view(
-                            &TextureViewDescriptor {
-                                label: Some(
-                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_1",
-                                ),
+                        &ssao_textures
+                            .preprocessed_depth_texture
+                            .texture
+                            .create_view(&TextureViewDescriptor {
+                                label: Some("ssao_preprocessed_depth_texture_mip_view_1"),
                                 base_mip_level: 1,
-                                ..prefilter_depth_mip_view_descriptor
-                            },
-                        ),
+                                ..preprocess_depth_mip_view_descriptor
+                            }),
                     ),
                 },
                 BindGroupEntry {
                     binding: 3,
                     resource: BindingResource::TextureView(
-                        &ao_textures.prefiltered_depth_texture.texture.create_view(
-                            &TextureViewDescriptor {
-                                label: Some(
-                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_2",
-                                ),
+                        &ssao_textures
+                            .preprocessed_depth_texture
+                            .texture
+                            .create_view(&TextureViewDescriptor {
+                                label: Some("ssao_preprocessed_depth_texture_mip_view_2"),
                                 base_mip_level: 2,
-                                ..prefilter_depth_mip_view_descriptor
-                            },
-                        ),
+                                ..preprocess_depth_mip_view_descriptor
+                            }),
                     ),
                 },
                 BindGroupEntry {
                     binding: 4,
                     resource: BindingResource::TextureView(
-                        &ao_textures.prefiltered_depth_texture.texture.create_view(
-                            &TextureViewDescriptor {
-                                label: Some(
-                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_3",
-                                ),
+                        &ssao_textures
+                            .preprocessed_depth_texture
+                            .texture
+                            .create_view(&TextureViewDescriptor {
+                                label: Some("ssao_preprocessed_depth_texture_mip_view_3"),
                                 base_mip_level: 3,
-                                ..prefilter_depth_mip_view_descriptor
-                            },
-                        ),
+                                ..preprocess_depth_mip_view_descriptor
+                            }),
                     ),
                 },
                 BindGroupEntry {
                     binding: 5,
                     resource: BindingResource::TextureView(
-                        &ao_textures.prefiltered_depth_texture.texture.create_view(
-                            &TextureViewDescriptor {
-                                label: Some(
-                                    "ambient_occlusion_prefiltered_depth_texture_mip_view_4",
-                                ),
+                        &ssao_textures
+                            .preprocessed_depth_texture
+                            .texture
+                            .create_view(&TextureViewDescriptor {
+                                label: Some("ssao_preprocessed_depth_texture_mip_view_4"),
                                 base_mip_level: 4,
-                                ..prefilter_depth_mip_view_descriptor
-                            },
-                        ),
+                                ..preprocess_depth_mip_view_descriptor
+                            }),
                     ),
                 },
             ],
         });
 
         let gtao_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ambient_occlusion_gtao_bind_group"),
+            label: Some("ssao_gtao_bind_group"),
             layout: &pipelines.gtao_bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(
-                        &ao_textures.prefiltered_depth_texture.default_view,
+                        &ssao_textures.preprocessed_depth_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
@@ -853,13 +861,13 @@ fn queue_ambient_occlusion_bind_groups(
                 BindGroupEntry {
                     binding: 3,
                     resource: BindingResource::TextureView(
-                        &ao_textures.ambient_occlusion_noisy_texture.default_view,
+                        &ssao_textures.ssao_noisy_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
                     binding: 4,
                     resource: BindingResource::TextureView(
-                        &ao_textures.depth_differences_texture.default_view,
+                        &ssao_textures.depth_differences_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
@@ -870,33 +878,35 @@ fn queue_ambient_occlusion_bind_groups(
         });
 
         let denoise_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ambient_occlusion_denoise_bind_group"),
+            label: Some("ssao_denoise_bind_group"),
             layout: &pipelines.denoise_bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(
-                        &ao_textures.ambient_occlusion_noisy_texture.default_view,
+                        &ssao_textures.ssao_noisy_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
                     binding: 1,
                     resource: BindingResource::TextureView(
-                        &ao_textures.depth_differences_texture.default_view,
+                        &ssao_textures.depth_differences_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
                     binding: 2,
                     resource: BindingResource::TextureView(
-                        &ao_textures.ambient_occlusion_texture.default_view,
+                        &ssao_textures
+                            .screen_space_ambient_occlusion_texture
+                            .default_view,
                     ),
                 },
             ],
         });
 
-        commands.entity(entity).insert(AmbientOcclusionBindGroups {
+        commands.entity(entity).insert(SSAOBindGroups {
             common_bind_group,
-            prefilter_depth_bind_group,
+            preprocess_depth_bind_group,
             gtao_bind_group,
             denoise_bind_group,
         });

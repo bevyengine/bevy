@@ -1,6 +1,6 @@
 #import bevy_pbr::mesh_view_types
 
-@group(0) @binding(0) var prefiltered_depth: texture_2d<f32>;
+@group(0) @binding(0) var preprocessed_depth: texture_2d<f32>;
 @group(0) @binding(1) var normals: texture_2d<f32>;
 @group(0) @binding(2) var hilbert_index: texture_2d<u32>;
 @group(0) @binding(3) var ambient_occlusion: texture_storage_2d<r32float, write>;
@@ -24,8 +24,8 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
 fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 {
     // Sample the pixel's depth and 4 depths around it
     let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
-    let depths_upper_left = textureGather(0, prefiltered_depth, point_clamp_sampler, uv);
-    let depths_bottom_right = textureGather(0, prefiltered_depth, point_clamp_sampler, uv, vec2<i32>(1i, 1i));
+    let depths_upper_left = textureGather(0, preprocessed_depth, point_clamp_sampler, uv);
+    let depths_bottom_right = textureGather(0, preprocessed_depth, point_clamp_sampler, uv, vec2<i32>(1i, 1i));
     let depth_center = depths_upper_left.y;
     let depth_left = depths_upper_left.x;
     let depth_top = depths_upper_left.z;
@@ -68,7 +68,7 @@ fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
 }
 
 fn load_and_reconstruct_view_space_position(uv: vec2<f32>) -> vec3<f32> {
-    let depth = textureSampleLevel(prefiltered_depth, point_clamp_sampler, uv, 0.0).r;
+    let depth = textureSampleLevel(preprocessed_depth, point_clamp_sampler, uv, 0.0).r;
     return reconstruct_view_space_position(depth, uv);
 }
 

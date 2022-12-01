@@ -1,6 +1,6 @@
 use crate::{
-    AlphaMode, AmbientOcclusionSettings, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform,
-    PrepassPlugin, SetMeshBindGroup, SetMeshViewBindGroup,
+    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, PrepassPlugin,
+    ScreenSpaceAmbientOcclusionSettings, SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -360,7 +360,7 @@ pub fn queue_material_meshes<M: Material>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
-        Option<&AmbientOcclusionSettings>,
+        Option<&ScreenSpaceAmbientOcclusionSettings>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
