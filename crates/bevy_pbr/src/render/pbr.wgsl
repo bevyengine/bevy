@@ -70,7 +70,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         }
 #endif
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-        let uv = in.frag_coord.xy / view.viewport.zw;
+        let uv = coords_to_viewport_uv(in.frag_coord.xy, view.viewport);
         let ssao = textureSample(screen_space_ambient_occlusion_texture, occlusion_sampler, uv).r;
         let ssao = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
         ambient_occlusion = min(ambient_occlusion, ssao);
