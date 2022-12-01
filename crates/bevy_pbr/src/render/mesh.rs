@@ -1,6 +1,6 @@
 use crate::{
-    AmbientOcclusionTextures, GlobalLightMeta, GpuLights, GpuPointLights, LightMeta,
-    NotShadowCaster, NotShadowReceiver, PreviousGlobalTransform, ShadowPipeline,
+    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
+    PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, ShadowPipeline,
     ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
 };
@@ -908,7 +908,7 @@ pub fn queue_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         Option<&ViewPrepassTextures>,
-        Option<&AmbientOcclusionTextures>,
+        Option<&ScreenSpaceAmbientOcclusionTextures>,
     )>,
     mut fallback_images: FallbackImagesMsaa,
     mut fallback_depths: FallbackImagesDepth,

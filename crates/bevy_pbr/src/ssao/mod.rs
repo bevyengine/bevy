@@ -596,7 +596,7 @@ fn extract_ssao_settings(
 }
 
 #[derive(Component)]
-pub struct AmbientOcclusionTextures {
+pub struct ScreenSpaceAmbientOcclusionTextures {
     preprocessed_depth_texture: CachedTexture,
     ssao_noisy_texture: CachedTexture, // Pre-denoised texture
     pub screen_space_ambient_occlusion_texture: CachedTexture, // Denoised texture
@@ -677,12 +677,14 @@ fn prepare_ssao_textures(
                 .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
                 .clone();
 
-            commands.entity(entity).insert(AmbientOcclusionTextures {
-                preprocessed_depth_texture,
-                ssao_noisy_texture,
-                screen_space_ambient_occlusion_texture: ssao_texture,
-                depth_differences_texture,
-            });
+            commands
+                .entity(entity)
+                .insert(ScreenSpaceAmbientOcclusionTextures {
+                    preprocessed_depth_texture,
+                    ssao_noisy_texture,
+                    screen_space_ambient_occlusion_texture: ssao_texture,
+                    depth_differences_texture,
+                });
         }
     }
 }
@@ -729,7 +731,11 @@ fn queue_ssao_bind_groups(
     pipelines: Res<SSAOPipelines>,
     view_uniforms: Res<ViewUniforms>,
     global_uniforms: Res<GlobalsBuffer>,
-    views: Query<(Entity, &AmbientOcclusionTextures, &ViewPrepassTextures)>,
+    views: Query<(
+        Entity,
+        &ScreenSpaceAmbientOcclusionTextures,
+        &ViewPrepassTextures,
+    )>,
 ) {
     let (Some(view_uniforms), Some(globals_uniforms)) = (
         view_uniforms.uniforms.binding(),
