@@ -100,12 +100,8 @@ use std::marker::PhantomData;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// struct CustomMaterial {
-///     color: vec4<f32>,
-/// }
-///
 /// @group(1) @binding(0)
-/// var<uniform> material: CustomMaterial;
+/// var<uniform> color: vec4<f32>;
 /// @group(1) @binding(1)
 /// var color_texture: texture_2d<f32>;
 /// @group(1) @binding(2)
@@ -347,18 +343,9 @@ pub fn queue_material_meshes<M: Material>(
         mut transparent_phase,
     ) in &mut views
     {
-        let draw_opaque_pbr = opaque_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
-        let draw_alpha_mask_pbr = alpha_mask_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
-        let draw_transparent_pbr = transparent_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
+        let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
+        let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
+        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);

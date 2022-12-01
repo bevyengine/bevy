@@ -6,7 +6,8 @@ use crate::{
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
     any::{Any, TypeId},
@@ -517,23 +518,26 @@ impl Components {
     }
 }
 
-/// Records when a component was added and when it was last mutably dereferenced (or added).
+/// Used to track changes in state between system runs, e.g. components being added or accessed mutably.
 #[derive(Copy, Clone, Debug)]
-pub struct ComponentTicks {
-    pub(crate) added: u32,
-    pub(crate) changed: u32,
+pub struct Tick {
+    pub(crate) tick: u32,
 }
 
-impl ComponentTicks {
+impl Tick {
+    pub const fn new(tick: u32) -> Self {
+        Self { tick }
+    }
+
     #[inline]
-    /// Returns `true` if the component was added after the system last ran.
-    pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
+    /// Returns `true` if the tick is older than the system last's run.
+    pub fn is_older_than(&self, last_change_tick: u32, change_tick: u32) -> bool {
         // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
-        // `last_change_tick` and `self.added`, and we scan periodically to clamp `ComponentTicks` values
+        // `last_change_tick` and `self.tick`, and we scan periodically to clamp `ComponentTicks` values
         // so they never get older than `u32::MAX` (the difference would overflow).
         //
         // The clamp here ensures determinism (since scans could differ between app runs).
-        let ticks_since_insert = change_tick.wrapping_sub(self.added).min(MAX_CHANGE_AGE);
+        let ticks_since_insert = change_tick.wrapping_sub(self.tick).min(MAX_CHANGE_AGE);
         let ticks_since_system = change_tick
             .wrapping_sub(last_change_tick)
             .min(MAX_CHANGE_AGE);
@@ -541,32 +545,13 @@ impl ComponentTicks {
         ticks_since_system > ticks_since_insert
     }
 
-    #[inline]
-    /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
-    pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
-        // This works even with wraparound because the world tick (`change_tick`) is always "newer" than
-        // `last_change_tick` and `self.changed`, and we scan periodically to clamp `ComponentTicks` values
-        // so they never get older than `u32::MAX` (the difference would overflow).
-        //
-        // The clamp here ensures determinism (since scans could differ between app runs).
-        let ticks_since_change = change_tick.wrapping_sub(self.changed).min(MAX_CHANGE_AGE);
-        let ticks_since_system = change_tick
-            .wrapping_sub(last_change_tick)
-            .min(MAX_CHANGE_AGE);
-
-        ticks_since_system > ticks_since_change
-    }
-
-    pub(crate) fn new(change_tick: u32) -> Self {
-        Self {
-            added: change_tick,
-            changed: change_tick,
+    pub(crate) fn check_tick(&mut self, change_tick: u32) {
+        let age = change_tick.wrapping_sub(self.tick);
+        // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
+        // so long as this check always runs before that can happen.
+        if age > MAX_CHANGE_AGE {
+            self.tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
         }
-    }
-
-    pub(crate) fn check_ticks(&mut self, change_tick: u32) {
-        check_tick(&mut self.added, change_tick);
-        check_tick(&mut self.changed, change_tick);
     }
 
     /// Manually sets the change tick.
@@ -585,15 +570,72 @@ impl ComponentTicks {
     /// ```
     #[inline]
     pub fn set_changed(&mut self, change_tick: u32) {
-        self.changed = change_tick;
+        self.tick = change_tick;
     }
 }
 
-fn check_tick(last_change_tick: &mut u32, change_tick: u32) {
-    let age = change_tick.wrapping_sub(*last_change_tick);
-    // This comparison assumes that `age` has not overflowed `u32::MAX` before, which will be true
-    // so long as this check always runs before that can happen.
-    if age > MAX_CHANGE_AGE {
-        *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
+/// Wrapper around [`Tick`]s for a single component
+#[derive(Copy, Clone, Debug)]
+pub struct TickCells<'a> {
+    pub added: &'a UnsafeCell<Tick>,
+    pub changed: &'a UnsafeCell<Tick>,
+}
+
+impl<'a> TickCells<'a> {
+    /// # Safety
+    /// All cells contained within must uphold the safety invariants of [`UnsafeCellDeref::read`].
+    #[inline]
+    pub(crate) unsafe fn read(&self) -> ComponentTicks {
+        ComponentTicks {
+            added: self.added.read(),
+            changed: self.changed.read(),
+        }
+    }
+}
+
+/// Records when a component was added and when it was last mutably dereferenced (or added).
+#[derive(Copy, Clone, Debug)]
+pub struct ComponentTicks {
+    pub(crate) added: Tick,
+    pub(crate) changed: Tick,
+}
+
+impl ComponentTicks {
+    #[inline]
+    /// Returns `true` if the component was added after the system last ran.
+    pub fn is_added(&self, last_change_tick: u32, change_tick: u32) -> bool {
+        self.added.is_older_than(last_change_tick, change_tick)
+    }
+
+    #[inline]
+    /// Returns `true` if the component was added or mutably dereferenced after the system last ran.
+    pub fn is_changed(&self, last_change_tick: u32, change_tick: u32) -> bool {
+        self.changed.is_older_than(last_change_tick, change_tick)
+    }
+
+    pub(crate) fn new(change_tick: u32) -> Self {
+        Self {
+            added: Tick::new(change_tick),
+            changed: Tick::new(change_tick),
+        }
+    }
+
+    /// Manually sets the change tick.
+    ///
+    /// This is normally done automatically via the [`DerefMut`](std::ops::DerefMut) implementation
+    /// on [`Mut<T>`](crate::change_detection::Mut), [`ResMut<T>`](crate::change_detection::ResMut), etc.
+    /// However, components and resources that make use of interior mutability might require manual updates.
+    ///
+    /// # Example
+    /// ```rust,no_run
+    /// # use bevy_ecs::{world::World, component::ComponentTicks};
+    /// let world: World = unimplemented!();
+    /// let component_ticks: ComponentTicks = unimplemented!();
+    ///
+    /// component_ticks.set_changed(world.read_change_tick());
+    /// ```
+    #[inline]
+    pub fn set_changed(&mut self, change_tick: u32) {
+        self.changed.set_changed(change_tick);
     }
 }
