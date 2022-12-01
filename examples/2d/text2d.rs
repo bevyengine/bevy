@@ -75,19 +75,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     }).with_children(|builder| {
         builder.spawn(Text2dBundle {
-            text: Text::from_section("this text wraps in the box", text_style),
+            text: Text::from_section("this text wraps in the box", text_style).with_alignment(TextAlignment::Center),
             text_2d_bounds: Text2dBounds {
                 // Wrap text in the rectangle
                 size: box_size,
             },
-            // We align text to the top-left, so this transform is the top-left corner of our text. The
-            // box is centered at box_position, so it is necessary to move by half of the box size to
-            // keep the text in the box.
-            // transform: Transform::from_xyz(
-            //     box_position.x - box_size.x / 2.0,
-            //     box_position.y + box_size.y / 2.0,
-            //     1.0,
-            // ),
+            transform: Transform::from_translation(1. * Vec3::Z),
             ..default()
         });
     });
