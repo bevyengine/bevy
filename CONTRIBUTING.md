@@ -277,10 +277,9 @@ As discussed in [*How we're organized*](#how-were-organized), this role only req
 
 ### Maintaining code
 
-This section is more dedicated to newly added maintainers of the repo.
-This new status allow you to merge pull request, this section aim to provide tips and helpful links to help you maintain the project.
+Maintainers can merge uncontroversial pull requests  that have at least two approvals (or at least one for trivial changes).
 
-Down below you'll find where look for those requests in need of merging, and the one which need a final approval from @cart.
+These search filters show the requests that can be merged by maintainers, and those which need a final approval from @cart.
 
 1. Pulls requests which are ready for maintainers to merge without consultation: [requests to pull](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+-label%3AS-Controversial+-label%3AS-Blocked+-label%3AS-Adopt-Me+)
 2. Pull requests which need final input from @cart: [requests to verify](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+label%3AS-Controversial+)
