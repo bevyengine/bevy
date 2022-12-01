@@ -41,9 +41,9 @@ use crate::{
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct PointLight {
-    /// Color of the point light.
+    /// Color of the light emitted.
     pub color: Color,
-    /// Intensity of the point light, in lumens.
+    /// Amount/strength of light emitted, in lumens.
     pub intensity: f32,
     /// How far light extends from the surface (TODO: or center?) of the point light.
     pub range: f32,
@@ -98,9 +98,15 @@ impl Default for PointLightShadowMap {
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct SpotLight {
+    /// Color of the light emitted.
     pub color: Color,
+    /// Amount/strength of light emitted, in lumens.
     pub intensity: f32,
+    /// How far light extends from the surface (TODO: or center?) of the spot light.
     pub range: f32,
+    /// The size (radius) of the spot light itself.
+    ///
+    /// A radius of 0.0 (the default) is a point with no measureable size, while a radius of 1.0 is a unit sphere, etc.
     pub radius: f32,
     pub shadows_enabled: bool,
     pub shadow_depth_bias: f32,
