@@ -104,7 +104,6 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
-            .register_type::<widget::ImageMode>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
@@ -127,7 +126,7 @@ impl Plugin for UiPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                widget::image_node_system
+                widget::update_image_calculated_size_system
                     .before(UiSystem::Flex)
                     // Potential conflicts: `Assets<Image>`
                     // They run independently since `widget::image_node_system` will only ever observe

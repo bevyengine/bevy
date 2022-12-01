@@ -56,7 +56,7 @@ impl Visibility {
 
 bitflags::bitflags! {
     #[derive(Reflect)]
-    struct ComputedVisibilityFlags: u8 {
+    pub(super) struct ComputedVisibilityFlags: u8 {
         const VISIBLE_IN_VIEW = 1 << 0;
         const VISIBLE_IN_HIERARCHY = 1 << 1;
     }

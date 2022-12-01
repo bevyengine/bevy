@@ -69,9 +69,10 @@ struct InstanceMaterialData(Vec<InstanceData>);
 impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
     type Filter = ();
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
-        InstanceMaterialData(item.0.clone())
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(InstanceMaterialData(item.0.clone()))
     }
 }
 
@@ -108,10 +109,7 @@ fn queue_custom(
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
-    let draw_custom = transparent_3d_draw_functions
-        .read()
-        .get_id::<DrawCustom>()
-        .unwrap();
+    let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
