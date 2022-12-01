@@ -7,9 +7,11 @@ pub struct Cylinder {
     pub radius: f32,
     /// Height of the cylinder in the Y axis.
     pub height: f32,
-    /// Number of vertices around each horizontal slice of the cylinder.
+    /// The number of vertices around each horizontal slice of the cylinder. If you are looking at the cylinder from
+    /// above, this is the number of points you will see on the circle.
+    /// A higher number will make it appear more circular.
     pub resolution: u32,
-    /// Number of vertical segments.
+    /// The number of segments between the two ends.
     pub segments: u32,
 }
 
