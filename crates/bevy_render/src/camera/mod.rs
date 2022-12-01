@@ -7,12 +7,7 @@ pub use camera::*;
 pub use camera_driver_node::*;
 pub use projection::*;
 
-use crate::{
-    primitives::Aabb,
-    render_graph::RenderGraph,
-    view::{ComputedVisibility, RenderLayers, Visibility, VisibleEntities},
-    RenderApp, RenderStage,
-};
+use crate::{render_graph::RenderGraph, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 
 #[derive(Default)]
@@ -23,14 +18,10 @@ impl Plugin for CameraPlugin {
         app.register_type::<Camera>()
             .register_type::<Viewport>()
             .register_type::<Option<Viewport>>()
-            .register_type::<Visibility>()
-            .register_type::<ComputedVisibility>()
-            .register_type::<VisibleEntities>()
             .register_type::<WindowOrigin>()
             .register_type::<ScalingMode>()
-            .register_type::<Aabb>()
             .register_type::<CameraRenderGraph>()
-            .register_type::<RenderLayers>()
+            .register_type::<RenderTarget>()
             .add_plugin(CameraProjectionPlugin::<Projection>::default())
             .add_plugin(CameraProjectionPlugin::<OrthographicProjection>::default())
             .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());
