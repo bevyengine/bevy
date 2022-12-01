@@ -834,7 +834,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     #[inline]
-    #[cfg(feature = "single-threaded")]
+    #[cfg(any(target = "wasm32", not(feature = "multi-threaded")))]
     pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w World,
@@ -845,7 +845,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     #[inline]
-    #[cfg(feature = "single-threaded")]
+    #[cfg(any(target = "wasm32", not(feature = "multi-threaded")))]
     pub fn par_for_each_mut<'w, FN: Fn(Q::Item<'w>) + Send + Sync + Clone>(
         &mut self,
         world: &'w mut World,
@@ -864,7 +864,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
-    #[cfg(not(feature = "single-threaded"))]
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     pub fn par_for_each<'w, FN: Fn(ROQueryItem<'w, Q>) + Send + Sync + Clone>(
         &mut self,
         world: &'w World,
@@ -890,7 +890,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     #[inline]
-    #[cfg(not(feature = "single-threaded"))]
+    #[cfg(all(not(target = "wasm32"), feature = "multi-threaded"))]
     pub fn par_for_each_mut<'w, FN: Fn(Q::Item<'w>) + Send + Sync + Clone>(
         &mut self,
         world: &'w mut World,

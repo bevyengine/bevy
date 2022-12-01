@@ -9,8 +9,8 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-single-threaded = []
-default = []
+multi-threaded = []
+default = ["multi-threaded"]
 
 [dependencies]
 futures-lite = "1.4.0"

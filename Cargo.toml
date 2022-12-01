@@ -32,6 +32,7 @@ default = [
   "bevy_scene",
   "bevy_winit",
   "render",
+  "multi-threaded",
   "png",
   "hdr",
   "vorbis",
@@ -99,8 +100,8 @@ filesystem_watcher = ["bevy_internal/filesystem_watcher"]
 
 serialize = ["bevy_internal/serialize"]
 
-# Disables all parallelism in the engine. Forces all engine tasks to run on a single thread.
-single-threaded = ["bevy_internal/single-threaded"]
+# Disabling this feature disables all parallelism in the engine. Forces all engine tasks to run on a single thread.
+multi-threaded = ["bevy_internal/multi-threaded"]
 
 # Display server protocol support (X11 is enabled by default)
 wayland = ["bevy_internal/wayland"]
