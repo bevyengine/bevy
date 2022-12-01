@@ -927,11 +927,7 @@ pub(crate) unsafe fn get_mut_by_id(
     get_component_and_ticks(world, component_id, entity, location).map(|(value, ticks)| {
         MutUntyped {
             value: value.assert_unique(),
-            ticks: Ticks::from_tick_cells(
-                ticks,
-                world.last_change_tick(),
-                change_tick,
-            ),
+            ticks: Ticks::from_tick_cells(ticks, world.last_change_tick(), change_tick),
         }
     })
 }

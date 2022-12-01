@@ -1455,9 +1455,7 @@ impl World {
         // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
         // - index is in-bounds because the column is initialized and non-empty
         // - no other reference to the ticks of the same row can exist at the same time
-        let ticks = unsafe {
-            Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick)
-        };
+        let ticks = unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
