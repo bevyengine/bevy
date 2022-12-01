@@ -19,17 +19,20 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // opaque plane, uses `alpha_mode: Opaque` by default
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 6.0 })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
     // transparent sphere, uses `alpha_mode: Mask(f32)`
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 3,
-        })),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial {
             // Alpha channel of the color controls transparency.
             // We set it to 0.0 here, because it will be changed over time in the
@@ -44,8 +47,26 @@ fn setup(
         transform: Transform::from_xyz(1.0, 0.5, -1.5),
         ..default()
     });
+    // transparent unlit sphere, uses `alpha_mode: Mask(f32)`
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
+        material: materials.add(StandardMaterial {
+            base_color: Color::rgba(0.2, 0.7, 0.1, 0.0),
+            alpha_mode: AlphaMode::Mask(0.5),
+            unlit: true,
+            ..default()
+        }),
+        transform: Transform::from_xyz(-1.0, 0.5, -1.5),
+        ..default()
+    });
     // transparent cube, uses `alpha_mode: Blend`
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         // Notice how there is no need to set the `alpha_mode` explicitly here.
         // When converting a color to a material using `into()`, the alpha mode is
@@ -55,17 +76,20 @@ fn setup(
         ..default()
     });
     // opaque sphere
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.5,
-            subdivisions: 3,
-        })),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.5,
+                subdivisions: 3,
+            })
+            .unwrap(),
+        ),
         material: materials.add(Color::rgb(0.7, 0.2, 0.1).into()),
         transform: Transform::from_xyz(0.0, 0.5, -1.5),
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 1500.0,
             shadows_enabled: true,
@@ -75,7 +99,7 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -88,7 +112,7 @@ fn setup(
 ///                when the alpha value goes back below the threshold.
 /// - `Blend`: Object fades in and out smoothly.
 pub fn fade_transparency(time: Res<Time>, mut materials: ResMut<Assets<StandardMaterial>>) {
-    let alpha = (time.time_since_startup().as_secs_f32().sin() / 2.0) + 0.5;
+    let alpha = (time.elapsed_seconds().sin() / 2.0) + 0.5;
     for (_, material) in materials.iter_mut() {
         material.base_color.set_a(alpha);
     }

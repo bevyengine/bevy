@@ -23,7 +23,7 @@ use std::any::{Any, TypeId};
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, TypeInfo, ValueInfo};
+/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, TypeInfo, ValueInfo};
 /// # use bevy_reflect::utility::NonGenericTypeInfoCell;
 /// use bevy_reflect::Typed;
 ///
@@ -37,10 +37,10 @@ use std::any::{Any, TypeId};
 ///     static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
 ///     CELL.get_or_set(|| {
 ///       let fields = [
-///         NamedField::new::<usize, _>("foo"),
-///         NamedField::new::<(f32, f32), _>("bar"),
+///         NamedField::new::<usize >("foo"),
+///         NamedField::new::<(f32, f32) >("bar"),
 ///       ];
-///       let info = StructInfo::new::<Self>(&fields);
+///       let info = StructInfo::new::<Self>("MyStruct", &fields);
 ///       TypeInfo::Struct(info)
 ///     })
 ///   }
@@ -53,12 +53,14 @@ use std::any::{Any, TypeId};
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
 /// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
@@ -146,6 +148,22 @@ impl TypeInfo {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id()
     }
+
+    /// The docstring of the underlying type, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&str> {
+        match self {
+            Self::Struct(info) => info.docs(),
+            Self::TupleStruct(info) => info.docs(),
+            Self::Tuple(info) => info.docs(),
+            Self::List(info) => info.docs(),
+            Self::Array(info) => info.docs(),
+            Self::Map(info) => info.docs(),
+            Self::Enum(info) => info.docs(),
+            Self::Value(info) => info.docs(),
+            Self::Dynamic(info) => info.docs(),
+        }
+    }
 }
 
 /// A container for compile-time info related to general value types, including primitives.
@@ -160,6 +178,8 @@ impl TypeInfo {
 pub struct ValueInfo {
     type_name: &'static str,
     type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl ValueInfo {
@@ -167,7 +187,15 @@ impl ValueInfo {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this value.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, doc: Option<&'static str>) -> Self {
+        Self { docs: doc, ..self }
     }
 
     /// The [type name] of the value.
@@ -186,6 +214,12 @@ impl ValueInfo {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+
+    /// The docstring of this dynamic value, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// A container for compile-time info related to Bevy's _dynamic_ types, including primitives.
@@ -200,6 +234,8 @@ impl ValueInfo {
 pub struct DynamicInfo {
     type_name: &'static str,
     type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl DynamicInfo {
@@ -207,7 +243,15 @@ impl DynamicInfo {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this dynamic value.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The [type name] of the dynamic value.
@@ -225,5 +269,11 @@ impl DynamicInfo {
     /// Check if the given type matches the dynamic value type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this value, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }

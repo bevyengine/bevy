@@ -1,5 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, NamedField, Reflect, ReflectMut, ReflectRef, TypeInfo, Typed};
+use crate::{
+    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+};
 use bevy_utils::{Entry, HashMap};
 use std::fmt::{Debug, Formatter};
 use std::{
@@ -59,7 +61,7 @@ pub trait Struct: Reflect {
     /// Returns the number of fields in the struct.
     fn field_len(&self) -> usize;
 
-    /// Returns an iterator over the values of the struct's fields.
+    /// Returns an iterator over the values of the reflectable fields for this struct.
     fn iter_fields(&self) -> FieldIter;
 
     /// Clones the struct into a [`DynamicStruct`].
@@ -69,10 +71,14 @@ pub trait Struct: Reflect {
 /// A container for compile-time struct info.
 #[derive(Clone, Debug)]
 pub struct StructInfo {
+    name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
     fields: Box<[NamedField]>,
-    field_indices: HashMap<Cow<'static, str>, usize>,
+    field_names: Box<[&'static str]>,
+    field_indices: HashMap<&'static str, usize>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl StructInfo {
@@ -80,24 +86,39 @@ impl StructInfo {
     ///
     /// # Arguments
     ///
+    /// * `name`: The name of this struct (_without_ generics or lifetimes)
     /// * `fields`: The fields of this struct in the order they are defined
     ///
-    pub fn new<T: Reflect>(fields: &[NamedField]) -> Self {
+    pub fn new<T: Reflect>(name: &'static str, fields: &[NamedField]) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
-            .map(|(index, field)| {
-                let name = field.name().clone();
-                (name, index)
-            })
+            .map(|(index, field)| (field.name(), index))
             .collect::<HashMap<_, _>>();
 
+        let field_names = fields.iter().map(|field| field.name()).collect();
+
         Self {
+            name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
             fields: fields.to_vec().into_boxed_slice(),
+            field_names,
             field_indices,
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this struct.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
+    }
+
+    /// A slice containing the names of all fields in order.
+    pub fn field_names(&self) -> &[&'static str] {
+        &self.field_names
     }
 
     /// Get the field with the given name.
@@ -127,6 +148,15 @@ impl StructInfo {
         self.fields.len()
     }
 
+    /// The name of the struct.
+    ///
+    /// This does _not_ include any generics or lifetimes.
+    ///
+    /// For example, `foo::bar::Baz<'a, T>` would simply be `Baz`.
+    pub fn name(&self) -> &'static str {
+        self.name
+    }
+
     /// The [type name] of the struct.
     ///
     /// [type name]: std::any::type_name
@@ -142,6 +172,12 @@ impl StructInfo {
     /// Check if the given type matches the struct type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this struct, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
@@ -369,6 +405,11 @@ impl Reflect for DynamicStruct {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -391,6 +432,11 @@ impl Reflect for DynamicStruct {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Struct(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Struct(self)
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
@@ -446,9 +492,7 @@ impl Typed for DynamicStruct {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn Reflect) -> Option<bool> {
-    let struct_value = if let ReflectRef::Struct(struct_value) = b.reflect_ref() {
-        struct_value
-    } else {
+    let ReflectRef::Struct(struct_value) = b.reflect_ref()  else {
         return Some(false);
     };
 

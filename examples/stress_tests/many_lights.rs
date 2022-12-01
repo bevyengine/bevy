@@ -15,14 +15,16 @@ use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            width: 1024.0,
-            height: 768.0,
-            title: "many_lights".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                width: 1024.0,
+                height: 768.0,
+                title: "many_lights".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
@@ -44,11 +46,14 @@ fn setup(
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: RADIUS,
-            subdivisions: 9,
-        })),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: RADIUS,
+                subdivisions: 9,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
@@ -68,7 +73,7 @@ fn setup(
     for i in 0..N_LIGHTS {
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-        commands.spawn_bundle(PointLightBundle {
+        commands.spawn(PointLightBundle {
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
@@ -82,7 +87,7 @@ fn setup(
 
     // camera
     match std::env::args().nth(1).as_deref() {
-        Some("orthographic") => commands.spawn_bundle(Camera3dBundle {
+        Some("orthographic") => commands.spawn(Camera3dBundle {
             projection: OrthographicProjection {
                 scale: 20.0,
                 scaling_mode: ScalingMode::FixedHorizontal(1.0),
@@ -91,16 +96,16 @@ fn setup(
             .into(),
             ..default()
         }),
-        _ => commands.spawn_bundle(Camera3dBundle::default()),
+        _ => commands.spawn(Camera3dBundle::default()),
     };
 
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh,
         material,
         transform: Transform {
-            translation: Vec3::new(0.0, RADIUS as f32, 0.0),
+            translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },
@@ -187,6 +192,6 @@ struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }

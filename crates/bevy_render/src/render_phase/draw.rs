@@ -63,7 +63,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 }
 
 // TODO: make this generic?
-/// /// A [`Draw`] function identifier.
+/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DrawFunctionId(usize);
 
@@ -96,6 +96,22 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
     /// Retrieves the id of the [`Draw`] function corresponding to their associated type `T`.
     pub fn get_id<T: 'static>(&self) -> Option<DrawFunctionId> {
         self.indices.get(&TypeId::of::<T>()).copied()
+    }
+
+    /// Retrieves the id of the [`Draw`] function corresponding to their associated type `T`.
+    ///
+    /// Fallible wrapper for [`Self::get_id()`]
+    ///
+    /// ## Panics
+    /// If the id doesn't exist it will panic
+    pub fn id<T: 'static>(&self) -> DrawFunctionId {
+        self.get_id::<T>().unwrap_or_else(|| {
+            panic!(
+                "Draw function {} not found for {}",
+                std::any::type_name::<T>(),
+                std::any::type_name::<P>()
+            )
+        })
     }
 }
 
@@ -151,7 +167,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
 pub trait RenderCommand<P: PhaseItem> {
     /// Specifies all ECS data required by [`RenderCommand::render`].
     /// All parameters have to be read only.
-    type Param: SystemParam;
+    type Param: SystemParam + 'static;
 
     /// Renders the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn render<'w>(
@@ -168,7 +184,7 @@ pub enum RenderCommandResult {
 }
 
 pub trait EntityRenderCommand {
-    type Param: SystemParam;
+    type Param: SystemParam + 'static;
     fn render<'w>(
         view: Entity,
         item: Entity,
@@ -231,7 +247,10 @@ pub enum BatchResult {
     IncompatibleItems,
 }
 
-impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E {
+impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E
+where
+    E::Param: 'static,
+{
     type Param = E::Param;
 
     #[inline]
@@ -292,7 +311,7 @@ all_tuples!(render_command_tuple_impl, 0, 15, C);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
 /// Therefore the [`RenderCommand::Param`] is queried from the ECS and passed to the command.
-pub struct RenderCommandState<P: PhaseItem, C: RenderCommand<P>> {
+pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
     state: SystemState<C::Param>,
 }
 

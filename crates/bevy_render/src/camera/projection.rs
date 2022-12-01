@@ -19,6 +19,9 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
     }
 }
 
+/// Label for [`camera_system<T>`], shared accross all `T`.
+///
+/// [`camera_system<T>`]: crate::camera::camera_system
 #[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
@@ -27,13 +30,22 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
         app.register_type::<T>()
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                crate::camera::camera_system::<T>,
+                crate::camera::camera_system::<T>
+                    .label(CameraUpdateSystem)
+                    // We assume that each camera will only have one projection,
+                    // so we can ignore ambiguities with all other monomorphizations.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(CameraUpdateSystem),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
-                    .after(ModifiesWindows),
+                    .after(ModifiesWindows)
+                    // We assume that each camera will only have one projection,
+                    // so we can ignore ambiguities with all other monomorphizations.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(CameraUpdateSystem),
             );
     }
 }
@@ -100,12 +112,35 @@ impl Default for Projection {
     }
 }
 
+/// A 3D camera projection in which distant objects appear smaller than close objects.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct PerspectiveProjection {
+    /// The vertical field of view (FOV) in radians.
+    ///
+    /// Defaults to a value of π/4 radians or 45 degrees.
     pub fov: f32,
+
+    /// The aspect ratio (width divided by height) of the viewing frustum.
+    ///
+    /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
+    /// updates this value when the aspect ratio of the associated window changes.
+    ///
+    /// Defaults to a value of `1.0`.
     pub aspect_ratio: f32,
+
+    /// The distance from the camera in world units of the viewing frustum's near plane.
+    ///
+    /// Objects closer to the camera than this value will not be visible.
+    ///
+    /// Defaults to a value of `0.1`.
     pub near: f32,
+
+    /// The distance from the camera in world units of the viewing frustum's far plane.
+    ///
+    /// Objects farther from the camera than this value will not be visible.
+    ///
+    /// Defaults to a value of `1000.0`.
     pub far: f32,
 }
 
@@ -150,9 +185,12 @@ pub enum ScalingMode {
     None,
     /// Match the window size. 1 world unit = 1 pixel.
     WindowSize,
-    /// Use minimal possible viewport size while keeping the aspect ratio.
+    /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
     /// Arguments are in world units.
-    Auto { min_width: f32, min_height: f32 },
+    AutoMin { min_width: f32, min_height: f32 },
+    /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
+    /// Arguments are in world units.
+    AutoMax { max_width: f32, max_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
     /// The argument is the desired height of the viewport in world units.
     FixedVertical(f32),
@@ -192,14 +230,28 @@ impl CameraProjection for OrthographicProjection {
     fn update(&mut self, width: f32, height: f32) {
         let (viewport_width, viewport_height) = match self.scaling_mode {
             ScalingMode::WindowSize => (width, height),
-            ScalingMode::Auto {
+            ScalingMode::AutoMin {
                 min_width,
                 min_height,
             } => {
+                // Compare Pixels of current width and minimal height and Pixels of minimal width with current height.
+                // Then use bigger (min_height when true) as what it refers to (height when true) and calculate rest so it can't get under minimum.
                 if width * min_height > min_width * height {
                     (width * min_height / height, min_height)
                 } else {
                     (min_width, height * min_width / width)
+                }
+            }
+            ScalingMode::AutoMax {
+                max_width,
+                max_height,
+            } => {
+                // Compare Pixels of current width and maximal height and Pixels of maximal width with current height.
+                // Then use smaller (max_height when true) as what it refers to (height when true) and calculate rest so it can't get over maximum.
+                if width * max_height < max_width * height {
+                    (width * max_height / height, max_height)
+                } else {
+                    (max_width, height * max_width / width)
                 }
             }
             ScalingMode::FixedVertical(viewport_height) => {

@@ -13,7 +13,6 @@ use bevy::{
         renderer::{RenderContext, RenderDevice},
         RenderApp, RenderStage,
     },
-    window::WindowDescriptor,
 };
 use std::borrow::Cow;
 
@@ -23,12 +22,14 @@ const WORKGROUP_SIZE: u32 = 8;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(WindowDescriptor {
-            // uncomment for unthrottled FPS
-            // present_mode: bevy::window::PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                // uncomment for unthrottled FPS
+                // present_mode: bevy::window::PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(GameOfLifeComputePlugin)
         .add_startup_system(setup)
         .run();
@@ -49,7 +50,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
     let image = images.add(image);
 
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         sprite: Sprite {
             custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
             ..default()
@@ -57,7 +58,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         texture: image.clone(),
         ..default()
     });
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     commands.insert_resource(GameOfLifeImage(image));
 }
@@ -76,12 +77,10 @@ impl Plugin for GameOfLifeComputePlugin {
 
         let mut render_graph = render_app.world.resource_mut::<RenderGraph>();
         render_graph.add_node("game_of_life", GameOfLifeNode::default());
-        render_graph
-            .add_node_edge(
-                "game_of_life",
-                bevy::render::main_graph::node::CAMERA_DRIVER,
-            )
-            .unwrap();
+        render_graph.add_node_edge(
+            "game_of_life",
+            bevy::render::main_graph::node::CAMERA_DRIVER,
+        );
     }
 }
 

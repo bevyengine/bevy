@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, Components},
+    component::{Component, ComponentId, ComponentTicks, Components, Tick},
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
@@ -15,6 +15,7 @@ pub use bevy_ecs_macros::Resource;
 pub use bevy_ecs_macros::SystemParam;
 use bevy_ecs_macros::{all_tuples, impl_param_set};
 use bevy_ptr::UnsafeCellDeref;
+use bevy_utils::synccell::SyncCell;
 use std::{
     borrow::Cow,
     fmt::Debug,
@@ -134,16 +135,21 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
     ) -> Self::Item;
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParam for Query<'w, 's, Q, F> {
+impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
+    for Query<'w, 's, Q, F>
+{
     type Fetch = QueryState<Q, F>;
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<Q: ReadOnlyWorldQuery, F: WorldQuery> ReadOnlySystemParamFetch for QueryState<Q, F> {}
+unsafe impl<Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> ReadOnlySystemParamFetch
+    for QueryState<Q, F>
+{
+}
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this QueryState conflicts with any prior access, a panic will occur.
-unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState
+unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParamState
     for QueryState<Q, F>
 {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
@@ -173,7 +179,7 @@ unsafe impl<Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamState
     }
 }
 
-impl<'w, 's, Q: WorldQuery + 'static, F: WorldQuery + 'static> SystemParamFetch<'w, 's>
+impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParamFetch<'w, 's>
     for QueryState<Q, F>
 {
     type Item = Query<'w, 's, Q, F>;
@@ -197,12 +203,12 @@ fn assert_component_access_compatibility(
     current: &FilteredAccess<ComponentId>,
     world: &World,
 ) {
-    let mut conflicts = system_access.get_conflicts_single(current);
+    let conflicts = system_access.get_conflicts_single(current);
     if conflicts.is_empty() {
         return;
     }
     let conflicting_components = conflicts
-        .drain(..)
+        .into_iter()
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
@@ -267,7 +273,8 @@ pub trait Resource: Send + Sync + 'static {}
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
 pub struct Res<'w, T: Resource> {
     value: &'w T,
-    ticks: &'w ComponentTicks,
+    added: &'w Tick,
+    changed: &'w Tick,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -285,15 +292,28 @@ where
 }
 
 impl<'w, T: Resource> Res<'w, T> {
+    // no it shouldn't clippy
+    #[allow(clippy::should_implement_trait)]
+    pub fn clone(this: &Self) -> Self {
+        Self {
+            value: this.value,
+            added: this.added,
+            changed: this.changed,
+            last_change_tick: this.last_change_tick,
+            change_tick: this.change_tick,
+        }
+    }
+
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_change_tick, self.change_tick)
+        self.added
+            .is_older_than(self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
-        self.ticks
-            .is_changed(self.last_change_tick, self.change_tick)
+        self.changed
+            .is_older_than(self.last_change_tick, self.change_tick)
     }
 
     pub fn into_inner(self) -> &'w T {
@@ -320,10 +340,23 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
     fn from(res: ResMut<'w, T>) -> Self {
         Self {
             value: res.value,
-            ticks: res.ticks.component_ticks,
+            added: res.ticks.added,
+            changed: res.ticks.changed,
             change_tick: res.ticks.change_tick,
             last_change_tick: res.ticks.last_change_tick,
         }
+    }
+}
+
+impl<'w, 'a, T: Resource> IntoIterator for &'a Res<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
     }
 }
 
@@ -343,18 +376,19 @@ impl<'a, T: Resource> SystemParam for Res<'a, T> {
 unsafe impl<T: Resource> SystemParamState for ResState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let component_id = world.initialize_resource::<T>();
-        let combined_access = system_meta.component_access_set.combined_access_mut();
+        let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
             "error[B0002]: Res<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
             std::any::type_name::<T>(),
             system_meta.name,
         );
-        combined_access.add_read(component_id);
+        system_meta
+            .component_access_set
+            .add_unfiltered_read(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
-            .get_archetype_component_id(component_id)
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -376,8 +410,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item {
-        let column = world
-            .get_populated_resource_column(state.component_id)
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -386,8 +420,9 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
                 )
             });
         Res {
-            value: column.get_data_ptr().deref::<T>(),
-            ticks: column.get_ticks_unchecked(0).deref(),
+            value: ptr.deref(),
+            added: ticks.added.deref(),
+            changed: ticks.changed.deref(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -425,10 +460,11 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world
-            .get_populated_resource_column(state.0.component_id)
-            .map(|column| Res {
-                value: column.get_data_ptr().deref::<T>(),
-                ticks: column.get_ticks_unchecked(0).deref(),
+            .get_resource_with_ticks(state.0.component_id)
+            .map(|(ptr, ticks)| Res {
+                value: ptr.deref(),
+                added: ticks.added.deref(),
+                changed: ticks.changed.deref(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -451,7 +487,7 @@ impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
 unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         let component_id = world.initialize_resource::<T>();
-        let combined_access = system_meta.component_access_set.combined_access_mut();
+        let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous ResMut<{0}> access. Consider removing the duplicate access.",
@@ -461,11 +497,12 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
                 "error[B0002]: ResMut<{}> in system {} conflicts with a previous Res<{0}> access. Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name);
         }
-        combined_access.add_write(component_id);
+        system_meta
+            .component_access_set
+            .add_unfiltered_write(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
-            .get_archetype_component_id(component_id)
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -499,7 +536,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
         ResMut {
             value: value.value,
             ticks: Ticks {
-                component_ticks: value.ticks.component_ticks,
+                added: value.ticks.added,
+                changed: value.ticks.changed,
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -539,7 +577,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
             .map(|value| ResMut {
                 value: value.value,
                 ticks: Ticks {
-                    component_ticks: value.ticks.component_ticks,
+                    added: value.ticks.added,
+                    changed: value.ticks.changed,
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },
@@ -674,10 +713,10 @@ impl<'w, 's> SystemParamFetch<'w, 's> for WorldState {
 /// // .add_system(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-pub struct Local<'a, T: FromWorld + Send + Sync + 'static>(&'a mut T);
+pub struct Local<'a, T: FromWorld + Send + 'static>(pub(crate) &'a mut T);
 
 // SAFETY: Local only accesses internal state
-unsafe impl<T: Send + Sync + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
+unsafe impl<T: Send + 'static> ReadOnlySystemParamFetch for LocalState<T> {}
 
 impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
 where
@@ -704,22 +743,46 @@ impl<'a, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'a, T> {
     }
 }
 
+impl<'w, 'a, T: FromWorld + Send + 'static> IntoIterator for &'a Local<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<'w, 'a, T: FromWorld + Send + 'static> IntoIterator for &'a mut Local<'w, T>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 /// The [`SystemParamState`] of [`Local<T>`].
 #[doc(hidden)]
-pub struct LocalState<T: Send + Sync + 'static>(T);
+pub struct LocalState<T: Send + 'static>(pub(crate) SyncCell<T>);
 
-impl<'a, T: Send + Sync + 'static + FromWorld> SystemParam for Local<'a, T> {
+impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     type Fetch = LocalState<T>;
 }
 
 // SAFETY: only local state is accessed
-unsafe impl<T: FromWorld + Send + Sync + 'static> SystemParamState for LocalState<T> {
+unsafe impl<T: FromWorld + Send + 'static> SystemParamState for LocalState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
-        Self(T::from_world(world))
+        Self(SyncCell::new(T::from_world(world)))
     }
 }
 
-impl<'w, 's, T: Send + Sync + 'static + FromWorld> SystemParamFetch<'w, 's> for LocalState<T> {
+impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalState<T> {
     type Item = Local<'s, T>;
 
     #[inline]
@@ -729,7 +792,7 @@ impl<'w, 's, T: Send + Sync + 'static + FromWorld> SystemParamFetch<'w, 's> for 
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item {
-        Local(&mut state.0)
+        Local(state.0.get())
     }
 }
 
@@ -887,7 +950,10 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     fn from(nsm: NonSendMut<'a, T>) -> Self {
         Self {
             value: nsm.value,
-            ticks: nsm.ticks.component_ticks.to_owned(),
+            ticks: ComponentTicks {
+                added: nsm.ticks.added.to_owned(),
+                changed: nsm.ticks.changed.to_owned(),
+            },
             change_tick: nsm.ticks.change_tick,
             last_change_tick: nsm.ticks.last_change_tick,
         }
@@ -912,18 +978,19 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         system_meta.set_non_send();
 
         let component_id = world.initialize_non_send_resource::<T>();
-        let combined_access = system_meta.component_access_set.combined_access_mut();
+        let combined_access = system_meta.component_access_set.combined_access();
         assert!(
             !combined_access.has_write(component_id),
             "error[B0002]: NonSend<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
             std::any::type_name::<T>(),
             system_meta.name,
         );
-        combined_access.add_read(component_id);
+        system_meta
+            .component_access_set
+            .add_unfiltered_read(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
-            .get_archetype_component_id(component_id)
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -946,8 +1013,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
-        let column = world
-            .get_populated_resource_column(state.component_id)
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -957,8 +1024,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
             });
 
         NonSend {
-            value: column.get_data_ptr().deref::<T>(),
-            ticks: column.get_ticks_unchecked(0).read(),
+            value: ptr.deref(),
+            ticks: ticks.read(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -997,10 +1064,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         world
-            .get_populated_resource_column(state.0.component_id)
-            .map(|column| NonSend {
-                value: column.get_data_ptr().deref::<T>(),
-                ticks: column.get_ticks_unchecked(0).read(),
+            .get_resource_with_ticks(state.0.component_id)
+            .map(|(ptr, ticks)| NonSend {
+                value: ptr.deref(),
+                ticks: ticks.read(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -1025,7 +1092,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         system_meta.set_non_send();
 
         let component_id = world.initialize_non_send_resource::<T>();
-        let combined_access = system_meta.component_access_set.combined_access_mut();
+        let combined_access = system_meta.component_access_set.combined_access();
         if combined_access.has_write(component_id) {
             panic!(
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous mutable resource access ({0}). Consider removing the duplicate access.",
@@ -1035,11 +1102,12 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
                 "error[B0002]: NonSendMut<{}> in system {} conflicts with a previous immutable resource access ({0}). Consider removing the duplicate access.",
                 std::any::type_name::<T>(), system_meta.name);
         }
-        combined_access.add_write(component_id);
+        system_meta
+            .component_access_set
+            .add_unfiltered_write(component_id);
 
-        let resource_archetype = world.archetypes.resource();
-        let archetype_component_id = resource_archetype
-            .get_archetype_component_id(component_id)
+        let archetype_component_id = world
+            .get_resource_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -1062,8 +1130,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
-        let column = world
-            .get_populated_resource_column(state.component_id)
+        let (ptr, ticks) = world
+            .get_resource_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1072,12 +1140,8 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
                 )
             });
         NonSendMut {
-            value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
-            ticks: Ticks {
-                component_ticks: column.get_ticks_unchecked(0).deref_mut(),
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
-            },
+            value: ptr.assert_unique().deref_mut(),
+            ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
         }
     }
 }
@@ -1111,14 +1175,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
     ) -> Self::Item {
         world.validate_non_send_access::<T>();
         world
-            .get_populated_resource_column(state.0.component_id)
-            .map(|column| NonSendMut {
-                value: column.get_data_ptr().assert_unique().deref_mut::<T>(),
-                ticks: Ticks {
-                    component_ticks: column.get_ticks_unchecked(0).deref_mut(),
-                    last_change_tick: system_meta.last_change_tick,
-                    change_tick,
-                },
+            .get_resource_with_ticks(state.0.component_id)
+            .map(|(ptr, ticks)| NonSendMut {
+                value: ptr.assert_unique().deref_mut(),
+                ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
             })
     }
 }
@@ -1594,7 +1654,7 @@ mod tests {
     use super::SystemParam;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
-        query::WorldQuery,
+        query::{ReadOnlyWorldQuery, WorldQuery},
         system::Query,
     };
 
@@ -1604,7 +1664,7 @@ mod tests {
         'w,
         's,
         Q: WorldQuery + Send + Sync + 'static,
-        F: WorldQuery + Send + Sync + 'static = (),
+        F: ReadOnlyWorldQuery + Send + Sync + 'static = (),
     > {
         _query: Query<'w, 's, Q, F>,
     }

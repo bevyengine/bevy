@@ -1,6 +1,6 @@
 //! This example illustrates the [`UIScale`] resource from `bevy_ui`.
 
-use bevy::{prelude::*, utils::Duration};
+use bevy::{prelude::*, text::TextSettings, utils::Duration};
 
 const SCALE_TIME: u64 = 400;
 
@@ -10,10 +10,14 @@ struct ApplyScaling;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(TextSettings {
+            allow_dynamic_font_size: true,
+            ..default()
+        })
         .insert_resource(TargetScale {
             start_scale: 1.0,
             target_scale: 1.0,
-            target_time: Timer::new(Duration::from_millis(SCALE_TIME), false),
+            target_time: Timer::new(Duration::from_millis(SCALE_TIME), TimerMode::Once),
         })
         .add_startup_system(setup)
         .add_system(apply_scaling.label(ApplyScaling))
@@ -22,7 +26,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     let text_style = TextStyle {
         font: asset_server.load("fonts/FiraMono-Medium.ttf"),
@@ -31,7 +35,7 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
     };
 
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(50.0), Val::Percent(50.0)),
                 position_type: PositionType::Absolute,
@@ -44,31 +48,31 @@ fn setup(mut commands: Commands, asset_server: ResMut<AssetServer>) {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            color: Color::ANTIQUE_WHITE.into(),
+            background_color: Color::ANTIQUE_WHITE.into(),
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn_bundle(NodeBundle {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Px(40.), Val::Px(40.)),
                         ..default()
                     },
-                    color: Color::RED.into(),
+                    background_color: Color::RED.into(),
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn_bundle(TextBundle::from_section("Size!", text_style));
+                    parent.spawn(TextBundle::from_section("Size!", text_style));
                 });
-            parent.spawn_bundle(NodeBundle {
+            parent.spawn(NodeBundle {
                 style: Style {
                     size: Size::new(Val::Percent(15.), Val::Percent(15.)),
                     ..default()
                 },
-                color: Color::BLUE.into(),
+                background_color: Color::BLUE.into(),
                 ..default()
             });
-            parent.spawn_bundle(ImageBundle {
+            parent.spawn(ImageBundle {
                 style: Style {
                     size: Size::new(Val::Px(30.0), Val::Px(30.0)),
                     ..default()

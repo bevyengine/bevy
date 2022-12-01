@@ -10,8 +10,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(ImageSettings::default_nearest())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_startup_system(setup)
         .add_system(rotate)
         .run();
@@ -39,15 +38,15 @@ fn setup(
         meshes.add(shape::Box::default().into()),
         meshes.add(shape::Capsule::default().into()),
         meshes.add(shape::Torus::default().into()),
-        meshes.add(shape::Icosphere::default().into()),
+        meshes.add(shape::Icosphere::default().try_into().unwrap()),
         meshes.add(shape::UVSphere::default().into()),
     ];
 
     let num_shapes = shapes.len();
 
     for (i, shape) in shapes.into_iter().enumerate() {
-        commands
-            .spawn_bundle(PbrBundle {
+        commands.spawn((
+            PbrBundle {
                 mesh: shape,
                 material: debug_material.clone(),
                 transform: Transform::from_xyz(
@@ -57,11 +56,12 @@ fn setup(
                 )
                 .with_rotation(Quat::from_rotation_x(-PI / 4.)),
                 ..default()
-            })
-            .insert(Shape);
+            },
+            Shape,
+        ));
     }
 
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 9000.0,
             range: 100.,
@@ -73,13 +73,13 @@ fn setup(
     });
 
     // ground plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(shape::Plane { size: 50. }.into()),
         material: materials.add(Color::SILVER.into()),
         ..default()
     });
 
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 6., 12.0).looking_at(Vec3::new(0., 1., 0.), Vec3::Y),
         ..default()
     });

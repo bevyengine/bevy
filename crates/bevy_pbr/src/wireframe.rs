@@ -36,7 +36,8 @@ impl Plugin for WireframePlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<WireframeConfig>()
+        app.register_type::<Wireframe>()
+            .register_type::<WireframeConfig>()
             .init_resource::<WireframeConfig>()
             .add_plugin(ExtractResourcePlugin::<WireframeConfig>::default());
 
@@ -52,7 +53,7 @@ impl Plugin for WireframePlugin {
 }
 
 fn extract_wireframes(mut commands: Commands, query: Extract<Query<Entity, With<Wireframe>>>) {
-    for entity in query.iter() {
+    for entity in &query {
         commands.get_or_spawn(entity).insert(Wireframe);
     }
 }
@@ -115,18 +116,16 @@ fn queue_wireframes(
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
-    let draw_custom = opaque_3d_draw_functions
-        .read()
-        .get_id::<DrawWireframes>()
-        .unwrap();
+    let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
 
+        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key = msaa_key
+                    let key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     let pipeline_id = pipelines.specialize(
                         &mut pipeline_cache,

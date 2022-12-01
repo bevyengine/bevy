@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef,
-    TypeInfo, Typed,
+    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -34,6 +34,8 @@ pub struct ListInfo {
     type_id: TypeId,
     item_type_name: &'static str,
     item_type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl ListInfo {
@@ -44,7 +46,15 @@ impl ListInfo {
             type_id: TypeId::of::<TList>(),
             item_type_name: std::any::type_name::<TItem>(),
             item_type_id: TypeId::of::<TItem>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this list.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// The [type name] of the list.
@@ -79,6 +89,12 @@ impl ListInfo {
     /// Check if the given type matches the list item type.
     pub fn item_is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.item_type_id
+    }
+
+    /// The docstring of this list, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
@@ -201,6 +217,11 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -228,6 +249,11 @@ impl Reflect for DynamicList {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::List(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
     }
 
     #[inline]
@@ -308,9 +334,7 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
-    let list = if let ReflectRef::List(list) = b.reflect_ref() {
-        list
-    } else {
+    let ReflectRef::List(list) = b.reflect_ref() else {
         return Some(false);
     };
 

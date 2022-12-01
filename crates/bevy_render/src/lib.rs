@@ -5,6 +5,7 @@ pub mod color;
 pub mod extract_component;
 mod extract_param;
 pub mod extract_resource;
+pub mod globals;
 pub mod mesh;
 pub mod primitives;
 pub mod rangefinder;
@@ -18,6 +19,7 @@ mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
+use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 
 pub mod prelude {
@@ -28,22 +30,19 @@ pub mod prelude {
         mesh::{shape, Mesh},
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
-        texture::{Image, ImageSettings},
+        texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
 
+use globals::GlobalsPlugin;
 pub use once_cell;
 
 use crate::{
     camera::CameraPlugin,
-    color::Color,
     mesh::MeshPlugin,
-    primitives::{CubemapFrusta, Frustum},
-    render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
-    texture::ImagePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -134,25 +133,26 @@ impl Plugin for RenderPlugin {
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>()
-            .register_type::<Color>();
+            .init_debug_asset_loader::<ShaderLoader>();
 
         if let Some(backends) = options.backends {
+            let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
-            let surface = {
-                let windows = app.world.resource_mut::<bevy_window::Windows>();
-                let raw_handle = windows.get_primary().map(|window| unsafe {
-                    let handle = window.raw_window_handle().get_handle();
+
+            let surface = windows
+                .get_primary()
+                .and_then(|window| window.raw_handle())
+                .map(|wrapper| unsafe {
+                    let handle = wrapper.get_handle();
                     instance.create_surface(&handle)
                 });
-                raw_handle
-            };
+
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: options.power_preference,
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue, adapter_info) = futures_lite::future::block_on(
+            let (device, queue, adapter_info, render_adapter) = futures_lite::future::block_on(
                 renderer::initialize_renderer(&instance, &options, &request_adapter_options),
             );
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
@@ -160,9 +160,8 @@ impl Plugin for RenderPlugin {
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .init_resource::<ScratchMainWorld>()
-                .register_type::<Frustum>()
-                .register_type::<CubemapFrusta>();
+                .insert_resource(render_adapter.clone())
+                .init_resource::<ScratchMainWorld>();
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -194,13 +193,14 @@ impl Plugin for RenderPlugin {
                     RenderStage::Render,
                     SystemStage::parallel()
                         .with_system(PipelineCache::process_pipeline_queue_system)
-                        .with_system(render_system.exclusive_system().at_end()),
+                        .with_system(render_system.at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
-                .init_resource::<RenderGraph>()
+                .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
+                .insert_resource(render_adapter)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server);
@@ -220,16 +220,21 @@ impl Plugin for RenderPlugin {
 
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let meta_len = app_world.entities().meta_len();
-                    render_app
-                        .world
-                        .entities()
-                        .reserve_entities(meta_len as u32);
+                    let total_count = app_world.entities().total_count();
 
-                    // flushing as "invalid" ensures that app world entities aren't added as "empty archetype" entities by default
-                    // these entities cannot be accessed without spawning directly onto them
-                    // this _only_ works as expected because clear_entities() is called at the end of every frame.
-                    unsafe { render_app.world.entities_mut() }.flush_as_invalid();
+                    assert_eq!(
+                        render_app.world.entities().len(),
+                        0,
+                        "An entity was spawned after the entity list was cleared last frame and before the extract stage began. This is not supported",
+                    );
+
+                    // This is safe given the clear_entities call in the past frame and the assert above
+                    unsafe {
+                        render_app
+                            .world
+                            .entities_mut()
+                            .flush_and_reserve_invalid_assuming_no_entities(total_count);
+                    }
                 }
 
                 {
@@ -315,13 +320,17 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(WindowRenderPlugin)
+        app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
+            .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            // NOTE: Load this after renderer initialization so that it knows about the supported
-            // compressed texture formats
-            .add_plugin(ImagePlugin);
+            .add_plugin(GlobalsPlugin);
+
+        app.register_type::<color::Color>()
+            .register_type::<primitives::Aabb>()
+            .register_type::<primitives::CubemapFrusta>()
+            .register_type::<primitives::Frustum>();
     }
 }
 

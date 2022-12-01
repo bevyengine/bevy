@@ -17,12 +17,14 @@ use bevy_utils::{
     tracing::{debug, error},
     Entry, HashMap, HashSet,
 };
-use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref, sync::Arc};
+use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
-use wgpu::{
-    BufferBindingType, PipelineLayoutDescriptor, ShaderModule,
-    VertexBufferLayout as RawVertexBufferLayout,
-};
+use wgpu::{PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout};
+
+use crate::render_resource::resource_macros::*;
+
+render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
+render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -103,7 +105,7 @@ impl CachedPipelineState {
 #[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Vec<String>, Arc<ShaderModule>>,
+    processed_shaders: HashMap<Vec<ShaderDefVal>, ErasedShaderModule>,
     resolved_imports: HashMap<ShaderImport, Handle<Shader>>,
     dependents: HashSet<Handle<Shader>>,
 }
@@ -117,14 +119,32 @@ struct ShaderCache {
     processor: ShaderProcessor,
 }
 
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+pub enum ShaderDefVal {
+    Bool(String, bool),
+    Int(String, i32),
+}
+
+impl From<&str> for ShaderDefVal {
+    fn from(key: &str) -> Self {
+        ShaderDefVal::Bool(key.to_string(), true)
+    }
+}
+
+impl From<String> for ShaderDefVal {
+    fn from(key: String) -> Self {
+        ShaderDefVal::Bool(key, true)
+    }
+}
+
 impl ShaderCache {
     fn get(
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
-        shader_defs: &[String],
-    ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
+        shader_defs: &[ShaderDefVal],
+    ) -> Result<ErasedShaderModule, PipelineCacheError> {
         let shader = self
             .shaders
             .get(handle)
@@ -151,20 +171,15 @@ impl ShaderCache {
             Entry::Vacant(entry) => {
                 let mut shader_defs = shader_defs.to_vec();
                 #[cfg(feature = "webgl")]
-                shader_defs.push(String::from("NO_ARRAY_TEXTURES_SUPPORT"));
-
-                // TODO: 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
-                // consider exposing this in shaders in a more generally useful way, such as:
-                // # if AVAILABLE_STORAGE_BUFFER_BINDINGS == 3
-                // /* use storage buffers here */
-                // # elif
-                // /* use uniforms here */
-                if !matches!(
-                    render_device.get_supported_read_only_binding_type(3),
-                    BufferBindingType::Storage { .. }
-                ) {
-                    shader_defs.push(String::from("NO_STORAGE_BUFFERS_SUPPORT"));
+                {
+                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
+
+                shader_defs.push(ShaderDefVal::Int(
+                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+                    render_device.limits().max_storage_buffers_per_shader_stage as i32,
+                ));
 
                 debug!(
                     "processing shader {:?}, with shader defs {:?}",
@@ -201,7 +216,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(Arc::new(shader_module))
+                entry.insert(ErasedShaderModule::new(shader_module))
             }
         };
 
@@ -273,7 +288,7 @@ impl ShaderCache {
 
 #[derive(Default)]
 struct LayoutCache {
-    layouts: HashMap<Vec<BindGroupLayoutId>, wgpu::PipelineLayout>,
+    layouts: HashMap<Vec<BindGroupLayoutId>, ErasedPipelineLayout>,
 }
 
 impl LayoutCache {
@@ -288,10 +303,12 @@ impl LayoutCache {
                 .iter()
                 .map(|l| l.value())
                 .collect::<Vec<_>>();
-            render_device.create_pipeline_layout(&PipelineLayoutDescriptor {
-                bind_group_layouts: &bind_group_layouts,
-                ..default()
-            })
+            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+                &PipelineLayoutDescriptor {
+                    bind_group_layouts: &bind_group_layouts,
+                    ..default()
+                },
+            ))
         })
     }
 }
@@ -609,28 +626,8 @@ impl PipelineCache {
 
         for id in waiting_pipelines {
             let pipeline = &mut pipelines[id];
-            match &pipeline.state {
-                CachedPipelineState::Ok(_) => continue,
-                CachedPipelineState::Queued => {}
-                CachedPipelineState::Err(err) => {
-                    match err {
-                        PipelineCacheError::ShaderNotLoaded(_)
-                        | PipelineCacheError::ShaderImportNotYetAvailable => { /* retry */ }
-                        // shader could not be processed ... retrying won't help
-                        PipelineCacheError::ProcessShaderError(err) => {
-                            error!("failed to process shader: {}", err);
-                            continue;
-                        }
-                        PipelineCacheError::AsModuleDescriptorError(err, source) => {
-                            log_shader_error(source, err);
-                            continue;
-                        }
-                        PipelineCacheError::CreateShaderModule(description) => {
-                            error!("failed to create shader module: {}", description);
-                            continue;
-                        }
-                    }
-                }
+            if matches!(pipeline.state, CachedPipelineState::Ok(_)) {
+                continue;
             }
 
             pipeline.state = match &pipeline.descriptor {
@@ -642,8 +639,27 @@ impl PipelineCache {
                 }
             };
 
-            if let CachedPipelineState::Err(_) = pipeline.state {
-                self.waiting_pipelines.insert(id);
+            if let CachedPipelineState::Err(err) = &pipeline.state {
+                match err {
+                    PipelineCacheError::ShaderNotLoaded(_)
+                    | PipelineCacheError::ShaderImportNotYetAvailable => {
+                        // retry
+                        self.waiting_pipelines.insert(id);
+                    }
+                    // shader could not be processed ... retrying won't help
+                    PipelineCacheError::ProcessShaderError(err) => {
+                        error!("failed to process shader: {}", err);
+                        continue;
+                    }
+                    PipelineCacheError::AsModuleDescriptorError(err, source) => {
+                        log_shader_error(source, err);
+                        continue;
+                    }
+                    PipelineCacheError::CreateShaderModule(description) => {
+                        error!("failed to create shader module: {}", description);
+                        continue;
+                    }
+                }
             }
         }
 

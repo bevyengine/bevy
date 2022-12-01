@@ -10,8 +10,8 @@ use bevy_utils::HashMap;
 use glyph_brush_layout::{FontId, SectionText};
 
 use crate::{
-    error::TextError, glyph_brush::GlyphBrush, scale_value, Font, FontAtlasSet, PositionedGlyph,
-    TextAlignment, TextSection,
+    error::TextError, glyph_brush::GlyphBrush, scale_value, Font, FontAtlasSet, FontAtlasWarning,
+    PositionedGlyph, TextAlignment, TextSection, TextSettings, YAxisOrientation,
 };
 
 #[derive(Default, Resource)]
@@ -34,7 +34,7 @@ impl TextPipeline {
         let brush = &mut self.brush;
         *self
             .map_font_id
-            .entry(handle.id)
+            .entry(handle.id())
             .or_insert_with(|| brush.add_font(handle.clone(), font.font.clone()))
     }
 
@@ -49,6 +49,9 @@ impl TextPipeline {
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         texture_atlases: &mut Assets<TextureAtlas>,
         textures: &mut Assets<Image>,
+        text_settings: &TextSettings,
+        font_atlas_warning: &mut FontAtlasWarning,
+        y_axis_orientation: YAxisOrientation,
     ) -> Result<TextLayoutInfo, TextError> {
         let mut scaled_fonts = Vec::new();
         let sections = sections
@@ -103,6 +106,9 @@ impl TextPipeline {
             fonts,
             texture_atlases,
             textures,
+            text_settings,
+            font_atlas_warning,
+            y_axis_orientation,
         )?;
 
         Ok(TextLayoutInfo { glyphs, size })

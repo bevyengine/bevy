@@ -1,10 +1,10 @@
 #![warn(missing_docs)]
+#![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
 /// The basic components of the transform crate
 pub mod components;
 mod systems;
-pub use crate::systems::transform_propagate_system;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -14,6 +14,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
+use bevy_hierarchy::ValidParentCheckPlugin;
 use prelude::{GlobalTransform, Transform};
 
 /// A [`Bundle`] of the [`Transform`] and [`GlobalTransform`]
@@ -31,8 +32,8 @@ use prelude::{GlobalTransform, Transform};
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the system
-/// [`transform_propagate_system`].
+/// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
+/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
@@ -86,14 +87,23 @@ impl Plugin for TransformPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Transform>()
             .register_type::<GlobalTransform>()
+            .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
             // add transform systems to startup so the first update is "correct"
             .add_startup_system_to_stage(
                 StartupStage::PostStartup,
-                systems::transform_propagate_system.label(TransformSystem::TransformPropagate),
+                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+            )
+            .add_startup_system_to_stage(
+                StartupStage::PostStartup,
+                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                systems::transform_propagate_system.label(TransformSystem::TransformPropagate),
+                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
             );
     }
 }

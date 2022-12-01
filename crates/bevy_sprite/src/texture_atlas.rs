@@ -2,15 +2,16 @@ use crate::Anchor;
 use bevy_asset::Handle;
 use bevy_ecs::component::Component;
 use bevy_math::{Rect, Vec2};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::{color::Color, texture::Image};
 use bevy_utils::HashMap;
 
 /// An atlas containing multiple textures (like a spritesheet or a tilemap).
 /// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
+#[reflect(Debug)]
 pub struct TextureAtlas {
     /// The handle to the texture in which the sprites are stored
     pub texture: Handle<Image>,
@@ -68,28 +69,20 @@ impl TextureAtlas {
     }
 
     /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// `tile_size` by `tile_size` grid-cell is one of the textures in the atlas
+    /// `tile_size` by `tile_size` grid-cell is one of the textures in the
+    /// atlas. Grid cells are separated by some `padding`, and the grid starts
+    /// at `offset` pixels from the top left corner. Resulting `TextureAtlas` is
+    /// indexed left to right, top to bottom.
     pub fn from_grid(
         texture: Handle<Image>,
         tile_size: Vec2,
         columns: usize,
         rows: usize,
+        padding: Option<Vec2>,
+        offset: Option<Vec2>,
     ) -> TextureAtlas {
-        Self::from_grid_with_padding(texture, tile_size, columns, rows, Vec2::ZERO, Vec2::ZERO)
-    }
-
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// `tile_size` by `tile_size` grid-cell is one of the textures in the
-    /// atlas. Grid cells are separated by some `padding`, and the grid starts
-    /// at `offset` pixels from the top left corner.
-    pub fn from_grid_with_padding(
-        texture: Handle<Image>,
-        tile_size: Vec2,
-        columns: usize,
-        rows: usize,
-        padding: Vec2,
-        offset: Vec2,
-    ) -> TextureAtlas {
+        let padding = padding.unwrap_or_default();
+        let offset = offset.unwrap_or_default();
         let mut sprites = Vec::new();
         let mut current_padding = Vec2::ZERO;
 
