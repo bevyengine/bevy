@@ -90,6 +90,7 @@ impl Text2dBounds {
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
     pub text: Text2d,
+    pub anchor: Anchor,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub text_2d_bounds: Text2dBounds,
