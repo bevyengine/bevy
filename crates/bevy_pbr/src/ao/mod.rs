@@ -20,7 +20,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, TemporalJitter},
     globals::{GlobalsBuffer, GlobalsUniform},
     prelude::Camera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
@@ -30,8 +30,9 @@ use bevy_render::{
         BufferBindingType, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
         SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
-        StorageTextureAccess, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor, TextureViewDimension,
+        SpecializedComputePipeline, SpecializedComputePipelines, StorageTextureAccess,
+        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
+        TextureView, TextureViewDescriptor, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
@@ -91,8 +92,10 @@ impl Plugin for AmbientOcclusionPlugin {
 
         render_app
             .init_resource::<AmbientOcclusionPipelines>()
+            .init_resource::<SpecializedComputePipelines<AmbientOcclusionPipelines>>()
             .add_system_to_stage(RenderStage::Extract, extract_ambient_occlusion_settings)
             .add_system_to_stage(RenderStage::Prepare, prepare_ambient_occlusion_textures)
+            .add_system_to_stage(RenderStage::Prepare, prepare_ambient_occlusion_pipelines)
             .add_system_to_stage(RenderStage::Queue, queue_ambient_occlusion_bind_groups);
 
         let ao_node = AmbientOcclusionNode::new(&mut render_app.world);
@@ -119,7 +122,7 @@ impl Plugin for AmbientOcclusionPlugin {
     }
 }
 
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, PartialEq, Eq, Hash, Clone)]
 pub enum AmbientOcclusionSettings {
     Low,
     Medium,
@@ -147,6 +150,7 @@ impl AmbientOcclusionSettings {
 struct AmbientOcclusionNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
+        &'static AmbientOcclusionPipelineId,
         &'static AmbientOcclusionBindGroups,
         &'static ViewUniformOffset,
     )>,
@@ -184,18 +188,17 @@ impl Node for AmbientOcclusionNode {
         let pipeline_cache = world.resource::<PipelineCache>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
-            Ok((camera, bind_groups, view_uniform_offset)),
+            Ok((camera, pipeline_id, bind_groups, view_uniform_offset)),
             Some(prefilter_depth_pipeline),
-            Some(gtao_pipeline),
             Some(denoise_pipeline),
         ) = (
             self.view_query.get_manual(world, view_entity),
             pipeline_cache.get_compute_pipeline(pipelines.prefilter_depth_pipeline),
-            pipeline_cache.get_compute_pipeline(pipelines.gtao_pipeline),
             pipeline_cache.get_compute_pipeline(pipelines.denoise_pipeline),
         ) else {
             return Ok(());
         };
+        let Some(gtao_pipeline) = pipeline_cache.get_compute_pipeline(pipeline_id.0) else { return Ok(()) };
         let Some(camera_size) = camera.physical_viewport_size else { return Ok(()) };
 
         {
@@ -260,7 +263,6 @@ impl Node for AmbientOcclusionNode {
 #[derive(Resource)]
 struct AmbientOcclusionPipelines {
     prefilter_depth_pipeline: CachedComputePipelineId,
-    gtao_pipeline: CachedComputePipelineId,
     denoise_pipeline: CachedComputePipelineId,
 
     common_bind_group_layout: BindGroupLayout,
@@ -495,27 +497,6 @@ impl FromWorld for AmbientOcclusionPipelines {
                 entry_point: "prefilter_depth".into(),
             });
 
-        let gtao_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            label: Some("ambient_occlusion_gtao_pipeline".into()),
-            layout: Some(vec![
-                gtao_bind_group_layout.clone(),
-                common_bind_group_layout.clone(),
-            ]),
-            shader: GTAO_SHADER_HANDLE.typed(),
-            shader_defs: vec![
-                // TODO: Specalize based on AmbientOcclusionSettings (and TemporalAntiAliasSettings)
-                "TEMPORAL_NOISE".into(),
-                ShaderDefVal::Int("SLICE_COUNT".to_string(), 3),
-                ShaderDefVal::Int("SAMPLES_PER_SLICE_SIDE".to_string(), 3),
-                // TODO: Remove this hack
-                ShaderDefVal::Int(
-                    "MAX_DIRECTIONAL_LIGHTS".to_string(),
-                    MAX_DIRECTIONAL_LIGHTS as i32,
-                ),
-            ],
-            entry_point: "gtao".into(),
-        });
-
         let denoise_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("ambient_occlusion_denoise_pipeline".into()),
             layout: Some(vec![
@@ -535,7 +516,6 @@ impl FromWorld for AmbientOcclusionPipelines {
 
         Self {
             prefilter_depth_pipeline,
-            gtao_pipeline,
             denoise_pipeline,
 
             common_bind_group_layout,
@@ -545,6 +525,48 @@ impl FromWorld for AmbientOcclusionPipelines {
 
             hilbert_index_texture,
             point_clamp_sampler,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, Hash, Clone)]
+struct AmbientOcclusionPipelineKey {
+    ao_quality: AmbientOcclusionSettings,
+    temporal_noise: bool,
+}
+
+impl SpecializedComputePipeline for AmbientOcclusionPipelines {
+    type Key = AmbientOcclusionPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor {
+        let (slice_count, samples_per_slice_side) = key.ao_quality.sample_counts();
+
+        let mut shader_defs = vec![
+            ShaderDefVal::Int("SLICE_COUNT".to_string(), slice_count as i32),
+            ShaderDefVal::Int(
+                "SAMPLES_PER_SLICE_SIDE".to_string(),
+                samples_per_slice_side as i32,
+            ),
+            // TODO: Remove this hack
+            ShaderDefVal::Int(
+                "MAX_DIRECTIONAL_LIGHTS".to_string(),
+                MAX_DIRECTIONAL_LIGHTS as i32,
+            ),
+        ];
+
+        if key.temporal_noise {
+            shader_defs.push("TEMPORAL_NOISE".into());
+        }
+
+        ComputePipelineDescriptor {
+            label: Some("ambient_occlusion_gtao_pipeline".into()),
+            layout: Some(vec![
+                self.gtao_bind_group_layout.clone(),
+                self.common_bind_group_layout.clone(),
+            ]),
+            shader: GTAO_SHADER_HANDLE.typed(),
+            shader_defs,
+            entry_point: "gtao".into(),
         }
     }
 }
@@ -651,6 +673,32 @@ fn prepare_ambient_occlusion_textures(
                 depth_differences_texture,
             });
         }
+    }
+}
+
+#[derive(Component)]
+struct AmbientOcclusionPipelineId(CachedComputePipelineId);
+
+fn prepare_ambient_occlusion_pipelines(
+    mut commands: Commands,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    mut pipelines: ResMut<SpecializedComputePipelines<AmbientOcclusionPipelines>>,
+    pipeline: Res<AmbientOcclusionPipelines>,
+    views: Query<(Entity, &AmbientOcclusionSettings, Option<&TemporalJitter>)>,
+) {
+    for (entity, ao_settings, temporal_jitter) in &views {
+        let pipeline_id = pipelines.specialize(
+            &mut pipeline_cache,
+            &pipeline,
+            AmbientOcclusionPipelineKey {
+                ao_quality: ao_settings.clone(),
+                temporal_noise: temporal_jitter.is_some(),
+            },
+        );
+
+        commands
+            .entity(entity)
+            .insert(AmbientOcclusionPipelineId(pipeline_id));
     }
 }
 
