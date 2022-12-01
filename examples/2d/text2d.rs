@@ -5,7 +5,7 @@
 //! For an example on how to render text as part of a user interface, independent from the world
 //! viewport, you may want to look at `2d/contributors.rs` or `ui/text.rs`.
 
-use bevy::{prelude::*, text::Text2dBounds};
+use bevy::{prelude::*, text::{Text2dBounds, TextLayoutInfo}};
 
 fn main() {
     App::new()
@@ -14,6 +14,7 @@ fn main() {
         .add_system(animate_translation)
         .add_system(animate_rotation)
         .add_system(animate_scale)
+        .add_system(text_size)
         .run();
 }
 
@@ -63,7 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         AnimateScale,
     ));
     // Demonstrate text wrapping
-    let box_size = Vec2::new(300.0, 200.0);
+    let box_size = Vec2::new(300., 200.0);
     let box_position = Vec2::new(0.0, -250.0);
     commands.spawn(SpriteBundle {
         sprite: Sprite {
@@ -115,4 +116,12 @@ fn animate_scale(
         transform.translation = Vec3::new(400.0, 0.0, 0.0);
         transform.scale = Vec3::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
     }
+}
+
+fn text_size(
+    query: Query<&TextLayoutInfo, With<Parent>>,
+) {
+    query.for_each(|info| {
+        println!("size: {}", info.size);
+    });
 }
