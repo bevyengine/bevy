@@ -278,11 +278,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         self.update_archetypes(world);
         // SAFETY: query has unique world access
         unsafe {
+            let change_tick = world.change_tick();
             self.get_unchecked_manual(
                 world,
                 entity,
                 world.last_change_tick(),
-                world.read_change_tick(),
+                change_tick,
             )
         }
     }
@@ -336,11 +337,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         // SAFETY: method requires exclusive world access
         // and world has been validated via update_archetypes
         unsafe {
+            let change_tick = world.change_tick();
             self.get_many_unchecked_manual(
                 world,
                 entities,
                 world.last_change_tick(),
-                world.read_change_tick(),
+                change_tick,
             )
         }
     }
@@ -528,7 +530,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
-            self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
+            let change_tick = world.change_tick();
+            self.iter_unchecked_manual(world, world.last_change_tick(), change_tick)
         }
     }
 
@@ -614,10 +617,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
+            let change_tick = world.change_tick();
             self.iter_combinations_unchecked_manual(
                 world,
                 world.last_change_tick(),
-                world.read_change_tick(),
+                change_tick,
             )
         }
     }
@@ -667,11 +671,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         self.update_archetypes(world);
         // SAFETY: Query has unique world access.
         unsafe {
+            let change_tick = world.change_tick();
             self.iter_many_unchecked_manual(
                 entities,
                 world,
                 world.last_change_tick(),
-                world.read_change_tick(),
+                change_tick,
             )
         }
     }
@@ -800,11 +805,12 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
+            let change_tick = world.change_tick();
             self.for_each_unchecked_manual(
                 world,
                 func,
                 world.last_change_tick(),
-                world.read_change_tick(),
+                change_tick,
             );
         }
     }
@@ -876,12 +882,13 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
+            let change_tick = world.change_tick();
             self.par_for_each_unchecked_manual(
                 world,
                 batch_size,
                 func,
                 world.last_change_tick(),
-                world.read_change_tick(),
+                change_tick,
             );
         }
     }
@@ -1197,10 +1204,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
 
         // SAFETY: query has unique world access
         unsafe {
+            let change_tick = world.change_tick();
             self.get_single_unchecked_manual(
                 world,
                 world.last_change_tick(),
-                world.read_change_tick(),
+                change_tick,
             )
         }
     }
@@ -1293,7 +1301,7 @@ mod tests {
 
         // These don't matter for the test
         let last_change_tick = world.last_change_tick();
-        let change_tick = world.read_change_tick();
+        let change_tick = world.change_tick();
 
         // It's best to test get_many_unchecked_manual directly,
         // as it is shared and unsafe
