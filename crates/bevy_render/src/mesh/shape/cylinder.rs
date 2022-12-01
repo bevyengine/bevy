@@ -11,7 +11,9 @@ pub struct Cylinder {
     /// above, this is the number of points you will see on the circle.
     /// A higher number will make it appear more circular.
     pub resolution: u32,
-    /// The number of segments between the two ends.
+    /// The number of segments between the two ends. Setting this to 1 will have triangles spanning the full
+    /// height of the cylinder. Setting it to 2 will have two sets of triangles with a horizontal slice in the middle of
+    /// cylinder. Greater numbers increase triangles/slices in the same way.
     pub segments: u32,
 }
 
@@ -21,7 +23,7 @@ impl Default for Cylinder {
             radius: 0.5,
             height: 1.0,
             resolution: 16,
-            segments: 4,
+            segments: 1,
         }
     }
 }
