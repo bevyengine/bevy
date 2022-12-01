@@ -77,7 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
                 text: Text::from_section("this text wraps in the box", text_style)
-                    .with_alignment(TextAlignment::Center),
+                    .with_alignment(TextAlignment::Left),
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
                     size: box_size,
