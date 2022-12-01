@@ -283,6 +283,15 @@ description = "A scene showcasing screen space ambient occlusion"
 category = "3D Rendering"
 
 [[example]]
+name = "taa"
+path = "examples/3d/taa.rs"
+
+[package.metadata.example.taa]
+name = "Temporal Antialiasing"
+description = "A scene showcasing temporal antialiasing"
+category = "3D Rendering"
+
+[[example]]
 name = "3d_scene"
 path = "examples/3d/3d_scene.rs"
 

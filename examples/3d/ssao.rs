@@ -4,7 +4,7 @@ use bevy::{
     core_pipeline::prepass::PrepassSettings,
     pbr::{
         PbrPlugin, ScreenSpaceAmbientOcclusionSettings, TemporalAntialiasBundle,
-        TemporalAntialiasPlugin, TemporalAntialiasSettings,
+        TemporalAntialiasPlugin,
     },
     prelude::*,
     render::camera::TemporalJitter,
@@ -129,41 +129,27 @@ fn update(
 
     let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
 
+    let mut commands = commands.entity(camera_entity);
     if keycode.just_pressed(KeyCode::Key1) {
-        commands
-            .entity(camera_entity)
-            .remove::<ScreenSpaceAmbientOcclusionSettings>();
+        commands.remove::<ScreenSpaceAmbientOcclusionSettings>();
     }
     if keycode.just_pressed(KeyCode::Key2) {
-        commands
-            .entity(camera_entity)
-            .insert(ScreenSpaceAmbientOcclusionSettings::Low);
+        commands.insert(ScreenSpaceAmbientOcclusionSettings::Low);
     }
     if keycode.just_pressed(KeyCode::Key3) {
-        commands
-            .entity(camera_entity)
-            .insert(ScreenSpaceAmbientOcclusionSettings::Medium);
+        commands.insert(ScreenSpaceAmbientOcclusionSettings::Medium);
     }
     if keycode.just_pressed(KeyCode::Key4) {
-        commands
-            .entity(camera_entity)
-            .insert(ScreenSpaceAmbientOcclusionSettings::High);
+        commands.insert(ScreenSpaceAmbientOcclusionSettings::High);
     }
     if keycode.just_pressed(KeyCode::Key5) {
-        commands
-            .entity(camera_entity)
-            .insert(ScreenSpaceAmbientOcclusionSettings::Ultra);
+        commands.insert(ScreenSpaceAmbientOcclusionSettings::Ultra);
     }
     if keycode.just_pressed(KeyCode::Space) {
         if temporal_jitter.is_some() {
-            commands
-                .entity(camera_entity)
-                .remove::<TemporalJitter>()
-                .remove::<TemporalAntialiasSettings>();
+            commands.remove::<TemporalAntialiasBundle>();
         } else {
-            commands
-                .entity(camera_entity)
-                .insert(TemporalAntialiasBundle::default());
+            commands.insert(TemporalAntialiasBundle::default());
         }
     }
 
