@@ -42,22 +42,49 @@ fn setup(
         TemporalAntialiasBundle::default(),
     ));
 
+    let material = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.5, 0.5, 0.5),
+        perceptual_roughness: 1.0,
+        reflectance: 0.0,
+        ..default()
+    });
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
+        material: material.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 1.0),
         ..default()
     });
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
+        material: material.clone(),
         transform: Transform::from_xyz(0.0, -1.0, 0.0),
         ..default()
     });
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(Color::rgb(0.5, 0.5, 0.5).into()),
+        material,
         transform: Transform::from_xyz(1.0, 0.0, 0.0),
+        ..default()
+    });
+    commands.spawn((
+        PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::UVSphere {
+                radius: 0.4,
+                ..default()
+            })),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.4, 0.4, 0.4),
+                perceptual_roughness: 1.0,
+                reflectance: 0.0,
+                ..default()
+            }),
+            ..default()
+        },
+        SphereMarker,
+    ));
+
+    commands.spawn(PointLightBundle {
+        transform: Transform::from_xyz(3.0, 2.0, 0.5),
         ..default()
     });
 
@@ -92,9 +119,14 @@ fn update(
         With<Camera>,
     >,
     mut text: Query<&mut Text>,
+    mut sphere: Query<&mut Transform, With<SphereMarker>>,
     mut commands: Commands,
     keycode: Res<Input<KeyCode>>,
+    time: Res<Time>,
 ) {
+    let mut sphere = sphere.single_mut();
+    sphere.translation.y = (time.elapsed_seconds() / 2.0).sin();
+
     let (camera_entity, ssao_settings, temporal_jitter) = camera.single();
 
     if keycode.just_pressed(KeyCode::Key1) {
@@ -160,3 +192,6 @@ fn update(
         None => "(Space) Disabled",
     });
 }
+
+#[derive(Component)]
+struct SphereMarker;
