@@ -11,7 +11,7 @@ use glyph_brush_layout::{FontId, SectionText};
 
 use crate::{
     error::TextError, glyph_brush::GlyphBrush, scale_value, Font, FontAtlasSet, FontAtlasWarning,
-    PositionedGlyph, TextSection, TextSettings, YAxisOrientation, TextAlignment,
+    PositionedGlyph, TextAlignment, TextSection, TextSettings, YAxisOrientation,
 };
 
 #[derive(Default, Resource)]

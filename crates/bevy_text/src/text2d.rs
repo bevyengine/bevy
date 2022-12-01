@@ -22,9 +22,8 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    Font, FontAtlasSet, FontAtlasWarning, TextError,
-    TextLayoutInfo, TextPipeline, TextSettings,
-    YAxisOrientation, Text,
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
+    TextSettings, YAxisOrientation,
 };
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
@@ -84,7 +83,8 @@ pub fn extract_text2d_sprite(
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, computed_visibility, text, text_layout_info, anchor, text_transform) in text2d_query.iter()
+    for (entity, computed_visibility, text, text_layout_info, anchor, text_transform) in
+        text2d_query.iter()
     {
         if !computed_visibility.is_visible() {
             continue;

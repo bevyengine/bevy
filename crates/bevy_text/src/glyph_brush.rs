@@ -9,8 +9,8 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
-    TextSettings, YAxisOrientation, TextAlignment,
+    error::TextError, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo, TextAlignment,
+    TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {
