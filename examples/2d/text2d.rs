@@ -33,13 +33,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 60.0,
         color: Color::WHITE,
     };
-    let text_alignment = Text2dAlignment::CENTER;
+    let text_alignment = TextAlignment::Center;
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
     commands.spawn((
         Text2dBundle {
-            text: Text2d::from_section("translation", text_style.clone())
+            text: Text::from_section("translation", text_style.clone())
                 .with_alignment(text_alignment),
             ..default()
         },
@@ -48,7 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing rotation
     commands.spawn((
         Text2dBundle {
-            text: Text2d::from_section("rotation", text_style.clone())
+            text: Text::from_section("rotation", text_style.clone())
                 .with_alignment(text_alignment),
             ..default()
         },
@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands.spawn((
         Text2dBundle {
-            text: Text2d::from_section("scale", text_style.clone()).with_alignment(text_alignment),
+            text: Text::from_section("scale", text_style.clone()).with_alignment(text_alignment),
             ..default()
         },
         AnimateScale,
@@ -75,7 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         ..default()
     });
     commands.spawn(Text2dBundle {
-        text: Text2d::from_section("this text wraps in the box", text_style),
+        text: Text::from_section("this text wraps in the box", text_style),
         text_2d_bounds: Text2dBounds {
             // Wrap text in the rectangle
             size: box_size,
@@ -94,7 +94,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn animate_translation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateTranslation>)>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateTranslation>)>,
 ) {
     for mut transform in &mut query {
         transform.translation.x = 100.0 * time.elapsed_seconds().sin() - 400.0;
@@ -104,7 +104,7 @@ fn animate_translation(
 
 fn animate_rotation(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateRotation>)>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateRotation>)>,
 ) {
     for mut transform in &mut query {
         transform.rotation = Quat::from_rotation_z(time.elapsed_seconds().cos());
@@ -113,7 +113,7 @@ fn animate_rotation(
 
 fn animate_scale(
     time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text2d>, With<AnimateScale>)>,
+    mut query: Query<&mut Transform, (With<Text>, With<AnimateScale>)>,
 ) {
     // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
     // rendered quad, resulting in a pixellated look.

@@ -65,8 +65,8 @@ fn spawn_text(
 
     for (per_frame, event) in reader.iter().enumerate() {
         commands.spawn(Text2dBundle {
-            text: Text2d::from_section(event.0.to_string(), text_style.clone())
-                .with_alignment(Text2dAlignment::CENTER),
+            text: Text::from_section(event.0.to_string(), text_style.clone())
+                .with_alignment(TextAlignment::Center),
             transform: Transform::from_xyz(
                 per_frame as f32 * 100.0 + rand::thread_rng().gen_range(-40.0..40.0),
                 300.0,
@@ -79,7 +79,7 @@ fn spawn_text(
 
 fn move_text(
     mut commands: Commands,
-    mut texts: Query<(Entity, &mut Transform), With<Text2d>>,
+    mut texts: Query<(Entity, &mut Transform), With<Text>>,
     time: Res<Time>,
 ) {
     for (entity, mut position) in &mut texts {

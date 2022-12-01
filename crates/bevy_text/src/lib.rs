@@ -21,7 +21,7 @@ pub use text2d::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Text, Text2d, Text2dAlignment, Text2dBundle, TextAlignment, TextError, TextSection,
+        Font, Text, Text2dBundle, TextAlignment, TextError, TextSection,
         TextStyle, VerticalAlign,
     };
 }
@@ -77,8 +77,7 @@ impl Plugin for TextPlugin {
             .register_type::<TextSection>()
             .register_type::<Vec<TextSection>>()
             .register_type::<TextStyle>()
-            .register_type::<Text2d>()
-            .register_type::<Text2dAlignment>()
+            .register_type::<Text>()
             .register_type::<VerticalAlign>()
             .register_type::<TextAlignment>()
             .init_asset_loader::<FontLoader>()

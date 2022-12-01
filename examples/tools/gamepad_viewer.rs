@@ -327,7 +327,7 @@ fn setup_sticks(
                 parent.spawn((
                     Text2dBundle {
                         transform: Transform::from_xyz(0., STICK_BOUNDS_SIZE + 2., 4.),
-                        text: Text2d::from_sections([
+                        text: Text::from_sections([
                             TextSection {
                                 value: format!("{:.3}", 0.),
                                 style: style.clone(),
@@ -341,7 +341,7 @@ fn setup_sticks(
                                 style,
                             },
                         ])
-                        .with_alignment(Text2dAlignment::BOTTOM_CENTER),
+                        .with_alignment(TextAlignment::Center),
                         ..default()
                     },
                     TextWithAxes { x_axis, y_axis },
@@ -400,7 +400,7 @@ fn setup_triggers(
                 parent.spawn((
                     Text2dBundle {
                         transform: Transform::from_xyz(0., 0., 1.),
-                        text: Text2d::from_section(
+                        text: Text::from_section(
                             format!("{:.3}", 0.),
                             TextStyle {
                                 font: font.clone(),
@@ -408,7 +408,7 @@ fn setup_triggers(
                                 color: TEXT_COLOR,
                             },
                         )
-                        .with_alignment(Text2dAlignment::CENTER),
+                        .with_alignment(TextAlignment::Center),
                         ..default()
                     },
                     TextWithButtonValue(button_type),

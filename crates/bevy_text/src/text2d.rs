@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
     texture::Image,
@@ -22,41 +22,10 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    Font, FontAtlasSet, FontAtlasWarning, Text2dAlignment, TextAlignment, TextError,
-    TextLayoutInfo, TextPipeline, TextSection, TextSettings, TextStyle, VerticalAlign,
-    YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, TextError,
+    TextLayoutInfo, TextPipeline, TextSettings,
+    YAxisOrientation, Text,
 };
-
-#[derive(Component, Debug, Default, Clone, Reflect)]
-#[reflect(Component, Default)]
-pub struct Text2d {
-    pub sections: Vec<TextSection>,
-    pub alignment: Text2dAlignment,
-}
-
-impl Text2d {
-    /// Constructs a [`Text2d`] with a single section.
-    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            sections: vec![TextSection::new(value, style)],
-            ..Default::default()
-        }
-    }
-
-    /// Constructs a [`Text2d`] from a list of sections.
-    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
-        Self {
-            sections: sections.into_iter().collect(),
-            ..Default::default()
-        }
-    }
-
-    /// Returns this [`Text2d`] with a new [`Text2dAlignment`].
-    pub const fn with_alignment(mut self, alignment: Text2dAlignment) -> Self {
-        self.alignment = alignment;
-        self
-    }
-}
 
 /// The maximum width and height of text. The text will wrap according to the specified size.
 /// Characters out of the bounds after wrapping will be truncated. Text is aligned according to the
@@ -89,7 +58,7 @@ impl Text2dBounds {
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
-    pub text: Text2d,
+    pub text: Text,
     pub anchor: Anchor,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
@@ -106,35 +75,23 @@ pub fn extract_text2d_sprite(
         Query<(
             Entity,
             &ComputedVisibility,
-            &Text2d,
+            &Text,
             &TextLayoutInfo,
+            &Anchor,
             &GlobalTransform,
         )>,
     >,
 ) {
     let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
 
-    for (entity, computed_visibility, text, text_layout_info, text_transform) in text2d_query.iter()
+    for (entity, computed_visibility, text, text_layout_info, anchor, text_transform) in text2d_query.iter()
     {
         if !computed_visibility.is_visible() {
             continue;
         }
 
         let text_glyphs = &text_layout_info.glyphs;
-        let alignment_offset = -text_layout_info.size
-            * Vec2::new(
-                match text.alignment.horizontal {
-                    TextAlignment::Left => 0.,
-                    TextAlignment::Center => 0.5,
-                    TextAlignment::Right => 1.,
-                },
-                match text.alignment.vertical {
-                    VerticalAlign::Bottom => 0.,
-                    VerticalAlign::Center => 0.5,
-                    VerticalAlign::Top => 1.,
-                },
-            );
-
+        let alignment_offset = text_layout_info.size * anchor.as_vec();
         let mut color = Color::WHITE;
         let mut current_section = usize::MAX;
         for text_glyph in text_glyphs {
@@ -197,8 +154,8 @@ pub fn update_text2d_layout(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Changed<Text2d>,
-        &Text2d,
+        Changed<Text>,
+        &Text,
         &Text2dBounds,
         Option<&mut TextLayoutInfo>,
     )>,

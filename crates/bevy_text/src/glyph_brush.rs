@@ -9,8 +9,8 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo, Text2dAlignment,
-    TextSettings, YAxisOrientation,
+    error::TextError, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo,
+    TextSettings, YAxisOrientation, TextAlignment,
 };
 
 pub struct GlyphBrush {
@@ -34,15 +34,14 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Vec2,
-        text_alignment: Text2dAlignment,
+        text_alignment: TextAlignment,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
             bounds: (bounds.x, bounds.y),
             ..Default::default()
         };
         let section_glyphs = Layout::default()
-            .h_align(text_alignment.horizontal.into())
-            .v_align(text_alignment.vertical.into())
+            .h_align(text_alignment.into())
             .calculate_glyphs(&self.fonts, &geom, sections);
         Ok(section_glyphs)
     }
