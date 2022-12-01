@@ -22,9 +22,9 @@ use bevy_utils::FloatOrd;
 /// The textures are automatically added to the default mesh view bindings. You can also get the raw textures
 /// by querying the [`ViewPrepassTextures`] component on the camera with the [`PrepassSettings`].
 ///
-/// When using the default mesh view bindings you should be able to use `prepass_depth()`
-/// and `prepass_normal()` to load the related textures. These functions are defined in `bevy_pbr::utils`.
-/// See the `shader_prepass` example that shows how to use it.
+/// When using the default mesh view bindings you should be able to use `prepass_depth()`,
+/// `prepass_normal()`, and `prepass_velocity()` to load the related textures.
+/// These functions are defined in `bevy_pbr::utils`. See the `shader_prepass` example that shows how to use it.
 #[derive(Clone, Component)]
 pub struct PrepassSettings {
     /// If true then depth values will be copied to a separate texture available to the main pass.
