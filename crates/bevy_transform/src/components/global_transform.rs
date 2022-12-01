@@ -19,8 +19,8 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the system
-/// [`transform_propagate_system`](crate::transform_propagate_system).
+/// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
+/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag

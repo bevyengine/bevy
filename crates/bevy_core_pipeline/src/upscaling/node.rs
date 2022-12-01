@@ -13,10 +13,10 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
 };
 
-use super::{UpscalingPipeline, UpscalingTarget};
+use super::{UpscalingPipeline, ViewUpscalingPipeline};
 
 pub struct UpscalingNode {
-    query: QueryState<(&'static ViewTarget, &'static UpscalingTarget), With<ExtractedView>>,
+    query: QueryState<(&'static ViewTarget, &'static ViewUpscalingPipeline), With<ExtractedView>>,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
@@ -89,7 +89,7 @@ impl Node for UpscalingNode {
             }
         };
 
-        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.pipeline) {
+        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.0) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
         };

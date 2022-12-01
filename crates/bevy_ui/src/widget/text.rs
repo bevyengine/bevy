@@ -9,8 +9,8 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, Text, TextError, TextLayoutInfo, TextPipeline, TextSettings,
-    YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
+    TextSettings, YAxisOrientation,
 };
 use bevy_window::Windows;
 
@@ -53,6 +53,7 @@ pub fn text_system(
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     text_settings: Res<TextSettings>,
+    mut font_atlas_warning: ResMut<FontAtlasWarning>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
@@ -126,6 +127,7 @@ pub fn text_system(
                 &mut texture_atlases,
                 &mut textures,
                 text_settings.as_ref(),
+                &mut font_atlas_warning,
                 YAxisOrientation::TopToBottom,
             ) {
                 Err(TextError::NoSuchFont) => {

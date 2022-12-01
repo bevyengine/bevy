@@ -418,6 +418,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
+        let table_row = archetype.entity_table_row(location.index);
         let table = world
             .storages()
             .tables
@@ -426,8 +427,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
         F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
-        if F::filter_fetch(&mut filter, entity, location.index) {
-            Ok(Q::fetch(&mut fetch, entity, location.index))
+        if F::filter_fetch(&mut filter, entity, table_row) {
+            Ok(Q::fetch(&mut fetch, entity, table_row))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
@@ -965,15 +966,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                     let archetype_entity = entities.get_unchecked(idx);
                     if !F::filter_fetch(
                         &mut filter,
-                        archetype_entity.entity,
-                        archetype_entity.table_row,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
                     ) {
                         continue;
                     }
                     func(Q::fetch(
                         &mut fetch,
-                        archetype_entity.entity,
-                        archetype_entity.table_row,
+                        archetype_entity.entity(),
+                        archetype_entity.table_row(),
                     ));
                 }
             }
@@ -1096,15 +1097,15 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                                 let archetype_entity = entities.get_unchecked(archetype_index);
                                 if !F::filter_fetch(
                                     &mut filter,
-                                    archetype_entity.entity,
-                                    archetype_entity.table_row,
+                                    archetype_entity.entity(),
+                                    archetype_entity.table_row(),
                                 ) {
                                     continue;
                                 }
                                 func(Q::fetch(
                                     &mut fetch,
-                                    archetype_entity.entity,
-                                    archetype_entity.table_row,
+                                    archetype_entity.entity(),
+                                    archetype_entity.table_row(),
                                 ));
                             }
                         };

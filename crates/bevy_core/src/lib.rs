@@ -6,7 +6,7 @@ mod name;
 mod serde;
 mod task_pool_options;
 
-use bevy_ecs::system::Resource;
+use bevy_ecs::system::{ResMut, Resource};
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
 pub use task_pool_options::*;
@@ -22,7 +22,9 @@ use bevy_ecs::entity::Entity;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
 use std::borrow::Cow;
+use std::ffi::OsString;
 use std::ops::Range;
+use std::path::PathBuf;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_ecs::schedule::IntoSystemDescriptor;
@@ -53,6 +55,7 @@ impl Plugin for CorePlugin {
         register_math_types(app);
 
         app.init_resource::<FrameCount>();
+        app.add_system(update_frame_count);
     }
 }
 
@@ -61,6 +64,8 @@ fn register_rust_types(app: &mut App) {
         .register_type_data::<Range<f32>, ReflectSerialize>()
         .register_type_data::<Range<f32>, ReflectDeserialize>()
         .register_type::<String>()
+        .register_type::<PathBuf>()
+        .register_type::<OsString>()
         .register_type::<HashSet<String>>()
         .register_type::<Option<String>>()
         .register_type::<Cow<'static, str>>()
@@ -108,6 +113,10 @@ fn register_math_types(app: &mut App) {
 #[derive(Default, Resource, Clone, Copy)]
 pub struct FrameCount(pub u32);
 
+fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
+    frame_count.0 = frame_count.0.wrapping_add(1);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -144,5 +153,15 @@ mod tests {
         async_rx.try_recv().unwrap();
         compute_rx.try_recv().unwrap();
         io_rx.try_recv().unwrap();
+    }
+
+    #[test]
+    fn frame_counter_update() {
+        let mut app = App::new();
+        app.add_plugin(CorePlugin::default());
+        app.update();
+
+        let frame_count = app.world.resource::<FrameCount>();
+        assert_eq!(1, frame_count.0);
     }
 }

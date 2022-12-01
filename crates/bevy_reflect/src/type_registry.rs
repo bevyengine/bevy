@@ -475,7 +475,7 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 /// type_registry.register::<Reflected>();
 ///
 /// let mut value = Reflected("Hello world!".to_string());
-/// let value = unsafe { Ptr::new(NonNull::from(&mut value).cast()) };
+/// let value = Ptr::from(&value);
 ///
 /// let reflect_data = type_registry.get(std::any::TypeId::of::<Reflected>()).unwrap();
 /// let reflect_from_ptr = reflect_data.data::<ReflectFromPtr>().unwrap();
@@ -534,8 +534,6 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 
 #[cfg(test)]
 mod test {
-    use std::ptr::NonNull;
-
     use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
     use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
@@ -560,8 +558,7 @@ mod test {
 
         let mut value = Foo { a: 1.0 };
         {
-            // SAFETY: lifetime doesn't outlive original value, access is unique
-            let value = unsafe { PtrMut::new(NonNull::from(&mut value).cast()) };
+            let value = PtrMut::from(&mut value);
             // SAFETY: reflect_from_ptr was constructed for the correct type
             let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr_mut(value) };
             match dyn_reflect.reflect_mut() {
@@ -573,10 +570,8 @@ mod test {
         }
 
         {
-            // SAFETY: lifetime doesn't outlive original value
-            let value = unsafe { Ptr::new(NonNull::from(&mut value).cast()) };
             // SAFETY: reflect_from_ptr was constructed for the correct type
-            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
+            let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
                     let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();

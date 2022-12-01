@@ -236,11 +236,13 @@ impl Camera {
         let target_size = self.logical_viewport_size()?;
         let ndc = viewport_position * 2. / target_size - Vec2::ONE;
 
-        let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
-        // Using EPSILON because passing an ndc with Z = 0 returns NaNs.
-        let world_far_plane = self.ndc_to_world(camera_transform, ndc.extend(f32::EPSILON))?;
+        let ndc_to_world =
+            camera_transform.compute_matrix() * self.computed.projection_matrix.inverse();
+        let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
+        // Using EPSILON because an ndc with Z = 0 returns NaNs.
+        let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
 
-        Some(Ray {
+        (!world_near_plane.is_nan() && !world_far_plane.is_nan()).then_some(Ray {
             origin: world_near_plane,
             direction: (world_far_plane - world_near_plane).normalize(),
         })

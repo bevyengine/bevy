@@ -1,5 +1,5 @@
 use crate::archetype::ArchetypeComponentId;
-use crate::component::{ComponentId, ComponentTicks, Components};
+use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
@@ -77,21 +77,15 @@ impl ResourceData {
 
     /// Gets a read-only reference to the change ticks of the underlying resource, if available.
     #[inline]
-    pub fn get_ticks(&self) -> Option<&ComponentTicks> {
-        self.column
-            .get_ticks(0)
-            // SAFETY:
-            //  - This borrow's lifetime is bounded by the lifetime on self.
-            //  - A read-only borrow on self can only exist while a mutable borrow doesn't
-            //    exist.
-            .map(|ticks| unsafe { ticks.deref() })
+    pub fn get_ticks(&self) -> Option<ComponentTicks> {
+        self.column.get_ticks(0)
     }
 
     /// # Panics
     /// This will panic if a value is present, the underlying type is
     /// `!Send`, and is not accessed from the original thread it was inserted in.
     #[inline]
-    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>)> {
         self.column.get(0).map(|res| {
             self.validate_access();
             res
@@ -136,7 +130,8 @@ impl ResourceData {
         if self.is_present() {
             self.validate_access();
             self.column.replace_untracked(0, value);
-            *self.column.get_ticks_unchecked(0).deref_mut() = change_ticks;
+            *self.column.get_added_ticks_unchecked(0).deref_mut() = change_ticks.added;
+            *self.column.get_changed_ticks_unchecked(0).deref_mut() = change_ticks.changed;
         } else {
             self.origin_thread_id = self.origin_thread_id.map(|_| std::thread::current().id());
             self.column.push(value, change_ticks);
@@ -196,6 +191,11 @@ impl Resources {
     #[inline]
     pub fn len(&self) -> usize {
         self.resources.len()
+    }
+
+    /// Iterate over all resources that have been initialized, i.e. given a [`ComponentId`]
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData)> {
+        self.resources.iter().map(|(id, data)| (*id, data))
     }
 
     /// Returns true if there are no resources stored in the [`World`],
