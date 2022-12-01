@@ -34,7 +34,6 @@ use bevy_render::{
     },
     render_resource::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
     },
     renderer::RenderDevice,
     texture::TextureCache,
@@ -259,7 +258,7 @@ pub fn prepare_core_3d_depth_textures(
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera),
+        (Entity, &ExtractedCamera, &Camera3d),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -268,7 +267,7 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera) in &views_3d {
+    for (entity, camera, camera_3d) in &views_3d {
         if let Some(physical_target_size) = camera.physical_target_size {
             let cached_texture = textures
                 .entry(camera.target.clone())
@@ -287,7 +286,7 @@ pub fn prepare_core_3d_depth_textures(
                             dimension: TextureDimension::D2,
                             format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
                                                                   * bit depth for better performance */
-                            usage: TextureUsages::RENDER_ATTACHMENT,
+                            usage: camera_3d.depth_texture_usages.into(),
                         },
                     )
                 })
