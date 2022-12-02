@@ -52,13 +52,15 @@ impl TableId {
 pub struct TableRow(usize);
 
 impl TableRow {
+    /// Creates a `TableRow`.
     #[inline]
     pub const fn new(index: usize) -> Self {
         Self(index)
     }
 
+    /// Gets the index of the row.
     #[inline]
-    pub fn index(self) -> usize {
+    pub const fn index(self) -> usize {
         self.0
     }
 }
