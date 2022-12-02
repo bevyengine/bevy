@@ -20,8 +20,8 @@ use naga::valid::Capabilities;
 use std::{borrow::Cow, hash::Hash, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{
-    util::make_spirv, BufferBindingType, Features, PipelineLayoutDescriptor,
-    ShaderModuleDescriptor, VertexBufferLayout as RawVertexBufferLayout,
+    util::make_spirv, Features, PipelineLayoutDescriptor, ShaderModuleDescriptor,
+    VertexBufferLayout as RawVertexBufferLayout,
 };
 
 use crate::render_resource::resource_macros::*;
@@ -239,17 +239,10 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                // 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
-                // Using the value directly here to avoid the cyclic dependency
-                if matches!(
-                    render_device.get_supported_read_only_binding_type(3),
-                    BufferBindingType::Storage { .. }
-                ) {
-                    shader_defs.push(ShaderDefVal::Int(
-                        String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                        3,
-                    ));
-                }
+                shader_defs.push(ShaderDefVal::Int(
+                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+                    render_device.limits().max_storage_buffers_per_shader_stage as i32,
+                ));
 
                 debug!(
                     "processing shader {:?}, with shader defs {:?}",

@@ -51,7 +51,11 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
     let mut moved: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
     for child in children {
         if let Some(previous) = update_parent(world, *child, parent) {
-            debug_assert!(parent != previous);
+            // Do nothing if the entity already has the correct parent.
+            if parent == previous {
+                continue;
+            }
+
             remove_from_children(world, previous, *child);
             moved.push(HierarchyEvent::ChildMoved {
                 child: *child,
@@ -287,7 +291,8 @@ pub trait BuildChildren {
     /// # }
     /// ```
     fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
-    /// Pushes children to the back of the builder's children
+    /// Pushes children to the back of the builder's children. For any entities that are
+    /// already a child of this one, this method does nothing.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
@@ -738,5 +743,20 @@ mod tests {
         let mut world = World::new();
         let child = world.spawn_empty().id();
         world.spawn_empty().push_children(&[child]);
+    }
+
+    #[test]
+    fn push_children_idempotent() {
+        let mut world = World::new();
+        let child = world.spawn_empty().id();
+        let parent = world
+            .spawn_empty()
+            .push_children(&[child])
+            .push_children(&[child])
+            .id();
+
+        let mut query = world.query::<&Children>();
+        let children = query.get(&world, parent).unwrap();
+        assert_eq!(**children, [child]);
     }
 }
