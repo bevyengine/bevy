@@ -256,7 +256,8 @@ impl<'w> EntityMut<'w> {
         );
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         unsafe {
-            self.location = bundle_inserter.insert(self.entity, self.location.archetype_row, bundle);
+            self.location =
+                bundle_inserter.insert(self.entity, self.location.archetype_row, bundle);
         }
 
         self
