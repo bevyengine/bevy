@@ -26,10 +26,6 @@ impl ResourceData {
     }
 
     /// Gets a read-only pointer to the underlying resource, if available.
-    ///
-    /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
         self.column.get_data(0)
@@ -41,26 +37,16 @@ impl ResourceData {
         self.column.get_ticks(0)
     }
 
-    /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        self.column.get(0).map(|res| {
-            self.validate_access();
-            res
-        })
+        self.column.get(0)
     }
 
     /// Inserts a value into the resource. If a value is already present
     /// it will be replaced.
     ///
-    /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
-    ///
     /// # Safety
-    /// `value` must be valid for the underlying type for the resource.
+    /// `value` must be valid for the underlying type for the resource. The underlying type must be [`Send`].
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
@@ -73,12 +59,8 @@ impl ResourceData {
     /// Inserts a value into the resource with a pre-existing change tick. If a
     /// value is already present it will be replaced.
     ///
-    /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
-    ///
     /// # Safety
-    /// `value` must be valid for the underlying type for the resource.
+    /// `value` must be valid for the underlying type for the resource. The underlying type must be [`Send`].
     #[inline]
     pub(crate) unsafe fn insert_with_ticks(
         &mut self,
@@ -96,15 +78,8 @@ impl ResourceData {
 
     /// Removes a value from the resource, if present.
     ///
-    /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
-    ///
     /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the thread it was
-    /// inserted from.
-    ///
-    /// The removed value must be used or dropped.
+    /// The underlying type must be [`Send`]. The removed value must be used or dropped.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
@@ -113,13 +88,8 @@ impl ResourceData {
 
     /// Removes a value from the resource, if present, and drops it.
     ///
-    /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
-    ///
     /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the thread it was
-    /// inserted from.
+    /// The underlying type must be [`Send`] inserted from.
     #[inline]
     pub(crate) unsafe fn remove_and_drop(&mut self) {
         if self.is_present() {
