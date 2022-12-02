@@ -53,12 +53,12 @@ pub struct TableRow(usize);
 
 impl TableRow {
     #[inline]
-    pub(crate) const fn new(index: usize) -> Self {
+    pub const fn new(index: usize) -> Self {
         Self(index)
     }
 
     #[inline]
-    pub(crate) fn index(self) -> usize {
+    pub fn index(self) -> usize {
         self.0
     }
 }
@@ -732,7 +732,7 @@ mod tests {
     fn table() {
         let mut components = Components::default();
         let mut storages = Storages::default();
-        let component_id = components.init_component::<W<u32>>(&mut storages);
+        let component_id = components.init_component::<W<TableRow>>(&mut storages);
         let columns = &[component_id];
         let mut builder = TableBuilder::with_capacity(0, columns.len());
         builder.add_column(components.get_info(component_id).unwrap());
