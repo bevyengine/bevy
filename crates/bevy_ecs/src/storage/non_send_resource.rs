@@ -13,7 +13,7 @@ pub struct NonSendResourceData {
     column: ManuallyDrop<Column>,
     type_name: String,
     id: ArchetypeComponentId,
-    origin_thread_id: Option<ThreadId>,
+    origin_thread_id: ThreadId,
 }
 
 impl Drop for NonSendResourceData {
@@ -37,32 +37,30 @@ impl NonSendResourceData {
         if std::thread::panicking() {
             return;
         }
-        if let Some(origin_thread_id) = self.origin_thread_id {
-            if origin_thread_id != std::thread::current().id() {
-                // Panic in tests, as testing for aborting is nearly impossible
-                panic!(
-                    "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
-                    self.type_name,
-                    origin_thread_id,
-                    std::thread::current().id()
-                );
-            }
+        if self.origin_thread_id != std::thread::current().id() {
+            // Panic in tests, as testing for aborting is nearly impossible
+            panic!(
+                "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                self.type_name,
+                self.origin_thread_id,
+                std::thread::current().id()
+            );
         }
     }
 
-    /// Returns true if the resource is populated.
+    /// Returns true if the `!Send` resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
         !self.column.is_empty()
     }
 
-    /// Gets the [`ArchetypeComponentId`] for the resource.
+    /// Gets the [`ArchetypeComponentId`] for the `!Send` resource.
     #[inline]
     pub fn id(&self) -> ArchetypeComponentId {
         self.id
     }
 
-    /// Gets a read-only pointer to the underlying resource, if available.
+    /// Gets a read-only pointer to the underlying `!Send` resource, if available.
     ///
     /// # Panics
     /// This will panic if a value is present, the underlying type is
@@ -88,8 +86,8 @@ impl NonSendResourceData {
     }
 
     /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This will panic if a value is present and is not accessed from the original thread 
+    /// it was inserted in.
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
         self.column.get(0).map(|res| {
@@ -98,12 +96,12 @@ impl NonSendResourceData {
         })
     }
 
-    /// Inserts a value into the resource. If a value is already present
+    /// Inserts a value into the `!Send` resource. If a value is already present
     /// it will be replaced.
     ///
     /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This will panic if a value is present and is not accessed from the original thread 
+    /// it was inserted in.
     ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
@@ -113,13 +111,13 @@ impl NonSendResourceData {
             self.validate_access();
             self.column.replace(0, value, change_tick);
         } else {
-            self.origin_thread_id = self.origin_thread_id.map(|_| std::thread::current().id());
+            self.origin_thread_id = std::thread::current().id();
             self.column.push(value, ComponentTicks::new(change_tick));
         }
     }
 
-    /// Inserts a value into the resource with a pre-existing change tick. If a
-    /// value is already present it will be replaced.
+    /// Inserts a value into the `!Send` resource with a pre-existing change tick. 
+    /// If a value is already present it will be replaced.
     ///
     /// # Panics
     /// This will panic if a value is present, the underlying type is
@@ -138,12 +136,12 @@ impl NonSendResourceData {
             self.column.replace_untracked(0, value);
             *self.column.get_ticks_unchecked(0).deref_mut() = change_ticks;
         } else {
-            self.origin_thread_id = self.origin_thread_id.map(|_| std::thread::current().id());
+            self.origin_thread_id = std::thread::current().id();
             self.column.push(value, change_ticks);
         }
     }
 
-    /// Removes a value from the resource, if present.
+    /// Removes a value from the `!Send` resource, if present.
     ///
     /// # Panics
     /// This will panic if a value is present, the underlying type is
@@ -180,7 +178,7 @@ impl NonSendResourceData {
     }
 }
 
-/// The backing store for all [`Resource`]s stored in the [`World`].
+/// The backing store for all `!Send` [`Resource`]s stored in the [`World`].
 ///
 /// [`Resource`]: crate::system::Resource
 /// [`World`]: crate::world::World
@@ -190,7 +188,7 @@ pub struct NonSendResources {
 }
 
 impl NonSendResources {
-    /// The total number of resources stored in the [`World`]
+    /// The total number of `!Send` resources stored in the [`World`]
     ///
     /// [`World`]: crate::world::World
     #[inline]
@@ -198,7 +196,7 @@ impl NonSendResources {
         self.resources.len()
     }
 
-    /// Returns true if there are no resources stored in the [`World`],
+    /// Returns true if there are no `!Send` resources stored in the [`World`],
     /// false otherwise.
     ///
     /// [`World`]: crate::world::World
@@ -207,19 +205,19 @@ impl NonSendResources {
         self.resources.is_empty()
     }
 
-    /// Gets read-only access to a resource, if it exists.
+    /// Gets read-only access to a `!Send` resource, if it exists.
     #[inline]
     pub fn get(&self, component_id: ComponentId) -> Option<&NonSendResourceData> {
         self.resources.get(component_id)
     }
 
-    /// Gets mutable access to a resource, if it exists.
+    /// Gets mutable access to a `!Send` resource, if it exists.
     #[inline]
     pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut NonSendResourceData> {
         self.resources.get_mut(component_id)
     }
 
-    /// Fetches or initializes a new resource and returns back it's underlying column.
+    /// Fetches or initializes a new `!Send` resource and returns back it's underlying column.
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
@@ -239,7 +237,7 @@ impl NonSendResources {
                 column: ManuallyDrop::new(Column::with_capacity(component_info, 1)),
                 type_name: String::from(component_info.name()),
                 id: f(),
-                origin_thread_id: (!is_send).then(|| std::thread::current().id()),
+                origin_thread_id: std::thread::current().id(),
             }
         })
     }
