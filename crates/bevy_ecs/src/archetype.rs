@@ -41,10 +41,10 @@ use std::{
 /// [`Entities::get`]: crate::entity::Entities
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(transparent)]
-pub struct ArchetypeIndex(usize);
+pub struct ArchetypeRow(usize);
 
-impl ArchetypeIndex {
-    pub(crate) const INVALID: ArchetypeIndex = ArchetypeIndex(usize::MAX);
+impl ArchetypeRow {
+    pub(crate) const INVALID: ArchetypeRow = ArchetypeRow(usize::MAX);
 }
 
 /// An opaque unique ID for a single [`Archetype`] within a [`World`].
@@ -406,7 +406,7 @@ impl Archetype {
     /// [`EntityLocation`]: crate::entity::EntityLocation::index
     /// [`Entities::get`]: crate::entity::Entities::get
     #[inline]
-    pub fn entity_table_row(&self, index: ArchetypeIndex) -> TableRow {
+    pub fn entity_table_row(&self, index: ArchetypeRow) -> TableRow {
         self.entities[index.0].table_row
     }
 
@@ -416,7 +416,7 @@ impl Archetype {
     /// # Panics
     /// This function will panic if `index >= self.len()`.
     #[inline]
-    pub(crate) fn set_entity_table_row(&mut self, index: ArchetypeIndex, table_row: TableRow) {
+    pub(crate) fn set_entity_table_row(&mut self, index: ArchetypeRow, table_row: TableRow) {
         self.entities[index.0].table_row = table_row;
     }
 
@@ -434,7 +434,7 @@ impl Archetype {
 
         EntityLocation {
             archetype_id: self.id,
-            index: ArchetypeIndex(self.entities.len() - 1),
+            index: ArchetypeRow(self.entities.len() - 1),
         }
     }
 
@@ -447,7 +447,7 @@ impl Archetype {
     ///
     /// # Panics
     /// This function will panic if `index >= self.len()`
-    pub(crate) fn swap_remove(&mut self, index: ArchetypeIndex) -> ArchetypeSwapRemoveResult {
+    pub(crate) fn swap_remove(&mut self, index: ArchetypeRow) -> ArchetypeSwapRemoveResult {
         let is_last = index.0 == self.entities.len() - 1;
         let entity = self.entities.swap_remove(index.0);
         ArchetypeSwapRemoveResult {
