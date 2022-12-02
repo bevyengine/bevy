@@ -5,6 +5,16 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// dummy struct for wasm
+#[derive(Default)]
+pub struct ThreadExecutor;
+impl ThreadExecutor {
+    /// creates a new `ThreadExecutor`
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
