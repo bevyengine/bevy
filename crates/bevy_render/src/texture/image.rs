@@ -16,11 +16,11 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
-use std::hash::Hash;
+use std::{hash::Hash, num::NonZeroU32};
 use thiserror::Error;
 use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
+    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureViewDescriptor,
 };
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
@@ -208,7 +208,7 @@ impl Image {
         format: TextureFormat,
     ) -> Self {
         debug_assert_eq!(
-            size.total_bytes(format) as usize,
+            total_bytes(&size, &format) as usize,
             data.len(),
             "Pixel data, size and format have to match",
         );
@@ -273,7 +273,7 @@ impl Image {
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
         self.data
-            .resize(size.total_bytes(self.texture_descriptor.format) as usize, 0);
+            .resize(self.texture_descriptor.total_bytes() as usize, 0);
     }
 
     /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
@@ -283,11 +283,8 @@ impl Image {
     /// Panics if the `new_size` does not have the same number of bytes as the old one.
     pub fn reinterpret_size(&mut self, new_size: Extent3d) {
         assert!(
-            new_size.total_bytes(self.texture_descriptor.format)
-                == self
-                    .texture_descriptor
-                    .size
-                    .total_bytes(self.texture_descriptor.format),
+            total_bytes(&new_size, &self.texture_descriptor.format)
+                == self.texture_descriptor.total_bytes(),
             "Incompatible sizes: old = {:?} new = {:?}",
             self.texture_descriptor.size,
             new_size
@@ -461,27 +458,44 @@ impl<'a> ImageType<'a> {
 /// Extends Extent3d with some convenience methods to calculate some useful values related to the dimensions of a texture
 pub trait Extent3dDimensions {
     /// calculates the bytes per row in a texture
-    fn bytes_per_row(&self, format: TextureFormat) -> u32;
-    /// calculates the total bytes in the data buffer for a texture
-    fn total_bytes(&self, format: TextureFormat) -> u32;
+    fn bytes_per_row(&self) -> NonZeroU32;
     /// calculates the rows in an image
-    fn rows_per_image(&self, format: TextureFormat) -> u32;
+    fn rows_per_image(&self) -> u32;
+    /// calculates the total bytes in the data buffer for a texture
+    fn total_bytes(&self) -> u32;
 }
 
-impl Extent3dDimensions for Extent3d {
-    fn bytes_per_row(&self, format: TextureFormat) -> u32 {
-        let info = format.describe();
-        self.physical_size(format).width * info.block_size as u32 / info.block_dimensions.0 as u32
+impl<'a> Extent3dDimensions for TextureDescriptor<'a> {
+    fn bytes_per_row(&self) -> NonZeroU32 {
+        bytes_per_row(self.size.physical_size(self.format).width, &self.format)
     }
 
-    fn total_bytes(&self, format: TextureFormat) -> u32 {
-        self.rows_per_image(format) * self.bytes_per_row(format) * self.depth_or_array_layers
+    fn rows_per_image(&self) -> u32 {
+        rows_per_image(self.size.physical_size(self.format).height, &self.format)
     }
 
-    fn rows_per_image(&self, format: TextureFormat) -> u32 {
-        let info = format.describe();
-        self.physical_size(format).height / info.block_dimensions.1 as u32
+    fn total_bytes(&self) -> u32 {
+        total_bytes(&self.size, &self.format)
     }
+}
+
+fn bytes_per_row(physical_width: u32, format: &TextureFormat) -> NonZeroU32 {
+    let info = format.describe();
+    NonZeroU32::new(physical_width * info.block_size as u32 / info.block_dimensions.0 as u32)
+        .unwrap()
+}
+
+fn rows_per_image(physical_height: u32, format: &TextureFormat) -> u32 {
+    let info = format.describe();
+    physical_height / info.block_dimensions.1 as u32
+}
+
+/// calculate the total bytes needed to hold an image with `size` and `format`
+pub fn total_bytes(size: &Extent3d, format: &TextureFormat) -> u32 {
+    let physical_size = size.physical_size(*format);
+    let bytes_per_row = u32::from(bytes_per_row(physical_size.width, format));
+    let rows_per_image = rows_per_image(physical_size.height, format);
+    bytes_per_row * rows_per_image * size.depth_or_array_layers
 }
 
 /// The GPU-representation of an [`Image`].
@@ -532,22 +546,9 @@ impl RenderAsset for Image {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image
-                                .texture_descriptor
-                                .size
-                                .bytes_per_row(image.texture_descriptor.format),
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.bytes_per_row()),
                     rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                        std::num::NonZeroU32::new(
-                            image
-                                .texture_descriptor
-                                .size
-                                .rows_per_image(image.texture_descriptor.format),
-                        )
+                        std::num::NonZeroU32::new(image.texture_descriptor.rows_per_image())
                     } else {
                         None
                     },

@@ -456,15 +456,7 @@ impl FromWorld for MeshPipeline {
                 &image.data,
                 ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image
-                                .texture_descriptor
-                                .size
-                                .bytes_per_row(image.texture_descriptor.format),
-                        )
-                        .unwrap(),
-                    ),
+                    bytes_per_row: Some(image.texture_descriptor.bytes_per_row()),
                     rows_per_image: None,
                 },
                 image.texture_descriptor.size,
