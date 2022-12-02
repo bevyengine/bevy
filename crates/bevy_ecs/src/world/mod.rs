@@ -15,6 +15,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity},
+    ptr::UnsafeCellDeref,
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{NonSendResourceData, ResourceData, SparseSet, Storages},
     system::Resource,
@@ -1013,7 +1014,7 @@ impl World {
     pub(crate) fn get_non_send_with_ticks(
         &self,
         component_id: ComponentId,
-    ) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
+    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
         self.storages
             .non_send_resources
             .get(component_id)?
@@ -1286,7 +1287,8 @@ impl World {
         let value_mut = Mut {
             value: &mut value,
             ticks: Ticks {
-                component_ticks: &mut ticks,
+                added: &mut ticks.added,
+                changed: &mut ticks.changed,
                 last_change_tick,
                 change_tick,
             },
@@ -1401,7 +1403,8 @@ impl World {
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
             ticks: Ticks {
-                component_ticks: ticks.deref_mut(),
+                added: ticks.added.deref_mut(),
+                changed: ticks.changed.deref_mut(),
                 last_change_tick: self.last_change_tick(),
                 change_tick: self.read_change_tick(),
             },

@@ -2,7 +2,6 @@ use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use std::cell::UnsafeCell;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
@@ -89,7 +88,7 @@ impl ResourceData {
     /// Removes a value from the resource, if present, and drops it.
     ///
     /// # Safety
-    /// The underlying type must be [`Send`] inserted from.
+    /// The underlying type must be [`Send`].
     #[inline]
     pub(crate) unsafe fn remove_and_drop(&mut self) {
         if self.is_present() {
