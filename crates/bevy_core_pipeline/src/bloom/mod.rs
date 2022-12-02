@@ -420,6 +420,10 @@ impl FromWorld for BloomPipelines {
                         count: None,
                     },
                     // Bloom settings
+                    //
+                    // TODO: We don't need this if bloom is configured in an
+                    // energy conserving manner (no threshold).
+                    // We might be punishing most users by doing this.
                     BindGroupLayoutEntry {
                         binding: 2,
                         ty: BindingType::Buffer {
@@ -636,6 +640,8 @@ struct BloomUniforms {
 #[derive(Component)]
 struct BloomUniformIndex(u32);
 
+// TODO: This entire system is not needed if bloom is configured in an
+// energy conserving manner. Because we only change the preflter settings here.
 fn prepare_bloom_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -700,6 +706,7 @@ fn queue_bloom_bind_groups(
                             binding: 1,
                             resource: BindingResource::Sampler(&pipelines.sampler),
                         },
+                        // TODO: This is unused. Uniforms only matter in prefiltering (first downsample)
                         BindGroupEntry {
                             binding: 2,
                             resource: bloom_uniforms.clone(),
@@ -724,6 +731,7 @@ fn queue_bloom_bind_groups(
                             binding: 1,
                             resource: BindingResource::Sampler(&pipelines.sampler),
                         },
+                        // TODO: This is unused. Uniforms only matter in prefiltering (first downsample)
                         BindGroupEntry {
                             binding: 2,
                             resource: bloom_uniforms.clone(),
