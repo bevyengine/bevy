@@ -990,7 +990,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
             .add_unfiltered_read(component_id);
 
         let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
+            .get_non_send_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -1013,7 +1013,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         change_tick: u32,
     ) -> Self::Item {
         let (ptr, ticks) = world
-            .get_resource_with_ticks(state.component_id)
+            .get_non_send_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1062,7 +1062,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world
-            .get_resource_with_ticks(state.0.component_id)
+            .get_non_send_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
@@ -1105,7 +1105,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
             .add_unfiltered_write(component_id);
 
         let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
+            .get_non_send_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -1128,7 +1128,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         change_tick: u32,
     ) -> Self::Item {
         let (ptr, ticks) = world
-            .get_resource_with_ticks(state.component_id)
+            .get_non_send_with_ticks(state.component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1171,7 +1171,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
         change_tick: u32,
     ) -> Self::Item {
         world
-            .get_resource_with_ticks(state.0.component_id)
+            .get_non_send_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),

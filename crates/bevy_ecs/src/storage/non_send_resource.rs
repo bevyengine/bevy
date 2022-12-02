@@ -86,7 +86,7 @@ impl NonSendResourceData {
     }
 
     /// # Panics
-    /// This will panic if a value is present and is not accessed from the original thread 
+    /// This will panic if a value is present and is not accessed from the original thread
     /// it was inserted in.
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
@@ -100,7 +100,7 @@ impl NonSendResourceData {
     /// it will be replaced.
     ///
     /// # Panics
-    /// This will panic if a value is present and is not accessed from the original thread 
+    /// This will panic if a value is present and is not accessed from the original thread
     /// it was inserted in.
     ///
     /// # Safety
@@ -116,7 +116,7 @@ impl NonSendResourceData {
         }
     }
 
-    /// Inserts a value into the `!Send` resource with a pre-existing change tick. 
+    /// Inserts a value into the `!Send` resource with a pre-existing change tick.
     /// If a value is already present it will be replaced.
     ///
     /// # Panics
@@ -213,7 +213,10 @@ impl NonSendResources {
 
     /// Gets mutable access to a `!Send` resource, if it exists.
     #[inline]
-    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut NonSendResourceData> {
+    pub(crate) fn get_mut(
+        &mut self,
+        component_id: ComponentId,
+    ) -> Option<&mut NonSendResourceData> {
         self.resources.get_mut(component_id)
     }
 
@@ -228,7 +231,6 @@ impl NonSendResources {
         &mut self,
         component_id: ComponentId,
         components: &Components,
-        is_send: bool,
         f: impl FnOnce() -> ArchetypeComponentId,
     ) -> &mut NonSendResourceData {
         self.resources.get_or_insert_with(component_id, || {

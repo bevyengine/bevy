@@ -3,8 +3,6 @@ use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
-use std::mem::ManuallyDrop;
-use std::thread::ThreadId;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
@@ -178,14 +176,10 @@ impl Resources {
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
-    ///
-    /// # Safety
-    /// `is_send` must be accurate for the Resource that is being initialized.
     pub(crate) unsafe fn initialize_with(
         &mut self,
         component_id: ComponentId,
         components: &Components,
-        is_send: bool,
         f: impl FnOnce() -> ArchetypeComponentId,
     ) -> &mut ResourceData {
         self.resources.get_or_insert_with(component_id, || {
