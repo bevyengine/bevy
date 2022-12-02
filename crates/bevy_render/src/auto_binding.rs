@@ -222,8 +222,8 @@ fn prepare_binding_data_container<G: AutoBindGroup, F: ReadOnlyWorldQuery>(
 // final built bind group with dynamic offsets
 #[derive(Component)]
 pub struct AutoBindGroupData<G: AutoBindGroup> {
-    bindgroup: BindGroup,
-    offsets: Vec<u32>,
+    pub bindgroup: BindGroup,
+    pub offsets: Vec<u32>,
     _p: PhantomData<fn() -> G>,
 }
 
