@@ -457,11 +457,11 @@ impl<'a> ImageType<'a> {
 
 /// Extends Extent3d with some convenience methods to calculate some useful values related to the dimensions of a texture
 pub trait Extent3dDimensions {
-    /// calculates the bytes per row in a texture
+    /// Calculates the bytes per row in a texture
     fn bytes_per_row(&self) -> NonZeroU32;
-    /// calculates the rows in an image
+    /// Calculates the rows in an image
     fn rows_per_image(&self) -> u32;
-    /// calculates the total bytes in the data buffer for a texture
+    /// Calculates the total bytes for a texture
     fn total_bytes(&self) -> u32;
 }
 
@@ -490,7 +490,8 @@ fn rows_per_image(physical_height: u32, format: &TextureFormat) -> u32 {
     physical_height / info.block_dimensions.1 as u32
 }
 
-/// calculate the total bytes needed to hold an image with `size` and `format`
+/// Calculate the total bytes needed to hold an image with `size` and `format`. If you have a [`TextureDescriptor`]
+/// consider using [`Extent3dDimensions::total_bytes`] instead.
 pub fn total_bytes(size: &Extent3d, format: &TextureFormat) -> u32 {
     let physical_size = size.physical_size(*format);
     let bytes_per_row = u32::from(bytes_per_row(physical_size.width, format));
