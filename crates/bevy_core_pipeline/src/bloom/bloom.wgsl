@@ -10,7 +10,6 @@
 #import bevy_core_pipeline::tonemapping
 
 struct BloomUniforms {
-    intensity: f32,
     threshold_precomputations: vec4<f32>,
 };
 
@@ -125,5 +124,5 @@ fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
 @fragment
 fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    return vec4<f32>(sample_input_3x3_tent(uv), uniforms.intensity);
+    return vec4<f32>(sample_input_3x3_tent(uv), 1.0);
 }

@@ -11,7 +11,7 @@ use bevy_math::{UVec2, Vec4};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Camera,
+    prelude::{Camera, Color},
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::*,
@@ -174,6 +174,7 @@ struct BloomNode {
         &'static BloomTexture,
         &'static BloomBindGroups,
         &'static BloomUniformIndex,
+        &'static BloomSettings,
     )>,
 }
 
@@ -213,7 +214,7 @@ impl Node for BloomNode {
         let bloom_uniforms = world.resource::<BloomUniforms>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
-            Ok((camera, view_target, bloom_texture, bind_groups, uniform_index)),
+            Ok((camera, view_target, bloom_texture, bind_groups, uniform_index, bloom_settings)),
             Some(downsampling_first_pipeline),
             Some(downsampling_pipeline),
             Some(upsampling_pipeline),
@@ -352,6 +353,8 @@ impl Node for BloomNode {
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_pass.set_camera_viewport(viewport);
             }
+            let blend = bloom_settings.intensity;
+            upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_pass.draw(0..3, 0..1);
         }
 
@@ -365,7 +368,7 @@ impl Node for BloomNode {
                             view_target.get_unsampled_color_attachment(Operations {
                                 load: LoadOp::Load,
                                 store: true,
-                            })
+                            }),
                         )],
                         depth_stencil_attachment: None,
                     },
@@ -379,6 +382,8 @@ impl Node for BloomNode {
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_final_pass.set_camera_viewport(viewport);
             }
+            let blend = bloom_settings.intensity;
+            upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
 
@@ -500,15 +505,11 @@ impl FromWorld for BloomPipelines {
                     format: TextureFormat::Rg11b10Float,
                     blend: Some(BlendState {
                         color: BlendComponent {
-                            src_factor: BlendFactor::SrcAlpha,
-                            dst_factor: BlendFactor::OneMinusSrcAlpha,
+                            src_factor: BlendFactor::Constant,
+                            dst_factor: BlendFactor::OneMinusConstant,
                             operation: BlendOperation::Add,
                         },
-                        alpha: BlendComponent {
-                            src_factor: BlendFactor::Zero,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
+                        alpha: BlendComponent::REPLACE,
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -539,15 +540,11 @@ impl FromWorld for BloomPipelines {
                         format: ViewTarget::TEXTURE_FORMAT_HDR,
                         blend: Some(BlendState {
                             color: BlendComponent {
-                                src_factor: BlendFactor::SrcAlpha,
-                                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                                src_factor: BlendFactor::Constant,
+                                dst_factor: BlendFactor::OneMinusConstant,
                                 operation: BlendOperation::Add,
                             },
-                            alpha: BlendComponent {
-                                src_factor: BlendFactor::Zero,
-                                dst_factor: BlendFactor::One,
-                                operation: BlendOperation::Add,
-                            },
+                            alpha: BlendComponent::REPLACE,
                         }),
                         write_mask: ColorWrites::ALL,
                     })],
