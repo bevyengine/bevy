@@ -8,9 +8,10 @@ use std::{
 
 use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
-use futures_lite::{future, pin, FutureExt};
+use futures_lite::{future, FutureExt};
 
 use crate::Task;
+use crate::{thread_executor::ThreadSpawner, ThreadExecutor};
 
 /// Used to create a [`TaskPool`]
 #[derive(Debug, Default, Clone)]
@@ -232,8 +233,23 @@ impl TaskPool {
     ///         });
     ///     });
     /// }
-    ///
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
+    where
+        F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
+        T: Send + 'static,
+    {
+        self.scope_with_executor(true, None, f)
+    }
+
+    /// This allows passing an external executor to spawn tasks on. When you pass an external executor
+    /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`ThreadExecutor`] is being ticked on.
+    /// See [`Self::scope`] for more details in general about how scopes work.
+    pub fn scope_with_executor<'env, F, T>(
+        &self,
+        tick_task_pool_executor: bool,
+        thread_executor: Option<Arc<ThreadExecutor>>,
+        f: F,
+    ) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
@@ -245,16 +261,21 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-        let task_scope_executor = &async_executor::Executor::default();
-        let task_scope_executor: &'env async_executor::Executor =
-            unsafe { mem::transmute(task_scope_executor) };
-        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
+
+        let thread_executor = if let Some(thread_executor) = thread_executor {
+            thread_executor
+        } else {
+            Arc::new(ThreadExecutor::new())
+        };
+        let thread_spawner = thread_executor.spawner();
+        let thread_spawner: ThreadSpawner<'env> = unsafe { mem::transmute(thread_spawner) };
+        let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
-            task_scope_executor,
+            thread_spawner,
             spawned: spawned_ref,
             scope: PhantomData,
             env: PhantomData,
@@ -267,29 +288,34 @@ impl TaskPool {
         if spawned.is_empty() {
             Vec::new()
         } else {
-            let get_results = async {
-                let mut results = Vec::with_capacity(spawned_ref.len());
-                while let Ok(task) = spawned_ref.pop() {
-                    results.push(task.await.unwrap());
-                }
+            future::block_on(async move {
+                let get_results = async move {
+                    let mut results = Vec::with_capacity(scope.spawned.len());
+                    while let Ok(task) = spawned.pop() {
+                        results.push(task.await);
+                    }
 
-                results
-            };
-
-            // Pin the futures on the stack.
-            pin!(get_results);
-
-            loop {
-                if let Some(result) = future::block_on(future::poll_once(&mut get_results)) {
-                    break result;
+                    results
                 };
 
-                std::panic::catch_unwind(|| {
-                    executor.try_tick();
-                    task_scope_executor.try_tick();
-                })
-                .ok();
-            }
+                if let Some(thread_ticker) = thread_executor.ticker() {
+                    let tick_forever = async move {
+                        loop {
+                            thread_ticker.tick().await;
+                        }
+                    };
+
+                    if tick_task_pool_executor {
+                        executor.run(tick_forever).or(get_results).await
+                    } else {
+                        tick_forever.or(get_results).await
+                    }
+                } else if tick_task_pool_executor {
+                    executor.run(get_results).await
+                } else {
+                    get_results.await
+                }
+            })
         }
     }
 
@@ -362,7 +388,7 @@ impl Drop for TaskPool {
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
-    task_scope_executor: &'scope async_executor::Executor<'scope>,
+    thread_spawner: ThreadSpawner<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -392,7 +418,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.task_scope_executor.spawn(f).fallible();
+        let task = self.thread_spawner.spawn(f).fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbouded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
@@ -408,7 +434,7 @@ where
             while let Ok(task) = self.spawned.pop() {
                 task.cancel().await;
             }
-        });
+        })
     }
 }
 
