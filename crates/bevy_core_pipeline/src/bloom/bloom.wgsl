@@ -20,10 +20,6 @@ var input_texture: texture_2d<f32>;
 var s: sampler;
 @group(0) @binding(2)
 var<uniform> uniforms: BloomUniforms;
-// No need for this since we can use WGPU blending
-// and draw directly onto the input texture
-// @group(0) @binding(3)
-// var main_pass_texture: texture_2d<f32>;
 
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
@@ -131,14 +127,3 @@ fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     return vec4<f32>(sample_input_3x3_tent(uv), uniforms.intensity);
 }
-
-// We don't need this. We can just use upsample
-// @fragment
-// fn upsample_final(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-//     let main_pass_sample = textureSample(main_pass_texture, s, uv);
-//     let bloom_sample = sample_input_3x3_tent(uv);
-// 
-//     let mixed_sample = mix(main_pass_sample.rgb, bloom_sample, uniforms.intensity);
-// 
-//     return vec4<f32>(mixed_sample, main_pass_sample.a);
-// }

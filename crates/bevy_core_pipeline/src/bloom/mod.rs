@@ -196,6 +196,9 @@ impl Node for BloomNode {
         self.view_query.update_archetypes(world);
     }
 
+    // Atypically for a post-processing effect, we do not
+    // use a secondary texture normally provided by view_target.post_process_write(),
+    // instead we write into our own bloom texture and then directly back onto main.
     fn run(
         &self,
         graph: &mut RenderGraphContext,
@@ -226,11 +229,6 @@ impl Node for BloomNode {
         ) else {
             return Ok(());
         };
-        // Since we never read and write to main texture at the same time
-        // we don't need this. We just downsample it into bloom texture
-        // and then upsample from bloom texture directly onto main.
-        // This way we avoid the need to copy a full-resolution texture.
-        // let view_target = view_target.post_process_write();
 
         let downsampling_first_bind_group =
             render_context
@@ -241,6 +239,7 @@ impl Node for BloomNode {
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
+                            // We read from main texture directly
                             resource: BindingResource::TextureView(view_target.main_texture()),
                         },
                         BindGroupEntry {
@@ -258,7 +257,7 @@ impl Node for BloomNode {
                 .render_device
                 .create_bind_group(&BindGroupDescriptor {
                     label: Some("bloom_upsampling_final_bind_group"),
-                    layout: &pipelines.upsampling_final_bind_group_layout,
+                    layout: &pipelines.main_bind_group_layout,
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
@@ -272,11 +271,6 @@ impl Node for BloomNode {
                             binding: 2,
                             resource: bloom_uniforms,
                         },
-                        // This is not required by the shader anymore
-                        // BindGroupEntry {
-                        //     binding: 3,
-                        //     resource: BindingResource::TextureView(view_target.source),
-                        // },
                     ],
                 });
 
@@ -400,7 +394,6 @@ struct BloomPipelines {
     upsampling_final_pipeline: CachedRenderPipelineId,
 
     main_bind_group_layout: BindGroupLayout,
-    upsampling_final_bind_group_layout: BindGroupLayout,
 
     sampler: Sampler,
 }
@@ -450,53 +443,6 @@ impl FromWorld for BloomPipelines {
                         visibility: ShaderStages::FRAGMENT,
                         count: None,
                     },
-                ],
-            });
-
-        let upsampling_final_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("bloom_upsampling_final_bind_group_layout"),
-                entries: &[
-                    // Main pass texture
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // Sampler
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // Bloom settings
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(BloomUniform::min_size()),
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // This is not required by the shader anymore
-                    // BindGroupLayoutEntry {
-                    //     binding: 3,
-                    //     ty: BindingType::Texture {
-                    //         sample_type: TextureSampleType::Float { filterable: true },
-                    //         view_dimension: TextureViewDimension::D2,
-                    //         multisampled: false,
-                    //     },
-                    //     visibility: ShaderStages::FRAGMENT,
-                    //     count: None,
-                    // },
                 ],
             });
 
@@ -575,7 +521,7 @@ impl FromWorld for BloomPipelines {
         let upsampling_final_pipeline =
             pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("bloom_upsampling_final_pipeline".into()),
-                layout: Some(vec![upsampling_final_bind_group_layout.clone()]),
+                layout: Some(vec![main_bind_group_layout.clone()]),
                 vertex: fullscreen_shader_vertex_state(),
                 fragment: Some(FragmentState {
                     shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
@@ -612,7 +558,6 @@ impl FromWorld for BloomPipelines {
             sampler,
 
             main_bind_group_layout,
-            upsampling_final_bind_group_layout,
         }
     }
 }
