@@ -504,6 +504,8 @@ impl FromWorld for BloomPipelines {
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::Rg11b10Float,
                     blend: Some(BlendState {
+                        // We blend our blur pyramid levels using native WGPU render
+                        // pass blend constants. They are set in the node's run function.
                         color: BlendComponent {
                             src_factor: BlendFactor::Constant,
                             dst_factor: BlendFactor::OneMinusConstant,
