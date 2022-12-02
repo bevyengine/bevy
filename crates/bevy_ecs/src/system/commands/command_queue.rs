@@ -119,11 +119,12 @@ impl CommandQueue {
             // might be 1 byte past the end of the buffer, which is safe.
             cursor = unsafe { cursor.add(mem::size_of::<CommandMeta>()) };
             // Construct an owned pointer to the command.
-            // SAFETY: Since the buffer has been cleared, the command won't get double-dropped later.
+            // SAFETY: Since the buffer has been cleared, the command won't get
+            // observed later and we can transfer ownership from the buffer.
             let cmd = unsafe { OwningPtr::new(std::ptr::NonNull::new_unchecked(cursor.cast())) };
-            // SAFETY: The data underneath the cursor must correspond to the type erased by the metadata,
+            // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
             // since they were stored next to each other by `.push()`.
-            // For ZSTs, we can lie about this as long as the pointer is otherwise valid.
+            // For ZSTs, the type doesn't matter as long as the pointer is non-null.
             let size = unsafe { (meta.write_command_and_get_size)(cmd, world) };
             // Advance the cursor past the command.
             // For ZSTs, the cursor will not move.
