@@ -518,6 +518,9 @@ impl FromWorld for BloomPipelines {
             multisample: MultisampleState::default(),
         });
 
+        // The only difference between this and the normal upsampling_pipeline
+        // is the target format (Rg11b10Float and ViewTarget::TEXTURE_FORMAT_HDR).
+        // Too bad.
         let upsampling_final_pipeline =
             pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
                 label: Some("bloom_upsampling_final_pipeline".into()),
@@ -528,6 +531,11 @@ impl FromWorld for BloomPipelines {
                     shader_defs: vec![],
                     entry_point: "upsample".into(),
                     targets: vec![Some(ColorTargetState {
+                        // This must match whatever format the view_target's
+                        // main texture is in the run function of our Bloom node.
+                        // Defining this here might be a bad idea because
+                        // this will result in a runtime error if Bevy changes
+                        // main texture HDR format in the future.
                         format: ViewTarget::TEXTURE_FORMAT_HDR,
                         blend: Some(BlendState {
                             color: BlendComponent {
