@@ -642,7 +642,6 @@ fn prepare_bloom_textures(
 
 #[derive(ShaderType)]
 struct BloomUniform {
-    intensity: f32,
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     threshold_precomputations: Vec4,
 }
@@ -669,7 +668,6 @@ fn prepare_bloom_uniforms(
         .map(|(entity, settings)| {
             let knee = settings.threshold * settings.threshold_softness.clamp(0.0, 1.0);
             let uniform = BloomUniform {
-                intensity: settings.intensity,
                 threshold_precomputations: Vec4::new(
                     settings.threshold,
                     settings.threshold - knee,
