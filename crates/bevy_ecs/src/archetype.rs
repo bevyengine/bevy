@@ -396,14 +396,14 @@ impl Archetype {
     /// Fetches the row in the [`Table`] where the components for the entity at `index`
     /// is stored.
     ///
-    /// An entity's archetype index can be fetched from [`EntityLocation::index`], which
+    /// An entity's archetype index can be fetched from [`EntityLocation::archetype_row`], which
     /// can be retrieved from [`Entities::get`].
     ///
     /// # Panics
     /// This function will panic if `index >= self.len()`.
     ///
     /// [`Table`]: crate::storage::Table
-    /// [`EntityLocation`]: crate::entity::EntityLocation::index
+    /// [`EntityLocation`]: crate::entity::EntityLocation::archetype_row
     /// [`Entities::get`]: crate::entity::Entities::get
     #[inline]
     pub fn entity_table_row(&self, index: ArchetypeRow) -> TableRow {
