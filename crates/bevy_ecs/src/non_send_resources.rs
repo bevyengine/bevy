@@ -1,4 +1,8 @@
-use std::{any::TypeId, cell::RefCell, sync::atomic::{AtomicU32, Ordering}};
+use std::{
+    any::TypeId,
+    cell::RefCell,
+    sync::atomic::{AtomicU32, Ordering},
+};
 
 use bevy_ptr::{OwningPtr, Ptr};
 
@@ -21,24 +25,23 @@ pub struct NonSendResources {
     last_change_tick: u32,
 }
 
-
 impl Default for NonSendResources {
-  fn default() -> Self {
-      Self {
-          components: Default::default(),
-          non_send_resources: Resources::default(),
-          archetype_component_count: 0,
-          // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
-          // are detected on first system runs and for direct world queries.
-          change_tick: AtomicU32::new(1),
-          last_change_tick: 0,
-      }
-  }
+    fn default() -> Self {
+        Self {
+            components: Default::default(),
+            non_send_resources: Resources::default(),
+            archetype_component_count: 0,
+            // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
+            // are detected on first system runs and for direct world queries.
+            change_tick: AtomicU32::new(1),
+            last_change_tick: 0,
+        }
+    }
 }
 
 impl NonSendResources {
     pub fn new() -> Self {
-      Self::default()
+        Self::default()
     }
 
     /// # Safety
