@@ -969,7 +969,7 @@ impl Composer {
                         }
                     }
                     final_string.push_str(&line_with_defs);
-                    let diff = line_with_defs.len() as i32 - line.len() as i32;
+                    let diff = line.len() as i32 - line_with_defs.len() as i32;
                     if diff > 0 {
                         final_string.extend(std::iter::repeat(" ").take(diff as usize));
                     } else if diff < 0 && validate_len {

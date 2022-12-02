@@ -1247,10 +1247,10 @@ fn vertex(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-    var a: i32 = 5;
-    var b: i32 = 5 * 3;
+    var a: i32 = 5;           
+    var b: i32 = 5 * 3;                       
     var c: i32 = #MISSING_VALUE;
-    var d: bool = true;
+    var d: bool = true;       
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     return out;
 }
