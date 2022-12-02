@@ -2,10 +2,12 @@
 
 mod blob_vec;
 mod resource;
+mod non_send_resource;
 mod sparse_set;
 mod table;
 
 pub use resource::*;
+pub use non_send_resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
@@ -15,4 +17,5 @@ pub struct Storages {
     pub sparse_sets: SparseSets,
     pub tables: Tables,
     pub resources: Resources,
+    pub non_send_resource: NonSendResources,
 }
