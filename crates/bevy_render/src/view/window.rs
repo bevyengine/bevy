@@ -29,7 +29,6 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
-                .init_resource::<NonSendMarker>()
                 .add_system_to_stage(RenderStage::Extract, extract_windows)
                 .add_system_to_stage(
                     RenderStage::Prepare,
@@ -166,7 +165,7 @@ pub struct WindowSurfaces {
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS s
-    _marker: NonSend<NonSendMarker>,
+    _marker: Option<NonSend<NonSendMarker>>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
