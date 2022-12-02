@@ -358,7 +358,6 @@ impl Node for BloomNode {
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(
                 0,
-                // &upsampling_final_bind_group,
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize],
                 &[uniform_index.0],
             );
