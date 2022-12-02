@@ -1373,6 +1373,13 @@ mod tests {
     }
 
     #[test]
+    fn non_send_resource_drop_from_same_thread() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+        drop(world);
+    }
+
+    #[test]
     fn insert_overwrite_drop() {
         let (dropck1, dropped1) = DropCk::new_pair();
         let (dropck2, dropped2) = DropCk::new_pair();
