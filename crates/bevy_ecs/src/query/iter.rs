@@ -170,11 +170,11 @@ where
                 table,
             );
 
-            let table_row = archetype.entity_table_row(location.index);
+            let table_row = archetype.entity_table_row(location.archetype_row);
             // SAFETY: set_archetype was called prior.
-            // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
+            // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
             if F::filter_fetch(&mut self.filter, entity, table_row) {
-                // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
+                // SAFETY: set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
                 return Some(Q::fetch(&mut self.fetch, entity, table_row));
             }
         }
@@ -474,7 +474,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     /// # Safety
     /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
     /// that the returned value is not used in any way that would cause two `QueryItem<Q>` for the same
-    /// `archetype_index` or `table_row` to be alive at the same time.
+    /// `archetype_row` or `table_row` to be alive at the same time.
     unsafe fn clone_cursor(&self) -> Self {
         Self {
             table_id_iter: self.table_id_iter.clone(),

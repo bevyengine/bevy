@@ -342,7 +342,7 @@ pub unsafe trait WorldQuery {
     /// # Safety
     /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
     /// that the returned value is not used in any way that would cause two `QueryItem<Self>` for the same
-    /// `archetype_index` or `table_row` to be alive at the same time.
+    /// `archetype_row` or `table_row` to be alive at the same time.
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w>;
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains

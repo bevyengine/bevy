@@ -418,7 +418,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
-        let table_row = archetype.entity_table_row(location.index);
+        let table_row = archetype.entity_table_row(location.archetype_row);
         let table = world
             .storages()
             .tables
@@ -1095,8 +1095,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                             F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
                             let entities = archetype.entities();
-                            for archetype_index in offset..offset + len {
-                                let archetype_entity = entities.get_unchecked(archetype_index);
+                            for archetype_row in offset..offset + len {
+                                let archetype_entity = entities.get_unchecked(archetype_row);
                                 if !F::filter_fetch(
                                     &mut filter,
                                     archetype_entity.entity(),

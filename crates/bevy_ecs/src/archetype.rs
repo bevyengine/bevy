@@ -44,7 +44,7 @@ use std::{
 pub struct ArchetypeRow(usize);
 
 impl ArchetypeRow {
-    pub(crate) const INVALID: ArchetypeRow = ArchetypeRow(usize::MAX);
+    pub const INVALID: ArchetypeRow = ArchetypeRow(usize::MAX);
 }
 
 /// An opaque unique ID for a single [`Archetype`] within a [`World`].
@@ -434,7 +434,7 @@ impl Archetype {
 
         EntityLocation {
             archetype_id: self.id,
-            index: ArchetypeRow(self.entities.len() - 1),
+            archetype_row: ArchetypeRow(self.entities.len() - 1),
         }
     }
 

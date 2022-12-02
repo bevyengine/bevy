@@ -730,7 +730,7 @@ impl EntityMeta {
         generation: 0,
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
-            index: ArchetypeRow::INVALID, // dummy value, to be filled in
+            archetype_row: ArchetypeRow::INVALID, // dummy value, to be filled in
         },
     };
 }
@@ -743,7 +743,7 @@ pub struct EntityLocation {
     pub archetype_id: ArchetypeId,
 
     /// The index of the entity in the archetype
-    pub index: ArchetypeRow,
+    pub archetype_row: ArchetypeRow,
 }
 
 #[cfg(test)]
