@@ -210,6 +210,8 @@ pub struct ComposableModuleDefinition {
     pub language: ShaderLanguage,
     // source path for error display
     pub file_path: String,
+    // shader def values bound to this module
+    pub shader_defs: HashMap<String, ShaderDefValue>,
     // list of shader_defs that can affect this module
     effective_defs: Vec<String>,
     // full list of possible imports (regardless of shader_def configuration)
@@ -340,6 +342,8 @@ pub enum ComposerErrorInner {
         expected: String,
         value: String,
     },
+    #[error("multiple inconsistent shader def values: '{def}'")]
+    InconsistentShaderDefValue { def: String },
     #[error("Attempted to add a module with no #define_import_path")]
     NoModuleName,
     #[error("source contains internal decoration string, results probably won't be what you expect. if you have a legitimate reason to do this please file a report")]
@@ -450,6 +454,12 @@ impl ComposerError {
             }
             ComposerErrorInner::GlslBackError(e) => {
                 return format!("{}: glsl back error: {}", path, e);
+            }
+            ComposerErrorInner::InconsistentShaderDefValue { def } => {
+                return format!(
+                    "{}: multiple inconsistent shader def values: '{}'",
+                    path, def
+                );
             }
             ComposerErrorInner::RedirectError(..) => (
                 vec![Label::primary((), 0..0)],
@@ -1605,6 +1615,7 @@ pub struct ComposableModuleDescriptor<'a> {
     pub language: ShaderLanguage,
     pub as_name: Option<String>,
     pub additional_imports: &'a [ImportDefinition],
+    pub shader_defs: HashMap<String, ShaderDefValue>,
 }
 
 #[derive(Default)]
@@ -1656,6 +1667,7 @@ impl Composer {
             language,
             as_name,
             additional_imports,
+            mut shader_defs,
         } = desc;
 
         // reject a module containing the DECORATION strings
@@ -1684,7 +1696,10 @@ impl Composer {
         }
         let module_name = module_name.unwrap();
 
-        info!("adding module definition for {}", module_name);
+        info!(
+            "adding module definition for {} with defs: {:?}",
+            module_name, shader_defs
+        );
 
         // add custom imports
         let additional_imports = additional_imports.to_vec();
@@ -1727,6 +1742,12 @@ impl Composer {
                     },
                 })?;
             effective_defs.extend(module_set.effective_defs.iter().cloned());
+            shader_defs.extend(
+                module_set
+                    .shader_defs
+                    .iter()
+                    .map(|def| (def.0.clone(), *def.1)),
+            );
         }
 
         // record our explicit effective shader_defs
@@ -1741,6 +1762,9 @@ impl Composer {
             }
         }
 
+        // remove defs that are already specified through our imports
+        effective_defs.retain(|name| !shader_defs.contains_key(name));
+
         // can't gracefully report errors for more modules. perhaps this should be a warning
         assert!((self.module_sets.len() as u32) < u32::MAX >> SPAN_SHIFT);
         let module_index = self.module_sets.len() + 1;
@@ -1753,6 +1777,7 @@ impl Composer {
             effective_defs: effective_defs.into_iter().collect(),
             all_imports: imports.into_iter().map(|id| id.definition.import).collect(),
             additional_imports,
+            shader_defs,
             module_index,
             modules: Default::default(),
         };
@@ -1795,7 +1820,7 @@ impl Composer {
             source,
             file_path,
             shader_type,
-            shader_defs,
+            mut shader_defs,
             additional_imports,
         } = desc;
         let (name, modified_source, imports) = self
@@ -1822,12 +1847,30 @@ impl Composer {
             })?;
 
         // make sure imports have been added
+        // and gather additional defs specified at module level
         for (import_name, offset) in imports
             .iter()
             .map(|id| (&id.definition.import, id.offset))
             .chain(additional_imports.iter().map(|ai| (&ai.import, 0)))
         {
-            if self.module_sets.get(import_name).is_none() {
+            if let Some(module_set) = self.module_sets.get(import_name) {
+                for (def, value) in &module_set.shader_defs {
+                    if let Some(prior_value) = shader_defs.insert(def.clone(), *value) {
+                        if prior_value != *value {
+                            return Err(ComposerError {
+                                inner: ComposerErrorInner::InconsistentShaderDefValue {
+                                    def: def.clone(),
+                                },
+                                source: ErrSource::Constructing {
+                                    path: file_path.to_owned(),
+                                    source: substituted_source,
+                                    offset: 0,
+                                },
+                            });
+                        }
+                    }
+                }
+            } else {
                 return Err(ComposerError {
                     inner: ComposerErrorInner::ImportNotFound(import_name.clone(), offset),
                     source: ErrSource::Constructing {
@@ -1838,6 +1881,7 @@ impl Composer {
                 });
             }
         }
+        println!("creating module with {:?}", shader_defs);
 
         self.ensure_imports(
             imports.iter().map(|import| &import.definition),
@@ -1855,6 +1899,7 @@ impl Composer {
             // we don't care about these for creating a top-level module
             effective_defs: Default::default(),
             all_imports: Default::default(),
+            shader_defs: Default::default(),
             modules: Default::default(),
         };
 
