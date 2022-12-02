@@ -31,7 +31,7 @@ impl Parent {
 // better ways to handle cases like this.
 impl FromWorld for Parent {
     fn from_world(_world: &mut World) -> Self {
-        Parent(Entity::from_raw(u32::MAX))
+        Parent(Entity::PLACEHOLDER)
     }
 }
 

@@ -488,7 +488,7 @@ pub fn queue_sprites(
             layout: &sprite_pipeline.view_layout,
         }));
 
-        let draw_sprite_function = draw_functions.read().get_id::<DrawSprite>().unwrap();
+        let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
 
         // Vertex buffer indices
         let mut index = 0;
@@ -543,7 +543,7 @@ pub fn queue_sprites(
                 image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
                 colored: false,
             };
-            let mut current_batch_entity = Entity::from_raw(u32::MAX);
+            let mut current_batch_entity = Entity::PLACEHOLDER;
             let mut current_image_size = Vec2::ZERO;
             // Add a phase item for each sprite, and detect when succesive items can be batched.
             // Spawn an entity with a `SpriteBatch` component for each possible batch.
