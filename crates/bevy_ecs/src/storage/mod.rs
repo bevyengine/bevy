@@ -1,12 +1,10 @@
 //! Storage layouts for ECS data.
 
 mod blob_vec;
-mod non_send_resource;
 mod resource;
 mod sparse_set;
 mod table;
 
-pub use non_send_resource::*;
 pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;

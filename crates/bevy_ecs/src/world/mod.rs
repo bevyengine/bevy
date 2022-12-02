@@ -17,7 +17,7 @@ use crate::{
     entity::{AllocAtWithoutReplacement, Entities, Entity},
     ptr::UnsafeCellDeref,
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
-    storage::{NonSendResourceData, ResourceData, SparseSet, Storages},
+    storage::{ResourceData, SparseSet, Storages},
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr};
