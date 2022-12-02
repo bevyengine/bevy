@@ -510,34 +510,32 @@ pub fn queue_sprites(
         view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
         transparent_phase.items.reserve(extracted_sprites.len());
 
-            // Impossible starting values that will be replaced on the first iteration
-            let mut current_batch = SpriteBatch {
-                image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
-                colored: false,
+        // Impossible starting values that will be replaced on the first iteration
+        let mut current_batch = SpriteBatch {
+            image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
+            colored: false,
+        };
+        let mut current_batch_entity = Entity::from_raw(u32::MAX);
+        let mut current_image_size = Vec2::ZERO;
+        // Add a phase item for each sprite, and detect when succesive items can be batched.
+        // Spawn an entity with a `SpriteBatch` component for each possible batch.
+        // Compatible items share the same entity.
+        // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
+        // by any other phase item (and they can interrupt other items from batching).
+        for extracted_sprite in extracted_sprites.iter() {
+            if !view_entities.contains(extracted_sprite.entity.index() as usize) {
+                continue;
+            }
+            let new_batch = SpriteBatch {
+                image_handle_id: extracted_sprite.image_handle_id,
+                colored: extracted_sprite.color != Color::WHITE,
             };
-            let mut current_batch_entity = Entity::from_raw(u32::MAX);
-            let mut current_image_size = Vec2::ZERO;
-            // Add a phase item for each sprite, and detect when succesive items can be batched.
-            // Spawn an entity with a `SpriteBatch` component for each possible batch.
-            // Compatible items share the same entity.
-            // Batches are merged later (in `batch_phase_system()`), so that they can be interrupted
-            // by any other phase item (and they can interrupt other items from batching).
-            for extracted_sprite in extracted_sprites.iter() {
-                if !view_entities.contains(extracted_sprite.entity.index() as usize) {
-                    continue;
-                }
-                let new_batch = SpriteBatch {
-                    image_handle_id: extracted_sprite.image_handle_id,
-                    colored: extracted_sprite.color != Color::WHITE,
-                };
-                if new_batch != current_batch {
-                    // Set-up a new possible batch
-                    if let Some(gpu_image) =
-                        gpu_images.get(&Handle::weak(new_batch.image_handle_id))
-                    {
-                        current_batch = new_batch;
-                        current_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
-                        current_batch_entity = commands.spawn(current_batch).id();
+            if new_batch != current_batch {
+                // Set-up a new possible batch
+                if let Some(gpu_image) = gpu_images.get(&Handle::weak(new_batch.image_handle_id)) {
+                    current_batch = new_batch;
+                    current_image_size = Vec2::new(gpu_image.size.x, gpu_image.size.y);
+                    current_batch_entity = commands.spawn(current_batch).id();
 
                     image_bind_groups
                         .values
