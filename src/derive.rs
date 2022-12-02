@@ -367,7 +367,9 @@ impl<'a> DerivedModule<'a> {
         }
     }
 
-    // import a function defined in the source shader context
+    // import a function defined in the source shader context.
+    // func name may be already defined, the returned handle will refer to the new function.
+    // the previously defined function will still be valid.
     pub fn import_function(&mut self, func: &Function, span: Span) -> Handle<Function> {
         let name = func.name.as_ref().unwrap().clone();
         let mapped_func = self.localize_function(func);
@@ -395,14 +397,13 @@ impl<'a> DerivedModule<'a> {
 
     /// swap an already imported function for a new one.
     /// note span cannot be updated
-    pub fn replace_function(&mut self, replace: &str, func: &Function) -> Handle<Function> {
+    pub fn import_function_if_new(&mut self, func: &Function, span: Span) -> Handle<Function> {
         let name = func.name.as_ref().unwrap().clone();
-        let mapped_func = self.localize_function(func);
-        let old_h = self.function_map.remove(replace).unwrap();
-        let old_func = self.functions.get_mut(old_h);
-        *old_func = mapped_func;
-        self.function_map.insert(name, old_h);
-        old_h
+        if let Some(h) = self.function_map.get(&name) {
+            return *h;
+        }
+
+        self.import_function(func, span)
     }
 
     pub fn into_module_with_entrypoints(mut self) -> naga::Module {

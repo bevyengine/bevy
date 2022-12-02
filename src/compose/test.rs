@@ -531,7 +531,7 @@ mod test {
                 file_path: "tests/add_imports/top.wgsl",
                 additional_imports: &[ImportDefinition {
                     import: "plugin".to_owned(),
-                    as_name: None,
+                    ..Default::default()
                 }],
                 ..Default::default()
             })
@@ -564,7 +564,7 @@ mod test {
                 as_name: Some("test_module".to_owned()),
                 additional_imports: &[ImportDefinition {
                     import: "plugin".to_owned(),
-                    as_name: None,
+                    ..Default::default()
                 }],
                 ..Default::default()
             })
@@ -598,7 +598,7 @@ mod test {
             })
             .unwrap();
 
-        println!("{:#?}", module);
+        // println!("{:#?}", module);
 
         let info = naga::valid::Validator::new(
             naga::valid::ValidationFlags::all(),
@@ -619,6 +619,52 @@ mod test {
         // drop(f);
 
         assert_eq!(wgsl, include_str!("tests/expected/import_in_decl.txt"));
+    }
+
+    #[test]
+    fn item_import_test() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/item_import/consts.wgsl"),
+                file_path: "tests/item_import/consts.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let module = composer
+            .make_naga_module(NagaModuleDescriptor {
+                source: include_str!("tests/item_import/top.wgsl"),
+                file_path: "tests/item_import/top.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let info = naga::valid::Validator::new(
+            naga::valid::ValidationFlags::all(),
+            naga::valid::Capabilities::default(),
+        )
+        .validate(&module)
+        .unwrap();
+        let wgsl = naga::back::wgsl::write_string(
+            &module,
+            &info,
+            naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+        )
+        .unwrap();
+
+        // println!("{}", wgsl);
+
+        let mut wgsl = wgsl.lines().collect::<Vec<_>>();
+        wgsl.sort();
+        let wgsl = wgsl.join("\n");
+
+        // let mut f = std::fs::File::create("item_import_test.txt").unwrap();
+        // f.write_all(wgsl.as_bytes()).unwrap();
+        // drop(f);
+
+        assert_eq!(wgsl, include_str!("tests/expected/item_import_test.txt"));
     }
 
     // actually run a shader and extract the result

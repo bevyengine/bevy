@@ -868,7 +868,7 @@ impl RequiredContext {
     pub fn globals_for_module(&self, module: &Module) {
         for (global, req) in &self.globals {
             let gv = module.global_variables.try_get(*global).unwrap();
-            println!("{}: {:?}", gv.name.as_ref().unwrap(), req);
+            debug!("{}: {:?}", gv.name.as_ref().unwrap(), req);
         }
     }
 
