@@ -62,8 +62,8 @@ impl NonSendResourceData {
     /// Gets a read-only pointer to the underlying `!Send` resource, if available.
     ///
     /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This will panic if a value is present and is not accessed from the original thread
+    /// it was inserted from.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
         self.column.get_data(0).map(|res| {
@@ -72,7 +72,7 @@ impl NonSendResourceData {
         })
     }
 
-    /// Gets a read-only reference to the change ticks of the underlying resource, if available.
+    /// Gets the change ticks of the underlying resource, if available.
     #[inline]
     pub fn get_ticks(&self) -> Option<ComponentTicks> {
         self.column.get_ticks(0)
@@ -113,8 +113,8 @@ impl NonSendResourceData {
     /// If a value is already present it will be replaced.
     ///
     /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This will panic if a value is present and is not accessed from the original thread
+    /// it was inserted from.
     ///
     /// # Safety
     /// `value` must be valid for the underlying type for the resource.
@@ -142,8 +142,7 @@ impl NonSendResourceData {
     /// `!Send`, and is not accessed from the original thread it was inserted in.
     ///
     /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the thread it was
-    /// inserted from.
+    /// The underlying type must be removed from the thread it was inserted from.
     ///
     /// The removed value must be used or dropped.
     #[inline]
@@ -157,12 +156,11 @@ impl NonSendResourceData {
     /// Removes a value from the resource, if present, and drops it.
     ///
     /// # Panics
-    /// This will panic if a value is present, the underlying type is
-    /// `!Send`, and is not accessed from the original thread it was inserted in.
+    /// This will panic if a value is present and is not accessed from the original thread
+    /// it was inserted from.
     ///
     /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the thread it was
-    /// inserted from.
+    /// The underlying type must be removed from the thread it was inserted from.
     #[inline]
     pub(crate) unsafe fn remove_and_drop(&mut self) {
         if self.is_present() {
@@ -218,10 +216,7 @@ impl NonSendResources {
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
-    ///
-    /// # Safety
-    /// `is_send` must be accurate for the Resource that is being initialized.
-    pub(crate) unsafe fn initialize_with(
+    pub(crate) fn initialize_with(
         &mut self,
         component_id: ComponentId,
         components: &Components,

@@ -145,7 +145,7 @@ impl Resources {
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
-    pub(crate) unsafe fn initialize_with(
+    pub(crate) fn initialize_with(
         &mut self,
         component_id: ComponentId,
         components: &Components,
