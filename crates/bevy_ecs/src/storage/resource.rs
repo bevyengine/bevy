@@ -6,12 +6,12 @@ use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
 /// [`World`]: crate::world::World
-pub struct ResourceData {
+pub struct ResourceData<const SEND: bool> {
     column: Column,
     id: ArchetypeComponentId,
 }
 
-impl ResourceData {
+impl<const SEND: bool> ResourceData<SEND> {
     /// Returns true if the resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
@@ -102,11 +102,11 @@ impl ResourceData {
 /// [`Resource`]: crate::system::Resource
 /// [`World`]: crate::world::World
 #[derive(Default)]
-pub struct Resources {
-    resources: SparseSet<ComponentId, ResourceData>,
+pub struct Resources<const SEND: bool>{
+    resources: SparseSet<ComponentId, ResourceData<SEND>>,
 }
 
-impl Resources {
+impl<const SEND: bool> Resources<SEND> {
     /// The total number of resources stored in the [`World`]
     ///
     /// [`World`]: crate::world::World
@@ -116,7 +116,7 @@ impl Resources {
     }
 
     /// Iterate over all resources that have been initialized, i.e. given a [`ComponentId`]
-    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData)> {
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData<SEND>)> {
         self.resources.iter().map(|(id, data)| (*id, data))
     }
 
@@ -131,13 +131,13 @@ impl Resources {
 
     /// Gets read-only access to a resource, if it exists.
     #[inline]
-    pub fn get(&self, component_id: ComponentId) -> Option<&ResourceData> {
+    pub fn get(&self, component_id: ComponentId) -> Option<&ResourceData<SEND>> {
         self.resources.get(component_id)
     }
 
     /// Gets mutable access to a resource, if it exists.
     #[inline]
-    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData> {
+    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData<SEND>> {
         self.resources.get_mut(component_id)
     }
 
@@ -150,7 +150,7 @@ impl Resources {
         component_id: ComponentId,
         components: &Components,
         f: impl FnOnce() -> ArchetypeComponentId,
-    ) -> &mut ResourceData {
+    ) -> &mut ResourceData<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
             ResourceData {

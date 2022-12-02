@@ -16,6 +16,6 @@ pub use table::*;
 pub struct Storages {
     pub sparse_sets: SparseSets,
     pub tables: Tables,
-    pub resources: Resources,
-    pub non_send_resources: NonSendResources,
+    pub resources: Resources<true>,
+    pub non_send_resources: Resources<false>,
 }

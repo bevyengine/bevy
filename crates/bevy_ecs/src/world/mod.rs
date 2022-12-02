@@ -1445,7 +1445,7 @@ impl World {
     unsafe fn initialize_resource_internal(
         &mut self,
         component_id: ComponentId,
-    ) -> &mut ResourceData {
+    ) -> &mut ResourceData<true> {
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         self.storages
             .resources
@@ -1463,7 +1463,7 @@ impl World {
     unsafe fn initialize_non_send_internal(
         &mut self,
         component_id: ComponentId,
-    ) -> &mut NonSendResourceData {
+    ) -> &mut ResourceData<false> {
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
         // SAFETY: Caller guarentees that `is_send` matches the underlying type.
         self.storages
