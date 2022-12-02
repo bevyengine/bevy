@@ -253,27 +253,6 @@ impl Node for BloomNode {
                         },
                     ],
                 });
-        let upsampling_final_bind_group =
-            render_context
-                .render_device
-                .create_bind_group(&BindGroupDescriptor {
-                    label: Some("bloom_upsampling_final_bind_group"),
-                    layout: &pipelines.main_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(&bloom_texture.view(0)),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::Sampler(&pipelines.sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: bloom_uniforms,
-                        },
-                    ],
-                });
 
         {
             let view = &bloom_texture.view(0);
@@ -358,6 +337,9 @@ impl Node for BloomNode {
             upsampling_pass.draw(0..3, 0..1);
         }
 
+        // This is very similar to the upsampling_pass above with the only difference
+        // being the pipeline (which itself is barely different) and the color attachment.
+        // Too bad.
         {
             let mut upsampling_final_pass =
                 TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
@@ -376,7 +358,8 @@ impl Node for BloomNode {
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(
                 0,
-                &upsampling_final_bind_group,
+                // &upsampling_final_bind_group,
+                &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize],
                 &[uniform_index.0],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
@@ -729,7 +712,7 @@ fn queue_bloom_bind_groups(
             }
 
             let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
-            for mip in (1..bloom_texture.mip_count).rev() {
+            for mip in (0..bloom_texture.mip_count).rev() {
                 let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                     label: Some("bloom_upsampling_bind_group"),
                     layout: &pipelines.main_bind_group_layout,
