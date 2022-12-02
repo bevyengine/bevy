@@ -226,7 +226,11 @@ impl Node for BloomNode {
         ) else {
             return Ok(());
         };
-        let view_target = view_target.post_process_write();
+        // Since we never read and write to main texture at the same time
+        // we don't need this. We just downsample it into bloom texture
+        // and then upsample from bloom texture directly onto main.
+        // This way we avoid the need to copy a full-resolution texture.
+        // let view_target = view_target.post_process_write();
 
         let downsampling_first_bind_group =
             render_context
@@ -237,7 +241,7 @@ impl Node for BloomNode {
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
-                            resource: BindingResource::TextureView(view_target.source),
+                            resource: BindingResource::TextureView(view_target.main_texture()),
                         },
                         BindGroupEntry {
                             binding: 1,
@@ -268,10 +272,11 @@ impl Node for BloomNode {
                             binding: 2,
                             resource: bloom_uniforms,
                         },
-                        BindGroupEntry {
-                            binding: 3,
-                            resource: BindingResource::TextureView(view_target.source),
-                        },
+                        // This is not required by the shader anymore
+                        // BindGroupEntry {
+                        //     binding: 3,
+                        //     resource: BindingResource::TextureView(view_target.source),
+                        // },
                     ],
                 });
 
@@ -361,11 +366,13 @@ impl Node for BloomNode {
                 TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_upsampling_final_pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view: view_target.destination,
-                            resolve_target: None,
-                            ops: Operations::default(),
-                        })],
+                        color_attachments: &[Some(
+                            // We draw directly onto the main texture
+                            view_target.get_unsampled_color_attachment(Operations {
+                                load: LoadOp::Load,
+                                store: true,
+                            })
+                        )],
                         depth_stencil_attachment: None,
                     },
                 ));
@@ -479,17 +486,17 @@ impl FromWorld for BloomPipelines {
                         visibility: ShaderStages::FRAGMENT,
                         count: None,
                     },
-                    // Second to last upsample result texture (BloomTexture mip 0)
-                    BindGroupLayoutEntry {
-                        binding: 3,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
+                    // This is not required by the shader anymore
+                    // BindGroupLayoutEntry {
+                    //     binding: 3,
+                    //     ty: BindingType::Texture {
+                    //         sample_type: TextureSampleType::Float { filterable: true },
+                    //         view_dimension: TextureViewDimension::D2,
+                    //         multisampled: false,
+                    //     },
+                    //     visibility: ShaderStages::FRAGMENT,
+                    //     count: None,
+                    // },
                 ],
             });
 
@@ -573,10 +580,21 @@ impl FromWorld for BloomPipelines {
                 fragment: Some(FragmentState {
                     shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
                     shader_defs: vec![],
-                    entry_point: "upsample_final".into(),
+                    entry_point: "upsample".into(),
                     targets: vec![Some(ColorTargetState {
                         format: ViewTarget::TEXTURE_FORMAT_HDR,
-                        blend: None,
+                        blend: Some(BlendState {
+                            color: BlendComponent {
+                                src_factor: BlendFactor::SrcAlpha,
+                                dst_factor: BlendFactor::OneMinusSrcAlpha,
+                                operation: BlendOperation::Add,
+                            },
+                            alpha: BlendComponent {
+                                src_factor: BlendFactor::Zero,
+                                dst_factor: BlendFactor::One,
+                                operation: BlendOperation::Add,
+                            },
+                        }),
                         write_mask: ColorWrites::ALL,
                     })],
                 }),
