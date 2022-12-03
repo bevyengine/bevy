@@ -374,8 +374,7 @@ pub fn winit_runner_with(mut app: App) {
     let mut app_exit_event_reader = ManualEventReader::<AppExit>::default();
     let mut redraw_event_reader = ManualEventReader::<RequestRedraw>::default();
     let mut winit_state = WinitPersistentState::default();
-    app.world
-        .insert_non_send_resource(event_loop.create_proxy());
+    app.insert_non_send_resource(event_loop.create_proxy());
 
     let return_from_run = app.world.resource::<WinitSettings>().return_from_run;
 

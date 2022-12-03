@@ -59,7 +59,6 @@ pub struct World {
     pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
     /// Access cache used by [WorldCell].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
-    main_thread_validator: MainThreadValidator,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
 }
@@ -75,7 +74,6 @@ impl Default for World {
             bundles: Default::default(),
             removed_components: Default::default(),
             archetype_component_access: Default::default(),
-            main_thread_validator: Default::default(),
             // Default value is `1`, and `last_change_tick`s default to `0`, such that changes
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
@@ -740,57 +738,10 @@ impl World {
         });
     }
 
-    /// Inserts a new non-send resource with standard starting values.
-    ///
-    /// If the resource already exists, nothing happens.
-    ///
-    /// The value given by the [`FromWorld::from_world`] method will be used.
-    /// Note that any resource with the `Default` trait automatically implements `FromWorld`,
-    /// and those default values will be here instead.
-    ///
-    /// # Panics
-    ///
-    /// Panics if called from a thread other than the main thread.
-    #[inline]
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
-        if !self.contains_resource::<R>() {
-            let resource = R::from_world(self);
-            self.insert_non_send_resource(resource);
-        }
-    }
-
-    /// Inserts a new non-send resource with the given `value`.
-    ///
-    /// `NonSend` resources cannot be sent across threads,
-    /// and do not need the `Send + Sync` bounds.
-    /// Systems with `NonSend` resources are always scheduled on the main thread.
-    ///
-    /// # Panics
-    ///
-    /// Panics if called from a thread other than the main thread.
-    #[inline]
-    pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
-        self.validate_non_send_access::<R>();
-        let component_id = self.components.init_non_send::<R>();
-        OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R
-            unsafe {
-                self.insert_resource_by_id(component_id, ptr);
-            }
-        });
-    }
-
     /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         // SAFETY: R is Send + Sync
-        unsafe { self.remove_resource_unchecked() }
-    }
-
-    #[inline]
-    pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
-        self.validate_non_send_access::<R>();
-        // SAFETY: we are on main thread
         unsafe { self.remove_resource_unchecked() }
     }
 
@@ -921,75 +872,6 @@ impl World {
     pub unsafe fn get_resource_unchecked_mut<R: Resource>(&self) -> Option<Mut<'_, R>> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
         self.get_resource_unchecked_mut_with_id(component_id)
-    }
-
-    /// Gets an immutable reference to the non-send resource of the given type, if it exists.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
-    #[inline]
-    #[track_caller]
-    pub fn non_send_resource<R: 'static>(&self) -> &R {
-        match self.get_non_send_resource() {
-            Some(x) => x,
-            None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
-                Non-send resources can also be be added by plugins.",
-                std::any::type_name::<R>()
-            ),
-        }
-    }
-
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    ///
-    /// # Panics
-    ///
-    /// Panics if the resource does not exist.
-    /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
-    #[inline]
-    #[track_caller]
-    pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
-        match self.get_non_send_resource_mut() {
-            Some(x) => x,
-            None => panic!(
-                "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
-                Non-send resources can also be be added by plugins.",
-                std::any::type_name::<R>()
-            ),
-        }
-    }
-
-    /// Gets a reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
-    #[inline]
-    pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: component id matches type T
-        unsafe { self.get_non_send_with_id(component_id) }
-    }
-
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
-    #[inline]
-    pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
-        // SAFETY: unique world access
-        unsafe { self.get_non_send_resource_unchecked_mut() }
-    }
-
-    /// Gets a mutable reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
-    ///
-    /// # Safety
-    /// This will allow aliased mutable access to the given non-send resource type. The caller must
-    /// ensure that there is either only one mutable access or multiple immutable accesses at a time.
-    #[inline]
-    pub unsafe fn get_non_send_resource_unchecked_mut<R: 'static>(&self) -> Option<Mut<'_, R>> {
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        self.get_non_send_unchecked_mut_with_id(component_id)
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
@@ -1171,11 +1053,6 @@ impl World {
             .components
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
-        // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
-        let component_info = self.components().get_info(component_id).unwrap();
-        if !component_info.is_send_and_sync() {
-            self.validate_non_send_access::<R>();
-        }
 
         let (ptr, mut ticks) = self
             .storages
@@ -1274,29 +1151,6 @@ impl World {
         })
     }
 
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`
-    #[inline]
-    pub(crate) unsafe fn get_non_send_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<&R> {
-        self.validate_non_send_access::<R>();
-        self.get_resource_with_id(component_id)
-    }
-
-    /// # Safety
-    /// `component_id` must be assigned to a component of type `R`.
-    /// Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    #[inline]
-    pub(crate) unsafe fn get_non_send_unchecked_mut_with_id<R: 'static>(
-        &self,
-        component_id: ComponentId,
-    ) -> Option<Mut<'_, R>> {
-        self.validate_non_send_access::<R>();
-        self.get_resource_unchecked_mut_with_id(component_id)
-    }
-
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
     ///
     /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
@@ -1340,29 +1194,6 @@ impl World {
         // SAFETY: resource initialized above
         unsafe { self.initialize_resource_internal(component_id) };
         component_id
-    }
-
-    pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
-        let component_id = self.components.init_non_send::<R>();
-        // SAFETY: resource initialized above
-        unsafe { self.initialize_resource_internal(component_id) };
-        component_id
-    }
-
-    pub(crate) fn validate_non_send_access<T: 'static>(&self) {
-        assert!(
-            self.main_thread_validator.is_main_thread(),
-            "attempted to access NonSend resource {} off of the main thread",
-            std::any::type_name::<T>(),
-        );
-    }
-
-    pub(crate) fn validate_non_send_access_untyped(&self, name: &str) {
-        assert!(
-            self.main_thread_validator.is_main_thread(),
-            "attempted to access NonSend resource {} off of the main thread",
-            name
-        );
     }
 
     /// Empties queued entities and adds them to the empty [Archetype](crate::archetype::Archetype).
@@ -1428,10 +1259,6 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
-            self.validate_non_send_access_untyped(info.name());
-        }
         self.storages.resources.get(component_id)?.get_data()
     }
 
@@ -1443,11 +1270,6 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
-            self.validate_non_send_access_untyped(info.name());
-        }
-
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
         // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
@@ -1469,10 +1291,6 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        let info = self.components.get_info(component_id)?;
-        if !info.is_send_and_sync() {
-            self.validate_non_send_access_untyped(info.name());
-        }
         // SAFETY: The underlying type is Send and Sync or we've already validated we're on the main thread
         unsafe {
             self.storages
@@ -1557,24 +1375,6 @@ pub trait FromWorld {
 impl<T: Default> FromWorld for T {
     fn from_world(_world: &mut World) -> Self {
         T::default()
-    }
-}
-
-struct MainThreadValidator {
-    main_thread: std::thread::ThreadId,
-}
-
-impl MainThreadValidator {
-    fn is_main_thread(&self) -> bool {
-        self.main_thread == std::thread::current().id()
-    }
-}
-
-impl Default for MainThreadValidator {
-    fn default() -> Self {
-        Self {
-            main_thread: std::thread::current().id(),
-        }
     }
 }
 

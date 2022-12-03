@@ -298,8 +298,6 @@ mod tests {
     fn empty_system() {}
     fn res_system(_res: Res<R>) {}
     fn resmut_system(_res: ResMut<R>) {}
-    fn nonsend_system(_ns: NonSend<R>) {}
-    fn nonsendmut_system(_ns: NonSendMut<R>) {}
     fn read_component_system(_query: Query<&A>) {}
     fn write_component_system(_query: Query<&mut A>) {}
     fn with_filtered_component_system(_query: Query<&mut A, With<B>>) {}
@@ -344,8 +342,6 @@ mod tests {
             .add_system(empty_system)
             .add_system(res_system)
             .add_system(res_system)
-            .add_system(nonsend_system)
-            .add_system(nonsend_system)
             .add_system(read_component_system)
             .add_system(read_component_system)
             .add_system(event_reader_system)
@@ -384,21 +380,6 @@ mod tests {
 
         let mut test_stage = SystemStage::parallel();
         test_stage.add_system(resmut_system).add_system(res_system);
-
-        test_stage.run(&mut world);
-
-        assert_eq!(test_stage.ambiguity_count(&world), 1);
-    }
-
-    #[test]
-    fn nonsend() {
-        let mut world = World::new();
-        world.insert_resource(R);
-
-        let mut test_stage = SystemStage::parallel();
-        test_stage
-            .add_system(nonsendmut_system)
-            .add_system(nonsend_system);
 
         test_stage.run(&mut world);
 
@@ -501,8 +482,7 @@ mod tests {
         let mut test_stage = SystemStage::parallel();
         test_stage
             .add_system(resmut_system.ignore_all_ambiguities())
-            .add_system(res_system)
-            .add_system(nonsend_system);
+            .add_system(res_system);
 
         test_stage.run(&mut world);
 
@@ -520,8 +500,7 @@ mod tests {
         let mut test_stage = SystemStage::parallel();
         test_stage
             .add_system(resmut_system.ambiguous_with(IgnoreMe))
-            .add_system(res_system.label(IgnoreMe))
-            .add_system(nonsend_system.label(IgnoreMe));
+            .add_system(res_system.label(IgnoreMe));
 
         test_stage.run(&mut world);
 

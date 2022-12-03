@@ -128,7 +128,7 @@ impl NonSendResources {
 
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
-    /// `component_id` must exist in this [`World`]
+    /// `component_id` must exist in this [`NonSendResources`]
     #[inline]
     pub unsafe fn insert_resource_by_id(
         &mut self,

@@ -39,9 +39,9 @@ pub mod prelude {
             Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            adapter as system_adapter, Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut,
-            Resource, System, SystemParamFunction,
+            adapter as system_adapter, Commands, In, IntoPipeSystem, IntoSystem, Local,
+            ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System,
+            SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
@@ -1175,27 +1175,6 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource() {
-        let mut world = World::default();
-        world.insert_non_send_resource(123i32);
-        world.insert_non_send_resource(456i64);
-        assert_eq!(*world.non_send_resource::<i32>(), 123);
-        assert_eq!(*world.non_send_resource_mut::<i64>(), 456);
-    }
-
-    #[test]
-    #[should_panic]
-    fn non_send_resource_panic() {
-        let mut world = World::default();
-        world.insert_non_send_resource(0i32);
-        std::thread::spawn(move || {
-            let _ = world.non_send_resource_mut::<i32>();
-        })
-        .join()
-        .unwrap();
-    }
-
-    #[test]
     fn trackers_query() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0))).id();
@@ -1320,38 +1299,6 @@ mod tests {
             assert!(!world.contains_resource::<A>());
         });
         assert_eq!(world.resource::<A>().0, 1);
-    }
-
-    #[test]
-    fn non_send_resource_scope() {
-        let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
-        world.resource_scope(|world: &mut World, mut value: Mut<NonSendA>| {
-            value.0 += 1;
-            assert!(!world.contains_resource::<NonSendA>());
-        });
-        assert_eq!(world.non_send_resource::<NonSendA>().0, 1);
-    }
-
-    #[test]
-    #[should_panic(
-        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSendA off of the main thread"
-    )]
-    fn non_send_resource_scope_from_different_thread() {
-        let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
-
-        let thread = std::thread::spawn(move || {
-            // Accessing the non-send resource on a different thread
-            // Should result in a panic
-            world.resource_scope(|_: &mut World, mut value: Mut<NonSendA>| {
-                value.0 += 1;
-            });
-        });
-
-        if let Err(err) = thread.join() {
-            std::panic::resume_unwind(err);
-        }
     }
 
     #[test]
