@@ -435,7 +435,7 @@ pub struct CalculatedSize {
     /// The size of the node
     pub size: Size,
     /// Whether to attempt to preserve the aspect ratio when determing the layout for this item
-    pub preserve_aspect_ratio: bool
+    pub preserve_aspect_ratio: bool,
 }
 
 /// The background color of the node
