@@ -16,6 +16,7 @@ use std::{
     any::Any,
     borrow::Cow,
     ffi::OsString,
+    collections::VecDeque,
     hash::{Hash, Hasher},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
@@ -315,6 +316,133 @@ impl<T: FromReflect> FromReflect for Vec<T> {
             let mut new_list = Self::with_capacity(ref_list.len());
             for field in ref_list.iter() {
                 new_list.push(T::from_reflect(field)?);
+            }
+            Some(new_list)
+        } else {
+            None
+        }
+    }
+}
+
+impl<T: FromReflect> Array for VecDeque<T> {
+    #[inline]
+    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+        VecDeque::get(self, index).map(|value| value as &dyn Reflect)
+    }
+
+    #[inline]
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+        VecDeque::get_mut(self, index).map(|value| value as &mut dyn Reflect)
+    }
+
+    #[inline]
+    fn len(&self) -> usize {
+        VecDeque::len(self)
+    }
+
+    #[inline]
+    fn iter(&self) -> ArrayIter {
+        ArrayIter {
+            array: self,
+            index: 0,
+        }
+    }
+}
+
+impl<T: FromReflect> List for VecDeque<T> {
+    fn push(&mut self, value: Box<dyn Reflect>) {
+        let value = value.take::<T>().unwrap_or_else(|value| {
+            T::from_reflect(&*value).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to push invalid value of type {}.",
+                    value.type_name()
+                )
+            })
+        });
+        VecDeque::push_back(self, value);
+    }
+}
+
+impl<T: FromReflect> Reflect for VecDeque<T> {
+    fn type_name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn apply(&mut self, value: &dyn Reflect) {
+        crate::list_apply(self, value);
+    }
+
+    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+        *self = value.take()?;
+        Ok(())
+    }
+
+    fn reflect_ref(&self) -> ReflectRef {
+        ReflectRef::List(self)
+    }
+
+    fn reflect_mut(&mut self) -> ReflectMut {
+        ReflectMut::List(self)
+    }
+
+    fn clone_value(&self) -> Box<dyn Reflect> {
+        Box::new(List::clone_dynamic(self))
+    }
+
+    fn reflect_hash(&self) -> Option<u64> {
+        crate::array_hash(self)
+    }
+
+    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+        crate::list_partial_eq(self, value)
+    }
+}
+
+impl<T: FromReflect> Typed for VecDeque<T> {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
+    }
+}
+
+impl<T: FromReflect> GetTypeRegistration for VecDeque<T> {
+    fn get_type_registration() -> TypeRegistration {
+        let mut registration = TypeRegistration::of::<VecDeque<T>>();
+        registration.insert::<ReflectFromPtr>(FromType::<VecDeque<T>>::from_type());
+        registration
+    }
+}
+
+impl<T: FromReflect> FromReflect for VecDeque<T> {
+    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
+            let mut new_list = Self::with_capacity(ref_list.len());
+            for field in ref_list.iter() {
+                new_list.push_back(T::from_reflect(field)?);
             }
             Some(new_list)
         } else {
