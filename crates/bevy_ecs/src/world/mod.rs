@@ -1499,12 +1499,16 @@ impl World {
         // Iterate over all component change ticks, clamping their age to max age
         // PERF: parallelize
         let change_tick = self.change_tick();
-        self.storages.tables.check_change_ticks(change_tick);
-        self.storages.sparse_sets.check_change_ticks(change_tick);
-        self.storages.resources.check_change_ticks(change_tick);
-        self.storages
-            .non_send_resources
-            .check_change_ticks(change_tick);
+        let Storages {
+            ref mut tables,
+            ref mut sparse_sets,
+            ref mut resources,
+            ref mut non_send_resources,
+        } = self.storages;
+        tables.check_change_ticks(change_tick);
+        sparse_sets.check_change_ticks(change_tick);
+        resources.check_change_ticks(change_tick);
+        non_send_resources.check_change_ticks(change_tick);
     }
 
     pub fn clear_entities(&mut self) {
