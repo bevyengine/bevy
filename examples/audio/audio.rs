@@ -10,6 +10,13 @@ fn main() {
         .run();
 }
 
+fn play_on_space(asset_server: Res<AssetServer>, audio: Res<Audio>, input: Res<Input<KeyCode>>) {
+    if input.just_pressed(KeyCode::Space) {
+        let music = asset_server.load("sounds/Windless Slopes.ogg");
+        audio.play(music);
+    }
+}
+
 fn setup_info_text(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     let text_style = TextStyle {
@@ -25,11 +32,4 @@ fn setup_info_text(mut commands: Commands, asset_server: Res<AssetServer>) {
         text: Text::from_section("Press SPACE to play", text_style.clone()),
         ..default()
     });
-}
-    
-fn play_on_space(asset_server: Res<AssetServer>, audio: Res<Audio>, input: Res<Input<KeyCode>>) {
-    if input.just_pressed(KeyCode::Space) {
-        let music = asset_server.load("sounds/Windless Slopes.ogg");
-        audio.play(music);
-    }
 }
