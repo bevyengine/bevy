@@ -54,8 +54,9 @@ impl SystemInformationDiagnosticsPlugin {
             // average
             usage / cpus.len() as f32
         };
-        let total_mem = susinfo.sys.total_memory() as f64 / 1073741824_f64; // `memory()` fns return a value in bytes
-        let used_mem = susinfo.sys.used_memory() as f64 / 1073741824_f64;
+        // `memory()` fns return a value in bytes
+        let total_mem = susinfo.sys.total_memory() as f64 / 1_073_741_824_f64;
+        let used_mem = susinfo.sys.used_memory() as f64 / 1_073_741_824_f64;
         let current_used_mem = used_mem / total_mem * 100.0;
 
         diagnostics.add_measurement(Self::CPU_USAGE, || current_cpu_usage as f64);
