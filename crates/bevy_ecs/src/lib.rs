@@ -66,7 +66,6 @@ mod tests {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
         any::TypeId,
-        marker::PhantomData,
         sync::{
             atomic::{AtomicUsize, Ordering},
             Arc, Mutex,
@@ -79,9 +78,6 @@ mod tests {
     struct B(usize);
     #[derive(Component, Debug, PartialEq, Eq, Clone, Copy)]
     struct C;
-
-    #[derive(Default)]
-    struct NonSendA(usize, PhantomData<*mut ()>);
 
     #[derive(Component, Clone, Debug)]
     struct DropCk(Arc<AtomicUsize>);

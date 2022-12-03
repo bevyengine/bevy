@@ -1,4 +1,4 @@
-pub use crate::change_detection::{NonSendMut, ResMut};
+pub use crate::change_detection::ResMut;
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
