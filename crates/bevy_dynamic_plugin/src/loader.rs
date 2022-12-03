@@ -1,5 +1,5 @@
 use std::{
-    mem::ManuallyDrop,
+    mem::{self, ManuallyDrop},
     sync::{
         self,
         atomic::{AtomicBool, Ordering},
@@ -56,7 +56,7 @@ impl LeakingDynamicPlugin {
     /// # Safety
     ///
     /// The general safety concerns from [`Library::new`] apply here.
-    /// Additionally, the concerns from [`DynamicPuginLibraries::unload`] also apply.
+    /// Additionally, the concerns from [`DynamicPluginLibraries::unload`] also apply.
     pub unsafe fn into_raw_parts(self) -> (Box<dyn Plugin>, Library) {
         (self.plugin, ManuallyDrop::into_inner(self.lib))
     }
@@ -87,7 +87,7 @@ impl Plugin for LeakingDynamicPlugin {
 /// The library can be marked for deallocation with [`DynamicPluginLibraries::mark_for_deallocation`],
 /// or [`App::mark_plugin_for_deallocation`].
 pub struct DynamicPlugin {
-    leaking: Option<LeakingDynamicPlugin>,
+    leaking: ManuallyDrop<LeakingDynamicPlugin>,
     should_drop: Arc<AtomicBool>,
 }
 
@@ -97,16 +97,19 @@ impl DynamicPlugin {
     /// # Safety
     ///
     /// The general safety concerns from [`Library::new`] apply here.
-    /// Additionally, the concerns from [`DynamicPuginLibraries::unload`] also apply.
+    /// Additionally, the concerns from [`DynamicPluginLibraries::unload`] also apply.
     pub fn into_leaking(mut self) -> LeakingDynamicPlugin {
-        self.leaking.take().unwrap()
+        self.should_drop.store(false, Ordering::Release);
+        // SAFETY: value is immediately dropped
+        // and not read during the drop impl because `should_drop` is false.
+        unsafe { ManuallyDrop::take(&mut self.leaking) }
     }
 
     /// Creates a leaky dynamic plugin from its raw [`Box<dyn Plugin>`] and [`Library`].
     pub fn from_leaking(leaking: LeakingDynamicPlugin) -> Self {
         // This is sound because the value of `should_drop` can only be changed with unsafe code.
         Self {
-            leaking: Some(leaking),
+            leaking: ManuallyDrop::new(leaking),
             should_drop: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -119,26 +122,27 @@ impl DynamicPlugin {
 impl Drop for DynamicPlugin {
     fn drop(&mut self) {
         if self.should_drop() {
-            let Some(leaking) = self.leaking.take() else {
-                return;
-            };
-            let lib = ManuallyDrop::into_inner(leaking.lib);
-            drop(lib); // explicit drop for clarity.
+            // SAFETY: value is never read after taking because this is a drop impl.
+            let leaking = unsafe { ManuallyDrop::take(&mut self.leaking) };
+            // SAFETY: library is dropped after plugin
+            // and caller of `mark_for_deallocation` ensures the invariants.
+            let (plugin, _lib) = unsafe { leaking.into_raw_parts() };
+            mem::drop(plugin); // explicitly drop plugin before library.
         }
     }
 }
 
 impl Plugin for DynamicPlugin {
     fn name(&self) -> &str {
-        self.leaking.as_ref().unwrap().plugin.name()
+        self.leaking.plugin.name()
     }
 
     fn is_unique(&self) -> bool {
-        self.leaking.as_ref().unwrap().plugin.is_unique()
+        self.leaking.plugin.is_unique()
     }
 
     fn build(&self, app: &mut App) {
-        self.leaking.as_ref().unwrap().plugin.build(app);
+        self.leaking.plugin.build(app);
     }
 }
 
