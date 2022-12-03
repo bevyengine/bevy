@@ -6,7 +6,7 @@ mod name;
 mod serde;
 mod task_pool_options;
 
-use bevy_ecs::non_send_resources::MainThreadExecutor;
+use bevy_ecs::non_send_resources::{MainThreadExecutor, NonSendDropper};
 use bevy_ecs::system::{ResMut, Resource};
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
@@ -51,7 +51,12 @@ impl Plugin for CorePlugin {
         );
 
         // Setup Main Thread Executor used to access non send resources
-        app.insert_resource(MainThreadExecutor::new());
+        let main_thread = MainThreadExecutor::new();
+        // TODO: this needs to be dropped from a system, if the main world is running off the main thread
+        app.insert_resource(NonSendDropper {
+            main_thread: main_thread.clone(),
+        });
+        app.insert_resource(main_thread);
 
         app.register_type::<Entity>().register_type::<Name>();
 

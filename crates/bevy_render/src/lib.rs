@@ -47,7 +47,7 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::{prelude::*, non_send_resources::MainThreadExecutor};
+use bevy_ecs::{non_send_resources::MainThreadExecutor, prelude::*};
 use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,

@@ -5,7 +5,7 @@ use std::{
 };
 
 use async_executor::{Executor, Task};
-use futures_lite::{future::block_on, Future,};
+use futures_lite::{future::block_on, Future};
 
 /// An executor that can only be ticked on the thread it was instantiated on.
 #[derive(Debug)]
@@ -112,14 +112,15 @@ mod tests {
     #[test]
     fn test_run() {
         let executor = Arc::new(ThreadExecutor::new());
-        let ticker = executor.ticker();
+        let ticker = executor.ticker().unwrap();
 
         std::thread::scope(|s| {
             s.spawn(|| {
                 executor.spawner().block_on(async {
-
+                    // TODO: do something here to check we're on the main thread
                 });
             });
+            block_on(ticker.tick());
         });
     }
 }

@@ -95,7 +95,7 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
     if let Some(audio_sources) = audio_sources {
         main_thread.run(|tls| {
             tls.resource::<AudioOutput<Source>>().try_play_queued(
-                &*&audio_sources,
+                &*audio_sources,
                 &mut audio,
                 &mut sinks,
             );

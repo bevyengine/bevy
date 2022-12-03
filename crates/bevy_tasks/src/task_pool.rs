@@ -434,7 +434,7 @@ where
             while let Ok(task) = self.spawned.pop() {
                 task.cancel().await;
             }
-        })
+        });
     }
 }
 

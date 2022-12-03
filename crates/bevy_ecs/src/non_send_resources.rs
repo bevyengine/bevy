@@ -265,17 +265,35 @@ impl MainThreadExecutor {
         MainThreadExecutor(Arc::new(ThreadExecutor::new()))
     }
 
-    /// run a FnMut on the main thread with the nonsend resources
+    /// run a `FnMut` on the main thread with the nonsend resources
     pub fn run<R: Send>(&self, mut f: impl FnMut(&mut NonSendResources) -> R + Send) -> R {
-        // TODO: check if we're on the correct thread and just run the function inline if we are
-        self.0.spawner().block_on(async move {
+        if self.0.ticker().is_some() {
             NON_SEND_RESOURCES.with(|non_send_resources| f(&mut non_send_resources.borrow_mut()))
-        })
+        } else {
+            self.0.spawner().block_on(async move {
+                NON_SEND_RESOURCES
+                    .with(|non_send_resources| f(&mut non_send_resources.borrow_mut()))
+            })
+        }
     }
 }
 
 impl Clone for MainThreadExecutor {
     fn clone(&self) -> Self {
         MainThreadExecutor(self.0.clone())
+    }
+}
+
+/// drops the `NonSendResources` stored on main thread when it is dropped.
+#[derive(Resource)]
+pub struct NonSendDropper {
+    pub main_thread: MainThreadExecutor,
+}
+
+impl Drop for NonSendDropper {
+    fn drop(&mut self) {
+        self.main_thread.run(|non_send_resources| {
+            std::mem::take(non_send_resources);
+        });
     }
 }
