@@ -1,3 +1,4 @@
+use crate::fq_std::{FQBox, FQClone, FQOption, FQResult};
 use bevy_macro_utils::BevyManifest;
 use proc_macro::TokenStream;
 use quote::quote;
@@ -26,10 +27,6 @@ impl Parse for TraitInfo {
 /// This generates a struct that takes the form `ReflectMyTrait`. An instance of this struct can then be
 /// used to perform the conversion.
 pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStream {
-    let option = quote!(::core::option::Option);
-    let result = quote!(::core::result::Result);
-    let std_box = quote!(::std::boxed::Box);
-
     let trait_info = parse_macro_input!(input as TraitInfo);
     let item_trait = &trait_info.item_trait;
     let trait_ident = &item_trait.ident;
@@ -59,26 +56,26 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
         #item_trait
 
         #[doc = #struct_doc]
-        #[derive(::core::clone::Clone)]
+        #[derive(#FQClone)]
         #trait_vis struct #reflect_trait_ident {
-            get_func: fn(&dyn #bevy_reflect_path::Reflect) -> #option<&dyn #trait_ident>,
-            get_mut_func: fn(&mut dyn #bevy_reflect_path::Reflect) -> #option<&mut dyn #trait_ident>,
-            get_boxed_func: fn(#std_box<dyn #bevy_reflect_path::Reflect>) -> #result<#std_box<dyn #trait_ident>, #std_box<dyn #bevy_reflect_path::Reflect>>,
+            get_func: fn(&dyn #bevy_reflect_path::Reflect) -> #FQOption<&dyn #trait_ident>,
+            get_mut_func: fn(&mut dyn #bevy_reflect_path::Reflect) -> #FQOption<&mut dyn #trait_ident>,
+            get_boxed_func: fn(#FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>>,
         }
 
         impl #reflect_trait_ident {
             #[doc = #get_doc]
-            pub fn get<'a>(&self, reflect_value: &'a dyn #bevy_reflect_path::Reflect) -> #option<&'a dyn #trait_ident> {
+            pub fn get<'a>(&self, reflect_value: &'a dyn #bevy_reflect_path::Reflect) -> #FQOption<&'a dyn #trait_ident> {
                 (self.get_func)(reflect_value)
             }
 
             #[doc = #get_mut_doc]
-            pub fn get_mut<'a>(&self, reflect_value: &'a mut dyn #bevy_reflect_path::Reflect) -> #option<&'a mut dyn #trait_ident> {
+            pub fn get_mut<'a>(&self, reflect_value: &'a mut dyn #bevy_reflect_path::Reflect) -> #FQOption<&'a mut dyn #trait_ident> {
                 (self.get_mut_func)(reflect_value)
             }
 
             #[doc = #get_box_doc]
-            pub fn get_boxed(&self, reflect_value: #std_box<dyn #bevy_reflect_path::Reflect>) -> #result<#std_box<dyn #trait_ident>, #std_box<dyn #bevy_reflect_path::Reflect>> {
+            pub fn get_boxed(&self, reflect_value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<#FQBox<dyn #trait_ident>, #FQBox<dyn #bevy_reflect_path::Reflect>> {
                 (self.get_boxed_func)(reflect_value)
             }
         }
@@ -93,7 +90,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
                         <dyn #bevy_reflect_path::Reflect>::downcast_mut::<T>(reflect_value).map(|value| value as &mut dyn #trait_ident)
                     },
                     get_boxed_func: |reflect_value| {
-                        <dyn #bevy_reflect_path::Reflect>::downcast::<T>(reflect_value).map(|value| value as #std_box<dyn #trait_ident>)
+                        <dyn #bevy_reflect_path::Reflect>::downcast::<T>(reflect_value).map(|value| value as #FQBox<dyn #trait_ident>)
                     }
                 }
             }

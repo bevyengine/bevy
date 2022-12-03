@@ -1,5 +1,6 @@
 use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
+use crate::fq_std::{FQAny, FQBox, FQOption, FQResult};
 use crate::impls::impl_typed;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
@@ -7,10 +8,6 @@ use quote::quote;
 use syn::Fields;
 
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
-    let option = quote!(::core::option::Option);
-    let any = quote!(::core::any::Any);
-    let std_box = quote!(::std::boxed::Box);
-
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
     let enum_name = reflect_enum.meta().type_name();
 
@@ -41,7 +38,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         .get_hash_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
-                fn reflect_hash(&self) -> #option<u64> {
+                fn reflect_hash(&self) -> #FQOption<u64> {
                     #bevy_reflect_path::enum_hash(self)
                 }
             }
@@ -53,7 +50,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #option<bool> {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
                     #bevy_reflect_path::enum_partial_eq(self, value)
                 }
             }
@@ -97,45 +94,45 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         #typed_impl
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_name #ty_generics #where_clause {
-            fn field(&self, #ref_name: &str) -> #option<&dyn #bevy_reflect_path::Reflect> {
+            fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                  match self {
                     #(#enum_field,)*
-                    _ => #option::None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn field_at(&self, #ref_index: usize) -> #option<&dyn #bevy_reflect_path::Reflect> {
+            fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match self {
                     #(#enum_field_at,)*
-                    _ => #option::None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn field_mut(&mut self, #ref_name: &str) -> #option<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
                  match self {
                     #(#enum_field,)*
-                    _ => #option::None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn field_at_mut(&mut self, #ref_index: usize) -> #option<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
                 match self {
                     #(#enum_field_at,)*
-                    _ => #option::None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn index_of(&self, #ref_name: &str) -> #option<usize> {
+            fn index_of(&self, #ref_name: &str) -> #FQOption<usize> {
                  match self {
                     #(#enum_index_of,)*
-                    _ => #option::None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn name_at(&self, #ref_index: usize) -> #option<&str> {
+            fn name_at(&self, #ref_index: usize) -> #FQOption<&str> {
                  match self {
                     #(#enum_name_at,)*
-                    _ => #option::None,
+                    _ => #FQOption::None,
                 }
             }
 
@@ -192,22 +189,22 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
-            fn into_any(self: #std_box<Self>) -> #std_box<dyn #any> {
+            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
                 self
             }
 
             #[inline]
-            fn as_any(&self) -> &dyn #any {
+            fn as_any(&self) -> &dyn #FQAny {
                 self
             }
 
             #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn #any {
+            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
                 self
             }
 
             #[inline]
-            fn into_reflect(self: #std_box<Self>) -> #std_box<dyn #bevy_reflect_path::Reflect> {
+            fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
                 self
             }
 
@@ -222,14 +219,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> #std_box<dyn #bevy_reflect_path::Reflect> {
-                #std_box::new(#bevy_reflect_path::Enum::clone_dynamic(self))
+            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
+                #FQBox::new(#bevy_reflect_path::Enum::clone_dynamic(self))
             }
 
             #[inline]
-            fn set(&mut self, #ref_value: #std_box<dyn #bevy_reflect_path::Reflect>) -> ::core::result::Result<(), #std_box<dyn #bevy_reflect_path::Reflect>> {
+            fn set(&mut self, #ref_value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
                 *self = <dyn #bevy_reflect_path::Reflect>::take(#ref_value)?;
-                ::core::result::Result::Ok(())
+                #FQResult::Ok(())
             }
 
             #[inline]
@@ -273,7 +270,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 #bevy_reflect_path::ReflectMut::Enum(self)
             }
 
-            fn reflect_owned(self: #std_box<Self>) -> #bevy_reflect_path::ReflectOwned {
+            fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
                 #bevy_reflect_path::ReflectOwned::Enum(self)
             }
 
@@ -299,8 +296,6 @@ struct EnumImpls {
 }
 
 fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Ident) -> EnumImpls {
-    let option = quote!(::core::option::Option);
-
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
 
     let mut variant_info = Vec::new();
@@ -386,7 +381,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                 let args = get_field_args(fields, |reflect_idx, declaration_index, field| {
                     let declar_field = syn::Index::from(declaration_index);
                     enum_field_at.push(quote! {
-                        #unit { #declar_field : value, .. } if #ref_index == #reflect_idx => #option::Some(value)
+                        #unit { #declar_field : value, .. } if #ref_index == #reflect_idx => #FQOption::Some(value)
                     });
 
                     #[cfg(feature = "documentation")]
@@ -412,16 +407,16 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
                     let field_ident = field.data.ident.as_ref().unwrap();
                     let field_name = field_ident.to_string();
                     enum_field.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_name == #field_name => #option::Some(#field_ident)
+                        #unit{ #field_ident, .. } if #ref_name == #field_name => #FQOption::Some(#field_ident)
                     });
                     enum_field_at.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_index == #reflect_idx => #option::Some(#field_ident)
+                        #unit{ #field_ident, .. } if #ref_index == #reflect_idx => #FQOption::Some(#field_ident)
                     });
                     enum_index_of.push(quote! {
-                        #unit{ .. } if #ref_name == #field_name => #option::Some(#reflect_idx)
+                        #unit{ .. } if #ref_name == #field_name => #FQOption::Some(#reflect_idx)
                     });
                     enum_name_at.push(quote! {
-                        #unit{ .. } if #ref_index == #reflect_idx => #option::Some(#field_name)
+                        #unit{ .. } if #ref_index == #reflect_idx => #FQOption::Some(#field_name)
                     });
 
                     #[cfg(feature = "documentation")]
