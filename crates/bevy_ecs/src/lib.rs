@@ -1638,4 +1638,125 @@ mod tests {
             "new entity was spawned and received C component"
         );
     }
+
+    #[test]
+    fn query_with_component_filter() {
+        #[derive(Component)]
+        struct Foo;
+
+        let mut world = World::new();
+        let e = world.spawn(Foo).id();
+
+        let mut q = world.query_filtered::<Entity, With<Foo>>();
+
+        assert_eq!(q.single(&world), e);
+    }
+
+    #[test]
+    fn query_with_bundle_filter() {
+        #[derive(Component)]
+        struct Foo;
+
+        #[derive(Component)]
+        struct Bar;
+
+        let mut world = World::new();
+        let e = world.spawn((Foo, Bar)).id();
+
+        let mut q = world.query_filtered::<Entity, With<(Foo, Bar)>>();
+
+        assert_eq!(q.single(&world), e);
+    }
+
+    #[test]
+    fn query_with_nested_bundle_filter() {
+        #[derive(Component)]
+        struct Foo;
+
+        #[derive(Component)]
+        struct Bar;
+
+        #[derive(Component)]
+        struct Baz;
+
+        let mut world = World::new();
+        let e = world.spawn(((Foo, Bar), Baz)).id();
+
+        let mut q1 = world.query_filtered::<Entity, With<((Foo, Bar), Baz)>>();
+        let mut q2 = world.query_filtered::<Entity, With<(Foo, Bar, Baz)>>();
+
+        assert_eq!(q1.single(&world), e);
+        assert_eq!(q2.single(&world), e);
+    }
+
+    #[test]
+    fn query_with_incompatible_bundle_filter() {
+        #[derive(Component)]
+        struct Foo;
+
+        #[derive(Component)]
+        struct Bar;
+
+        let mut world = World::new();
+        let e = world.spawn(Foo).id(); // No Bar!
+
+        let mut q = world.query_filtered::<Entity, With<(Foo, Bar)>>(); // Query for Bar!
+
+        assert!(q.get(&world, e).is_err());
+    }
+
+    #[test]
+    fn query_with_named_bundle_filter() {
+        #[derive(Component, Default)]
+        struct Foo;
+
+        #[derive(Component, Default)]
+        struct Bar;
+
+        #[derive(Bundle, Default)]
+        struct FooBundle {
+            foo: Foo,
+            bar: Bar,
+        }
+
+        let mut world = World::new();
+        let e = world.spawn(FooBundle::default()).id();
+
+        let mut q = world.query_filtered::<Entity, With<FooBundle>>();
+
+        assert_eq!(q.single(&world), e);
+    }
+
+    #[test]
+    fn query_named_bundle_using_anonymous_bundle_filter() {
+        #[derive(Component, Default)]
+        struct Foo;
+
+        #[derive(Component, Default)]
+        struct Bar;
+
+        #[derive(Component, Default)]
+        struct Baz;
+
+        #[derive(Bundle, Default)]
+        struct FooBundle {
+            foo: Foo,
+            bar: Bar,
+        }
+
+        #[derive(Bundle, Default)]
+        struct BazBundle {
+            baz: Baz,
+            foo: FooBundle,
+        }
+
+        let mut world = World::new();
+        let e = world.spawn(BazBundle::default()).id();
+
+        let mut q1 = world.query_filtered::<Entity, With<((Foo, Bar), Baz)>>();
+        let mut q2 = world.query_filtered::<Entity, With<(Foo, Bar, Baz)>>();
+
+        assert_eq!(q1.single(&world), e);
+        assert_eq!(q2.single(&world), e);
+    }
 }

@@ -2,6 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
+    prelude::Bundle,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table},
     world::World,
@@ -39,10 +40,11 @@ use super::ReadOnlyWorldQuery;
 /// }
 /// # bevy_ecs::system::assert_is_system(compliment_entity_system);
 /// ```
-pub struct With<T>(PhantomData<T>);
+#[doc(hidden)]
+pub struct WithComponent<T>(PhantomData<T>);
 
 // SAFETY: `Self::ReadOnly` is the same as `Self`
-unsafe impl<T: Component> WorldQuery for With<T> {
+unsafe impl<T: Component> WorldQuery for WithComponent<T> {
     type Fetch<'w> = ();
     type Item<'w> = ();
     type ReadOnly = Self;
@@ -115,7 +117,43 @@ unsafe impl<T: Component> WorldQuery for With<T> {
 }
 
 // SAFETY: no component access or archetype component access
-unsafe impl<T: Component> ReadOnlyWorldQuery for With<T> {}
+unsafe impl<T: Component> ReadOnlyWorldQuery for WithComponent<T> {}
+
+/// Filter that selects entities with a component or bundle `T`.
+///
+/// This can be used in a [`Query`](crate::system::Query) if entities are required to have the
+/// component `T` but you don't actually care about components value.
+///
+/// This is the negation of [`Without`].
+///
+/// # Usage
+///
+/// Unlike [`Without`], this filter allows bundles to be used as its type parameter. This includes
+/// anonymous bundles (such as `(A, B)`), as well as named bundles (such as ones that implement [`Bundle`]).
+///
+/// This means `With<(A, B, ...)>` is equivalent to `(With<A>, With<B>, ...)`.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::query::With;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component)]
+/// # struct IsBeautiful;
+/// # #[derive(Component)]
+/// # struct Name { name: &'static str };
+/// #
+/// fn compliment_entity_system(query: Query<&Name, With<IsBeautiful>>) {
+///     for name in &query {
+///         println!("{} is looking lovely today!", name.name);
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(compliment_entity_system);
+/// ```
+pub type With<T> = <T as Bundle>::Filter;
 
 /// Filter that selects entities without a component `T`.
 ///
@@ -651,7 +689,7 @@ impl_tick_filter!(
 /// they do not implement [`ArchetypeFilter`].
 pub trait ArchetypeFilter {}
 
-impl<T> ArchetypeFilter for With<T> {}
+impl<T> ArchetypeFilter for WithComponent<T> {}
 impl<T> ArchetypeFilter for Without<T> {}
 
 macro_rules! impl_archetype_filter_tuple {
