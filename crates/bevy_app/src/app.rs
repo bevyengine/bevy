@@ -2,6 +2,7 @@ use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},
+    non_send_resources::NON_SEND_RESOURCES,
     prelude::FromWorld,
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
@@ -726,7 +727,9 @@ impl App {
     ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
-        self.world.insert_non_send_resource(resource);
+        NON_SEND_RESOURCES.with(|non_send_resources| {
+            non_send_resources.borrow_mut().insert_resource(resource);
+        });
         self
     }
 
@@ -770,8 +773,10 @@ impl App {
     /// The [`Resource`] must implement the [`FromWorld`] trait.
     /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
     /// the [`Default::default`] method to initialize the [`Resource`].
-    pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) -> &mut Self {
-        self.world.init_non_send_resource::<R>();
+    pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
+        NON_SEND_RESOURCES.with(|non_send_resources| {
+            non_send_resources.borrow_mut().init_resource::<R>();
+        });
         self
     }
 
