@@ -14,13 +14,13 @@ fn fragment(
     @builtin(front_facing) is_front: bool,
     mesh: MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
-    let layer = i32(mesh.world_position.x) & 0x3;
+    let texture_layer = i32(mesh.world_position.x) & 0x3;
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
     // the material members
     var pbr_input: fns::PbrInput = fns::pbr_input_new();
 
-    pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, mesh.uv, layer);
+    pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, mesh.uv, texture_layer);
 #ifdef VERTEX_COLORS
     pbr_input.material.base_color = pbr_input.material.base_color * mesh.color;
 #endif
