@@ -185,10 +185,6 @@ impl System for FixedTimestep {
         self.internal_system.component_access()
     }
 
-    fn is_send(&self) -> bool {
-        self.internal_system.is_send()
-    }
-
     fn is_exclusive(&self) -> bool {
         false
     }
