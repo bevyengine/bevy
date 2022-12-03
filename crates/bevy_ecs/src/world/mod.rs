@@ -1862,9 +1862,9 @@ mod tests {
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {
-            // SAFETY: value is valid for the component layout
+            // SAFETY: value is valid for the component layout, the array is Send
             unsafe {
-                world.insert_resource_by_id(component_id, true, ptr);
+                world.insert_resource_by_id(component_id, ptr);
             }
         });
 
