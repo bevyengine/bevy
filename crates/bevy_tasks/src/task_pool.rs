@@ -269,7 +269,7 @@ impl TaskPool {
         };
         let thread_spawner = thread_executor.spawner();
         let thread_spawner: ThreadSpawner<'env> = unsafe { mem::transmute(thread_spawner) };
-        let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
+        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
             unsafe { mem::transmute(&spawned) };
 
@@ -289,10 +289,10 @@ impl TaskPool {
             Vec::new()
         } else {
             future::block_on(async move {
-                let get_results = async move {
+                let get_results = async {
                     let mut results = Vec::with_capacity(scope.spawned.len());
-                    while let Ok(task) = spawned.pop() {
-                        results.push(task.await);
+                    while let Ok(task) = spawned_ref.pop() {
+                        results.push(task.await.unwrap());
                     }
 
                     results
