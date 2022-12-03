@@ -773,7 +773,7 @@ impl World {
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R
             unsafe {
-                self.insert_non_send_by_id(component_id,  ptr);
+                self.insert_non_send_by_id(component_id, ptr);
             }
         });
     }
@@ -1377,15 +1377,15 @@ impl World {
         self.initialize_resource_internal(component_id)
             .insert(value, change_tick);
     }
-    
-    /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already 
+
+    /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already
     /// existed.
     ///
     /// **You should prefer to use the typed API [`World::insert_non_send`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// If a value is already present, this function will panic if called from a thread that the original 
+    /// If a value is already present, this function will panic if called from a thread that the original
     /// value was inserted from.
     ///
     /// # Safety
