@@ -24,7 +24,6 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::{
-    event::Events,
     schedule::{IntoSystemDescriptor, SystemLabel},
 };
 use std::path::PathBuf;
