@@ -74,14 +74,13 @@ impl NonSendResources {
     //     component_id
     // }
 
-    // TODO: FromWorld doesn't work if you don't have a World
-    // #[inline]
-    // pub fn init_resource<R: 'static + FromWorld>(&mut self) {
-    //     if !self.contains_resource::<R>() {
-    //         let resource = R::from_world(self);
-    //         self.insert_resource(resource);
-    //     }
-    // }
+    #[inline]
+    pub fn init_resource<R: 'static + Default>(&mut self) {
+        if !self.contains_resource::<R>() {
+            let resource = R::default();
+            self.insert_resource(resource);
+        }
+    }
 
     #[inline]
     pub fn insert_resource<R: 'static>(&mut self, value: R) {
