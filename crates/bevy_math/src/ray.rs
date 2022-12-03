@@ -58,7 +58,7 @@ mod tests {
         // Parallel with simulated rounding error
         assert_eq!(
             None,
-            ray.intersect_plane(Vec3::X, Vec3::new(1., 0., f32::EPSILON))
+            ray.intersect_plane(Vec3::X, Vec3::X + Vec3::Z * f32::EPSILON)
         );
     }
 }
