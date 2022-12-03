@@ -21,6 +21,7 @@ pub fn update_image_calculated_size_system(
             // Update only if size has changed to avoid needless layout calculations
             if size != calculated_size.size {
                 calculated_size.size = size;
+                calculated_size.preserve_aspect_ratio = true;
             }
         }
     }

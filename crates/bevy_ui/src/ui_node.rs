@@ -434,6 +434,8 @@ pub enum FlexWrap {
 pub struct CalculatedSize {
     /// The size of the node
     pub size: Size,
+    /// Whether to preserve the aspect ratio of this item
+    pub preserve_aspect_ratio: bool
 }
 
 /// The background color of the node
