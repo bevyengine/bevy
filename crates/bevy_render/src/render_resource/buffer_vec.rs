@@ -131,6 +131,10 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
+    pub fn truncate(&mut self, len: usize) {
+        self.values.truncate(len);
+    }
+
     pub fn clear(&mut self) {
         self.values.clear();
     }
