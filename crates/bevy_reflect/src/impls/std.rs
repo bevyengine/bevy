@@ -15,8 +15,8 @@ use bevy_utils::{HashMap, HashSet};
 use std::{
     any::Any,
     borrow::Cow,
-    ffi::OsString,
     collections::VecDeque,
+    ffi::OsString,
     hash::{Hash, Hasher},
     num::{
         NonZeroI128, NonZeroI16, NonZeroI32, NonZeroI64, NonZeroI8, NonZeroIsize, NonZeroU128,
@@ -347,6 +347,13 @@ impl<T: FromReflect> Array for VecDeque<T> {
             index: 0,
         }
     }
+
+    #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.into_iter()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .collect()
+    }
 }
 
 impl<T: FromReflect> List for VecDeque<T> {
@@ -361,6 +368,11 @@ impl<T: FromReflect> List for VecDeque<T> {
         });
         VecDeque::push_back(self, value);
     }
+
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        self.pop_front()
+            .map(|value| Box::new(value) as Box<dyn Reflect>)
+    }
 }
 
 impl<T: FromReflect> Reflect for VecDeque<T> {
@@ -374,6 +386,14 @@ impl<T: FromReflect> Reflect for VecDeque<T> {
 
     fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
     }
 
     fn as_any(&self) -> &dyn Any {
