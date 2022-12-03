@@ -1362,10 +1362,6 @@ impl World {
     /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
-    /// # Panics
-    /// If `is_send` is false, and a value is already present, this function will panic if called
-    /// from a thread that the original value was inserted from.
-    ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
     /// `component_id` must exist in this [`World`].`value` must be adhere to invariants of `Send`.
@@ -1427,7 +1423,6 @@ impl World {
 
     /// # Safety
     /// `component_id` must be valid for this world
-    /// `is_send` should correspond for the resource being initialized.
     #[inline]
     unsafe fn initialize_non_send_internal(
         &mut self,
