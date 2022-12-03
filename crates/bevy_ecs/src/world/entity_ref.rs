@@ -66,7 +66,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub fn contains_type_id(&self, type_id: TypeId) -> bool {
         contains_component_with_type(self.world, type_id, self.location)
-    }
+     }
 
     #[inline]
     pub fn get<T: Component>(&self) -> Option<&'w T> {
