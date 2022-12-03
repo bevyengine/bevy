@@ -47,7 +47,7 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, non_send_resources::MainThreadExecutor};
 use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
@@ -167,6 +167,8 @@ impl Plugin for RenderPlugin {
             let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
+            let main_thread = app.world.resource::<MainThreadExecutor>();
+            render_app.insert_resource(main_thread.clone());
             let mut extract_stage =
                 SystemStage::parallel().with_system(PipelineCache::extract_shaders);
             // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
