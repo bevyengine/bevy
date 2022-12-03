@@ -97,7 +97,7 @@ impl DynamicPlugin {
     /// # Safety
     ///
     /// The general safety concerns from [`Library::new`] apply here.
-    /// Additionally, the concerns from [`DynamicPluginLibraries::unload`] also apply.
+    /// Additionally, the concerns from [`DynamicPluginLibraries::mark_for_deallocation`] also apply.
     pub fn into_leaking(mut self) -> LeakingDynamicPlugin {
         self.should_drop.store(false, Ordering::Release);
         // SAFETY: value is immediately dropped
