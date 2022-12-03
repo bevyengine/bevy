@@ -1,7 +1,10 @@
 use std::{
     any::TypeId,
     cell::RefCell,
-    sync::{atomic::{AtomicU32, Ordering}, Arc},
+    sync::{
+        atomic::{AtomicU32, Ordering},
+        Arc,
+    },
 };
 
 use crate as bevy_ecs;
@@ -12,7 +15,8 @@ use crate::{
     archetype::ArchetypeComponentId,
     change_detection::{Mut, Ticks},
     component::{ComponentId, Components, TickCells},
-    storage::{ResourceData, Resources}, system::Resource,
+    storage::{ResourceData, Resources},
+    system::Resource,
 };
 
 thread_local! {
@@ -242,9 +246,7 @@ impl MainThreadExecutor {
     pub fn run<R: Send>(&self, mut f: impl FnMut(&mut NonSendResources) -> R + Send) -> R {
         // TODO: check if we're on the correct thread and just run the function inline if we are
         self.0.spawner().block_on(async move {
-            NON_SEND_RESOURCES.with(|non_send_resources| {
-                f(&mut non_send_resources.borrow_mut())
-            })
+            NON_SEND_RESOURCES.with(|non_send_resources| f(&mut non_send_resources.borrow_mut()))
         })
     }
 }

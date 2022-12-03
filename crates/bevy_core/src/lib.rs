@@ -6,6 +6,7 @@ mod name;
 mod serde;
 mod task_pool_options;
 
+use bevy_ecs::non_send_resources::MainThreadExecutor;
 use bevy_ecs::system::{ResMut, Resource};
 pub use bytemuck::{bytes_of, cast_slice, Pod, Zeroable};
 pub use name::*;
@@ -48,6 +49,9 @@ impl Plugin for CorePlugin {
             bevy_app::CoreStage::Last,
             tick_global_task_pools_on_main_thread.at_end(),
         );
+
+        // Setup Main Thread Executor used to access non send resources
+        app.insert_resource(MainThreadExecutor::new());
 
         app.register_type::<Entity>().register_type::<Name>();
 

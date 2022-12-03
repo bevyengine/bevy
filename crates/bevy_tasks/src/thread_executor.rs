@@ -5,7 +5,7 @@ use std::{
 };
 
 use async_executor::{Executor, Task};
-use futures_lite::{Future, future::block_on};
+use futures_lite::{future::block_on, Future};
 
 /// An executor that can only be ticked on the thread it was instantiated on.
 #[derive(Debug)]
@@ -60,14 +60,17 @@ impl<'a> ThreadSpawner<'a> {
     }
 
     /// Runs a future on the main thread and blocks for the result
-    pub fn block_on<'env, T: Send + 'env>(&self, future: impl Future<Output = T> + Send + 'env) -> T {
-        // SAFETY: Tasks spawn onto the executor must complete before block_on returns 
+    pub fn block_on<'env, T: Send + 'env>(
+        &self,
+        future: impl Future<Output = T> + Send + 'env,
+    ) -> T {
+        // SAFETY: Tasks spawn onto the executor must complete before block_on returns
         let thread_spawner: ThreadSpawner<'env> = unsafe { std::mem::transmute(self) };
-        
+
         let task = thread_spawner.0.spawn(future).fallible();
 
         // TODO: add a drop function to wait for the task to cancel before ending the function if there's a panic
-        
+
         block_on(task).unwrap()
     }
 }
