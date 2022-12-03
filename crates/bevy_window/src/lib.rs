@@ -23,9 +23,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    schedule::{IntoSystemDescriptor, SystemLabel},
-};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
 use std::path::PathBuf;
 
 impl Default for WindowPlugin {
