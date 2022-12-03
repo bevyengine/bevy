@@ -15,7 +15,7 @@ use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
 use bevy_math::Vec2;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use std::hash::Hash;
 use thiserror::Error;
 use wgpu::{
@@ -101,8 +101,9 @@ impl ImageFormat {
     }
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "6ea26da6-6cf8-4ea2-9986-1d7bf6c17d6f"]
+#[reflect_value]
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
@@ -143,6 +144,7 @@ impl ImageSampler {
         wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Linear,
             min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Linear,
             ..Default::default()
         }
     }
@@ -153,6 +155,7 @@ impl ImageSampler {
         wgpu::SamplerDescriptor {
             mag_filter: wgpu::FilterMode::Nearest,
             min_filter: wgpu::FilterMode::Nearest,
+            mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         }
     }
@@ -169,7 +172,7 @@ pub struct DefaultImageSampler(pub(crate) Sampler);
 impl Default for Image {
     fn default() -> Self {
         let format = wgpu::TextureFormat::bevy_default();
-        let data = vec![255; format.pixel_size() as usize];
+        let data = vec![255; format.pixel_size()];
         Image {
             data,
             texture_descriptor: wgpu::TextureDescriptor {
@@ -366,9 +369,9 @@ impl Image {
                 ktx2_buffer_to_image(buffer, supported_compressed_formats, is_srgb)
             }
             _ => {
-                let image_crate_format = format.as_image_crate_format().ok_or_else(|| {
-                    TextureError::UnsupportedTextureFormat(format!("{:?}", format))
-                })?;
+                let image_crate_format = format
+                    .as_image_crate_format()
+                    .ok_or_else(|| TextureError::UnsupportedTextureFormat(format!("{format:?}")))?;
                 let mut reader = image::io::Reader::new(std::io::Cursor::new(buffer));
                 reader.set_format(image_crate_format);
                 reader.no_limits();
@@ -530,6 +533,7 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::Depth32Float => 4,
 
             // special cases
+            TextureFormat::Rgb9e5Ufloat => 4,
             TextureFormat::Rgb10a2Unorm => 4,
             TextureFormat::Rg11b10Float => 4,
             TextureFormat::Depth24Plus => 3, // FIXME is this correct?
@@ -578,7 +582,8 @@ impl TextureFormatPixelInfo for TextureFormat {
             | TextureFormat::Rgba32Float => 4,
 
             // special cases
-            TextureFormat::Rgb10a2Unorm
+            TextureFormat::Rgb9e5Ufloat
+            | TextureFormat::Rgb10a2Unorm
             | TextureFormat::Rg11b10Float
             | TextureFormat::Depth32Float
             | TextureFormat::Depth24Plus

@@ -54,10 +54,11 @@ pub enum SceneSpawnError {
 }
 
 impl SceneSpawner {
-    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) {
+    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) -> InstanceId {
         let instance_id = InstanceId::new();
         self.dynamic_scenes_to_spawn
             .push((scene_handle, instance_id));
+        instance_id
     }
 
     pub fn spawn_dynamic_as_child(

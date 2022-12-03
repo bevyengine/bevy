@@ -13,9 +13,13 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue, RenderTextureFormat},
-    texture::{DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo},
-    view::{ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms},
+    renderer::{RenderDevice, RenderQueue},
+    texture::{
+        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+    },
+    view::{
+        ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
+    },
     Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::GlobalTransform;
@@ -157,13 +161,9 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<DefaultImageSampler>,
-            Res<RenderTextureFormat>,
-        )> = SystemState::new(world);
-        let (render_device, default_sampler, first_available_texture_format) =
-            system_state.get_mut(world);
+        let mut system_state: SystemState<(Res<RenderDevice>, Res<DefaultImageSampler>)> =
+            SystemState::new(world);
+        let (render_device, default_sampler) = system_state.get_mut(world);
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
@@ -210,7 +210,7 @@ impl FromWorld for Mesh2dPipeline {
                 Extent3d::default(),
                 TextureDimension::D2,
                 &[255u8; 4],
-                first_available_texture_format.0,
+                TextureFormat::bevy_default(),
             );
             let texture = render_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
@@ -286,6 +286,9 @@ bitflags::bitflags! {
     // FIXME: make normals optional?
     pub struct Mesh2dPipelineKey: u32 {
         const NONE                        = 0;
+        const HDR                         = (1 << 0);
+        const TONEMAP_IN_SHADER           = (1 << 1);
+        const DEBAND_DITHER               = (1 << 2);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -301,6 +304,14 @@ impl Mesh2dPipelineKey {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
         Self::from_bits(msaa_bits).unwrap()
+    }
+
+    pub fn from_hdr(hdr: bool) -> Self {
+        if hdr {
+            Mesh2dPipelineKey::HDR
+        } else {
+            Mesh2dPipelineKey::NONE
+        }
     }
 
     pub fn msaa_samples(&self) -> u32 {
@@ -340,31 +351,45 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
         let mut vertex_attributes = Vec::new();
 
         if layout.contains(Mesh::ATTRIBUTE_POSITION) {
-            shader_defs.push(String::from("VERTEX_POSITIONS"));
+            shader_defs.push("VERTEX_POSITIONS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_POSITION.at_shader_location(0));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_NORMAL) {
-            shader_defs.push(String::from("VERTEX_NORMALS"));
+            shader_defs.push("VERTEX_NORMALS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
-            shader_defs.push(String::from("VERTEX_UVS"));
+            shader_defs.push("VERTEX_UVS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(2));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
-            shader_defs.push(String::from("VERTEX_TANGENTS"));
+            shader_defs.push("VERTEX_TANGENTS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_TANGENT.at_shader_location(3));
         }
 
         if layout.contains(Mesh::ATTRIBUTE_COLOR) {
-            shader_defs.push(String::from("VERTEX_COLORS"));
+            shader_defs.push("VERTEX_COLORS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
+        if key.contains(Mesh2dPipelineKey::TONEMAP_IN_SHADER) {
+            shader_defs.push("TONEMAP_IN_SHADER".into());
+
+            // Debanding is tied to tonemapping in the shader, cannot run without it.
+            if key.contains(Mesh2dPipelineKey::DEBAND_DITHER) {
+                shader_defs.push("DEBAND_DITHER".into());
+            }
+        }
+
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
+
+        let format = match key.contains(Mesh2dPipelineKey::HDR) {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
@@ -378,7 +403,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: self.dummy_white_gpu_image.texture_format,
+                    format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

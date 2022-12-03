@@ -25,6 +25,7 @@ mod info;
 mod io;
 mod loader;
 mod path;
+mod reflect;
 
 /// The `bevy_asset` prelude.
 pub mod prelude {
@@ -43,6 +44,7 @@ pub use info::*;
 pub use io::*;
 pub use loader::*;
 pub use path::*;
+pub use reflect::*;
 
 use bevy_app::{prelude::Plugin, App};
 use bevy_ecs::schedule::{StageLabel, SystemStage};
@@ -60,6 +62,7 @@ pub enum AssetStage {
 ///
 /// Assets are typed collections with change tracking, which are added as App Resources. Examples of
 /// assets: textures, sounds, 3d models, maps, scenes
+#[derive(Debug, Clone)]
 pub struct AssetPlugin {
     /// The base folder where assets are loaded from, relative to the executable.
     pub asset_folder: String,

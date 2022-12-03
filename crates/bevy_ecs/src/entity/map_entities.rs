@@ -2,6 +2,7 @@ use crate::entity::Entity;
 use bevy_utils::{Entry, HashMap};
 use std::fmt;
 
+/// The errors that might be returned while using [`MapEntities::map_entities`].
 #[derive(Debug)]
 pub enum MapEntitiesError {
     EntityNotFound(Entity),
@@ -19,7 +20,42 @@ impl fmt::Display for MapEntitiesError {
     }
 }
 
+/// Operation to map all contained [`Entity`] fields in a type to new values.
+///
+/// As entity IDs are valid only for the [`World`] they're sourced from, using [`Entity`]
+/// as references in components copied from another world will be invalid. This trait
+/// allows defining custom mappings for these references via [`EntityMap`].
+///
+/// Implementing this trait correctly is required for properly loading components
+/// with entity references from scenes.
+///
+/// ## Example
+///
+/// ```rust
+/// use bevy_ecs::prelude::*;
+/// use bevy_ecs::entity::{EntityMap, MapEntities, MapEntitiesError};
+///
+/// #[derive(Component)]
+/// struct Spring {
+///     a: Entity,
+///     b: Entity,
+/// }
+///
+/// impl MapEntities for Spring {
+///     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError> {
+///         self.a = entity_map.get(self.a)?;
+///         self.b = entity_map.get(self.b)?;
+///         Ok(())
+///     }
+/// }
+/// ```
+///
+/// [`World`]: crate::world::World
 pub trait MapEntities {
+    /// Updates all [`Entity`] references stored inside using `entity_map`.
+    ///
+    /// Implementors should look up any and all [`Entity`] values stored within and
+    /// update them to the mapped values via `entity_map`.
     fn map_entities(&mut self, entity_map: &EntityMap) -> Result<(), MapEntitiesError>;
 }
 

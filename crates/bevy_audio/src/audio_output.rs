@@ -90,7 +90,7 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
     mut sinks: ResMut<Assets<AudioSink>>,
 ) {
     if let Some(audio_sources) = audio_sources {
-        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut *sinks);
+        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks);
     };
 }
 
@@ -178,9 +178,20 @@ impl AudioSink {
         self.sink.as_ref().unwrap().pause();
     }
 
+    /// Toggles the playback of this sink.
+    ///
+    /// Will pause if playing, and will be resumed if paused.
+    pub fn toggle(&self) {
+        if self.is_paused() {
+            self.play();
+        } else {
+            self.pause();
+        }
+    }
+
     /// Is this sink paused?
     ///
-    /// Sinks can be paused and resumed using [`pause`](Self::pause) and [`play`](Self::play).
+    /// Sinks can be paused and resumed using [`pause`](Self::pause), [`play`](Self::play), and [`toggle`](Self::toggle).
     pub fn is_paused(&self) -> bool {
         self.sink.as_ref().unwrap().is_paused()
     }

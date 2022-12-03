@@ -2,7 +2,8 @@ use crate::converters::convert_cursor_grab_mode;
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
 use bevy_window::{
-    MonitorSelection, RawHandleWrapper, Window, WindowDescriptor, WindowId, WindowMode,
+    CursorGrabMode, MonitorSelection, RawHandleWrapper, Window, WindowDescriptor, WindowId,
+    WindowMode,
 };
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::{
@@ -71,7 +72,8 @@ impl WinitWindows {
             }
             .with_resizable(window_descriptor.resizable)
             .with_decorations(window_descriptor.decorations)
-            .with_transparent(window_descriptor.transparent),
+            .with_transparent(window_descriptor.transparent)
+            .with_always_on_top(window_descriptor.always_on_top),
         };
 
         let constraints = window_descriptor.resize_constraints.check_constraints();
@@ -161,11 +163,14 @@ impl WinitWindows {
             }
         }
 
-        match winit_window
-            .set_cursor_grab(convert_cursor_grab_mode(window_descriptor.cursor_grab_mode))
-        {
-            Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
-            Err(err) => Err(err).unwrap(),
+        // Do not set the grab mode on window creation if it's none, this can fail on mobile
+        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
+            match winit_window
+                .set_cursor_grab(convert_cursor_grab_mode(window_descriptor.cursor_grab_mode))
+            {
+                Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
+                Err(err) => Err(err).unwrap(),
+            }
         }
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);

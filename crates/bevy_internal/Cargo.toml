@@ -1,6 +1,6 @@
 [package]
 name = "bevy_internal"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 description = "An internal Bevy crate used to facilitate optional dynamic linking via the 'dynamic' feature"
 homepage = "https://bevyengine.org"
@@ -16,7 +16,8 @@ trace = [
     "bevy_ecs/trace",
     "bevy_log/trace",
     "bevy_render?/trace",
-    "bevy_hierarchy/trace"
+    "bevy_hierarchy/trace",
+    "bevy_winit/trace"
 ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
@@ -45,7 +46,7 @@ wav = ["bevy_audio/wav"]
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_asset/filesystem_watcher"]
 
-serialize = ["bevy_input/serialize", "bevy_time/serialize", "bevy_window/serialize"]
+serialize = ["bevy_core/serialize", "bevy_input/serialize", "bevy_time/serialize", "bevy_window/serialize", "bevy_transform/serialize", "bevy_math/serialize", "bevy_scene/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
 wayland = ["bevy_winit/wayland"]
@@ -65,37 +66,37 @@ animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.9.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.9.0-dev" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.9.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0-dev" }
-bevy_input = { path = "../bevy_input", version = "0.9.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.9.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
-bevy_ptr = { path = "../bevy_ptr", version = "0.9.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"] }
-bevy_time = { path = "../bevy_time", version = "0.9.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.9.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.9.0-dev" }
-bevy_tasks = { path = "../bevy_tasks", version = "0.9.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.9.0" }
+bevy_core = { path = "../bevy_core", version = "0.9.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.9.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0" }
+bevy_input = { path = "../bevy_input", version = "0.9.0" }
+bevy_log = { path = "../bevy_log", version = "0.9.0" }
+bevy_math = { path = "../bevy_math", version = "0.9.0" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.9.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
+bevy_time = { path = "../bevy_time", version = "0.9.0" }
+bevy_transform = { path = "../bevy_transform", version = "0.9.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
+bevy_window = { path = "../bevy_window", version = "0.9.0" }
+bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
 # bevy (optional)
-bevy_animation = { path = "../bevy_animation", optional = true, version = "0.9.0-dev" }
-bevy_asset = { path = "../bevy_asset", optional = true, version = "0.9.0-dev" }
-bevy_audio = { path = "../bevy_audio", optional = true, version = "0.9.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.9.0-dev" }
-bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.9.0-dev" }
-bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.9.0-dev" }
-bevy_render = { path = "../bevy_render", optional = true, version = "0.9.0-dev" }
-bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.9.0-dev" }
-bevy_scene = { path = "../bevy_scene", optional = true, version = "0.9.0-dev" }
-bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.9.0-dev" }
-bevy_text = { path = "../bevy_text", optional = true, version = "0.9.0-dev" }
-bevy_ui = { path = "../bevy_ui", optional = true, version = "0.9.0-dev" }
-bevy_winit = { path = "../bevy_winit", optional = true, version = "0.9.0-dev" }
-bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.9.0-dev" }
+bevy_animation = { path = "../bevy_animation", optional = true, version = "0.9.0" }
+bevy_asset = { path = "../bevy_asset", optional = true, version = "0.9.0" }
+bevy_audio = { path = "../bevy_audio", optional = true, version = "0.9.0" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.9.0" }
+bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.9.0" }
+bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.9.0" }
+bevy_render = { path = "../bevy_render", optional = true, version = "0.9.0" }
+bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.9.0" }
+bevy_scene = { path = "../bevy_scene", optional = true, version = "0.9.0" }
+bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.9.0" }
+bevy_text = { path = "../bevy_text", optional = true, version = "0.9.0" }
+bevy_ui = { path = "../bevy_ui", optional = true, version = "0.9.0" }
+bevy_winit = { path = "../bevy_winit", optional = true, version = "0.9.0" }
+bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.9.0" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 # This version *must* be the same as the version used by winit,
