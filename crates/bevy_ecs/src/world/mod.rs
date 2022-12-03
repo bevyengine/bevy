@@ -732,9 +732,9 @@ impl World {
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         let component_id = self.components.init_resource::<R>();
         OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R
+            // SAFETY: component_id was just initialized and corresponds to resource of type R, which is Send
             unsafe {
-                self.insert_resource_by_id(component_id, true, ptr);
+                self.insert_resource_by_id(component_id, ptr);
             }
         });
     }
@@ -773,7 +773,7 @@ impl World {
         OwningPtr::make(value, |ptr| {
             // SAFETY: component_id was just initialized and corresponds to resource of type R
             unsafe {
-                self.insert_resource_by_id(component_id, false, ptr);
+                self.insert_non_send_by_id(component_id,  ptr);
             }
         });
     }
@@ -1368,25 +1368,44 @@ impl World {
     ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
-    /// `component_id` must exist in this [`World`]. `is_send` must correspond to whether the resource
-    /// adheres to invariants of `Send`.
+    /// `component_id` must exist in this [`World`].`value` must be adhere to invariants of `Send`.
     #[inline]
     pub unsafe fn insert_resource_by_id(
         &mut self,
         component_id: ComponentId,
-        is_send: bool,
         value: OwningPtr<'_>,
     ) {
         let change_tick = self.change_tick();
 
-        // SAFETY: component_id and is_send are valid, ensured by caller
-        if is_send {
-            self.initialize_resource_internal(component_id)
-                .insert(value, change_tick);
-        } else {
-            self.initialize_non_send_internal(component_id)
-                .insert(value, change_tick);
-        }
+        // SAFETY: component_id is valid and corresponds to a Send type, ensured by caller
+        self.initialize_resource_internal(component_id)
+            .insert(value, change_tick);
+    }
+    
+    /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already 
+    /// existed.
+    ///
+    /// **You should prefer to use the typed API [`World::insert_non_send`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Panics
+    /// If a value is already present, this function will panic if called from a thread that the original 
+    /// value was inserted from.
+    ///
+    /// # Safety
+    /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
+    /// `component_id` must exist in this [`World`].
+    #[inline]
+    pub unsafe fn insert_non_send_by_id(
+        &mut self,
+        component_id: ComponentId,
+        value: OwningPtr<'_>,
+    ) {
+        let change_tick = self.change_tick();
+
+        // SAFETY: component_id is valid, ensured by caller
+        self.initialize_non_send_internal(component_id)
+            .insert(value, change_tick);
     }
 
     /// # Safety
