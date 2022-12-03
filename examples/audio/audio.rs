@@ -24,12 +24,11 @@ fn setup_info_text(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 60.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextAlignment::CENTER;
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
     commands.spawn(Text2dBundle {
-        text: Text::from_section("Press SPACE to play", text_style.clone()),
+        text: Text::from_section("Press SPACE to play", text_style),
         ..default()
     });
 }
