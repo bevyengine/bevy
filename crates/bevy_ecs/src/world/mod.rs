@@ -60,7 +60,9 @@ pub struct World {
     /// Access cache used by [WorldCell].
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     main_thread_validator: MainThreadValidator,
+    /// The total amount of ticks since the start of the world.
     pub(crate) change_tick: AtomicU32,
+    /// The tick recording when systems were last run in this world.
     pub(crate) last_change_tick: u32,
 }
 
@@ -1402,8 +1404,11 @@ impl World {
         self.last_change_tick
     }
 
+    /// Iterate over all component change ticks, clamping their age to max age.
+    /// Used to make sure that the time between when components and resources were last checked
+    /// for change detection does not overflow and wrap around.
+    /// This could cause issues if not addressed.
     pub fn check_change_ticks(&mut self) {
-        // Iterate over all component change ticks, clamping their age to max age
         // PERF: parallelize
         let change_tick = self.change_tick();
         self.storages.tables.check_change_ticks(change_tick);

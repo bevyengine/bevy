@@ -518,6 +518,7 @@ impl Components {
     }
 }
 
+/// The tick when the component was inserted.
 /// Used to track changes in state between system runs, e.g. components being added or accessed mutably.
 #[derive(Copy, Clone, Debug)]
 pub struct Tick {

@@ -228,6 +228,7 @@ macro_rules! impl_debug {
     };
 }
 
+// Contains all the different kinds of ticks that are used for change detection in resources.
 pub(crate) struct Ticks<'a> {
     pub(crate) added: &'a mut Tick,
     pub(crate) changed: &'a mut Tick,
