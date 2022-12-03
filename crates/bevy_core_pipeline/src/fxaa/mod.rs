@@ -103,27 +103,21 @@ impl Plugin for FxaaPlugin {
 
             graph.add_node(core_3d::graph::node::FXAA, fxaa_node);
 
-            graph
-                .add_slot_edge(
-                    graph.input_node().unwrap().id,
-                    core_3d::graph::input::VIEW_ENTITY,
-                    core_3d::graph::node::FXAA,
-                    FxaaNode::IN_VIEW,
-                )
-                .unwrap();
+            graph.add_slot_edge(
+                graph.input_node().id,
+                core_3d::graph::input::VIEW_ENTITY,
+                core_3d::graph::node::FXAA,
+                FxaaNode::IN_VIEW,
+            );
 
-            graph
-                .add_node_edge(
-                    core_3d::graph::node::TONEMAPPING,
-                    core_3d::graph::node::FXAA,
-                )
-                .unwrap();
-            graph
-                .add_node_edge(
-                    core_3d::graph::node::FXAA,
-                    core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                )
-                .unwrap();
+            graph.add_node_edge(
+                core_3d::graph::node::TONEMAPPING,
+                core_3d::graph::node::FXAA,
+            );
+            graph.add_node_edge(
+                core_3d::graph::node::FXAA,
+                core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+            );
         }
         {
             let fxaa_node = FxaaNode::new(&mut render_app.world);
@@ -132,27 +126,21 @@ impl Plugin for FxaaPlugin {
 
             graph.add_node(core_2d::graph::node::FXAA, fxaa_node);
 
-            graph
-                .add_slot_edge(
-                    graph.input_node().unwrap().id,
-                    core_2d::graph::input::VIEW_ENTITY,
-                    core_2d::graph::node::FXAA,
-                    FxaaNode::IN_VIEW,
-                )
-                .unwrap();
+            graph.add_slot_edge(
+                graph.input_node().id,
+                core_2d::graph::input::VIEW_ENTITY,
+                core_2d::graph::node::FXAA,
+                FxaaNode::IN_VIEW,
+            );
 
-            graph
-                .add_node_edge(
-                    core_2d::graph::node::TONEMAPPING,
-                    core_2d::graph::node::FXAA,
-                )
-                .unwrap();
-            graph
-                .add_node_edge(
-                    core_2d::graph::node::FXAA,
-                    core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                )
-                .unwrap();
+            graph.add_node_edge(
+                core_2d::graph::node::TONEMAPPING,
+                core_2d::graph::node::FXAA,
+            );
+            graph.add_node_edge(
+                core_2d::graph::node::FXAA,
+                core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+            );
         }
     }
 }
@@ -215,8 +203,8 @@ impl SpecializedRenderPipeline for FxaaPipeline {
             fragment: Some(FragmentState {
                 shader: FXAA_SHADER_HANDLE.typed(),
                 shader_defs: vec![
-                    format!("EDGE_THRESH_{}", key.edge_threshold.get_str()),
-                    format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()),
+                    format!("EDGE_THRESH_{}", key.edge_threshold.get_str()).into(),
+                    format!("EDGE_THRESH_MIN_{}", key.edge_threshold_min.get_str()).into(),
                 ],
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {

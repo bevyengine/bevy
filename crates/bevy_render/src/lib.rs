@@ -37,14 +37,10 @@ pub mod prelude {
 
 use globals::GlobalsPlugin;
 pub use once_cell;
-use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
-    color::Color,
     mesh::MeshPlugin,
-    primitives::{CubemapFrusta, Frustum},
-    render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     view::{ViewPlugin, WindowRenderPlugin},
@@ -137,8 +133,7 @@ impl Plugin for RenderPlugin {
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>()
-            .register_type::<Color>();
+            .init_debug_asset_loader::<ShaderLoader>();
 
         if let Some(backends) = options.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
@@ -166,9 +161,7 @@ impl Plugin for RenderPlugin {
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone())
-                .init_resource::<ScratchMainWorld>()
-                .register_type::<Frustum>()
-                .register_type::<CubemapFrusta>();
+                .init_resource::<ScratchMainWorld>();
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -203,7 +196,7 @@ impl Plugin for RenderPlugin {
                         .with_system(render_system.at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
-                .init_resource::<RenderGraph>()
+                .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
@@ -227,7 +220,7 @@ impl Plugin for RenderPlugin {
 
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let meta_len = app_world.entities().meta_len();
+                    let total_count = app_world.entities().total_count();
 
                     assert_eq!(
                         render_app.world.entities().len(),
@@ -240,7 +233,7 @@ impl Plugin for RenderPlugin {
                         render_app
                             .world
                             .entities_mut()
-                            .flush_and_reserve_invalid_assuming_no_entities(meta_len);
+                            .flush_and_reserve_invalid_assuming_no_entities(total_count);
                     }
                 }
 
@@ -327,12 +320,17 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+        app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
             .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
             .add_plugin(GlobalsPlugin);
+
+        app.register_type::<color::Color>()
+            .register_type::<primitives::Aabb>()
+            .register_type::<primitives::CubemapFrusta>()
+            .register_type::<primitives::Frustum>();
     }
 }
 

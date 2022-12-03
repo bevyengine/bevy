@@ -22,8 +22,8 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    Font, FontAtlasSet, HorizontalAlign, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, VerticalAlign, YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, HorizontalAlign, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, VerticalAlign, YAxisOrientation,
 };
 
 /// The calculated size of text drawn in 2D scene.
@@ -159,6 +159,7 @@ pub fn update_text2d_layout(
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     text_settings: Res<TextSettings>,
+    mut font_atlas_warning: ResMut<FontAtlasWarning>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
@@ -198,6 +199,7 @@ pub fn update_text2d_layout(
                 &mut texture_atlases,
                 &mut textures,
                 text_settings.as_ref(),
+                &mut font_atlas_warning,
                 YAxisOrientation::BottomToTop,
             ) {
                 Err(TextError::NoSuchFont) => {

@@ -68,9 +68,9 @@ impl Default for World {
     fn default() -> Self {
         Self {
             id: WorldId::new().expect("More `bevy` `World`s have been created than is supported"),
-            entities: Default::default(),
+            entities: Entities::new(),
             components: Default::default(),
-            archetypes: Default::default(),
+            archetypes: Archetypes::new(),
             storages: Default::default(),
             bundles: Default::default(),
             removed_components: Default::default(),
@@ -327,7 +327,7 @@ impl World {
         self.archetypes
             .iter()
             .flat_map(|archetype| archetype.entities().iter())
-            .map(|archetype_entity| archetype_entity.entity)
+            .map(|archetype_entity| archetype_entity.entity())
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -480,10 +480,7 @@ impl World {
         // empty
         let location = archetype.allocate(entity, table_row);
         // SAFETY: entity index was just allocated
-        self.entities
-            .meta
-            .get_unchecked_mut(entity.index() as usize)
-            .location = location;
+        self.entities.set(entity.index(), location);
         EntityMut::new(self, entity, location)
     }
 
@@ -889,7 +886,7 @@ impl World {
     #[inline]
     pub fn get_resource<R: Resource>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: unique world access
+        // SAFETY: `component_id` was obtained from the type ID of `R`.
         unsafe { self.get_resource_with_id(component_id) }
     }
 
