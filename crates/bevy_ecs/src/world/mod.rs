@@ -1381,7 +1381,7 @@ impl World {
     /// Inserts a new `!Send` resource with the given `value`. Will replace the value if it already
     /// existed.
     ///
-    /// **You should prefer to use the typed API [`World::insert_non_send`] where possible and only
+    /// **You should prefer to use the typed API [`World::insert_non_send_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
