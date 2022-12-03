@@ -320,13 +320,7 @@ impl SpecializedMeshPipeline for ShadowPipeline {
         let mut vertex_attributes = vec![Mesh::ATTRIBUTE_POSITION.at_shader_location(0)];
 
         let mut bind_group_layout = vec![self.view_layout.clone()];
-        let mut shader_defs = vec![
-            "MESH_BINDGROUP_1".into(),
-            ShaderDefVal::Int(
-                "MAX_DIRECTIONAL_LIGHTS".to_string(),
-                MAX_DIRECTIONAL_LIGHTS as i32,
-            ),
-        ];
+        let mut shader_defs = vec!["MESH_BINDGROUP_1".into()];
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)

@@ -468,6 +468,32 @@ macro_rules! load_internal_asset_with_path {
     }};
 }
 
+/// Loads an internal asset with its path.
+///
+/// Internal assets (e.g. shaders) are bundled directly into the app and can't be hot reloaded
+/// using the conventional API. See `DebugAssetServerPlugin`.
+#[macro_export]
+macro_rules! load_internal_asset_with_path_and_params {
+    ($app: ident, $handle: ident, $path_str: expr, $loader: expr, $($param:expr),+) => {{
+        let mut assets = $app.world.resource_mut::<$crate::Assets<_>>();
+        assets.set_untracked(
+            $handle,
+            ($loader)(
+                include_str!($path_str),
+                format!(
+                    "{}/{}",
+                    std::path::Path::new(file!())
+                        .parent()
+                        .unwrap()
+                        .to_string_lossy(),
+                    $path_str
+                ),
+                $($param),+
+            ),
+        );
+    }};
+}
+
 /// Loads an internal binary asset.
 ///
 /// Internal binary assets (e.g. spir-v shaders) are bundled directly into the app and can't be hot reloaded

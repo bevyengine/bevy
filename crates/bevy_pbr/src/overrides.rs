@@ -57,7 +57,7 @@ pub(crate) fn update_shader_overrides(
             .iter()
             .map(|import| ImportDefinition {
                 import: import.as_str().to_owned(),
-                as_name: None,
+                ..Default::default()
             })
             .collect();
         shader.imports = imports;

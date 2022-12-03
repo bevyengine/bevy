@@ -4,7 +4,10 @@ use crate::{
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset_with_path, Assets, Handle, HandleUntyped};
+use bevy_asset::{
+    load_internal_asset_with_path, load_internal_asset_with_path_and_params, Assets, Handle,
+    HandleUntyped,
+};
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
@@ -63,11 +66,15 @@ impl Plugin for MeshRenderPlugin {
             "mesh_vertex_output.wgsl",
             Shader::from_wgsl_with_path
         );
-        load_internal_asset_with_path!(
+        load_internal_asset_with_path_and_params!(
             app,
             MESH_VIEW_TYPES_HANDLE,
             "mesh_view_types.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl_with_path_and_defs,
+            vec![ShaderDefVal::Int(
+                "MAX_DIRECTIONAL_LIGHTS".into(),
+                MAX_DIRECTIONAL_LIGHTS as i32
+            )]
         );
         load_internal_asset_with_path!(
             app,
@@ -604,11 +611,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("VERTEX_NORMALS".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(1));
         }
-
-        shader_defs.push(ShaderDefVal::Int(
-            "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as i32,
-        ));
 
         if layout.contains(Mesh::ATTRIBUTE_UV_0) {
             shader_defs.push("VERTEX_UVS".into());

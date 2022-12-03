@@ -1,3 +1,4 @@
+use crate::render_resource::ShaderDefVal;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture};
@@ -38,6 +39,8 @@ pub struct Shader {
     pub imports: Vec<ShaderImport>,
     // extra imports not specified in the source string
     pub additional_imports: Vec<naga_oil::compose::ImportDefinition>,
+    // any shader defs that will be included when this module is used
+    pub shader_defs: Vec<ShaderDefVal>,
 }
 
 impl Shader {
@@ -51,6 +54,17 @@ impl Shader {
         }
     }
 
+    pub fn from_wgsl_with_path_and_defs(
+        source: impl Into<Cow<'static, str>>,
+        path: impl Into<String>,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> Shader {
+        Self {
+            shader_defs,
+            ..Self::from_wgsl_with_path(source, path)
+        }
+    }
+
     pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Shader {
         let source = source.into();
         let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
@@ -60,6 +74,7 @@ impl Shader {
             import_path: shader_imports.import_path,
             source: Source::Wgsl(source),
             additional_imports: Default::default(),
+            shader_defs: Default::default(),
         }
     }
 
@@ -83,6 +98,7 @@ impl Shader {
             import_path: shader_imports.import_path,
             source: Source::Glsl(source, stage),
             additional_imports: Default::default(),
+            shader_defs: Default::default(),
         }
     }
 
@@ -93,6 +109,7 @@ impl Shader {
             import_path: None,
             source: Source::SpirV(source.into()),
             additional_imports: Default::default(),
+            shader_defs: Default::default(),
         }
     }
 
@@ -118,11 +135,25 @@ impl Shader {
 
 impl<'a> From<&'a Shader> for naga_oil::compose::ComposableModuleDescriptor<'a> {
     fn from(shader: &'a Shader) -> Self {
+        let shader_defs = shader
+            .shader_defs
+            .iter()
+            .map(|def| match def {
+                ShaderDefVal::Bool(name, b) => {
+                    (name.clone(), naga_oil::compose::ShaderDefValue::Bool(*b))
+                }
+                ShaderDefVal::Int(name, i) => {
+                    (name.clone(), naga_oil::compose::ShaderDefValue::Int(*i))
+                }
+            })
+            .collect();
+
         naga_oil::compose::ComposableModuleDescriptor {
             source: shader.source.as_str(),
             file_path: shader.path.as_deref().unwrap_or(""),
             language: (&shader.source).into(),
             additional_imports: &shader.additional_imports,
+            shader_defs,
             ..Default::default()
         }
     }
