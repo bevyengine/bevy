@@ -489,10 +489,13 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
+            Option<&TemporalJitter>,
         )>,
     >,
 ) {
-    for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
+    for (entity, camera, camera_render_graph, transform, visible_entities, temporal_jitter) in
+        query.iter()
+    {
         if !camera.is_active {
             continue;
         }
@@ -504,7 +507,8 @@ pub fn extract_cameras(
             if target_size.x == 0 || target_size.y == 0 {
                 continue;
             }
-            commands.get_or_spawn(entity).insert((
+            let mut commands = commands.get_or_spawn(entity);
+            commands.insert((
                 ExtractedCamera {
                     target: camera.target.clone(),
                     viewport: camera.viewport.clone(),
@@ -526,6 +530,9 @@ pub fn extract_cameras(
                 },
                 visible_entities.clone(),
             ));
+            if let Some(temporal_jitter) = temporal_jitter {
+                commands.insert(temporal_jitter.clone());
+            }
         }
     }
 }
