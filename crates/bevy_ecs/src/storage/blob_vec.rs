@@ -7,14 +7,6 @@ use std::{
 
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 
-struct CallOnDrop<F: FnMut()>(F);
-
-impl<F: FnMut()> Drop for CallOnDrop<F> {
-    fn drop(&mut self) {
-        self.0()
-    }
-}
-
 /// A flat, type-erased data storage type
 ///
 /// Used to densely store homogeneous ECS data.
@@ -260,16 +252,9 @@ impl BlobVec {
     pub unsafe fn swap_remove_and_drop_unchecked(&mut self, index: usize) {
         debug_assert!(index < self.len());
         let drop = self.drop;
-        let last = self.get_unchecked_mut(self.len - 1).as_ptr();
-        let target = self.get_unchecked_mut(index).as_ptr();
-        // Ensure that the element is moved and the len is updated even if
-        // the drop call has panicked.
-        let _guard = CallOnDrop(|| {
-            std::ptr::copy::<u8>(last, target, self.item_layout.size());
-            self.len -= 1;
-        });
+        let value = self.swap_remove_and_forget_unchecked(index);
         if let Some(drop) = drop {
-            (drop)(OwningPtr::new(NonNull::new_unchecked(target)));
+            (drop)(value);
         }
     }
 
