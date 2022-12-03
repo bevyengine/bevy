@@ -1,15 +1,11 @@
-use std::sync::Arc;
-
-use crate as bevy_ecs;
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
     schedule::{ParallelSystemExecutor, SystemContainer},
-    system::Resource,
-    world::World,
+    world::World, non_send_resources::MainThreadExecutor,
 };
 use async_channel::{Receiver, Sender};
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
 use event_listener::Event;
@@ -17,22 +13,6 @@ use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
 use scheduling_event::*;
-
-/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
-#[derive(Resource, Default)]
-pub struct MainThreadExecutor(pub Arc<ThreadExecutor>);
-
-impl MainThreadExecutor {
-    pub fn new() -> Self {
-        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
-    }
-}
-
-impl Clone for MainThreadExecutor {
-    fn clone(&self) -> Self {
-        MainThreadExecutor(self.0.clone())
-    }
-}
 
 struct SystemSchedulingMetadata {
     /// Used to signal the system's task to start the system.

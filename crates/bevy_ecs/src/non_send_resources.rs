@@ -1,16 +1,18 @@
 use std::{
     any::TypeId,
     cell::RefCell,
-    sync::atomic::{AtomicU32, Ordering},
+    sync::{atomic::{AtomicU32, Ordering}, Arc},
 };
 
+use crate as bevy_ecs;
 use bevy_ptr::{OwningPtr, Ptr};
+use bevy_tasks::ThreadExecutor;
 
 use crate::{
     archetype::ArchetypeComponentId,
     change_detection::{Mut, Ticks},
     component::{ComponentId, Components, TickCells},
-    storage::{ResourceData, Resources},
+    storage::{ResourceData, Resources}, system::Resource,
 };
 
 thread_local! {
@@ -225,4 +227,30 @@ impl NonSendResources {
     }
 
     // TODO: make change ticks work!
+}
+
+/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
+#[derive(Resource, Default)]
+pub struct MainThreadExecutor(pub Arc<ThreadExecutor>);
+
+impl MainThreadExecutor {
+    pub fn new() -> Self {
+        MainThreadExecutor(Arc::new(ThreadExecutor::new()))
+    }
+
+    /// run a FnMut on the main thread with the nonsend resources
+    pub fn run<R: Send>(&self, mut f: impl FnMut(&mut NonSendResources) -> R + Send) -> R {
+        // TODO: check if we're on the correct thread and just run the function inline if we are
+        self.0.spawner().block_on(async move {
+            NON_SEND_RESOURCES.with(|non_send_resources| {
+                f(&mut non_send_resources.borrow_mut())
+            })
+        })
+    }
+}
+
+impl Clone for MainThreadExecutor {
+    fn clone(&self) -> Self {
+        MainThreadExecutor(self.0.clone())
+    }
 }
