@@ -1405,7 +1405,7 @@ impl World {
     }
 
     /// # Safety
-    /// `component_id` must be valid for this world
+    /// `component_id` must be valid for this world as a `Send` component type
     #[inline]
     unsafe fn initialize_resource_internal(
         &mut self,
