@@ -1,6 +1,7 @@
 use std::{
     any::TypeId,
     cell::RefCell,
+    marker::PhantomData,
     sync::{
         atomic::{AtomicU32, Ordering},
         Arc,
@@ -29,6 +30,7 @@ pub struct NonSendResources {
     archetype_component_count: usize,
     change_tick: AtomicU32,
     last_change_tick: u32,
+    _not_send_sync: PhantomData<*const ()>,
 }
 
 impl Default for NonSendResources {
@@ -41,6 +43,7 @@ impl Default for NonSendResources {
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: 0,
+            _not_send_sync: PhantomData::default(),
         }
     }
 }
@@ -91,6 +94,27 @@ impl NonSendResources {
                 self.insert_resource_by_id(component_id, ptr);
             }
         });
+    }
+
+    /// Removes the resource of a given type and returns it, if it exists. Otherwise returns [None].
+    #[inline]
+    pub fn remove_resource<R: 'static>(&mut self) -> Option<R> {
+        // SAFETY: R is Send + Sync
+        unsafe { self.remove_resource_unchecked() }
+    }
+
+    #[inline]
+    /// # Safety
+    /// Only remove `NonSend` resources from the main thread
+    /// as they cannot be sent across threads
+    #[allow(unused_unsafe)]
+    pub unsafe fn remove_resource_unchecked<R: 'static>(&mut self) -> Option<R> {
+        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        // SAFETY: the resource is of type R and the value is returned back to the caller.
+        unsafe {
+            let (ptr, _) = self.non_send_resources.get_mut(component_id)?.remove()?;
+            Some(ptr.read::<R>())
+        }
     }
 
     #[inline]

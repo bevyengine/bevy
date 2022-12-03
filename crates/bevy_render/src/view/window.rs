@@ -4,17 +4,13 @@ use crate::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{non_send_resources::MainThreadExecutor, prelude::*};
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
 };
 use std::ops::{Deref, DerefMut};
 use wgpu::TextureFormat;
-
-/// Token to ensure a system runs on the main thread.
-#[derive(Resource, Default)]
-pub struct NonSendMarker;
 
 pub struct WindowRenderPlugin;
 
@@ -29,7 +25,6 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
-                .init_resource::<NonSendMarker>()
                 .add_system_to_stage(RenderStage::Extract, extract_windows)
                 .add_system_to_stage(
                     RenderStage::Prepare,
@@ -164,9 +159,7 @@ pub struct WindowSurfaces {
 ///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
 ///   later.
 pub fn prepare_windows(
-    // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
-    // which is necessary for some OS s
-    _marker: NonSend<NonSendMarker>,
+    main_thread: Res<MainThreadExecutor>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_device: Res<RenderDevice>,
@@ -185,8 +178,10 @@ pub fn prepare_windows(
             .entry(window.id)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                let surface = render_instance
-                    .create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
+                let surface = main_thread.run(|_| {
+                    render_instance
+                        .create_surface(&window.raw_handle.as_ref().unwrap().get_handle())
+                });
                 let format = *surface
                     .get_supported_formats(&render_adapter)
                     .get(0)
