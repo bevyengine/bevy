@@ -240,7 +240,7 @@ impl<const SEND: bool> Resources<SEND> {
                 column: ManuallyDrop::new(Column::with_capacity(component_info, 1)),
                 type_name: String::from(component_info.name()),
                 id: f(),
-                origin_thread_id: (!SEND).then(|| std::thread::current().id()),
+                origin_thread_id: None,
             }
         })
     }

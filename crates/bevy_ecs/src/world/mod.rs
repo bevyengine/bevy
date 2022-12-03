@@ -1220,7 +1220,6 @@ impl World {
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
-        let _component_info = self.components().get_info(component_id).unwrap();
         let (ptr, mut ticks) = self
             .storages
             .resources
@@ -1297,7 +1296,6 @@ impl World {
             .get_resource_id(TypeId::of::<R>())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // If the resource isn't send and sync, validate that we are on the main thread, so that we can access it.
-        let _component_info = self.components().get_info(component_id).unwrap();
         let (ptr, mut ticks) = self
             .storages
             .non_send_resources
@@ -1583,7 +1581,6 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        let _info = self.components.get_info(component_id)?;
         self.storages.resources.get(component_id)?.get_data()
     }
 
@@ -1595,7 +1592,6 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_resource_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
-        let _info = self.components.get_info(component_id)?;
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
         // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
@@ -1617,7 +1613,6 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        let _info = self.components.get_info(component_id)?;
         // SAFETY: The underlying type is Send and Sync or we've already validated we're on the main thread
         unsafe {
             self.storages
@@ -1633,7 +1628,6 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_non_send_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        let _info = self.components.get_info(component_id)?;
         // SAFETY: The underlying type is Send and Sync or we've already validated we're on the main thread
         unsafe {
             self.storages
