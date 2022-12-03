@@ -277,7 +277,7 @@ pub trait BuildChildren {
     ///
     ///     parent_commands.insert(SomethingElse);
     ///     commands.entity(child_id).with_children(|parent| {
-    ///         parent.spawn_bundle(MoreStuff);
+    ///         parent.spawn(MoreStuff);
     ///     });
     /// # }
     /// ```
