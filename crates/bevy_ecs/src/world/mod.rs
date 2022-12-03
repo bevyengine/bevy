@@ -765,8 +765,8 @@ impl World {
     /// Systems with `NonSend` resources are always scheduled on the main thread.
     ///
     /// # Panics
-    ///
-    /// Panics if called from a thread other than the main thread.
+    /// If a value is already present, this function will panic if called
+    /// from a thread that the original value was inserted from.
     #[inline]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         let component_id = self.components.init_non_send::<R>();
@@ -789,9 +789,17 @@ impl World {
         }
     }
 
-    /// # Panic
-    /// Will panic if removing `NonSend` resources from threads other than where they were
-    /// inserted from as they cannot be sent across threads
+    /// Removes a `!Send` resource from the world and returns it, if present.
+    ///
+    /// `NonSend` resources cannot be sent across threads,
+    /// and do not need the `Send + Sync` bounds.
+    /// Systems with `NonSend` resources are always scheduled on the main thread.
+    ///
+    /// Returns `None` if a value was not previously present.
+    ///
+    /// # Panics
+    /// If a value is present, this function will panic if called from a thread that the
+    /// value was inserted from.
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -937,6 +945,8 @@ impl World {
     ///
     /// Panics if the resource does not exist.
     /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
+    ///
+    /// This function will panic if called from a thread that the value was inserted from.
     #[inline]
     #[track_caller]
     pub fn non_send_resource<R: 'static>(&self) -> &R {
@@ -957,6 +967,8 @@ impl World {
     ///
     /// Panics if the resource does not exist.
     /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
+    ///
+    /// This function will panic if called from a thread that the value was inserted from.
     #[inline]
     #[track_caller]
     pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
@@ -972,7 +984,10 @@ impl World {
     }
 
     /// Gets a reference to the non-send resource of the given type, if it exists.
-    /// Otherwise returns [None]
+    /// Otherwise returns [None].
+    ///
+    /// # Panics
+    /// This function will panic if called from a thread that the value was inserted from.
     #[inline]
     pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -982,6 +997,9 @@ impl World {
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     /// Otherwise returns [None]
+    ///
+    /// # Panics
+    /// This function will panic if called from a thread that the value was inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
@@ -990,6 +1008,9 @@ impl World {
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     /// Otherwise returns [None]
+    ///
+    /// # Panics
+    /// This function will panic if called from a thread that the value was inserted from.
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given non-send resource type. The caller must
@@ -1010,6 +1031,9 @@ impl World {
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
+    ///
+    /// # Panics
+    /// This function will panic if called from a thread that the value was inserted from.
     #[inline]
     pub(crate) fn get_non_send_with_ticks(
         &self,
@@ -1415,6 +1439,10 @@ impl World {
     ///
     /// **You should prefer to use the typed API [`World::insert_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Panics
+    /// If `is_send` is false, and a value is already present, this function will panic if called
+    /// from a thread that the original value was inserted from.
     ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
