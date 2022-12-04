@@ -56,7 +56,7 @@ impl LeakingDynamicPlugin {
     /// # Safety
     ///
     /// The general safety concerns from [`Library::new`] apply here.
-    /// Additionally, the concerns from [`DynamicPluginLibraries::unload`] also apply.
+    /// Additionally, the concerns from [`DynamicPluginLibraries::mark_for_deallocation`] also apply.
     pub unsafe fn into_raw_parts(self) -> (Box<dyn Plugin>, Library) {
         (self.plugin, ManuallyDrop::into_inner(self.lib))
     }
