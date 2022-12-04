@@ -114,7 +114,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
             // SAFETY: `set_archetype` has been called above for the target table.
             if let Some(item) = self
                 .cursor
-                .fetch(archetype_entity.entity, archetype_entity.table_row)
+                .fetch(archetype_entity.entity(), archetype_entity.table_row())
             {
                 accum = func(accum, item);
             }
@@ -702,8 +702,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 let archetype_entity = self.archetype_entities.get_unchecked(index);
                 Some(Q::fetch(
                     &mut self.fetch,
-                    archetype_entity.entity,
-                    archetype_entity.table_row,
+                    archetype_entity.entity(),
+                    archetype_entity.table_row(),
                 ))
             }
         } else {
@@ -789,7 +789,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
                 let archetype_entity = self.archetype_entities.get_unchecked(self.current_index);
                 self.current_index += 1;
-                if let Some(item) = self.fetch(archetype_entity.entity, archetype_entity.table_row)
+                if let Some(item) = self.fetch(archetype_entity.entity(), archetype_entity.table_row())
                 {
                     return Some(item);
                 }
