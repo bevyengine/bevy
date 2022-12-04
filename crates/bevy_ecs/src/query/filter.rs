@@ -1,5 +1,6 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
+    change_detection::ComponentMut,
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
@@ -504,7 +505,7 @@ macro_rules! impl_tick_filter {
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
-                        T::CHANGE_DETECTION_ENABLED && fetch
+                        !T::WriteFetch::ENABLED || fetch
                             .table_ticks
                             .debug_checked_unwrap()
                             .get(table_row)
@@ -512,7 +513,7 @@ macro_rules! impl_tick_filter {
                             .is_older_than(fetch.last_change_tick, fetch.change_tick)
                     }
                     StorageType::SparseSet => {
-                        if T::CHANGE_DETECTION_ENABLED {
+                        if T::WriteFetch::ENABLED {
                             let sparse_set = &fetch
                                 .sparse_set
                                 .debug_checked_unwrap();
@@ -521,7 +522,7 @@ macro_rules! impl_tick_filter {
                                 .deref()
                                 .is_older_than(fetch.last_change_tick, fetch.change_tick)
                         } else {
-                            false
+                            true
                         }
                     }
                 }

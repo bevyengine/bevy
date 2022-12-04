@@ -26,7 +26,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 pub trait ComponentMut<'a>: DetectChanges {
     const ENABLED: bool;
     fn build(
-        inner: &'a mut Self::Inner, 
+        inner: &'a mut Self::Inner,
         added: &'a mut Tick,
         changed: &'a mut Tick,
         last_change_tick: u32,
@@ -110,16 +110,24 @@ macro_rules! change_detection_impl {
 
             #[inline]
             fn is_added(&self) -> bool {
-                $enabled || self.ticks
-                    .added
-                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                if $enabled {
+                    self.ticks
+                        .added
+                        .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                } else {
+                    true
+                }
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
-                $enabled || self.ticks
-                    .changed
-                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                if $enabled {
+                    self.ticks
+                        .changed
+                        .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                } else {
+                    true
+                }
             }
 
             #[inline]
@@ -394,7 +402,7 @@ where
 impl<'a, T> ComponentMut<'a> for Mut<'a, T> {
     const ENABLED: bool = true;
     fn build(
-        value: &'a mut Self::Inner, 
+        value: &'a mut Self::Inner,
         added: &'a mut Tick,
         changed: &'a mut Tick,
         last_change_tick: u32,
@@ -403,8 +411,11 @@ impl<'a, T> ComponentMut<'a> for Mut<'a, T> {
         Mut {
             value,
             ticks: Ticks {
-                added, changed, last_change_tick, change_tick,
-            }
+                added,
+                changed,
+                last_change_tick,
+                change_tick,
+            },
         }
     }
 }
@@ -427,8 +438,7 @@ impl<'a, T: ?Sized> DetectChanges for &'a mut T {
     }
 
     #[inline]
-    fn set_changed(&mut self) {
-    }
+    fn set_changed(&mut self) {}
 
     #[inline]
     fn last_changed(&self) -> u32 {
@@ -436,8 +446,7 @@ impl<'a, T: ?Sized> DetectChanges for &'a mut T {
     }
 
     #[inline]
-    fn set_last_changed(&mut self, _last_change_tick: u32) {
-    }
+    fn set_last_changed(&mut self, _last_change_tick: u32) {}
 
     #[inline]
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
@@ -448,7 +457,7 @@ impl<'a, T: ?Sized> DetectChanges for &'a mut T {
 impl<'a, T> ComponentMut<'a> for &'a mut T {
     const ENABLED: bool = false;
     fn build(
-        value: &'a mut Self::Inner, 
+        value: &'a mut Self::Inner,
         _added: &'a mut Tick,
         _changed: &'a mut Tick,
         _last_change_tick: u32,
@@ -529,10 +538,11 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::DetectChanges;
     use crate::{
         self as bevy_ecs,
-        change_detection::{Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
+        change_detection::{
+            ComponentMut, Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+        },
         component::{Component, ComponentTicks, Tick},
         query::ChangeTrackers,
         system::{IntoSystem, Query, Resource, System},
@@ -546,9 +556,6 @@ mod tests {
     struct R(usize);
 
     #[derive(Component, Resource)]
-    struct ZST;
-
-    #[derive(Component, Resource)]
     #[component(change_detection = false)]
     #[resource(change_detection = false)]
     struct ChangeDetectionless;
@@ -556,34 +563,10 @@ mod tests {
     #[test]
     #[allow(clippy::assertions_on_constants)]
     fn change_detection_toggle() {
-        assert!(<C as Component>::CHANGE_DETECTION_ENABLED);
+        assert!(<C as Component>::WriteFetch::ENABLED);
         assert!(<R as Resource>::CHANGE_DETECTION_ENABLED);
-        assert!(!<ChangeDetectionless as Component>::CHANGE_DETECTION_ENABLED);
+        assert!(!<ChangeDetectionless as Component>::WriteFetch::ENABLED);
         assert!(!<ChangeDetectionless as Resource>::CHANGE_DETECTION_ENABLED);
-    }
-
-    #[test]
-    #[allow(clippy::assertions_on_constants)]
-    fn zst_change_detection() {
-        fn change_detected(query: Query<ChangeTrackers<ZST>>) -> bool {
-            query.single().is_changed()
-        }
-
-        let mut world = World::new();
-
-        let entity = world.spawn(ZST).id();
-
-        let mut change_detected_system = IntoSystem::into_system(change_detected);
-        change_detected_system.initialize(&mut world);
-
-        assert!(change_detected_system.run((), &mut world));
-        *world.change_tick.get_mut() += 1;
-        world
-            .entity_mut(entity)
-            .get_mut::<ZST>()
-            .unwrap()
-            .set_changed();
-        assert!(!change_detected_system.run((), &mut world));
     }
 
     #[test]

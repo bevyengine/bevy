@@ -39,7 +39,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let change_detection_enabled = LitBool::new(attrs.change_detection_enabled, Span::call_site());
+    let component_mut = if attrs.change_detection_enabled {
+        quote! { #bevy_ecs_path::change_detection::Mut<'a, Self> }
+    } else {
+        quote! { &'a mut Self }
+    };
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
     ast.generics
@@ -52,8 +56,11 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-            const CHANGE_DETECTION_ENABLED: bool = #change_detection_enabled;
+            type WriteFetch<'a> = #component_mut;
             type Storage = #storage;
+            fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteFetch<'wlong>) -> Self::WriteFetch<'wshort> {
+                item
+            }
         }
     })
 }

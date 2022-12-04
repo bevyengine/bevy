@@ -1,11 +1,11 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    change_detection::Ticks,
+    change_detection::ComponentMut,
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table},
-    world::{Mut, World},
+    world::World,
 };
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
@@ -667,12 +667,12 @@ pub struct WriteFetch<'w, T> {
 /// SAFETY: access of `&T` is a subset of `&mut T`
 unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     type Fetch<'w> = WriteFetch<'w, T>;
-    type Item<'w> = Mut<'w, T>;
+    type Item<'w> = T::WriteFetch<'w>;
     type ReadOnly = &'__w T;
     type State = ComponentId;
 
-    fn shrink<'wlong: 'wshort, 'wshort>(item: Mut<'wlong, T>) -> Mut<'wshort, T> {
-        item
+    fn shrink<'wlong: 'wshort, 'wshort>(item: T::WriteFetch<'wlong>) -> T::WriteFetch<'wshort> {
+        T::shrink(item)
     }
 
     const IS_DENSE: bool = {
@@ -749,15 +749,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
             StorageType::Table => {
                 let (table_components, added_ticks, changed_ticks) =
                     fetch.table_data.debug_checked_unwrap();
-                Mut {
-                    value: table_components.get(table_row).deref_mut(),
-                    ticks: Ticks {
-                        added: added_ticks.get(table_row).deref_mut(),
-                        changed: changed_ticks.get(table_row).deref_mut(),
-                        change_tick: fetch.change_tick,
-                        last_change_tick: fetch.last_change_tick,
-                    },
-                }
+                T::WriteFetch::build(
+                    table_components.get(table_row).deref_mut(),
+                    added_ticks.get(table_row).deref_mut(),
+                    changed_ticks.get(table_row).deref_mut(),
+                    fetch.last_change_tick,
+                    fetch.change_tick,
+                )
             }
             StorageType::SparseSet => {
                 let (component, ticks) = fetch
@@ -765,10 +763,13 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
                     .debug_checked_unwrap()
                     .get_with_ticks(entity)
                     .debug_checked_unwrap();
-                Mut {
-                    value: component.assert_unique().deref_mut(),
-                    ticks: Ticks::from_tick_cells(ticks, fetch.change_tick, fetch.last_change_tick),
-                }
+                T::WriteFetch::build(
+                    component.assert_unique().deref_mut(),
+                    ticks.added.deref_mut(),
+                    ticks.changed.deref_mut(),
+                    fetch.last_change_tick,
+                    fetch.change_tick,
+                )
             }
         }
     }
@@ -978,18 +979,22 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
 impl<T: Component> ChangeTrackers<T> {
     /// Returns true if this component has been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
-        T::CHANGE_DETECTION_ENABLED
-            && self
-                .component_ticks
+        if T::WriteFetch::ENABLED {
+            self.component_ticks
                 .is_added(self.last_change_tick, self.change_tick)
+        } else {
+            true
+        }
     }
 
     /// Returns true if this component has been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
-        T::CHANGE_DETECTION_ENABLED
-            && self
-                .component_ticks
+        if T::WriteFetch::ENABLED {
+            self.component_ticks
                 .is_changed(self.last_change_tick, self.change_tick)
+        } else {
+            true
+        }
     }
 }
 
