@@ -116,8 +116,17 @@ impl<'w> EntityRef<'w> {
             return None;
         }
 
+        let info = self.world.components().get_info(component_id)?;
         // SAFETY: Entity location is valid and component_id exists.
-        unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
+        unsafe {
+            get_ticks(
+                self.world,
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+        }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with
@@ -297,8 +306,17 @@ impl<'w> EntityMut<'w> {
             return None;
         }
 
+        let info = self.world.components().get_info(component_id)?;
         // SAFETY: Entity location is valid and component_id exists.
-        unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
+        unsafe {
+            get_ticks(
+                self.world,
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+        }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with
