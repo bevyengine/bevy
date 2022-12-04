@@ -99,7 +99,6 @@ impl<const SEND: bool> ResourceData<SEND> {
     ///
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
-    /// - The underlying type must be [`Send`] if `SEND` is true.
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
@@ -148,12 +147,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not removed from the
     /// original thread it was inserted from.
     ///
-    /// # Safety
-    /// - the removed value must be used or dropped.
-    /// - the underlying type must be [`Send`] if `SEND` is true.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
-    pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
         if SEND {
             self.column.swap_remove_and_forget(0)
         } else {
@@ -169,8 +165,6 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// If `SEND` is false, this will panic if a value is present and is not
     /// accessed from the original thread it was inserted in.
     ///
-    /// # Safety
-    /// - the underlying type must be [`Send`] if `SEND` is true.
     #[inline]
     pub(crate) unsafe fn remove_and_drop(&mut self) {
         if self.is_present() {
