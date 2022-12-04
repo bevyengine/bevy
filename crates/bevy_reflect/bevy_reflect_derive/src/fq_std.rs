@@ -1,37 +1,37 @@
+//! This module contains unit structs that should be used inside `quote!` and `spanned_quote!` using the variable interpolation syntax in place of their equivalent structs and traits present in `std`.
+//
+//! To create hygienic proc macros, all the names must be its fully qualified form. These unit structs help us to not specify the fully qualified name every single time.
+//!
+//! # Example
+//! Instead of writing this:
+//! ```ignore
+//! quote!(
+//!     fn get_id() -> Option<i32> {
+//!         Some(0)
+//!     }
+//! )
+//! ```
+//! Or this:
+//! ```ignore
+//! quote!(
+//!     fn get_id() -> ::core::option::Option<i32> {
+//!         ::core::option::Option::Some(0)
+//!     }
+//! )
+//! ```
+//! We should write this:
+//! ```ignore
+//! use crate::fq_std::FQOption;
+//!
+//! quote!(
+//!     fn get_id() -> #FQOption<i32> {
+//!         #FQOption::Some(0)
+//!     }
+//! )
+//! ```
+
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
-
-// This module contains unit structs that should be used inside `quote!` and `spanned_quote!` using the variable interpolation syntax in place of their equivalent structs and traits present in `std`.
-//
-// To create hygienic proc macros, all the names must be its fully qualified form. These unit structs help us to not specify the fully qualified name every single time.
-//
-// # Example
-// Instead of writing this:
-// ```ignore
-// quote!(
-//     fn get_id() -> Option<i32> {
-//         Some(0)
-//     }
-// )
-// ```
-// Or this:
-// ```ignore
-// quote!(
-//     fn get_id() -> ::core::option::Option<i32> {
-//         ::core::option::Option::Some(0)
-//     }
-// )
-// ```
-// We should write this:
-// ```ignore
-// use crate::fq_std::FQOption;
-//
-// quote!(
-//     fn get_id() -> #FQOption<i32> {
-//         #FQOption::Some(0)
-//     }
-// )
-// ```
 
 pub(crate) struct FQAny;
 pub(crate) struct FQBox;
