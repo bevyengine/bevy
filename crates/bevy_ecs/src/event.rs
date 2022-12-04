@@ -246,7 +246,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// In those situations you generally want to consume those events to make sure they don't appear in the next frame.
     ///
     /// For more information see [`EventReader::is_empty()`].
-    pub fn clear(mut self) {
+    pub fn clear(&mut self) {
         self.iter().last();
     }
 }
