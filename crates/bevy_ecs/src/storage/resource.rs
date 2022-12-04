@@ -146,7 +146,6 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not removed from the
     /// original thread it was inserted from.
-    ///
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
@@ -164,9 +163,8 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Panics
     /// If `SEND` is false, this will panic if a value is present and is not
     /// accessed from the original thread it was inserted in.
-    ///
     #[inline]
-    pub(crate) unsafe fn remove_and_drop(&mut self) {
+    pub(crate) fn remove_and_drop(&mut self) {
         if self.is_present() {
             self.validate_access();
             self.column.clear();
@@ -236,7 +234,9 @@ impl<const SEND: bool> Resources<SEND> {
     ) -> &mut ResourceData<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
-            assert!(SEND == component_info.is_send_and_sync());
+            if SEND {
+                assert!(component_info.is_send_and_sync());
+            }
             ResourceData {
                 column: ManuallyDrop::new(Column::with_capacity(component_info, 1)),
                 type_name: String::from(component_info.name()),

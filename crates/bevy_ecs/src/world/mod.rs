@@ -1224,8 +1224,7 @@ impl World {
             .storages
             .resources
             .get_mut(component_id)
-            // SAFETY: The type R is Send and Sync or we've already validated that we're on the main thread.
-            .and_then(|info| unsafe { info.remove() })
+            .and_then(|info| info.remove())
             .unwrap_or_else(|| panic!("resource does not exist: {}", std::any::type_name::<R>()));
         // Read the value onto the stack to avoid potential mut aliasing.
         // SAFETY: pointer is of type R
@@ -1555,13 +1554,10 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_resource_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        // SAFETY: The underlying type is Send and Sync or we've already validated we're on the main thread
-        unsafe {
-            self.storages
-                .resources
-                .get_mut(component_id)?
-                .remove_and_drop();
-        }
+        self.storages
+            .resources
+            .get_mut(component_id)?
+            .remove_and_drop();
         Some(())
     }
 
@@ -1570,13 +1566,10 @@ impl World {
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
     /// use this in cases where the actual types are not known at compile time.**
     pub fn remove_non_send_by_id(&mut self, component_id: ComponentId) -> Option<()> {
-        // SAFETY: The underlying type is Send and Sync or we've already validated we're on the main thread
-        unsafe {
-            self.storages
-                .non_send_resources
-                .get_mut(component_id)?
-                .remove_and_drop();
-        }
+        self.storages
+            .non_send_resources
+            .get_mut(component_id)?
+            .remove_and_drop();
         Some(())
     }
 
