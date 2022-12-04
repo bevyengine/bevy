@@ -41,8 +41,12 @@ pub fn keyboard_input_system(
     mut key_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
-    scan_input.clear();
-    key_input.clear();
+    if !scan_input.is_empty() {
+        scan_input.clear();
+    }
+    if !key_input.is_empty() {
+        key_input.clear();
+    }
     for event in keyboard_input_events.iter() {
         let KeyboardInput {
             scan_code, state, ..

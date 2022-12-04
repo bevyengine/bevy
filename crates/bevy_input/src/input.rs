@@ -149,6 +149,11 @@ where
         self.just_released.clear();
     }
 
+    /// Checks if there is nothing activated currently.
+    pub(crate) fn is_empty(&self) -> bool {
+        self.just_pressed.is_empty() && self.just_released.is_empty()
+    }
+
     /// An iterator visiting every pressed input in arbitrary order.
     pub fn get_pressed(&self) -> impl ExactSizeIterator<Item = &T> {
         self.pressed.iter()
