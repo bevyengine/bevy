@@ -4,7 +4,7 @@ use naga::{
     FunctionArgument, FunctionResult, GlobalVariable, Handle, LocalVariable, Module, Span,
     Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
 };
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Default)]
 pub struct DerivedModule<'a> {
@@ -270,6 +270,138 @@ impl<'a> DerivedModule<'a> {
         new_block
     }
 
+    fn gather_expr_used_expressions(expr: Handle<Expression>, exprs: &Arena<Expression>, into: &mut HashSet<Handle<Expression>>) {
+        into.insert(expr);
+        let expr = exprs.try_get(expr).unwrap();
+        match expr {
+            Expression::Access { base, index } => {
+                Self::gather_expr_used_expressions(*base, exprs, into);
+                Self::gather_expr_used_expressions(*index, exprs, into);
+            },
+            Expression::AccessIndex { base, .. } => {
+                Self::gather_expr_used_expressions(*base, exprs, into);
+            }
+            Expression::Splat { value, .. } => {
+                Self::gather_expr_used_expressions(*value, exprs, into);
+            },
+            Expression::Swizzle { vector, .. } => {
+                Self::gather_expr_used_expressions(*vector, exprs, into);
+            },
+            Expression::Compose { components, .. } => {
+                for component in components {
+                    Self::gather_expr_used_expressions(*component, exprs, into);
+                }
+            },
+            Expression::Load { pointer } => {
+                Self::gather_expr_used_expressions(*pointer, exprs, into);
+            }
+            Expression::ImageSample { image, sampler, coordinate, array_index, depth_ref, .. } => {
+                Self::gather_expr_used_expressions(*image, exprs, into);
+                Self::gather_expr_used_expressions(*sampler, exprs, into);
+                Self::gather_expr_used_expressions(*coordinate, exprs, into);
+                array_index.map(|array_index| Self::gather_expr_used_expressions(array_index, exprs, into));
+                depth_ref.map(|depth_ref| Self::gather_expr_used_expressions(depth_ref, exprs, into)); 
+            },
+            Expression::ImageLoad { image, coordinate, array_index, sample, level } => {
+                Self::gather_expr_used_expressions(*image, exprs, into);
+                Self::gather_expr_used_expressions(*coordinate, exprs, into);
+                array_index.map(|array_index| Self::gather_expr_used_expressions(array_index, exprs, into));
+                sample.map(|sample| Self::gather_expr_used_expressions(sample, exprs, into));
+                level.map(|level| Self::gather_expr_used_expressions(level, exprs, into));
+            },
+            Expression::ImageQuery { image, .. } => {
+                Self::gather_expr_used_expressions(*image, exprs, into);
+            }
+            Expression::Binary { left, right, .. } => {
+                Self::gather_expr_used_expressions(*left, exprs, into);
+                Self::gather_expr_used_expressions(*right, exprs, into);
+            }
+            Expression::Select { condition, accept, reject } => {
+                Self::gather_expr_used_expressions(*condition, exprs, into);
+                Self::gather_expr_used_expressions(*accept, exprs, into);
+                Self::gather_expr_used_expressions(*reject, exprs, into);                
+            },
+            Expression::Relational { argument, .. } => {
+                Self::gather_expr_used_expressions(*argument, exprs, into);
+            },
+            Expression::Math { arg, arg1, arg2, arg3, .. } => {
+                Self::gather_expr_used_expressions(*arg, exprs, into);
+                arg1.map(|arg| Self::gather_expr_used_expressions(arg, exprs, into));
+                arg2.map(|arg| Self::gather_expr_used_expressions(arg, exprs, into));
+                arg3.map(|arg| Self::gather_expr_used_expressions(arg, exprs, into));
+            },
+            Expression::Unary { expr, .. } |
+            Expression::Derivative { expr, .. } |
+            Expression::As { expr, .. } |
+            Expression::ArrayLength(expr) => {
+                Self::gather_expr_used_expressions(*expr, exprs, into);
+            },
+            Expression::AtomicResult { .. } |
+            Expression::CallResult(_) |
+            Expression::Constant(_) |
+            Expression::FunctionArgument(_) |
+            Expression::GlobalVariable(_) |
+            Expression::LocalVariable(_) => (),
+        }
+    }
+
+    fn gather_block_used_expressions(block: &Block, exprs: &Arena<Expression>, into: &mut HashSet<Handle<Expression>>) {
+        for stmt in block {
+            match stmt {
+                Statement::Emit(range) => {
+                    for h in range.clone() {
+                        Self::gather_expr_used_expressions(h, exprs, into);
+                    }
+                },
+                Statement::Block(b) => Self::gather_block_used_expressions(b, exprs, into),
+                Statement::If { condition, accept, reject } => {
+                    Self::gather_expr_used_expressions(*condition, exprs, into);
+                    Self::gather_block_used_expressions(accept, exprs, into);
+                    Self::gather_block_used_expressions(reject, exprs, into);
+                }
+                Statement::Switch { selector, cases } => {
+                    Self::gather_expr_used_expressions(*selector, exprs, into);
+                    for case in cases {
+                        Self::gather_block_used_expressions(&case.body, exprs, into);
+                    }
+                },
+                Statement::Loop { body, continuing, break_if } => {
+                    break_if.map(|break_if| into.insert(break_if));
+                    Self::gather_block_used_expressions(body, exprs, into);
+                    Self::gather_block_used_expressions(continuing, exprs, into);
+                },
+                Statement::Return { value } => {
+                    value.map(|value| Self::gather_expr_used_expressions(value, exprs, into));
+                },
+                Statement::Store { pointer, value } => {
+                    Self::gather_expr_used_expressions(*pointer, exprs, into);
+                    Self::gather_expr_used_expressions(*value, exprs, into);
+                },
+                Statement::ImageStore { image, coordinate, array_index, value } => {
+                    Self::gather_expr_used_expressions(*image, exprs, into);                    
+                    Self::gather_expr_used_expressions(*coordinate, exprs, into);
+                    array_index.map(|array_index| Self::gather_expr_used_expressions(array_index, exprs, into));
+                    Self::gather_expr_used_expressions(*value, exprs, into);
+                }
+                Statement::Atomic { pointer, value, result, .. } => {
+                    Self::gather_expr_used_expressions(*pointer, exprs, into);
+                    Self::gather_expr_used_expressions(*value, exprs, into);
+                    Self::gather_expr_used_expressions(*result, exprs, into);
+                },
+                Statement::Call { arguments, result, .. } => {
+                    for arg in arguments {
+                        Self::gather_expr_used_expressions(*arg, exprs, into);
+                    }
+                    result.map(|result| Self::gather_expr_used_expressions(result, exprs, into));
+                },
+                Statement::Break |
+                Statement::Continue |
+                Statement::Kill |
+                Statement::Barrier(_) => (),
+            }
+        }
+    }
+
     // remap function global references (global vars, consts, types) into our derived context
     pub fn localize_function(&mut self, func: &Function) -> Function {
         let arguments = func
@@ -300,16 +432,34 @@ impl<'a> DerivedModule<'a> {
         }
 
         let mut expressions = Arena::new();
+
+        // gather used globals - we want to avoid importing globals / consts that are not required by the function,
+        // but function local expressions contain all constants and global variables, whether used or not.
+        let mut used_exprs = HashSet::new();
+        Self::gather_block_used_expressions(&func.body, &func.expressions, &mut used_exprs);
+
         for (h_expr, expr) in func.expressions.iter() {
             let expr = match expr {
                 Expression::CallResult(f) => Expression::CallResult(self.map_function_handle(f)),
-                Expression::Constant(c) => Expression::Constant(self.import_const(c)),
+                Expression::Constant(c) => {
+                    if !used_exprs.contains(&h_expr) {
+                        // emit a dummy expression
+                        Expression::AtomicResult{ kind: naga::ScalarKind::Uint, width: 4, comparison: true }
+                    } else {
+                        Expression::Constant(self.import_const(c))
+                    }
+                },
                 Expression::Compose { ty, components } => Expression::Compose {
                     ty: self.import_type(ty),
                     components: components.to_vec(),
                 },
                 Expression::GlobalVariable(gv) => {
-                    Expression::GlobalVariable(self.import_global(gv))
+                    if !used_exprs.contains(&h_expr) {
+                        // emit a dummy expression
+                        Expression::AtomicResult{ kind: naga::ScalarKind::Uint, width: 4, comparison: true }
+                    } else {
+                        Expression::GlobalVariable(self.import_global(gv))
+                    }
                 }
                 Expression::ImageSample {
                     image,

@@ -1482,13 +1482,19 @@ impl Composer {
     fn add_composable_data<'a>(
         derived: &mut DerivedModule<'a>,
         composable: &'a ComposableModule,
+        items: Option<&Vec<String>>,
         span_offset: usize,
     ) {
+        let items: Option<HashSet<String>> = items.map(|items| {
+            items.iter().map(|item| format!("{}{}", composable.decorated_name, item)).collect()
+        });
+        let items = items.as_ref();
+
         derived.set_shader_source(&composable.module_ir, span_offset);
 
         for (h, ty) in composable.module_ir.types.iter() {
             if let Some(name) = &ty.name {
-                if composable.owned_types.contains(name) {
+                if composable.owned_types.contains(name) && items.map_or(true, |items| items.contains(name)) {
                     derived.import_type(&h);
                 }
             }
@@ -1496,7 +1502,7 @@ impl Composer {
 
         for (h, c) in composable.module_ir.constants.iter() {
             if let Some(name) = &c.name {
-                if composable.owned_constants.contains(name) {
+                if composable.owned_constants.contains(name) && items.map_or(true, |items| items.contains(name)) {
                     derived.import_const(&h);
                 }
             }
@@ -1504,7 +1510,7 @@ impl Composer {
 
         for (h, v) in composable.module_ir.global_variables.iter() {
             if let Some(name) = &v.name {
-                if composable.owned_vars.contains(name) {
+                if composable.owned_vars.contains(name) && items.map_or(true, |items| items.contains(name)) {
                     derived.import_global(&h);
                 }
             }
@@ -1512,9 +1518,9 @@ impl Composer {
 
         for (h_f, f) in composable.module_ir.functions.iter() {
             if let Some(name) = &f.name {
-                if composable.owned_functions.contains(name) {
+                if composable.owned_functions.contains(name) && items.map_or(true, |items| items.contains(name)) {
                     let span = composable.module_ir.functions.get_span(h_f);
-                    derived.import_function(f, span);
+                    derived.import_function_if_new(f, span);
                 }
             }
         }
@@ -1535,7 +1541,9 @@ impl Composer {
             return;
         }
 
-        already_added.insert(import.import.clone());
+        if import.items.is_none() {
+            already_added.insert(import.import.clone());
+        }
 
         let import_module_set = self.module_sets.get(&import.import).unwrap();
         let module = import_module_set.get_module(shader_defs).unwrap();
@@ -1547,6 +1555,7 @@ impl Composer {
         Self::add_composable_data(
             derived,
             module,
+            import.items.as_ref(),
             import_module_set.module_index << SPAN_SHIFT,
         );
     }
@@ -1921,7 +1930,7 @@ impl Composer {
             self.add_import(&mut derived, import, &shader_defs, &mut already_added);
         }
 
-        Self::add_composable_data(&mut derived, &composable, 0);
+        Self::add_composable_data(&mut derived, &composable, None, 0);
 
         let stage = match shader_type {
             ShaderType::GlslVertex => Some(naga::ShaderStage::Vertex),

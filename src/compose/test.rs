@@ -655,7 +655,6 @@ mod test {
         .unwrap();
 
         // println!("{}", wgsl);
-
         let mut wgsl = wgsl.lines().collect::<Vec<_>>();
         wgsl.sort();
         let wgsl = wgsl.join("\n");
