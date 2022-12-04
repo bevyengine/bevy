@@ -23,6 +23,17 @@ pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
 /// Changes stop being detected once they become this old.
 pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
+pub trait ComponentMut<'a>: DetectChanges {
+    const ENABLED: bool;
+    fn build(
+        inner: &'a mut Self::Inner, 
+        added: &'a mut Tick,
+        changed: &'a mut Tick,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self;
+}
+
 /// Types that implement reliable change detection.
 ///
 /// ## Example
@@ -94,26 +105,26 @@ pub trait DetectChanges {
 
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $enabled:expr, $($traits:ident)?) => {
-        impl<$($generics),* : Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
+        impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             type Inner = $target;
 
             #[inline]
             fn is_added(&self) -> bool {
-                $enabled && self.ticks
+                $enabled || self.ticks
                     .added
                     .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
-                $enabled && self.ticks
+                $enabled || self.ticks
                     .changed
                     .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn set_changed(&mut self) {
-                if $enabled && core::mem::size_of::<$target>() != 0 {
+                if $enabled {
                     self.ticks
                         .changed
                         .set_changed(self.ticks.change_tick);
@@ -380,9 +391,72 @@ where
     }
 }
 
+impl<'a, T> ComponentMut<'a> for Mut<'a, T> {
+    const ENABLED: bool = true;
+    fn build(
+        value: &'a mut Self::Inner, 
+        added: &'a mut Tick,
+        changed: &'a mut Tick,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
+        Mut {
+            value,
+            ticks: Ticks {
+                added, changed, last_change_tick, change_tick,
+            }
+        }
+    }
+}
+
 change_detection_impl!(Mut<'a, T>, T, true,);
 impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
+
+impl<'a, T: ?Sized> DetectChanges for &'a mut T {
+    type Inner = T;
+
+    #[inline]
+    fn is_added(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn is_changed(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn set_changed(&mut self) {
+    }
+
+    #[inline]
+    fn last_changed(&self) -> u32 {
+        0
+    }
+
+    #[inline]
+    fn set_last_changed(&mut self, _last_change_tick: u32) {
+    }
+
+    #[inline]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self
+    }
+}
+
+impl<'a, T> ComponentMut<'a> for &'a mut T {
+    const ENABLED: bool = false;
+    fn build(
+        value: &'a mut Self::Inner, 
+        _added: &'a mut Tick,
+        _changed: &'a mut Tick,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
+        value
+    }
+}
 
 /// Unique mutable borrow of resources or an entity's component.
 ///
