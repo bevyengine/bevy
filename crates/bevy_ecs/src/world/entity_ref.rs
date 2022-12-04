@@ -82,6 +82,22 @@ impl<'w> EntityRef<'w> {
         unsafe { get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location) }
     }
 
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// **You should prefer to use the typed API [`EntityRef::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+        if !self.contains_id(component_id) {
+            return None;
+        }
+
+        // SAFETY: Entity location is valid and component_id exists.
+        unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
+    }
+
     /// Gets a mutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no other borrows active and without
     /// ensuring that the returned reference will stay valid.
@@ -204,6 +220,22 @@ impl<'w> EntityMut<'w> {
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY: entity location is valid
         unsafe { get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location) }
+    }
+
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+        if !self.contains_id(component_id) {
+            return None;
+        }
+
+        // SAFETY: Entity location is valid and component_id exists.
+        unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
     }
 
     /// Gets a mutable reference to the component of type `T` associated with

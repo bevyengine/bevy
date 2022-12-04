@@ -91,7 +91,7 @@ jobs:
           done
 
   run-examples-on-wasm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04 # TODO: figure out why this fails on latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v3
