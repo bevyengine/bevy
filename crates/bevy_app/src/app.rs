@@ -2,7 +2,7 @@ use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},
-    non_send_resources::NON_SEND_RESOURCES,
+    non_send_resources::{NonSendResources, NON_SEND_RESOURCES},
     prelude::FromWorld,
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
@@ -770,14 +770,19 @@ impl App {
 
     /// Initialize a non-send [`Resource`] with standard starting values by adding it to the [`World`].
     ///
-    /// The [`Resource`] must implement the [`FromWorld`] trait.
-    /// If the [`Default`] trait is implemented, the [`FromWorld`] trait will use
+    /// The [`Resource`] must implement the [`Default`] trait.
+    /// If the [`Default`] trait is implemented, the [`Default`] trait will use
     /// the [`Default::default`] method to initialize the [`Resource`].
     pub fn init_non_send_resource<R: 'static + Default>(&mut self) -> &mut Self {
         NON_SEND_RESOURCES.with(|non_send_resources| {
             non_send_resources.borrow_mut().init_resource::<R>();
         });
         self
+    }
+
+    /// Runs a function with the `NonSendResources` storage
+    pub fn with_non_send<T>(f: impl FnOnce(&mut NonSendResources) -> T) -> T {
+        NON_SEND_RESOURCES.with(|non_send_resources| f(&mut non_send_resources.borrow_mut()))
     }
 
     /// Sets the function that will be called when the app is run.

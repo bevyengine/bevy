@@ -365,8 +365,7 @@ impl AddAsset for App {
         #[cfg(feature = "debug_asset_server")]
         {
             self.add_system(crate::debug_asset_server::sync_debug_assets::<T>);
-            bevy_ecs::non_send_resources::NON_SEND_RESOURCES.with(|non_send_resources| {
-                let mut non_send_resources = non_send_resources.borrow_mut();
+            Self::with_non_send(|non_send_resources| {
                 let mut app =
                     non_send_resources.resource_mut::<crate::debug_asset_server::DebugAssetApp>();
                 app.add_asset::<T>()
@@ -390,8 +389,7 @@ impl AddAsset for App {
     {
         #[cfg(feature = "debug_asset_server")]
         {
-            bevy_ecs::non_send_resources::NON_SEND_RESOURCES.with(|non_send_resources| {
-                let mut non_send_resources = non_send_resources.borrow_mut();
+            Self::with_non_send(|non_send_resources| {
                 let mut app =
                     non_send_resources.resource_mut::<crate::debug_asset_server::DebugAssetApp>();
                 app.init_asset_loader::<T>();
@@ -418,8 +416,7 @@ impl AddAsset for App {
 macro_rules! load_internal_asset {
     ($app: ident, $handle: ident, $path_str: expr, $loader: expr) => {{
         {
-            bevy_ecs::non_send_resources::NON_SEND_RESOURCES.with(|non_send_resources| {
-                let mut non_send_resources = non_send_resources.borrow_mut();
+            bevy_app::App::with_non_send(|non_send_resources| {
                 let mut debug_app =
                     non_send_resources.resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
                 $crate::debug_asset_server::register_handle_with_loader(

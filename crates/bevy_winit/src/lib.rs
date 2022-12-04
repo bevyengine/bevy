@@ -4,7 +4,7 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
-use bevy_ecs::non_send_resources::{MainThreadExecutor, NON_SEND_RESOURCES};
+use bevy_ecs::non_send_resources::MainThreadExecutor;
 use winit::window::CursorGrabMode;
 pub use winit_config::*;
 pub use winit_windows::*;
@@ -360,9 +360,8 @@ impl Default for WinitPersistentState {
 struct WinitCreateWindowReader(ManualEventReader<CreateWindow>);
 
 pub fn winit_runner_with(mut app: App) {
-    let mut event_loop = NON_SEND_RESOURCES.with(|non_send_resources| {
+    let mut event_loop = App::with_non_send(|non_send_resources| {
         non_send_resources
-            .borrow_mut()
             .remove_resource::<EventLoop<()>>()
             .unwrap()
     });
@@ -412,9 +411,8 @@ pub fn winit_runner_with(mut app: App) {
                 window_id: winit_window_id,
                 ..
             } => {
-                NON_SEND_RESOURCES.with(|non_send_resources| {
+                App::with_non_send(|non_send_resources| {
                     let world = app.world.cell();
-                    let mut non_send_resources = non_send_resources.borrow_mut();
                     let winit_windows = non_send_resources.resource_mut::<WinitWindows>();
                     let mut windows = world.resource_mut::<Windows>();
                     let window_id =
@@ -677,9 +675,8 @@ fn handle_create_window_events(
     event_loop: &EventLoopWindowTarget<()>,
     create_window_event_reader: &mut ManualEventReader<CreateWindow>,
 ) {
-    NON_SEND_RESOURCES.with(|non_send_resources| {
+    App::with_non_send(|non_send_resources| {
         let world = world.cell();
-        let mut non_send_resources = non_send_resources.borrow_mut();
         let mut winit_windows = non_send_resources.resource_mut::<WinitWindows>();
         let mut windows = world.resource_mut::<Windows>();
         let create_window_events = world.resource::<Events<CreateWindow>>();
