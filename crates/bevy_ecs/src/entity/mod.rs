@@ -575,7 +575,7 @@ impl Entities {
         }
     }
 
-    /// Gets the location of an entity without checking the validity of it's index nor it's generation.
+    /// Gets the location of an entity without checking the validity of its index nor its generation.
     ///
     /// # Safety
     /// `index` must correspond to an allocated entity.
