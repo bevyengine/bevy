@@ -41,6 +41,7 @@ pub fn keyboard_input_system(
     mut key_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
+    // Avoid clearing if it's not empty to ensure change detection is not triggered.
     if !scan_input.is_empty() {
         scan_input.clear();
     }
