@@ -59,7 +59,10 @@ impl<'a> ThreadSpawner<'a> {
         self.0.spawn(future)
     }
 
-    /// Runs a future on the main thread and blocks for the result
+    /// Runs a future on the executor's thread and blocks for the result
+    /// Note: this will deadlock if executor is not being ticked when this is called
+    // TODO: if we're on the executor's thead we can just block_on the
+    // the future instead of spawning the task.
     pub fn block_on<'env, T: Send + 'env>(
         &self,
         future: impl Future<Output = T> + Send + 'env,

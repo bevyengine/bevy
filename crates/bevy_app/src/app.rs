@@ -781,7 +781,10 @@ impl App {
     }
 
     /// Runs a function with the `NonSendResources` storage
-    pub fn with_non_send<T>(f: impl FnOnce(&mut NonSendResources) -> T) -> T {
+    pub fn with_non_send<F, T>(f: F) -> T
+    where
+        F: FnOnce(&mut NonSendResources) -> T,
+    {
         NON_SEND_RESOURCES.with(|non_send_resources| f(&mut non_send_resources.borrow_mut()))
     }
 

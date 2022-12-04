@@ -52,7 +52,7 @@ impl Plugin for CorePlugin {
 
         // Setup Main Thread Executor used to access non send resources
         let main_thread = MainThreadExecutor::new();
-        // TODO: this needs to be dropped from a system, if the main world is running off the main thread
+        // TODO: NonSendDropper needs to be dropped from a system if the main world is running off the main thread
         app.insert_resource(NonSendDropper {
             main_thread: main_thread.clone(),
         });

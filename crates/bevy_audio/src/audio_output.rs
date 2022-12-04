@@ -93,12 +93,10 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
     mut sinks: ResMut<Assets<AudioSink>>,
 ) {
     if let Some(audio_sources) = audio_sources {
-        main_thread.run(|tls| {
-            tls.resource::<AudioOutput<Source>>().try_play_queued(
-                &*audio_sources,
-                &mut audio,
-                &mut sinks,
-            );
+        main_thread.run(|non_send_resources| {
+            non_send_resources
+                .resource::<AudioOutput<Source>>()
+                .try_play_queued(&*audio_sources, &mut audio, &mut sinks);
         });
     };
 }

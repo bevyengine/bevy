@@ -21,9 +21,11 @@ use crate::{
 };
 
 thread_local! {
+    /// thread local storage for !Send Resources
     pub static NON_SEND_RESOURCES: RefCell<NonSendResources> = RefCell::new(NonSendResources::new());
 }
 
+/// Storage for holding !Send Resources
 pub struct NonSendResources {
     components: Components,
     non_send_resources: Resources,
@@ -266,7 +268,11 @@ impl MainThreadExecutor {
     }
 
     /// run a `FnMut` on the main thread with the nonsend resources
-    pub fn run<R: Send>(&self, mut f: impl FnMut(&mut NonSendResources) -> R + Send) -> R {
+    pub fn run<F, R>(&self, mut f: F) -> R
+    where
+        F: FnMut(&mut NonSendResources) -> R + Send,
+        R: Send,
+    {
         if self.0.ticker().is_some() {
             NON_SEND_RESOURCES.with(|non_send_resources| f(&mut non_send_resources.borrow_mut()))
         } else {
@@ -284,7 +290,7 @@ impl Clone for MainThreadExecutor {
     }
 }
 
-/// drops the `NonSendResources` stored on main thread when it is dropped.
+/// `Resource` that can be added to `World` to drop the `NonSendResources` stored on main thread when it is dropped.
 #[derive(Resource)]
 pub struct NonSendDropper {
     pub main_thread: MainThreadExecutor,
