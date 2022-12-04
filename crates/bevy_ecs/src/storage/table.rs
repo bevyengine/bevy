@@ -1,5 +1,6 @@
 use crate::{
-    component::{ComponentId, ComponentInfo, ComponentTicks, Components, Tick, TickCells},
+    change_detection::{SmallTick, Tick},
+    component::{ComponentId, ComponentInfo, ComponentTicks, Components, TickCells},
     entity::Entity,
     query::DebugCheckedUnwrap,
     storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
@@ -35,8 +36,8 @@ impl TableId {
 #[derive(Debug)]
 pub struct Column {
     data: BlobVec,
-    added_ticks: Vec<UnsafeCell<Tick>>,
-    changed_ticks: Vec<UnsafeCell<Tick>>,
+    added_ticks: Vec<UnsafeCell<SmallTick>>,
+    changed_ticks: Vec<UnsafeCell<SmallTick>>,
 }
 
 impl Column {
@@ -62,7 +63,7 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn initialize(&mut self, row: usize, data: OwningPtr<'_>, tick: Tick) {
+    pub(crate) unsafe fn initialize(&mut self, row: usize, data: OwningPtr<'_>, tick: SmallTick) {
         debug_assert!(row < self.len());
         self.data.initialize_unchecked(row, data);
         *self.added_ticks.get_unchecked_mut(row).get_mut() = tick;
@@ -75,13 +76,15 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn replace(&mut self, row: usize, data: OwningPtr<'_>, change_tick: u32) {
+    pub(crate) unsafe fn replace(
+        &mut self,
+        row: usize,
+        data: OwningPtr<'_>,
+        change_tick: SmallTick,
+    ) {
         debug_assert!(row < self.len());
         self.data.replace_unchecked(row, data);
-        self.changed_ticks
-            .get_unchecked_mut(row)
-            .get_mut()
-            .set_changed(change_tick);
+        *self.changed_ticks.get_unchecked_mut(row).get_mut() = change_tick;
     }
 
     /// Writes component data to the column at given row.
@@ -196,12 +199,12 @@ impl Column {
     }
 
     #[inline]
-    pub fn get_added_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
+    pub fn get_added_ticks_slice(&self) -> &[UnsafeCell<SmallTick>] {
         &self.added_ticks
     }
 
     #[inline]
-    pub fn get_changed_ticks_slice(&self) -> &[UnsafeCell<Tick>] {
+    pub fn get_changed_ticks_slice(&self) -> &[UnsafeCell<SmallTick>] {
         &self.changed_ticks
     }
 
@@ -254,12 +257,12 @@ impl Column {
     }
 
     #[inline]
-    pub fn get_added_ticks(&self, row: usize) -> Option<&UnsafeCell<Tick>> {
+    pub fn get_added_ticks(&self, row: usize) -> Option<&UnsafeCell<SmallTick>> {
         self.added_ticks.get(row)
     }
 
     #[inline]
-    pub fn get_changed_ticks(&self, row: usize) -> Option<&UnsafeCell<Tick>> {
+    pub fn get_changed_ticks(&self, row: usize) -> Option<&UnsafeCell<SmallTick>> {
         self.changed_ticks.get(row)
     }
 
@@ -276,7 +279,7 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub unsafe fn get_added_ticks_unchecked(&self, row: usize) -> &UnsafeCell<Tick> {
+    pub unsafe fn get_added_ticks_unchecked(&self, row: usize) -> &UnsafeCell<SmallTick> {
         debug_assert!(row < self.added_ticks.len());
         self.added_ticks.get_unchecked(row)
     }
@@ -284,7 +287,7 @@ impl Column {
     /// # Safety
     /// index must be in-bounds
     #[inline]
-    pub unsafe fn get_changed_ticks_unchecked(&self, row: usize) -> &UnsafeCell<Tick> {
+    pub unsafe fn get_changed_ticks_unchecked(&self, row: usize) -> &UnsafeCell<SmallTick> {
         debug_assert!(row < self.changed_ticks.len());
         self.changed_ticks.get_unchecked(row)
     }
@@ -308,7 +311,7 @@ impl Column {
     }
 
     #[inline]
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for component_ticks in &mut self.added_ticks {
             component_ticks.get_mut().check_tick(change_tick);
         }
@@ -530,8 +533,8 @@ impl Table {
         self.entities.push(entity);
         for column in self.columns.values_mut() {
             column.data.set_len(self.entities.len());
-            column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
-            column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
+            column.added_ticks.push(UnsafeCell::new(SmallTick::new()));
+            column.changed_ticks.push(UnsafeCell::new(SmallTick::new()));
         }
         index
     }
@@ -556,7 +559,7 @@ impl Table {
         self.entities.is_empty()
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for column in self.columns.values_mut() {
             column.check_change_ticks(change_tick);
         }
@@ -658,7 +661,7 @@ impl Tables {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for table in &mut self.tables {
             table.check_change_ticks(change_tick);
         }
@@ -684,14 +687,11 @@ impl IndexMut<TableId> for Tables {
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
+    use crate::change_detection::SmallTick;
     use crate::component::Component;
     use crate::ptr::OwningPtr;
     use crate::storage::Storages;
-    use crate::{
-        component::{Components, Tick},
-        entity::Entity,
-        storage::TableBuilder,
-    };
+    use crate::{component::Components, entity::Entity, storage::TableBuilder};
     #[derive(Component)]
     struct W<T>(T);
 
@@ -714,7 +714,7 @@ mod tests {
                     table.get_column_mut(component_id).unwrap().initialize(
                         row,
                         value_ptr,
-                        Tick::new(0),
+                        SmallTick::new(),
                     );
                 });
             };

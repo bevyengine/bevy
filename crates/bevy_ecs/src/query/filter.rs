@@ -1,6 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
+    change_detection::{SmallTick, Tick},
+    component::{Component, ComponentId, ComponentStorage, StorageType},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table},
@@ -53,8 +54,8 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     unsafe fn init_fetch(
         _world: &World,
         _state: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) {
     }
 
@@ -155,8 +156,8 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     unsafe fn init_fetch(
         _world: &World,
         _state: &ComponentId,
-        _last_change_tick: u32,
-        _change_tick: u32,
+        _last_change_tick: Tick,
+        _change_tick: Tick,
     ) {
     }
 
@@ -277,7 +278,7 @@ macro_rules! impl_query_filter_tuple {
 
             const IS_ARCHETYPAL: bool = true $(&& $filter::IS_ARCHETYPAL)*;
 
-            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: &'w World, state: &Self::State, last_change_tick: Tick, change_tick: Tick) -> Self::Fetch<'w> {
                 let ($($filter,)*) = state;
                 ($(OrFetch {
                     fetch: $filter::init_fetch(world, $filter, last_change_tick, change_tick),
@@ -414,11 +415,11 @@ macro_rules! impl_tick_filter {
         #[doc(hidden)]
         $(#[$fetch_meta])*
         pub struct $fetch_name<'w, T> {
-            table_ticks: Option< ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+            table_ticks: Option< ThinSlicePtr<'w, UnsafeCell<SmallTick>>>,
             marker: PhantomData<T>,
             sparse_set: Option<&'w ComponentSparseSet>,
-            last_change_tick: u32,
-            change_tick: u32,
+            last_change_tick: Tick,
+            change_tick: Tick,
         }
 
         // SAFETY: `Self::ReadOnly` is the same as `Self`
@@ -432,7 +433,7 @@ macro_rules! impl_tick_filter {
                 item
             }
 
-            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
+            unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: Tick, change_tick: Tick) -> Self::Fetch<'w> {
                 Self::Fetch::<'w> {
                     table_ticks: None,
                     sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
@@ -509,7 +510,7 @@ macro_rules! impl_tick_filter {
                             .debug_checked_unwrap()
                             .get(table_row)
                             .deref()
-                            .is_older_than(fetch.last_change_tick, fetch.change_tick)
+                            .is_newer_than(fetch.last_change_tick, fetch.change_tick)
                     }
                     StorageType::SparseSet => {
                         let sparse_set = &fetch
@@ -518,7 +519,7 @@ macro_rules! impl_tick_filter {
                         $get_sparse_set(sparse_set, entity)
                             .debug_checked_unwrap()
                             .deref()
-                            .is_older_than(fetch.last_change_tick, fetch.change_tick)
+                            .is_newer_than(fetch.last_change_tick, fetch.change_tick)
                     }
                 }
             }

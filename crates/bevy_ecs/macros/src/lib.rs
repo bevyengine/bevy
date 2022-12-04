@@ -292,7 +292,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     state: &'s mut Self,
                     system_meta: &SystemMeta,
                     world: &'w World,
-                    change_tick: u32,
+                    change_tick: Tick,
                 ) -> Self::Item {
                     ParamSet {
                         param_states: &mut state.0,
@@ -437,7 +437,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     state: &'s mut Self,
                     system_meta: &#path::system::SystemMeta,
                     world: &'w #path::world::World,
-                    change_tick: u32,
+                    change_tick: #path::change_detection::Tick,
                 ) -> Self::Item {
                     #struct_name {
                         #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*

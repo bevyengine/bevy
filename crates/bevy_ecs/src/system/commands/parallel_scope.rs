@@ -3,6 +3,7 @@ use std::cell::Cell;
 use thread_local::ThreadLocal;
 
 use crate::{
+    change_detection::Tick,
     entity::Entities,
     prelude::World,
     system::{SystemParam, SystemParamFetch, SystemParamState},
@@ -59,7 +60,7 @@ impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
         state: &'s mut Self,
         _: &crate::system::SystemMeta,
         world: &'w World,
-        _: u32,
+        _: Tick,
     ) -> Self::Item {
         ParallelCommands {
             state,

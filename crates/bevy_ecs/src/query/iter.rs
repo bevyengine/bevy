@@ -1,5 +1,6 @@
 use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
+    change_detection::Tick,
     entity::{Entities, Entity},
     prelude::World,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
@@ -29,8 +30,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self {
         QueryIter {
             query_state,
@@ -98,8 +99,8 @@ where
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
         entity_list: EntityList,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> QueryManyIter<'w, 's, Q, F, I> {
         let fetch = Q::init_fetch(
             world,
@@ -299,8 +300,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery, const K: usize>
     pub(crate) unsafe fn new(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self {
         // Initialize array with cursors.
         // There is no FromIterator on arrays, so instead initialize it manually with MaybeUninit
@@ -497,8 +498,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     unsafe fn init_empty(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self {
         QueryIterationCursor {
             table_id_iter: [].iter(),
@@ -510,8 +511,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     unsafe fn init(
         world: &'w World,
         query_state: &'s QueryState<Q, F>,
-        last_change_tick: u32,
-        change_tick: u32,
+        last_change_tick: Tick,
+        change_tick: Tick,
     ) -> Self {
         let fetch = Q::init_fetch(
             world,

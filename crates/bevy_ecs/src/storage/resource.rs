@@ -1,4 +1,5 @@
 use crate::archetype::ArchetypeComponentId;
+use crate::change_detection::{SmallTick, Tick};
 use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
 use crate::storage::{Column, SparseSet};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -52,7 +53,7 @@ impl ResourceData {
     ///
     /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
     #[inline]
-    pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
+    pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: SmallTick) {
         if self.is_present() {
             self.column.replace(0, value, change_tick);
         } else {
@@ -176,7 +177,7 @@ impl Resources {
         })
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
+    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
         for info in self.resources.values_mut() {
             info.column.check_change_ticks(change_tick);
         }

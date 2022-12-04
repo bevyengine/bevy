@@ -9,7 +9,8 @@ use crate::{
         Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    change_detection::SmallTick,
+    component::{Component, ComponentId, Components, StorageType},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
@@ -280,7 +281,7 @@ impl BundleInfo {
         components: &mut Components,
         storages: &'a mut Storages,
         archetype_id: ArchetypeId,
-        change_tick: u32,
+        change_tick: SmallTick,
     ) -> BundleInserter<'a, 'b> {
         let new_archetype_id =
             self.add_bundle_to_archetype(archetypes, storages, components, archetype_id);
@@ -339,7 +340,7 @@ impl BundleInfo {
         archetypes: &'a mut Archetypes,
         components: &mut Components,
         storages: &'a mut Storages,
-        change_tick: u32,
+        change_tick: SmallTick,
     ) -> BundleSpawner<'a, 'b> {
         let new_archetype_id =
             self.add_bundle_to_archetype(archetypes, storages, components, ArchetypeId::EMPTY);
@@ -380,7 +381,7 @@ impl BundleInfo {
         bundle_component_status: &S,
         entity: Entity,
         table_row: usize,
-        change_tick: u32,
+        change_tick: SmallTick,
         bundle: T,
     ) {
         // NOTE: get_components calls this closure on each component in "bundle order".
@@ -394,7 +395,7 @@ impl BundleInfo {
                     // SAFETY: bundle_component is a valid index for this bundle
                     match bundle_component_status.get_status(bundle_component) {
                         ComponentStatus::Added => {
-                            column.initialize(table_row, component_ptr, Tick::new(change_tick));
+                            column.initialize(table_row, component_ptr, change_tick);
                         }
                         ComponentStatus::Mutated => {
                             column.replace(table_row, component_ptr, change_tick);
@@ -502,7 +503,7 @@ pub(crate) struct BundleInserter<'a, 'b> {
     sparse_sets: &'a mut SparseSets,
     result: InsertBundleResult<'a>,
     archetypes_ptr: *mut Archetype,
-    change_tick: u32,
+    change_tick: SmallTick,
 }
 
 pub(crate) enum InsertBundleResult<'a> {
@@ -637,7 +638,7 @@ pub(crate) struct BundleSpawner<'a, 'b> {
     bundle_info: &'b BundleInfo,
     table: &'a mut Table,
     sparse_sets: &'a mut SparseSets,
-    change_tick: u32,
+    change_tick: SmallTick,
 }
 
 impl<'a, 'b> BundleSpawner<'a, 'b> {
