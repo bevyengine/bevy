@@ -180,7 +180,7 @@ impl ComponentSparseSet {
 
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
-        self.sparse.get(entity.index()).map(|&dense_index| {
+        self.sparse.get(entity.index()).map(|dense_index| {
             let dense_index = *dense_index as usize;
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index]);
@@ -276,7 +276,7 @@ impl ComponentSparseSet {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index]);
             self.entities.swap_remove(dense_index);
-            let is_last = dense_index as usize == self.dense.len() - 1;
+            let is_last = dense_index == self.dense.len() - 1;
             // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe { self.dense.swap_remove_unchecked(TableRow::new(dense_index)) }
             if !is_last {
