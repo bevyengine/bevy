@@ -10,6 +10,7 @@ use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
+use bevy_ecs::reflect::ReflectResource;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
@@ -23,6 +24,7 @@ use serde::Serialize;
 #[derive(Default, TypeUuid)]
 #[uuid = "749479b1-fb8c-4ff8-a775-623aa76014f5"]
 pub struct DynamicScene {
+    pub resources: Vec<Box<dyn Reflect>>,
     pub entities: Vec<DynamicEntity>,
 }
 
@@ -63,6 +65,23 @@ impl DynamicScene {
         type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
         let type_registry = type_registry.read();
+
+        for resource in &self.resources {
+            let registration = type_registry
+                .get_with_name(resource.type_name())
+                .ok_or_else(|| SceneSpawnError::UnregisteredType {
+                    type_name: resource.type_name().to_string(),
+                })?;
+            let reflect_resource = registration.data::<ReflectResource>().ok_or_else(|| {
+                SceneSpawnError::UnregisteredResource {
+                    type_name: resource.type_name().to_string(),
+                }
+            })?;
+
+            // If the world already contains an instance of the given resource
+            // just apply the (possibly) new value, otherwise insert the resource
+            reflect_resource.apply_or_insert(world, &**resource);
+        }
 
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`

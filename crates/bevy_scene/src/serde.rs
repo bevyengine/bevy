@@ -12,6 +12,7 @@ use serde::{
 use std::fmt::Formatter;
 
 pub const SCENE_STRUCT: &str = "Scene";
+pub const SCENE_RESOURCES: &str = "resources";
 pub const SCENE_ENTITIES: &str = "entities";
 
 pub const ENTITY_STRUCT: &str = "Entity";
@@ -33,7 +34,14 @@ impl<'a> Serialize for SceneSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_struct(SCENE_STRUCT, 1)?;
+        let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
+        state.serialize_field(
+            SCENE_RESOURCES,
+            &ComponentsSerializer {
+                components: &self.scene.resources,
+                registry: self.registry,
+            },
+        )?;
         state.serialize_field(
             SCENE_ENTITIES,
             &EntitiesSerializer {
@@ -115,6 +123,7 @@ impl<'a> Serialize for ComponentsSerializer<'a> {
 #[derive(Deserialize)]
 #[serde(field_identifier, rename_all = "lowercase")]
 enum SceneField {
+    Resources,
     Entities,
 }
 
@@ -137,7 +146,7 @@ impl<'a, 'de> DeserializeSeed<'de> for SceneDeserializer<'a> {
     {
         deserializer.deserialize_struct(
             SCENE_STRUCT,
-            &[SCENE_ENTITIES],
+            &[SCENE_RESOURCES, SCENE_ENTITIES],
             SceneVisitor {
                 type_registry: self.type_registry,
             },
@@ -160,9 +169,18 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
+        let mut resources = None;
         let mut entities = None;
         while let Some(key) = map.next_key()? {
             match key {
+                SceneField::Resources => {
+                    if resources.is_some() {
+                        return Err(Error::duplicate_field(SCENE_RESOURCES));
+                    }
+                    resources = Some(map.next_value_seed(ComponentDeserializer {
+                        registry: self.type_registry,
+                    })?);
+                }
                 SceneField::Entities => {
                     if entities.is_some() {
                         return Err(Error::duplicate_field(SCENE_ENTITIES));
@@ -174,22 +192,35 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
             }
         }
 
+        let resources = resources.ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
         let entities = entities.ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
 
-        Ok(DynamicScene { entities })
+        Ok(DynamicScene {
+            resources,
+            entities,
+        })
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
     where
         A: SeqAccess<'de>,
     {
+        let resources = seq
+            .next_element_seed(ComponentDeserializer {
+                registry: self.type_registry,
+            })?
+            .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
+
         let entities = seq
             .next_element_seed(SceneEntitiesDeserializer {
                 type_registry: self.type_registry,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_ENTITIES))?;
 
-        Ok(DynamicScene { entities })
+        Ok(DynamicScene {
+            resources,
+            entities,
+        })
     }
 }
 
@@ -390,7 +421,7 @@ mod tests {
     use crate::{DynamicScene, DynamicSceneBuilder};
     use bevy_app::AppTypeRegistry;
     use bevy_ecs::entity::EntityMap;
-    use bevy_ecs::prelude::{Component, ReflectComponent, World};
+    use bevy_ecs::prelude::{Component, ReflectComponent, ReflectResource, Resource, World};
     use bevy_reflect::{FromReflect, Reflect, ReflectSerialize};
     use bincode::Options;
     use serde::de::DeserializeSeed;
@@ -423,6 +454,12 @@ mod tests {
         },
     }
 
+    #[derive(Resource, Reflect, Default)]
+    #[reflect(Resource)]
+    struct MyResource {
+        foo: i32,
+    }
+
     fn create_world() -> World {
         let mut world = World::new();
         let registry = AppTypeRegistry::default();
@@ -437,6 +474,7 @@ mod tests {
             registry.register_type_data::<String, ReflectSerialize>();
             registry.register::<[usize; 3]>();
             registry.register::<(f32, f32)>();
+            registry.register::<MyResource>();
         }
         world.insert_resource(registry);
         world
@@ -450,11 +488,19 @@ mod tests {
         let b = world.spawn((Foo(123), Bar(345))).id();
         let c = world.spawn((Foo(123), Bar(345), Baz(789))).id();
 
+        world.insert_resource(MyResource { foo: 123 });
+
         let mut builder = DynamicSceneBuilder::from_world(&world);
         builder.extract_entities([a, b, c].into_iter());
+        builder.extract_resources(&world);
         let scene = builder.build();
 
         let expected = r#"(
+  resources: {
+    "bevy_scene::serde::tests::MyResource": (
+      foo: 123,
+    ),
+  },
   entities: {
     0: (
       components: {
@@ -487,6 +533,11 @@ mod tests {
         let world = create_world();
 
         let input = r#"(
+  resources: {
+    "bevy_scene::serde::tests::MyResource": (
+      foo: 123,
+    ),
+  },
   entities: {
     0: (
       components: {
@@ -515,6 +566,11 @@ mod tests {
         let scene = scene_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert_eq!(
+            1,
+            scene.resources.len(),
+            "expected `resources` to contain 1 resource"
+        );
+        assert_eq!(
             3,
             scene.entities.len(),
             "expected `entities` to contain 3 entities"
@@ -523,6 +579,11 @@ mod tests {
         let mut map = EntityMap::default();
         let mut dst_world = create_world();
         scene.write_to_world(&mut dst_world, &mut map).unwrap();
+
+        let my_resource = dst_world.get_resource::<MyResource>();
+        assert!(my_resource.is_some());
+        let my_resource = my_resource.unwrap();
+        assert_eq!(my_resource.foo, 123);
 
         assert_eq!(3, dst_world.query::<&Foo>().iter(&dst_world).count());
         assert_eq!(2, dst_world.query::<&Bar>().iter(&dst_world).count());
@@ -548,10 +609,10 @@ mod tests {
 
         assert_eq!(
             vec![
-                1, 0, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101, 114,
-                100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111,
-                110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204, 108, 64, 1, 12, 72, 101,
-                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                0, 1, 0, 1, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101,
+                114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112,
+                111, 110, 101, 110, 116, 1, 2, 3, 102, 102, 166, 63, 205, 204, 108, 64, 1, 12, 72,
+                101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             serialized_scene
         );
@@ -586,12 +647,12 @@ mod tests {
 
         assert_eq!(
             vec![
-                1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 37, 0, 0, 0, 0, 0, 0,
-                0, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58, 115, 101, 114, 100, 101,
-                58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111, 109, 112, 111, 110, 101,
-                110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0,
-                102, 102, 166, 63, 205, 204, 108, 64, 1, 0, 0, 0, 12, 0, 0, 0, 0, 0, 0, 0, 72, 101,
-                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
+                0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0,
+                37, 0, 0, 0, 0, 0, 0, 0, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58, 58,
+                115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67, 111,
+                109, 112, 111, 110, 101, 110, 116, 1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+                3, 0, 0, 0, 0, 0, 0, 0, 102, 102, 166, 63, 205, 204, 108, 64, 1, 0, 0, 0, 12, 0, 0,
+                0, 0, 0, 0, 0, 72, 101, 108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             serialized_scene
         );

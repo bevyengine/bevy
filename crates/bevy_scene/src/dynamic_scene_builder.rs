@@ -1,6 +1,8 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_app::AppTypeRegistry;
+use bevy_ecs::reflect::ReflectResource;
 use bevy_ecs::{prelude::Entity, reflect::ReflectComponent, world::World};
+use bevy_reflect::Reflect;
 use bevy_utils::default;
 use std::collections::BTreeMap;
 
@@ -31,6 +33,7 @@ use std::collections::BTreeMap;
 /// let dynamic_scene = builder.build();
 /// ```
 pub struct DynamicSceneBuilder<'w> {
+    resources: Vec<Box<dyn Reflect>>,
     entities: BTreeMap<u32, DynamicEntity>,
     type_registry: AppTypeRegistry,
     world: &'w World,
@@ -41,6 +44,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// All components registered in that world's [`AppTypeRegistry`] resource will be extracted.
     pub fn from_world(world: &'w World) -> Self {
         Self {
+            resources: default(),
             entities: default(),
             type_registry: world.resource::<AppTypeRegistry>().clone(),
             world,
@@ -51,6 +55,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Only components registered in the given [`AppTypeRegistry`] will be extracted.
     pub fn from_world_with_type_registry(world: &'w World, type_registry: AppTypeRegistry) -> Self {
         Self {
+            resources: default(),
             entities: default(),
             type_registry,
             world,
@@ -60,6 +65,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Consume the builder, producing a [`DynamicScene`].
     pub fn build(self) -> DynamicScene {
         DynamicScene {
+            resources: self.resources,
             entities: self.entities.into_values().collect(),
         }
     }
@@ -126,6 +132,26 @@ impl<'w> DynamicSceneBuilder<'w> {
                 }
             }
             self.entities.insert(index, entry);
+        }
+
+        drop(type_registry);
+        self
+    }
+
+    pub fn extract_resources(&mut self, world: &'w World) -> &mut Self {
+        let type_registry = self.type_registry.read();
+        for (component_id, _) in world.storages().resources.iter() {
+            let reflect_resource = world
+                .components()
+                .get_info(component_id)
+                .and_then(|info| info.type_id())
+                .and_then(|type_id| type_registry.get(type_id))
+                .and_then(|registration| registration.data::<ReflectResource>());
+            if let Some(reflect_resource) = reflect_resource {
+                if let Some(resource) = reflect_resource.reflect(world) {
+                    self.resources.push(resource.clone_value());
+                }
+            }
         }
 
         drop(type_registry);
