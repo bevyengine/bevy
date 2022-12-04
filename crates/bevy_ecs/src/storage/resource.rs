@@ -236,9 +236,7 @@ impl<const SEND: bool> Resources<SEND> {
     ) -> &mut ResourceData<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
-            if SEND {
-                debug_assert!(component_info.is_send_and_sync());
-            }
+            assert!(SEND == component_info.is_send_and_sync());
             ResourceData {
                 column: ManuallyDrop::new(Column::with_capacity(component_info, 1)),
                 type_name: String::from(component_info.name()),
