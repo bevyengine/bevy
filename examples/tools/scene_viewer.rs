@@ -91,14 +91,15 @@ fn parse_scene(scene_path: String) -> (String, usize) {
     if scene_path.contains('#') {
         let gltf_and_scene = scene_path.split('#').collect::<Vec<_>>();
         if let Some((last, path)) = gltf_and_scene.split_last() {
-            if last.starts_with("Scene") {
-                if let Ok(index) = last[5..].parse::<usize>() {
-                    return (path.join("#"), index);
-                }
+            if let Some(index) = last
+                .strip_prefix("Scene")
+                .and_then(|index| index.parse::<usize>().ok())
+            {
+                return (path.join("#"), index);
             }
         }
     }
-    return (scene_path, 0);
+    (scene_path, 0)
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
