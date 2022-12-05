@@ -104,8 +104,8 @@ pub trait SystemParam: Sized {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Resource)]
-/// # struct SomeResource;
-/// use bevy_ecs::system::{ReadOnlySystemParamFetch, SystemParamState, SystemParamFetch, SystemMeta, OptionalSystemParam, OptionResState};
+/// # struct SomeResource(u32);
+/// use bevy_ecs::system::{ReadOnlySystemParamFetch, SystemParam, SystemParamState, SystemParamFetch, SystemMeta, OptionalSystemParam, OptionResState};
 ///
 /// struct MyOptionalParam<'w> {
 ///     foo: &'w u32,
@@ -116,11 +116,11 @@ pub trait SystemParam: Sized {
 /// }
 ///
 /// struct OptionParamState {
-///     res_state: OptionResState<Bar>,
+///     res_state: OptionResState<SomeResource>,
 /// }
 ///
 /// unsafe impl SystemParamState for OptionParamState {
-///     fn init(world: &mut World, system_meta: &mut bevy::ecs::system::SystemMeta) -> Self {
+///     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
 ///         Self {
 ///             res_state: OptionResState::init(world, system_meta)
 ///         }
@@ -141,7 +141,7 @@ pub trait SystemParam: Sized {
 ///         foo.map(|f| {
 ///             let f = f.into_inner();
 ///             MyOptionalParam {
-///                 foo: &b.0
+///                 foo: &f.0
 ///             }
 ///         })
 ///     }
