@@ -1271,8 +1271,8 @@ wasm = true
 name = "post_processing_motion_blur"
 path = "examples/shader/post_processing_motion_blur.rs"
 
-[package.metadata.example.post_processing_motion_blur.rs]
-name = "Temporal blur post processing shader"
+[package.metadata.example.post_processing_motion_blur]
+name = "Motion blur post processing shader"
 description = "A shader that uses a storage texture to keep color data between frames."
 category = "Shaders"
 wasm = false
