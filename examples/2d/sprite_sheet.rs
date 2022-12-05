@@ -11,23 +11,30 @@ fn main() {
         .run();
 }
 
+#[derive(Component)]
+struct AnimationIndices {
+    first: usize,
+    last: usize,
+}
+
 #[derive(Component, Deref, DerefMut)]
 struct AnimationTimer(Timer);
 
 fn animate_sprite(
     time: Res<Time>,
-    texture_atlases: Res<Assets<TextureAtlas>>,
     mut query: Query<(
+        &AnimationIndices,
         &mut AnimationTimer,
         &mut TextureAtlasSprite,
-        &Handle<TextureAtlas>,
     )>,
 ) {
-    for (mut timer, mut sprite, texture_atlas_handle) in &mut query {
+    for (indices, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
-            sprite.index = (sprite.index + 1) % texture_atlas.textures.len();
+            sprite.index = match sprite.index == indices.last {
+                true => indices.first,
+                false => sprite.index + 1,
+            };
         }
     }
 }
@@ -48,6 +55,7 @@ fn setup(
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..default()
         },
+        AnimationIndices { first: 1, last: 6 },
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
 }
