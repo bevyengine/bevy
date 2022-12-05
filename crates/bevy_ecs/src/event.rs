@@ -226,7 +226,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// #
     /// struct CollisionEvent;
     ///
-    /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
+    /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         // Play a sound
