@@ -1,6 +1,7 @@
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
+    prelude::Entity,
     query::With,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -11,7 +12,7 @@ use bevy_render::{
     render_phase::{DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
-    view::{Msaa, VisibleEntities},
+    view::Msaa,
 };
 use bevy_sprite::*;
 use bevy_utils::FloatOrd;
@@ -99,25 +100,21 @@ pub(crate) fn queue(
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<DebugLinePipeline>>,
     gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    mesh_handles: Query<&Mesh2dHandle, With<GizmoDrawMesh>>,
-    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
+    mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoDrawMesh>>,
+    mut views: Query<&mut RenderPhase<Transparent2d>>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawDebugLines>().unwrap();
     let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, mut phase) in &mut views {
-        for visible_entity in &view.entities {
-            println!("e");
-            let Ok(mesh_handle) = mesh_handles.get(*visible_entity) else { continue; };
-            println!("ee");
+    for mut phase in &mut views {
+        for (entity, mesh_handle) in &mesh_handles {
             let Some(mesh) = gpu_meshes.get(&mesh_handle.0) else { continue; };
-            println!("eee");
 
             let key = key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
             let pipeline = specialized_pipelines
                 .specialize(&mut pipeline_cache, &pipeline, key, &mesh.layout)
                 .unwrap();
             phase.add(Transparent2d {
-                entity: *visible_entity,
+                entity,
                 draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::MAX),
