@@ -21,12 +21,32 @@ fn main() {
             line_count: 50_000,
             fancy: false,
         })
-        .insert_resource(DebugDrawConfig {
+        .insert_resource(GizmoConfig {
             always_on_top: false,
             ..default()
         })
         .add_startup_system(setup)
-        .add_system(system)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(system::<5_000>)
+        .add_system(input)
         .add_system(ui_system)
         .run();
 }
@@ -37,12 +57,7 @@ struct Config {
     fancy: bool,
 }
 
-fn system(
-    mut draw: ResMut<DebugDraw>,
-    mut config: ResMut<Config>,
-    input: Res<Input<KeyCode>>,
-    time: Res<Time>,
-) {
+fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
     if input.just_pressed(KeyCode::Up) {
         config.line_count += 10_000;
     }
@@ -52,20 +67,23 @@ fn system(
     if input.just_pressed(KeyCode::Space) {
         config.fancy = !config.fancy;
     }
+}
 
+fn system<const C: u32>(config: Res<Config>, time: Res<Time>) {
     if !config.fancy {
-        for _ in 0..config.line_count {
-            draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
+        for _ in 0..C {
+            GIZMOS.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
+            // draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
         }
     } else {
         for i in 0..config.line_count {
             let angle = i as f32 / config.line_count as f32 * TAU;
 
-            let vector = (Vec2::from(angle.sin_cos())).extend(time.elapsed_seconds().sin());
+            let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
             let start_color = Color::rgb(vector.x, vector.z, 0.5);
             let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
 
-            draw.line_gradient(vector, -vector, start_color, end_color);
+            GIZMOS.line_gradient(vector, -vector, start_color, end_color);
         }
     }
 }

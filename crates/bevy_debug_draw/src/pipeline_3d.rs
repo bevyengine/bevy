@@ -3,7 +3,7 @@ use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{
     entity::Entity,
     system::{Query, Res, ResMut, Resource},
-    world::{FromWorld, World},
+    world::{FromWorld, World}, query::With,
 };
 use bevy_pbr::*;
 use bevy_render::{mesh::Mesh, render_resource::Shader};
@@ -16,7 +16,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa},
 };
 
-use crate::{DebugDrawConfig, DebugDrawMesh, SHADER_HANDLE};
+use crate::{GizmoConfig, GizmoDrawMesh, SHADER_HANDLE};
 
 #[derive(Resource)]
 pub(crate) struct DebugLinePipeline {
@@ -129,17 +129,17 @@ pub(crate) type DrawDebugLines = (
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue(
-    opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    debug_line_pipeline: Res<DebugLinePipeline>,
+    draw_functions: Res<DrawFunctions<Opaque3d>>,
+    pipeline: Res<DebugLinePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<DebugLinePipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>, &DebugDrawMesh)>,
-    config: Res<DebugDrawConfig>,
+    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<GizmoDrawMesh>>,
+    config: Res<GizmoConfig>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
 ) {
-    let draw_custom = opaque_3d_draw_functions
+    let draw_custom = draw_functions
         .read()
         .get_id::<DrawDebugLines>()
         .unwrap();
@@ -147,13 +147,13 @@ pub(crate) fn queue(
     for (view, mut phase) in &mut views {
         let view_matrix = view.transform.compute_matrix();
         let view_row_2 = view_matrix.row(2);
-        for (entity, mesh_uniform, mesh_handle, debug_draw) in &material_meshes {
-            let key = key | MeshPipelineKey::from_primitive_topology(debug_draw.topology);
+        for (entity, mesh_uniform, mesh_handle) in &material_meshes {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
+                let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
                     .specialize(
                         &mut pipeline_cache,
-                        &debug_line_pipeline,
+                        &pipeline,
                         (!config.always_on_top, key),
                         &mesh.layout,
                     )

@@ -1,6 +1,7 @@
 use bevy_asset::Handle;
 use bevy_core_pipeline::core_2d::Transparent2d;
 use bevy_ecs::{
+    query::With,
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
@@ -15,7 +16,7 @@ use bevy_render::{
 use bevy_sprite::*;
 use bevy_utils::FloatOrd;
 
-use crate::{DebugDrawMesh, SHADER_HANDLE};
+use crate::{GizmoDrawMesh, SHADER_HANDLE};
 
 #[derive(Resource)]
 pub(crate) struct DebugLinePipeline {
@@ -92,32 +93,28 @@ pub(crate) type DrawDebugLines = (
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue(
-    draw2d_functions: Res<DrawFunctions<Transparent2d>>,
-    debug_line_pipeline: Res<DebugLinePipeline>,
+    draw_functions: Res<DrawFunctions<Transparent2d>>,
+    pipeline: Res<DebugLinePipeline>,
     mut pipeline_cache: ResMut<PipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<DebugLinePipeline>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<(&Mesh2dHandle, &DebugDrawMesh)>,
+    material_meshes: Query<&Mesh2dHandle, With<GizmoDrawMesh>>,
     mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
 ) {
+    let draw_mesh2d = draw_functions.read().get_id::<DrawDebugLines>().unwrap();
+    let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut phase) in &mut views {
-        let draw_mesh2d = draw2d_functions.read().get_id::<DrawDebugLines>().unwrap();
-        let msaa_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
-
         for visible_entity in &view.entities {
-            let Ok((mesh_handle, debug_draw)) = material_meshes.get(*visible_entity) else { continue; };
+            println!("e");
+            let Ok(mesh_handle) = material_meshes.get(*visible_entity) else { continue; };
+            println!("ee");
             let Some(mesh) = render_meshes.get(&mesh_handle.0) else { continue; };
+            println!("eee");
 
-            let mesh_key =
-                msaa_key | Mesh2dPipelineKey::from_primitive_topology(debug_draw.topology);
+            let key = key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
             let pipeline = specialized_pipelines
-                .specialize(
-                    &mut pipeline_cache,
-                    &debug_line_pipeline,
-                    mesh_key,
-                    &mesh.layout,
-                )
+                .specialize(&mut pipeline_cache, &pipeline, key, &mesh.layout)
                 .unwrap();
             phase.add(Transparent2d {
                 entity: *visible_entity,

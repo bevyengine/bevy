@@ -1,40 +1,42 @@
-use std::mem;
+use std::iter;
 
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    system::{Commands, Query, Res, ResMut, Resource},
+    prelude::Component,
+    system::{Commands, Res, ResMut, Resource},
+    world::{FromWorld, World},
 };
+use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    prelude::{Mesh, SpatialBundle},
+    mesh::Mesh,
     render_phase::AddRenderCommand,
     render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
-    Extract, RenderApp, RenderStage,
+    RenderApp, RenderStage, Extract, view::NoFrustumCulling,
 };
 
 #[cfg(feature = "bevy_pbr")]
-use bevy_pbr::{NotShadowCaster, NotShadowReceiver};
-#[cfg(feature = "bevy_pbr")]
-use bevy_render::view::NoFrustumCulling;
+use bevy_pbr::MeshUniform;
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::Mesh2dHandle;
 
-pub mod debug_draw;
+use bevy_sprite::Mesh2dUniform;
+use once_cell::sync::Lazy;
+
+pub mod gizmos;
 
 #[cfg(feature = "bevy_sprite")]
 mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::debug_draw::DebugDraw;
+use crate::gizmos::Gizmos;
 
 /// The `bevy_debug_draw` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{debug_draw::DebugDraw, DebugDrawConfig, DebugDrawPlugin};
+    pub use crate::{DebugDrawPlugin, GizmoConfig, GIZMOS};
 }
 
 const SHADER_HANDLE: HandleUntyped =
@@ -46,9 +48,9 @@ impl Plugin for DebugDrawPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         load_internal_asset!(app, SHADER_HANDLE, "debuglines.wgsl", Shader::from_wgsl);
 
-        app.init_resource::<DebugDraw>()
-            .init_resource::<DebugDrawConfig>()
-            .add_system_to_stage(CoreStage::Last, update);
+        app.init_resource::<MeshHandles>()
+            .init_resource::<GizmoConfig>()
+            .add_system_to_stage(CoreStage::Last, sys);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
@@ -81,7 +83,7 @@ impl Plugin for DebugDrawPlugin {
 }
 
 #[derive(Resource, Clone, Copy)]
-pub struct DebugDrawConfig {
+pub struct GizmoConfig {
     /// Whether debug drawing should be shown.
     ///
     /// Defaults to `true`.
@@ -94,7 +96,7 @@ pub struct DebugDrawConfig {
     pub always_on_top: bool,
 }
 
-impl Default for DebugDrawConfig {
+impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
@@ -103,102 +105,101 @@ impl Default for DebugDrawConfig {
     }
 }
 
-#[derive(Component, Clone, Copy)]
-struct DebugDrawMesh {
-    topology: PrimitiveTopology,
+type PositionItem = [f32; 3];
+type ColorItem = [f32; 4];
+
+enum SendItem {
+    Single(([PositionItem; 2], [ColorItem; 2])),
+    List((Vec<PositionItem>, Vec<ColorItem>)),
+    Strip((Vec<PositionItem>, Vec<ColorItem>)),
 }
 
-fn update(
-    config: Res<DebugDrawConfig>,
-    mut debug_draw: ResMut<DebugDraw>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut commands: Commands,
-) {
-    let mut f = |handle: &mut Option<Handle<Mesh>>,
-                 positions: &mut Vec<[f32; 3]>,
-                 colors: &mut Vec<[f32; 4]>,
-                 topology: PrimitiveTopology| {
-        let mesh = handle.as_ref().and_then(|handle| meshes.get_mut(handle));
-        match mesh {
-            Some(mesh) => {
-                if config.enabled {
-                    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mem::take(positions));
-                    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, mem::take(colors));
-                } else {
-                    positions.clear();
-                    colors.clear();
-                    mesh.remove_attribute(Mesh::ATTRIBUTE_POSITION);
-                    mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR);
-                }
+pub static GIZMOS: Lazy<Gizmos> = Lazy::new(Gizmos::new);
+
+fn sys(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
+    let mut list_positions = Vec::new();
+    let mut list_colors = Vec::new();
+    let mut strip_positions = Vec::new();
+    let mut strip_colors = Vec::new();
+
+    for item in GIZMOS.receiver.try_iter() {
+        match item {
+            SendItem::Single((positions, colors)) => {
+                list_positions.extend(positions);
+                list_colors.extend(colors);
             }
-            None => {
-                if config.enabled {
-                    let mut mesh = Mesh::new(topology);
-                    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mem::take(positions));
-                    mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, mem::take(colors));
-                    let mesh_handle = meshes.add(mesh);
-                    commands.spawn((
-                        SpatialBundle::VISIBLE_IDENTITY,
-                        DebugDrawMesh { topology },
-                        #[cfg(feature = "bevy_pbr")]
-                        (
-                            mesh_handle.clone_weak(),
-                            NotShadowCaster,
-                            NotShadowReceiver,
-                            NoFrustumCulling,
-                        ),
-                        #[cfg(feature = "bevy_sprite")]
-                        Mesh2dHandle(mesh_handle.clone_weak()),
-                    ));
-                    *handle = Some(mesh_handle);
-                } else {
-                    positions.clear();
-                    colors.clear();
-                }
+
+            SendItem::List((positions, colors)) => {
+                list_positions.extend(positions);
+                list_colors.extend(colors);
+            }
+            SendItem::Strip((positions, colors)) => {
+                strip_positions.extend(positions.into_iter().chain(iter::once([f32::NAN; 3])));
+                strip_colors.extend(colors.into_iter().chain(iter::once([f32::NAN; 4])));
             }
         }
-    };
+    }
 
-    let DebugDraw {
-        list_mesh_handle,
-        list_positions,
-        list_colors,
-        ..
-    } = &mut *debug_draw;
+    let list_mesh = meshes.get_mut(&handles.list).unwrap();
 
-    f(
-        list_mesh_handle,
-        list_positions,
-        list_colors,
-        PrimitiveTopology::LineList,
-    );
+    list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, list_positions);
+    list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, list_colors);
 
-    let DebugDraw {
-        strip_mesh_handle,
-        strip_positions,
-        strip_colors,
-        ..
-    } = &mut *debug_draw;
+    let strip_mesh = meshes.get_mut(&handles.strip).unwrap();
 
-    f(
-        strip_mesh_handle,
-        strip_positions,
-        strip_colors,
-        PrimitiveTopology::LineStrip,
-    );
+    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, strip_positions);
+    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, strip_colors);
 }
 
-/// Move the [`DebugDrawMesh`] marker Component and the [`DebugDrawConfig`] Resource to the render context.
-fn extract(
-    mut commands: Commands,
-    query: Extract<Query<(Entity, &DebugDrawMesh)>>,
-    config: Extract<Res<DebugDrawConfig>>,
-) {
-    for (entity, debug_draw) in &query {
-        commands.get_or_spawn(entity).insert(*debug_draw);
+#[derive(Resource)]
+struct MeshHandles {
+    list: Handle<Mesh>,
+    strip: Handle<Mesh>,
+}
+
+impl FromWorld for MeshHandles {
+    fn from_world(world: &mut World) -> Self {
+        let mut meshes = world.resource_mut::<Assets<Mesh>>();
+
+        MeshHandles {
+            list: meshes.add(Mesh::new(PrimitiveTopology::LineList)),
+            strip: meshes.add(Mesh::new(PrimitiveTopology::LineStrip)),
+        }
     }
+}
+
+#[derive(Component)]
+struct GizmoDrawMesh;
+
+fn extract(mut commands: Commands, handles: Extract<Res<MeshHandles>>, config: Extract<Res<GizmoConfig>>) {
 
     if config.is_changed() {
         commands.insert_resource(**config);
     }
+
+    let transform = Mat4::IDENTITY;
+    let inverse_transpose_model = transform.inverse().transpose();
+    commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
+        (
+            GizmoDrawMesh,
+            #[cfg(feature = "bevy_pbr")]
+            (
+                MeshUniform {
+                    flags: 0,
+                    transform,
+                    inverse_transpose_model,
+                },
+                handle.clone(),
+            ),
+            #[cfg(feature = "bevy_sprite")]
+            (
+                Mesh2dUniform {
+                    flags: 0,
+                    transform,
+                    inverse_transpose_model,
+                },
+                Mesh2dHandle(handle.clone()),
+            ),
+        )
+    }));
 }
