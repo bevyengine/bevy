@@ -82,6 +82,22 @@ impl<'w> EntityRef<'w> {
         unsafe { get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location) }
     }
 
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// **You should prefer to use the typed API [`EntityRef::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+        if !self.contains_id(component_id) {
+            return None;
+        }
+
+        // SAFETY: Entity location is valid and component_id exists.
+        unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
+    }
+
     /// Gets a mutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no other borrows active and without
     /// ensuring that the returned reference will stay valid.
@@ -206,6 +222,22 @@ impl<'w> EntityMut<'w> {
         unsafe { get_ticks_with_type(self.world, TypeId::of::<T>(), self.entity, self.location) }
     }
 
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// **You should prefer to use the typed API [`EntityMut::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    #[inline]
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+        if !self.contains_id(component_id) {
+            return None;
+        }
+
+        // SAFETY: Entity location is valid and component_id exists.
+        unsafe { get_ticks(self.world, component_id, self.entity, self.location) }
+    }
+
     /// Gets a mutable reference to the component of type `T` associated with
     /// this entity without ensuring there are no other borrows active and without
     /// ensuring that the returned reference will stay valid.
@@ -227,14 +259,6 @@ impl<'w> EntityMut<'w> {
                     self.world.read_change_tick(),
                 ),
             })
-    }
-
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `insert` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert(bundle)
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -261,14 +285,6 @@ impl<'w> EntityMut<'w> {
         }
 
         self
-    }
-
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `remove` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn remove_bundle<T: Bundle>(&mut self) -> Option<T> {
-        self.remove::<T>()
     }
 
     // TODO: move to BundleInfo
@@ -397,14 +413,6 @@ impl<'w> EntityMut<'w> {
         *self_location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.
         entities.set(entity.index(), new_location);
-    }
-
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `remove_intersection` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn remove_bundle_intersection<T: Bundle>(&mut self) {
-        self.remove_intersection::<T>();
     }
 
     // TODO: move to BundleInfo
@@ -923,15 +931,12 @@ pub(crate) unsafe fn get_mut_by_id(
     location: EntityLocation,
     component_id: ComponentId,
 ) -> Option<MutUntyped> {
+    let change_tick = world.change_tick();
     // SAFETY: world access is unique, entity location and component_id required to be valid
     get_component_and_ticks(world, component_id, entity, location).map(|(value, ticks)| {
         MutUntyped {
             value: value.assert_unique(),
-            ticks: Ticks::from_tick_cells(
-                ticks,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            ),
+            ticks: Ticks::from_tick_cells(ticks, world.last_change_tick(), change_tick),
         }
     })
 }
