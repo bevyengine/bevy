@@ -118,6 +118,9 @@ pub trait SystemParam: Sized {
 /// struct OptionParamState {
 ///     res_state: Option<ResState<SomeResource>>,
 /// }
+/// 
+/// // SAFETY: OptionParamState is constrained to read-only resources, so it only reads World.
+/// unsafe impl ReadOnlySystemParamFetch for OptionParamState {}
 ///
 /// unsafe impl SystemParamState for OptionParamState {
 ///     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
