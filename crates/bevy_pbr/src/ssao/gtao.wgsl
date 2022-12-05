@@ -108,7 +108,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         for (var slice_side = 0u; slice_side < 2u; slice_side += 1u) {
             let side_modifier = -1.0 + (2.0 * f32(slice_side));
-            let min_cos_horizon = cos(n + (side_modifier * half_pi));
+            let min_cos_horizon = cos(n - (side_modifier * half_pi));
             var cos_horizon = min_cos_horizon;
             for (var sample_t = 0u; sample_t < samples_per_slice_side; sample_t += 1u) {
                 var sample_noise = f32(slice_t + sample_t * samples_per_slice_side) * 0.6180339887498948482;
