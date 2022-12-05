@@ -42,12 +42,8 @@ pub fn keyboard_input_system(
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
     // Avoid clearing if it's not empty to ensure change detection is not triggered.
-    if !scan_input.is_empty() {
-        scan_input.clear();
-    }
-    if !key_input.is_empty() {
-        key_input.clear();
-    }
+    scan_input.bypass_change_detection().clear();
+    key_input.bypass_change_detection().clear();
     for event in keyboard_input_events.iter() {
         let KeyboardInput {
             scan_code, state, ..

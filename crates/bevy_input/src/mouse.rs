@@ -132,7 +132,7 @@ pub fn mouse_button_input_system(
     mut mouse_button_input: ResMut<Input<MouseButton>>,
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
 ) {
-    mouse_button_input.clear();
+    mouse_button_input.bypass_change_detection().clear();
     for event in mouse_button_input_events.iter() {
         match event.state {
             ButtonState::Pressed => mouse_button_input.press(event.button),

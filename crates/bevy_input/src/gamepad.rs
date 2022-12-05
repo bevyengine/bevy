@@ -1160,7 +1160,7 @@ pub fn gamepad_event_system(
     mut events: EventWriter<GamepadEvent>,
     settings: Res<GamepadSettings>,
 ) {
-    button_input.clear();
+    button_input.bypass_change_detection().clear();
     for event in raw_events.iter() {
         match &event.event_type {
             GamepadEventType::Connected(_) => {
