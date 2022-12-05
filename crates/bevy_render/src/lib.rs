@@ -38,12 +38,10 @@ pub mod prelude {
 
 use globals::GlobalsPlugin;
 pub use once_cell;
-use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
-    primitives::{CubemapFrusta, Frustum},
     render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},

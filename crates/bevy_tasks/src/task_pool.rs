@@ -289,10 +289,10 @@ impl TaskPool {
             Vec::new()
         } else {
             future::block_on(async move {
-                let get_results = async  {
+                let get_results = async {
                     let mut results = Vec::with_capacity(scope.spawned.len());
                     while let Ok(task) = spawned_ref.pop() {
-                        results.push(task.await);
+                        results.push(task.await.unwrap());
                     }
 
                     results
