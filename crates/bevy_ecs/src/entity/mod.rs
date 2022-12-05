@@ -575,14 +575,6 @@ impl Entities {
         }
     }
 
-    /// Gets the location of an entity without checking the validity of its index nor its generation.
-    ///
-    /// # Safety
-    /// `index` must correspond to an allocated entity.
-    pub(crate) unsafe fn get_unchecked(&self, index: u32) -> EntityLocation {
-        self.meta.get_unchecked(index as usize).location
-    }
-
     /// Updates the location of an [`Entity`]. This must be called when moving the components of
     /// the entity around in storage.
     ///

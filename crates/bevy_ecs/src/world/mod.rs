@@ -14,7 +14,7 @@ use crate::{
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
@@ -324,18 +324,19 @@ impl World {
     /// This is useful in contexts where you only have read-only access to the [`World`].
     #[inline]
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
-        self.archetypes
-            .iter()
-            .flat_map(|archetype| archetype.entities().iter())
-            .map(|archetype_entity| {
-                // SAFETY: The entity is already located in a Archetype, which means the entity
-                // must be properly allocated
-                let location = unsafe {
-                    self.entities
-                        .get_unchecked(archetype_entity.entity().index())
-                };
-                EntityRef::new(self, archetype_entity.entity(), location)
-            })
+        self.archetypes.iter().flat_map(|archetype| {
+            archetype
+                .entities()
+                .iter()
+                .enumerate()
+                .map(|(index, archetype_entity)| {
+                    let location = EntityLocation {
+                        archetype_id: archetype.id(),
+                        index,
+                    };
+                    EntityRef::new(self, archetype_entity.entity(), location)
+                })
+        })
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
