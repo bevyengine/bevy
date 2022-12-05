@@ -226,7 +226,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// #
     /// struct CollisionEvent;
     ///
-    /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
+    /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         // Play a sound
@@ -246,7 +246,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// In those situations you generally want to consume those events to make sure they don't appear in the next frame.
     ///
     /// For more information see [`EventReader::is_empty()`].
-    pub fn clear(mut self) {
+    pub fn clear(&mut self) {
         self.iter().last();
     }
 }
@@ -817,7 +817,7 @@ mod tests {
         events.send(TestEvent { i: 0 });
         world.insert_resource(events);
 
-        let mut reader = IntoSystem::into_system(|events: EventReader<TestEvent>| -> bool {
+        let mut reader = IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> bool {
             if !events.is_empty() {
                 events.clear();
                 false
