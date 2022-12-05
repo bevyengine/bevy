@@ -509,7 +509,7 @@ mod tests {
 
     #[derive(Resource)]
     struct R;
-    
+
     #[derive(Resource, PartialEq)]
     struct R2(u8);
 
