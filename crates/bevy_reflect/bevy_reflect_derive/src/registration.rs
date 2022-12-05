@@ -17,7 +17,7 @@ pub(crate) fn impl_get_type_registration(
     let serialization_data = serialization_denylist.map(|denylist| {
         let denylist = denylist.into_iter();
         quote! {
-            let ignored_indices = [#(#denylist),*].into_iter();
+            let ignored_indices = ::core::iter::IntoIterator::into_iter([#(#denylist),*]);
             registration.insert::<#bevy_reflect_path::serde::SerializationData>(#bevy_reflect_path::serde::SerializationData::new(ignored_indices));
         }
     });
