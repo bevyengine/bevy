@@ -7,6 +7,8 @@ use bevy_ecs::{
     system::{Commands, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::Mat4;
+use bevy_pbr::MeshUniform;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::Mesh,
@@ -18,6 +20,7 @@ use bevy_render::{
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::Mesh2dHandle;
 
+use bevy_sprite::Mesh2dUniform;
 use once_cell::sync::Lazy;
 
 pub mod gizmos;
@@ -175,13 +178,29 @@ fn extract(
         commands.insert_resource(**config);
     }
 
+    let transform = Mat4::IDENTITY;
+    let inverse_transpose_model = transform.inverse().transpose();
     commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
         (
             GizmoDrawMesh,
             #[cfg(feature = "bevy_pbr")]
-            handle.clone(),
+            (
+                MeshUniform {
+                    flags: 0,
+                    transform,
+                    inverse_transpose_model,
+                },
+                handle.clone(),
+            ),
             #[cfg(feature = "bevy_sprite")]
-            Mesh2dHandle(handle.clone()),
+            (
+                Mesh2dUniform {
+                    flags: 0,
+                    transform,
+                    inverse_transpose_model,
+                },
+                Mesh2dHandle(handle.clone()),
+            ),
         )
     }));
 }
