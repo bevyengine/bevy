@@ -97,6 +97,78 @@ pub trait SystemParam: Sized {
     type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
 }
 
+/// An optional parameter that can be used in a [`System`](super::System).
+///
+/// # Example
+///
+/// ```
+/// # use bevy::{prelude::*, ecs::system::{ReadOnlySystemParamFetch, SystemParamState, SystemParamFetch, SystemMeta, OptionalSystemParam, OptionResState}};
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// use std::marker::PhantomData;
+/// use bevy_ecs::system::OptionalSystemParam;
+///
+/// struct Foo(u32);
+///
+/// struct MyOptionalParam<'w> {
+///     foo: &'w u32,
+/// }
+///
+/// impl<'w> OptionalSystemParam for MyOptionalParam<'w> {
+/// type Fetch = OptionParamState;
+/// }
+///
+/// struct OptionParamState {
+///     res_state: OptionResState<Bar>,
+/// }
+///
+/// unsafe impl SystemParamState for OptionParamState {
+///     fn init(world: &mut World, system_meta: &mut bevy::ecs::system::SystemMeta) -> Self {
+///         Self {
+///             res_state: OptionResState::init(world, system_meta)
+///         }
+///     }
+/// }
+///
+/// impl<'w, 's> SystemParamFetch<'w, 's> for OptionParamState {
+///     type Item = Option<Foo<'w>>;
+///
+///     #[inline]
+///     unsafe fn get_param(
+///         state: &'s mut Self,
+///         system_meta: &SystemMeta,
+///         world: &'w World,
+///         change_tick: u32,
+///     ) -> Self::Item {
+///         let foo = <<Option<Res<Foo>> as SystemParam>::Fetch as SystemParamFetch>::get_param(&mut state.res_state, system_meta, world, change_tick);
+///         foo.map(|f| {
+///             let f = f.into_inner();
+///             MyOptionalParam {
+///                 foo: &b.0
+///             }
+///         })
+///     }
+/// }
+///
+/// fn my_system(optional_param: Option<MyOptionalParam>) {
+///     // Access the resource by unwrapping, matching, or destructuring `optional_param`
+///     if let Some(param) = optional_param {
+///         println!("Foo: {}", param.foo);
+///     } else {
+///         println!("MyOptionalParam not found!");
+///     }
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
+pub trait OptionalSystemParam: Sized {
+    type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
+}
+
+impl<T: OptionalSystemParam> SystemParam for Option<T> {
+    type Fetch = T::Fetch;
+}
+
 pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamFetch<'w, 's>>::Item;
 
 /// The state of a [`SystemParam`].
@@ -224,6 +296,9 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
 }
 /// The [`SystemParamState`] of [`ParamSet<T::Item>`].
 pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
+
+/// The [`SystemParamState`] of [`ParamSet<T::Item>`].
+pub struct OptionParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
 impl_param_set!();
 
@@ -434,7 +509,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
 #[doc(hidden)]
 pub struct OptionResState<T>(ResState<T>);
 
-impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
+impl<'a, T: Resource> OptionalSystemParam for Res<'a, T> {
     type Fetch = OptionResState<T>;
 }
 
@@ -550,7 +625,7 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
 #[doc(hidden)]
 pub struct OptionResMutState<T>(ResMutState<T>);
 
-impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
+impl<'a, T: Resource> OptionalSystemParam for ResMut<'a, T> {
     type Fetch = OptionResMutState<T>;
 }
 
@@ -1037,7 +1112,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
 #[doc(hidden)]
 pub struct OptionNonSendState<T>(NonSendState<T>);
 
-impl<'w, T: 'static> SystemParam for Option<NonSend<'w, T>> {
+impl<'w, T: 'static> OptionalSystemParam for NonSend<'w, T> {
     type Fetch = OptionNonSendState<T>;
 }
 
@@ -1151,7 +1226,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
 #[doc(hidden)]
 pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
 
-impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
+impl<'a, T: 'static> OptionalSystemParam for NonSendMut<'a, T> {
     type Fetch = OptionNonSendMutState<T>;
 }
 
