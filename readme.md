@@ -45,6 +45,16 @@ fn main() -> f32 {
 }
 ```
 
+or import individual items with a `#from` directive. at point of use, imported items must be prefixed with `::`:
+
+```wgsl
+#from my_module import my_func
+
+fn main() -> f32 {
+    return ::my_func();
+}
+```
+
 imports can be nested - modules may import other modules, but not recursively. when a new module is added, all its `#import`s must already have been added.
 the same module can be imported multiple times by different modules in the import tree.
 there is no overlap of namespaces, so the same function names (or type, constant, or variable names) may be used in different modules.
@@ -98,7 +108,7 @@ final shaders can also be written in GLSL or WGSL. for GLSL users must specify w
 
 ## preprocessing
 
-when generating a final shader, a set of `shader_def` string/value pairs must be provided. The value can be a bool (`ShaderDefValue::Bool`) or an i32 (`ShaderDefValue::Int`).
+when generating a final shader or adding a composable module, a set of `shader_def` string/value pairs must be provided. The value can be a bool (`ShaderDefValue::Bool`) or an i32 (`ShaderDefValue::Int`).
 
 these allow conditional compilation of parts of modules and the final shader. conditional compilation is performed with `#if` / `#ifdef` / `#ifndef`, `#else` and `#endif` preprocessor directives:
 

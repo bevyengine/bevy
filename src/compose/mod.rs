@@ -34,6 +34,16 @@
 /// }
 /// ```
 ///
+/// or import individual items with a `#from` directive. at point of use, imported items must be prefixed with `::`:
+///
+/// ```ignore
+/// #from my_module import my_func
+///
+/// fn main() -> f32 {
+///     return ::my_func();
+/// }
+/// ```
+///
 /// imports can be nested - modules may import other modules, but not recursively. when a new module is added, all its `#import`s must already have been added.
 /// the same module can be imported multiple times by different modules in the import tree.
 /// there is no overlap of namespaces, so the same function names (or type, constant, or variable names) may be used in different modules.
@@ -79,19 +89,30 @@
 ///
 /// final shaders can also be written in GLSL or WGSL. for GLSL users must specify whether the shader is a vertex shader or fragment shader via the `ShaderType` argument (GLSL compute shaders are not supported).
 ///
-/// ## conditional compilation
-///
-/// when generating a final shader, a set of `shader_def` strings must be provided. these allow conditional compilation of parts of modules and the final shader. conditional compilation is performed with `#ifdef` / `#ifndef`, `#else` and `#endif` preprocessor directives:
+/// ## preprocessing
+/// 
+/// when generating a final shader or adding a composable module, a set of `shader_def` string/value pairs must be provided. The value can be a bool (`ShaderDefValue::Bool`) or an i32 (`ShaderDefValue::Int`).
+/// 
+/// these allow conditional compilation of parts of modules and the final shader. conditional compilation is performed with `#if` / `#ifdef` / `#ifndef`, `#else` and `#endif` preprocessor directives:
+/// 
 /// ```ignore
 /// fn get_number() -> f32 {
-/// #ifdef BIG_NUMBER
-///     return 999.0;
-/// #else
-///     return 0.999;
-/// #endif
+///     #ifdef BIG_NUMBER
+///         return 999.0;
+///     #else
+///         return 0.999;
+///     #endif
 /// }
 /// ```
-///
+/// the `#ifdef` directive matches when the def name exists in the input binding set (regardless of value). the `#ifndef` directive is the reverse.
+/// 
+/// the `#if` directive requires a def name, an operator, and a value for comparison:
+/// - the def name must be a provided `shader_def` name. 
+/// - the operator must be one of `==`, `!=`, `>=`, `>`, `<`, `<=`
+/// - the value must be an integer literal if comparing to a `ShaderDef::Int`, or `true` or `false` if comparing to a `ShaderDef::Bool`.
+/// 
+/// shader defs can also be used in the shader source with `#SHADER_DEF` or `#{SHADER_DEF}`, and will be substituted for their value.
+/// 
 /// ## error reporting
 ///
 /// codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
