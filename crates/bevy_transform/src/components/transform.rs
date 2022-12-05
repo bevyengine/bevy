@@ -20,8 +20,8 @@ use std::ops::Mul;
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] in the system
-/// [`transform_propagate_system`](crate::transform_propagate_system).
+/// [`GlobalTransform`] is updated from [`Transform`] in the systems labeled
+/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
 ///
 /// This system runs in stage [`CoreStage::PostUpdate`](crate::CoreStage::PostUpdate). If you
 /// update the [`Transform`] of an entity in this stage or after, you will notice a 1 frame lag
@@ -35,6 +35,7 @@ use std::ops::Mul;
 /// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
 /// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
@@ -116,13 +117,21 @@ impl Transform {
         }
     }
 
-    /// Updates and returns this [`Transform`] by rotating it so that its unit vector in the
-    /// local `Z` direction is toward `target` and its unit vector in the local `Y` direction
-    /// is toward `up`.
+    /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
+    /// points towards the `target` position and [`Transform::up`] points towards `up`.
     #[inline]
     #[must_use]
     pub fn looking_at(mut self, target: Vec3, up: Vec3) -> Self {
         self.look_at(target, up);
+        self
+    }
+
+    /// Returns this [`Transform`] with a new rotation so that [`Transform::forward`]
+    /// points in the given `direction` and [`Transform::up`] points towards `up`.
+    #[inline]
+    #[must_use]
+    pub fn looking_to(mut self, direction: Vec3, up: Vec3) -> Self {
+        self.look_to(direction, up);
         self
     }
 
@@ -313,11 +322,18 @@ impl Transform {
         self.rotate(rotation);
     }
 
-    /// Rotates this [`Transform`] so that its local negative `Z` direction is toward
-    /// `target` and its local `Y` direction is toward `up`.
+    /// Rotates this [`Transform`] so that [`Transform::forward`] points towards the `target` position,
+    /// and [`Transform::up`] points towards `up`.
     #[inline]
     pub fn look_at(&mut self, target: Vec3, up: Vec3) {
-        let forward = Vec3::normalize(self.translation - target);
+        self.look_to(target - self.translation, up);
+    }
+
+    /// Rotates this [`Transform`] so that [`Transform::forward`] points in the given `direction`
+    /// and [`Transform::up`] points towards `up`.
+    #[inline]
+    pub fn look_to(&mut self, direction: Vec3, up: Vec3) {
+        let forward = -direction.normalize();
         let right = up.cross(forward).normalize();
         let up = forward.cross(right);
         self.rotation = Quat::from_mat3(&Mat3::from_cols(right, up, forward));
@@ -328,7 +344,7 @@ impl Transform {
     #[inline]
     #[must_use]
     pub fn mul_transform(&self, transform: Transform) -> Self {
-        let translation = self.mul_vec3(transform.translation);
+        let translation = self.transform_point(transform.translation);
         let rotation = self.rotation * transform.rotation;
         let scale = self.scale * transform.scale;
         Transform {
@@ -338,20 +354,22 @@ impl Transform {
         }
     }
 
-    /// Returns a [`Vec3`] of this [`Transform`] applied to `value`.
+    /// Transforms the given `point`, applying scale, rotation and translation.
+    ///
+    /// If this [`Transform`] has a parent, this will transform a `point` that is
+    /// relative to the parent's [`Transform`] into one relative to this [`Transform`].
+    ///
+    /// If this [`Transform`] does not have a parent, this will transform a `point`
+    /// that is in global space into one relative to this [`Transform`].
+    ///
+    /// If you want to transform a `point` in global space to the local space of this [`Transform`],
+    /// consider using [`GlobalTransform::transform_point()`] instead.
     #[inline]
-    pub fn mul_vec3(&self, mut value: Vec3) -> Vec3 {
-        value = self.scale * value;
-        value = self.rotation * value;
-        value += self.translation;
-        value
-    }
-
-    /// Changes the `scale` of this [`Transform`], multiplying the current `scale` by
-    /// `scale_factor`.
-    #[inline]
-    pub fn apply_non_uniform_scale(&mut self, scale_factor: Vec3) {
-        self.scale *= scale_factor;
+    pub fn transform_point(&self, mut point: Vec3) -> Vec3 {
+        point = self.scale * point;
+        point = self.rotation * point;
+        point += self.translation;
+        point
     }
 }
 
@@ -381,6 +399,6 @@ impl Mul<Vec3> for Transform {
     type Output = Vec3;
 
     fn mul(self, value: Vec3) -> Self::Output {
-        self.mul_vec3(value)
+        self.transform_point(value)
     }
 }

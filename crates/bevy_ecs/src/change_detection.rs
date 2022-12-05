@@ -1,7 +1,11 @@
 //! Types that detect when their internal data mutate.
 
-use crate::{component::ComponentTicks, ptr::PtrMut, system::Resource};
-#[cfg(feature = "bevy_reflect")]
+use crate::{
+    component::{Tick, TickCells},
+    ptr::PtrMut,
+    system::Resource,
+};
+use bevy_ptr::UnsafeCellDeref;
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -96,21 +100,21 @@ macro_rules! change_detection_impl {
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
-                    .component_ticks
-                    .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .added
+                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
                 self.ticks
-                    .component_ticks
-                    .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+                    .changed
+                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
             }
 
             #[inline]
             fn set_changed(&mut self) {
                 self.ticks
-                    .component_ticks
+                    .changed
                     .set_changed(self.ticks.change_tick);
             }
 
@@ -163,7 +167,7 @@ macro_rules! change_detection_impl {
     };
 }
 
-macro_rules! impl_into_inner {
+macro_rules! impl_methods {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
@@ -172,6 +176,38 @@ macro_rules! impl_into_inner {
             pub fn into_inner(mut self) -> &'a mut $target {
                 self.set_changed();
                 self.value
+            }
+
+            /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
+            ///
+            /// You should never modify the argument passed to the closure -- if you want to modify the data
+            /// without flagging a change, consider using [`DetectChanges::bypass_change_detection`] to make your intent explicit.
+            ///
+            /// ```rust
+            /// # use bevy_ecs::prelude::*;
+            /// # pub struct Vec2;
+            /// # impl Vec2 { pub const ZERO: Self = Self; }
+            /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
+            /// # mod my_utils {
+            /// #   pub fn set_if_not_equal<T>(x: bevy_ecs::prelude::Mut<T>, val: T) { unimplemented!() }
+            /// # }
+            /// // When run, zeroes the translation of every entity.
+            /// fn reset_positions(mut transforms: Query<&mut Transform>) {
+            ///     for transform in &mut transforms {
+            ///         // We pinky promise not to modify `t` within the closure.
+            ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
+            ///         let translation = transform.map_unchanged(|t| &mut t.translation);
+            ///         // Only reset the translation if it isn't already zero;
+            ///         my_utils::set_if_not_equal(translation, Vec2::ZERO);
+            ///     }
+            /// }
+            /// # bevy_ecs::system::assert_is_system(reset_positions);
+            /// ```
+            pub fn map_unchanged<U: ?Sized>(self, f: impl FnOnce(&mut $target) -> &mut U) -> Mut<'a, U> {
+                Mut {
+                    value: f(self.value),
+                    ticks: self.ticks,
+                }
             }
         }
     };
@@ -193,9 +229,28 @@ macro_rules! impl_debug {
 }
 
 pub(crate) struct Ticks<'a> {
-    pub(crate) component_ticks: &'a mut ComponentTicks,
+    pub(crate) added: &'a mut Tick,
+    pub(crate) changed: &'a mut Tick,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
+}
+
+impl<'a> Ticks<'a> {
+    /// # Safety
+    /// This should never alias the underlying ticks. All access must be unique.
+    #[inline]
+    pub(crate) unsafe fn from_tick_cells(
+        cells: TickCells<'a>,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
+        Self {
+            added: cells.added.deref_mut(),
+            changed: cells.changed.deref_mut(),
+            last_change_tick,
+            change_tick,
+        }
+    }
 }
 
 /// Unique mutable borrow of a [`Resource`].
@@ -214,8 +269,33 @@ pub struct ResMut<'a, T: ?Sized + Resource> {
     pub(crate) ticks: Ticks<'a>,
 }
 
+impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+
+impl<'w, 'a, T: Resource> IntoIterator for &'a mut ResMut<'w, T>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.set_changed();
+        self.value.into_iter()
+    }
+}
+
 change_detection_impl!(ResMut<'a, T>, T, Resource);
-impl_into_inner!(ResMut<'a, T>, T, Resource);
+impl_methods!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
 impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
@@ -247,7 +327,7 @@ pub struct NonSendMut<'a, T: ?Sized + 'static> {
 }
 
 change_detection_impl!(NonSendMut<'a, T>, T,);
-impl_into_inner!(NonSendMut<'a, T>, T,);
+impl_methods!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
 impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
@@ -267,8 +347,33 @@ pub struct Mut<'a, T: ?Sized> {
     pub(crate) ticks: Ticks<'a>,
 }
 
+impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+
+impl<'w, 'a, T> IntoIterator for &'a mut Mut<'w, T>
+where
+    &'a mut T: IntoIterator,
+{
+    type Item = <&'a mut T as IntoIterator>::Item;
+    type IntoIter = <&'a mut T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.set_changed();
+        self.value.into_iter()
+    }
+}
+
 change_detection_impl!(Mut<'a, T>, T,);
-impl_into_inner!(Mut<'a, T>, T,);
+impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
 /// Unique mutable borrow of resources or an entity's component.
@@ -300,22 +405,20 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
-            .component_ticks
-            .is_added(self.ticks.last_change_tick, self.ticks.change_tick)
+            .added
+            .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn is_changed(&self) -> bool {
         self.ticks
-            .component_ticks
-            .is_changed(self.ticks.last_change_tick, self.ticks.change_tick)
+            .changed
+            .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
     }
 
     #[inline]
     fn set_changed(&mut self) {
-        self.ticks
-            .component_ticks
-            .set_changed(self.ticks.change_tick);
+        self.ticks.changed.set_changed(self.ticks.change_tick);
     }
 
     #[inline]
@@ -348,10 +451,8 @@ mod tests {
 
     use crate::{
         self as bevy_ecs,
-        change_detection::{
-            ComponentTicks, Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
-        },
-        component::Component,
+        change_detection::{Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
+        component::{Component, ComponentTicks, Tick},
         query::ChangeTrackers,
         system::{IntoSystem, Query, System},
         world::World,
@@ -433,8 +534,8 @@ mod tests {
 
         let mut query = world.query::<ChangeTrackers<C>>();
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed);
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added.tick);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed.tick);
             assert!(ticks_since_insert > MAX_CHANGE_AGE);
             assert!(ticks_since_change > MAX_CHANGE_AGE);
         }
@@ -443,8 +544,8 @@ mod tests {
         world.check_change_ticks();
 
         for tracker in query.iter(&world) {
-            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added);
-            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed);
+            let ticks_since_insert = change_tick.wrapping_sub(tracker.component_ticks.added.tick);
+            let ticks_since_change = change_tick.wrapping_sub(tracker.component_ticks.changed.tick);
             assert!(ticks_since_insert == MAX_CHANGE_AGE);
             assert!(ticks_since_change == MAX_CHANGE_AGE);
         }
@@ -453,11 +554,12 @@ mod tests {
     #[test]
     fn mut_from_res_mut() {
         let mut component_ticks = ComponentTicks {
-            added: 1,
-            changed: 2,
+            added: Tick::new(1),
+            changed: Tick::new(2),
         };
         let ticks = Ticks {
-            component_ticks: &mut component_ticks,
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
             last_change_tick: 3,
             change_tick: 4,
         };
@@ -468,8 +570,8 @@ mod tests {
         };
 
         let into_mut: Mut<R> = res_mut.into();
-        assert_eq!(1, into_mut.ticks.component_ticks.added);
-        assert_eq!(2, into_mut.ticks.component_ticks.changed);
+        assert_eq!(1, into_mut.ticks.added.tick);
+        assert_eq!(2, into_mut.ticks.changed.tick);
         assert_eq!(3, into_mut.ticks.last_change_tick);
         assert_eq!(4, into_mut.ticks.change_tick);
     }
@@ -477,11 +579,12 @@ mod tests {
     #[test]
     fn mut_from_non_send_mut() {
         let mut component_ticks = ComponentTicks {
-            added: 1,
-            changed: 2,
+            added: Tick::new(1),
+            changed: Tick::new(2),
         };
         let ticks = Ticks {
-            component_ticks: &mut component_ticks,
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
             last_change_tick: 3,
             change_tick: 4,
         };
@@ -492,9 +595,44 @@ mod tests {
         };
 
         let into_mut: Mut<R> = non_send_mut.into();
-        assert_eq!(1, into_mut.ticks.component_ticks.added);
-        assert_eq!(2, into_mut.ticks.component_ticks.changed);
+        assert_eq!(1, into_mut.ticks.added.tick);
+        assert_eq!(2, into_mut.ticks.changed.tick);
         assert_eq!(3, into_mut.ticks.last_change_tick);
         assert_eq!(4, into_mut.ticks.change_tick);
+    }
+
+    #[test]
+    fn map_mut() {
+        use super::*;
+        struct Outer(i64);
+
+        let (last_change_tick, change_tick) = (2, 3);
+        let mut component_ticks = ComponentTicks {
+            added: Tick::new(1),
+            changed: Tick::new(2),
+        };
+        let ticks = Ticks {
+            added: &mut component_ticks.added,
+            changed: &mut component_ticks.changed,
+            last_change_tick,
+            change_tick,
+        };
+
+        let mut outer = Outer(0);
+        let ptr = Mut {
+            value: &mut outer,
+            ticks,
+        };
+        assert!(!ptr.is_changed());
+
+        // Perform a mapping operation.
+        let mut inner = ptr.map_unchanged(|x| &mut x.0);
+        assert!(!inner.is_changed());
+
+        // Mutate the inner value.
+        *inner = 64;
+        assert!(inner.is_changed());
+        // Modifying one field of a component should flag a change for the entire component.
+        assert!(component_ticks.is_changed(last_change_tick, change_tick));
     }
 }

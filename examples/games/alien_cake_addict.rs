@@ -17,7 +17,10 @@ struct BonusSpawnTimer(Timer);
 fn main() {
     App::new()
         .init_resource::<Game>()
-        .insert_resource(BonusSpawnTimer(Timer::from_seconds(5.0, true)))
+        .insert_resource(BonusSpawnTimer(Timer::from_seconds(
+            5.0,
+            TimerMode::Repeating,
+        )))
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
         .add_startup_system(setup_cameras)
@@ -98,7 +101,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.score = 0;
     game.player.i = BOARD_SIZE_I / 2;
     game.player.j = BOARD_SIZE_J / 2;
-    game.player.move_cooldown = Timer::from_seconds(0.3, false);
+    game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 10.0, 4.0),
@@ -353,9 +356,8 @@ fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Tra
     if let Some(entity) = game.bonus.entity {
         if let Ok(mut cake_transform) = transforms.get_mut(entity) {
             cake_transform.rotate_y(time.delta_seconds());
-            cake_transform.scale = Vec3::splat(
-                1.0 + (game.score as f32 / 10.0 * time.seconds_since_startup().sin() as f32).abs(),
-            );
+            cake_transform.scale =
+                Vec3::splat(1.0 + (game.score as f32 / 10.0 * time.elapsed_seconds().sin()).abs());
         }
     }
 }
@@ -378,12 +380,11 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
     commands
         .spawn(NodeBundle {
             style: Style {
-                margin: UiRect::all(Val::Auto),
-                justify_content: JustifyContent::Center,
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 ..default()
             },
-            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {

@@ -136,7 +136,10 @@ pub struct EnumInfo {
     type_name: &'static str,
     type_id: TypeId,
     variants: Box<[VariantInfo]>,
+    variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl EnumInfo {
@@ -154,13 +157,29 @@ impl EnumInfo {
             .map(|(index, variant)| (variant.name(), index))
             .collect::<HashMap<_, _>>();
 
+        let variant_names = variants.iter().map(|variant| variant.name()).collect();
+
         Self {
             name,
             type_name: std::any::type_name::<TEnum>(),
             type_id: TypeId::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
+            variant_names,
             variant_indices,
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this enum.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
+    }
+
+    /// A slice containing the names of all variants in order.
+    pub fn variant_names(&self) -> &[&'static str] {
+        &self.variant_names
     }
 
     /// Get a variant with the given name.
@@ -184,7 +203,7 @@ impl EnumInfo {
     ///
     /// This does _not_ check if the given variant exists.
     pub fn variant_path(&self, name: &str) -> String {
-        format!("{}::{}", self.type_name(), name)
+        format!("{}::{name}", self.type_name())
     }
 
     /// Checks if a variant with the given name exists within this enum.
@@ -226,6 +245,12 @@ impl EnumInfo {
     /// Check if the given type matches the enum type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this enum, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 

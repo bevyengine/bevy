@@ -4,25 +4,29 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{CursorGrabMode, PresentMode},
 };
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "I am a window!".to_string(),
-            width: 500.,
-            height: 300.,
-            present_mode: PresentMode::AutoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "I am a window!".to_string(),
+                width: 500.,
+                height: 300.,
+                present_mode: PresentMode::AutoVsync,
+                always_on_top: true,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_system(change_title)
         .add_system(toggle_cursor)
         .add_system(toggle_vsync)
         .add_system(cycle_cursor_icon)
+        .add_system(toggle_always_on_top)
         .run();
 }
 
@@ -41,12 +45,34 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     }
 }
 
+/// This system toggles whether the window is always on top when pressing the T button
+/// You'll notice it won't be covered by other windows.
+///
+/// This feature only works on some platforms. Please check the
+/// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.always_on_top)
+/// for more details.
+fn toggle_always_on_top(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
+    if input.just_pressed(KeyCode::T) {
+        let window = windows.primary_mut();
+
+        let on_top: bool = window.always_on_top();
+
+        if on_top {
+            info!("UNLOCKING WINDOW");
+        } else {
+            info!("LOCKING WINDOW ON TOP");
+        }
+
+        window.set_always_on_top(!on_top);
+    }
+}
+
 /// This system will then change the title during execution
 fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
     let window = windows.primary_mut();
     window.set_title(format!(
         "Seconds since startup: {}",
-        time.seconds_since_startup().round()
+        time.elapsed_seconds().round()
     ));
 }
 
@@ -54,7 +80,10 @@ fn change_title(time: Res<Time>, mut windows: ResMut<Windows>) {
 fn toggle_cursor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     let window = windows.primary_mut();
     if input.just_pressed(KeyCode::Space) {
-        window.set_cursor_lock_mode(!window.cursor_locked());
+        window.set_cursor_grab_mode(match window.cursor_grab_mode() {
+            CursorGrabMode::None => CursorGrabMode::Locked,
+            CursorGrabMode::Locked | CursorGrabMode::Confined => CursorGrabMode::None,
+        });
         window.set_cursor_visibility(!window.cursor_visible());
     }
 }

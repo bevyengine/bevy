@@ -36,7 +36,32 @@ use bevy_asset::{AddAsset, Assets};
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
-pub struct ImagePlugin;
+pub struct ImagePlugin {
+    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
+    pub default_sampler: wgpu::SamplerDescriptor<'static>,
+}
+
+impl Default for ImagePlugin {
+    fn default() -> Self {
+        ImagePlugin::default_linear()
+    }
+}
+
+impl ImagePlugin {
+    /// Creates image settings with linear sampling by default.
+    pub fn default_linear() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSampler::linear_descriptor(),
+        }
+    }
+
+    /// Creates image settings with nearest sampling by default.
+    pub fn default_nearest() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSampler::nearest_descriptor(),
+        }
+    }
+}
 
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
@@ -61,20 +86,17 @@ impl Plugin for ImagePlugin {
         app.add_plugin(RenderAssetPlugin::<Image>::with_prepare_asset_label(
             PrepareAssetLabel::PreAssetPrepare,
         ))
-        .add_asset::<Image>();
+        .register_type::<Image>()
+        .add_asset::<Image>()
+        .register_asset_reflect::<Image>();
         app.world
             .resource_mut::<Assets<Image>>()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
-        let default_sampler = app
-            .world
-            .get_resource_or_insert_with(ImageSettings::default)
-            .default_sampler
-            .clone();
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
                 let device = render_app.world.resource::<RenderDevice>();
-                device.create_sampler(&default_sampler)
+                device.create_sampler(&self.default_sampler.clone())
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
@@ -91,11 +113,6 @@ pub trait BevyDefault {
 
 impl BevyDefault for wgpu::TextureFormat {
     fn bevy_default() -> Self {
-        if cfg!(target_os = "android") || cfg!(target_arch = "wasm32") {
-            // Bgra8UnormSrgb texture missing on some Android devices
-            wgpu::TextureFormat::Rgba8UnormSrgb
-        } else {
-            wgpu::TextureFormat::Bgra8UnormSrgb
-        }
+        wgpu::TextureFormat::Rgba8UnormSrgb
     }
 }

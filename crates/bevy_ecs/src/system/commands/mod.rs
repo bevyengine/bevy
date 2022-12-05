@@ -6,7 +6,7 @@ use crate::{
     entity::{Entities, Entity},
     world::{FromWorld, World},
 };
-use bevy_utils::tracing::{error, info, warn};
+use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
@@ -321,7 +321,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///     if let Some(mut entity_commands) = commands.get_entity(entity) {
     ///         // adds a single component to the entity
     ///         entity_commands.insert(Label("hello world"));
-    ///     }      
+    ///     }
     /// }
     /// # bevy_ecs::system::assert_is_system(example_system);
     /// ```
@@ -564,6 +564,8 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 
     /// Adds a [`Bundle`] of components to the entity.
+    ///
+    /// This will overwrite any previous value(s) of the same component type.
     ///
     /// # Panics
     ///
@@ -818,9 +820,7 @@ pub struct Despawn {
 
 impl Command for Despawn {
     fn write(self, world: &mut World) {
-        if !world.despawn(self.entity) {
-            warn!("error[B0003]: Could not despawn entity {:?} because it doesn't exist in this World.", self.entity);
-        }
+        world.despawn(self.entity);
     }
 }
 

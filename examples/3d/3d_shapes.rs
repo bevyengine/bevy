@@ -10,8 +10,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(ImageSettings::default_nearest())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_startup_system(setup)
         .add_system(rotate)
         .run();
@@ -39,7 +38,7 @@ fn setup(
         meshes.add(shape::Box::default().into()),
         meshes.add(shape::Capsule::default().into()),
         meshes.add(shape::Torus::default().into()),
-        meshes.add(shape::Icosphere::default().into()),
+        meshes.add(shape::Icosphere::default().try_into().unwrap()),
         meshes.add(shape::UVSphere::default().into()),
     ];
 

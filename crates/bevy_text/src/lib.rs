@@ -29,7 +29,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{schedule::IntoSystemDescriptor, system::Resource};
-use bevy_render::{RenderApp, RenderStage};
+use bevy_render::{camera::CameraUpdateSystem, RenderApp, RenderStage};
 use bevy_sprite::SpriteSystem;
 use bevy_window::ModifiesWindows;
 use std::num::NonZeroUsize;
@@ -56,6 +56,19 @@ impl Default for TextSettings {
     }
 }
 
+#[derive(Resource, Default)]
+pub struct FontAtlasWarning {
+    warned: bool,
+}
+
+/// Text is rendered for two different view projections, normal `Text2DBundle` is rendered with a
+/// `BottomToTop` y axis, and UI is rendered with a `TopToBottom` y axis. This matters for text because
+/// the glyph positioning is different in either layout.
+pub enum YAxisOrientation {
+    TopToBottom,
+    BottomToTop,
+}
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.add_asset::<Font>()
@@ -69,10 +82,17 @@ impl Plugin for TextPlugin {
             .register_type::<HorizontalAlign>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
+            .init_resource::<FontAtlasWarning>()
             .insert_resource(TextPipeline::default())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                update_text2d_layout.after(ModifiesWindows),
+                update_text2d_layout
+                    .after(ModifiesWindows)
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `update_text2d_layout`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystem),
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {

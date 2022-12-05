@@ -499,7 +499,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///
 /// # Example
 ///
-/// To create something like [`ChainSystem`], but in entirely safe code.
+/// To create something like [`PipeSystem`], but in entirely safe code.
 ///
 /// ```rust
 /// use std::num::ParseIntError;
@@ -510,8 +510,8 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// // Unfortunately, we need all of these generics. `A` is the first system, with its
 /// // parameters and marker type required for coherence. `B` is the second system, and
 /// // the other generics are for the input/output types of `A` and `B`.
-/// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
+/// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
+/// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
 /// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
@@ -529,15 +529,15 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     }
 /// }
 ///
-/// // Usage example for `chain`:
+/// // Usage example for `pipe`:
 /// fn main() {
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut chained_system = IntoSystem::into_system(chain(parse_message, filter));
-///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world), Some(42));
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input
+///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
+///     piped_system.initialize(&mut world);
+///     assert_eq!(piped_system.run((), &mut world), Some(42));
 /// }
 ///
 /// #[derive(Resource)]
@@ -551,7 +551,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-/// [`ChainSystem`]: crate::system::ChainSystem
+/// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
     fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;

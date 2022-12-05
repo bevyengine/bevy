@@ -1,7 +1,7 @@
 use crate::{AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_SHADER_HANDLE};
 use bevy_asset::Handle;
 use bevy_math::Vec4;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, TypeUuid};
 use bevy_render::{
     color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
     texture::Image,
@@ -12,10 +12,11 @@ use bevy_render::{
 /// <https://google.github.io/filament/Material%20Properties.pdf>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "7494888b-c082-457b-aacf-517228cc0c22"]
 #[bind_group_data(StandardMaterialKey)]
 #[uniform(0, StandardMaterialUniform)]
+#[reflect(Default, Debug)]
 pub struct StandardMaterial {
     /// The color of the surface of the material before lighting.
     ///
@@ -193,6 +194,8 @@ pub struct StandardMaterial {
     /// Your 3D editing software should manage all of that.
     ///
     /// [`Mesh`]: bevy_render::mesh::Mesh
+    // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
+    #[reflect(ignore)]
     pub cull_mode: Option<Face>,
 
     /// Whether to apply only the base color to this material.
@@ -416,7 +419,7 @@ impl Material for StandardMaterial {
                 .as_mut()
                 .unwrap()
                 .shader_defs
-                .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
+                .push("STANDARDMATERIAL_NORMAL_MAP".into());
         }
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {
