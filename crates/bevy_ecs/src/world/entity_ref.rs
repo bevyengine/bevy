@@ -261,14 +261,6 @@ impl<'w> EntityMut<'w> {
             })
     }
 
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `insert` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn insert_bundle<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert(bundle)
-    }
-
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// This will overwrite any previous value(s) of the same component type.
@@ -292,14 +284,6 @@ impl<'w> EntityMut<'w> {
         }
 
         self
-    }
-
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `remove` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn remove_bundle<T: Bundle>(&mut self) -> Option<T> {
-        self.remove::<T>()
     }
 
     // TODO: move to BundleInfo
@@ -428,14 +412,6 @@ impl<'w> EntityMut<'w> {
         *self_location = new_location;
         // SAFETY: The entity is valid and has been moved to the new location already.
         entities.set(entity.index(), new_location);
-    }
-
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `remove_intersection` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn remove_bundle_intersection<T: Bundle>(&mut self) {
-        self.remove_intersection::<T>();
     }
 
     // TODO: move to BundleInfo
