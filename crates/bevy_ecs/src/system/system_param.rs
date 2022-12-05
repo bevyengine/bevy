@@ -256,7 +256,12 @@ where
         world: &'world World,
         change_tick: u32,
     ) -> Self::Item {
-        T::get_param(state, system_meta, world, change_tick).unwrap()
+        T::get_param(state, system_meta, world, change_tick).unwrap_or_else(|| {
+            panic!(
+                "Failed to get system param `{}`",
+                std::any::type_name::<T::Item>()
+            )
+        })
     }
 }
 
