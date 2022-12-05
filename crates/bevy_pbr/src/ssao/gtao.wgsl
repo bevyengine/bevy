@@ -123,15 +123,15 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 let sample_difference = sample_position - pixel_position;
                 let sample_distance = length(sample_difference);
                 let sample_horizon = sample_difference / sample_distance;
+                var sample_cos_horizon = dot(sample_horizon, view_vec);
 
-                let depth_range_scale_factor = 0.75;
-                let effect_radius = depth_range_scale_factor * 0.5 * 1.457;
+                let effect_radius = 0.5 * 1.457;
                 let falloff_range = 0.615 * effect_radius;
                 let falloff_from = effect_radius * (1.0 - 0.615);
                 let falloff_mul = -1.0 / falloff_range;
                 let falloff_add = falloff_from / falloff_range + 1.0;
                 let weight = saturate(sample_distance * falloff_mul + falloff_add);
-                var sample_cos_horizon = dot(sample_horizon, view_vec);
+
                 sample_cos_horizon = mix(min_cos_horizon, sample_cos_horizon, weight);
 
                 cos_horizon = max(cos_horizon, sample_cos_horizon);
