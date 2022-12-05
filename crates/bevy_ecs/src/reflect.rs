@@ -5,7 +5,7 @@ use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     system::Resource,
-    world::{FromWorld, World},
+    world::{EntityRef, EntityMut, FromWorld, World},
 };
 use bevy_reflect::{
     impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
@@ -51,8 +51,14 @@ pub struct ReflectComponentFns {
     pub remove: fn(&mut World, Entity),
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: fn(&World, Entity) -> Option<&dyn Reflect>,
+    /// Function pointer implementing [`ReflectComponent::reflect_ref()`].
+    pub reflect_ref: for<'a> fn(&EntityRef<'a>) -> Option<&'a dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
     pub reflect_mut: unsafe fn(&World, Entity) -> Option<Mut<dyn Reflect>>,
+    /// Function pointer implementing [`ReflectComponent::reflect_mut_ref()`].
+    pub reflect_mut_ref: for<'a> fn(&'a mut EntityMut) -> Option<Mut<'a, dyn Reflect>>,
+    /// Function pointer implementing [`ReflectComponent::reflect_mut_unchecked_ref()`].
+    pub reflect_mut_unchecked_ref: for<'a> unsafe fn(&'a EntityRef) -> Option<Mut<'a, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity),
 }
@@ -106,11 +112,22 @@ impl ReflectComponent {
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
+    ///
+    /// If repeatedly fetching multiple components from the same entity, prefer using
+    /// [`ReflectComponent::reflect_ref`] where possible to avoid multiple entity location lookups.
     pub fn reflect<'a>(&self, world: &'a World, entity: Entity) -> Option<&'a dyn Reflect> {
         (self.0.reflect)(world, entity)
     }
 
+    /// Gets the value of this [`Component`] type from the entity as a reflected reference.
+    pub fn reflect_ref<'a>(&self, entity_ref: &EntityRef<'a>) -> Option<&'a dyn Reflect> {
+        (self.0.reflect_ref)(entity_ref)
+    }
+
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
+    ///
+    /// If repeatedly fetching multiple components from the same entity, prefer using
+    /// [`ReflectComponent::reflect_mut_ref`] where possible to avoid multiple entity location lookups.
     pub fn reflect_mut<'a>(
         &self,
         world: &'a mut World,
@@ -120,6 +137,21 @@ impl ReflectComponent {
         unsafe { (self.0.reflect_mut)(world, entity) }
     }
 
+    /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
+    pub fn reflect_mut_ref<'a>(
+        &self,
+        entity_mut: &'a mut EntityMut<'a>
+    ) -> Option<Mut<'a, dyn Reflect>> {
+        (self.0.reflect_mut_ref)(entity_mut)
+    }
+
+    /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference
+    /// without enforcing Rust's aliasing rules.
+    ///
+    /// If repeatedly fetching multiple components from the same entity, prefer using
+    /// [`ReflectComponent::reflect_unchecked_mut_ref`] where possible to avoid multiple entity
+    /// location lookups.
+    ///
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
@@ -132,6 +164,22 @@ impl ReflectComponent {
         entity: Entity,
     ) -> Option<Mut<'a, dyn Reflect>> {
         (self.0.reflect_mut)(world, entity)
+    }
+
+    /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference
+    /// without enforcing Rust's aliasing rules.
+    ///
+    /// # Safety
+    /// This method does not prevent you from having two mutable pointers to the same data,
+    /// violating Rust's aliasing rules. To avoid this:
+    /// * Only call this method in an exclusive system to avoid sharing across threads (or use a
+    ///   scheduler that enforces safe memory access).
+    /// * Don't call this method more than once in the same scope for a given [`Component`].
+    pub unsafe fn reflect_unchecked_mut_ref<'a>(
+        &self,
+        entity_ref: &'a EntityRef<'a>,
+    ) -> Option<Mut<'a, dyn Reflect>> {
+        (self.0.reflect_mut_unchecked_ref)(entity_ref)
     }
 
     /// Gets the value of this [`Component`] type from entity from `source_world` and [applies](Self::apply()) it to the value of this [`Component`] type in entity in `destination_world`.
@@ -208,12 +256,34 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .get::<C>()
                     .map(|c| c as &dyn Reflect)
             },
+            reflect_ref: |entity_ref| entity_ref.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |world, entity| {
                 // SAFETY: reflect_mut is an unsafe function pointer used by `reflect_unchecked_mut` which promises to never
                 // produce aliasing mutable references, and reflect_mut, which has mutable world access
                 unsafe {
                     world
                         .get_entity(entity)?
+                        .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
+                        .map(|c| Mut {
+                            value: c.value as &mut dyn Reflect,
+                            ticks: c.ticks,
+                        })
+                }
+            },
+            reflect_mut_ref: |entity_mut| {
+                entity_mut
+                    .get_mut::<C>()
+                    .map(|c| Mut {
+                        value: c.value as &mut dyn Reflect,
+                        ticks: c.ticks,
+                    })
+            },
+            reflect_mut_unchecked_ref: |entity_ref| {
+                let world = entity_ref.world();
+                // SAFETY: reflect_mut_ref is an unsafe function pointer used by `reflect_unchecked_mut_ref ` which promises to never
+                // produce aliasing mutable references, and reflect_mut_ref, which has mutable world access
+                unsafe {
+                    entity_ref
                         .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
                         .map(|c| Mut {
                             value: c.value as &mut dyn Reflect,
