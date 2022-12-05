@@ -2,7 +2,7 @@ use crate::{
     archetype::{Archetype, ArchetypeComponentId},
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
-    query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
+    query::{fetch::StorageSwitch, Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
     storage::{Column, ComponentSparseSet, Table},
     world::World,
 };
@@ -413,10 +413,13 @@ macro_rules! impl_tick_filter {
 
         #[doc(hidden)]
         $(#[$fetch_meta])*
-        pub struct $fetch_name<'w, T> {
-            table_ticks: Option< ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+        pub struct $fetch_name<'w, T: Component> {
+            components: StorageSwitch<
+                T,
+                Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+                &'w ComponentSparseSet,
+            >,
             marker: PhantomData<T>,
-            sparse_set: Option<&'w ComponentSparseSet>,
             last_change_tick: u32,
             change_tick: u32,
         }
@@ -434,14 +437,15 @@ macro_rules! impl_tick_filter {
 
             unsafe fn init_fetch<'w>(world: &'w World, &id: &ComponentId, last_change_tick: u32, change_tick: u32) -> Self::Fetch<'w> {
                 Self::Fetch::<'w> {
-                    table_ticks: None,
-                    sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet)
-                        .then(|| {
+                    components: match T::Storage::STORAGE_TYPE {
+                        StorageType::Table => StorageSwitch::new_table(None),
+                        StorageType::SparseSet => StorageSwitch::new_sparse_set(
                             world.storages()
                                  .sparse_sets
                                  .get(id)
                                  .debug_checked_unwrap()
-                        }),
+                        ),
+                    },
                     marker: PhantomData,
                     last_change_tick,
                     change_tick,
@@ -452,8 +456,7 @@ macro_rules! impl_tick_filter {
                 fetch: &Self::Fetch<'w>,
             ) -> Self::Fetch<'w> {
                 $fetch_name {
-                    table_ticks: fetch.table_ticks,
-                    sparse_set: fetch.sparse_set,
+                    components: fetch.components,
                     last_change_tick: fetch.last_change_tick,
                     change_tick: fetch.change_tick,
                     marker: PhantomData,
@@ -475,13 +478,9 @@ macro_rules! impl_tick_filter {
                 &component_id: &ComponentId,
                 table: &'w Table
             ) {
-                fetch.table_ticks = Some(
-                    $get_slice(
-                        &table
-                            .get_column(component_id)
-                            .debug_checked_unwrap()
-                    ).into(),
-                );
+                fetch.components = StorageSwitch::new_table(Some(
+                    $get_slice(&table.get_column(component_id).debug_checked_unwrap()).into()
+                ));
             }
 
             #[inline]
@@ -505,7 +504,8 @@ macro_rules! impl_tick_filter {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         fetch
-                            .table_ticks
+                            .components
+                            .table()
                             .debug_checked_unwrap()
                             .get(table_row)
                             .deref()
@@ -513,8 +513,8 @@ macro_rules! impl_tick_filter {
                     }
                     StorageType::SparseSet => {
                         let sparse_set = &fetch
-                            .sparse_set
-                            .debug_checked_unwrap();
+                            .components
+                            .sparse_set();
                         $get_sparse_set(sparse_set, entity)
                             .debug_checked_unwrap()
                             .deref()

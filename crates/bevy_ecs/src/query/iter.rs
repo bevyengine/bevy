@@ -2,10 +2,16 @@ use crate::{
     archetype::{ArchetypeEntity, ArchetypeId, Archetypes},
     entity::{Entities, Entity},
     prelude::World,
+    ptr::ThinSlicePtr,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
     storage::{TableId, Tables},
 };
-use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit};
+use std::{
+    borrow::Borrow,
+    iter::FusedIterator,
+    marker::PhantomData,
+    mem::{ManuallyDrop, MaybeUninit},
+};
 
 use super::ReadOnlyWorldQuery;
 
@@ -455,10 +461,8 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery, const K: usize> Fused
 }
 
 struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    table_id_iter: std::slice::Iter<'s, TableId>,
-    archetype_id_iter: std::slice::Iter<'s, ArchetypeId>,
-    table_entities: &'w [Entity],
-    archetype_entities: &'w [ArchetypeEntity],
+    id_iter: QuerySwitch<Q, F, std::slice::Iter<'s, TableId>, std::slice::Iter<'s, ArchetypeId>>,
+    entities: QuerySwitch<Q, F, ThinSlicePtr<'w, Entity>, ThinSlicePtr<'w, ArchetypeEntity>>,
     fetch: Q::Fetch<'w>,
     filter: F::Fetch<'w>,
     // length of the table table or length of the archetype, depending on whether both `Q`'s and `F`'s fetches are dense
@@ -477,10 +481,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     /// `archetype_index` or `table_row` to be alive at the same time.
     unsafe fn clone_cursor(&self) -> Self {
         Self {
-            table_id_iter: self.table_id_iter.clone(),
-            archetype_id_iter: self.archetype_id_iter.clone(),
-            table_entities: self.table_entities,
-            archetype_entities: self.archetype_entities,
+            id_iter: self.id_iter.clone(),
+            entities: self.entities.clone(),
             // SAFETY: upheld by caller invariants
             fetch: Q::clone_fetch(&self.fetch),
             filter: F::clone_fetch(&self.filter),
@@ -501,8 +503,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         change_tick: u32,
     ) -> Self {
         QueryIterationCursor {
-            table_id_iter: [].iter(),
-            archetype_id_iter: [].iter(),
+            id_iter: if Self::IS_DENSE {
+                QuerySwitch::new_dense([].iter())
+            } else {
+                QuerySwitch::new_sparse([].iter())
+            },
             ..Self::init(world, query_state, last_change_tick, change_tick)
         }
     }
@@ -525,13 +530,21 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             last_change_tick,
             change_tick,
         );
+        let table_entities: &[Entity] = &[];
+        let archetype_entities: &[ArchetypeEntity] = &[];
         QueryIterationCursor {
             fetch,
             filter,
-            table_entities: &[],
-            archetype_entities: &[],
-            table_id_iter: query_state.matched_table_ids.iter(),
-            archetype_id_iter: query_state.matched_archetype_ids.iter(),
+            id_iter: if Self::IS_DENSE {
+                QuerySwitch::new_dense(query_state.matched_table_ids.iter())
+            } else {
+                QuerySwitch::new_sparse(query_state.matched_archetype_ids.iter())
+            },
+            entities: if Self::IS_DENSE {
+                QuerySwitch::new_dense(table_entities.into())
+            } else {
+                QuerySwitch::new_sparse(archetype_entities.into())
+            },
             current_len: 0,
             current_index: 0,
             phantom: PhantomData,
@@ -544,10 +557,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         if self.current_index > 0 {
             let index = self.current_index - 1;
             if Self::IS_DENSE {
-                let entity = self.table_entities.get_unchecked(index);
+                let entity = self.entities.dense().get(index);
                 Some(Q::fetch(&mut self.fetch, *entity, index))
             } else {
-                let archetype_entity = self.archetype_entities.get_unchecked(index);
+                let archetype_entity = self.entities.sparse().get(index);
                 Some(Q::fetch(
                     &mut self.fetch,
                     archetype_entity.entity(),
@@ -565,10 +578,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     /// will be **the exact count of remaining values**.
     fn max_remaining(&self, tables: &'w Tables, archetypes: &'w Archetypes) -> usize {
         let remaining_matched: usize = if Self::IS_DENSE {
-            let ids = self.table_id_iter.clone();
+            // SAFETY: The sparse/dense status is checked above
+            let ids = unsafe { self.id_iter.dense().clone() };
             ids.map(|id| tables[*id].entity_count()).sum()
         } else {
-            let ids = self.archetype_id_iter.clone();
+            // SAFETY: The sparse/dense status is checked above
+            let ids = unsafe { self.id_iter.sparse().clone() };
             ids.map(|id| archetypes[*id].len()).sum()
         };
         remaining_matched + self.current_len - self.current_index
@@ -591,13 +606,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
                 if self.current_index == self.current_len {
-                    let table_id = self.table_id_iter.next()?;
+                    let table_id = self.id_iter.dense_mut().next()?;
                     let table = tables.get(*table_id).debug_checked_unwrap();
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
                     Q::set_table(&mut self.fetch, &query_state.fetch_state, table);
                     F::set_table(&mut self.filter, &query_state.filter_state, table);
-                    self.table_entities = table.entities();
+                    self.entities = QuerySwitch::new_dense(table.entities().into());
                     self.current_len = table.entity_count();
                     self.current_index = 0;
                     continue;
@@ -605,7 +620,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
 
                 // SAFETY: set_table was called prior.
                 // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
-                let entity = self.table_entities.get_unchecked(self.current_index);
+                let entity = self.entities.dense().get(self.current_index);
                 if !F::filter_fetch(&mut self.filter, *entity, self.current_index) {
                     self.current_index += 1;
                     continue;
@@ -621,7 +636,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         } else {
             loop {
                 if self.current_index == self.current_len {
-                    let archetype_id = self.archetype_id_iter.next()?;
+                    let archetype_id = self.id_iter.sparse_mut().next()?;
                     let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
                     // SAFETY: `archetype` and `tables` are from the world that `fetch/filter` were created for,
                     // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -633,7 +648,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                         archetype,
                         table,
                     );
-                    self.archetype_entities = archetype.entities();
+                    self.entities = QuerySwitch::new_sparse(archetype.entities().into());
                     self.current_len = archetype.len();
                     self.current_index = 0;
                     continue;
@@ -641,7 +656,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
 
                 // SAFETY: set_archetype was called prior.
                 // `current_index` is an archetype index row in range of the current archetype, because if it was not, then the if above would have been executed.
-                let archetype_entity = self.archetype_entities.get_unchecked(self.current_index);
+                let archetype_entity = self.entities.sparse().get(self.current_index);
                 if !F::filter_fetch(
                     &mut self.filter,
                     archetype_entity.entity(),
@@ -660,6 +675,163 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                 );
                 self.current_index += 1;
                 return Some(item);
+            }
+        }
+    }
+}
+
+/// A compile-time checked union of two different types that differs based
+/// whether a fetch is dense or not.
+union QuerySwitch<Q, F, A, B> {
+    dense: ManuallyDrop<A>,
+    sparse: ManuallyDrop<B>,
+    marker: PhantomData<(Q, F)>,
+}
+
+impl<Q: WorldQuery, F: WorldQuery, A, B> QuerySwitch<Q, F, A, B> {
+    /// Whether the corresponding query is using dense iteration or not.
+    /// For more information, see [`WorldQuery::IS_DENSE`]
+    ///
+    /// [`WorldQuery::IS_DENSE`]: crate::query::WorldQuery::IS_DENSE
+    const IS_DENSE: bool = Q::IS_DENSE && F::IS_DENSE;
+
+    /// Creates a new [`QuerySwitch`] of the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if either `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are not true.
+    ///
+    /// # Safety
+    /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
+    const unsafe fn new_dense(dense: A) -> Self {
+        if Self::IS_DENSE {
+            Self {
+                dense: ManuallyDrop::new(dense),
+            }
+        } else {
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
+        }
+    }
+
+    /// Creates a new [`QuerySwitch`] of the sparse variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if both `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are true.
+    ///
+    /// # Safety
+    /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
+    const unsafe fn new_sparse(sparse: B) -> Self {
+        if !Self::IS_DENSE {
+            Self {
+                sparse: ManuallyDrop::new(sparse),
+            }
+        } else {
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
+        }
+    }
+
+    /// Fetches a reference to the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if either `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are not true.
+    ///
+    /// # Safety
+    /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
+    unsafe fn dense(&self) -> &A {
+        if Self::IS_DENSE {
+            &self.dense
+        } else {
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
+        }
+    }
+
+    /// Fetches a reference to the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if both `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are true.
+    ///
+    /// # Safety
+    /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
+    unsafe fn sparse(&self) -> &B {
+        if !Self::IS_DENSE {
+            &self.sparse
+        } else {
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
+        }
+    }
+
+    /// Fetches a mutable reference to the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if either `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are not true.
+    ///
+    /// # Safety
+    /// Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
+    #[inline]
+    unsafe fn dense_mut(&mut self) -> &mut A {
+        if Self::IS_DENSE {
+            &mut self.dense
+        } else {
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
+        }
+    }
+
+    /// Fetches a mutable reference to the dense variant.
+    ///
+    /// # Panics
+    /// Will panic in debug mode if both `Q::IS_DENSE` and `F::IS_DENSE`
+    /// are true.
+    ///
+    /// # Safety
+    /// Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
+    #[inline]
+    unsafe fn sparse_mut(&mut self) -> &mut B {
+        if !Self::IS_DENSE {
+            &mut self.sparse
+        } else {
+            #[cfg(debug_assertions)]
+            unreachable!();
+            #[cfg(not(debug_assertions))]
+            std::hint::unreachable_unchecked()
+        }
+    }
+}
+
+impl<Q: WorldQuery, F: WorldQuery, A: Clone, B: Clone> Clone for QuerySwitch<Q, F, A, B> {
+    fn clone(&self) -> Self {
+        // SAFETY: The variant of the union is checked at compile time
+        unsafe {
+            if Self::IS_DENSE {
+                Self {
+                    dense: self.dense.clone(),
+                }
+            } else {
+                Self {
+                    sparse: self.sparse.clone(),
+                }
             }
         }
     }
