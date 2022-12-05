@@ -3,17 +3,15 @@ use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{
-        is_apply_system_buffers, ticks_since, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule_v3::{is_apply_system_buffers, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
 /// Runs the schedule using a single thread.
 #[derive(Default)]
 pub struct SingleThreadedExecutor {
-    /// System sets whose conditions have either been evaluated or skipped.
-    completed_sets: FixedBitSet,
+    /// System sets whose conditions have been evaluated.
+    evaluated_sets: FixedBitSet,
     /// Systems that have run or been skipped.
     completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
@@ -29,94 +27,70 @@ impl SystemExecutor for SingleThreadedExecutor {
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
-        self.completed_sets = FixedBitSet::with_capacity(set_count);
+        self.evaluated_sets = FixedBitSet::with_capacity(set_count);
         self.completed_systems = FixedBitSet::with_capacity(sys_count);
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
     }
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
-        for sys_idx in 0..schedule.systems.len() {
-            if self.completed_systems.contains(sys_idx) {
-                continue;
-            }
-
+        for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
-            let name = schedule.systems[sys_idx].get_mut().name();
+            let name = schedule.systems[system_index].get_mut().name();
             #[cfg(feature = "trace")]
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
-            // evaluate conditions
-            let mut should_run = true;
-            let world_tick = world.change_tick();
-
-            // evaluate system set conditions in hierarchical order
-            for set_idx in schedule.sets_of_systems[sys_idx].ones() {
-                if self.completed_sets.contains(set_idx) {
+            let mut should_run = !self.completed_systems.contains(system_index);
+            for set_idx in schedule.sets_of_systems[system_index].ones() {
+                if self.evaluated_sets.contains(set_idx) {
                     continue;
                 }
 
-                let set_conditions = schedule.set_conditions[set_idx].get_mut();
-
-                // if any condition fails, we need to restore their change ticks
-                let saved_tick = set_conditions
-                    .iter()
-                    .map(|condition| condition.get_last_change_tick())
-                    .min_by_key(|&tick| ticks_since(tick, world_tick));
-
-                let set_conditions_met = set_conditions.iter_mut().all(|condition| {
-                    condition.set_last_change_tick(saved_tick.unwrap());
-                    #[cfg(feature = "trace")]
-                    let _condition_span =
-                        info_span!("condition", name = &*condition.name()).entered();
-                    condition.run((), world)
-                });
-
-                self.completed_sets.insert(set_idx);
+                // evaluate system set's conditions
+                let set_conditions_met = schedule.set_conditions[set_idx]
+                    .borrow_mut()
+                    .iter_mut()
+                    .map(|condition| {
+                        #[cfg(feature = "trace")]
+                        let _condition_span =
+                            info_span!("condition", name = &*condition.name()).entered();
+                        condition.run((), world)
+                    })
+                    .fold(true, |acc, res| acc && res);
 
                 if !set_conditions_met {
-                    // restore change ticks
-                    for condition in set_conditions.iter_mut() {
-                        condition.set_last_change_tick(saved_tick.unwrap());
-                    }
-
-                    // mark all members as completed
                     self.completed_systems
                         .union_with(&schedule.systems_in_sets[set_idx]);
-                    self.completed_sets
-                        .union_with(&schedule.sets_in_sets[set_idx]);
                 }
 
                 should_run &= set_conditions_met;
+                self.evaluated_sets.insert(set_idx);
             }
 
-            if !should_run {
-                continue;
-            }
-
-            let system = schedule.systems[sys_idx].get_mut();
-
-            // evaluate the system's conditions
-            should_run = schedule.system_conditions[sys_idx]
-                .get_mut()
+            // evaluate system's conditions
+            let system_conditions_met = schedule.system_conditions[system_index]
+                .borrow_mut()
                 .iter_mut()
-                .all(|condition| {
-                    condition.set_last_change_tick(system.get_last_change_tick());
+                .map(|condition| {
                     #[cfg(feature = "trace")]
                     let _condition_span =
                         info_span!("condition", name = &*condition.name()).entered();
                     condition.run((), world)
-                });
+                })
+                .fold(true, |acc, res| acc && res);
+
+            should_run &= system_conditions_met;
 
             #[cfg(feature = "trace")]
             should_run_span.exit();
 
-            // system has been skipped or will run
-            self.completed_systems.insert(sys_idx);
+            // system has either been skipped or will run
+            self.completed_systems.insert(system_index);
 
             if !should_run {
                 continue;
             }
 
+            let system = schedule.systems[system_index].get_mut();
             if is_apply_system_buffers(system) {
                 #[cfg(feature = "trace")]
                 let system_span = info_span!("system", name = &*name).entered();
@@ -129,12 +103,12 @@ impl SystemExecutor for SingleThreadedExecutor {
                 system.run((), world);
                 #[cfg(feature = "trace")]
                 system_span.exit();
-                self.unapplied_systems.set(sys_idx, true);
+                self.unapplied_systems.set(system_index, true);
             }
         }
 
         self.apply_system_buffers(schedule, world);
-        self.completed_sets.clear();
+        self.evaluated_sets.clear();
         self.completed_systems.clear();
     }
 }
@@ -142,15 +116,15 @@ impl SystemExecutor for SingleThreadedExecutor {
 impl SingleThreadedExecutor {
     pub const fn new() -> Self {
         Self {
-            completed_sets: FixedBitSet::new(),
+            evaluated_sets: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
         }
     }
 
     fn apply_system_buffers(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
-        for sys_idx in self.unapplied_systems.ones() {
-            let system = schedule.systems[sys_idx].get_mut();
+        for system_index in self.unapplied_systems.ones() {
+            let system = schedule.systems[system_index].get_mut();
             #[cfg(feature = "trace")]
             let _apply_buffers_span = info_span!("apply_buffers", name = &*system.name()).entered();
             system.apply_buffers(world);

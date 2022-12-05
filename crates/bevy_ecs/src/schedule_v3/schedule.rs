@@ -1,5 +1,5 @@
 use std::{
-    borrow::Cow,
+    cell::RefCell,
     fmt::{Debug, Write},
     result::Result,
 };
@@ -42,7 +42,7 @@ impl Schedules {
     /// If the map already had an entry for `label`, `schedule` is inserted,
     /// and the old schedule is returned. Otherwise, `None` is returned.
     pub fn insert(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> Option<Schedule> {
-        let label = label.dyn_clone();
+        let label: Box<dyn ScheduleLabel> = Box::new(label);
         if self.inner.contains_key(&label) {
             warn!("schedule with label {:?} already exists", label);
         }
@@ -51,30 +51,25 @@ impl Schedules {
 
     /// Removes the `label` entry from the map, returning its schedule if one existed.
     pub fn remove(&mut self, label: &dyn ScheduleLabel) -> Option<Schedule> {
-        let label = label.dyn_clone();
-        if !self.inner.contains_key(&label) {
+        if !self.inner.contains_key(label) {
             warn!("schedule with label {:?} not found", label);
         }
-        self.inner.remove(&label)
+        self.inner.remove(label)
     }
 
     /// Returns a reference to the schedule associated with `label`, if it exists.
     pub fn get(&self, label: &dyn ScheduleLabel) -> Option<&Schedule> {
-        let label = label.dyn_clone();
-        self.inner.get(&label)
+        self.inner.get(label)
     }
 
     /// Returns a mutable reference to the schedule associated with `label`, if it exists.
     pub fn get_mut(&mut self, label: &dyn ScheduleLabel) -> Option<&mut Schedule> {
-        let label = label.dyn_clone();
-        self.inner.get_mut(&label)
+        self.inner.get_mut(label)
     }
 
-    /// Iterates all system change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
+    /// Iterates the change ticks of all systems in all stored schedules and clamps any older than
+    /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    ///
-    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
-    /// times since the previous pass.
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         #[cfg(feature = "trace")]
         let _all_span = info_span!("check stored schedule ticks").entered();
@@ -93,9 +88,10 @@ impl Schedules {
 /// A collection of systems, and the metadata and executor needed to run them
 /// in a certain order under certain conditions.
 pub struct Schedule {
-    graph: ScheduleMeta,
+    graph: ScheduleGraph,
     executable: SystemSchedule,
     executor: Box<dyn SystemExecutor>,
+    executor_initialized: bool,
 }
 
 impl Default for Schedule {
@@ -108,9 +104,10 @@ impl Schedule {
     /// Constructs an empty `Schedule`.
     pub fn new() -> Self {
         Self {
-            graph: ScheduleMeta::new(),
+            graph: ScheduleGraph::new(),
             executable: SystemSchedule::new(),
             executor: Box::new(MultiThreadedExecutor::new()),
+            executor_initialized: false,
         }
     }
 
@@ -158,39 +155,42 @@ impl Schedule {
                 ExecutorKind::SingleThreaded => Box::new(SingleThreadedExecutor::new()),
                 ExecutorKind::MultiThreaded => Box::new(MultiThreadedExecutor::new()),
             };
-            self.executor.init(&self.executable);
+            self.executor_initialized = false;
         }
         self
     }
 
     /// Runs all systems in this schedule on the `world`, using its current execution strategy.
     pub fn run(&mut self, world: &mut World) {
-        self.initialize(world).unwrap();
         world.check_change_ticks();
-        // TODO: get a label on this span
+        self.initialize(world).unwrap();
+        // TODO: label
         #[cfg(feature = "trace")]
         let _span = info_span!("schedule").entered();
         self.executor.run(&mut self.executable, world);
     }
 
-    /// Initializes all uninitialized systems and conditions, rebuilds the executable schedule,
-    /// and re-initializes executor data structures.
+    /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
+    /// and re-initializes the executor.
     pub fn initialize(&mut self, world: &mut World) -> Result<(), BuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
             self.graph.update_schedule(&mut self.executable)?;
-            self.executor.init(&self.executable);
             self.graph.changed = false;
+            self.executor_initialized = false;
+        }
+
+        if !self.executor_initialized {
+            self.executor.init(&self.executable);
+            self.executor_initialized = true;
         }
 
         Ok(())
     }
 
-    /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
+    /// Iterates the change ticks of all systems in the schedule and clamps any older than
+    /// [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
     /// This prevents overflow and thus prevents false positives.
-    ///
-    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
-    /// times since the previous pass.
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for system in &mut self.executable.systems {
             system.borrow_mut().check_change_tick(change_tick);
@@ -228,7 +228,7 @@ impl Dag {
     }
 }
 
-/// Metadata for a [`SystemSet`], stored in a [`ScheduleMeta`].
+/// Metadata for a [`SystemSet`], stored in a [`ScheduleGraph`].
 struct SystemSetMeta {
     set: BoxedSystemSet,
     /// `true` if this system set was modified with `configure_set`
@@ -243,20 +243,21 @@ impl SystemSetMeta {
         }
     }
 
-    pub fn name(&self) -> Cow<'static, str> {
-        format!("{:?}", &self.set).into()
+    pub fn name(&self) -> String {
+        format!("{:?}", &self.set)
     }
 
     pub fn is_system_type(&self) -> bool {
         self.set.is_system_type()
     }
 
+    // TODO: rename
     pub fn dyn_clone(&self) -> BoxedSystemSet {
         self.set.dyn_clone()
     }
 }
 
-/// Uninitialized systems associated with a graph node, stored in a [`ScheduleMeta`].
+/// Uninitialized systems associated with a graph node, stored in a [`ScheduleGraph`].
 enum UninitNode {
     System(BoxedSystem, Vec<BoxedCondition>),
     SystemSet(Vec<BoxedCondition>),
@@ -264,7 +265,7 @@ enum UninitNode {
 
 /// Metadata for a [`Schedule`].
 #[derive(Default)]
-struct ScheduleMeta {
+struct ScheduleGraph {
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
     system_sets: HashMap<NodeId, SystemSetMeta>,
     systems: HashMap<NodeId, BoxedSystem>,
@@ -284,7 +285,7 @@ struct ScheduleMeta {
     uninit: Vec<(NodeId, UninitNode)>,
 }
 
-impl ScheduleMeta {
+impl ScheduleGraph {
     pub fn new() -> Self {
         Self {
             system_set_ids: HashMap::new(),
@@ -312,20 +313,24 @@ impl ScheduleMeta {
 
     fn set_default_set(&mut self, set: impl SystemSet) {
         assert!(!set.is_system_type(), "invalid use of system type set");
-        self.default_set = Some(set.dyn_clone());
+        self.default_set = Some(Box::new(set));
     }
 
     fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
         let SystemConfigs { systems, chained } = systems.into_configs();
-        let mut iter = systems
-            .into_iter()
-            .map(|system| self.add_system_inner(system).unwrap());
-
+        let mut system_iter = systems.into_iter();
         if chained {
-            let ids = iter.collect::<Vec<_>>();
-            self.chain(ids);
+            let Some(prev) = system_iter.next() else { return };
+            let mut prev_id = self.add_system_inner(prev).unwrap();
+            for next in system_iter {
+                let next_id = self.add_system_inner(next).unwrap();
+                self.dependency.graph.add_edge(prev_id, next_id, ());
+                prev_id = next_id;
+            }
         } else {
-            while iter.next().is_some() {}
+            for system in system_iter {
+                self.add_system_inner(system).unwrap();
+            }
         }
     }
 
@@ -363,15 +368,19 @@ impl ScheduleMeta {
 
     fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) {
         let SystemSetConfigs { sets, chained } = sets.into_configs();
-        let mut iter = sets
-            .into_iter()
-            .map(|set| self.configure_set_inner(set).unwrap());
-
+        let mut set_iter = sets.into_iter();
         if chained {
-            let ids = iter.collect::<Vec<_>>();
-            self.chain(ids);
+            let Some(prev) = set_iter.next() else { return };
+            let mut prev_id = self.configure_set_inner(prev).unwrap();
+            for next in set_iter {
+                let next_id = self.configure_set_inner(next).unwrap();
+                self.dependency.graph.add_edge(prev_id, next_id, ());
+                prev_id = next_id;
+            }
         } else {
-            while iter.next().is_some() {}
+            for set in set_iter {
+                self.configure_set_inner(set).unwrap();
+            }
         }
     }
 
@@ -419,12 +428,6 @@ impl ScheduleMeta {
         self.system_set_ids.insert(set.dyn_clone(), id);
         self.system_sets.insert(id, SystemSetMeta::new(set));
         id
-    }
-
-    fn chain(&mut self, nodes: Vec<NodeId>) {
-        for pair in nodes.windows(2) {
-            self.dependency.graph.add_edge(pair[0], pair[1], ());
-        }
     }
 
     fn check_sets(&mut self, id: &NodeId, graph_info: &GraphInfo) -> Result<(), BuildError> {
@@ -547,7 +550,7 @@ impl ScheduleMeta {
         }
     }
 
-    fn build_dependency_graph(&mut self) -> Result<(), BuildError> {
+    fn build_schedule(&mut self) -> Result<SystemSchedule, BuildError> {
         // check hierarchy for cycles
         let hier_scc = tarjan_scc(&self.hierarchy.graph);
         if self.contains_cycles(&hier_scc) {
@@ -739,13 +742,7 @@ impl ScheduleMeta {
             return Err(BuildError::Ambiguity);
         }
 
-        Ok(())
-    }
-
-    fn build_schedule(&mut self) -> SystemSchedule {
-        let sys_count = self.systems.len();
-        let node_count = self.systems.len() + self.system_sets.len();
-
+        // build the schedule
         let dg_system_ids = self.dependency_flattened.topsort.clone();
         let dg_system_idx_map = dg_system_ids
             .iter()
@@ -753,26 +750,6 @@ impl ScheduleMeta {
             .enumerate()
             .map(|(i, id)| (id, i))
             .collect::<HashMap<_, _>>();
-
-        // get the number of dependencies and the immediate dependents of each system
-        // (needed by multi-threaded executor to run systems in the correct order)
-        let mut system_deps = Vec::with_capacity(sys_count);
-        for &sys_id in &dg_system_ids {
-            let num_dependencies = self
-                .dependency_flattened
-                .graph
-                .neighbors_directed(sys_id, Direction::Incoming)
-                .count();
-
-            let dependents = self
-                .dependency_flattened
-                .graph
-                .neighbors_directed(sys_id, Direction::Outgoing)
-                .map(|dep_id| dg_system_idx_map[&dep_id])
-                .collect::<Vec<_>>();
-
-            system_deps.push((num_dependencies, dependents));
-        }
 
         let hg_systems = self
             .hierarchy
@@ -796,26 +773,40 @@ impl ScheduleMeta {
             })
             .unzip();
 
+        let sys_count = self.systems.len();
         let set_count = hg_set_ids.len();
-        let result = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
+        let node_count = self.systems.len() + self.system_sets.len();
+
+        // get the number of dependencies and the immediate dependents of each system
+        // (needed by multi-threaded executor to run systems in the correct order)
+        let mut system_dependencies = Vec::with_capacity(sys_count);
+        let mut system_dependents = Vec::with_capacity(sys_count);
+        for &sys_id in &dg_system_ids {
+            let num_dependencies = self
+                .dependency_flattened
+                .graph
+                .neighbors_directed(sys_id, Direction::Incoming)
+                .count();
+
+            let dependents = self
+                .dependency_flattened
+                .graph
+                .neighbors_directed(sys_id, Direction::Outgoing)
+                .map(|dep_id| dg_system_idx_map[&dep_id])
+                .collect::<Vec<_>>();
+
+            system_dependencies.push(num_dependencies);
+            system_dependents.push(dependents);
+        }
 
         // get the rows and columns of the hierarchy graph's reachability matrix
         // (needed to we can evaluate conditions in the correct order)
-        let mut sets_in_sets = vec![FixedBitSet::with_capacity(set_count); set_count];
-        for (i, &row) in hg_set_idxs.iter().enumerate() {
-            let bitset = &mut sets_in_sets[i];
-            for (idx, &col) in hg_set_idxs.iter().enumerate().skip(i) {
-                let is_descendant = result.reachable[index(row, col, node_count)];
-                bitset.set(idx, is_descendant);
-            }
-        }
-
         let mut systems_in_sets = vec![FixedBitSet::with_capacity(sys_count); set_count];
         for (i, &row) in hg_set_idxs.iter().enumerate() {
             let bitset = &mut systems_in_sets[i];
             for &(col, sys_id) in &hg_systems {
                 let idx = dg_system_idx_map[&sys_id];
-                let is_descendant = result.reachable[index(row, col, node_count)];
+                let is_descendant = hier_results.reachable[index(row, col, node_count)];
                 bitset.set(idx, is_descendant);
             }
         }
@@ -829,27 +820,25 @@ impl ScheduleMeta {
                 .enumerate()
                 .take_while(|&(_idx, &row)| row < col)
             {
-                let is_ancestor = result.reachable[index(row, col, node_count)];
+                let is_ancestor = hier_results.reachable[index(row, col, node_count)];
                 bitset.set(idx, is_ancestor);
             }
         }
 
-        SystemSchedule {
+        Ok(SystemSchedule {
             systems: Vec::with_capacity(sys_count),
             system_conditions: Vec::with_capacity(sys_count),
             set_conditions: Vec::with_capacity(set_count),
             system_ids: dg_system_ids,
             set_ids: hg_set_ids,
-            system_deps,
+            system_dependencies,
+            system_dependents,
             sets_of_systems,
-            sets_in_sets,
             systems_in_sets,
-        }
+        })
     }
 
     fn update_schedule(&mut self, schedule: &mut SystemSchedule) -> Result<(), BuildError> {
-        use std::cell::RefCell;
-
         if !self.uninit.is_empty() {
             return Err(BuildError::Uninitialized);
         }
@@ -873,8 +862,7 @@ impl ScheduleMeta {
             self.conditions.insert(id, conditions.into_inner());
         }
 
-        self.build_dependency_graph()?;
-        *schedule = self.build_schedule();
+        *schedule = self.build_schedule()?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
@@ -894,10 +882,10 @@ impl ScheduleMeta {
 }
 
 // methods for reporting errors
-impl ScheduleMeta {
-    fn get_node_name(&self, id: &NodeId) -> Cow<'static, str> {
+impl ScheduleGraph {
+    fn get_node_name(&self, id: &NodeId) -> String {
         match id {
-            NodeId::System(_) => self.systems[id].name(),
+            NodeId::System(_) => self.systems[id].name().to_string(),
             NodeId::Set(_) => self.system_sets[id].name(),
         }
     }
@@ -1006,22 +994,22 @@ impl ScheduleMeta {
 #[derive(Error, Debug)]
 #[non_exhaustive]
 pub enum BuildError {
-    #[error("`{0:?}` contains itself")]
+    #[error("`{0:?}` contains itself.")]
     HierarchyLoop(BoxedSystemSet),
-    #[error("system set hierarchy contains cycle(s)")]
+    #[error("System set hierarchy contains cycle(s).")]
     HierarchyCycle,
-    #[error("system set hierarchy contains conflicting relationships")]
+    #[error("System set hierarchy contains conflicting relationships.")]
     HierarchyConflict,
-    #[error("`{0:?}` depends on itself")]
+    #[error("`{0:?}` depends on itself.")]
     DependencyLoop(BoxedSystemSet),
-    #[error("dependencies contain cycle(s)")]
+    #[error("System dependencies contain cycle(s).")]
     DependencyCycle,
-    #[error("`{0:?}` and `{1:?}` can have a hierarchical OR dependent relationship, not both")]
+    #[error("`{0:?}` and `{1:?}` have both `in_set` and `before`-`after` relationships (possibly transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
-    #[error("ambiguous relationship with `{0:?}`, multiple instances of this system exist")]
+    #[error("Tried to order against `fn {0:?}` in a schedule that has more than one `{0:?}` instance. `fn {0:?}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(BoxedSystemSet),
-    #[error("systems with conflicting access have indeterminate execution order")]
+    #[error("Systems with conflicting access have indeterminate run order.")]
     Ambiguity,
-    #[error("schedule not initialized")]
+    #[error("Schedule is not initialized.")]
     Uninitialized,
 }

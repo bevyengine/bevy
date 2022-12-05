@@ -16,6 +16,10 @@ pub trait AppExt {
         label: impl ScheduleLabel,
         f: impl FnMut(&mut Schedule),
     ) -> &mut Self;
+    /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
+    /// for each state variant, and an instance of [`apply_state_transition::<S>`] in
+    /// \<insert-`bevy_core`-set-name\> so that transitions happen before `Update`.
+    fn add_state<S: Statelike>(&mut self) -> &mut Self;
 }
 
 /// New "stageless" [`World`] methods.

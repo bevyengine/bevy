@@ -1,4 +1,4 @@
-pub use helper::*;
+pub use common_conditions::*;
 
 use crate::system::BoxedSystem;
 
@@ -29,7 +29,7 @@ mod sealed {
     }
 }
 
-pub mod helper {
+mod common_conditions {
     use crate::schedule_v3::{State, Statelike};
     use crate::system::{Res, Resource};
 

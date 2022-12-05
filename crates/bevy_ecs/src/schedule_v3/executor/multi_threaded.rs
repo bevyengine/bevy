@@ -10,17 +10,15 @@ use fixedbitset::FixedBitSet;
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
-    schedule_v3::{
-        is_apply_system_buffers, ticks_since, ExecutorKind, SystemExecutor, SystemSchedule,
-    },
+    schedule_v3::{is_apply_system_buffers, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
 /// Per-system data used by the [`MultiThreadedExecutor`].
-struct SystemTaskMetadata {
+// Copied here because it can't be read from the system when it's running.
+struct SystemTaskMeta {
     /// Indices of the systems that directly depend on the system.
     dependents: Vec<usize>,
-    // These values are cached because we can't read them from the system while it's running.
     /// The `ArchetypeComponentId` access of the system.
     archetype_component_access: Access<ArchetypeComponentId>,
     /// Is `true` if the system does not access `!Send` data.
@@ -31,13 +29,13 @@ struct SystemTaskMetadata {
 
 /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
 pub struct MultiThreadedExecutor {
-    /// Metadata for scheduling and running system tasks.
-    system_task_metadata: Vec<SystemTaskMetadata>,
     /// Sends system completion events.
     sender: Sender<usize>,
     /// Receives system completion events.
     receiver: Receiver<usize>,
-    /// The number of dependencies the system has that have not completed.
+    /// Metadata for scheduling and running system tasks.
+    system_task_meta: Vec<SystemTaskMeta>,
+    /// The number of dependencies each system has that have not completed.
     dependencies_remaining: Vec<usize>,
     /// Union of the accesses of all currently running systems.
     active_access: Access<ArchetypeComponentId>,
@@ -45,14 +43,16 @@ pub struct MultiThreadedExecutor {
     local_thread_running: bool,
     /// Returns `true` if an exclusive system is running.
     exclusive_running: bool,
-    /// System sets that have been skipped or had their conditions evaluated.
-    completed_sets: FixedBitSet,
-    /// Systems that have run or been skipped.
-    completed_systems: FixedBitSet,
+    /// System sets whose conditions have been evaluated.
+    evaluated_sets: FixedBitSet,
     /// Systems that have no remaining dependencies and are waiting to run.
     ready_systems: FixedBitSet,
-    /// Systems that are currently running.
+    /// Systems that are running.
     running_systems: FixedBitSet,
+    /// Systems that got skipped.
+    skipped_systems: FixedBitSet,
+    /// Systems whose conditions have been evaluated and were run or skipped.
+    completed_systems: FixedBitSet,
     /// Systems that have run but have not had their buffers applied.
     unapplied_systems: FixedBitSet,
 }
@@ -73,26 +73,25 @@ impl SystemExecutor for MultiThreadedExecutor {
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
 
-        self.completed_sets = FixedBitSet::with_capacity(set_count);
-        self.completed_systems = FixedBitSet::with_capacity(sys_count);
+        self.evaluated_sets = FixedBitSet::with_capacity(set_count);
         self.ready_systems = FixedBitSet::with_capacity(sys_count);
         self.running_systems = FixedBitSet::with_capacity(sys_count);
+        self.completed_systems = FixedBitSet::with_capacity(sys_count);
+        self.skipped_systems = FixedBitSet::with_capacity(sys_count);
         self.unapplied_systems = FixedBitSet::with_capacity(sys_count);
 
-        self.dependencies_remaining = Vec::with_capacity(sys_count);
-        self.system_task_metadata = Vec::with_capacity(sys_count);
-
+        self.system_task_meta = Vec::with_capacity(sys_count);
         for index in 0..sys_count {
-            let (num_dependencies, dependents) = schedule.system_deps[index].clone();
             let system = schedule.systems[index].borrow();
-            self.dependencies_remaining.push(num_dependencies);
-            self.system_task_metadata.push(SystemTaskMetadata {
-                dependents,
+            self.system_task_meta.push(SystemTaskMeta {
+                dependents: schedule.system_dependents[index].clone(),
+                archetype_component_access: default(),
                 is_send: system.is_send(),
                 is_exclusive: system.is_exclusive(),
-                archetype_component_access: default(),
             });
         }
+
+        self.dependencies_remaining = Vec::with_capacity(sys_count);
     }
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
@@ -100,23 +99,29 @@ impl SystemExecutor for MultiThreadedExecutor {
             // the executor itself is a `Send` future so that it can run
             // alongside systems that claim the local thread
             let executor = async {
-                // systems with zero dependencies
-                for (index, dependencies) in self.dependencies_remaining.iter().enumerate() {
+                // reset counts
+                self.dependencies_remaining.clear();
+                self.dependencies_remaining
+                    .extend_from_slice(&schedule.system_dependencies);
+
+                for (system_index, dependencies) in
+                    self.dependencies_remaining.iter_mut().enumerate()
+                {
                     if *dependencies == 0 {
-                        self.ready_systems.insert(index);
+                        self.ready_systems.insert(system_index);
                     }
                 }
 
-                // spare bitset to avoid repeated allocations
-                let mut ready = FixedBitSet::with_capacity(self.ready_systems.len());
+                // using spare bitset to avoid repeated allocations
+                let mut ready_systems = FixedBitSet::with_capacity(self.ready_systems.len());
 
                 // main loop
                 let world = SyncUnsafeCell::from_mut(world);
                 while self.completed_systems.count_ones(..) != self.completed_systems.len() {
                     if !self.exclusive_running {
-                        ready.clear();
-                        ready.union_with(&self.ready_systems);
-                        self.spawn_system_tasks(&ready, scope, schedule, world);
+                        ready_systems.clear();
+                        ready_systems.union_with(&self.ready_systems);
+                        self.spawn_system_tasks(&ready_systems, scope, schedule, world);
                     }
 
                     if !self.running_systems.is_clear() {
@@ -145,7 +150,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 debug_assert!(self.running_systems.is_clear());
                 debug_assert!(self.unapplied_systems.is_clear());
                 self.active_access.clear();
-                self.completed_sets.clear();
+                self.evaluated_sets.clear();
                 self.completed_systems.clear();
             };
 
@@ -162,35 +167,31 @@ impl MultiThreadedExecutor {
     pub fn new() -> Self {
         let (sender, receiver) = async_channel::unbounded();
         Self {
-            system_task_metadata: Vec::new(),
             sender,
             receiver,
+            system_task_meta: Vec::new(),
             dependencies_remaining: Vec::new(),
             active_access: default(),
             local_thread_running: false,
             exclusive_running: false,
-            completed_sets: FixedBitSet::new(),
-            completed_systems: FixedBitSet::new(),
+            evaluated_sets: FixedBitSet::new(),
             ready_systems: FixedBitSet::new(),
             running_systems: FixedBitSet::new(),
+            skipped_systems: FixedBitSet::new(),
+            completed_systems: FixedBitSet::new(),
             unapplied_systems: FixedBitSet::new(),
         }
     }
 
     fn spawn_system_tasks<'scope>(
         &mut self,
-        ready: &FixedBitSet,
+        ready_systems: &FixedBitSet,
         scope: &Scope<'_, 'scope, ()>,
         schedule: &'scope SystemSchedule,
         cell: &'scope SyncUnsafeCell<World>,
     ) {
-        for system_index in ready.ones() {
-            // systems can be skipped within this loop
-            if self.completed_systems.contains(system_index) {
-                continue;
-            }
-
-            // SAFETY: no exclusive system running
+        for system_index in ready_systems.ones() {
+            // SAFETY: no exclusive system is running
             let world = unsafe { &*cell.get() };
             if !self.can_run(system_index, schedule, world) {
                 // NOTE: exclusive systems with ambiguities are susceptible to
@@ -199,18 +200,26 @@ impl MultiThreadedExecutor {
                 // if that becomes an issue, `break;` if exclusive system
                 continue;
             }
+
+            // system is either going to run or be skipped
+            self.ready_systems.set(system_index, false);
+
             if !self.should_run(system_index, schedule, world) {
+                self.skip_system_and_signal_dependents(system_index);
                 continue;
             }
 
-            if !self.system_task_metadata[system_index].is_exclusive {
-                self.spawn_system_task(scope, system_index, schedule, world);
-            } else {
-                // SAFETY: no other system running
+            // system is starting
+            self.running_systems.insert(system_index);
+
+            if self.system_task_meta[system_index].is_exclusive {
+                // SAFETY: `can_run` confirmed no other systems are running
                 let world = unsafe { &mut *cell.get() };
                 self.spawn_exclusive_system_task(scope, system_index, schedule, world);
                 break;
             }
+
+            self.spawn_system_task(scope, system_index, schedule, world);
         }
     }
 
@@ -246,7 +255,7 @@ impl MultiThreadedExecutor {
         #[cfg(feature = "trace")]
         let task = task.instrument(task_span);
 
-        let system_meta = &self.system_task_metadata[system_index];
+        let system_meta = &self.system_task_meta[system_index];
         self.active_access
             .extend(&system_meta.archetype_component_access);
 
@@ -256,9 +265,6 @@ impl MultiThreadedExecutor {
             self.local_thread_running = true;
             scope.spawn_on_scope(task);
         }
-
-        self.ready_systems.set(system_index, false);
-        self.running_systems.insert(system_index);
     }
 
     fn spawn_exclusive_system_task<'scope>(
@@ -315,8 +321,6 @@ impl MultiThreadedExecutor {
 
         self.local_thread_running = true;
         self.exclusive_running = true;
-        self.ready_systems.set(system_index, false);
-        self.running_systems.insert(system_index);
     }
 
     fn can_run(&mut self, system_index: usize, schedule: &SystemSchedule, world: &World) -> bool {
@@ -325,34 +329,57 @@ impl MultiThreadedExecutor {
         #[cfg(feature = "trace")]
         let _span = info_span!("check_access", name = &*name).entered();
 
-        let system_meta = &mut self.system_task_metadata[system_index];
-        if self.local_thread_running && !system_meta.is_send {
-            // only one thread can access thread-local resources
+        // TODO: an earlier out if archetypes did not change
+        let system_meta = &mut self.system_task_meta[system_index];
+
+        if system_meta.is_exclusive && !self.running_systems.is_clear() {
             return false;
         }
 
-        let mut system = schedule.systems[system_index].borrow_mut();
-        system.update_archetype_component_access(world);
-
-        // TODO: avoid allocation
-        system_meta.archetype_component_access = system.archetype_component_access().clone();
-        let mut total_access = system.archetype_component_access().clone();
-
-        let mut system_conditions = schedule.system_conditions[system_index].borrow_mut();
-        for condition in system_conditions.iter_mut() {
-            condition.update_archetype_component_access(world);
-            total_access.extend(condition.archetype_component_access());
+        if !system_meta.is_send && self.local_thread_running {
+            return false;
         }
 
-        for set_idx in schedule.sets_of_systems[system_index].difference(&self.completed_sets) {
-            let mut set_conditions = schedule.set_conditions[set_idx].borrow_mut();
-            for condition in set_conditions.iter_mut() {
+        for set_idx in schedule.sets_of_systems[system_index].difference(&self.evaluated_sets) {
+            for condition in schedule.set_conditions[set_idx].borrow_mut().iter_mut() {
                 condition.update_archetype_component_access(world);
-                total_access.extend(condition.archetype_component_access());
+                if !condition
+                    .archetype_component_access()
+                    .is_compatible(&self.active_access)
+                {
+                    return false;
+                }
             }
         }
 
-        total_access.is_compatible(&self.active_access)
+        for condition in schedule.system_conditions[system_index]
+            .borrow_mut()
+            .iter_mut()
+        {
+            condition.update_archetype_component_access(world);
+            if !condition
+                .archetype_component_access()
+                .is_compatible(&self.active_access)
+            {
+                return false;
+            }
+        }
+
+        if !self.skipped_systems.contains(system_index) {
+            let mut system = schedule.systems[system_index].borrow_mut();
+            system.update_archetype_component_access(world);
+            if !system
+                .archetype_component_access()
+                .is_compatible(&self.active_access)
+            {
+                return false;
+            }
+
+            // TODO: avoid allocation by keeping count of readers
+            system_meta.archetype_component_access = system.archetype_component_access().clone();
+        }
+
+        true
     }
 
     fn should_run(
@@ -366,85 +393,61 @@ impl MultiThreadedExecutor {
         #[cfg(feature = "trace")]
         let _span = info_span!("check_conditions", name = &*name).entered();
 
-        // evaluate conditions
-        let mut should_run = true;
-        let world_tick = world.read_change_tick();
-
-        // evaluate system set conditions in hierarchical order
+        let mut should_run = !self.completed_systems.contains(system_index);
         for set_idx in schedule.sets_of_systems[system_index].ones() {
-            if self.completed_sets.contains(set_idx) {
+            if self.evaluated_sets.contains(set_idx) {
                 continue;
             }
 
-            let mut set_conditions = schedule.set_conditions[set_idx].borrow_mut();
-
-            // if any condition fails, we need to restore their change ticks
-            let saved_tick = set_conditions
-                .iter()
-                .map(|condition| condition.get_last_change_tick())
-                .min_by_key(|&tick| ticks_since(tick, world_tick));
-
-            let set_conditions_met = set_conditions.iter_mut().all(|condition| {
-                condition.set_last_change_tick(saved_tick.unwrap());
-                #[cfg(feature = "trace")]
-                let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-                // SAFETY: access is compatible
-                unsafe { condition.run_unsafe((), world) }
-            });
-
-            self.completed_sets.insert(set_idx);
+            // evaluate system set's conditions
+            let set_conditions_met = schedule.set_conditions[set_idx]
+                .borrow_mut()
+                .iter_mut()
+                .map(|condition| {
+                    #[cfg(feature = "trace")]
+                    let _condition_span =
+                        info_span!("condition", name = &*condition.name()).entered();
+                    // SAFETY: access is compatible
+                    unsafe { condition.run_unsafe((), world) }
+                })
+                .fold(true, |acc, res| acc && res);
 
             if !set_conditions_met {
-                // restore change ticks
-                for condition in set_conditions.iter_mut() {
-                    condition.set_last_change_tick(saved_tick.unwrap());
-                }
-
-                // mark all members as completed
-                for sys_idx in schedule.systems_in_sets[set_idx].ones() {
-                    if !self.completed_systems.contains(sys_idx) {
-                        self.skip_system_and_signal_dependents(sys_idx);
-                    }
-                }
-                self.completed_sets
-                    .union_with(&schedule.sets_in_sets[set_idx]);
+                self.skipped_systems
+                    .union_with(&schedule.systems_in_sets[set_idx]);
             }
 
             should_run &= set_conditions_met;
+            self.evaluated_sets.insert(set_idx);
         }
 
-        if !should_run {
-            return false;
-        }
-
-        let system = schedule.systems[system_index].borrow();
-
-        // evaluate the system's conditions
-        should_run = schedule.system_conditions[system_index]
+        // evaluate system's conditions
+        let system_conditions_met = schedule.system_conditions[system_index]
             .borrow_mut()
             .iter_mut()
-            .all(|condition| {
-                condition.set_last_change_tick(system.get_last_change_tick());
+            .map(|condition| {
                 #[cfg(feature = "trace")]
                 let _condition_span = info_span!("condition", name = &*condition.name()).entered();
                 // SAFETY: access is compatible
                 unsafe { condition.run_unsafe((), world) }
-            });
+            })
+            .fold(true, |acc, res| acc && res);
 
-        if !should_run {
-            self.skip_system_and_signal_dependents(system_index);
-            return false;
+        if !system_conditions_met {
+            self.skipped_systems.insert(system_index);
         }
 
-        true
+        should_run &= system_conditions_met;
+
+        should_run
     }
 
     fn finish_system_and_signal_dependents(&mut self, system_index: usize) {
-        if !self.system_task_metadata[system_index].is_send {
+        if !self.system_task_meta[system_index].is_send {
             self.local_thread_running = false;
         }
 
-        if self.system_task_metadata[system_index].is_exclusive {
+        if self.system_task_meta[system_index].is_exclusive {
             self.exclusive_running = false;
         }
 
@@ -455,7 +458,6 @@ impl MultiThreadedExecutor {
     }
 
     fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
-        self.ready_systems.set(system_index, false);
         self.completed_systems.insert(system_index);
         self.signal_dependents(system_index);
     }
@@ -463,7 +465,7 @@ impl MultiThreadedExecutor {
     fn signal_dependents(&mut self, system_index: usize) {
         #[cfg(feature = "trace")]
         let _span = info_span!("signal_dependents").entered();
-        for &dep_idx in &self.system_task_metadata[system_index].dependents {
+        for &dep_idx in &self.system_task_meta[system_index].dependents {
             let dependencies = &mut self.dependencies_remaining[dep_idx];
             *dependencies -= 1;
             if *dependencies == 0 && !self.completed_systems.contains(dep_idx) {
@@ -475,7 +477,7 @@ impl MultiThreadedExecutor {
     fn rebuild_active_access(&mut self) {
         self.active_access.clear();
         for index in self.running_systems.ones() {
-            let system_meta = &self.system_task_metadata[index];
+            let system_meta = &self.system_task_meta[index];
             self.active_access
                 .extend(&system_meta.archetype_component_access);
         }

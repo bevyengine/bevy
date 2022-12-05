@@ -33,8 +33,8 @@ pub enum ExecutorKind {
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_buffers`](crate::system::System::apply_buffers)
     /// immediately after running each system.
     Simple,
-    #[default]
     /// Runs the schedule using a thread pool. Non-conflicting systems can run in parallel.
+    #[default]
     MultiThreaded,
 }
 
@@ -45,9 +45,9 @@ pub(super) struct SystemSchedule {
     pub(super) set_conditions: Vec<RefCell<Vec<BoxedCondition>>>,
     pub(super) system_ids: Vec<NodeId>,
     pub(super) set_ids: Vec<NodeId>,
-    pub(super) system_deps: Vec<(usize, Vec<usize>)>,
+    pub(super) system_dependencies: Vec<usize>,
+    pub(super) system_dependents: Vec<Vec<usize>>,
     pub(super) sets_of_systems: Vec<FixedBitSet>,
-    pub(super) sets_in_sets: Vec<FixedBitSet>,
     pub(super) systems_in_sets: Vec<FixedBitSet>,
 }
 
@@ -59,9 +59,9 @@ impl SystemSchedule {
             set_conditions: Vec::new(),
             system_ids: Vec::new(),
             set_ids: Vec::new(),
-            system_deps: Vec::new(),
+            system_dependencies: Vec::new(),
+            system_dependents: Vec::new(),
             sets_of_systems: Vec::new(),
-            sets_in_sets: Vec::new(),
             systems_in_sets: Vec::new(),
         }
     }
@@ -87,9 +87,4 @@ pub(super) fn is_apply_system_buffers(system: &BoxedSystem) -> bool {
     use std::any::Any;
     // deref to use `System::type_id` instead of `Any::type_id`
     system.as_ref().type_id() == apply_system_buffers.type_id()
-}
-
-/// Returns the number of change ticks elapsed.
-pub(super) fn ticks_since(system_tick: u32, world_tick: u32) -> u32 {
-    world_tick.wrapping_sub(system_tick)
 }
