@@ -238,6 +238,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
       - run: cargo run -p build-example-pages -- check-missing
 
   check-examples-readme-update-needed:
@@ -245,6 +246,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
       - run: cargo run -p build-example-pages -- update
       - name: Check for modified files
         run: |
