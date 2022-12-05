@@ -158,8 +158,9 @@ macro_rules! change_detection_impl {
                 Target: PartialEq,
             {
                 // This dereference is immutable, so does not trigger change detection
-                if **self != value {
-                    **self = value;
+                if *<Self as Deref>::deref(self) != value {
+                    // `DerefMut` usage triggers change detection
+                    *<Self as DerefMut>::deref_mut(self) = value;
                 }
             }
         }
@@ -473,8 +474,9 @@ impl<'a> DetectChanges for MutUntyped<'a> {
         Target: PartialEq,
     {
         // This dereference is immutable, so does not trigger change detection
-        if **self != value {
-            **self = value;
+        if *<Self as Deref>::deref(self) != value {
+            // `DerefMut` usage triggers change detection
+            *<Self as DerefMut>::deref_mut(self) = value;
         }
     }
 }
