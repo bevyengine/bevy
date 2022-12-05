@@ -14,7 +14,7 @@ use crate::{
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
@@ -323,11 +323,20 @@ impl World {
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
     #[inline]
-    pub fn iter_entities(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.archetypes
-            .iter()
-            .flat_map(|archetype| archetype.entities().iter())
-            .map(|archetype_entity| archetype_entity.entity())
+    pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
+        self.archetypes.iter().flat_map(|archetype| {
+            archetype
+                .entities()
+                .iter()
+                .enumerate()
+                .map(|(index, archetype_entity)| {
+                    let location = EntityLocation {
+                        archetype_id: archetype.id(),
+                        index,
+                    };
+                    EntityRef::new(self, archetype_entity.entity(), location)
+                })
+        })
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -1387,11 +1396,19 @@ impl World {
         self.change_tick.fetch_add(1, Ordering::AcqRel)
     }
 
+    /// Reads the current change tick of this world.
+    ///
+    /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](Self::change_tick),
+    /// which is more efficient since it does not require atomic synchronization.
     #[inline]
     pub fn read_change_tick(&self) -> u32 {
         self.change_tick.load(Ordering::Acquire)
     }
 
+    /// Reads the current change tick of this world.
+    ///
+    /// This does the same thing as [`read_change_tick()`](Self::read_change_tick), only this method
+    /// is more efficient since it does not require atomic synchronization.
     #[inline]
     pub fn change_tick(&mut self) -> u32 {
         *self.change_tick.get_mut()
@@ -1448,14 +1465,14 @@ impl World {
             self.validate_non_send_access_untyped(info.name());
         }
 
+        let change_tick = self.change_tick();
+
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
         // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
         // - index is in-bounds because the column is initialized and non-empty
         // - no other reference to the ticks of the same row can exist at the same time
-        let ticks = unsafe {
-            Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
-        };
+        let ticks = unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -1874,7 +1891,7 @@ mod tests {
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
             for entity in world.iter_entities() {
-                let counter = entity_counters.entry(entity).or_insert(0);
+                let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
             }
         };
