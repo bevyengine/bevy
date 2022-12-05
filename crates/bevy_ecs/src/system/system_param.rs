@@ -105,7 +105,7 @@ pub trait SystemParam: Sized {
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Resource)]
 /// # struct SomeResource(u32);
-/// use bevy_ecs::system::{ReadOnlySystemParamFetch, SystemParam, SystemParamState, SystemParamFetch, SystemMeta, OptionalSystemParam, OptionResState};
+/// use bevy_ecs::system::{ReadOnlySystemParamFetch, SystemParam, SystemParamState, OptionalSystemParamFetch, SystemMeta, OptionalSystemParam, ResState};
 ///
 /// struct MyOptionalParam<'w> {
 ///     foo: &'w u32,
@@ -116,19 +116,19 @@ pub trait SystemParam: Sized {
 /// }
 ///
 /// struct OptionParamState {
-///     res_state: OptionResState<SomeResource>,
+///     res_state: Option<ResState<SomeResource>>,
 /// }
 ///
 /// unsafe impl SystemParamState for OptionParamState {
 ///     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
 ///         Self {
-///             res_state: OptionResState::init(world, system_meta)
+///             res_state: Some(OptionResState::init(world, system_meta))
 ///         }
 ///     }
 /// }
 ///
-/// impl<'w, 's> SystemParamFetch<'w, 's> for OptionParamState {
-///     type Item = Option<MyOptionalParam<'w>>;
+/// impl<'w, 's> OptionalSystemParamFetch<'w, 's> for OptionParamState {
+///     type Item = MyOptionalParam<'w>;
 ///
 ///     #[inline]
 ///     unsafe fn get_param(
@@ -136,7 +136,7 @@ pub trait SystemParam: Sized {
 ///         system_meta: &SystemMeta,
 ///         world: &'w World,
 ///         change_tick: u32,
-///     ) -> Self::Item {
+///     ) -> Option<Self::Item> {
 ///         let foo = <<Option<Res<SomeResource>> as SystemParam>::Fetch as SystemParamFetch>::get_param(&mut state.res_state, system_meta, world, change_tick);
 ///         foo.map(|f| {
 ///             let f = f.into_inner();
@@ -188,6 +188,7 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn apply(&mut self, _world: &mut World) {}
 }
 
+// SAFETY: T's implementation of SystemParamState must be safe.
 unsafe impl<T: SystemParamState> SystemParamState for Option<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Some(T::init(world, system_meta))
