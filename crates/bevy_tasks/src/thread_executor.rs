@@ -1,0 +1,129 @@
+use std::{
+    marker::PhantomData,
+    sync::Arc,
+    thread::{self, ThreadId},
+};
+
+use async_executor::{Executor, Task};
+use futures_lite::{future::block_on, Future};
+
+/// An executor that can only be ticked on the thread it was instantiated on.
+#[derive(Debug)]
+pub struct ThreadExecutor {
+    executor: Arc<Executor<'static>>,
+    thread_id: ThreadId,
+}
+
+impl Default for ThreadExecutor {
+    fn default() -> Self {
+        Self {
+            executor: Arc::new(Executor::new()),
+            thread_id: thread::current().id(),
+        }
+    }
+}
+
+impl ThreadExecutor {
+    /// createa a new `[ThreadExecutor]`
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Gets the `[ThreadSpawner]` for the thread executor.
+    /// Use this to spawn tasks that run on the thread this was instatiated on.
+    pub fn spawner(&self) -> ThreadSpawner<'static> {
+        ThreadSpawner(self.executor.clone())
+    }
+
+    /// Gets the `[ThreadTicker]` for this executor.
+    /// Use this to tick the executor.
+    /// It only returns the ticker if it's on the thread the executor was created on
+    /// and returns `None` otherwise.
+    pub fn ticker(&self) -> Option<ThreadTicker> {
+        if thread::current().id() == self.thread_id {
+            return Some(ThreadTicker {
+                executor: self.executor.clone(),
+                _marker: PhantomData::default(),
+            });
+        }
+        None
+    }
+}
+
+/// Used to spawn on the [`ThreadExecutor`]
+#[derive(Debug)]
+pub struct ThreadSpawner<'a>(Arc<Executor<'a>>);
+impl<'a> ThreadSpawner<'a> {
+    /// Spawn a task on the main thread
+    pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
+        self.0.spawn(future)
+    }
+
+    /// Runs a future on the executor's thread and blocks for the result
+    /// Note: this will deadlock if executor is not being ticked when this is called
+    // TODO: if we're on the executor's thead we can just block_on the
+    // the future instead of spawning the task.
+    pub fn block_on<'env, T: Send + 'env>(
+        &self,
+        future: impl Future<Output = T> + Send + 'env,
+    ) -> T {
+        // SAFETY: Tasks spawn onto the executor must complete before block_on returns
+        let thread_spawner: &ThreadSpawner<'env> = unsafe { std::mem::transmute(self) };
+
+        let task = thread_spawner.0.spawn(future).fallible();
+
+        // TODO: add a drop function to wait for the task to cancel before ending the function if there's a panic
+        block_on(task).unwrap()
+    }
+}
+
+/// Used to tick the [`ThreadExecutor`]
+#[derive(Debug)]
+pub struct ThreadTicker {
+    executor: Arc<Executor<'static>>,
+    // make type not send or sync
+    _marker: PhantomData<*const ()>,
+}
+impl ThreadTicker {
+    /// Tick the main thread executor.
+    /// This needs to be called manually on the thread if it is not being used with
+    /// a `[TaskPool::scope]`.
+    pub fn tick(&self) -> impl Future<Output = ()> + '_ {
+        self.executor.tick()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+
+    #[test]
+    fn test_ticker() {
+        let executor = Arc::new(ThreadExecutor::new());
+        let ticker = executor.ticker();
+        assert!(ticker.is_some());
+
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                let ticker = executor.ticker();
+                assert!(ticker.is_none());
+            });
+        });
+    }
+
+    #[test]
+    fn test_run() {
+        let executor = Arc::new(ThreadExecutor::new());
+        let ticker = executor.ticker().unwrap();
+
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                executor.spawner().block_on(async {
+                    // TODO: do something here to check we're on the main thread
+                });
+            });
+            block_on(ticker.tick());
+        });
+    }
+}

@@ -309,38 +309,6 @@ impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
     }
 }
 
-/// Unique borrow of a non-[`Send`] resource.
-///
-/// Only [`Send`] resources may be accessed with the [`ResMut`] [`SystemParam`](crate::system::SystemParam). In case that the
-/// resource does not implement `Send`, this `SystemParam` wrapper can be used. This will instruct
-/// the scheduler to instead run the system on the main thread so that it doesn't send the resource
-/// over to another thread.
-///
-/// # Panics
-///
-/// Panics when used as a `SystemParameter` if the resource does not exist.
-///
-/// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
-pub struct NonSendMut<'a, T: ?Sized + 'static> {
-    pub(crate) value: &'a mut T,
-    pub(crate) ticks: Ticks<'a>,
-}
-
-change_detection_impl!(NonSendMut<'a, T>, T,);
-impl_methods!(NonSendMut<'a, T>, T,);
-impl_debug!(NonSendMut<'a, T>,);
-
-impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
-    /// Convert this `NonSendMut` into a `Mut`. This allows keeping the change-detection feature of `Mut`
-    /// while losing the specificity of `NonSendMut`.
-    fn from(other: NonSendMut<'a, T>) -> Mut<'a, T> {
-        Mut {
-            value: other.value,
-            ticks: other.ticks,
-        }
-    }
-}
-
 /// Unique mutable borrow of an entity's component
 pub struct Mut<'a, T: ?Sized> {
     pub(crate) value: &'a mut T,
@@ -451,7 +419,7 @@ mod tests {
 
     use crate::{
         self as bevy_ecs,
-        change_detection::{Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
+        change_detection::{Mut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
         component::{Component, ComponentTicks, Tick},
         query::ChangeTrackers,
         system::{IntoSystem, Query, System},
@@ -570,31 +538,6 @@ mod tests {
         };
 
         let into_mut: Mut<R> = res_mut.into();
-        assert_eq!(1, into_mut.ticks.added.tick);
-        assert_eq!(2, into_mut.ticks.changed.tick);
-        assert_eq!(3, into_mut.ticks.last_change_tick);
-        assert_eq!(4, into_mut.ticks.change_tick);
-    }
-
-    #[test]
-    fn mut_from_non_send_mut() {
-        let mut component_ticks = ComponentTicks {
-            added: Tick::new(1),
-            changed: Tick::new(2),
-        };
-        let ticks = Ticks {
-            added: &mut component_ticks.added,
-            changed: &mut component_ticks.changed,
-            last_change_tick: 3,
-            change_tick: 4,
-        };
-        let mut res = R {};
-        let non_send_mut = NonSendMut {
-            value: &mut res,
-            ticks,
-        };
-
-        let into_mut: Mut<R> = non_send_mut.into();
         assert_eq!(1, into_mut.ticks.added.tick);
         assert_eq!(2, into_mut.ticks.changed.tick);
         assert_eq!(3, into_mut.ticks.last_change_tick);

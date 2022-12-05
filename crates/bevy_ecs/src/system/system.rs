@@ -30,8 +30,6 @@ pub trait System: Send + Sync + 'static {
     fn component_access(&self) -> &Access<ComponentId>;
     /// Returns the system's archetype component [`Access`].
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
-    /// Returns true if the system is [`Send`].
-    fn is_send(&self) -> bool;
 
     /// Returns true if the system must be run exclusively.
     fn is_exclusive(&self) -> bool;
@@ -100,13 +98,7 @@ pub(crate) fn check_system_change_tick(
 impl Debug for dyn System<In = (), Out = ()> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "System {}: {{{}}}", self.name(), {
-            if self.is_send() {
-                if self.is_exclusive() {
-                    "is_send is_exclusive"
-                } else {
-                    "is_send"
-                }
-            } else if self.is_exclusive() {
+            if self.is_exclusive() {
                 "is_exclusive"
             } else {
                 ""

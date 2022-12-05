@@ -22,7 +22,6 @@ pub struct SystemMeta {
     pub(crate) archetype_component_access: Access<ArchetypeComponentId>,
     // NOTE: this must be kept private. making a SystemMeta non-send is irreversible to prevent
     // SystemParams from overriding each other
-    is_send: bool,
     pub(crate) last_change_tick: u32,
 }
 
@@ -32,23 +31,8 @@ impl SystemMeta {
             name: std::any::type_name::<T>().into(),
             archetype_component_access: Access::default(),
             component_access_set: FilteredAccessSet::default(),
-            is_send: true,
             last_change_tick: 0,
         }
-    }
-
-    /// Returns true if the system is [`Send`].
-    #[inline]
-    pub fn is_send(&self) -> bool {
-        self.is_send
-    }
-
-    /// Sets the system to be not [`Send`].
-    ///
-    /// This is irreversible.
-    #[inline]
-    pub fn set_non_send(&mut self) {
-        self.is_send = false;
     }
 }
 
@@ -380,11 +364,6 @@ where
     #[inline]
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.system_meta.archetype_component_access
-    }
-
-    #[inline]
-    fn is_send(&self) -> bool {
-        self.system_meta.is_send
     }
 
     #[inline]

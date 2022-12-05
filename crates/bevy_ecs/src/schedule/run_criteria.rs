@@ -362,13 +362,7 @@ impl Debug for dyn System<In = (), Out = ShouldRun> + 'static {
             "System {} with In=(), Out=ShouldRun: {{{}}}",
             self.name(),
             {
-                if self.is_send() {
-                    if self.is_exclusive() {
-                        "is_send is_exclusive"
-                    } else {
-                        "is_send"
-                    }
-                } else if self.is_exclusive() {
+                if self.is_exclusive() {
                     "is_exclusive"
                 } else {
                     ""
@@ -385,13 +379,7 @@ impl Debug for dyn System<In = ShouldRun, Out = ShouldRun> + 'static {
             "System {} with In=ShouldRun, Out=ShouldRun: {{{}}}",
             self.name(),
             {
-                if self.is_send() {
-                    if self.is_exclusive() {
-                        "is_send is_exclusive"
-                    } else {
-                        "is_send"
-                    }
-                } else if self.is_exclusive() {
+                if self.is_exclusive() {
                     "is_exclusive"
                 } else {
                     ""

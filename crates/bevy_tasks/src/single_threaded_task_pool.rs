@@ -5,6 +5,16 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+/// dummy struct for wasm
+#[derive(Default)]
+pub struct ThreadExecutor;
+impl ThreadExecutor {
+    /// creates a new `ThreadExecutor`
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 /// Used to create a TaskPool
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
@@ -63,6 +73,24 @@ impl TaskPool {
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
+    where
+        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        T: Send + 'static,
+    {
+        self.scope_with_executor(false, None, f)
+    }
+
+    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// passing a scope object into it. The scope object provided to the callback can be used
+    /// to spawn tasks. This function will await the completion of all tasks before returning.
+    ///
+    /// This is similar to `rayon::scope` and `crossbeam::scope`
+    pub fn scope_with_executor<'env, F, T>(
+        &self,
+        _tick_task_pool_executor: bool,
+        _thread_executor: Option<Arc<ThreadExecutor>>,
+        f: F,
+    ) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,

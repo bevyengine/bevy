@@ -70,10 +70,6 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         &self.component_access
     }
 
-    fn is_send(&self) -> bool {
-        self.system_a.is_send() && self.system_b.is_send()
-    }
-
     fn is_exclusive(&self) -> bool {
         self.system_a.is_exclusive() || self.system_b.is_exclusive()
     }

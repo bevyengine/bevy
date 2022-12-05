@@ -6,7 +6,7 @@ use crate::{
     system::Resource,
 };
 pub use bevy_ecs_macros::Component;
-use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+use bevy_ptr::OwningPtr;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -581,17 +581,18 @@ pub struct TickCells<'a> {
     pub changed: &'a UnsafeCell<Tick>,
 }
 
-impl<'a> TickCells<'a> {
-    /// # Safety
-    /// All cells contained within must uphold the safety invariants of [`UnsafeCellDeref::read`].
-    #[inline]
-    pub(crate) unsafe fn read(&self) -> ComponentTicks {
-        ComponentTicks {
-            added: self.added.read(),
-            changed: self.changed.read(),
-        }
-    }
-}
+// TODO: check why this is never used anymore
+// impl<'a> TickCells<'a> {
+//     /// # Safety
+//     /// All cells contained within must uphold the safety invariants of [`UnsafeCellDeref::read`].
+//     #[inline]
+//     pub(crate) unsafe fn read(&self) -> ComponentTicks {
+//         ComponentTicks {
+//             added: self.added.read(),
+//             changed: self.changed.read(),
+//         }
+//     }
+// }
 
 /// Records when a component was added and when it was last mutably dereferenced (or added).
 #[derive(Copy, Clone, Debug)]

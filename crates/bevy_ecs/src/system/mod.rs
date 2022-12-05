@@ -55,8 +55,6 @@
 //! - [`Local`]
 //! - [`EventReader`](crate::event::EventReader)
 //! - [`EventWriter`](crate::event::EventWriter)
-//! - [`NonSend`] and `Option<NonSend>`
-//! - [`NonSendMut`] and `Option<NonSendMut>`
 //! - [`&World`](crate::world::World)
 //! - [`RemovedComponents`]
 //! - [`SystemName`]
@@ -116,8 +114,8 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
-            RemovedComponents, Res, ResMut, Resource, System, SystemState,
+            Commands, IntoSystem, Local, ParamSet, Query, QueryComponentError, RemovedComponents,
+            Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -501,52 +499,6 @@ mod tests {
         run_system(&mut world, sys);
 
         // ensure the system actually ran
-        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
-    }
-
-    #[test]
-    fn non_send_option_system() {
-        let mut world = World::default();
-
-        world.insert_resource(SystemRan::No);
-        struct NotSend1(std::rc::Rc<i32>);
-        struct NotSend2(std::rc::Rc<i32>);
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(0)));
-
-        fn sys(
-            op: Option<NonSend<NotSend1>>,
-            mut _op2: Option<NonSendMut<NotSend2>>,
-            mut system_ran: ResMut<SystemRan>,
-        ) {
-            op.expect("NonSend should exist");
-            *system_ran = SystemRan::Yes;
-        }
-
-        run_system(&mut world, sys);
-        // ensure the system actually ran
-        assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
-    }
-
-    #[test]
-    fn non_send_system() {
-        let mut world = World::default();
-
-        world.insert_resource(SystemRan::No);
-        struct NotSend1(std::rc::Rc<i32>);
-        struct NotSend2(std::rc::Rc<i32>);
-
-        world.insert_non_send_resource(NotSend1(std::rc::Rc::new(1)));
-        world.insert_non_send_resource(NotSend2(std::rc::Rc::new(2)));
-
-        fn sys(
-            _op: NonSend<NotSend1>,
-            mut _op2: NonSendMut<NotSend2>,
-            mut system_ran: ResMut<SystemRan>,
-        ) {
-            *system_ran = SystemRan::Yes;
-        }
-
-        run_system(&mut world, sys);
         assert_eq!(*world.resource::<SystemRan>(), SystemRan::Yes);
     }
 

@@ -146,7 +146,7 @@ impl Plugin for LogPlugin {
                         }
                     }))
                     .build();
-                app.world.insert_non_send_resource(guard);
+                app.insert_non_send_resource(guard);
                 chrome_layer
             };
 
