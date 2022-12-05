@@ -43,7 +43,7 @@ impl SpecializedMeshPipeline for DebugLinePipeline {
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = Vec::new();
-        shader_defs.push("DEBUG_LINES_3D".into());
+        shader_defs.push("GIZMO_LINES_3D".into());
         shader_defs.push(ShaderDefVal::Int(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
             MAX_DIRECTIONAL_LIGHTS as i32,
@@ -140,7 +140,7 @@ pub(crate) fn queue(
     mut pipeline_cache: ResMut<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<GizmoDrawMesh>>,
+    material_meshes: Query<(Entity, &Handle<Mesh>), With<GizmoDrawMesh>>,
     config: Res<GizmoConfig>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
 ) {
@@ -148,8 +148,7 @@ pub(crate) fn queue(
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut phase) in &mut views {
         let view_matrix = view.transform.compute_matrix();
-        let view_row_2 = view_matrix.row(2);
-        for (entity, mesh_uniform, mesh_handle) in &material_meshes {
+        for (entity, mesh_handle) in &material_meshes {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
@@ -164,7 +163,7 @@ pub(crate) fn queue(
                     entity,
                     pipeline,
                     draw_function,
-                    distance: view_row_2.dot(mesh_uniform.transform.col(3)),
+                    distance: 0.,
                 });
             }
         }

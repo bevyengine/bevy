@@ -16,25 +16,25 @@ fn setup(mut commands: Commands) {
 
 fn system(time: Res<Time>) {
     let sin = time.elapsed_seconds().sin() * 50.;
-    GIZMOS.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
-    GIZMOS.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
+    GIZMO.line_2d(Vec2::Y * -sin, Vec2::splat(-80.), Color::RED);
+    GIZMO.ray_2d(Vec2::Y * sin, Vec2::splat(80.), Color::GREEN);
 
     // Triangle
-    GIZMOS.linestrip_gradient_2d([
+    GIZMO.linestrip_gradient_2d([
         (Vec2::Y * 300., Color::BLUE),
         (Vec2::new(-255., -155.), Color::RED),
         (Vec2::new(255., -155.), Color::GREEN),
         (Vec2::Y * 300., Color::BLUE),
     ]);
 
-    GIZMOS.rect_2d(
+    GIZMO.rect_2d(
         Vec2::ZERO,
         time.elapsed_seconds() / 3.,
         Vec2::splat(300.),
         Color::BLACK,
     );
     // The circles have 32 line-segments by default.
-    GIZMOS.circle_2d(Vec2::ZERO, 120., Color::BLACK);
+    GIZMO.circle_2d(Vec2::ZERO, 120., Color::BLACK);
     // You may want to increase this for larger circles.
     // GIZMOS.circle_segments = 64;
     // GIZMOS.circle_2d(Vec2::ZERO, 300., Color::NAVY);

@@ -6,16 +6,16 @@ use crossbeam_channel::{unbounded, Receiver, Sender};
 
 use crate::SendItem;
 
-pub struct Gizmos {
+pub struct GizmoDraw {
     sender: Sender<SendItem>,
     pub(crate) receiver: Receiver<SendItem>,
     circle_segments: usize,
 }
 
-impl Gizmos {
+impl GizmoDraw {
     pub(crate) fn new() -> Self {
         let (sender, receiver) = unbounded();
-        Gizmos {
+        GizmoDraw {
             sender,
             receiver,
             circle_segments: 32,
@@ -23,7 +23,7 @@ impl Gizmos {
     }
 }
 
-impl Gizmos {
+impl GizmoDraw {
     /// Draw a line from `start` to `end`.
     #[inline]
     pub fn line(&self, start: Vec3, end: Vec3, color: Color) {

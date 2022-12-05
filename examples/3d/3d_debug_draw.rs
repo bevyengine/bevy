@@ -20,27 +20,27 @@ fn setup(mut commands: Commands) {
 }
 
 fn system(time: Res<Time>) {
-    GIZMOS.cuboid(
+    GIZMO.cuboid(
         Vec3::Y * -0.5,
         Quat::IDENTITY,
         Vec3::new(5., 1., 2.),
         Color::BLACK,
     );
-    GIZMOS.rect(
+    GIZMO.rect(
         Vec3::new(time.elapsed_seconds().cos() * 2.5, 1., 0.),
         Quat::from_rotation_y(PI / 2.),
         Vec2::splat(2.),
         Color::GREEN,
     );
 
-    GIZMOS.sphere(Vec3::new(1., 0.5, 0.), 0.5, Color::RED);
+    GIZMO.sphere(Vec3::new(1., 0.5, 0.), 0.5, Color::RED);
     let vector = Vec3::new(-3., (time.elapsed_seconds() * 3.).sin(), 0.);
     for f in [0., 0.5, 1.] {
-        GIZMOS.ray(Vec3::new(1., f, 0.), vector, Color::BLUE);
+        GIZMO.ray(Vec3::new(1., f, 0.), vector, Color::BLUE);
     }
 
     // The circles have 32 line-segments by default.
-    GIZMOS.circle(Vec3::ZERO, Vec3::Y, 3., Color::BLACK);
+    GIZMO.circle(Vec3::ZERO, Vec3::Y, 3., Color::BLACK);
     // You may want to increase this for larger circles or spheres.
     // GIZMOS.circle_segments = 64;
     // GIZMOS.circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY);

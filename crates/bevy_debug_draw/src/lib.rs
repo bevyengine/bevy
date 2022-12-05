@@ -7,7 +7,6 @@ use bevy_ecs::{
     system::{Commands, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::Mat4;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     mesh::Mesh,
@@ -16,10 +15,8 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 
-#[cfg(feature = "bevy_pbr")]
-use bevy_pbr::MeshUniform;
 #[cfg(feature = "bevy_sprite")]
-use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
+use bevy_sprite::Mesh2dHandle;
 
 use once_cell::sync::Lazy;
 
@@ -30,12 +27,12 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::gizmos::Gizmos;
+use crate::gizmos::GizmoDraw;
 
 /// The `bevy_debug_draw` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{GizmoConfig, GIZMOS};
+    pub use crate::{GizmoConfig, GIZMO};
 }
 
 const SHADER_HANDLE: HandleUntyped =
@@ -45,7 +42,7 @@ pub struct DebugDrawPlugin;
 
 impl Plugin for DebugDrawPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(app, SHADER_HANDLE, "debuglines.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, SHADER_HANDLE, "lines.wgsl", Shader::from_wgsl);
 
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()
@@ -104,6 +101,26 @@ impl Default for GizmoConfig {
     }
 }
 
+#[derive(Resource)]
+struct MeshHandles {
+    list: Handle<Mesh>,
+    strip: Handle<Mesh>,
+}
+
+impl FromWorld for MeshHandles {
+    fn from_world(world: &mut World) -> Self {
+        let mut meshes = world.resource_mut::<Assets<Mesh>>();
+
+        MeshHandles {
+            list: meshes.add(Mesh::new(PrimitiveTopology::LineList)),
+            strip: meshes.add(Mesh::new(PrimitiveTopology::LineStrip)),
+        }
+    }
+}
+
+#[derive(Component)]
+struct GizmoDrawMesh;
+
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
 
@@ -113,7 +130,7 @@ enum SendItem {
     Strip((Vec<PositionItem>, Vec<ColorItem>)),
 }
 
-pub static GIZMOS: Lazy<Gizmos> = Lazy::new(Gizmos::new);
+pub static GIZMO: Lazy<GizmoDraw> = Lazy::new(GizmoDraw::new);
 
 fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
     let mut list_positions = Vec::new();
@@ -121,7 +138,7 @@ fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
     let mut strip_positions = Vec::new();
     let mut strip_colors = Vec::new();
 
-    for item in GIZMOS.receiver.try_iter() {
+    for item in GIZMO.receiver.try_iter() {
         match item {
             SendItem::Single((positions, colors)) => {
                 list_positions.extend(positions);
@@ -149,26 +166,6 @@ fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
     strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, strip_colors);
 }
 
-#[derive(Resource)]
-struct MeshHandles {
-    list: Handle<Mesh>,
-    strip: Handle<Mesh>,
-}
-
-impl FromWorld for MeshHandles {
-    fn from_world(world: &mut World) -> Self {
-        let mut meshes = world.resource_mut::<Assets<Mesh>>();
-
-        MeshHandles {
-            list: meshes.add(Mesh::new(PrimitiveTopology::LineList)),
-            strip: meshes.add(Mesh::new(PrimitiveTopology::LineStrip)),
-        }
-    }
-}
-
-#[derive(Component)]
-struct GizmoDrawMesh;
-
 fn extract(
     mut commands: Commands,
     handles: Extract<Res<MeshHandles>>,
@@ -178,29 +175,13 @@ fn extract(
         commands.insert_resource(**config);
     }
 
-    let transform = Mat4::IDENTITY;
-    let inverse_transpose_model = transform.inverse().transpose();
     commands.spawn_batch([&handles.list, &handles.strip].map(|handle| {
         (
             GizmoDrawMesh,
             #[cfg(feature = "bevy_pbr")]
-            (
-                MeshUniform {
-                    flags: 0,
-                    transform,
-                    inverse_transpose_model,
-                },
-                handle.clone(),
-            ),
+            handle.clone(),
             #[cfg(feature = "bevy_sprite")]
-            (
-                Mesh2dUniform {
-                    flags: 0,
-                    transform,
-                    inverse_transpose_model,
-                },
-                Mesh2dHandle(handle.clone()),
-            ),
+            Mesh2dHandle(handle.clone()),
         )
     }));
 }

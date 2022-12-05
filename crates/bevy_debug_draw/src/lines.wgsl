@@ -1,4 +1,4 @@
-#ifdef DEBUG_LINES_3D
+#ifdef GIZMO_LINES_3D
     #import bevy_pbr::mesh_view_bindings
 #else
     #import bevy_sprite::mesh2d_view_bindings

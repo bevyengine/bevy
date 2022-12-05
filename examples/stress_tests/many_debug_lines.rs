@@ -72,7 +72,7 @@ fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
 fn system<const C: u32>(config: Res<Config>, time: Res<Time>) {
     if !config.fancy {
         for _ in 0..C {
-            GIZMOS.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
+            GIZMO.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
             // draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
         }
     } else {
@@ -83,7 +83,7 @@ fn system<const C: u32>(config: Res<Config>, time: Res<Time>) {
             let start_color = Color::rgb(vector.x, vector.z, 0.5);
             let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
 
-            GIZMOS.line_gradient(vector, -vector, start_color, end_color);
+            GIZMO.line_gradient(vector, -vector, start_color, end_color);
         }
     }
 }
