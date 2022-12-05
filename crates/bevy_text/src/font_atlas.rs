@@ -58,8 +58,8 @@ impl FontAtlas {
                 depth_or_array_layers: 1,
             },
             TextureDimension::D2,
-            &[0, 0, 0, 0],
-            TextureFormat::Rgba8UnormSrgb,
+            &[0],
+            TextureFormat::R8Unorm,
         ));
         let texture_atlas = TextureAtlas::new_empty(atlas_texture, size);
         Self {

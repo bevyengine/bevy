@@ -62,6 +62,7 @@ impl FromWorld for UiPipeline {
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct UiPipelineKey {
     pub hdr: bool,
+    pub text: bool,
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
@@ -79,7 +80,12 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x4,
             ],
         );
-        let shader_defs = Vec::new();
+
+        let mut shader_defs = Vec::new();
+
+        if key.text {
+            shader_defs.push("TEXT".into());
+        }
 
         RenderPipelineDescriptor {
             vertex: VertexState {

@@ -39,9 +39,11 @@ pub mod node {
 
 pub mod draw_ui_graph {
     pub const NAME: &str = "draw_ui";
+
     pub mod input {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
+
     pub mod node {
         pub const UI_PASS: &str = "ui_pass";
     }
@@ -177,6 +179,7 @@ pub struct ExtractedUiNode {
     pub flip_x: bool,
     pub flip_y: bool,
     pub scale_factor: f32,
+    pub text: bool,
 }
 
 #[derive(Resource, Default)]
@@ -237,6 +240,7 @@ pub fn extract_uinodes(
                 flip_x,
                 flip_y,
                 scale_factor,
+                text: false,
             });
         }
     }
@@ -365,6 +369,7 @@ pub fn extract_text_uinodes(
                     flip_x: false,
                     flip_y: false,
                     scale_factor,
+                    text: true,
                 });
             }
         }
@@ -408,6 +413,7 @@ pub struct UiBatch {
     pub range: Range<u32>,
     pub image: Handle<Image>,
     pub z: f32,
+    pub text: bool,
 }
 
 pub fn prepare_uinodes(
@@ -428,17 +434,23 @@ pub fn prepare_uinodes(
     let mut end = 0;
     let mut current_batch_handle = Default::default();
     let mut last_z = 0.0;
+    let mut current_batch_is_text = false;
+
     for extracted_uinode in &extracted_uinodes.uinodes {
-        if current_batch_handle != extracted_uinode.image {
+        if current_batch_handle != extracted_uinode.image
+            || current_batch_is_text != extracted_uinode.text
+        {
             if start != end {
                 commands.spawn(UiBatch {
                     range: start..end,
                     image: current_batch_handle,
                     z: last_z,
+                    text: current_batch_is_text,
                 });
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
+            current_batch_is_text = extracted_uinode.text;
         }
 
         let uinode_rect = extracted_uinode.rect;
@@ -543,6 +555,7 @@ pub fn prepare_uinodes(
             range: start..end,
             image: current_batch_handle,
             z: last_z,
+            text: current_batch_is_text,
         });
     }
 
@@ -590,12 +603,16 @@ pub fn queue_uinodes(
         }));
         let draw_ui_function = draw_functions.read().id::<DrawUi>();
         for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
-                &ui_pipeline,
-                UiPipelineKey { hdr: view.hdr },
-            );
             for (entity, batch) in &ui_batches {
+                let pipeline = pipelines.specialize(
+                    &mut pipeline_cache,
+                    &ui_pipeline,
+                    UiPipelineKey {
+                        hdr: view.hdr,
+                        text: batch.text,
+                    },
+                );
+
                 image_bind_groups
                     .values
                     .entry(batch.image.clone_weak())
@@ -616,6 +633,7 @@ pub fn queue_uinodes(
                             layout: &ui_pipeline.image_layout,
                         })
                     });
+
                 transparent_phase.add(TransparentUi {
                     draw_function: draw_ui_function,
                     pipeline,

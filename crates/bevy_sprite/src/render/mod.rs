@@ -152,12 +152,13 @@ bitflags::bitflags! {
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
         const DEBAND_DITHER               = (1 << 3);
+        const TEXT                        = (1 << 4);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
     }
 }
 
 impl SpritePipelineKey {
-    const MSAA_MASK_BITS: u32 = 0b111;
+    const MSAA_MASK_BITS: u32 = 0b1111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
 
     pub fn from_msaa_samples(msaa_samples: u32) -> Self {
@@ -181,6 +182,14 @@ impl SpritePipelineKey {
     pub fn from_hdr(hdr: bool) -> Self {
         if hdr {
             SpritePipelineKey::HDR
+        } else {
+            SpritePipelineKey::NONE
+        }
+    }
+
+    pub fn from_text(text: bool) -> Self {
+        if text {
+            SpritePipelineKey::TEXT
         } else {
             SpritePipelineKey::NONE
         }
@@ -209,6 +218,10 @@ impl SpecializedRenderPipeline for SpritePipeline {
         let mut shader_defs = Vec::new();
         if key.contains(SpritePipelineKey::COLORED) {
             shader_defs.push("COLORED".into());
+        }
+
+        if key.contains(SpritePipelineKey::TEXT) {
+            shader_defs.push("TEXT".into());
         }
 
         if key.contains(SpritePipelineKey::TONEMAP_IN_SHADER) {
@@ -278,6 +291,7 @@ pub struct ExtractedSprite {
     pub flip_x: bool,
     pub flip_y: bool,
     pub anchor: Vec2,
+    pub text: bool,
 }
 
 #[derive(Resource, Default)]
@@ -352,6 +366,7 @@ pub fn extract_sprites(
             flip_y: sprite.flip_y,
             image_handle_id: handle.id(),
             anchor: sprite.anchor.as_vec(),
+            text: false,
         });
     }
     for (entity, visibility, atlas_sprite, transform, texture_atlas_handle) in atlas_query.iter() {
@@ -372,6 +387,7 @@ pub fn extract_sprites(
                 flip_y: atlas_sprite.flip_y,
                 image_handle_id: texture_atlas.texture.id(),
                 anchor: atlas_sprite.anchor.as_vec(),
+                text: false,
             });
         }
     }
@@ -429,6 +445,7 @@ const QUAD_UVS: [Vec2; 4] = [
 pub struct SpriteBatch {
     image_handle_id: HandleId,
     colored: bool,
+    text: bool,
 }
 
 #[derive(Resource, Default)]
@@ -523,16 +540,6 @@ pub fn queue_sprites(
                     }
                 }
             }
-            let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
-                &sprite_pipeline,
-                view_key | SpritePipelineKey::from_colored(false),
-            );
-            let colored_pipeline = pipelines.specialize(
-                &mut pipeline_cache,
-                &sprite_pipeline,
-                view_key | SpritePipelineKey::from_colored(true),
-            );
 
             view_entities.clear();
             view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
@@ -542,6 +549,7 @@ pub fn queue_sprites(
             let mut current_batch = SpriteBatch {
                 image_handle_id: HandleId::Id(Uuid::nil(), u64::MAX),
                 colored: false,
+                text: false,
             };
             let mut current_batch_entity = Entity::PLACEHOLDER;
             let mut current_image_size = Vec2::ZERO;
@@ -554,9 +562,26 @@ pub fn queue_sprites(
                 if !view_entities.contains(extracted_sprite.entity.index() as usize) {
                     continue;
                 }
+
+                let pipeline = pipelines.specialize(
+                    &mut pipeline_cache,
+                    &sprite_pipeline,
+                    view_key
+                        | SpritePipelineKey::from_text(extracted_sprite.text)
+                        | SpritePipelineKey::from_colored(false),
+                );
+                let colored_pipeline = pipelines.specialize(
+                    &mut pipeline_cache,
+                    &sprite_pipeline,
+                    view_key
+                        | SpritePipelineKey::from_text(extracted_sprite.text)
+                        | SpritePipelineKey::from_colored(true),
+                );
+
                 let new_batch = SpriteBatch {
                     image_handle_id: extracted_sprite.image_handle_id,
                     colored: extracted_sprite.color != Color::WHITE,
+                    text: extracted_sprite.text,
                 };
                 if new_batch != current_batch {
                     // Set-up a new possible batch
@@ -692,6 +717,7 @@ pub type DrawSprite = (
 );
 
 pub struct SetSpriteViewBindGroup<const I: usize>;
+
 impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
     type Param = (SRes<SpriteMeta>, SQuery<Read<ViewUniformOffset>>);
 
@@ -710,7 +736,9 @@ impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
         RenderCommandResult::Success
     }
 }
+
 pub struct SetSpriteTextureBindGroup<const I: usize>;
+
 impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
     type Param = (SRes<ImageBindGroups>, SQuery<Read<SpriteBatch>>);
 
@@ -736,6 +764,7 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
 }
 
 pub struct DrawSpriteBatch;
+
 impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = (SRes<SpriteMeta>, SQuery<Read<SpriteBatch>>);
 

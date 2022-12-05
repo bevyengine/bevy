@@ -39,6 +39,12 @@ var sprite_sampler: sampler;
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     var color = textureSample(sprite_texture, sprite_sampler, in.uv);
-    color = in.color * color;
+
+    #ifdef TEXT
+        color = in.color * color.r;
+    #else
+        color = in.color * color;
+    #endif
+
     return color;
 }
