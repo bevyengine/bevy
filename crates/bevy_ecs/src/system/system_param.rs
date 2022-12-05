@@ -102,13 +102,10 @@ pub trait SystemParam: Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy::{prelude::*, ecs::system::{ReadOnlySystemParamFetch, SystemParamState, SystemParamFetch, SystemMeta, OptionalSystemParam, OptionResState}};
+/// # use bevy::ecs::{prelude::*, system::{ReadOnlySystemParamFetch, SystemParamState, SystemParamFetch, SystemMeta, OptionalSystemParam, OptionResState}};
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// use std::marker::PhantomData;
 /// use bevy_ecs::system::OptionalSystemParam;
-///
-/// struct Foo(u32);
 ///
 /// struct MyOptionalParam<'w> {
 ///     foo: &'w u32,
@@ -131,7 +128,7 @@ pub trait SystemParam: Sized {
 /// }
 ///
 /// impl<'w, 's> SystemParamFetch<'w, 's> for OptionParamState {
-///     type Item = Option<Foo<'w>>;
+///     type Item = Option<MyOptionalParam<'w>>;
 ///
 ///     #[inline]
 ///     unsafe fn get_param(
@@ -140,7 +137,7 @@ pub trait SystemParam: Sized {
 ///         world: &'w World,
 ///         change_tick: u32,
 ///     ) -> Self::Item {
-///         let foo = <<Option<Res<Foo>> as SystemParam>::Fetch as SystemParamFetch>::get_param(&mut state.res_state, system_meta, world, change_tick);
+///         let foo = <<Option<Res<SomeResource>> as SystemParam>::Fetch as SystemParamFetch>::get_param(&mut state.res_state, system_meta, world, change_tick);
 ///         foo.map(|f| {
 ///             let f = f.into_inner();
 ///             MyOptionalParam {
