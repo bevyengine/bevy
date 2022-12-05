@@ -33,10 +33,9 @@ fn system(time: Res<Time>) {
         Vec2::splat(300.),
         Color::BLACK,
     );
+    
     // The circles have 32 line-segments by default.
     GIZMO.circle_2d(Vec2::ZERO, 120., Color::BLACK);
     // You may want to increase this for larger circles.
-    // GIZMOS.circle_segments = 64;
-    // GIZMOS.circle_2d(Vec2::ZERO, 300., Color::NAVY);
-    // GIZMOS.circle_segments = 32;
+    GIZMO.circle_2d(Vec2::ZERO, 300., Color::NAVY).segments(64);
 }

@@ -39,13 +39,15 @@ fn system(time: Res<Time>) {
         GIZMO.ray(Vec3::new(1., f, 0.), vector, Color::BLUE);
     }
 
-    // The circles have 32 line-segments by default.
+    // Circles have 32 line-segments by default.
     GIZMO.circle(Vec3::ZERO, Vec3::Y, 3., Color::BLACK);
     // You may want to increase this for larger circles or spheres.
-    // GIZMOS.circle_segments = 64;
-    // GIZMOS.circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY);
-    // GIZMOS.sphere(Vec3::ZERO, 3.2, Color::BLACK);
-    // GIZMOS.circle_segments = 32;
+    GIZMO
+        .circle(Vec3::ZERO, Vec3::Y, 3.1, Color::NAVY)
+        .segments(64);
+    GIZMO
+        .sphere(Vec3::ZERO, 3.2, Color::BLACK)
+        .circle_segments(64);
 }
 
 fn rotate_camera(mut query: Query<&mut Transform, With<Camera>>, time: Res<Time>) {

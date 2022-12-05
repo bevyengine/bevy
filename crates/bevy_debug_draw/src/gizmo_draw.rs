@@ -4,36 +4,39 @@ use bevy_math::{Mat2, Quat, Vec2, Vec3};
 use bevy_render::prelude::Color;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
-use crate::SendItem;
+use crate::{SendItem, GIZMO};
 
 pub struct GizmoDraw {
     sender: Sender<SendItem>,
     pub(crate) receiver: Receiver<SendItem>,
-    circle_segments: usize,
 }
 
 impl GizmoDraw {
     pub(crate) fn new() -> Self {
         let (sender, receiver) = unbounded();
-        GizmoDraw {
-            sender,
-            receiver,
-            circle_segments: 32,
-        }
+        GizmoDraw { sender, receiver }
     }
 }
+
+const CIRCLE_SEGMENTS: usize = 32;
 
 impl GizmoDraw {
     /// Draw a line from `start` to `end`.
     #[inline]
     pub fn line(&self, start: Vec3, end: Vec3, color: Color) {
-        self.send_line([start, end], [color, color]);
+        self.line_gradient(start, end, color, color);
     }
 
     /// Draw a line from `start` to `end`.
     #[inline]
     pub fn line_gradient(&self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
-        self.send_line([start, end], [start_color, end_color]);
+        let _ = self.sender.send(SendItem::Single((
+            [start.to_array(), end.to_array()],
+            [
+                start_color.as_linear_rgba_f32(),
+                end_color.as_linear_rgba_f32(),
+            ],
+        )));
     }
 
     /// Draw a line from `start` to `start + vector`.
@@ -61,39 +64,49 @@ impl GizmoDraw {
         let _ = self.sender.send(SendItem::Strip(iter.unzip()));
     }
 
+    #[inline]
+    fn linelist(&self, list: impl IntoIterator<Item = Vec3>, color: Color) {
+        let iter = list
+            .into_iter()
+            .map(|p| p.to_array())
+            .zip(iter::repeat(color.as_linear_rgba_f32()));
+        let _ = self.sender.send(SendItem::List(iter.unzip()));
+    }
+
     /// Draw a circle at `position` with the flat side facing `normal`.
     #[inline]
-    pub fn circle(&self, position: Vec3, normal: Vec3, radius: f32, color: Color) {
-        let rotation = Quat::from_rotation_arc(Vec3::Z, normal);
-
-        let positions = self
-            .circle_inner(radius)
-            .map(|vec2| (position + rotation * vec2.extend(0.)));
-
-        self.linestrip(positions, color);
+    pub fn circle(&self, position: Vec3, normal: Vec3, radius: f32, color: Color) -> DrawCircle {
+        DrawCircle {
+            position,
+            normal,
+            radius,
+            color,
+            segments: CIRCLE_SEGMENTS,
+        }
     }
 
     /// Draw a sphere.
     #[inline]
-    pub fn sphere(&self, position: Vec3, radius: f32, color: Color) {
-        self.circle(position, Vec3::X, radius, color);
-        self.circle(position, Vec3::Y, radius, color);
-        self.circle(position, Vec3::Z, radius, color);
+    pub fn sphere(&self, position: Vec3, radius: f32, color: Color) -> DrawSphere {
+        DrawSphere {
+            position,
+            radius,
+            color,
+            circle_segments: CIRCLE_SEGMENTS,
+        }
     }
 
     /// Draw a rectangle.
     #[inline]
     pub fn rect(&self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
-        let [tl, tr, br, bl] = self
-            .rect_inner(size)
-            .map(|vec2| position + rotation * vec2.extend(0.));
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2.extend(0.));
         self.linestrip([tl, tr, br, bl, tl], color);
     }
 
     /// Draw a box.
     #[inline]
     pub fn cuboid(&self, position: Vec3, rotation: Quat, size: Vec3, color: Color) {
-        let rect = self.rect_inner(size.truncate());
+        let rect = rect_inner(size.truncate());
         // Front
         let [tlf, trf, brf, blf] = rect.map(|vec2| position + rotation * vec2.extend(size.z / 2.));
         // Back
@@ -147,50 +160,104 @@ impl GizmoDraw {
 
     // Draw a circle.
     #[inline]
-    pub fn circle_2d(&self, position: Vec2, radius: f32, color: Color) {
-        let positions = self.circle_inner(radius).map(|vec2| (vec2 + position));
-        self.linestrip_2d(positions, color);
+    pub fn circle_2d(&self, position: Vec2, radius: f32, color: Color) -> DrawCircle2d {
+        DrawCircle2d {
+            position,
+            radius,
+            color,
+            segments: CIRCLE_SEGMENTS,
+        }
     }
 
     /// Draw a rectangle.
     #[inline]
     pub fn rect_2d(&self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
         let rotation = Mat2::from_angle(rotation);
-        let [tl, tr, br, bl] = self.rect_inner(size).map(|vec2| position + rotation * vec2);
+        let [tl, tr, br, bl] = rect_inner(size).map(|vec2| position + rotation * vec2);
         self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
+}
 
-    fn circle_inner(&self, radius: f32) -> impl Iterator<Item = Vec2> {
-        let circle_segments = self.circle_segments;
-        (0..(circle_segments + 1)).into_iter().map(move |i| {
-            let angle = i as f32 * TAU / circle_segments as f32;
-            Vec2::from(angle.sin_cos()) * radius
-        })
-    }
+pub struct DrawCircle {
+    position: Vec3,
+    normal: Vec3,
+    radius: f32,
+    color: Color,
+    segments: usize,
+}
 
-    fn rect_inner(&self, size: Vec2) -> [Vec2; 4] {
-        let half_size = size / 2.;
-        let tl = Vec2::new(-half_size.x, half_size.y);
-        let tr = Vec2::new(half_size.x, half_size.y);
-        let bl = Vec2::new(-half_size.x, -half_size.y);
-        let br = Vec2::new(half_size.x, -half_size.y);
-        [tl, tr, br, bl]
+impl DrawCircle {
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
     }
+}
 
-    #[inline]
-    fn send_line(&self, [p0, p1]: [Vec3; 2], [c0, c1]: [Color; 2]) {
-        let _ = self.sender.send(SendItem::Single((
-            [p0.to_array(), p1.to_array()],
-            [c0.as_linear_rgba_f32(), c1.as_linear_rgba_f32()],
-        )));
+impl Drop for DrawCircle {
+    fn drop(&mut self) {
+        let rotation = Quat::from_rotation_arc(Vec3::Z, self.normal);
+        let positions = circle_inner(self.radius, self.segments)
+            .map(|vec2| (self.position + rotation * vec2.extend(0.)));
+        GIZMO.linestrip(positions, self.color);
     }
+}
+pub struct DrawCircle2d {
+    position: Vec2,
+    radius: f32,
+    color: Color,
+    segments: usize,
+}
 
-    #[inline]
-    fn linelist(&self, list: impl IntoIterator<Item = Vec3>, color: Color) {
-        let iter = list
-            .into_iter()
-            .map(|p| p.to_array())
-            .zip(iter::repeat(color.as_linear_rgba_f32()));
-        let _ = self.sender.send(SendItem::List(iter.unzip()));
+impl DrawCircle2d {
+    pub fn segments(mut self, segments: usize) -> Self {
+        self.segments = segments;
+        self
     }
+}
+
+impl Drop for DrawCircle2d {
+    fn drop(&mut self) {
+        let positions = circle_inner(self.radius, self.segments).map(|vec2| (vec2 + self.position));
+        GIZMO.linestrip_2d(positions, self.color);
+    }
+}
+
+pub struct DrawSphere {
+    position: Vec3,
+    radius: f32,
+    color: Color,
+    circle_segments: usize,
+}
+
+impl DrawSphere {
+    pub fn circle_segments(mut self, segments: usize) -> Self {
+        self.circle_segments = segments;
+        self
+    }
+}
+
+impl Drop for DrawSphere {
+    fn drop(&mut self) {
+        for axis in Vec3::AXES {
+            GIZMO
+                .circle(self.position, axis, self.radius, self.color)
+                .segments(self.circle_segments);
+        }
+    }
+}
+
+fn circle_inner(radius: f32, segments: usize) -> impl Iterator<Item = Vec2> {
+    (0..segments + 1).into_iter().map(move |i| {
+        let angle = i as f32 * TAU / segments as f32;
+        Vec2::from(angle.sin_cos()) * radius
+    })
+}
+
+fn rect_inner(size: Vec2) -> [Vec2; 4] {
+    let half_size = size / 2.;
+    let tl = Vec2::new(-half_size.x, half_size.y);
+    let tr = Vec2::new(half_size.x, half_size.y);
+    let bl = Vec2::new(-half_size.x, -half_size.y);
+    let br = Vec2::new(half_size.x, -half_size.y);
+    [tl, tr, br, bl]
 }
