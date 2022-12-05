@@ -1878,7 +1878,7 @@ mod tests {
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
             for entity in world.iter_entities() {
-                let counter = entity_counters.entry(entity).or_insert(0);
+                let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
             }
         };

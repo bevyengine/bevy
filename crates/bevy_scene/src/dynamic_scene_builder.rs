@@ -1,9 +1,6 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_app::AppTypeRegistry;
-use bevy_ecs::{
-    reflect::ReflectComponent,
-    world::{EntityRef, World},
-};
+use bevy_ecs::{entity::Entity, reflect::ReflectComponent, world::World};
 use bevy_utils::default;
 use std::collections::BTreeMap;
 
@@ -70,7 +67,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Extract one entity from the builder's [`World`].
     ///
     /// Re-extracting an entity that was already extracted will have no effect.
-    pub fn extract_entity<'a>(&mut self, entity: EntityRef<'a>) -> &mut Self {
+    pub fn extract_entity(&mut self, entity: Entity) -> &mut Self {
         self.extract_entities(std::iter::once(entity))
     }
 
@@ -99,14 +96,11 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// builder.extract_entities(query.iter(&world));
     /// let scene = builder.build();
     /// ```
-    pub fn extract_entities<'a>(
-        &mut self,
-        entities: impl Iterator<Item = EntityRef<'a>>,
-    ) -> &mut Self {
+    pub fn extract_entities(&mut self, entities: impl Iterator<Item = Entity>) -> &mut Self {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            let index = entity.id().index();
+            let index = entity.index();
 
             if self.entities.contains_key(&index) {
                 continue;
@@ -117,7 +111,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                 components: Vec::new(),
             };
 
-            for component_id in entity.archetype().components() {
+            for component_id in self.world.entity(entity).archetype().components() {
                 let reflect_component = self
                     .world
                     .components()
@@ -126,7 +120,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                     .and_then(|registration| registration.data::<ReflectComponent>());
 
                 if let Some(reflect_component) = reflect_component {
-                    if let Some(component) = reflect_component.reflect(self.world, entity.id()) {
+                    if let Some(component) = reflect_component.reflect(self.world, entity) {
                         entry.components.push(component.clone_value());
                     }
                 }
