@@ -14,7 +14,7 @@ use crate::{
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
@@ -323,11 +323,20 @@ impl World {
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
     #[inline]
-    pub fn iter_entities(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.archetypes
-            .iter()
-            .flat_map(|archetype| archetype.entities().iter())
-            .map(|archetype_entity| archetype_entity.entity())
+    pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
+        self.archetypes.iter().flat_map(|archetype| {
+            archetype
+                .entities()
+                .iter()
+                .enumerate()
+                .map(|(index, archetype_entity)| {
+                    let location = EntityLocation {
+                        archetype_id: archetype.id(),
+                        index,
+                    };
+                    EntityRef::new(self, archetype_entity.entity(), location)
+                })
+        })
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -1870,7 +1879,7 @@ mod tests {
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
             for entity in world.iter_entities() {
-                let counter = entity_counters.entry(entity).or_insert(0);
+                let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
             }
         };
