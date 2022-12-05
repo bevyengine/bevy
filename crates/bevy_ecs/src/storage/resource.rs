@@ -121,7 +121,6 @@ impl<const SEND: bool> ResourceData<SEND> {
     ///
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
-    /// - The underlying type must be [`Send`] if `SEND` is true.
     #[inline]
     pub(crate) unsafe fn insert_with_ticks(
         &mut self,
@@ -220,12 +219,7 @@ impl<const SEND: bool> Resources<SEND> {
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
-    ///
-    /// # Safety
-    /// If `SEND` is true, `component_id` must be initialized in Components as a `Send` and
-    /// `Sync` component.
-    ///
-    /// This is checked in debug builds and will panic if violated.
+    /// If `SEND` is false, this will panic if `component_id`'s `ComponentInfo` is not registered as being `Send` + `Sync`.
     pub(crate) fn initialize_with(
         &mut self,
         component_id: ComponentId,

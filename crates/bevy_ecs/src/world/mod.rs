@@ -732,7 +732,7 @@ impl World {
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         let component_id = self.components.init_resource::<R>();
         OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R, which is Send
+            // SAFETY: component_id was just initialized and corresponds to resource of type R
             unsafe {
                 self.insert_resource_by_id(component_id, ptr);
             }
@@ -782,11 +782,9 @@ impl World {
     #[inline]
     pub fn remove_resource<R: Resource>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        // SAFETY: the resource is of type R and the value is returned back to the caller.
-        unsafe {
-            let (ptr, _) = self.storages.resources.get_mut(component_id)?.remove()?;
-            Some(ptr.read::<R>())
-        }
+        let (ptr, _) = self.storages.resources.get_mut(component_id)?.remove()?;
+        // SAFETY: `component_id` was gotten via looking up the `R` type
+        unsafe { Some(ptr.read::<R>()) }
     }
 
     /// Removes a `!Send` resource from the world and returns it, if present.
@@ -946,7 +944,7 @@ impl World {
     /// Panics if the resource does not exist.
     /// Use [`get_non_send_resource`](World::get_non_send_resource) instead if you want to handle this case.
     ///
-    /// This function will panic if called from a thread that the value was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
     pub fn non_send_resource<R: 'static>(&self) -> &R {
@@ -968,7 +966,7 @@ impl World {
     /// Panics if the resource does not exist.
     /// Use [`get_non_send_resource_mut`](World::get_non_send_resource_mut) instead if you want to handle this case.
     ///
-    /// This function will panic if called from a thread that the value was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     #[track_caller]
     pub fn non_send_resource_mut<R: 'static>(&mut self) -> Mut<'_, R> {
@@ -987,7 +985,7 @@ impl World {
     /// Otherwise returns [None].
     ///
     /// # Panics
-    /// This function will panic if called from a thread that the value was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource<R: 'static>(&self) -> Option<&R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -999,7 +997,7 @@ impl World {
     /// Otherwise returns [None]
     ///
     /// # Panics
-    /// This function will panic if called from a thread that the value was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
@@ -1010,7 +1008,7 @@ impl World {
     /// Otherwise returns [None]
     ///
     /// # Panics
-    /// This function will panic if called from a thread that the value was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     ///
     /// # Safety
     /// This will allow aliased mutable access to the given non-send resource type. The caller must
@@ -1033,7 +1031,7 @@ impl World {
     // Shorthand helper function for getting the data and change ticks for a resource.
     ///
     /// # Panics
-    /// This function will panic if called from a thread that the value was inserted from.
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub(crate) fn get_non_send_with_ticks(
         &self,
@@ -1363,7 +1361,7 @@ impl World {
     ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
-    /// `component_id` must exist in this [`World`].`value` must be adhere to invariants of `Send`.
+    /// `component_id` must exist in this [`World`].
     #[inline]
     pub unsafe fn insert_resource_by_id(
         &mut self,
@@ -1372,7 +1370,7 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
-        // SAFETY: component_id is valid and corresponds to a Send type, ensured by caller
+        // SAFETY: component_id is valid, ensured by caller
         self.initialize_resource_internal(component_id)
             .insert(value, change_tick);
     }
@@ -1403,10 +1401,10 @@ impl World {
             .insert(value, change_tick);
     }
 
-    /// # Safety
-    /// `component_id` must be valid for this world as a `Send` component type
+    /// # Panics
+    /// Panics if `component_id` is not registered as a `Send` component type in this `World`
     #[inline]
-    unsafe fn initialize_resource_internal(
+    fn initialize_resource_internal(
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<true> {
@@ -1420,15 +1418,14 @@ impl World {
             })
     }
 
-    /// # Safety
-    /// `component_id` must be valid for this world
+    /// # Panics
+    /// panics if `component_id` is not registered in this world
     #[inline]
-    unsafe fn initialize_non_send_internal(
+    fn initialize_non_send_internal(
         &mut self,
         component_id: ComponentId,
     ) -> &mut ResourceData<false> {
         let archetype_component_count = &mut self.archetypes.archetype_component_count;
-        // SAFETY: Caller guarentees that `is_send` matches the underlying type.
         self.storages
             .non_send_resources
             .initialize_with(component_id, &self.components, || {
@@ -1440,15 +1437,13 @@ impl World {
 
     pub(crate) fn initialize_resource<R: Resource>(&mut self) -> ComponentId {
         let component_id = self.components.init_resource::<R>();
-        // SAFETY: resource initialized above, resource type must be Send
-        unsafe { self.initialize_resource_internal(component_id) };
+        self.initialize_resource_internal(component_id);
         component_id
     }
 
     pub(crate) fn initialize_non_send_resource<R: 'static>(&mut self) -> ComponentId {
         let component_id = self.components.init_non_send::<R>();
-        // SAFETY: resource initialized above, resource type might not be send
-        unsafe { self.initialize_non_send_internal(component_id) };
+        self.initialize_non_send_internal(component_id);
         component_id
     }
 
@@ -1854,7 +1849,7 @@ mod tests {
 
         let value: [u8; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         OwningPtr::make(value, |ptr| {
-            // SAFETY: value is valid for the component layout, the array is Send
+            // SAFETY: value is valid for the component layout
             unsafe {
                 world.insert_resource_by_id(component_id, ptr);
             }
