@@ -298,6 +298,7 @@ impl TaskPool {
                     results
                 };
 
+                let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
                 if let Some(thread_ticker) = thread_executor.ticker() {
                     let tick_forever = async move {
                         loop {
