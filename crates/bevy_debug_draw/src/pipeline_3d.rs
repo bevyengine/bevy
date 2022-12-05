@@ -14,27 +14,27 @@ use bevy_render::{
     render_phase::{DrawFunctions, RenderPhase, SetItemPipeline},
     render_resource::*,
     texture::BevyDefault,
-    view::{ExtractedView, Msaa},
+    view::Msaa,
 };
 
 use crate::{GizmoConfig, GizmoDrawMesh, SHADER_HANDLE};
 
 #[derive(Resource)]
-pub(crate) struct DebugLinePipeline {
+pub(crate) struct GizmoLinePipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,
 }
 
-impl FromWorld for DebugLinePipeline {
+impl FromWorld for GizmoLinePipeline {
     fn from_world(render_world: &mut World) -> Self {
-        DebugLinePipeline {
+        GizmoLinePipeline {
             mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
             shader: SHADER_HANDLE.typed(),
         }
     }
 }
 
-impl SpecializedMeshPipeline for DebugLinePipeline {
+impl SpecializedMeshPipeline for GizmoLinePipeline {
     type Key = (bool, MeshPipelineKey);
 
     fn specialize(
@@ -125,7 +125,7 @@ impl SpecializedMeshPipeline for DebugLinePipeline {
     }
 }
 
-pub(crate) type DrawDebugLines = (
+pub(crate) type DrawGizmoLines = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetMeshBindGroup<1>,
@@ -135,20 +135,19 @@ pub(crate) type DrawDebugLines = (
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue(
     draw_functions: Res<DrawFunctions<Opaque3d>>,
-    pipeline: Res<DebugLinePipeline>,
-    mut pipelines: ResMut<SpecializedMeshPipelines<DebugLinePipeline>>,
+    pipeline: Res<GizmoLinePipeline>,
+    mut pipelines: ResMut<SpecializedMeshPipelines<GizmoLinePipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
     render_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<(Entity, &Handle<Mesh>), With<GizmoDrawMesh>>,
+    mesh_handles: Query<(Entity, &Handle<Mesh>), With<GizmoDrawMesh>>,
     config: Res<GizmoConfig>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
+    mut views: Query<&mut RenderPhase<Opaque3d>>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawDebugLines>().unwrap();
+    let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, mut phase) in &mut views {
-        let view_matrix = view.transform.compute_matrix();
-        for (entity, mesh_handle) in &material_meshes {
+    for mut phase in &mut views {
+        for (entity, mesh_handle) in &mesh_handles {
             if let Some(mesh) = render_meshes.get(mesh_handle) {
                 let key = key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines

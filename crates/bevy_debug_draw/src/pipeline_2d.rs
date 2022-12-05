@@ -20,21 +20,21 @@ use bevy_utils::FloatOrd;
 use crate::{GizmoDrawMesh, SHADER_HANDLE};
 
 #[derive(Resource)]
-pub(crate) struct DebugLinePipeline {
+pub(crate) struct GizmoLinePipeline {
     mesh_pipeline: Mesh2dPipeline,
     shader: Handle<Shader>,
 }
 
-impl FromWorld for DebugLinePipeline {
+impl FromWorld for GizmoLinePipeline {
     fn from_world(render_world: &mut World) -> Self {
-        DebugLinePipeline {
+        GizmoLinePipeline {
             mesh_pipeline: render_world.resource::<Mesh2dPipeline>().clone(),
             shader: SHADER_HANDLE.typed(),
         }
     }
 }
 
-impl SpecializedMeshPipeline for DebugLinePipeline {
+impl SpecializedMeshPipeline for GizmoLinePipeline {
     type Key = Mesh2dPipelineKey;
 
     fn specialize(
@@ -85,7 +85,7 @@ impl SpecializedMeshPipeline for DebugLinePipeline {
     }
 }
 
-pub(crate) type DrawDebugLines = (
+pub(crate) type DrawGizmoLines = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
     SetMesh2dBindGroup<1>,
@@ -95,15 +95,15 @@ pub(crate) type DrawDebugLines = (
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn queue(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    pipeline: Res<DebugLinePipeline>,
+    pipeline: Res<GizmoLinePipeline>,
     mut pipeline_cache: ResMut<PipelineCache>,
-    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<DebugLinePipeline>>,
+    mut specialized_pipelines: ResMut<SpecializedMeshPipelines<GizmoLinePipeline>>,
     gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
     mesh_handles: Query<(Entity, &Mesh2dHandle), With<GizmoDrawMesh>>,
     mut views: Query<&mut RenderPhase<Transparent2d>>,
 ) {
-    let draw_function = draw_functions.read().get_id::<DrawDebugLines>().unwrap();
+    let draw_function = draw_functions.read().get_id::<DrawGizmoLines>().unwrap();
     let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
     for mut phase in &mut views {
         for (entity, mesh_handle) in &mesh_handles {

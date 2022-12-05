@@ -58,9 +58,9 @@ impl Plugin for DebugDrawPlugin {
             use pipeline_2d::*;
 
             render_app
-                .add_render_command::<Transparent2d, DrawDebugLines>()
-                .init_resource::<DebugLinePipeline>()
-                .init_resource::<SpecializedMeshPipelines<DebugLinePipeline>>()
+                .add_render_command::<Transparent2d, DrawGizmoLines>()
+                .init_resource::<GizmoLinePipeline>()
+                .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
                 .add_system_to_stage(RenderStage::Queue, queue);
         }
 
@@ -70,9 +70,9 @@ impl Plugin for DebugDrawPlugin {
             use pipeline_3d::*;
 
             render_app
-                .add_render_command::<Opaque3d, DrawDebugLines>()
-                .init_resource::<DebugLinePipeline>()
-                .init_resource::<SpecializedMeshPipelines<DebugLinePipeline>>()
+                .add_render_command::<Opaque3d, DrawGizmoLines>()
+                .init_resource::<GizmoLinePipeline>()
+                .init_resource::<SpecializedMeshPipelines<GizmoLinePipeline>>()
                 .add_system_to_stage(RenderStage::Queue, queue);
         }
     }
