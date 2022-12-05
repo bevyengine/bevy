@@ -181,7 +181,7 @@ impl ComponentSparseSet {
     #[inline]
     pub fn get(&self, entity: Entity) -> Option<Ptr<'_>> {
         self.sparse.get(entity.index()).map(|dense_index| {
-            let dense_index = *dense_index as usize;
+            let dense_index = (*dense_index) as usize;
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index]);
             // SAFETY: if the sparse index points to something in the dense vec, it exists
