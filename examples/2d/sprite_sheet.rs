@@ -49,15 +49,16 @@ fn setup(
     let texture_atlas =
         TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    let animation_indices = AnimationIndices { first: 1, last: 6 };
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
-            sprite: TextureAtlasSprite::new(1),
+            sprite: TextureAtlasSprite::new(animation_indices.first),
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..default()
         },
-        AnimationIndices { first: 1, last: 6 },
+        animation_indices,
         AnimationTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
 }
