@@ -819,7 +819,7 @@ mod tests {
         events.send(TestEvent { i: 0 });
         world.insert_resource(events);
 
-        let mut reader = IntoSystem::into_system(|events: EventReader<TestEvent>| -> bool {
+        let mut reader = IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> bool {
             if !events.is_empty() {
                 events.clear();
                 false
