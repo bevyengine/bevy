@@ -801,15 +801,13 @@ impl World {
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
+        let (ptr, _) = self
+            .storages
+            .non_send_resources
+            .get_mut(component_id)?
+            .remove()?;
         // SAFETY: the resource is of type R and the value is returned back to the caller.
-        unsafe {
-            let (ptr, _) = self
-                .storages
-                .non_send_resources
-                .get_mut(component_id)?
-                .remove()?;
-            Some(ptr.read::<R>())
-        }
+        unsafe { Some(ptr.read::<R>()) }
     }
 
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
@@ -1370,7 +1368,7 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
-        // SAFETY: component_id is valid, ensured by caller
+        // SAFETY: value is valid for component_id, ensured by caller
         self.initialize_resource_internal(component_id)
             .insert(value, change_tick);
     }
@@ -1396,7 +1394,7 @@ impl World {
     ) {
         let change_tick = self.change_tick();
 
-        // SAFETY: component_id is valid, ensured by caller
+        // SAFETY: value is valid for component_id, ensured by caller
         self.initialize_non_send_internal(component_id)
             .insert(value, change_tick);
     }
