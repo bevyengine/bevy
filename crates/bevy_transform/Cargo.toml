@@ -17,5 +17,8 @@ bevy_math = { path = "../bevy_math", version = "0.9.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
 serde = { version = "1", features = ["derive"], optional = true }
 
+[dev_dependencies]
+bevy_tasks = { path = "../bevy_tasks", version = "0.9.0-dev" }
+
 [features]
 serialize = ["dep:serde", "bevy_math/serialize"]

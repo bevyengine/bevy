@@ -102,32 +102,24 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
             RunGraphOnViewNode::new(draw_ui_graph::NAME),
         );
-        graph_2d
-            .add_node_edge(
-                bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
-                draw_ui_graph::node::UI_PASS,
-            )
-            .unwrap();
-        graph_2d
-            .add_slot_edge(
-                graph_2d.input_node().unwrap().id,
-                bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
-                draw_ui_graph::node::UI_PASS,
-                RunGraphOnViewNode::IN_VIEW,
-            )
-            .unwrap();
-        graph_2d
-            .add_node_edge(
-                bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                draw_ui_graph::node::UI_PASS,
-            )
-            .unwrap();
-        graph_2d
-            .add_node_edge(
-                draw_ui_graph::node::UI_PASS,
-                bevy_core_pipeline::core_2d::graph::node::UPSCALING,
-            )
-            .unwrap();
+        graph_2d.add_node_edge(
+            bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
+            draw_ui_graph::node::UI_PASS,
+        );
+        graph_2d.add_slot_edge(
+            graph_2d.input_node().id,
+            bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
+            draw_ui_graph::node::UI_PASS,
+            RunGraphOnViewNode::IN_VIEW,
+        );
+        graph_2d.add_node_edge(
+            bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+            draw_ui_graph::node::UI_PASS,
+        );
+        graph_2d.add_node_edge(
+            draw_ui_graph::node::UI_PASS,
+            bevy_core_pipeline::core_2d::graph::node::UPSCALING,
+        );
     }
 
     if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
@@ -136,32 +128,24 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
             RunGraphOnViewNode::new(draw_ui_graph::NAME),
         );
-        graph_3d
-            .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
-                draw_ui_graph::node::UI_PASS,
-            )
-            .unwrap();
-        graph_3d
-            .add_node_edge(
-                bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
-                draw_ui_graph::node::UI_PASS,
-            )
-            .unwrap();
-        graph_3d
-            .add_node_edge(
-                draw_ui_graph::node::UI_PASS,
-                bevy_core_pipeline::core_3d::graph::node::UPSCALING,
-            )
-            .unwrap();
-        graph_3d
-            .add_slot_edge(
-                graph_3d.input_node().unwrap().id,
-                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-                draw_ui_graph::node::UI_PASS,
-                RunGraphOnViewNode::IN_VIEW,
-            )
-            .unwrap();
+        graph_3d.add_node_edge(
+            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+            draw_ui_graph::node::UI_PASS,
+        );
+        graph_3d.add_node_edge(
+            bevy_core_pipeline::core_3d::graph::node::END_MAIN_PASS_POST_PROCESSING,
+            draw_ui_graph::node::UI_PASS,
+        );
+        graph_3d.add_node_edge(
+            draw_ui_graph::node::UI_PASS,
+            bevy_core_pipeline::core_3d::graph::node::UPSCALING,
+        );
+        graph_3d.add_slot_edge(
+            graph_3d.input_node().id,
+            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+            draw_ui_graph::node::UI_PASS,
+            RunGraphOnViewNode::IN_VIEW,
+        );
     }
 }
 
@@ -173,14 +157,12 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
         draw_ui_graph::input::VIEW_ENTITY,
         SlotType::Entity,
     )]);
-    ui_graph
-        .add_slot_edge(
-            input_node_id,
-            draw_ui_graph::input::VIEW_ENTITY,
-            draw_ui_graph::node::UI_PASS,
-            UiPassNode::IN_VIEW,
-        )
-        .unwrap();
+    ui_graph.add_slot_edge(
+        input_node_id,
+        draw_ui_graph::input::VIEW_ENTITY,
+        draw_ui_graph::node::UI_PASS,
+        UiPassNode::IN_VIEW,
+    );
     ui_graph
 }
 
@@ -192,6 +174,8 @@ pub struct ExtractedUiNode {
     pub image: Handle<Image>,
     pub atlas_size: Option<Vec2>,
     pub clip: Option<Rect>,
+    pub flip_x: bool,
+    pub flip_y: bool,
     pub scale_factor: f32,
 }
 
@@ -225,13 +209,11 @@ pub fn extract_uinodes(
             if !visibility.is_visible() {
                 continue;
             }
-
-            let image = if let Some(image) = maybe_image {
-                image.0.clone_weak()
+            let (image, flip_x, flip_y) = if let Some(image) = maybe_image {
+                (image.texture.clone_weak(), image.flip_x, image.flip_y)
             } else {
-                DEFAULT_IMAGE_HANDLE.typed().clone_weak()
+                (DEFAULT_IMAGE_HANDLE.typed().clone_weak(), false, false)
             };
-
             // Skip loading images
             if !images.contains(&image) {
                 continue;
@@ -252,6 +234,8 @@ pub fn extract_uinodes(
                 image,
                 atlas_size: None,
                 clip: clip.map(|clip| clip.clip),
+                flip_x,
+                flip_y,
                 scale_factor,
             });
         }
@@ -378,6 +362,8 @@ pub fn extract_text_uinodes(
                     image: texture,
                     atlas_size,
                     clip: clip.map(|clip| clip.clip),
+                    flip_x: false,
+                    flip_y: false,
                     scale_factor,
                 });
             }
@@ -512,7 +498,7 @@ pub fn prepare_uinodes(
         }
 
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
-        let uvs = [
+        let mut uvs = [
             Vec2::new(
                 uinode_rect.min.x + positions_diff[0].x * extracted_uinode.scale_factor,
                 uinode_rect.min.y + positions_diff[0].y * extracted_uinode.scale_factor,
@@ -531,6 +517,13 @@ pub fn prepare_uinodes(
             ),
         ]
         .map(|pos| pos / atlas_extent);
+
+        if extracted_uinode.flip_x {
+            uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
+        }
+        if extracted_uinode.flip_y {
+            uvs = [uvs[3], uvs[2], uvs[1], uvs[0]];
+        }
 
         for i in QUAD_INDICES {
             ui_meta.vertices.push(UiVertex {
@@ -595,7 +588,7 @@ pub fn queue_uinodes(
             label: Some("ui_view_bind_group"),
             layout: &ui_pipeline.view_layout,
         }));
-        let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
+        let draw_ui_function = draw_functions.read().id::<DrawUi>();
         for (view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
                 &mut pipeline_cache,

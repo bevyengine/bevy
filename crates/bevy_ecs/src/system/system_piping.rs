@@ -83,6 +83,12 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.system_b.run_unsafe(out, world)
     }
 
+    // needed to make exclusive systems work
+    fn run(&mut self, input: Self::In, world: &mut World) -> Self::Out {
+        let out = self.system_a.run(input, world);
+        self.system_b.run(out, world)
+    }
+
     fn apply_buffers(&mut self, world: &mut World) {
         self.system_a.apply_buffers(world);
         self.system_b.apply_buffers(world);
