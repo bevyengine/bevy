@@ -5,7 +5,7 @@ use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     system::Resource,
-    world::{EntityRef, EntityMut, FromWorld, World},
+    world::{EntityMut, EntityRef, FromWorld, World},
 };
 use bevy_reflect::{
     impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
@@ -57,7 +57,7 @@ pub struct ReflectComponentFns {
     pub reflect_mut: unsafe fn(&World, Entity) -> Option<Mut<dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut_ref()`].
     pub reflect_mut_ref: for<'a> fn(&'a mut EntityMut) -> Option<Mut<'a, dyn Reflect>>,
-    /// Function pointer implementing [`ReflectComponent::reflect_mut_unchecked_ref()`].
+    /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut_ref()`].
     pub reflect_mut_unchecked_ref: for<'a> unsafe fn(&'a EntityRef) -> Option<Mut<'a, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity),
@@ -140,7 +140,7 @@ impl ReflectComponent {
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
     pub fn reflect_mut_ref<'a>(
         &self,
-        entity_mut: &'a mut EntityMut<'a>
+        entity_mut: &'a mut EntityMut<'a>,
     ) -> Option<Mut<'a, dyn Reflect>> {
         (self.0.reflect_mut_ref)(entity_mut)
     }
@@ -271,12 +271,10 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 }
             },
             reflect_mut_ref: |entity_mut| {
-                entity_mut
-                    .get_mut::<C>()
-                    .map(|c| Mut {
-                        value: c.value as &mut dyn Reflect,
-                        ticks: c.ticks,
-                    })
+                entity_mut.get_mut::<C>().map(|c| Mut {
+                    value: c.value as &mut dyn Reflect,
+                    ticks: c.ticks,
+                })
             },
             reflect_mut_unchecked_ref: |entity_ref| {
                 let world = entity_ref.world();
