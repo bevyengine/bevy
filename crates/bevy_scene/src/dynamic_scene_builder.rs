@@ -1,6 +1,6 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_app::AppTypeRegistry;
-use bevy_ecs::{entity::Entity, reflect::ReflectComponent, world::World};
+use bevy_ecs::{prelude::Entity, reflect::ReflectComponent, world::World};
 use bevy_utils::default;
 use std::collections::BTreeMap;
 
