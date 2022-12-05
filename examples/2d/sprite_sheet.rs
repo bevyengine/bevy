@@ -52,6 +52,7 @@ fn setup(
     commands.spawn((
         SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
+            sprite: TextureAtlasSprite::new(1),
             transform: Transform::from_scale(Vec3::splat(6.0)),
             ..default()
         },
