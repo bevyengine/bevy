@@ -159,11 +159,15 @@ pub trait SystemParam: Sized {
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
 pub trait OptionalSystemParam: Sized {
-    type Fetch: for<'w, 's> SystemParamFetch<'w, 's>;
+    type Fetch: for<'w, 's> OptionalSystemParamFetch<'w, 's>;
+}
+
+impl<T: OptionalSystemParam> SystemParam for T {
+    type Fetch = T::Fetch;
 }
 
 impl<T: OptionalSystemParam> SystemParam for Option<T> {
-    type Fetch = T::Fetch;
+    type Fetch = Option<T::Fetch>;
 }
 
 pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamFetch<'w, 's>>::Item;
@@ -184,6 +188,24 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     fn apply(&mut self, _world: &mut World) {}
 }
 
+unsafe impl<T: SystemParamState> SystemParamState for Option<T> {
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+        Some(T::init(world, system_meta))
+    }
+    #[inline]
+    fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
+        if let Some(value) = self {
+            value.new_archetype(archetype, system_meta);
+        }
+    }
+    #[inline]
+    fn apply(&mut self, world: &mut World) {
+        if let Some(value) = self {
+            value.apply(world);
+        }
+    }
+}
+
 /// A [`SystemParamFetch`] that only reads a given [`World`].
 ///
 /// # Safety
@@ -202,6 +224,54 @@ pub trait SystemParamFetch<'world, 'state>: SystemParamState {
         world: &'world World,
         change_tick: u32,
     ) -> Self::Item;
+}
+
+pub trait OptionalSystemParamFetch<'world, 'state>: SystemParamState {
+    type Item: OptionalSystemParam<Fetch = Self>;
+    /// # Safety
+    ///
+    /// This call might access any of the input parameters in an unsafe way. Make sure the data
+    /// access is safe in the context of the system scheduler.
+    unsafe fn get_param(
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Option<Self::Item>;
+}
+
+impl<'world, 'state, T> SystemParamFetch<'world, 'state> for T
+where
+    T: for<'w, 's> OptionalSystemParamFetch<'w, 's>,
+{
+    type Item = <T as OptionalSystemParamFetch<'world, 'state>>::Item;
+
+    unsafe fn get_param(
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Self::Item {
+        T::get_param(state, system_meta, world, change_tick).unwrap()
+    }
+}
+
+impl<'world, 'state, T> SystemParamFetch<'world, 'state> for Option<T>
+where
+    T: for<'w, 's> OptionalSystemParamFetch<'w, 's>,
+{
+    type Item = Option<<T as OptionalSystemParamFetch<'world, 'state>>::Item>;
+
+    unsafe fn get_param(
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Self::Item {
+        state
+            .as_mut()
+            .and_then(|s| T::get_param(s, system_meta, world, change_tick))
+    }
 }
 
 impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
@@ -439,7 +509,7 @@ pub struct ResState<T> {
     marker: PhantomData<T>,
 }
 
-impl<'a, T: Resource> SystemParam for Res<'a, T> {
+impl<'a, T: Resource> OptionalSystemParam for Res<'a, T> {
     type Fetch = ResState<T>;
 }
 
@@ -472,7 +542,7 @@ unsafe impl<T: Resource> SystemParamState for ResState<T> {
     }
 }
 
-impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
+impl<'w, 's, T: Resource> OptionalSystemParamFetch<'w, 's> for ResState<T> {
     type Item = Res<'w, T>;
 
     #[inline]
@@ -481,58 +551,9 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
-    ) -> Self::Item {
-        let (ptr, ticks) = world
-            .get_resource_with_ticks(state.component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
-        Res {
-            value: ptr.deref(),
-            added: ticks.added.deref(),
-            changed: ticks.changed.deref(),
-            last_change_tick: system_meta.last_change_tick,
-            change_tick,
-        }
-    }
-}
-
-/// The [`SystemParamState`] of [`Option<Res<T>>`].
-/// See: [`Res<T>`]
-#[doc(hidden)]
-pub struct OptionResState<T>(ResState<T>);
-
-impl<'a, T: Resource> OptionalSystemParam for Res<'a, T> {
-    type Fetch = OptionResState<T>;
-}
-
-// SAFETY: Only reads a single World resource
-unsafe impl<T: Resource> ReadOnlySystemParamFetch for OptionResState<T> {}
-
-// SAFETY: this impl defers to `ResState`, which initializes
-// and validates the correct world access
-unsafe impl<T: Resource> SystemParamState for OptionResState<T> {
-    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
-        Self(ResState::init(world, system_meta))
-    }
-}
-
-impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
-    type Item = Option<Res<'w, T>>;
-
-    #[inline]
-    unsafe fn get_param(
-        state: &'s mut Self,
-        system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: u32,
-    ) -> Self::Item {
+    ) -> Option<Self::Item> {
         world
-            .get_resource_with_ticks(state.0.component_id)
+            .get_resource_with_ticks(state.component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
                 added: ticks.added.deref(),
@@ -550,7 +571,7 @@ pub struct ResMutState<T> {
     marker: PhantomData<T>,
 }
 
-impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
+impl<'a, T: Resource> OptionalSystemParam for ResMut<'a, T> {
     type Fetch = ResMutState<T>;
 }
 
@@ -586,7 +607,7 @@ unsafe impl<T: Resource> SystemParamState for ResMutState<T> {
     }
 }
 
-impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
+impl<'w, 's, T: Resource> OptionalSystemParamFetch<'w, 's> for ResMutState<T> {
     type Item = ResMut<'w, T>;
 
     #[inline]
@@ -595,57 +616,9 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
-    ) -> Self::Item {
-        let value = world
-            .get_resource_unchecked_mut_with_id(state.component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
-        ResMut {
-            value: value.value,
-            ticks: Ticks {
-                added: value.ticks.added,
-                changed: value.ticks.changed,
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
-            },
-        }
-    }
-}
-
-/// The [`SystemParamState`] of [`Option<ResMut<T>>`].
-/// See: [`ResMut<T>`]
-#[doc(hidden)]
-pub struct OptionResMutState<T>(ResMutState<T>);
-
-impl<'a, T: Resource> OptionalSystemParam for ResMut<'a, T> {
-    type Fetch = OptionResMutState<T>;
-}
-
-// SAFETY: this impl defers to `ResMutState`, which initializes
-// and validates the correct world access
-unsafe impl<T: Resource> SystemParamState for OptionResMutState<T> {
-    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
-        Self(ResMutState::init(world, system_meta))
-    }
-}
-
-impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
-    type Item = Option<ResMut<'w, T>>;
-
-    #[inline]
-    unsafe fn get_param(
-        state: &'s mut Self,
-        system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: u32,
-    ) -> Self::Item {
+    ) -> Option<Self::Item> {
         world
-            .get_resource_unchecked_mut_with_id(state.0.component_id)
+            .get_resource_unchecked_mut_with_id(state.component_id)
             .map(|value| ResMut {
                 value: value.value,
                 ticks: Ticks {
@@ -1039,7 +1012,7 @@ pub struct NonSendState<T> {
     marker: PhantomData<fn() -> T>,
 }
 
-impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
+impl<'a, T: 'static> OptionalSystemParam for NonSend<'a, T> {
     type Fetch = NonSendState<T>;
 }
 
@@ -1074,7 +1047,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
     }
 }
 
-impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
+impl<'w, 's, T: 'static> OptionalSystemParamFetch<'w, 's> for NonSendState<T> {
     type Item = NonSend<'w, T>;
 
     #[inline]
@@ -1083,60 +1056,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendState<T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
-    ) -> Self::Item {
-        world.validate_non_send_access::<T>();
-        let (ptr, ticks) = world
-            .get_resource_with_ticks(state.component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
-
-        NonSend {
-            value: ptr.deref(),
-            ticks: ticks.read(),
-            last_change_tick: system_meta.last_change_tick,
-            change_tick,
-        }
-    }
-}
-
-/// The [`SystemParamState`] of [`Option<NonSend<T>>`].
-/// See: [`NonSend<T>`]
-#[doc(hidden)]
-pub struct OptionNonSendState<T>(NonSendState<T>);
-
-impl<'w, T: 'static> OptionalSystemParam for NonSend<'w, T> {
-    type Fetch = OptionNonSendState<T>;
-}
-
-// SAFETY: Only reads a single non-send resource
-unsafe impl<T: 'static> ReadOnlySystemParamFetch for OptionNonSendState<T> {}
-
-// SAFETY: this impl defers to `NonSendState`, which initializes
-// and validates the correct world access
-unsafe impl<T: 'static> SystemParamState for OptionNonSendState<T> {
-    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
-        Self(NonSendState::init(world, system_meta))
-    }
-}
-
-impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendState<T> {
-    type Item = Option<NonSend<'w, T>>;
-
-    #[inline]
-    unsafe fn get_param(
-        state: &'s mut Self,
-        system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: u32,
-    ) -> Self::Item {
+    ) -> Option<Self::Item> {
         world.validate_non_send_access::<T>();
         world
-            .get_resource_with_ticks(state.0.component_id)
+            .get_resource_with_ticks(state.component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
@@ -1153,7 +1076,7 @@ pub struct NonSendMutState<T> {
     marker: PhantomData<fn() -> T>,
 }
 
-impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
+impl<'a, T: 'static> OptionalSystemParam for NonSendMut<'a, T> {
     type Fetch = NonSendMutState<T>;
 }
 
@@ -1191,7 +1114,7 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
     }
 }
 
-impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
+impl<'w, 's, T: 'static> OptionalSystemParamFetch<'w, 's> for NonSendMutState<T> {
     type Item = NonSendMut<'w, T>;
 
     #[inline]
@@ -1200,54 +1123,10 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
-    ) -> Self::Item {
-        world.validate_non_send_access::<T>();
-        let (ptr, ticks) = world
-            .get_resource_with_ticks(state.component_id)
-            .unwrap_or_else(|| {
-                panic!(
-                    "Non-send resource requested by {} does not exist: {}",
-                    system_meta.name,
-                    std::any::type_name::<T>()
-                )
-            });
-        NonSendMut {
-            value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
-        }
-    }
-}
-
-/// The [`SystemParamState`] of [`Option<NonSendMut<T>>`].
-/// See: [`NonSendMut<T>`]
-#[doc(hidden)]
-pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
-
-impl<'a, T: 'static> OptionalSystemParam for NonSendMut<'a, T> {
-    type Fetch = OptionNonSendMutState<T>;
-}
-
-// SAFETY: this impl defers to `NonSendMutState`, which initializes
-// and validates the correct world access
-unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
-    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
-        Self(NonSendMutState::init(world, system_meta))
-    }
-}
-
-impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
-    type Item = Option<NonSendMut<'w, T>>;
-
-    #[inline]
-    unsafe fn get_param(
-        state: &'s mut Self,
-        system_meta: &SystemMeta,
-        world: &'w World,
-        change_tick: u32,
-    ) -> Self::Item {
+    ) -> Option<Self::Item> {
         world.validate_non_send_access::<T>();
         world
-            .get_resource_with_ticks(state.0.component_id)
+            .get_resource_with_ticks(state.component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
