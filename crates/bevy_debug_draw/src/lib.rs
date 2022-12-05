@@ -13,15 +13,14 @@ use bevy_render::{
     mesh::Mesh,
     render_phase::AddRenderCommand,
     render_resource::{PrimitiveTopology, Shader, SpecializedMeshPipelines},
-    RenderApp, RenderStage, Extract, view::NoFrustumCulling,
+    Extract, RenderApp, RenderStage,
 };
 
 #[cfg(feature = "bevy_pbr")]
 use bevy_pbr::MeshUniform;
 #[cfg(feature = "bevy_sprite")]
-use bevy_sprite::Mesh2dHandle;
+use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
-use bevy_sprite::Mesh2dUniform;
 use once_cell::sync::Lazy;
 
 pub mod gizmos;
@@ -36,7 +35,7 @@ use crate::gizmos::Gizmos;
 /// The `bevy_debug_draw` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{DebugDrawPlugin, GizmoConfig, GIZMOS};
+    pub use crate::{GizmoConfig, GIZMOS};
 }
 
 const SHADER_HANDLE: HandleUntyped =
@@ -50,7 +49,7 @@ impl Plugin for DebugDrawPlugin {
 
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()
-            .add_system_to_stage(CoreStage::Last, sys);
+            .add_system_to_stage(CoreStage::Last, system);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
 
@@ -93,14 +92,14 @@ pub struct GizmoConfig {
     /// This setting only affects 3D. In 2D, debug drawing is always on top.
     ///
     /// Defaults to `true`.
-    pub always_on_top: bool,
+    pub on_top: bool,
 }
 
 impl Default for GizmoConfig {
     fn default() -> Self {
         Self {
             enabled: true,
-            always_on_top: true,
+            on_top: true,
         }
     }
 }
@@ -116,7 +115,7 @@ enum SendItem {
 
 pub static GIZMOS: Lazy<Gizmos> = Lazy::new(Gizmos::new);
 
-fn sys(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
+fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
     let mut list_positions = Vec::new();
     let mut list_colors = Vec::new();
     let mut strip_positions = Vec::new();
@@ -128,7 +127,6 @@ fn sys(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
                 list_positions.extend(positions);
                 list_colors.extend(colors);
             }
-
             SendItem::List((positions, colors)) => {
                 list_positions.extend(positions);
                 list_colors.extend(colors);
@@ -171,8 +169,11 @@ impl FromWorld for MeshHandles {
 #[derive(Component)]
 struct GizmoDrawMesh;
 
-fn extract(mut commands: Commands, handles: Extract<Res<MeshHandles>>, config: Extract<Res<GizmoConfig>>) {
-
+fn extract(
+    mut commands: Commands,
+    handles: Extract<Res<MeshHandles>>,
+    config: Extract<Res<GizmoConfig>>,
+) {
     if config.is_changed() {
         commands.insert_resource(**config);
     }

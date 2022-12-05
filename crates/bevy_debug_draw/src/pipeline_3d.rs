@@ -2,8 +2,9 @@ use bevy_asset::Handle;
 use bevy_core_pipeline::core_3d::Opaque3d;
 use bevy_ecs::{
     entity::Entity,
+    query::With,
     system::{Query, Res, ResMut, Resource},
-    world::{FromWorld, World}, query::With,
+    world::{FromWorld, World},
 };
 use bevy_pbr::*;
 use bevy_render::{mesh::Mesh, render_resource::Shader};
@@ -42,9 +43,13 @@ impl SpecializedMeshPipeline for DebugLinePipeline {
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut shader_defs = Vec::new();
-        shader_defs.push("DEBUG_LINES_3D".to_string());
+        shader_defs.push("DEBUG_LINES_3D".into());
+        shader_defs.push(ShaderDefVal::Int(
+            "MAX_DIRECTIONAL_LIGHTS".to_string(),
+            MAX_DIRECTIONAL_LIGHTS as i32,
+        ));
         if depth_test {
-            shader_defs.push("DEPTH_TEST".to_string());
+            shader_defs.push("DEPTH_TEST".into());
         }
 
         let vertex_buffer_layout = layout.get_layout(&[
@@ -139,10 +144,7 @@ pub(crate) fn queue(
     config: Res<GizmoConfig>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Opaque3d>)>,
 ) {
-    let draw_custom = draw_functions
-        .read()
-        .get_id::<DrawDebugLines>()
-        .unwrap();
+    let draw_function = draw_functions.read().get_id::<DrawDebugLines>().unwrap();
     let key = MeshPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut phase) in &mut views {
         let view_matrix = view.transform.compute_matrix();
@@ -154,14 +156,14 @@ pub(crate) fn queue(
                     .specialize(
                         &mut pipeline_cache,
                         &pipeline,
-                        (!config.always_on_top, key),
+                        (!config.on_top, key),
                         &mesh.layout,
                     )
                     .unwrap();
                 phase.add(Opaque3d {
                     entity,
                     pipeline,
-                    draw_function: draw_custom,
+                    draw_function,
                     distance: view_row_2.dot(mesh_uniform.transform.col(3)),
                 });
             }

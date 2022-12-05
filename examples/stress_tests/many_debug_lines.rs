@@ -22,7 +22,7 @@ fn main() {
             fancy: false,
         })
         .insert_resource(GizmoConfig {
-            always_on_top: false,
+            on_top: false,
             ..default()
         })
         .add_startup_system(setup)

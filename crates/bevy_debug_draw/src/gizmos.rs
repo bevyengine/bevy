@@ -84,26 +84,20 @@ impl Gizmos {
     /// Draw a rectangle.
     #[inline]
     pub fn rect(&self, position: Vec3, rotation: Quat, size: Vec2, color: Color) {
-        let positions = self
+        let [tl, tr, br, bl] = self
             .rect_inner(size)
             .map(|vec2| position + rotation * vec2.extend(0.));
-        self.linestrip(positions, color);
+        self.linestrip([tl, tr, br, bl, tl], color);
     }
 
     /// Draw a box.
     #[inline]
     pub fn cuboid(&self, position: Vec3, rotation: Quat, size: Vec3, color: Color) {
-        let half_size = size / 2.;
+        let rect = self.rect_inner(size.truncate());
         // Front
-        let tlf = position + rotation * Vec3::new(-half_size.x, half_size.y, half_size.z);
-        let trf = position + rotation * Vec3::new(half_size.x, half_size.y, half_size.z);
-        let blf = position + rotation * Vec3::new(-half_size.x, -half_size.y, half_size.z);
-        let brf = position + rotation * Vec3::new(half_size.x, -half_size.y, half_size.z);
+        let [tlf, trf, brf, blf] = rect.map(|vec2| position + rotation * vec2.extend(size.z / 2.));
         // Back
-        let tlb = position + rotation * Vec3::new(-half_size.x, half_size.y, -half_size.z);
-        let trb = position + rotation * Vec3::new(half_size.x, half_size.y, -half_size.z);
-        let blb = position + rotation * Vec3::new(-half_size.x, -half_size.y, -half_size.z);
-        let brb = position + rotation * Vec3::new(half_size.x, -half_size.y, -half_size.z);
+        let [tlb, trb, brb, blb] = rect.map(|vec2| position + rotation * vec2.extend(-size.z / 2.));
 
         let positions = [
             tlf, trf, trf, brf, brf, blf, blf, tlf, // Front
@@ -162,8 +156,8 @@ impl Gizmos {
     #[inline]
     pub fn rect_2d(&self, position: Vec2, rotation: f32, size: Vec2, color: Color) {
         let rotation = Mat2::from_angle(rotation);
-        let positions = self.rect_inner(size).map(|vec2| position + rotation * vec2);
-        self.linestrip_2d(positions, color);
+        let [tl, tr, br, bl] = self.rect_inner(size).map(|vec2| position + rotation * vec2);
+        self.linestrip_2d([tl, tr, br, bl, tl], color);
     }
 
     fn circle_inner(&self, radius: f32) -> impl Iterator<Item = Vec2> {
@@ -174,14 +168,13 @@ impl Gizmos {
         })
     }
 
-    fn rect_inner(&self, size: Vec2) -> impl Iterator<Item = Vec2> {
+    fn rect_inner(&self, size: Vec2) -> [Vec2; 4] {
         let half_size = size / 2.;
         let tl = Vec2::new(-half_size.x, half_size.y);
         let tr = Vec2::new(half_size.x, half_size.y);
         let bl = Vec2::new(-half_size.x, -half_size.y);
         let br = Vec2::new(half_size.x, -half_size.y);
-
-        [tl, tr, br, bl, tl].into_iter()
+        [tl, tr, br, bl]
     }
 
     #[inline]

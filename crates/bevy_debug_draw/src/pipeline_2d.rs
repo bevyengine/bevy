@@ -97,19 +97,19 @@ pub(crate) fn queue(
     pipeline: Res<DebugLinePipeline>,
     mut pipeline_cache: ResMut<PipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedMeshPipelines<DebugLinePipeline>>,
-    render_meshes: Res<RenderAssets<Mesh>>,
+    gpu_meshes: Res<RenderAssets<Mesh>>,
     msaa: Res<Msaa>,
-    material_meshes: Query<&Mesh2dHandle, With<GizmoDrawMesh>>,
+    mesh_handles: Query<&Mesh2dHandle, With<GizmoDrawMesh>>,
     mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
 ) {
-    let draw_mesh2d = draw_functions.read().get_id::<DrawDebugLines>().unwrap();
+    let draw_function = draw_functions.read().get_id::<DrawDebugLines>().unwrap();
     let key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
     for (view, mut phase) in &mut views {
         for visible_entity in &view.entities {
             println!("e");
-            let Ok(mesh_handle) = material_meshes.get(*visible_entity) else { continue; };
+            let Ok(mesh_handle) = mesh_handles.get(*visible_entity) else { continue; };
             println!("ee");
-            let Some(mesh) = render_meshes.get(&mesh_handle.0) else { continue; };
+            let Some(mesh) = gpu_meshes.get(&mesh_handle.0) else { continue; };
             println!("eee");
 
             let key = key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
@@ -118,7 +118,7 @@ pub(crate) fn queue(
                 .unwrap();
             phase.add(Transparent2d {
                 entity: *visible_entity,
-                draw_function: draw_mesh2d,
+                draw_function,
                 pipeline,
                 sort_key: FloatOrd(f32::MAX),
                 batch_range: None,
