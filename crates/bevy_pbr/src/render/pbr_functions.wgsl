@@ -234,6 +234,8 @@ fn pbr(
     let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV) * specular_occlusion;
     let light_ambient = (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb;
 
+    // TODO: Ambient/specular occlusion should apply to indirect lighting from global illumination solutions
+
     output_color = vec4<f32>(
         light_accum + light_ambient + emissive.rgb * output_color.a,
         output_color.a
