@@ -31,9 +31,10 @@ fn animate_sprite(
     for (indices, mut timer, mut sprite) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
-            sprite.index = match sprite.index == indices.last {
-                true => indices.first,
-                false => sprite.index + 1,
+            sprite.index = if sprite.index == indices.last {
+                indices.first
+            } else {
+                sprite.index + 1
             };
         }
     }
