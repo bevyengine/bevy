@@ -66,7 +66,7 @@ impl LastFocus {
     }
 
     pub fn entity(&self) -> Option<Entity> {
-        self.0.as_ref().map(|v| <Entity>::from_node_id(v))
+        self.0.as_ref().map(<Entity>::from_node_id)
     }
 }
 
