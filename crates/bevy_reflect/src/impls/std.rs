@@ -332,7 +332,7 @@ impl_reflect_for_veclike!(Vec<T>, Vec::push, Vec::pop, [T]);
 impl_reflect_for_veclike!(
     VecDeque<T>,
     VecDeque::push_back,
-    VecDeque::pop_front,
+    VecDeque::pop_back,
     VecDeque::<T>
 );
 
