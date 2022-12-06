@@ -125,7 +125,7 @@ pub trait SystemParam: Sized {
 /// unsafe impl SystemParamState for OptionParamState {
 ///     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
 ///         Self {
-///             res_state: Some(ResState::init(world, system_meta))
+///             res_state: OptionState::init(world, system_meta)
 ///         }
 ///     }
 /// }
