@@ -1,6 +1,6 @@
 use std::{f32::consts::TAU, iter};
 
-use bevy_ecs::{system::{Buffer, SystemBuffer, SystemParam}, world::World};
+use bevy_ecs::{system::{Buffer, SystemBuffer, SystemParam, Resource}, world::World};
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
 use bevy_render::prelude::Color;
 use crossbeam_channel::{unbounded, Receiver, Sender};
@@ -24,22 +24,29 @@ impl GizmoDraw {
 
 const CIRCLE_SEGMENTS: usize = 32;
 
+#[derive(Resource, Default)]
+pub(crate) struct Ac(pub Vec<(PositionItem, ColorItem)>);
 
 #[derive(SystemParam)]
-struct E<'s> {
-    buffer: Buffer<'s, EBuffer>,
+pub struct DrawGizmo<'s> {
+    buffer: Buffer<'s, DrawGizmoBuffer>,
 }
 
-#[derive(Default)]
-struct EBuffer(Vec<(Vec3, Color)>);
-
-impl SystemBuffer for EBuffer {
-    fn apply(&mut self, world: &mut World) {
-        todo!()
+impl<'s> DrawGizmo<'s> {
+    pub fn line(&mut self, start: Vec3, end: Vec3, color: Color) {
+        let color = color.as_linear_rgba_f32();
+        self.buffer.0.extend([(start.to_array(), color), (end.to_array(), color)])
     }
 }
 
+#[derive(Default)]
+pub struct DrawGizmoBuffer(Vec<(PositionItem, ColorItem)>);
 
+impl SystemBuffer for DrawGizmoBuffer {
+    fn apply(&mut self, world: &mut World) {
+        world.resource_mut::<Ac>().0.append(&mut self.0);
+    }
+}
 
 impl GizmoDraw {
     /// Draw a line from `start` to `end`.

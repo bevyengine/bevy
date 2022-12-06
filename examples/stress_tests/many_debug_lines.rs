@@ -3,7 +3,7 @@ use std::f32::consts::TAU;
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::PresentMode, debug_draw::gizmo_draw::DrawGizmo,
 };
 
 fn main() {
@@ -29,7 +29,7 @@ fn main() {
     .add_system(input)
     .add_system(ui_system);
 
-    for _ in 0..1 {
+    for _ in 0..20 {
         app.add_system(system);
     }
 
@@ -44,32 +44,33 @@ struct Config {
 
 fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
     if input.just_pressed(KeyCode::Up) {
-        config.line_count += 2500;
+        config.line_count += 250;
     }
     if input.just_pressed(KeyCode::Down) {
-        config.line_count = config.line_count.saturating_sub(2500);
+        config.line_count = config.line_count.saturating_sub(250);
     }
     if input.just_pressed(KeyCode::Space) {
         config.fancy = !config.fancy;
     }
 }
 
-fn system(config: Res<Config>, time: Res<Time>) {
-    if !config.fancy {
+fn system(config: Res<Config>, time: Res<Time>, mut e: DrawGizmo) {
+    // if !config.fancy {
         for _ in 0..config.line_count {
-            GIZMO.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
+            // GIZMO.line(Vec3::NEG_Y, Vec3::Y, C
+            e.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
         }
-    } else {
-        for i in 0..config.line_count {
-            let angle = i as f32 / config.line_count as f32 * TAU;
+    // } else {
+    //     for i in 0..config.line_count {
+    //         let angle = i as f32 / config.line_count as f32 * TAU;
 
-            let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
-            let start_color = Color::rgb(vector.x, vector.z, 0.5);
-            let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
+    //         let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
+    //         let start_color = Color::rgb(vector.x, vector.z, 0.5);
+    //         let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
 
-            GIZMO.line_gradient(vector, -vector, start_color, end_color);
-        }
-    }
+    //         GIZMO.line_gradient(vector, -vector, start_color, end_color);
+    //     }
+    // }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -103,7 +104,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         Controls:\n\
         Up/Down: Raise or lower the line count.\n\
         Spacebar: Toggle fancy mode.",
-        config.line_count * 1,
+        config.line_count * 20,
         fps,
     );
 }

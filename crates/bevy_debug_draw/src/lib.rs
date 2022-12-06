@@ -4,7 +4,7 @@ use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::Component,
-    system::{Commands, Res, ResMut, Resource, Local},
+    system::{Commands, Local, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::Mat4;
@@ -30,7 +30,7 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::gizmo_draw::GizmoDraw;
+use crate::gizmo_draw::{Ac, GizmoDraw};
 
 /// The `bevy_debug_draw` prelude.
 pub mod prelude {
@@ -49,6 +49,7 @@ impl Plugin for DebugDrawPlugin {
 
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()
+            .init_resource::<Ac>()
             .add_system_to_stage(CoreStage::Last, system);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
@@ -129,16 +130,18 @@ type ColorItem = [f32; 4];
 
 pub static GIZMO: Lazy<GizmoDraw> = Lazy::new(GizmoDraw::new);
 
-fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>, mut old_lengths: Local<(usize, usize)>) {
+fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>, mut ac: ResMut<Ac>) {
     // let mut list_positions = Vec::with_capacity(old_lengths.0);
     // let mut list_colors = Vec::with_capacity(old_lengths.0);
     // let mut strip_positions = Vec::with_capacity(old_lengths.1);
     // let mut strip_colors = Vec::with_capacity(old_lengths.1);
 
-    let (list_positions, list_colors): (Vec<_>, Vec<_>) = GIZMO.s_receiver.try_iter().flat_map(|item| item).unzip();
+    // let (list_positions, list_colors): (Vec<_>, Vec<_>) = GIZMO.s_receiver.try_iter().flat_map(|item| item).unzip();
     // let (list_positions2, list_colors2): (Vec<_>, Vec<_>) = GIZMO.s_receiver.try_iter().flat_map(|item| item).unzip();
 
     // *old_lengths = (list_positions.len(), strip_positions.len());
+
+    let (list_positions, list_colors): (Vec<_>, Vec<_>) = ac.0.drain(..).unzip();
 
     let list_mesh = meshes.get_mut(&handles.list).unwrap();
 
