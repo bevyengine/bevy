@@ -11,11 +11,14 @@ use crate::{
 ///
 /// This is a sub-trait of [`Array`] as it implements a [`push`](List::push) function, allowing
 /// it's internal size to grow.
+///
+/// This trait expects index 0 to contain the _first_ or _front_ element.
+/// The _last_ or _back_ element refers to the element with the largest index.
 pub trait List: Reflect + Array {
-    /// Appends an element to the list.
+    /// Appends an element to the _back_ of the list.
     fn push(&mut self, value: Box<dyn Reflect>);
 
-    /// Removes the last element from the list (highest index in the array) and returns it, or [`None`] if it is empty.
+    /// Removes the _last_ element from the list and returns it, or [`None`] if it is empty.
     fn pop(&mut self) -> Option<Box<dyn Reflect>>;
 
     /// Clones the list, producing a [`DynamicList`].
