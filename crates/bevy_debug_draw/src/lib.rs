@@ -4,7 +4,7 @@ use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::Component,
-    system::{Commands, Res, ResMut, Resource},
+    system::{Commands, Res, ResMut, Resource, Local},
     world::{FromWorld, World},
 };
 use bevy_math::Mat4;
@@ -127,36 +127,18 @@ struct GizmoDrawMesh;
 type PositionItem = [f32; 3];
 type ColorItem = [f32; 4];
 
-enum SendItem {
-    Single(([PositionItem; 2], [ColorItem; 2])),
-    List((Vec<PositionItem>, Vec<ColorItem>)),
-    Strip((Vec<PositionItem>, Vec<ColorItem>)),
-}
-
 pub static GIZMO: Lazy<GizmoDraw> = Lazy::new(GizmoDraw::new);
 
-fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
-    let mut list_positions = Vec::new();
-    let mut list_colors = Vec::new();
-    let mut strip_positions = Vec::new();
-    let mut strip_colors = Vec::new();
+fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>, mut old_lengths: Local<(usize, usize)>) {
+    // let mut list_positions = Vec::with_capacity(old_lengths.0);
+    // let mut list_colors = Vec::with_capacity(old_lengths.0);
+    // let mut strip_positions = Vec::with_capacity(old_lengths.1);
+    // let mut strip_colors = Vec::with_capacity(old_lengths.1);
 
-    for item in GIZMO.receiver.try_iter() {
-        match item {
-            SendItem::Single((positions, colors)) => {
-                list_positions.extend(positions);
-                list_colors.extend(colors);
-            }
-            SendItem::List((positions, colors)) => {
-                list_positions.extend(positions);
-                list_colors.extend(colors);
-            }
-            SendItem::Strip((positions, colors)) => {
-                strip_positions.extend(positions.into_iter().chain(iter::once([f32::NAN; 3])));
-                strip_colors.extend(colors.into_iter().chain(iter::once([f32::NAN; 4])));
-            }
-        }
-    }
+    let (list_positions, list_colors): (Vec<_>, Vec<_>) = GIZMO.s_receiver.try_iter().flat_map(|item| item).unzip();
+    // let (list_positions2, list_colors2): (Vec<_>, Vec<_>) = GIZMO.s_receiver.try_iter().flat_map(|item| item).unzip();
+
+    // *old_lengths = (list_positions.len(), strip_positions.len());
 
     let list_mesh = meshes.get_mut(&handles.list).unwrap();
 
@@ -165,8 +147,8 @@ fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>) {
 
     let strip_mesh = meshes.get_mut(&handles.strip).unwrap();
 
-    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, strip_positions);
-    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, strip_colors);
+    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.; 3]; 0]);
+    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vec![[0.; 4]; 0]);
 }
 
 fn extract(

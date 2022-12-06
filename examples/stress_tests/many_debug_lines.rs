@@ -7,48 +7,33 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "Many Debug Lines".to_string(),
-                present_mode: PresentMode::AutoNoVsync,
-                ..default()
-            },
+    let mut app = App::new();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        window: WindowDescriptor {
+            title: "Many Debug Lines".to_string(),
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
-        }))
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
-        .insert_resource(Config {
-            line_count: 50_000,
-            fancy: false,
-        })
-        .insert_resource(GizmoConfig {
-            on_top: false,
-            ..default()
-        })
-        .add_startup_system(setup)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(system::<5_000>)
-        .add_system(input)
-        .add_system(ui_system)
-        .run();
+        },
+        ..default()
+    }))
+    .add_plugin(FrameTimeDiagnosticsPlugin::default())
+    .insert_resource(Config {
+        line_count: 1_000,
+        fancy: false,
+    })
+    .insert_resource(GizmoConfig {
+        on_top: false,
+        ..default()
+    })
+    .add_startup_system(setup)
+    .add_system(input)
+    .add_system(ui_system);
+
+    for _ in 0..1 {
+        app.add_system(system);
+    }
+
+    app.run();
 }
 
 #[derive(Resource, Debug)]
@@ -59,21 +44,20 @@ struct Config {
 
 fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
     if input.just_pressed(KeyCode::Up) {
-        config.line_count += 10_000;
+        config.line_count += 2500;
     }
     if input.just_pressed(KeyCode::Down) {
-        config.line_count = config.line_count.saturating_sub(10_000);
+        config.line_count = config.line_count.saturating_sub(2500);
     }
     if input.just_pressed(KeyCode::Space) {
         config.fancy = !config.fancy;
     }
 }
 
-fn system<const C: u32>(config: Res<Config>, time: Res<Time>) {
+fn system(config: Res<Config>, time: Res<Time>) {
     if !config.fancy {
-        for _ in 0..C {
+        for _ in 0..config.line_count {
             GIZMO.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
-            // draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
         }
     } else {
         for i in 0..config.line_count {
@@ -119,6 +103,7 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         Controls:\n\
         Up/Down: Raise or lower the line count.\n\
         Spacebar: Toggle fancy mode.",
-        config.line_count, fps,
+        config.line_count * 1,
+        fps,
     );
 }

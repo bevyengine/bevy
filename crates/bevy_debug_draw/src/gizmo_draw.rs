@@ -4,17 +4,20 @@ use bevy_math::{Mat2, Quat, Vec2, Vec3};
 use bevy_render::prelude::Color;
 use crossbeam_channel::{unbounded, Receiver, Sender};
 
-use crate::{SendItem, GIZMO};
+use crate::{ColorItem, PositionItem, GIZMO};
 
 pub struct GizmoDraw {
-    sender: Sender<SendItem>,
-    pub(crate) receiver: Receiver<SendItem>,
+    sender: Sender<Vec<(PositionItem, ColorItem)>>,
+    pub(crate) receiver: Receiver<Vec<(PositionItem, ColorItem)>>,
+    s_sender: Sender<[(PositionItem, ColorItem); 2]>,
+    pub(crate) s_receiver: Receiver<[(PositionItem, ColorItem); 2]>,
 }
 
 impl GizmoDraw {
     pub(crate) fn new() -> Self {
         let (sender, receiver) = unbounded();
-        GizmoDraw { sender, receiver }
+        let (s_sender, s_receiver) = unbounded();
+        GizmoDraw { sender, receiver, s_sender, s_receiver }
     }
 }
 
@@ -30,13 +33,10 @@ impl GizmoDraw {
     /// Draw a line from `start` to `end`.
     #[inline]
     pub fn line_gradient(&self, start: Vec3, end: Vec3, start_color: Color, end_color: Color) {
-        let _ = self.sender.send(SendItem::Single((
-            [start.to_array(), end.to_array()],
-            [
-                start_color.as_linear_rgba_f32(),
-                end_color.as_linear_rgba_f32(),
-            ],
-        )));
+        let _ = self.s_sender.send([
+            (start.to_array(), start_color.as_linear_rgba_f32()),
+            (end.to_array(), end_color.as_linear_rgba_f32()),
+        ]);
     }
 
     /// Draw a line from `start` to `start + vector`.
@@ -58,10 +58,10 @@ impl GizmoDraw {
 
     #[inline]
     pub fn linestrip_gradient(&self, strip: impl IntoIterator<Item = (Vec3, Color)>) {
-        let iter = strip
+        let _iter = strip
             .into_iter()
             .map(|(p, c)| (p.to_array(), c.as_linear_rgba_f32()));
-        let _ = self.sender.send(SendItem::Strip(iter.unzip()));
+        // let _ = self.sender.send(SendItem::Strip(iter.unzip()));
     }
 
     #[inline]
@@ -70,7 +70,7 @@ impl GizmoDraw {
             .into_iter()
             .map(|p| p.to_array())
             .zip(iter::repeat(color.as_linear_rgba_f32()));
-        let _ = self.sender.send(SendItem::List(iter.unzip()));
+        let _ = self.sender.send(iter.collect());
     }
 
     /// Draw a circle at `position` with the flat side facing `normal`.
