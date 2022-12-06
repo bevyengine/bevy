@@ -220,7 +220,7 @@ impl Plugin for RenderPlugin {
 
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let meta_len = app_world.entities().meta_len();
+                    let total_count = app_world.entities().total_count();
 
                     assert_eq!(
                         render_app.world.entities().len(),
@@ -233,7 +233,7 @@ impl Plugin for RenderPlugin {
                         render_app
                             .world
                             .entities_mut()
-                            .flush_and_reserve_invalid_assuming_no_entities(meta_len);
+                            .flush_and_reserve_invalid_assuming_no_entities(total_count);
                     }
                 }
 

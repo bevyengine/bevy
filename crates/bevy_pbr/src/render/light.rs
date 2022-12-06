@@ -1635,10 +1635,7 @@ pub fn queue_shadows(
     spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
 ) {
     for view_lights in &view_lights {
-        let draw_shadow_mesh = shadow_draw_functions
-            .read()
-            .get_id::<DrawShadowMesh>()
-            .unwrap();
+        let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawShadowMesh>();
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, mut shadow_phase) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();

@@ -6,12 +6,12 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::{
-        Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
+        Archetype, ArchetypeId, ArchetypeRow, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
-    storage::{SparseSetIndex, SparseSets, Storages, Table},
+    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
@@ -50,7 +50,7 @@ use std::{any::TypeId, collections::HashMap};
 /// component, but specifying different render graphs to use.
 /// If the bundles were both added to the same entity, only one of these two bundles would work.
 ///
-/// For this reason, There is intentionally no [`Query`] to match whether an entity
+/// For this reason, there is intentionally no [`Query`] to match whether an entity
 /// contains the components of a bundle.
 /// Queries should instead only select the components they logically operate on.
 ///
@@ -379,7 +379,7 @@ impl BundleInfo {
         sparse_sets: &mut SparseSets,
         bundle_component_status: &S,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
         change_tick: u32,
         bundle: T,
     ) {
@@ -420,8 +420,8 @@ impl BundleInfo {
         components: &mut Components,
         archetype_id: ArchetypeId,
     ) -> ArchetypeId {
-        if let Some(add_bundle) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
-            return add_bundle.archetype_id;
+        if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
+            return add_bundle_id;
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
@@ -518,17 +518,17 @@ pub(crate) enum InsertBundleResult<'a> {
 
 impl<'a, 'b> BundleInserter<'a, 'b> {
     /// # Safety
-    /// `entity` must currently exist in the source archetype for this inserter. `archetype_index`
+    /// `entity` must currently exist in the source archetype for this inserter. `archetype_row`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
     pub unsafe fn insert<T: Bundle>(
         &mut self,
         entity: Entity,
-        archetype_index: usize,
+        archetype_row: ArchetypeRow,
         bundle: T,
     ) -> EntityLocation {
         let location = EntityLocation {
-            index: archetype_index,
+            archetype_row,
             archetype_id: self.archetype.id(),
         };
         match &mut self.result {
@@ -537,32 +537,32 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     self.table,
                     self.sparse_sets,
                     add_bundle,
                     entity,
-                    self.archetype.entity_table_row(archetype_index),
+                    self.archetype.entity_table_row(archetype_row),
                     self.change_tick,
                     bundle,
                 );
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
-                let result = self.archetype.swap_remove(location.index);
+                let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.meta[swapped_entity.index as usize].location = location;
+                    self.entities.set(swapped_entity.index(), location);
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                self.entities.meta[entity.index as usize].location = new_location;
+                self.entities.set(entity.index(), new_location);
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     self.table,
@@ -579,9 +579,9 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 new_archetype,
                 new_table,
             } => {
-                let result = self.archetype.swap_remove(location.index);
+                let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.meta[swapped_entity.index as usize].location = location;
+                    self.entities.set(swapped_entity.index(), location);
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
@@ -589,7 +589,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     .table
                     .move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                self.entities.meta[entity.index as usize].location = new_location;
+                self.entities.set(entity.index(), new_location);
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -607,14 +607,14 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     };
 
                     swapped_archetype
-                        .set_entity_table_row(swapped_location.index, result.table_row);
+                        .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                 }
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
                 let add_bundle = self
                     .archetype
                     .edges()
-                    .get_add_bundle(self.bundle_info.id)
+                    .get_add_bundle_internal(self.bundle_info.id)
                     .unwrap();
                 self.bundle_info.write_components(
                     new_table,
@@ -664,7 +664,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
             self.change_tick,
             bundle,
         );
-        self.entities.meta[entity.index as usize].location = location;
+        self.entities.set(entity.index(), location);
 
         location
     }

@@ -22,7 +22,9 @@ use bevy_ecs::entity::Entity;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
 use std::borrow::Cow;
+use std::ffi::OsString;
 use std::ops::Range;
+use std::path::PathBuf;
 
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_ecs::schedule::IntoSystemDescriptor;
@@ -62,6 +64,8 @@ fn register_rust_types(app: &mut App) {
         .register_type_data::<Range<f32>, ReflectSerialize>()
         .register_type_data::<Range<f32>, ReflectDeserialize>()
         .register_type::<String>()
+        .register_type::<PathBuf>()
+        .register_type::<OsString>()
         .register_type::<HashSet<String>>()
         .register_type::<Option<String>>()
         .register_type::<Cow<'static, str>>()
