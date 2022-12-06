@@ -1,10 +1,10 @@
-use std::iter;
+use std::mem;
 
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::Component,
-    system::{Commands, Local, Res, ResMut, Resource},
+    system::{Commands, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
 use bevy_math::Mat4;
@@ -21,8 +21,6 @@ use bevy_pbr::MeshUniform;
 #[cfg(feature = "bevy_sprite")]
 use bevy_sprite::{Mesh2dHandle, Mesh2dUniform};
 
-use once_cell::sync::Lazy;
-
 pub mod gizmo_draw;
 
 #[cfg(feature = "bevy_sprite")]
@@ -30,12 +28,12 @@ mod pipeline_2d;
 #[cfg(feature = "bevy_pbr")]
 mod pipeline_3d;
 
-use crate::gizmo_draw::{Ac, GizmoDraw};
+use crate::gizmo_draw::DrawGizmoStorage;
 
 /// The `bevy_debug_draw` prelude.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{GizmoConfig, GIZMO};
+    pub use crate::{gizmo_draw::DrawGizmo, GizmoConfig};
 }
 
 const SHADER_HANDLE: HandleUntyped =
@@ -49,7 +47,7 @@ impl Plugin for DebugDrawPlugin {
 
         app.init_resource::<MeshHandles>()
             .init_resource::<GizmoConfig>()
-            .init_resource::<Ac>()
+            .init_resource::<DrawGizmoStorage>()
             .add_system_to_stage(CoreStage::Last, system);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return; };
@@ -125,33 +123,26 @@ impl FromWorld for MeshHandles {
 #[derive(Component)]
 struct GizmoDrawMesh;
 
-type PositionItem = [f32; 3];
-type ColorItem = [f32; 4];
-
-pub static GIZMO: Lazy<GizmoDraw> = Lazy::new(GizmoDraw::new);
-
-fn system(mut meshes: ResMut<Assets<Mesh>>, handles: Res<MeshHandles>, mut ac: ResMut<Ac>) {
-    // let mut list_positions = Vec::with_capacity(old_lengths.0);
-    // let mut list_colors = Vec::with_capacity(old_lengths.0);
-    // let mut strip_positions = Vec::with_capacity(old_lengths.1);
-    // let mut strip_colors = Vec::with_capacity(old_lengths.1);
-
-    // let (list_positions, list_colors): (Vec<_>, Vec<_>) = GIZMO.s_receiver.try_iter().flat_map(|item| item).unzip();
-    // let (list_positions2, list_colors2): (Vec<_>, Vec<_>) = GIZMO.s_receiver.try_iter().flat_map(|item| item).unzip();
-
-    // *old_lengths = (list_positions.len(), strip_positions.len());
-
-    let (list_positions, list_colors): (Vec<_>, Vec<_>) = ac.0.drain(..).unzip();
-
+fn system(
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<MeshHandles>,
+    mut storage: ResMut<DrawGizmoStorage>,
+) {
     let list_mesh = meshes.get_mut(&handles.list).unwrap();
 
-    list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, list_positions);
-    list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, list_colors);
+    let positions = mem::take(&mut storage.list_positions);
+    list_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+    let colors = mem::take(&mut storage.list_colors);
+    list_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
 
     let strip_mesh = meshes.get_mut(&handles.strip).unwrap();
 
-    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[0.; 3]; 0]);
-    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, vec![[0.; 4]; 0]);
+    let positions = mem::take(&mut storage.strip_positions);
+    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+
+    let colors = mem::take(&mut storage.strip_colors);
+    strip_mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
 }
 
 fn extract(

@@ -3,8 +3,10 @@ use std::f32::consts::TAU;
 use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode, debug_draw::gizmo_draw::DrawGizmo,
+    window::PresentMode,
 };
+
+const SYSTEM_COUNT: u32 = 10;
 
 fn main() {
     let mut app = App::new();
@@ -18,7 +20,7 @@ fn main() {
     }))
     .add_plugin(FrameTimeDiagnosticsPlugin::default())
     .insert_resource(Config {
-        line_count: 1_000,
+        line_count: 50_000,
         fancy: false,
     })
     .insert_resource(GizmoConfig {
@@ -29,7 +31,8 @@ fn main() {
     .add_system(input)
     .add_system(ui_system);
 
-    for _ in 0..20 {
+    // TODO Why no parallelize?
+    for _ in 0..SYSTEM_COUNT {
         app.add_system(system);
     }
 
@@ -44,33 +47,32 @@ struct Config {
 
 fn input(mut config: ResMut<Config>, input: Res<Input<KeyCode>>) {
     if input.just_pressed(KeyCode::Up) {
-        config.line_count += 250;
+        config.line_count += 10_000;
     }
     if input.just_pressed(KeyCode::Down) {
-        config.line_count = config.line_count.saturating_sub(250);
+        config.line_count = config.line_count.saturating_sub(10_000);
     }
     if input.just_pressed(KeyCode::Space) {
         config.fancy = !config.fancy;
     }
 }
 
-fn system(config: Res<Config>, time: Res<Time>, mut e: DrawGizmo) {
-    // if !config.fancy {
-        for _ in 0..config.line_count {
-            // GIZMO.line(Vec3::NEG_Y, Vec3::Y, C
-            e.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
+fn system(config: Res<Config>, time: Res<Time>, mut draw: DrawGizmo) {
+    if !config.fancy {
+        for _ in 0..(config.line_count / SYSTEM_COUNT) {
+            draw.line(Vec3::NEG_Y, Vec3::Y, Color::BLACK);
         }
-    // } else {
-    //     for i in 0..config.line_count {
-    //         let angle = i as f32 / config.line_count as f32 * TAU;
+    } else {
+        for i in 0..(config.line_count / SYSTEM_COUNT) {
+            let angle = i as f32 / (config.line_count / SYSTEM_COUNT) as f32 * TAU;
 
-    //         let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
-    //         let start_color = Color::rgb(vector.x, vector.z, 0.5);
-    //         let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
+            let vector = Vec2::from(angle.sin_cos()).extend(time.elapsed_seconds().sin());
+            let start_color = Color::rgb(vector.x, vector.z, 0.5);
+            let end_color = Color::rgb(-vector.z, -vector.y, 0.5);
 
-    //         GIZMO.line_gradient(vector, -vector, start_color, end_color);
-    //     }
-    // }
+            draw.line_gradient(vector, -vector, start_color, end_color);
+        }
+    }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -104,7 +106,6 @@ fn ui_system(mut query: Query<&mut Text>, config: Res<Config>, diag: Res<Diagnos
         Controls:\n\
         Up/Down: Raise or lower the line count.\n\
         Spacebar: Toggle fancy mode.",
-        config.line_count * 20,
-        fps,
+        config.line_count, fps,
     );
 }

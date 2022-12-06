@@ -425,8 +425,6 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
     }
 }
 
-
-
 /// Types that can be used with [`Buffer<T>`] in systems.
 pub trait SystemBuffer: FromWorld + Send + 'static {
     fn apply(&mut self, world: &mut World);
