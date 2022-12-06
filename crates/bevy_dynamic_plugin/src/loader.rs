@@ -1,4 +1,5 @@
 use libloading::{Library, Symbol};
+use std::ffi::OsStr;
 use thiserror::Error;
 
 use bevy_app::{App, CreatePlugin, Plugin};
@@ -20,8 +21,8 @@ pub enum DynamicPluginLoadError {
 /// The specified plugin must be linked against the exact same libbevy.so as this program.
 /// In addition the `_bevy_create_plugin` symbol must not be manually created, but instead created
 /// by deriving `DynamicPlugin` on a unit struct implementing [`Plugin`].
-pub unsafe fn dynamically_load_plugin(
-    path: &str,
+pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
+    path: P,
 ) -> Result<(Library, Box<dyn Plugin>), DynamicPluginLoadError> {
     let lib = Library::new(path).map_err(DynamicPluginLoadError::Library)?;
     let func: Symbol<CreatePlugin> = lib
@@ -35,11 +36,11 @@ pub trait DynamicPluginExt {
     /// # Safety
     ///
     /// Same as [`dynamically_load_plugin`].
-    unsafe fn load_plugin(&mut self, path: &str) -> &mut Self;
+    unsafe fn load_plugin<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self;
 }
 
 impl DynamicPluginExt for App {
-    unsafe fn load_plugin(&mut self, path: &str) -> &mut Self {
+    unsafe fn load_plugin<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self {
         let (lib, plugin) = dynamically_load_plugin(path).unwrap();
         std::mem::forget(lib); // Ensure that the library is not automatically unloaded
         plugin.build(self);
