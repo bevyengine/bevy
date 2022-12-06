@@ -9,7 +9,7 @@ use bevy_reflect::Reflect;
 use bevy_utils::default;
 use std::collections::BTreeMap;
 
-/// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities.
+/// A [`DynamicScene`] builder, used to build a scene from a [`World`] by extracting some entities and resources.
 ///
 /// # Entity Order
 ///

@@ -14,7 +14,7 @@ use bevy_ecs::reflect::ReflectResource;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
-/// A collection of serializable dynamic entities, each with its own run-time defined set of components.
+/// A collection of serializable resources and dynamic entities, each of the latter with its own run-time defined set of components.
 /// To spawn a dynamic scene, you can use either:
 /// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
 /// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
@@ -54,11 +54,11 @@ impl DynamicScene {
         builder.build()
     }
 
-    /// Write the dynamic entities and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// in the provided [`AppTypeRegistry`] resource, or doesn't reflect the
-    /// [`Component`](bevy_ecs::component::Component) trait.
+    /// [`Component`](bevy_ecs::component::Component) or [`Resource`](bevy_ecs::prelude::Resource) trait.
     pub fn write_to_world_with(
         &self,
         world: &mut World,
@@ -124,7 +124,7 @@ impl DynamicScene {
         Ok(())
     }
 
-    /// Write the dynamic entities and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// in the world's [`AppTypeRegistry`] resource, or doesn't reflect the
