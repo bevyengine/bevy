@@ -176,6 +176,7 @@ impl<T: OptionalSystemParam> SystemParam for Option<T> {
 #[doc(hidden)]
 pub struct OptionState<T: SystemParamState>(T);
 
+/// SAFETY: T's SystemParamFetch implementation must be read-only.
 unsafe impl<T: SystemParamState + ReadOnlySystemParamFetch> ReadOnlySystemParamFetch for OptionState<T> {}
 
 pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamFetch<'w, 's>>::Item;
