@@ -1,4 +1,8 @@
-use std::{num::NonZeroU128, sync::Arc};
+use std::{
+    collections::VecDeque,
+    num::NonZeroU128,
+    sync::{Arc, Mutex},
+};
 
 use accesskit::{ActionHandler, ActionRequest, Node, NodeId, Role, TreeUpdate};
 use accesskit_winit::Adapter;
@@ -11,7 +15,6 @@ use bevy_ecs::{
 };
 use bevy_utils::{default, HashMap};
 use bevy_window::{WindowClosed, WindowFocused, WindowId};
-use crossbeam_channel::{Receiver, Sender};
 
 #[derive(Component, Clone, Default, Deref, DerefMut)]
 pub struct AccessibilityNode(pub Node);
@@ -32,13 +35,16 @@ impl Adapters {
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct Receivers(pub HashMap<WindowId, Receiver<ActionRequest>>);
+pub struct Handlers(pub HashMap<WindowId, WinitActionHandler>);
 
-pub struct WinitActionHandler(pub Sender<ActionRequest>);
+#[derive(Clone, Default, Deref, DerefMut)]
+pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
 
 impl ActionHandler for WinitActionHandler {
     fn do_action(&self, request: ActionRequest) {
-        self.0.send(request).expect("Failed to send");
+        println!("Pushing {:?}", request);
+        let mut requests = self.0.lock().unwrap();
+        requests.push_back(request);
     }
 }
 
@@ -89,7 +95,7 @@ fn handle_focus(
 
 fn window_closed(
     mut adapters: NonSendMut<Adapters>,
-    mut receivers: ResMut<Receivers>,
+    mut receivers: ResMut<Handlers>,
     mut events: EventReader<WindowClosed>,
 ) {
     for WindowClosed { id, .. } in events.iter() {
@@ -98,9 +104,10 @@ fn window_closed(
     }
 }
 
-fn poll_receivers(receivers: Res<Receivers>, mut actions: EventWriter<ActionRequest>) {
-    for (_id, receiver) in receivers.iter() {
-        if let Ok(event) = receiver.try_recv() {
+fn poll_receivers(handlers: Res<Handlers>, mut actions: EventWriter<ActionRequest>) {
+    for (_id, handler) in handlers.iter() {
+        let mut handler = handler.lock().unwrap();
+        while let Some(event) = handler.pop_front() {
             actions.send(event);
         }
     }
@@ -176,7 +183,7 @@ pub struct AccessibilityPlugin;
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<Adapters>()
-            .init_resource::<Receivers>()
+            .init_resource::<Handlers>()
             .init_resource::<LastFocus>()
             .add_event::<ActionRequest>()
             .add_system_to_stage(CoreStage::PreUpdate, handle_focus)

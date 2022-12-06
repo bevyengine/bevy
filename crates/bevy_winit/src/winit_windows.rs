@@ -1,6 +1,6 @@
 use std::{num::NonZeroU128, sync::Arc};
 
-use crate::accessibility::{Adapters, Receivers};
+use crate::accessibility::{Adapters, Handlers, WinitActionHandler};
 use crate::converters::convert_cursor_grab_mode;
 use accesskit::{Node, NodeId, Role, Tree, TreeUpdate};
 use accesskit_winit::Adapter;
@@ -34,7 +34,7 @@ impl WinitWindows {
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
         adapters: &mut Adapters,
-        receivers: &mut Receivers,
+        handlers: &mut Handlers,
     ) -> Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
@@ -139,18 +139,18 @@ impl WinitWindows {
             ..default()
         });
         let accesskit_window_id = NodeId(NonZeroU128::new(window_id.as_u128()).unwrap());
-        let (sender, receiver) = crossbeam_channel::unbounded();
+        let handler = WinitActionHandler::default();
         let adapter = Adapter::with_action_handler(
             &winit_window,
-            Box::new(move || TreeUpdate {
+            move || TreeUpdate {
                 nodes: vec![(accesskit_window_id, root)],
                 tree: Some(Tree::new(accesskit_window_id)),
                 focus: Some(accesskit_window_id),
-            }),
-            Box::new(crate::accessibility::WinitActionHandler(sender)),
+            },
+            Box::new(handler.clone()),
         );
         adapters.insert(window_id, adapter);
-        receivers.insert(window_id, receiver);
+        handlers.insert(window_id, handler);
         winit_window.set_visible(true);
 
         if window_descriptor.mode == WindowMode::Windowed {

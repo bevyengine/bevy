@@ -27,7 +27,6 @@ bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 winit = { version = "0.27", default-features = false }
 accesskit = "0.8"
 accesskit_winit = "0.7"
-crossbeam-channel = "0.5"
 approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
 
