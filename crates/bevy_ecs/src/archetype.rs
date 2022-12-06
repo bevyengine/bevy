@@ -23,13 +23,40 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, StorageType},
     entity::{Entity, EntityLocation},
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId},
+    storage::{ImmutableSparseSet, SparseArray, SparseSet, SparseSetIndex, TableId, TableRow},
 };
 use std::{
     collections::HashMap,
     hash::Hash,
     ops::{Index, IndexMut},
 };
+
+/// An opaque location within a [`Archetype`].
+///
+/// This can be used in conjunction with [`ArchetypeId`] to find the exact location
+/// of an [`Entity`] within a [`World`]. An entity's archetype and index can be
+/// retrieved via [`Entities::get`].
+///
+/// [`World`]: crate::world::World
+/// [`Entities::get`]: crate::entity::Entities
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(transparent)]
+pub struct ArchetypeRow(usize);
+
+impl ArchetypeRow {
+    pub const INVALID: ArchetypeRow = ArchetypeRow(usize::MAX);
+
+    /// Creates a `ArchetypeRow`.
+    pub const fn new(index: usize) -> Self {
+        Self(index)
+    }
+
+    /// Gets the index of the row.
+    #[inline]
+    pub const fn index(self) -> usize {
+        self.0
+    }
+}
 
 /// An opaque unique ID for a single [`Archetype`] within a [`World`].
 ///
@@ -226,7 +253,7 @@ impl Edges {
 /// Metadata about an [`Entity`] in a [`Archetype`].
 pub struct ArchetypeEntity {
     entity: Entity,
-    table_row: usize,
+    table_row: TableRow,
 }
 
 impl ArchetypeEntity {
@@ -240,14 +267,14 @@ impl ArchetypeEntity {
     ///
     /// [`Table`]: crate::storage::Table
     #[inline]
-    pub const fn table_row(&self) -> usize {
+    pub const fn table_row(&self) -> TableRow {
         self.table_row
     }
 }
 
 pub(crate) struct ArchetypeSwapRemoveResult {
     pub(crate) swapped_entity: Option<Entity>,
-    pub(crate) table_row: usize,
+    pub(crate) table_row: TableRow,
 }
 
 /// Internal metadata for a [`Component`] within a given [`Archetype`].
@@ -380,18 +407,18 @@ impl Archetype {
     /// Fetches the row in the [`Table`] where the components for the entity at `index`
     /// is stored.
     ///
-    /// An entity's archetype index can be fetched from [`EntityLocation::index`], which
+    /// An entity's archetype index can be fetched from [`EntityLocation::archetype_row`], which
     /// can be retrieved from [`Entities::get`].
     ///
     /// # Panics
     /// This function will panic if `index >= self.len()`.
     ///
     /// [`Table`]: crate::storage::Table
-    /// [`EntityLocation`]: crate::entity::EntityLocation::index
+    /// [`EntityLocation`]: crate::entity::EntityLocation::archetype_row
     /// [`Entities::get`]: crate::entity::Entities::get
     #[inline]
-    pub fn entity_table_row(&self, index: usize) -> usize {
-        self.entities[index].table_row
+    pub fn entity_table_row(&self, index: ArchetypeRow) -> TableRow {
+        self.entities[index.0].table_row
     }
 
     /// Updates if the components for the entity at `index` can be found
@@ -400,8 +427,8 @@ impl Archetype {
     /// # Panics
     /// This function will panic if `index >= self.len()`.
     #[inline]
-    pub(crate) fn set_entity_table_row(&mut self, index: usize, table_row: usize) {
-        self.entities[index].table_row = table_row;
+    pub(crate) fn set_entity_table_row(&mut self, index: ArchetypeRow, table_row: TableRow) {
+        self.entities[index.0].table_row = table_row;
     }
 
     /// Allocates an entity to the archetype.
@@ -409,12 +436,16 @@ impl Archetype {
     /// # Safety
     /// valid component values must be immediately written to the relevant storages
     /// `table_row` must be valid
-    pub(crate) unsafe fn allocate(&mut self, entity: Entity, table_row: usize) -> EntityLocation {
+    pub(crate) unsafe fn allocate(
+        &mut self,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> EntityLocation {
         self.entities.push(ArchetypeEntity { entity, table_row });
 
         EntityLocation {
             archetype_id: self.id,
-            index: self.entities.len() - 1,
+            archetype_row: ArchetypeRow(self.entities.len() - 1),
         }
     }
 
@@ -427,14 +458,14 @@ impl Archetype {
     ///
     /// # Panics
     /// This function will panic if `index >= self.len()`
-    pub(crate) fn swap_remove(&mut self, index: usize) -> ArchetypeSwapRemoveResult {
-        let is_last = index == self.entities.len() - 1;
-        let entity = self.entities.swap_remove(index);
+    pub(crate) fn swap_remove(&mut self, index: ArchetypeRow) -> ArchetypeSwapRemoveResult {
+        let is_last = index.0 == self.entities.len() - 1;
+        let entity = self.entities.swap_remove(index.0);
         ArchetypeSwapRemoveResult {
             swapped_entity: if is_last {
                 None
             } else {
-                Some(self.entities[index].entity)
+                Some(self.entities[index.0].entity)
             },
             table_row: entity.table_row,
         }

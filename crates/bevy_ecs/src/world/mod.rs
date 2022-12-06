@@ -8,7 +8,7 @@ pub use spawn_batch::*;
 pub use world_cell::*;
 
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeId, Archetypes},
+    archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
     component::{
@@ -329,10 +329,10 @@ impl World {
                 .entities()
                 .iter()
                 .enumerate()
-                .map(|(index, archetype_entity)| {
+                .map(|(archetype_row, archetype_entity)| {
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
-                        index,
+                        archetype_row: ArchetypeRow::new(archetype_row),
                     };
                     EntityRef::new(self, archetype_entity.entity(), location)
                 })
@@ -1096,7 +1096,7 @@ impl World {
                             if location.archetype_id == archetype =>
                         {
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.index, bundle) };
+                            unsafe { inserter.insert(entity, location.archetype_row, bundle) };
                         }
                         _ => {
                             let mut inserter = bundle_info.get_bundle_inserter(
@@ -1108,7 +1108,7 @@ impl World {
                                 change_tick,
                             );
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.index, bundle) };
+                            unsafe { inserter.insert(entity, location.archetype_row, bundle) };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
                         }

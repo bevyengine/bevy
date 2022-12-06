@@ -7,7 +7,7 @@ use crate::{
         TickCells,
     },
     entity::{Entities, Entity, EntityLocation},
-    storage::{Column, ComponentSparseSet, SparseSet, Storages},
+    storage::{Column, ComponentSparseSet, SparseSet, Storages, TableRow},
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -371,7 +371,8 @@ impl<'w> EntityMut<'w> {
         );
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         unsafe {
-            self.location = bundle_inserter.insert(self.entity, self.location.index, bundle);
+            self.location =
+                bundle_inserter.insert(self.entity, self.location.archetype_row, bundle);
         }
 
         self
@@ -465,7 +466,7 @@ impl<'w> EntityMut<'w> {
         new_archetype_id: ArchetypeId,
     ) {
         let old_archetype = &mut archetypes[old_archetype_id];
-        let remove_result = old_archetype.swap_remove(old_location.index);
+        let remove_result = old_archetype.swap_remove(old_location.archetype_row);
         if let Some(swapped_entity) = remove_result.swapped_entity {
             entities.set(swapped_entity.index(), old_location);
         }
@@ -494,7 +495,7 @@ impl<'w> EntityMut<'w> {
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
                 archetypes[swapped_location.archetype_id]
-                    .set_entity_table_row(swapped_location.index, old_table_row);
+                    .set_entity_table_row(swapped_location.archetype_row, old_table_row);
             }
 
             new_location
@@ -588,7 +589,7 @@ impl<'w> EntityMut<'w> {
                     .get_or_insert_with(component_id, Vec::new);
                 removed_components.push(self.entity);
             }
-            let remove_result = archetype.swap_remove(location.index);
+            let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
@@ -611,7 +612,7 @@ impl<'w> EntityMut<'w> {
         if let Some(moved_entity) = moved_entity {
             let moved_location = world.entities.get(moved_entity).unwrap();
             world.archetypes[moved_location.archetype_id]
-                .set_entity_table_row(moved_location.index, table_row);
+                .set_entity_table_row(moved_location.archetype_row, table_row);
         }
     }
 
@@ -701,11 +702,11 @@ fn fetch_table(
     world: &World,
     location: EntityLocation,
     component_id: ComponentId,
-) -> Option<(&Column, usize)> {
+) -> Option<(&Column, TableRow)> {
     let archetype = &world.archetypes[location.archetype_id];
     let table = &world.storages.tables[archetype.table_id()];
     let components = table.get_column(component_id)?;
-    let table_row = archetype.entity_table_row(location.index);
+    let table_row = archetype.entity_table_row(location.archetype_row);
     Some((components, table_row))
 }
 
@@ -823,7 +824,7 @@ unsafe fn take_component<'a>(
             let table = &mut storages.tables[archetype.table_id()];
             // SAFETY: archetypes will always point to valid columns
             let components = table.get_column_mut(component_id).unwrap();
-            let table_row = archetype.entity_table_row(location.index);
+            let table_row = archetype.entity_table_row(location.archetype_row);
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
             components.get_data_unchecked_mut(table_row).promote()
         }
