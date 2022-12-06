@@ -48,7 +48,7 @@ impl DynamicScene {
         let mut builder =
             DynamicSceneBuilder::from_world_with_type_registry(world, type_registry.clone());
 
-        builder.extract_entities(world.iter_entities());
+        builder.extract_entities(world.iter_entities().map(|entity| entity.id()));
         builder.extract_resources(world);
 
         builder.build()

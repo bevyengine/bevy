@@ -18,10 +18,7 @@ use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use std::hash::Hash;
 use thiserror::Error;
-use wgpu::{
-    Extent3d, ImageCopyTexture, ImageDataLayout, Origin3d, TextureDimension, TextureFormat,
-    TextureViewDescriptor,
-};
+use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
@@ -629,41 +626,11 @@ impl RenderAsset for Image {
         image: Self::ExtractedAsset,
         (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let texture = if image.texture_descriptor.mip_level_count > 1 || image.is_compressed() {
-            render_device.create_texture_with_data(
-                render_queue,
-                &image.texture_descriptor,
-                &image.data,
-            )
-        } else {
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                ImageCopyTexture {
-                    texture: &texture,
-                    mip_level: 0,
-                    origin: Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                &image.data,
-                ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(
-                            image.texture_descriptor.size.width * format_size as u32,
-                        )
-                        .unwrap(),
-                    ),
-                    rows_per_image: if image.texture_descriptor.size.depth_or_array_layers > 1 {
-                        std::num::NonZeroU32::new(image.texture_descriptor.size.height)
-                    } else {
-                        None
-                    },
-                },
-                image.texture_descriptor.size,
-            );
-            texture
-        };
+        let texture = render_device.create_texture_with_data(
+            render_queue,
+            &image.texture_descriptor,
+            &image.data,
+        );
 
         let texture_view = texture.create_view(
             image
