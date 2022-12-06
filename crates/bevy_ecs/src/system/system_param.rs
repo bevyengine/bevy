@@ -105,7 +105,7 @@ pub trait SystemParam: Sized {
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Resource)]
 /// # struct SomeResource(u32);
-/// use bevy_ecs::system::{ReadOnlySystemParamFetch, SystemParam, OptionalSystemParam, SystemParamState, SystemParamFetch, OptionalSystemParamFetch, SystemMeta, ResState};
+/// use bevy_ecs::system::{ReadOnlySystemParamFetch, SystemParam, OptionalSystemParam, SystemParamState, SystemParamFetch, OptionalSystemParamFetch, SystemMeta, ResState, OptionState};
 ///
 /// struct MyOptionalParam<'w> {
 ///     foo: &'w u32,
@@ -116,7 +116,7 @@ pub trait SystemParam: Sized {
 /// }
 ///
 /// struct OptionParamState {
-///     res_state: Option<ResState<SomeResource>>,
+///     res_state: OptionState<ResState<SomeResource>>,
 /// }
 ///
 /// // SAFETY: OptionParamState is constrained to read-only resources, so it only reads World.
@@ -170,8 +170,13 @@ impl<T: OptionalSystemParam> SystemParam for T {
 }
 
 impl<T: OptionalSystemParam> SystemParam for Option<T> {
-    type Fetch = Option<T::Fetch>;
+    type Fetch = OptionState<T::Fetch>;
 }
+
+#[doc(hidden)]
+pub struct OptionState<T: SystemParamState>(T);
+
+unsafe impl<T: SystemParamState + ReadOnlySystemParamFetch> ReadOnlySystemParamFetch for OptionState<T> {}
 
 pub type SystemParamItem<'w, 's, P> = <<P as SystemParam>::Fetch as SystemParamFetch<'w, 's>>::Item;
 
@@ -192,21 +197,17 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 }
 
 // SAFETY: T's implementation of SystemParamState must be safe.
-unsafe impl<T: SystemParamState> SystemParamState for Option<T> {
+unsafe impl<T: SystemParamState> SystemParamState for OptionState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
-        Some(T::init(world, system_meta))
+        Self(T::init(world, system_meta))
     }
     #[inline]
     fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        if let Some(value) = self {
-            value.new_archetype(archetype, system_meta);
-        }
+        self.0.new_archetype(archetype, system_meta)
     }
     #[inline]
     fn apply(&mut self, world: &mut World) {
-        if let Some(value) = self {
-            value.apply(world);
-        }
+        self.0.apply(world)
     }
 }
 
@@ -265,7 +266,7 @@ where
     }
 }
 
-impl<'world, 'state, T> SystemParamFetch<'world, 'state> for Option<T>
+impl<'world, 'state, T> SystemParamFetch<'world, 'state> for OptionState<T>
 where
     T: for<'w, 's> OptionalSystemParamFetch<'w, 's>,
 {
@@ -277,9 +278,7 @@ where
         world: &'world World,
         change_tick: u32,
     ) -> Self::Item {
-        state
-            .as_mut()
-            .and_then(|s| T::get_param(s, system_meta, world, change_tick))
+        T::get_param(&mut state.0, system_meta, world, change_tick)
     }
 }
 
