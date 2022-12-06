@@ -276,15 +276,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         entity: Entity,
     ) -> Result<Q::Item<'w>, QueryEntityError> {
         self.update_archetypes(world);
+        let change_tick = world.change_tick();
         // SAFETY: query has unique world access
-        unsafe {
-            self.get_unchecked_manual(
-                world,
-                entity,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            )
-        }
+        unsafe { self.get_unchecked_manual(world, entity, world.last_change_tick(), change_tick) }
     }
 
     /// Returns the query results for the given array of [`Entity`].
@@ -333,15 +327,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) -> Result<[Q::Item<'w>; N], QueryEntityError> {
         self.update_archetypes(world);
 
+        let change_tick = world.change_tick();
         // SAFETY: method requires exclusive world access
         // and world has been validated via update_archetypes
         unsafe {
-            self.get_many_unchecked_manual(
-                world,
-                entities,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            )
+            self.get_many_unchecked_manual(world, entities, world.last_change_tick(), change_tick)
         }
     }
 
@@ -524,10 +514,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// Returns an [`Iterator`] over the query results for the given [`World`].
     #[inline]
     pub fn iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryIter<'w, 's, Q, F> {
+        let change_tick = world.change_tick();
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
-            self.iter_unchecked_manual(world, world.last_change_tick(), world.read_change_tick())
+            self.iter_unchecked_manual(world, world.last_change_tick(), change_tick)
         }
     }
 
@@ -610,14 +601,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         &'s mut self,
         world: &'w mut World,
     ) -> QueryCombinationIter<'w, 's, Q, F, K> {
+        let change_tick = world.change_tick();
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
-            self.iter_combinations_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            )
+            self.iter_combinations_unchecked_manual(world, world.last_change_tick(), change_tick)
         }
     }
 
@@ -664,14 +652,10 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         EntityList::Item: Borrow<Entity>,
     {
         self.update_archetypes(world);
+        let change_tick = world.change_tick();
         // SAFETY: Query has unique world access.
         unsafe {
-            self.iter_many_unchecked_manual(
-                entities,
-                world,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            )
+            self.iter_many_unchecked_manual(entities, world, world.last_change_tick(), change_tick)
         }
     }
 
@@ -796,15 +780,11 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     /// `iter_mut()` method, but cannot be chained like a normal [`Iterator`].
     #[inline]
     pub fn for_each_mut<'w, FN: FnMut(Q::Item<'w>)>(&mut self, world: &'w mut World, func: FN) {
+        let change_tick = world.change_tick();
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
-            self.for_each_unchecked_manual(
-                world,
-                func,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            );
+            self.for_each_unchecked_manual(world, func, world.last_change_tick(), change_tick);
         }
     }
 
@@ -872,6 +852,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         batch_size: usize,
         func: FN,
     ) {
+        let change_tick = world.change_tick();
         // SAFETY: query has unique world access
         unsafe {
             self.update_archetypes(world);
@@ -880,7 +861,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 batch_size,
                 func,
                 world.last_change_tick(),
-                world.read_change_tick(),
+                change_tick,
             );
         }
     }
@@ -1194,14 +1175,9 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     ) -> Result<Q::Item<'w>, QuerySingleError> {
         self.update_archetypes(world);
 
+        let change_tick = world.change_tick();
         // SAFETY: query has unique world access
-        unsafe {
-            self.get_single_unchecked_manual(
-                world,
-                world.last_change_tick(),
-                world.read_change_tick(),
-            )
-        }
+        unsafe { self.get_single_unchecked_manual(world, world.last_change_tick(), change_tick) }
     }
 
     /// Returns a query result when there is exactly one entity matching the query.
@@ -1292,7 +1268,7 @@ mod tests {
 
         // These don't matter for the test
         let last_change_tick = world.last_change_tick();
-        let change_tick = world.read_change_tick();
+        let change_tick = world.change_tick();
 
         // It's best to test get_many_unchecked_manual directly,
         // as it is shared and unsafe

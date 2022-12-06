@@ -99,7 +99,7 @@ pub(crate) struct SpawnBundleStatus;
 impl BundleComponentStatus for SpawnBundleStatus {
     #[inline]
     unsafe fn get_status(&self, _index: usize) -> ComponentStatus {
-        // Components added during a spawn_bundle call are always treated as added
+        // Components added during a spawn call are always treated as added
         ComponentStatus::Added
     }
 }
