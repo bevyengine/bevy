@@ -233,7 +233,7 @@ pub mod adapter {
         res.unwrap()
     }
 
-    /// System adapter that utilizes the [`info!`] macro to print system information.
+    /// System adapter that utilizes the [`bevy_utils::tracing::info!`] macro to print system information.
     ///
     /// # Examples
     ///
@@ -266,7 +266,7 @@ pub mod adapter {
         tracing::info!("{:?}", data);
     }
 
-    /// System adapter that utilizes the [`dbg!`] macro to print the output of a system.
+    /// System adapter that utilizes the [`bevy_utils::tracing::debug!`] macro to print the output of a system.
     ///
     /// # Examples
     ///
@@ -299,7 +299,7 @@ pub mod adapter {
         tracing::debug!("{:?}", data);
     }
 
-    /// System adapter that utilizes the [`warn!`] macro to print the output of a system.
+    /// System adapter that utilizes the [`bevy_utils::tracing::warn!`] macro to print the output of a system.
     ///
     /// # Examples
     ///
@@ -334,7 +334,7 @@ pub mod adapter {
         }
     }
 
-    /// System adapter that utilizes the [`error!`] macro to print the output of a system.
+    /// System adapter that utilizes the [`bevy_utils::tracing::error!`] macro to print the output of a system.
     ///
     /// # Examples
     ///
