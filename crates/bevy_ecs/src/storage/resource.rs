@@ -1,6 +1,6 @@
 use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
-use crate::storage::{Column, SparseSet};
+use crate::storage::{Column, SparseSet, TableRow};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::{mem::ManuallyDrop, thread::ThreadId};
 
@@ -31,6 +31,9 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
 }
 
 impl<const SEND: bool> ResourceData<SEND> {
+    /// The only row in the underlying column.
+    const ROW: TableRow = TableRow::new(0);
+
     #[inline]
     fn validate_access(&self) {
         // Avoid aborting due to double panicking on the same thread.
@@ -67,7 +70,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// original thread it was inserted from.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
-        self.column.get_data(0).map(|res| {
+        self.column.get_data(Self::ROW).map(|res| {
             self.validate_access();
             res
         })
@@ -76,7 +79,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Gets a read-only reference to the change ticks of the underlying resource, if available.
     #[inline]
     pub fn get_ticks(&self) -> Option<ComponentTicks> {
-        self.column.get_ticks(0)
+        self.column.get_ticks(Self::ROW)
     }
 
     /// # Panics
@@ -84,7 +87,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// original thread it was inserted in.
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        self.column.get(0).map(|res| {
+        self.column.get(Self::ROW).map(|res| {
             self.validate_access();
             res
         })
@@ -103,7 +106,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
             self.validate_access();
-            self.column.replace(0, value, change_tick);
+            self.column.replace(Self::ROW, value, change_tick);
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
@@ -129,9 +132,12 @@ impl<const SEND: bool> ResourceData<SEND> {
     ) {
         if self.is_present() {
             self.validate_access();
-            self.column.replace_untracked(0, value);
-            *self.column.get_added_ticks_unchecked(0).deref_mut() = change_ticks.added;
-            *self.column.get_changed_ticks_unchecked(0).deref_mut() = change_ticks.changed;
+            self.column.replace_untracked(Self::ROW, value);
+            *self.column.get_added_ticks_unchecked(Self::ROW).deref_mut() = change_ticks.added;
+            *self
+                .column
+                .get_changed_ticks_unchecked(Self::ROW)
+                .deref_mut() = change_ticks.changed;
         } else {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
@@ -149,11 +155,11 @@ impl<const SEND: bool> ResourceData<SEND> {
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
         if SEND {
-            self.column.swap_remove_and_forget(0)
+            self.column.swap_remove_and_forget(Self::ROW)
         } else {
             self.is_present()
                 .then(|| self.validate_access())
-                .and_then(|_| self.column.swap_remove_and_forget(0))
+                .and_then(|_| self.column.swap_remove_and_forget(Self::ROW))
         }
     }
 

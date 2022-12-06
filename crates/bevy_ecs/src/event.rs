@@ -226,7 +226,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// #
     /// struct CollisionEvent;
     ///
-    /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
+    /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         // Play a sound
@@ -246,7 +246,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// In those situations you generally want to consume those events to make sure they don't appear in the next frame.
     ///
     /// For more information see [`EventReader::is_empty()`].
-    pub fn clear(mut self) {
+    pub fn clear(&mut self) {
         self.iter().last();
     }
 }
@@ -295,13 +295,11 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
-pub struct EventWriter<'w, 's, E: Event> {
+pub struct EventWriter<'w, E: Event> {
     events: ResMut<'w, Events<E>>,
-    #[system_param(ignore)]
-    marker: PhantomData<&'s usize>,
 }
 
-impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
+impl<'w, E: Event> EventWriter<'w, E> {
     /// Sends an `event`. [`EventReader`]s can then read the event.
     /// See [`Events`] for details.
     pub fn send(&mut self, event: E) {
@@ -819,7 +817,7 @@ mod tests {
         events.send(TestEvent { i: 0 });
         world.insert_resource(events);
 
-        let mut reader = IntoSystem::into_system(|events: EventReader<TestEvent>| -> bool {
+        let mut reader = IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> bool {
             if !events.is_empty() {
                 events.clear();
                 false
