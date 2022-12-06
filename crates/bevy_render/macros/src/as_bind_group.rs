@@ -61,7 +61,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
                     let converted: #converted_shader_type = self.as_bind_group_shader_type(images);
                     buffer.write(&converted).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                    #render_path::render_resource::OwnedBindingResource::new_from_buffer(render_device.create_buffer_with_data(
                         &#render_path::render_resource::BufferInitDescriptor {
                             label: None,
                             usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
@@ -281,7 +281,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 binding_impls.push(quote! {{
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
                     buffer.write(&self.#field_name).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                    #render_path::render_resource::OwnedBindingResource::new_from_buffer(render_device.create_buffer_with_data(
                         &#render_path::render_resource::BufferInitDescriptor {
                             label: None,
                             usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
@@ -324,7 +324,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     buffer.write(&#uniform_struct_name {
                         #(#field_name: &self.#field_name,)*
                     }).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                    #render_path::render_resource::OwnedBindingResource::new_from_buffer(render_device.create_buffer_with_data(
                         &#render_path::render_resource::BufferInitDescriptor {
                             label: None,
                             usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,

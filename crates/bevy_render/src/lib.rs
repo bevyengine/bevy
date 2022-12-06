@@ -1,5 +1,6 @@
 extern crate core;
 
+pub mod auto_binding;
 pub mod camera;
 pub mod color;
 pub mod extract_component;
@@ -41,7 +42,7 @@ pub use once_cell;
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
-    render_resource::{PipelineCache, Shader, ShaderLoader},
+    render_resource::{setup_core_view_bindings, PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -203,7 +204,10 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_adapter)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
-                .insert_resource(asset_server);
+                .insert_resource(asset_server)
+                .init_resource::<auto_binding::AutoBindingsIndex>();
+
+            setup_core_view_bindings(app);
 
             let (sender, receiver) = bevy_time::create_time_channels();
             app.insert_resource(receiver);

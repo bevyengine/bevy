@@ -29,11 +29,15 @@ pub use texture_atlas_builder::*;
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, HandleUntyped};
 use bevy_core_pipeline::core_2d::Transparent2d;
-use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use bevy_ecs::{
+    prelude::With,
+    schedule::{IntoSystemDescriptor, SystemLabel},
+};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
-    render_phase::AddRenderCommand,
-    render_resource::{Shader, SpecializedRenderPipelines},
+    auto_binding::{AddAutoBinding, AutoBindGroupPlugin},
+    render_phase::{AddRenderCommand, RenderPhase},
+    render_resource::{Shader, SpecializedRenderPipelines, ViewUniformBinding},
     RenderApp, RenderStage,
 };
 
@@ -63,6 +67,11 @@ impl Plugin for SpritePlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .add_plugin(AutoBindGroupPlugin::<
+                    SpriteViewBindGroup,
+                    With<RenderPhase<Transparent2d>>,
+                >::default())
+                .add_auto_binding::<SpriteViewBindGroup, ViewUniformBinding>()
                 .init_resource::<ImageBindGroups>()
                 .init_resource::<SpritePipeline>()
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()

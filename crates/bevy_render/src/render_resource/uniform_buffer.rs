@@ -1,5 +1,5 @@
 use crate::{
-    render_resource::Buffer,
+    render_resource::{Buffer, OwnedBindingResource},
     renderer::{RenderDevice, RenderQueue},
 };
 use encase::{
@@ -60,6 +60,12 @@ impl<T: ShaderType + Default> Default for UniformBuffer<T> {
 }
 
 impl<T: ShaderType + WriteInto> UniformBuffer<T> {
+    pub fn owned_binding(&self) -> Option<OwnedBindingResource> {
+        self.buffer
+            .clone()
+            .map(OwnedBindingResource::new_from_buffer)
+    }
+
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()
@@ -162,6 +168,20 @@ impl<T: ShaderType> Default for DynamicUniformBuffer<T> {
 }
 
 impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
+    pub fn owned_binding(
+        &self,
+        dynamic_offset: wgpu::DynamicOffset,
+    ) -> Option<OwnedBindingResource> {
+        self.buffer
+            .clone()
+            .map(|buffer| OwnedBindingResource::DynamicBuffer {
+                buffer,
+                offset: 0,
+                size: Some(T::min_size()),
+                dynamic_offset,
+            })
+    }
+
     #[inline]
     pub fn buffer(&self) -> Option<&Buffer> {
         self.buffer.as_ref()

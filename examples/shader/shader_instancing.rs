@@ -6,9 +6,13 @@ use bevy::{
         query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
-    pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
+    pbr::{
+        MeshPipeline, MeshPipelineKey, MeshUniform, MeshViewBindGroup, SetMeshBindGroup,
+        SetMeshViewBindGroup,
+    },
     prelude::*,
     render::{
+        auto_binding::auto_layout,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
@@ -187,6 +191,15 @@ impl SpecializedMeshPipeline for CustomPipeline {
         layout: &MeshVertexBufferLayout,
     ) -> Result<RenderPipelineDescriptor, SpecializedMeshPipelineError> {
         let mut descriptor = self.mesh_pipeline.specialize(key, layout)?;
+
+        // meshes typically live in bind group 2. because we are using bindgroup 1
+        // we need to add MESH_BINDGROUP_1 shader def so that the bindings are correctly
+        // linked in the shader
+        descriptor
+            .vertex
+            .shader_defs
+            .push("MESH_BINDGROUP_1".into());
+
         descriptor.vertex.shader = self.shader.clone();
         descriptor.vertex.buffers.push(VertexBufferLayout {
             array_stride: std::mem::size_of::<InstanceData>() as u64,
@@ -206,7 +219,7 @@ impl SpecializedMeshPipeline for CustomPipeline {
         });
         descriptor.fragment.as_mut().unwrap().shader = self.shader.clone();
         descriptor.layout = Some(vec![
-            self.mesh_pipeline.view_layout.clone(),
+            auto_layout::<MeshViewBindGroup>(),
             self.mesh_pipeline.mesh_layout.clone(),
         ]);
 

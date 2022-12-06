@@ -1,16 +1,4 @@
-struct View {
-    view_proj: mat4x4<f32>,
-    inverse_view_proj: mat4x4<f32>,
-    view: mat4x4<f32>,
-    inverse_view: mat4x4<f32>,
-    projection: mat4x4<f32>,
-    inverse_projection: mat4x4<f32>,
-    world_position: vec3<f32>,
-    // viewport(x_origin, y_origin, width, height)
-    viewport: vec4<f32>,
-};
-@group(0) @binding(0)
-var<uniform> view: View;
+#import bevy_render::core_bindings
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
@@ -26,7 +14,7 @@ fn vertex(
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    out.position = bevy_render::core_bindings::view.view_proj * vec4<f32>(vertex_position, 1.0);
     out.color = vertex_color;
     return out;
 }

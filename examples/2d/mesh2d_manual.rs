@@ -10,6 +10,7 @@ use bevy::{
     prelude::*,
     reflect::TypeUuid,
     render::{
+        auto_binding::auto_layout,
         mesh::{Indices, MeshVertexAttribute},
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
@@ -25,7 +26,7 @@ use bevy::{
     },
     sprite::{
         DrawMesh2d, Mesh2dHandle, Mesh2dPipeline, Mesh2dPipelineKey, Mesh2dUniform,
-        SetMesh2dBindGroup, SetMesh2dViewBindGroup,
+        Mesh2dViewBindGroup, SetMesh2dBindGroup, SetMesh2dViewBindGroup,
     },
     utils::FloatOrd,
 };
@@ -174,7 +175,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
             // Use the two standard uniforms for 2d meshes
             layout: Some(vec![
                 // Bind group 0 is the view uniform
-                self.mesh2d_pipeline.view_layout.clone(),
+                auto_layout::<Mesh2dViewBindGroup>(),
                 // Bind group 1 is the mesh uniform
                 self.mesh2d_pipeline.mesh_layout.clone(),
             ]),
@@ -214,14 +215,11 @@ type DrawColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_types
-#import bevy_sprite::mesh2d_view_bindings
+#import bevy_sprite::mesh2d_types as MeshTypes
+#import bevy_sprite::mesh2d_functions as MeshFunctions
 
 @group(1) @binding(0)
-var<uniform> mesh: Mesh2d;
-
-// NOTE: Bindings must come before functions that use them!
-#import bevy_sprite::mesh2d_functions
+var<uniform> mesh: MeshTypes::Mesh2d;
 
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {
@@ -241,7 +239,7 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
     // Project the world position of the mesh into screen position
-    out.clip_position = mesh2d_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
+    out.clip_position = MeshFunctions::mesh2d_position_local_to_clip(mesh.model, vec4<f32>(vertex.position, 1.0));
     // Unpack the `u32` from the vertex buffer into the `vec4<f32>` used by the fragment shader
     out.color = vec4<f32>((vec4<u32>(vertex.color) >> vec4<u32>(0u, 8u, 16u, 24u)) & vec4<u32>(255u)) / 255.0;
     return out;

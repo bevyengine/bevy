@@ -1,7 +1,10 @@
 #define_import_path bevy_pbr::shadows
 
+#import bevy_pbr::mesh_view_types as view_types
+#import bevy_pbr::mesh_view_bindings as view_bindings
+
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = point_lights.data[light_id];
+    let light = view_bindings::point_lights.data[light_id];
 
     // because the shadow maps align with the axes and the frustum planes are at 45 degrees
     // we can get the worldspace depth by taking the largest absolute axis
@@ -35,14 +38,14 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     // mip-mapping functionality. The shadow maps have no mipmaps so Level just samples
     // from LOD 0.
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompare(point_shadow_textures, point_shadow_textures_sampler, frag_ls, depth);
+    return textureSampleCompare(view_bindings::point_shadow_textures, view_bindings::point_shadow_textures_sampler, frag_ls, depth);
 #else
-    return textureSampleCompareLevel(point_shadow_textures, point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
+    return textureSampleCompareLevel(view_bindings::point_shadow_textures, view_bindings::point_shadow_textures_sampler, frag_ls, i32(light_id), depth);
 #endif
 }
 
 fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = point_lights.data[light_id];
+    let light = view_bindings::point_lights.data[light_id];
 
     let surface_to_light = light.position_radius.xyz - frag_position.xyz;
 
@@ -50,7 +53,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
     // reconstruct spot dir from x/z and y-direction flag
     spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
-    if ((light.flags & POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
+    if ((light.flags & view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
         spot_dir.y = -spot_dir.y;
     }
 
@@ -90,16 +93,16 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     let depth = 0.1 / -projected_position.z;
 
     #ifdef NO_ARRAY_TEXTURES_SUPPORT
-        return textureSampleCompare(directional_shadow_textures, directional_shadow_textures_sampler, 
+        return textureSampleCompare(view_bindings::directional_shadow_textures, view_bindings::directional_shadow_textures_sampler, 
             shadow_uv, depth);
     #else
-        return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, 
-            shadow_uv, i32(light_id) + lights.spot_light_shadowmap_offset, depth);
+        return textureSampleCompareLevel(view_bindings::directional_shadow_textures, view_bindings::directional_shadow_textures_sampler, 
+            shadow_uv, i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset, depth);
     #endif
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
-    let light = lights.directional_lights[light_id];
+    let light = view_bindings::lights.directional_lights[light_id];
 
     // The normal bias is scaled to the texel size.
     let normal_offset = light.shadow_normal_bias * surface_normal.xyz;
@@ -127,8 +130,8 @@ fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_nor
     // NOTE: Due to non-uniform control flow above, we must use the level variant of the texture
     // sampler to avoid use of implicit derivatives causing possible undefined behavior.
 #ifdef NO_ARRAY_TEXTURES_SUPPORT
-    return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, depth);
+    return textureSampleCompareLevel(view_bindings::directional_shadow_textures, view_bindings::directional_shadow_textures_sampler, light_local, depth);
 #else
-    return textureSampleCompareLevel(directional_shadow_textures, directional_shadow_textures_sampler, light_local, i32(light_id), depth);
+    return textureSampleCompareLevel(view_bindings::directional_shadow_textures, view_bindings::directional_shadow_textures_sampler, light_local, i32(light_id), depth);
 #endif
 }
