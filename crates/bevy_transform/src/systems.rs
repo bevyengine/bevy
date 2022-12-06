@@ -23,37 +23,36 @@ pub fn propagate_transforms(
             &Children,
             &Transform,
             Changed<Transform>,
-            Changed<Children>,
             &mut GlobalTransform,
         ),
         Without<Parent>,
     >,
     transform_query: Query<(&Transform, Changed<Transform>, &mut GlobalTransform), With<Parent>>,
-    parent_query: Query<&Parent>,
-    children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
+    parent_query: Query<(Entity, &Parent, Changed<Parent>)>,
+    children_query: Query<&Children, (With<Parent>, With<GlobalTransform>)>,
 ) {
     root_query.par_for_each_mut(
         // The differing depths and sizes of hierarchy trees causes the work for each root to be
         // different. A batch size of 1 ensures that each tree gets it's own task and multiple
         // large trees are not clumped together.
         1,
-        |(entity, children, transform, mut changed, children_changed, mut global_transform)| {
+        |(entity, children, transform, changed, mut global_transform)| {
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
 
-            // If our `Children` has changed, we need to recalculate everything below us
-            changed |= children_changed;
-
-            for child in children.iter() {
+            for (child, actual_parent, parent_changed) in parent_query.iter_many(children) {
+                assert_eq!(
+                    actual_parent.get(), entity,
+                    "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+                );
                 propagate_recursive(
                     &global_transform,
                     &transform_query,
                     &parent_query,
                     &children_query,
-                    entity,
-                    *child,
-                    changed,
+                    child,
+                    changed || parent_changed,
                 );
             }
         },
@@ -66,21 +65,12 @@ fn propagate_recursive(
         (&Transform, Changed<Transform>, &mut GlobalTransform),
         With<Parent>,
     >,
-    parent_query: &Query<&Parent>,
-    children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
-    expected_parent: Entity,
+    parent_query: &Query<(Entity, &Parent, Changed<Parent>)>,
+    children_query: &Query<&Children, (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
     mut changed: bool,
     // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) {
-    let Ok(actual_parent) = parent_query.get(entity) else {
-        panic!("Propagated child for {:?} has no Parent component!", entity);
-    };
-    assert_eq!(
-        actual_parent.get(), expected_parent,
-        "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-    );
-
     let global_matrix = {
         let Ok((transform, transform_changed, mut global_transform)) =
             // SAFETY: This call cannot create aliased mutable references.
@@ -120,21 +110,21 @@ fn propagate_recursive(
         *global_transform
     };
 
-    let Ok((children, changed_children)) = children_query.get(entity) else {
-        return
-    };
-    // If our `Children` has changed, we need to recalculate everything below us
-    changed |= changed_children;
-    for child in children {
-        propagate_recursive(
-            &global_matrix,
-            unsafe_transform_query,
-            parent_query,
-            children_query,
-            entity,
-            *child,
-            changed,
-        );
+    if let Ok(children) = children_query.get(entity) {
+        for (child, actual_parent, parent_changed) in parent_query.iter_many(children) {
+            assert_eq!(
+                actual_parent.get(), entity,
+                "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+            );
+            propagate_recursive(
+                &global_matrix,
+                unsafe_transform_query,
+                parent_query,
+                children_query,
+                child,
+                changed || parent_changed,
+            );
+        }
     }
 }
 
