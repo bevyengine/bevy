@@ -12,8 +12,9 @@ use crate::{
 /// This is a sub-trait of [`Array`] as it implements a [`push`](List::push) function, allowing
 /// it's internal size to grow.
 ///
-/// This trait expects index 0 to contain the _first_ or _front_ element.
-/// The _last_ or _back_ element refers to the element with the largest index.
+/// **Attention manual implementors**: 
+/// * This trait expects index 0 to contain the _first_ or _front_ element.
+/// * The _last_ or _back_ element must refer to the element with the largest index.
 pub trait List: Reflect + Array {
     /// Appends an element to the _back_ of the list.
     fn push(&mut self, value: Box<dyn Reflect>);
