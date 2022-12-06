@@ -3,7 +3,11 @@
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
-    winit::WinitSettings,
+    winit::{
+        accessibility::AccessibilityNode,
+        accesskit::{Node as AccessKitNode, Role},
+        WinitSettings,
+    },
 };
 
 fn main() {
@@ -133,6 +137,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         ..default()
                                     },
                                     ScrollingList::default(),
+                                    AccessibilityNode(AccessKitNode {
+                                        role: Role::List,
+                                        ..default()
+                                    }),
                                 ))
                                 .with_children(|parent| {
                                     // List items
@@ -158,6 +166,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                 ..default()
                                             }),
                                             Label,
+                                            AccessibilityNode(AccessKitNode {
+                                                role: Role::ListItem,
+                                                ..default()
+                                            }),
                                         ));
                                     }
                                 });
