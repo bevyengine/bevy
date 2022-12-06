@@ -10,7 +10,7 @@ use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
+    parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::Comma,
@@ -414,6 +414,23 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
+    let mut tuple_types: Vec<_> = field_types.iter().map(|x| quote! { #x }).collect();
+    let field_local_names: Vec<_> = (0..field_types.len())
+        .map(|x| format_ident!("f{x}"))
+        .collect();
+    let mut tuple_patterns: Vec<_> = field_local_names.iter().map(|x| quote! { #x }).collect();
+
+    // If the number of fields exceeds the 16-parameter limit,
+    // fold the fields into tuples of tuples until we are below the limit.
+    const LIMIT: usize = 16;
+    while tuple_types.len() > LIMIT {
+        let end = Vec::from_iter(tuple_types.drain(..LIMIT));
+        tuple_types.push(parse_quote!( (#(#end,)*) ));
+
+        let end = Vec::from_iter(tuple_patterns.drain(..LIMIT));
+        tuple_patterns.push(parse_quote!( (#(#end,)*) ));
+    }
+
     let struct_name = &ast.ident;
     let fetch_struct_visibility = &ast.vis;
 
@@ -428,7 +445,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             #[doc(hidden)]
             type State<'w, 's, #punctuated_generic_idents> = FetchState<
-                (#(<#field_types as #path::system::SystemParam>::Fetch,)*),
+                (#(<#tuple_types as #path::system::SystemParam>::Fetch,)*),
                 #punctuated_generic_idents
             >;
 
@@ -463,8 +480,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     world: &'w #path::world::World,
                     change_tick: u32,
                 ) -> Self::Item {
+                    let (#(#tuple_patterns,)*) = &mut state.state;
                     #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(
+                            #field_local_names, system_meta, world, change_tick,
+                        ),)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
