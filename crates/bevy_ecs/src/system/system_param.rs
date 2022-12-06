@@ -376,9 +376,6 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
 /// The [`SystemParamState`] of [`ParamSet<T::Item>`].
 pub struct ParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
 
-/// The [`SystemParamState`] of [`ParamSet<T::Item>`].
-pub struct OptionParamSetState<T: for<'w, 's> SystemParamFetch<'w, 's>>(T);
-
 impl_param_set!();
 
 /// A type that can be inserted into a [`World`] as a singleton.
