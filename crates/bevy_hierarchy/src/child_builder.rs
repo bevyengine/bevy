@@ -51,7 +51,11 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
     let mut moved: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
     for child in children {
         if let Some(previous) = update_parent(world, *child, parent) {
-            debug_assert!(parent != previous);
+            // Do nothing if the entity already has the correct parent.
+            if parent == previous {
+                continue;
+            }
+
             remove_from_children(world, previous, *child);
             moved.push(HierarchyEvent::ChildMoved {
                 child: *child,
@@ -216,15 +220,6 @@ pub struct ChildBuilder<'w, 's, 'a> {
 
 impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
     /// Spawns an entity with the given bundle and inserts it into the children defined by the [`ChildBuilder`]
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `spawn` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn spawn_bundle(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
-        self.spawn(bundle)
-    }
-
-    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`ChildBuilder`]
     pub fn spawn(&mut self, bundle: impl Bundle) -> EntityCommands<'w, 's, '_> {
         let e = self.commands.spawn(bundle);
         self.push_children.children.push(e.id());
@@ -282,12 +277,13 @@ pub trait BuildChildren {
     ///
     ///     parent_commands.insert(SomethingElse);
     ///     commands.entity(child_id).with_children(|parent| {
-    ///         parent.spawn_bundle(MoreStuff);
+    ///         parent.spawn(MoreStuff);
     ///     });
     /// # }
     /// ```
     fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
-    /// Pushes children to the back of the builder's children
+    /// Pushes children to the back of the builder's children. For any entities that are
+    /// already a child of this one, this method does nothing.
     ///
     /// If the children were previously children of another parent, that parent's [`Children`] component
     /// will have those children removed from its list. Removing all children from a parent causes its
@@ -404,15 +400,6 @@ impl<'w> WorldChildBuilder<'w> {
             });
         }
         self.world.entity_mut(entity)
-    }
-
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `spawn` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    /// Spawns an entity with the given bundle and inserts it into the children defined by the [`WorldChildBuilder`]
-    pub fn spawn_bundle(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
-        self.spawn(bundle)
     }
 
     /// Spawns an [`Entity`] with no components and inserts it into the children defined by the [`WorldChildBuilder`] which adds the [`Parent`] component to it.
@@ -738,5 +725,20 @@ mod tests {
         let mut world = World::new();
         let child = world.spawn_empty().id();
         world.spawn_empty().push_children(&[child]);
+    }
+
+    #[test]
+    fn push_children_idempotent() {
+        let mut world = World::new();
+        let child = world.spawn_empty().id();
+        let parent = world
+            .spawn_empty()
+            .push_children(&[child])
+            .push_children(&[child])
+            .id();
+
+        let mut query = world.query::<&Children>();
+        let children = query.get(&world, parent).unwrap();
+        assert_eq!(**children, [child]);
     }
 }
