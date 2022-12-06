@@ -50,6 +50,12 @@ impl ArchetypeRow {
     pub const fn new(index: usize) -> Self {
         Self(index)
     }
+
+    /// Gets the index of the row.
+    #[inline]
+    pub const fn index(self) -> usize {
+        self.0
+    }
 }
 
 /// An opaque unique ID for a single [`Archetype`] within a [`World`].
