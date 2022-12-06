@@ -35,8 +35,8 @@ mod map_entities;
 pub use map_entities::*;
 
 use crate::{
-    archetype::ArchetypeId,
-    storage::{SparseSetIndex, TableId},
+    archetype::{ArchetypeId, ArchetypeRow},
+    storage::{SparseSetIndex, TableId, TableRow},
 };
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
@@ -735,9 +735,9 @@ impl EntityMeta {
         generation: 0,
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
-            archetype_index: u32::MAX, // dummy value, to be filled in
+            archetype_row: ArchetypeRow::INVALID, // dummy value, to be filled in
             table_id: TableId::INVALID,
-            table_row: u32::MAX, // dummy value, to be filled in
+            table_row: TableRow::INVALID, // dummy value, to be filled in
         },
     };
 }
@@ -758,7 +758,7 @@ pub struct EntityLocation {
     /// The index of the [`Entity`] within its [`Archetype`].
     ///
     /// [`Archetype`]: crate::archetype::Archetype
-    pub archetype_index: u32,
+    pub archetype_row: ArchetypeRow,
 
     /// The ID of the [`Table`] the [`Entity`] belongs to.
     ///
@@ -768,7 +768,7 @@ pub struct EntityLocation {
     /// The index of the [`Entity`] within its [`Table`].
     ///
     /// [`Table`]: crate::storage::Table
-    pub table_row: u32,
+    pub table_row: TableRow,
 }
 
 #[cfg(test)]

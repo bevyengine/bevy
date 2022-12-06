@@ -6,7 +6,7 @@ use crate::{
     query::{
         Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, WorldQuery,
     },
-    storage::TableId,
+    storage::{TableId, TableRow},
     world::{World, WorldId},
 };
 use bevy_tasks::ComputeTaskPool;
@@ -416,8 +416,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
         F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
-        if F::filter_fetch(&mut filter, entity, location.table_row as usize) {
-            Ok(Q::fetch(&mut fetch, entity, location.table_row as usize))
+        if F::filter_fetch(&mut filter, entity, location.table_row) {
+            Ok(Q::fetch(&mut fetch, entity, location.table_row))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }
@@ -927,6 +927,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                 let entities = table.entities();
                 for row in 0..table.entity_count() {
                     let entity = entities.get_unchecked(row);
+                    let row = TableRow::new(row);
                     if !F::filter_fetch(&mut filter, *entity, row) {
                         continue;
                     }
@@ -1021,6 +1022,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                             F::set_table(&mut filter, &self.filter_state, table);
                             for row in offset..offset + len {
                                 let entity = entities.get_unchecked(row);
+                                let row = TableRow::new(row);
                                 if !F::filter_fetch(&mut filter, *entity, row) {
                                     continue;
                                 }
@@ -1073,8 +1075,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
                             F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
                             let entities = archetype.entities();
-                            for archetype_index in offset..offset + len {
-                                let archetype_entity = entities.get_unchecked(archetype_index);
+                            for archetype_row in offset..offset + len {
+                                let archetype_entity = entities.get_unchecked(archetype_row);
                                 if !F::filter_fetch(
                                     &mut filter,
                                     archetype_entity.entity(),

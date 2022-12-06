@@ -464,7 +464,7 @@ impl<'w> EntityMut<'w> {
         new_archetype_id: ArchetypeId,
     ) {
         let old_archetype = &mut archetypes[old_archetype_id];
-        let remove_result = old_archetype.swap_remove(old_location.archetype_index);
+        let remove_result = old_archetype.swap_remove(old_location.archetype_row);
         if let Some(swapped_entity) = remove_result.swapped_entity {
             entities.set(swapped_entity.index(), old_location);
         }
@@ -493,7 +493,7 @@ impl<'w> EntityMut<'w> {
             if let Some(swapped_entity) = move_result.swapped_entity {
                 let swapped_location = entities.get(swapped_entity).unwrap();
                 archetypes[swapped_location.archetype_id]
-                    .set_entity_table_row(swapped_location.archetype_index, old_table_row);
+                    .set_entity_table_row(swapped_location.archetype_row, old_table_row);
             }
 
             new_location
@@ -587,7 +587,7 @@ impl<'w> EntityMut<'w> {
                     .get_or_insert_with(component_id, Vec::new);
                 removed_components.push(self.entity);
             }
-            let remove_result = archetype.swap_remove(location.archetype_index);
+            let remove_result = archetype.swap_remove(location.archetype_row);
             if let Some(swapped_entity) = remove_result.swapped_entity {
                 // SAFETY: swapped_entity is valid and the swapped entity's components are
                 // moved to the new location immediately after.
@@ -610,7 +610,7 @@ impl<'w> EntityMut<'w> {
         if let Some(moved_entity) = moved_entity {
             let moved_location = world.entities.get(moved_entity).unwrap();
             world.archetypes[moved_location.archetype_id]
-                .set_entity_table_row(moved_location.archetype_index, table_row);
+                .set_entity_table_row(moved_location.archetype_row, table_row);
         }
     }
 
@@ -731,7 +731,7 @@ pub(crate) unsafe fn get_component(
         StorageType::Table => {
             let components = fetch_table(world, location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_data_unchecked(location.table_row as usize))
+            Some(components.get_data_unchecked(location.table_row))
         }
         StorageType::SparseSet => fetch_sparse_set(world, component_id)?.get(entity),
     }
@@ -758,10 +758,10 @@ unsafe fn get_component_and_ticks(
             let components = fetch_table(world, location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
             Some((
-                components.get_data_unchecked(location.table_row as usize),
+                components.get_data_unchecked(location.table_row),
                 TickCells {
-                    added: components.get_added_ticks_unchecked(location.table_row as usize),
-                    changed: components.get_changed_ticks_unchecked(location.table_row as usize),
+                    added: components.get_added_ticks_unchecked(location.table_row),
+                    changed: components.get_changed_ticks_unchecked(location.table_row),
                 },
             ))
         }
@@ -785,7 +785,7 @@ unsafe fn get_ticks(
         StorageType::Table => {
             let components = fetch_table(world, location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_ticks_unchecked(location.table_row as usize))
+            Some(components.get_ticks_unchecked(location.table_row))
         }
         StorageType::SparseSet => fetch_sparse_set(world, component_id)?.get_ticks(entity),
     }
@@ -822,7 +822,7 @@ unsafe fn take_component<'a>(
             let components = table.get_column_mut(component_id).unwrap();
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
             components
-                .get_data_unchecked_mut(location.table_row as usize)
+                .get_data_unchecked_mut(location.table_row)
                 .promote()
         }
         StorageType::SparseSet => storages

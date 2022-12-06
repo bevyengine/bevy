@@ -11,7 +11,7 @@ use crate::{
     },
     component::{Component, ComponentId, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
-    storage::{SparseSetIndex, SparseSets, Storages, Table},
+    storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
@@ -379,7 +379,7 @@ impl BundleInfo {
         sparse_sets: &mut SparseSets,
         bundle_component_status: &S,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
         change_tick: u32,
         bundle: T,
     ) {
@@ -518,7 +518,7 @@ pub(crate) enum InsertBundleResult<'a> {
 
 impl<'a, 'b> BundleInserter<'a, 'b> {
     /// # Safety
-    /// `entity` must currently exist in the source archetype for this inserter. `archetype_index`
+    /// `entity` must currently exist in the source archetype for this inserter. `archetype_row`
     /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
     #[inline]
     pub unsafe fn insert<T: Bundle>(
@@ -540,14 +540,14 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     self.sparse_sets,
                     add_bundle,
                     entity,
-                    location.table_row as usize,
+                    location.table_row,
                     self.change_tick,
                     bundle,
                 );
                 location
             }
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
-                let result = self.archetype.swap_remove(location.archetype_index);
+                let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     self.entities.set(swapped_entity.index(), location);
                 }
@@ -575,7 +575,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                 new_archetype,
                 new_table,
             } => {
-                let result = self.archetype.swap_remove(location.archetype_index);
+                let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     self.entities.set(swapped_entity.index(), location);
                 }
@@ -603,7 +603,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     };
 
                     swapped_archetype
-                        .set_entity_table_row(swapped_location.archetype_index, result.table_row);
+                        .set_entity_table_row(swapped_location.archetype_row, result.table_row);
                 }
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
