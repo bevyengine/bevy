@@ -1,4 +1,6 @@
-//! A shader that uses the depth texture generated in a prepass
+//! Bevy has an optional prepass that is controlled per-material. A prepass is a rendering pass that runs before the main pass.
+//! It will optionally generate various view textures. Currently it supports depth and normal textures.
+//! The textures are not generated for any material using alpha blending.
 
 use bevy::{
     core_pipeline::prepass::PrepassSettings,
@@ -14,11 +16,13 @@ fn main() {
         .add_plugins(DefaultPlugins.set(PbrPlugin {
             prepass_enabled: true,
         }))
-        // The prepass is enabled per material and is disabled by default
         .add_plugin(MaterialPlugin::<CustomMaterial> {
+            // The prepass is enabled per material and is disabled by default
+            // So we need to enable it on our custom material.
             prepass_enabled: true,
             ..default()
         })
+        // This material only needs to read the prepass textures, so it doesn't need to be enabled.
         .add_plugin(MaterialPlugin::<PrepassOutputMaterial>::default())
         .add_startup_system(setup)
         .add_system(rotate)
@@ -34,6 +38,18 @@ fn setup(
     mut depth_materials: ResMut<Assets<PrepassOutputMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    // camera
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        // You can configure which textures is going to be used by the prepass.
+        prepass_settings: PrepassSettings {
+            // In this case we don't use the normals so we can simply disable it
+            normal_enabled: false,
+            ..default()
+        },
+        ..default()
+    });
+
     // plane
     commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
@@ -100,18 +116,6 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
-
-    // camera
-    commands.spawn((Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // You can configure which textures is going to be used by the prepass.
-        prepass_settings: PrepassSettings {
-            // In this case we don't use the normals so we can simply disable it
-            normal_enabled: false,
-            ..default()
-        },
-        ..default()
-    },));
 }
 
 // This is the struct that will be passed to your shader
