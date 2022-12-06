@@ -167,8 +167,8 @@ where
 /// A collection of common adapters for [piping](super::PipeSystem) the result of a system.
 pub mod adapter {
     use crate::system::In;
-    use std::fmt::Debug;
     use bevy_utils::tracing;
+    use std::fmt::Debug;
 
     /// Converts a regular function into a system adapter.
     ///
@@ -234,48 +234,155 @@ pub mod adapter {
     }
 
     /// System adapter that utilizes the [`info!`] macro to print system information.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
-    /// 
+    /// use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(StageLabel)]
+    /// # enum CoreStage { Update };
+    ///
+    /// // Building a new schedule/app...
+    /// # use bevy_ecs::schedule::SystemStage;
+    /// # let mut sched = Schedule::default(); sched
+    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
+    ///     .insert_resource(Message("42".to_string()))
+    ///     .add_system_to_stage(
+    ///         CoreStage::Update,
+    ///         // Prints system information.
+    ///         data_pipe_system.pipe(system_adapter::info)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// # #[derive(Resource, Deref)]
+    /// # struct Message(String);
+    ///
+    /// // A system that produces a String output by trying to clone the String from the
+    /// // Message resource.
+    /// fn data_pipe_system(message: Res<Message>) -> String {
+    ///     message.0.clone()
+    /// }
     /// ```
     pub fn info<T: Debug>(In(data): In<T>) {
         tracing::info!("{:?}", data);
     }
 
-    /// System adapter that utilizes the [`warn!`] macro to print the output of a system.
+    /// System adapter that utilizes the [`dbg!`] macro to print the output of a system.
     ///
     /// # Examples
-    /// 
+    ///
     /// ```
-    /// 
+    /// use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(StageLabel)]
+    /// # enum CoreStage { Update };
+    ///
+    /// // Building a new schedule/app...
+    /// # use bevy_ecs::schedule::SystemStage;
+    /// # let mut sched = Schedule::default(); sched
+    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
+    ///     .insert_resource(Message("42".to_string()))
+    ///     .add_system_to_stage(
+    ///         CoreStage::Update,
+    ///         // Prints debug data from system.
+    ///         parse_message_system.pipe(system_adapter::debug)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// # #[derive(Resource, Deref)]
+    /// # struct Message(String);
+    ///
+    /// // A system that produces a Result<usize> output by trying to parse the Message resource.
+    /// fn parse_message_system(message: Res<Message>) -> Result<usize> {
+    ///     Ok(message.parse::<usize>()?)
+    /// }
     /// ```
     pub fn dbg<T: Debug>(In(data): In<T>) {
         tracing::debug!("{:?}", data);
     }
 
     /// System adapter that utilizes the [`warn!`] macro to print the output of a system.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
-    /// 
+    /// use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(StageLabel)]
+    /// # enum CoreStage { Update };
+    ///
+    /// // Building a new schedule/app...
+    /// # use bevy_ecs::schedule::SystemStage;
+    /// # let mut sched = Schedule::default(); sched
+    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
+    ///     .insert_resource(OptionalWarning(Err("Got to rusty?".to_string())))
+    ///     .add_system_to_stage(
+    ///         CoreStage::Update,
+    ///         // Prints system warning if system returns an error.
+    ///         warning_pipe_system.pipe(system_adapter::warn)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// # #[derive(Resource, Deref)]
+    /// # struct OptionalWarning(Result<(), String>);
+    ///
+    /// // A system that produces an Result<String> output by trying to extract a
+    /// // String from the OptionalWarning resource.
+    /// fn warning_pipe_system(message: Res<OptionalWarning>) -> Result<(), String> {
+    ///     message.0.clone()
+    /// }
     /// ```
-    pub fn warn<T: Debug>(In(res): In<Option<T>>) {
-        if let Some(warn) = res {
+    pub fn warn<E: Debug>(In(res): In<Result<(), E>>) {
+        if let Err(warn) = res {
             tracing::warn!("{:?}", warn);
         }
     }
 
     /// System adapter that utilizes the [`error!`] macro to print the output of a system.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
-    /// 
+    ///  ///use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(StageLabel)]
+    /// # enum CoreStage { Update };
+    ///
+    /// // Building a new schedule/app...
+    /// # use bevy_ecs::schedule::SystemStage;
+    /// # let mut sched = Schedule::default(); sched
+    /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
+    ///     .insert_resource(Message("42".to_string()))
+    ///     .add_system_to_stage(
+    ///         CoreStage::Update,
+    ///         // Prints system error if system fails.
+    ///         parse_error_message_system.pipe(system_adapter::error)
+    ///     )
+    ///     // ...
+    /// #   ;
+    /// # let mut world = World::new();
+    /// # sched.run(&mut world);
+    ///
+    /// # #[derive(Resource, Deref)]
+    /// # struct Message(String);
+    ///
+    /// // A system that produces a Result<()> output by trying to parse the Message resource.
+    /// fn parse_error_message_system(message: Res<Message>) -> Result<()> {
+    ///    message.parse::<usize>()?;
+    ///    Ok(())
+    /// }
     /// ```
-    pub fn error<T, E: Debug>(In(res): In<Result<T, E>>) {
+    pub fn error<E: Debug>(In(res): In<Result<(), E>>) {
         if let Err(error) = res {
             tracing::error!("{:?}", error);
         }
