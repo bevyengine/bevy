@@ -1,7 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    change_detection::MAX_CHANGE_AGE,
+    change_detection::{ComponentMut, DetectChanges, MAX_CHANGE_AGE},
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
@@ -13,6 +13,7 @@ use std::{
     any::{Any, TypeId},
     borrow::Cow,
     mem::needs_drop,
+    ops::DerefMut,
 };
 
 /// A data type that can be used to store data for an [entity].
@@ -85,6 +86,21 @@ use std::{
 /// [`Table`]: crate::storage::Table
 /// [`SparseSet`]: crate::storage::SparseSet
 ///
+/// # Disabling Change Detection
+///
+/// By default, Bevy will track every mutative access made to a given component.
+/// This may incur a performance cost on types that do not need it.
+/// To disable tracking these changes, add an additional `#[component(change_detection = false)]`
+/// attribute to the derive one.
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// #
+/// #[derive(Component)]
+/// #[component(change_detection = false)]
+/// struct ComponentB;
+/// ```
+///
 /// # Implementing the trait for foreign types
 ///
 /// As a consequence of the [orphan rule], it is not possible to separate into two different crates the implementation of `Component` from the definition of a type.
@@ -111,7 +127,12 @@ use std::{
 /// [orphan rule]: https://doc.rust-lang.org/book/ch10-02-traits.html#implementing-a-trait-on-a-type
 /// [newtype pattern]: https://doc.rust-lang.org/book/ch19-03-advanced-traits.html#using-the-newtype-pattern-to-implement-external-traits-on-external-types
 pub trait Component: Send + Sync + 'static {
+    type WriteFetch<'a>: ComponentMut<'a> + DetectChanges<Inner = Self> + DerefMut<Target = Self>;
     type Storage: ComponentStorage;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(
+        item: Self::WriteFetch<'wlong>,
+    ) -> Self::WriteFetch<'wshort>;
 }
 
 pub struct TableStorage;

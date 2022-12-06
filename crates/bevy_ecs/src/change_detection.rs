@@ -23,6 +23,17 @@ pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
 /// Changes stop being detected once they become this old.
 pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
+pub trait ComponentMut<'a>: DetectChanges {
+    const ENABLED: bool;
+    fn build(
+        inner: &'a mut Self::Inner,
+        added: &'a mut Tick,
+        changed: &'a mut Tick,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self;
+}
+
 /// Types that implement reliable change detection.
 ///
 /// ## Example
@@ -93,39 +104,55 @@ pub trait DetectChanges {
 }
 
 macro_rules! change_detection_impl {
-    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $enabled:expr, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
             type Inner = $target;
 
             #[inline]
             fn is_added(&self) -> bool {
-                self.ticks
-                    .added
-                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                if $enabled {
+                    self.ticks
+                        .added
+                        .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                } else {
+                    true
+                }
             }
 
             #[inline]
             fn is_changed(&self) -> bool {
-                self.ticks
-                    .changed
-                    .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                if $enabled {
+                    self.ticks
+                        .changed
+                        .is_older_than(self.ticks.last_change_tick, self.ticks.change_tick)
+                } else {
+                    true
+                }
             }
 
             #[inline]
             fn set_changed(&mut self) {
-                self.ticks
-                    .changed
-                    .set_changed(self.ticks.change_tick);
+                if $enabled {
+                    self.ticks
+                        .changed
+                        .set_changed(self.ticks.change_tick);
+                }
             }
 
             #[inline]
             fn last_changed(&self) -> u32 {
-                self.ticks.last_change_tick
+                if $enabled {
+                    self.ticks.last_change_tick
+                } else {
+                    0
+                }
             }
 
             #[inline]
             fn set_last_changed(&mut self, last_change_tick: u32) {
-                self.ticks.last_change_tick = last_change_tick
+                if $enabled {
+                    self.ticks.last_change_tick = last_change_tick
+                }
             }
 
             #[inline]
@@ -143,7 +170,7 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),* : ?Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
+        impl<$($generics),* : Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
@@ -169,7 +196,7 @@ macro_rules! change_detection_impl {
 
 macro_rules! impl_methods {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
-        impl<$($generics),* : ?Sized $(+ $traits)?> $name<$($generics),*> {
+        impl<$($generics),* : Sized $(+ $traits)?> $name<$($generics),*> {
             /// Consume `self` and return a mutable reference to the
             /// contained value while marking `self` as "changed".
             #[inline]
@@ -294,7 +321,7 @@ where
     }
 }
 
-change_detection_impl!(ResMut<'a, T>, T, Resource);
+change_detection_impl!(ResMut<'a, T>, T, T::CHANGE_DETECTION_ENABLED, Resource);
 impl_methods!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
@@ -326,7 +353,7 @@ pub struct NonSendMut<'a, T: ?Sized + 'static> {
     pub(crate) ticks: Ticks<'a>,
 }
 
-change_detection_impl!(NonSendMut<'a, T>, T,);
+change_detection_impl!(NonSendMut<'a, T>, T, true,);
 impl_methods!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
@@ -372,9 +399,73 @@ where
     }
 }
 
-change_detection_impl!(Mut<'a, T>, T,);
+impl<'a, T> ComponentMut<'a> for Mut<'a, T> {
+    const ENABLED: bool = true;
+    fn build(
+        value: &'a mut Self::Inner,
+        added: &'a mut Tick,
+        changed: &'a mut Tick,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
+        Mut {
+            value,
+            ticks: Ticks {
+                added,
+                changed,
+                last_change_tick,
+                change_tick,
+            },
+        }
+    }
+}
+
+change_detection_impl!(Mut<'a, T>, T, true,);
 impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
+
+impl<'a, T: ?Sized> DetectChanges for &'a mut T {
+    type Inner = T;
+
+    #[inline]
+    fn is_added(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn is_changed(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn set_changed(&mut self) {}
+
+    #[inline]
+    fn last_changed(&self) -> u32 {
+        0
+    }
+
+    #[inline]
+    fn set_last_changed(&mut self, _last_change_tick: u32) {}
+
+    #[inline]
+    fn bypass_change_detection(&mut self) -> &mut Self::Inner {
+        self
+    }
+}
+
+impl<'a, T> ComponentMut<'a> for &'a mut T {
+    const ENABLED: bool = false;
+    fn build(
+        value: &'a mut Self::Inner,
+        _added: &'a mut Tick,
+        _changed: &'a mut Tick,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self {
+        value
+    }
+}
 
 /// Unique mutable borrow of resources or an entity's component.
 ///
@@ -447,22 +538,36 @@ impl std::fmt::Debug for MutUntyped<'_> {
 
 #[cfg(test)]
 mod tests {
-    use bevy_ecs_macros::Resource;
-
     use crate::{
         self as bevy_ecs,
-        change_detection::{Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
+        change_detection::{
+            ComponentMut, Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+        },
         component::{Component, ComponentTicks, Tick},
         query::ChangeTrackers,
-        system::{IntoSystem, Query, System},
+        system::{IntoSystem, Query, Resource, System},
         world::World,
     };
 
     #[derive(Component)]
-    struct C;
+    struct C(usize);
 
     #[derive(Resource)]
-    struct R;
+    struct R(usize);
+
+    #[derive(Component, Resource)]
+    #[component(change_detection = false)]
+    #[resource(change_detection = false)]
+    struct ChangeDetectionless;
+
+    #[test]
+    #[allow(clippy::assertions_on_constants)]
+    fn change_detection_toggle() {
+        assert!(<C as Component>::WriteFetch::ENABLED);
+        assert!(<R as Resource>::CHANGE_DETECTION_ENABLED);
+        assert!(!<ChangeDetectionless as Component>::WriteFetch::ENABLED);
+        assert!(!<ChangeDetectionless as Resource>::CHANGE_DETECTION_ENABLED);
+    }
 
     #[test]
     fn change_expiration() {
@@ -477,7 +582,7 @@ mod tests {
         let mut world = World::new();
 
         // component added: 1, changed: 1
-        world.spawn(C);
+        world.spawn(C(0));
 
         let mut change_detected_system = IntoSystem::into_system(change_detected);
         let mut change_expired_system = IntoSystem::into_system(change_expired);
@@ -510,7 +615,7 @@ mod tests {
         *world.change_tick.get_mut() = 0;
 
         // component added: 0, changed: 0
-        world.spawn(C);
+        world.spawn(C(0));
 
         // system last ran: u32::MAX
         let mut change_detected_system = IntoSystem::into_system(change_detected);
@@ -526,7 +631,7 @@ mod tests {
         let mut world = World::new();
 
         // component added: 1, changed: 1
-        world.spawn(C);
+        world.spawn(C(0));
 
         // a bunch of stuff happens, the component is now older than `MAX_CHANGE_AGE`
         *world.change_tick.get_mut() += MAX_CHANGE_AGE + CHECK_TICK_THRESHOLD;
@@ -563,7 +668,7 @@ mod tests {
             last_change_tick: 3,
             change_tick: 4,
         };
-        let mut res = R {};
+        let mut res = R(0);
         let res_mut = ResMut {
             value: &mut res,
             ticks,
@@ -588,7 +693,7 @@ mod tests {
             last_change_tick: 3,
             change_tick: 4,
         };
-        let mut res = R {};
+        let mut res = R(0);
         let non_send_mut = NonSendMut {
             value: &mut res,
             ticks,
