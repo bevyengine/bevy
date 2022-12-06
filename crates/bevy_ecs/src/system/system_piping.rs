@@ -247,7 +247,6 @@ pub mod adapter {
     /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .insert_resource(Message("42".to_string()))
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // Prints system information.
@@ -258,13 +257,9 @@ pub mod adapter {
     /// # let mut world = World::new();
     /// # sched.run(&mut world);
     ///
-    /// # #[derive(Resource, Deref)]
-    /// # struct Message(String);
-    ///
-    /// // A system that produces a String output by trying to clone the String from the
-    /// // Message resource.
-    /// fn data_pipe_system(message: Res<Message>) -> String {
-    ///     message.0.clone()
+    /// // A system that returns a String output.
+    /// fn data_pipe_system() -> String {
+    ///     "42".to_string()
     /// }
     /// ```
     pub fn info<T: Debug>(In(data): In<T>) {
@@ -285,23 +280,19 @@ pub mod adapter {
     /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .insert_resource(Message("42".to_string()))
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // Prints debug data from system.
-    ///         parse_message_system.pipe(system_adapter::debug)
+    ///         parse_message_system.pipe(system_adapter::dbg)
     ///     )
     ///     // ...
     /// #   ;
     /// # let mut world = World::new();
     /// # sched.run(&mut world);
     ///
-    /// # #[derive(Resource, Deref)]
-    /// # struct Message(String);
-    ///
-    /// // A system that produces a Result<usize> output by trying to parse the Message resource.
-    /// fn parse_message_system(message: Res<Message>) -> Result<usize> {
-    ///     Ok(message.parse::<usize>()?)
+    /// // A system that returns a Result<usize, String> output.
+    /// fn parse_message_system() -> Result<usize, std::num::ParseIntError> {
+    ///     Ok("42".parse()?)
     /// }
     /// ```
     pub fn dbg<T: Debug>(In(data): In<T>) {
@@ -322,7 +313,6 @@ pub mod adapter {
     /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .insert_resource(OptionalWarning(Err("Got to rusty?".to_string())))
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // Prints system warning if system returns an error.
@@ -333,13 +323,9 @@ pub mod adapter {
     /// # let mut world = World::new();
     /// # sched.run(&mut world);
     ///
-    /// # #[derive(Resource, Deref)]
-    /// # struct OptionalWarning(Result<(), String>);
-    ///
-    /// // A system that produces an Result<String> output by trying to extract a
-    /// // String from the OptionalWarning resource.
-    /// fn warning_pipe_system(message: Res<OptionalWarning>) -> Result<(), String> {
-    ///     message.0.clone()
+    /// // A system that returns a Result<(), String> output.
+    /// fn warning_pipe_system() -> Result<(), String> {
+    ///     Err("Got to rusty?".to_string())
     /// }
     /// ```
     pub fn warn<E: Debug>(In(res): In<Result<(), E>>) {
@@ -353,7 +339,7 @@ pub mod adapter {
     /// # Examples
     ///
     /// ```
-    ///  ///use bevy_ecs::prelude::*;
+    /// use bevy_ecs::prelude::*;
     /// #
     /// # #[derive(StageLabel)]
     /// # enum CoreStage { Update };
@@ -362,7 +348,6 @@ pub mod adapter {
     /// # use bevy_ecs::schedule::SystemStage;
     /// # let mut sched = Schedule::default(); sched
     /// #     .add_stage(CoreStage::Update, SystemStage::parallel())
-    ///     .insert_resource(Message("42".to_string()))
     ///     .add_system_to_stage(
     ///         CoreStage::Update,
     ///         // Prints system error if system fails.
@@ -373,13 +358,9 @@ pub mod adapter {
     /// # let mut world = World::new();
     /// # sched.run(&mut world);
     ///
-    /// # #[derive(Resource, Deref)]
-    /// # struct Message(String);
-    ///
-    /// // A system that produces a Result<()> output by trying to parse the Message resource.
-    /// fn parse_error_message_system(message: Res<Message>) -> Result<()> {
-    ///    message.parse::<usize>()?;
-    ///    Ok(())
+    /// // A system that returns a Result<())> output.
+    /// fn parse_error_message_system() -> Result<(), String> {
+    ///    Err("Some error".to_owned())
     /// }
     /// ```
     pub fn error<E: Debug>(In(res): In<Result<(), E>>) {
