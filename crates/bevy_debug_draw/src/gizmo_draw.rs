@@ -1,5 +1,6 @@
 use std::{f32::consts::TAU, iter};
 
+use bevy_ecs::{system::{Buffer, SystemBuffer, SystemParam}, world::World};
 use bevy_math::{Mat2, Quat, Vec2, Vec3};
 use bevy_render::prelude::Color;
 use crossbeam_channel::{unbounded, Receiver, Sender};
@@ -22,6 +23,23 @@ impl GizmoDraw {
 }
 
 const CIRCLE_SEGMENTS: usize = 32;
+
+
+#[derive(SystemParam)]
+struct E<'s> {
+    buffer: Buffer<'s, EBuffer>,
+}
+
+#[derive(Default)]
+struct EBuffer(Vec<(Vec3, Color)>);
+
+impl SystemBuffer for EBuffer {
+    fn apply(&mut self, world: &mut World) {
+        todo!()
+    }
+}
+
+
 
 impl GizmoDraw {
     /// Draw a line from `start` to `end`.

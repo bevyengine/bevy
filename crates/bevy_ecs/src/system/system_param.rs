@@ -425,6 +425,68 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
     }
 }
 
+
+
+/// Types that can be used with [`Buffer<T>`] in systems.
+pub trait SystemBuffer: FromWorld + Send + 'static {
+    fn apply(&mut self, world: &mut World);
+}
+
+/// A [`SystemParam`] that stores a buffer which gets applied at the end of a stage.
+///
+/// This parameter has no access conflicts, so it can be used to defer writes and increase parallelism.
+///
+/// todo: make these docs good
+pub struct Buffer<'a, T: SystemBuffer>(pub(crate) &'a mut T);
+
+impl<'a, T: SystemBuffer> Deref for Buffer<'a, T> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        self.0
+    }
+}
+
+impl<'a, T: SystemBuffer> DerefMut for Buffer<'a, T> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.0
+    }
+}
+
+#[doc(hidden)]
+pub struct BufState<T: SystemBuffer>(SyncCell<T>);
+
+impl<'a, T: SystemBuffer> SystemParam for Buffer<'a, T> {
+    type Fetch = BufState<T>;
+}
+
+// SAFETY: Only local state is accessed.
+unsafe impl<T: SystemBuffer> SystemParamState for BufState<T> {
+    fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
+        Self(SyncCell::new(T::from_world(world)))
+    }
+    fn apply(&mut self, world: &mut World) {
+        self.0.get().apply(world);
+    }
+}
+
+// SAFETY: Only local state is accessed.
+unsafe impl<T: SystemBuffer> ReadOnlySystemParamFetch for BufState<T> {}
+
+impl<'w, 's, T: SystemBuffer> SystemParamFetch<'w, 's> for BufState<T> {
+    type Item = Buffer<'s, T>;
+
+    unsafe fn get_param(
+        state: &'s mut Self,
+        _system_meta: &SystemMeta,
+        _world: &'w World,
+        _change_tick: u32,
+    ) -> Self::Item {
+        Buffer(state.0.get())
+    }
+}
+
 /// The [`SystemParamState`] of [`Option<Res<T>>`].
 /// See: [`Res<T>`]
 #[doc(hidden)]
