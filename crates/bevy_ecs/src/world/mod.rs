@@ -8,7 +8,7 @@ pub use spawn_batch::*;
 pub use world_cell::*;
 
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeId, Archetypes},
+    archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
     component::{
@@ -329,10 +329,10 @@ impl World {
                 .entities()
                 .iter()
                 .enumerate()
-                .map(|(index, archetype_entity)| {
+                .map(|(archetype_row, archetype_entity)| {
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
-                        index,
+                        archetype_row: ArchetypeRow::new(archetype_row),
                     };
                     EntityRef::new(self, archetype_entity.entity(), location)
                 })

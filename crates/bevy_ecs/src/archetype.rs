@@ -45,6 +45,11 @@ pub struct ArchetypeRow(usize);
 
 impl ArchetypeRow {
     pub const INVALID: ArchetypeRow = ArchetypeRow(usize::MAX);
+
+    /// Creates a `ArchetypeRow`.
+    pub const fn new(index: usize) -> Self {
+        Self(index)
+    }
 }
 
 /// An opaque unique ID for a single [`Archetype`] within a [`World`].
