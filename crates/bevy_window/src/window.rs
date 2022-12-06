@@ -93,11 +93,15 @@ impl WindowId {
     }
     /// The [`WindowId`] for the primary window.
     pub const fn primary() -> Self {
-        WindowId(Uuid::from_u128(0))
+        WindowId(Uuid::from_u128(1))
     }
     /// Get whether or not this [`WindowId`] is for the primary window.
     pub fn is_primary(&self) -> bool {
         *self == WindowId::primary()
+    }
+    /// Get this [`WindowId`] as a `u128`.
+    pub fn as_u128(&self) -> u128 {
+        self.0.as_u128()
     }
 }
 

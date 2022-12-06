@@ -1,6 +1,11 @@
+use std::{num::NonZeroU128, sync::Arc};
+
+use crate::accessibility::{Adapters, Receivers};
 use crate::converters::convert_cursor_grab_mode;
+use accesskit::{Node, NodeId, Role, Tree, TreeUpdate};
+use accesskit_winit::Adapter;
 use bevy_math::{DVec2, IVec2};
-use bevy_utils::HashMap;
+use bevy_utils::{default, HashMap};
 use bevy_window::{
     CursorGrabMode, MonitorSelection, RawHandleWrapper, Window, WindowDescriptor, WindowId,
     WindowMode,
@@ -28,6 +33,8 @@ impl WinitWindows {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
+        adapters: &mut Adapters,
+        receivers: &mut Receivers,
     ) -> Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
@@ -95,8 +102,14 @@ impl WinitWindows {
                 winit_window_builder.with_min_inner_size(min_inner_size)
             };
 
+        let window_title = window_descriptor.title.as_str();
+
         #[allow(unused_mut)]
-        let mut winit_window_builder = winit_window_builder.with_title(&window_descriptor.title);
+        // Due to a UIA limitation, winit windows need to be invisible for the
+        // AccessKit adapter is initialized.
+        let winit_window_builder = winit_window_builder
+            .with_visible(false)
+            .with_title(window_title);
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -119,6 +132,26 @@ impl WinitWindows {
         }
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
+
+        let root = Arc::new(Node {
+            role: Role::Window,
+            name: Some(window_title.into()),
+            ..default()
+        });
+        let accesskit_window_id = NodeId(NonZeroU128::new(window_id.as_u128()).unwrap());
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        let adapter = Adapter::with_action_handler(
+            &winit_window,
+            Box::new(move || TreeUpdate {
+                nodes: vec![(accesskit_window_id, root)],
+                tree: Some(Tree::new(accesskit_window_id)),
+                focus: Some(accesskit_window_id),
+            }),
+            Box::new(crate::accessibility::WinitActionHandler(sender)),
+        );
+        adapters.insert(window_id, adapter);
+        receivers.insert(window_id, receiver);
+        winit_window.set_visible(true);
 
         if window_descriptor.mode == WindowMode::Windowed {
             use bevy_window::WindowPosition::*;

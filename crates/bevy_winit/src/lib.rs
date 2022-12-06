@@ -1,9 +1,11 @@
+mod accessibility;
 mod converters;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;
 mod winit_config;
 mod winit_windows;
 
+pub use accesskit;
 use winit::window::CursorGrabMode;
 pub use winit_config::*;
 pub use winit_windows::*;
@@ -41,7 +43,8 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
+            .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows))
+            .add_plugin(accessibility::AccessibilityPlugin);
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();
@@ -665,11 +668,15 @@ fn handle_create_window_events(
     let mut winit_windows = world.non_send_resource_mut::<WinitWindows>();
     let mut windows = world.resource_mut::<Windows>();
     let create_window_events = world.resource::<Events<CreateWindow>>();
+    let mut adapters = world.non_send_resource_mut::<accessibility::Adapters>();
+    let mut receivers = world.resource_mut::<accessibility::Receivers>();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
         let window = winit_windows.create_window(
             event_loop,
             create_window_event.id,
             &create_window_event.descriptor,
+            &mut adapters,
+            &mut receivers,
         );
         // This event is already sent on windows, x11, and xwayland.
         // TODO: we aren't yet sure about native wayland, so we might be able to exclude it,
