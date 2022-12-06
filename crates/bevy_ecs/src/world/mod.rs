@@ -329,10 +329,12 @@ impl World {
                 .entities()
                 .iter()
                 .enumerate()
-                .map(|(index, archetype_entity)| {
+                .map(|(archetype_index, archetype_entity)| {
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
-                        index,
+                        archetype_index: archetype_index as u32,
+                        table_id: archetype.table_id(),
+                        table_row: archetype_entity.table_row() as u32,
                     };
                     EntityRef::new(self, archetype_entity.entity(), location)
                 })
