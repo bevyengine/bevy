@@ -37,8 +37,8 @@ impl<'a> Serialize for SceneSerializer<'a> {
         let mut state = serializer.serialize_struct(SCENE_STRUCT, 2)?;
         state.serialize_field(
             SCENE_RESOURCES,
-            &ComponentsSerializer {
-                components: &self.scene.resources,
+            &ReflectArraySerializer {
+                reflect_array: &self.scene.resources,
                 registry: self.registry,
             },
         )?;
@@ -90,8 +90,8 @@ impl<'a> Serialize for EntitySerializer<'a> {
         let mut state = serializer.serialize_struct(ENTITY_STRUCT, 1)?;
         state.serialize_field(
             ENTITY_FIELD_COMPONENTS,
-            &ComponentsSerializer {
-                components: &self.entity.components,
+            &ReflectArraySerializer {
+                reflect_array: &self.entity.components,
                 registry: self.registry,
             },
         )?;
@@ -99,21 +99,21 @@ impl<'a> Serialize for EntitySerializer<'a> {
     }
 }
 
-pub struct ComponentsSerializer<'a> {
-    pub components: &'a [Box<dyn Reflect>],
+pub struct ReflectArraySerializer<'a> {
+    pub reflect_array: &'a [Box<dyn Reflect>],
     pub registry: &'a TypeRegistryArc,
 }
 
-impl<'a> Serialize for ComponentsSerializer<'a> {
+impl<'a> Serialize for ReflectArraySerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(self.components.len()))?;
-        for component in self.components {
+        let mut state = serializer.serialize_map(Some(self.reflect_array.len()))?;
+        for reflect in self.reflect_array {
             state.serialize_entry(
-                component.type_name(),
-                &TypedReflectSerializer::new(&**component, &self.registry.read()),
+                reflect.type_name(),
+                &TypedReflectSerializer::new(&**reflect, &self.registry.read()),
             )?;
         }
         state.end()
@@ -177,7 +177,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
                     if resources.is_some() {
                         return Err(Error::duplicate_field(SCENE_RESOURCES));
                     }
-                    resources = Some(map.next_value_seed(ComponentDeserializer {
+                    resources = Some(map.next_value_seed(ReflectDeserializer {
                         registry: self.type_registry,
                     })?);
                 }
@@ -206,7 +206,7 @@ impl<'a, 'de> Visitor<'de> for SceneVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let resources = seq
-            .next_element_seed(ComponentDeserializer {
+            .next_element_seed(ReflectDeserializer {
                 registry: self.type_registry,
             })?
             .ok_or_else(|| Error::missing_field(SCENE_RESOURCES))?;
@@ -309,7 +309,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
         A: SeqAccess<'de>,
     {
         let components = seq
-            .next_element_seed(ComponentDeserializer {
+            .next_element_seed(ReflectDeserializer {
                 registry: self.registry,
             })?
             .ok_or_else(|| Error::missing_field(ENTITY_FIELD_COMPONENTS))?;
@@ -332,7 +332,7 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
                         return Err(Error::duplicate_field(ENTITY_FIELD_COMPONENTS));
                     }
 
-                    components = Some(map.next_value_seed(ComponentDeserializer {
+                    components = Some(map.next_value_seed(ReflectDeserializer {
                         registry: self.registry,
                     })?);
                 }
@@ -349,32 +349,32 @@ impl<'a, 'de> Visitor<'de> for SceneEntityVisitor<'a> {
     }
 }
 
-pub struct ComponentDeserializer<'a> {
+pub struct ReflectDeserializer<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> DeserializeSeed<'de> for ComponentDeserializer<'a> {
+impl<'a, 'de> DeserializeSeed<'de> for ReflectDeserializer<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
-        deserializer.deserialize_map(ComponentVisitor {
+        deserializer.deserialize_map(ReflectVisitor {
             registry: self.registry,
         })
     }
 }
 
-struct ComponentVisitor<'a> {
+struct ReflectVisitor<'a> {
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
+impl<'a, 'de> Visitor<'de> for ReflectVisitor<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("map of components")
+        formatter.write_str("map of impl reflect")
     }
 
     fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
@@ -382,22 +382,22 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
         A: MapAccess<'de>,
     {
         let mut added = HashSet::new();
-        let mut components = Vec::new();
+        let mut reflect_array = Vec::new();
         while let Some(key) = map.next_key::<&str>()? {
             if !added.insert(key) {
-                return Err(Error::custom(format!("duplicate component: `{key}`")));
+                return Err(Error::custom(format!("duplicate impl reflect: `{key}`")));
             }
 
             let registration = self
                 .registry
                 .get_with_name(key)
                 .ok_or_else(|| Error::custom(format!("no registration found for `{key}`")))?;
-            components.push(
+            reflect_array.push(
                 map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
             );
         }
 
-        Ok(components)
+        Ok(reflect_array)
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>

@@ -1,4 +1,9 @@
 (
+  resources: {
+    "scene::ResourceA": (
+      score: 2,
+    ),
+  },
   entities: {
     0: (
       components: {

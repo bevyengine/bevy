@@ -1,7 +1,10 @@
 use crate::{DynamicEntity, DynamicScene};
 use bevy_app::AppTypeRegistry;
-use bevy_ecs::reflect::ReflectResource;
-use bevy_ecs::{prelude::Entity, reflect::ReflectComponent, world::World};
+use bevy_ecs::{
+    prelude::Entity,
+    reflect::{ReflectComponent, ReflectResource},
+    world::World,
+};
 use bevy_reflect::Reflect;
 use bevy_utils::default;
 use std::collections::BTreeMap;
@@ -138,19 +141,38 @@ impl<'w> DynamicSceneBuilder<'w> {
         self
     }
 
+    /// Extract resources from the builder's [`World`].
+    ///
+    /// Only resources registered in the builder's [`AppTypeRegistry`] will be extracted.
+    /// ```
+    /// # use bevy_scene::DynamicSceneBuilder;
+    /// # use bevy_app::AppTypeRegistry;
+    /// # use bevy_ecs::prelude::{ReflectResource, Resource, World};
+    /// # use bevy_reflect::Reflect;
+    /// #[derive(Resource, Default, Reflect)]
+    /// #[reflect(Resource)]
+    /// struct MyResource;
+    ///
+    /// # let mut world = World::default();
+    /// # world.init_resource::<AppTypeRegistry>();
+    /// let _resource = world.insert_resource(MyResource);
+    ///
+    /// let mut builder = DynamicSceneBuilder::from_world(&world);
+    /// builder.extract_resources(&world);
+    /// let scene = builder.build();
+    ///
     pub fn extract_resources(&mut self, world: &'w World) -> &mut Self {
         let type_registry = self.type_registry.read();
         for (component_id, _) in world.storages().resources.iter() {
-            let reflect_resource = world
+            if let Some(resource) = world
                 .components()
                 .get_info(component_id)
                 .and_then(|info| info.type_id())
                 .and_then(|type_id| type_registry.get(type_id))
-                .and_then(|registration| registration.data::<ReflectResource>());
-            if let Some(reflect_resource) = reflect_resource {
-                if let Some(resource) = reflect_resource.reflect(world) {
-                    self.resources.push(resource.clone_value());
-                }
+                .and_then(|registration| registration.data::<ReflectResource>())
+                .and_then(|reflect_resource| reflect_resource.reflect(world))
+            {
+                self.resources.push(resource.clone_value());
             }
         }
 
