@@ -176,7 +176,7 @@ impl<T: OptionalSystemParam> SystemParam for Option<T> {
 #[doc(hidden)]
 pub struct OptionState<T: SystemParamState>(T);
 
-/// SAFETY: T's SystemParamFetch implementation must be read-only.
+/// SAFETY: T's `SystemParamFetch` implementation must be read-only.
 unsafe impl<T: SystemParamState + ReadOnlySystemParamFetch> ReadOnlySystemParamFetch
     for OptionState<T>
 {
@@ -207,11 +207,11 @@ unsafe impl<T: SystemParamState> SystemParamState for OptionState<T> {
     }
     #[inline]
     fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        self.0.new_archetype(archetype, system_meta)
+        self.0.new_archetype(archetype, system_meta);
     }
     #[inline]
     fn apply(&mut self, world: &mut World) {
-        self.0.apply(world)
+        self.0.apply(world);
     }
 }
 
