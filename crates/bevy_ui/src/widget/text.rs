@@ -1,11 +1,10 @@
-use crate::{CalculatedSize, Size, Style, UiScale, Val};
+use crate::{CalculatedSize, Size, UiScale, Val, Node};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
     system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
-use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
@@ -21,20 +20,6 @@ pub struct QueuedText {
 
 fn scale_value(value: f32, factor: f64) -> f32 {
     (value as f64 * factor) as f32
-}
-
-/// Defines how `min_size`, `size`, and `max_size` affects the bounds of a text
-/// block.
-pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f64) -> f32 {
-    // Needs support for percentages
-    match (min_size, size, max_size) {
-        (_, _, Val::Px(max)) => scale_value(max, scale_factor),
-        (Val::Px(min), _, _) => scale_value(min, scale_factor),
-        (Val::Undefined, Val::Px(size), Val::Undefined) | (Val::Auto, Val::Px(size), Val::Auto) => {
-            scale_value(size, scale_factor)
-        }
-        _ => f32::MAX,
-    }
 }
 
 /// Updates the layout and size information whenever the text or style is changed.
@@ -59,11 +44,11 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
-        Query<Entity, (With<Text>, With<Style>)>,
+        Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
+        Query<Entity, With<Text>>,
         Query<(
+            &Node,
             &Text,
-            &Style,
             &mut CalculatedSize,
             Option<&mut TextLayoutInfo>,
         )>,
@@ -101,21 +86,8 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
-            let node_size = Vec2::new(
-                text_constraint(
-                    style.min_size.width,
-                    style.size.width,
-                    style.max_size.width,
-                    scale_factor,
-                ),
-                text_constraint(
-                    style.min_size.height,
-                    style.size.height,
-                    style.max_size.height,
-                    scale_factor,
-                ),
-            );
+        if let Ok((node, text, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
+            let node_size = node.calculated_size;
 
             match text_pipeline.queue_text(
                 &fonts,
