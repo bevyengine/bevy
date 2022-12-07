@@ -815,7 +815,7 @@ impl World {
             .non_send_resources
             .get_mut(component_id)?
             .remove()?;
-        // SAFETY: the resource is of type R and the value is returned back to the caller.
+        // SAFETY: `component_id` was gotten via looking up the `R` type
         unsafe { Some(ptr.read::<R>()) }
     }
 
