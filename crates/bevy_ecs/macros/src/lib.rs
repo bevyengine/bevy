@@ -241,7 +241,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             // SAFETY: All parameters are constrained to ReadOnlyState, so World is only read
 
             unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
-            where #(#param: SystemParam + ReadOnlySystemParam,)*
+            where #(#param: ReadOnlySystemParam,)*
             { }
 
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts

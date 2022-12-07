@@ -44,14 +44,14 @@ use std::ops::{Deref, DerefMut};
 /// [Window]: bevy_window::Window
 pub struct Extract<'w, 's, P>
 where
-    P: SystemParam + ReadOnlySystemParam + 'static,
+    P: ReadOnlySystemParam + 'static,
 {
     item: SystemParamItem<'w, 's, P>,
 }
 
 impl<'w, 's, P> SystemParam for Extract<'w, 's, P>
 where
-    P: SystemParam + ReadOnlySystemParam,
+    P: ReadOnlySystemParam,
 {
     type State = ExtractState<P>;
 }
@@ -66,7 +66,7 @@ pub struct ExtractState<P: SystemParam + 'static> {
 // which is initialized in init()
 unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P>
 where
-    P: SystemParam + ReadOnlySystemParam + 'static,
+    P: ReadOnlySystemParam + 'static,
 {
     type Item<'w, 's> = Extract<'w, 's, P>;
 

@@ -127,7 +127,7 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
 ///
 /// # Safety
 /// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParamState::get_param`]
-pub unsafe trait ReadOnlySystemParam {}
+pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
 impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
     for Query<'w, 's, Q, F>
@@ -136,8 +136,8 @@ impl<'w, 's, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPar
 }
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
-unsafe impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> ReadOnlySystemParam
-    for Query<'w, 's, Q, F>
+unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'static>
+    ReadOnlySystemParam for Query<'w, 's, Q, F>
 {
 }
 
@@ -1555,7 +1555,7 @@ impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
 pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
 
 // SAFETY: This doesn't add any more reads, and the delegated fetch confirms it
-unsafe impl<'w, 's, P: SystemParam + ReadOnlySystemParam> ReadOnlySystemParam
+unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
     for StaticSystemParam<'w, 's, P>
 {
 }

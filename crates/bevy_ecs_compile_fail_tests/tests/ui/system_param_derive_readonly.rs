@@ -18,7 +18,7 @@ fn main() {
     assert_readonly::<Mutable>();
 }
 
-fn assert_readonly<P: SystemParam>()
+fn assert_readonly<P>()
 where
     P: ReadOnlySystemParam,
 {
