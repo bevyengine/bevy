@@ -29,7 +29,7 @@ error[E0277]: the trait bound `&'static mut Foo: ReadOnlyWorldQuery` is not sati
 note: required by a bound in `assert_readonly`
   --> tests/ui/system_param_derive_readonly.rs:23:8
    |
-21 | fn assert_readonly<P: SystemParam>()
+21 | fn assert_readonly<P>()
    |    --------------- required by a bound in this
 22 | where
 23 |     P: ReadOnlySystemParam,
