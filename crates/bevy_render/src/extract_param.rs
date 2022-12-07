@@ -2,8 +2,8 @@ use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
     system::{
-        ReadOnlySystemParamState, ResState, SystemMeta, SystemParam, SystemParamItem,
-        SystemParamState, SystemState,
+        ReadOnlySystemParam, ResState, SystemMeta, SystemParam, SystemParamItem, SystemParamState,
+        SystemState,
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -42,16 +42,16 @@ use std::ops::{Deref, DerefMut};
 ///
 /// [`RenderStage::Extract`]: crate::RenderStage::Extract
 /// [Window]: bevy_window::Window
-pub struct Extract<'w, 's, P: SystemParam + 'static>
+pub struct Extract<'w, 's, P>
 where
-    P::State: ReadOnlySystemParamState,
+    P: SystemParam + ReadOnlySystemParam + 'static,
 {
     item: SystemParamItem<'w, 's, P>,
 }
 
-impl<'w, 's, P: SystemParam> SystemParam for Extract<'w, 's, P>
+impl<'w, 's, P> SystemParam for Extract<'w, 's, P>
 where
-    P::State: ReadOnlySystemParamState,
+    P: SystemParam + ReadOnlySystemParam,
 {
     type State = ExtractState<P>;
 }
@@ -66,7 +66,7 @@ pub struct ExtractState<P: SystemParam + 'static> {
 // which is initialized in init()
 unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P>
 where
-    P::State: ReadOnlySystemParamState,
+    P: SystemParam + ReadOnlySystemParam + 'static,
 {
     type Item<'w, 's> = Extract<'w, 's, P>;
 
@@ -97,7 +97,7 @@ where
 
 impl<'w, 's, P: SystemParam> Deref for Extract<'w, 's, P>
 where
-    P::State: ReadOnlySystemParamState,
+    P: ReadOnlySystemParam,
 {
     type Target = SystemParamItem<'w, 's, P>;
 
@@ -109,7 +109,7 @@ where
 
 impl<'w, 's, P: SystemParam> DerefMut for Extract<'w, 's, P>
 where
-    P::State: ReadOnlySystemParamState,
+    P: ReadOnlySystemParam,
 {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -119,7 +119,7 @@ where
 
 impl<'a, 'w, 's, P: SystemParam> IntoIterator for &'a Extract<'w, 's, P>
 where
-    P::State: ReadOnlySystemParamState,
+    P: ReadOnlySystemParam,
     &'a SystemParamItem<'w, 's, P>: IntoIterator,
 {
     type Item = <&'a SystemParamItem<'w, 's, P> as IntoIterator>::Item;

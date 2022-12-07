@@ -240,8 +240,8 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 
             // SAFETY: All parameters are constrained to ReadOnlyState, so World is only read
 
-            unsafe impl<#(#param_state: SystemParamState,)*> ReadOnlySystemParamState for ParamSetState<(#(#param_state,)*)>
-            where #(#param_state: ReadOnlySystemParamState,)*
+            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
+            where #(#param: SystemParam + ReadOnlySystemParam,)*
             { }
 
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
@@ -409,6 +409,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
+    // Create a where clause for the `ReadOnlySystemParam` impl.
+    // Ensure that each field implements `ReadOnlySystemParam`.
+    let mut read_only_generics = generics.clone();
+    let read_only_where_clause = read_only_generics.make_where_clause();
+    for field_type in &field_types {
+        read_only_where_clause
+            .predicates
+            .push(syn::parse_quote!(#field_type: #path::system::ReadOnlySystemParam));
+    }
+
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
 
@@ -466,8 +476,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
             }
 
-            // Safety: The `ParamState` is `ReadOnlySystemParamState`, so this can only read from the `World`
-            unsafe impl<TSystemParamState: #path::system::SystemParamState + #path::system::ReadOnlySystemParamState, #punctuated_generics> #path::system::ReadOnlySystemParamState for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {}
+            // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
+            unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
         };
     })
 }
