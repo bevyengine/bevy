@@ -242,8 +242,6 @@ pub struct ParamSet<'w, 's, T: SystemParam> {
     system_meta: SystemMeta,
     change_tick: u32,
 }
-/// The [`SystemParamState`] of [`ParamSet<T::Item>`].
-pub struct ParamSetState<T>(T);
 
 impl_param_set!();
 

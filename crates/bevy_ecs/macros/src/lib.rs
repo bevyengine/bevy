@@ -243,7 +243,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 for<'w, 's> #param::Item::<'w, 's>: SystemParam<State = #param::State>,
             )*
             {
-                type State = ParamSetState<(#(#param::State,)*)>;
+                type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param::Item<'w, 's>,)*)>;
 
                 fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -263,18 +263,18 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                             .archetype_component_access
                             .extend(&#meta.archetype_component_access);
                     )*
-                    ParamSetState((#(#param,)*))
+                    (#(#param,)*)
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    let (#(#param,)*) = &mut state.0;
+                    let (#(#param,)*) = state;
                     #(
                         <#param as SystemParam>::new_archetype(#param, archetype, system_meta);
                     )*
                 }
 
                 fn apply(state: &mut Self::State, world: &mut World) {
-                    <(#(#param,)*)>::apply(&mut state.0, world);
+                    <(#(#param,)*)>::apply(state, world);
                 }
 
                 #[inline]
@@ -285,7 +285,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     change_tick: u32,
                 ) -> Self::Item<'w, 's> {
                     ParamSet {
-                        param_states: &mut state.0,
+                        param_states: state,
                         system_meta: system_meta.clone(),
                         world,
                         change_tick,
