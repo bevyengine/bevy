@@ -150,8 +150,10 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
         self.schedule.run(&mut self.world);
+
         for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
+            sub_app.app.world.clear_trackers();
         }
     }
 
