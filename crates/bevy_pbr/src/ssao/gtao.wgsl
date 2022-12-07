@@ -13,7 +13,7 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).r;
 
 #ifdef TEMPORAL_NOISE
-    index += 288u * (globals.frame_count % 64u);
+    index += 72u * (globals.frame_count % 64u);
 #endif
 
     // R2 sequence - http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences
