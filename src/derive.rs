@@ -206,6 +206,35 @@ impl<'a> DerivedModule<'a> {
         already_imported: &mut HashMap<Handle<Expression>, Handle<Expression>>,
         new_expressions: &mut Arena<Expression>,
     ) -> Block {
+        macro_rules! map_expr {
+            ($e:expr) => {
+                self.import_expression(
+                    *$e,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    false,
+                )
+            };
+        }
+
+        macro_rules! map_expr_opt {
+            ($e:expr) => {
+                $e.as_ref().map(|expr| map_expr!(expr))
+            };
+        }
+
+        macro_rules! map_block {
+            ($b:expr) => {
+                self.import_block(
+                    $b,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                )
+            };
+        }
+
         let statements = block
             .iter()
             .map(|stmt| {
@@ -219,77 +248,29 @@ impl<'a> DerivedModule<'a> {
                         function: self.map_function_handle(function),
                         arguments: arguments
                             .iter()
-                            .map(|expr| {
-                                self.import_expression(
-                                    *expr,
-                                    old_expressions,
-                                    already_imported,
-                                    new_expressions,
-                                    false,
-                                )
-                            })
+                            .map(|expr| map_expr!(expr))
                             .collect(),
-                        result: result.as_ref().map(|result| {
-                            self.import_expression(
-                                *result,
-                                old_expressions,
-                                already_imported,
-                                new_expressions,
-                                false,
-                            )
-                        }),
+                        result: result.as_ref().map(|result| map_expr!(result)),
                     },
 
                     // recursively
-                    Statement::Block(b) => Statement::Block(self.import_block(
-                        b,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                    )),
+                    Statement::Block(b) => Statement::Block(map_block!(b)),
                     Statement::If {
                         condition,
                         accept,
                         reject,
                     } => Statement::If {
-                        condition: self.import_expression(
-                            *condition,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
-                        accept: self.import_block(
-                            accept,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                        ),
-                        reject: self.import_block(
-                            reject,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                        ),
+                        condition: map_expr!(condition),
+                        accept: map_block!(accept),
+                        reject: map_block!(reject),
                     },
                     Statement::Switch { selector, cases } => Statement::Switch {
-                        selector: self.import_expression(
-                            *selector,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
+                        selector: map_expr!(selector),
                         cases: cases
                             .iter()
                             .map(|case| SwitchCase {
                                 value: case.value.clone(),
-                                body: self.import_block(
-                                    &case.body,
-                                    old_expressions,
-                                    already_imported,
-                                    new_expressions,
-                                ),
+                                body: map_block!(&case.body),
                                 fall_through: case.fall_through,
                             })
                             .collect(),
@@ -299,27 +280,9 @@ impl<'a> DerivedModule<'a> {
                         continuing,
                         break_if,
                     } => Statement::Loop {
-                        body: self.import_block(
-                            body,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                        ),
-                        continuing: self.import_block(
-                            continuing,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                        ),
-                        break_if: break_if.as_ref().map(|break_if| {
-                            self.import_expression(
-                                *break_if,
-                                old_expressions,
-                                already_imported,
-                                new_expressions,
-                                false,
-                            )
-                        }),
+                        body: map_block!(body),
+                        continuing: map_block!(continuing),
+                        break_if: map_expr_opt!(break_if),
                     },
 
                     // map expressions
@@ -337,32 +300,14 @@ impl<'a> DerivedModule<'a> {
                         let old_length = new_expressions.len();
                         // iterate again to add expressions that should be part of the emit statement
                         for expr in exprs.clone() {
-                            self.import_expression(
-                                expr,
-                                old_expressions,
-                                already_imported,
-                                new_expressions,
-                                false,
-                            );
+                            map_expr!(&expr);
                         }
 
                         Statement::Emit(new_expressions.range_from(old_length))
                     }
                     Statement::Store { pointer, value } => Statement::Store {
-                        pointer: self.import_expression(
-                            *pointer,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
-                        value: self.import_expression(
-                            *value,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
+                        pointer: map_expr!(pointer),
+                        value: map_expr!(value),
                     },
                     Statement::ImageStore {
                         image,
@@ -370,36 +315,10 @@ impl<'a> DerivedModule<'a> {
                         array_index,
                         value,
                     } => Statement::ImageStore {
-                        image: self.import_expression(
-                            *image,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
-                        coordinate: self.import_expression(
-                            *coordinate,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
-                        array_index: array_index.as_ref().map(|array_index| {
-                            self.import_expression(
-                                *array_index,
-                                old_expressions,
-                                already_imported,
-                                new_expressions,
-                                false,
-                            )
-                        }),
-                        value: self.import_expression(
-                            *value,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
+                        image: map_expr!(image),
+                        coordinate: map_expr!(coordinate),
+                        array_index: map_expr_opt!(array_index),
+                        value: map_expr!(value),
                     },
                     Statement::Atomic {
                         pointer,
@@ -407,39 +326,13 @@ impl<'a> DerivedModule<'a> {
                         value,
                         result,
                     } => Statement::Atomic {
-                        pointer: self.import_expression(
-                            *pointer,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
+                        pointer: map_expr!(pointer),
                         fun: *fun,
-                        value: self.import_expression(
-                            *value,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
-                        result: self.import_expression(
-                            *result,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            false,
-                        ),
+                        value: map_expr!(value),
+                        result: map_expr!(result),
                     },
                     Statement::Return { value } => Statement::Return {
-                        value: value.as_ref().map(|value| {
-                            self.import_expression(
-                                *value,
-                                old_expressions,
-                                already_imported,
-                                new_expressions,
-                                false,
-                            )
-                        }),
+                        value: map_expr_opt!(value),
                     },
 
                     // else just copy
@@ -472,6 +365,30 @@ impl<'a> DerivedModule<'a> {
             return *h_new;
         }
 
+        macro_rules! map_expr {
+            ($e:expr) => {
+                self.import_expression(
+                    *$e,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                )
+            };
+        }
+
+        macro_rules! map_expr_opt {
+            ($e:expr) => {
+                $e.as_ref().map(|expr| self.import_expression(
+                    *expr,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ))
+            };
+        }
+
         let mut is_external = false;
         let expr = old_expressions.try_get(h_expr).unwrap();
         let expr = match expr {
@@ -484,15 +401,7 @@ impl<'a> DerivedModule<'a> {
                 ty: self.import_type(ty),
                 components: components
                     .iter()
-                    .map(|expr| {
-                        self.import_expression(
-                            *expr,
-                            old_expressions,
-                            already_imported,
-                            new_expressions,
-                            non_emitting_only,
-                        )
-                    })
+                    .map(|expr| map_expr!(expr))
                     .collect(),
             },
             Expression::GlobalVariable(gv) => {
@@ -509,84 +418,26 @@ impl<'a> DerivedModule<'a> {
                 level,
                 depth_ref,
             } => Expression::ImageSample {
-                image: self.import_expression(
-                    *image,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                sampler: self.import_expression(
-                    *sampler,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                image: map_expr!(image),
+                sampler: map_expr!(sampler),
                 gather: *gather,
-                coordinate: self.import_expression(
-                    *coordinate,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                array_index: array_index.as_ref().map(|array_index| {
-                    self.import_expression(
-                        *array_index,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                        non_emitting_only,
-                    )
-                }),
+                coordinate: map_expr!(coordinate),
+                array_index: map_expr_opt!(array_index),
                 offset: offset.map(|c| self.import_const(&c)),
                 level: *level,
-                depth_ref: depth_ref.as_ref().map(|depth_ref| {
-                    self.import_expression(
-                        *depth_ref,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                        non_emitting_only,
-                    )
-                }),
+                depth_ref: map_expr_opt!(depth_ref),
             },
             Expression::Access { base, index } => Expression::Access {
-                base: self.import_expression(
-                    *base,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                index: self.import_expression(
-                    *index,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                base: map_expr!(base),
+                index: map_expr!(index),
             },
             Expression::AccessIndex { base, index } => Expression::AccessIndex {
-                base: self.import_expression(
-                    *base,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                base: map_expr!(base),
                 index: *index,
             },
             Expression::Splat { size, value } => Expression::Splat {
                 size: *size,
-                value: self.import_expression(
-                    *value,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                value: map_expr!(value),
             },
             Expression::Swizzle {
                 size,
@@ -594,23 +445,11 @@ impl<'a> DerivedModule<'a> {
                 pattern,
             } => Expression::Swizzle {
                 size: *size,
-                vector: self.import_expression(
-                    *vector,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                vector: map_expr!(vector),
                 pattern: *pattern,
             },
             Expression::Load { pointer } => Expression::Load {
-                pointer: self.import_expression(
-                    *pointer,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                pointer: map_expr!(pointer),
             },
             Expression::ImageLoad {
                 image,
@@ -619,144 +458,46 @@ impl<'a> DerivedModule<'a> {
                 sample,
                 level,
             } => Expression::ImageLoad {
-                image: self.import_expression(
-                    *image,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                coordinate: self.import_expression(
-                    *coordinate,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                array_index: array_index.as_ref().map(|array_index| {
-                    self.import_expression(
-                        *array_index,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                        non_emitting_only,
-                    )
-                }),
-                sample: sample.as_ref().map(|sample| {
-                    self.import_expression(
-                        *sample,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                        non_emitting_only,
-                    )
-                }),
-                level: level.as_ref().map(|level| {
-                    self.import_expression(
-                        *level,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                        non_emitting_only,
-                    )
-                }),
+                image: map_expr!(image),
+                coordinate: map_expr!(coordinate),
+                array_index: map_expr_opt!(array_index),
+                sample: map_expr_opt!(sample),
+                level: map_expr_opt!(level),
             },
             Expression::ImageQuery { image, query } => Expression::ImageQuery {
-                image: self.import_expression(
-                    *image,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                image: map_expr!(image),
                 query: match query {
                     ImageQuery::Size { level } => ImageQuery::Size {
-                        level: level.as_ref().map(|level| {
-                            self.import_expression(
-                                *level,
-                                old_expressions,
-                                already_imported,
-                                new_expressions,
-                                non_emitting_only,
-                            )
-                        }),
+                        level: map_expr_opt!(level),
                     },
                     _ => *query,
                 },
             },
             Expression::Unary { op, expr } => Expression::Unary {
                 op: *op,
-                expr: self.import_expression(
-                    *expr,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                expr: map_expr!(expr),
             },
             Expression::Binary { op, left, right } => Expression::Binary {
                 op: *op,
-                left: self.import_expression(
-                    *left,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                right: self.import_expression(
-                    *right,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                left: map_expr!(left),
+                right: map_expr!(right),
             },
             Expression::Select {
                 condition,
                 accept,
                 reject,
             } => Expression::Select {
-                condition: self.import_expression(
-                    *condition,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                accept: self.import_expression(
-                    *accept,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                reject: self.import_expression(
-                    *reject,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                condition: map_expr!(condition),
+                accept: map_expr!(accept),
+                reject: map_expr!(reject),
             },
             Expression::Derivative { axis, expr } => Expression::Derivative {
                 axis: *axis,
-                expr: self.import_expression(
-                    *expr,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                expr: map_expr!(expr),
             },
             Expression::Relational { fun, argument } => Expression::Relational {
                 fun: *fun,
-                argument: self.import_expression(
-                    *argument,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                argument: map_expr!(argument),
             },
             Expression::Math {
                 fun,
@@ -766,63 +507,21 @@ impl<'a> DerivedModule<'a> {
                 arg3,
             } => Expression::Math {
                 fun: *fun,
-                arg: self.import_expression(
-                    *arg,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
-                arg1: arg1.as_ref().map(|arg| {
-                    self.import_expression(
-                        *arg,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                        non_emitting_only,
-                    )
-                }),
-                arg2: arg2.as_ref().map(|arg| {
-                    self.import_expression(
-                        *arg,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                        non_emitting_only,
-                    )
-                }),
-                arg3: arg3.as_ref().map(|arg| {
-                    self.import_expression(
-                        *arg,
-                        old_expressions,
-                        already_imported,
-                        new_expressions,
-                        non_emitting_only,
-                    )
-                }),
+                arg: map_expr!(arg),
+                arg1: map_expr_opt!(arg1),
+                arg2: map_expr_opt!(arg2),
+                arg3: map_expr_opt!(arg3),
             },
             Expression::As {
                 expr,
                 kind,
                 convert,
             } => Expression::As {
-                expr: self.import_expression(
-                    *expr,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ),
+                expr: map_expr!(expr),
                 kind: *kind,
                 convert: *convert,
             },
-            Expression::ArrayLength(expr) => Expression::ArrayLength(self.import_expression(
-                *expr,
-                old_expressions,
-                already_imported,
-                new_expressions,
-                non_emitting_only,
-            )),
+            Expression::ArrayLength(expr) => Expression::ArrayLength(map_expr!(expr)),
 
             Expression::LocalVariable(_) | Expression::FunctionArgument(_) => {
                 is_external = true;
