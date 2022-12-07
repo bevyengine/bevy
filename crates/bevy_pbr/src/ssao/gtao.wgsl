@@ -67,8 +67,8 @@ fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
     return view_xyz;
 }
 
-fn load_and_reconstruct_view_space_position(uv: vec2<f32>) -> vec3<f32> {
-    let depth = textureSampleLevel(preprocessed_depth, point_clamp_sampler, uv, 0.0).r;
+fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32) -> vec3<f32> {
+    let depth = textureSampleLevel(preprocessed_depth, point_clamp_sampler, uv, sample_mip_level).r;
     return reconstruct_view_space_position(depth, uv);
 }
 
@@ -88,7 +88,6 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let pixel_coordinates = vec2<i32>(global_id.xy);
     var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
-    // pixel_depth *= 0.99999; // TODO: XeGTAO avoid precision artifacts, is needed?
 
     let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
     let noise = load_noise(pixel_coordinates);
@@ -122,9 +121,11 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
                 var sample = (sample_t + sample_noise) / samples_per_slice_side;
                 sample *= sample; // https://github.com/GameTechDev/XeGTAO#sample-distribution
+                let sample = sample * vec2<f32>(omega.x, -omega.y);
 
-                let sample_uv = uv + side_modifier * sample * vec2<f32>(omega.x, -omega.y);
-                let sample_position = load_and_reconstruct_view_space_position(sample_uv);
+                let sample_uv = uv + side_modifier * sample;
+                let sample_mip_level = clamp(log2(length(sample)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
+                let sample_position = load_and_reconstruct_view_space_position(sample_uv, sample_mip_level);
 
                 let sample_difference = sample_position - pixel_position;
                 let sample_distance = length(sample_difference);
