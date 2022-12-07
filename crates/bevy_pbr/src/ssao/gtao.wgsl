@@ -51,13 +51,9 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
 
 fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
     let world_normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0).xyz;
-    let world_normal = (world_normal * 2.0) - 1.0;
-    let inverse_view = mat3x3<f32>(
-        view.inverse_view[0].xyz,
-        view.inverse_view[1].xyz,
-        view.inverse_view[2].xyz,
-    );
-    return inverse_view * world_normal;
+    let world_normal = vec4<f32>((world_normal * 2.0) - 1.0, 0.0);
+    let view_normal = view.view * world_normal;
+    return view_normal.xyz;
 }
 
 fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
@@ -75,30 +71,36 @@ fn load_and_reconstruct_view_space_position(uv: vec2<f32>) -> vec3<f32> {
 @compute
 @workgroup_size(8, 8, 1)
 fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let pixel_coordinates = vec2<i32>(global_id.xy);
-    let slice_count = u32(#SLICE_COUNT);
-    let samples_per_slice_side = u32(#SAMPLES_PER_SLICE_SIDE);
     let pi = 3.1415926535897932384626433832795;
     let half_pi = pi / 2.0;
 
+    let slice_count = f32(#SLICE_COUNT);
+    let samples_per_slice_side = f32(#SAMPLES_PER_SLICE_SIDE);
+    let effect_radius = 0.5 * 1.457;
+    let falloff_range = 0.615 * effect_radius;
+    let falloff_from = effect_radius * (1.0 - 0.615);
+    let falloff_mul = -1.0 / falloff_range;
+    let falloff_add = falloff_from / falloff_range + 1.0;
+
+    let pixel_coordinates = vec2<i32>(global_id.xy);
     var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
-    pixel_depth *= 0.99999; // TODO: XeGTAO avoid precision artifacts, is needed?
+    // pixel_depth *= 0.99999; // TODO: XeGTAO avoid precision artifacts, is needed?
 
     let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
-    let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
-    let view_vec = normalize(-pixel_position);
-    let pixel_normal = load_normal_view_space(uv);
     let noise = load_noise(pixel_coordinates);
+    let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
+    let pixel_normal = load_normal_view_space(uv);
+    let view_vec = normalize(-pixel_position);
 
     var visibility = 0.0;
-    for (var slice_t = 0u; slice_t < slice_count; slice_t += 1u) {
-        let slice = f32(slice_t) + noise.x;
-        let phi = (pi / f32(slice_count)) * slice;
+    for (var slice_t = 0.0; slice_t < slice_count; slice_t += 1.0) {
+        let slice = slice_t + noise.x;
+        let phi = (pi / slice_count) * slice;
         let omega = vec2<f32>(cos(phi), sin(phi));
 
         let direction = vec3<f32>(omega.xy, 0.0);
         let orthographic_direction = direction - (dot(direction, view_vec) * view_vec);
-        let axis = normalize(cross(direction, view_vec)); // TODO: Why XeGTAO normalize? Paper does not
+        let axis = cross(direction, view_vec);
         let projected_normal = pixel_normal - axis * dot(pixel_normal, axis);
         let projected_normal_length = length(projected_normal);
 
@@ -106,16 +108,16 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let cos_norm = saturate(dot(projected_normal, view_vec) / projected_normal_length);
         let n = sign_norm * acos(cos_norm);
 
-        for (var slice_side = 0u; slice_side < 2u; slice_side += 1u) {
-            let side_modifier = -1.0 + (2.0 * f32(slice_side));
-            let min_cos_horizon = cos(n - (side_modifier * half_pi));
-            var cos_horizon = min_cos_horizon;
-            for (var sample_t = 0u; sample_t < samples_per_slice_side; sample_t += 1u) {
-                var sample_noise = f32(slice_t + sample_t * samples_per_slice_side) * 0.6180339887498948482;
+        for (var slice_side = 0.0; slice_side < 2.0; slice_side += 1.0) {
+            let side_modifier = -1.0 + (2.0 * slice_side);
+            let min_cos_horizon = cos(n + (side_modifier * half_pi));
+            var cos_horizon = -1.0;
+            for (var sample_t = 0.0; sample_t < samples_per_slice_side; sample_t += 1.0) {
+                var sample_noise = (slice_t + sample_t * samples_per_slice_side) * 0.6180339887498948482;
                 sample_noise = fract(noise.y + sample_noise);
 
-                var sample = (f32(sample_t) + sample_noise) / f32(samples_per_slice_side);
-                sample = pow(sample, 2.1); // https://github.com/GameTechDev/XeGTAO#sample-distribution
+                var sample = (sample_t + sample_noise) / samples_per_slice_side;
+                sample *= sample; // https://github.com/GameTechDev/XeGTAO#sample-distribution
 
                 let sample_uv = uv + side_modifier * sample * vec2<f32>(omega.x, -omega.y);
                 let sample_position = load_and_reconstruct_view_space_position(sample_uv);
@@ -123,27 +125,22 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 let sample_difference = sample_position - pixel_position;
                 let sample_distance = length(sample_difference);
                 let sample_horizon = sample_difference / sample_distance;
-                var sample_cos_horizon = dot(sample_horizon, view_vec);
+                var sample_cos_horizon = dot(normalize(sample_position - pixel_position), view_vec);
 
-                let effect_radius = 0.5 * 1.457;
-                let falloff_range = 0.615 * effect_radius;
-                let falloff_from = effect_radius * (1.0 - 0.615);
-                let falloff_mul = -1.0 / falloff_range;
-                let falloff_add = falloff_from / falloff_range + 1.0;
                 let weight = saturate(sample_distance * falloff_mul + falloff_add);
-
                 sample_cos_horizon = mix(min_cos_horizon, sample_cos_horizon, weight);
 
                 cos_horizon = max(cos_horizon, sample_cos_horizon);
             }
 
             let horizon = acos(cos_horizon);
-            let horizon = n + clamp(side_modifier * horizon - n, -half_pi, half_pi);
+            let horizon = n + clamp((side_modifier * horizon) - n, -half_pi, half_pi);
             visibility += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * horizon - n)) / 4.0;
         }
     }
-    visibility /= f32(slice_count);
+    visibility /= slice_count;
+    visibility = pow(visibility, 2.2);
+    visibility = clamp(visibility, 0.03, 1.0);
 
-    visibility = saturate(visibility);
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
 }
