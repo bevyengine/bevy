@@ -88,7 +88,7 @@ pub fn text_system(
     for entity in queued_text.entities.drain(..) {
         if let Ok((node, text, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
             let node_size = node.calculated_size;
-
+            println!("node_size: {:?}", node_size);
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,

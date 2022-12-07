@@ -293,6 +293,14 @@ pub fn flex_node_system(
         for (entity, calculated_size) in &widget_query {
             flex_surface.upsert_widget(entity, *calculated_size, scale_factor);
         }
+    } else {
+        for (entity, style) in &node_query {
+            flex_surface.upsert_node(entity, style, scale_factor);
+        }
+
+        for (entity, calculated_size) in &changed_widget_query {
+            flex_surface.upsert_widget(entity, *calculated_size, scale_factor);
+        }
     }
 
     for (entity, calculated_size) in &changed_widget_query {
