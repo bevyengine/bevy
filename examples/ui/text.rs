@@ -30,20 +30,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2dBundle::default());
     // Text with one section
-    commands.spawn((
-        // Create a TextBundle that has a Text with a single section.
-        TextBundle::from_section(
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            "hello\nbevy!",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 100.0,
-                color: Color::WHITE,
-            },
-        ) // Set the alignment of the Text
-        .with_text_alignment(TextAlignment::TOP_CENTER)
-        // Set the style of the TextBundle itself.
-        .with_style(Style {
+
+    commands.spawn(NodeBundle {
+        style: Style {
             position_type: PositionType::Absolute,
             position: UiRect {
                 bottom: Val::Px(5.0),
@@ -51,9 +40,25 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             ..default()
-        }),
-        ColorText,
-    ));
+        },
+        ..Default::default()
+    }).with_children(|builder| {
+        builder.spawn((TextBundle {
+                text: Text::from_section(
+                    "hello\nbevy!",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 100.0,
+                        color: Color::WHITE,
+                    },
+                ),
+                ..Default::default()
+            }.with_text_alignment(TextAlignment::TOP_CENTER),
+            ColorText,
+        ));
+    });
+
+
     // Text with multiple sections
     commands.spawn((
         // Create a TextBundle that has a Text with a list of sections.
