@@ -96,6 +96,7 @@ impl SubApp {
     /// run the `SubApp`'s schedule
     pub fn run(&mut self) {
         self.app.schedule.run(&mut self.app.world);
+        self.app.world.clear_trackers();
     }
 
     /// extract data from main world to sub app
