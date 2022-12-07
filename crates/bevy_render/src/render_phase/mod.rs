@@ -90,15 +90,14 @@ mod tests {
         impl PhaseItem for TestPhaseItem {
             type SortKey = ();
 
+            fn entity(&self) -> bevy_ecs::entity::Entity {
+                self.entity
+            }
+
             fn sort_key(&self) -> Self::SortKey {}
 
             fn draw_function(&self) -> DrawFunctionId {
                 unimplemented!();
-            }
-        }
-        impl EntityPhaseItem for TestPhaseItem {
-            fn entity(&self) -> bevy_ecs::entity::Entity {
-                self.entity
             }
         }
         impl BatchedPhaseItem for TestPhaseItem {

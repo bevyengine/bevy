@@ -18,8 +18,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        EntityRenderCommand, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
     render_resource::*,
@@ -1700,6 +1700,11 @@ impl PhaseItem for Shadow {
     type SortKey = FloatOrd;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
     }
@@ -1712,12 +1717,6 @@ impl PhaseItem for Shadow {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for Shadow {
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 

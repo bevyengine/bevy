@@ -39,6 +39,8 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The type used for ordering the items. The smallest values are drawn first.
     type SortKey: Ord;
+    fn entity(&self) -> Entity;
+
     /// Determines the order in which the items are drawn during the corresponding [`RenderPhase`](super::RenderPhase).
     fn sort_key(&self) -> Self::SortKey;
     /// Specifies the [`Draw`] function used to render the item.
@@ -193,10 +195,6 @@ pub trait EntityRenderCommand {
     ) -> RenderCommandResult;
 }
 
-pub trait EntityPhaseItem: PhaseItem {
-    fn entity(&self) -> Entity;
-}
-
 pub trait CachedRenderPipelinePhaseItem: PhaseItem {
     fn cached_pipeline(&self) -> CachedRenderPipelineId;
 }
@@ -208,7 +206,7 @@ pub trait CachedRenderPipelinePhaseItem: PhaseItem {
 ///
 /// If this is implemented on a type, the implementation of [`PhaseItem::sort`] should
 /// be changed to implement a stable sort, or incorrect/suboptimal batching may result.
-pub trait BatchedPhaseItem: EntityPhaseItem {
+pub trait BatchedPhaseItem: PhaseItem {
     /// Range in the vertex buffer of this item
     fn batch_range(&self) -> &Option<Range<u32>>;
 
@@ -247,7 +245,7 @@ pub enum BatchResult {
     IncompatibleItems,
 }
 
-impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E
+impl<P: PhaseItem, E: EntityRenderCommand> RenderCommand<P> for E
 where
     E::Param: 'static,
 {

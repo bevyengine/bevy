@@ -112,6 +112,11 @@ impl PhaseItem for TransparentUi {
     type SortKey = FloatOrd;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         self.sort_key
     }
@@ -119,13 +124,6 @@ impl PhaseItem for TransparentUi {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-}
-
-impl EntityPhaseItem for TransparentUi {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
