@@ -262,10 +262,11 @@ When in doubt about a matter of architectural philosophy, refer back to [*What w
 Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR.
 If you're new to GitHub, check out the [Pull Request Review documentation](https://docs.github.com/en/github/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews). Anyone can leave reviews ... no special permissions are required!
 
-There are a two main places you can check for things to review:
+There are three main places you can check for things to review:
 
-1. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
-2. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
+1. Pull request which are ready and in need of more reviews on [bevy](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+-label%3AS-Ready-For-Final-Review+-draft%3A%3Atrue+-label%3AS-Needs-RFC+-reviewed-by%3A%40me+-author%3A%40me)
+2. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
+3. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
 
 Official focus areas and work done by @cart go through this review process as well.
 Not even our project lead is exempt from reviews and RFCs!
@@ -273,6 +274,15 @@ By giving feedback on this work (and related supporting work), you can help us m
 
 Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
 As discussed in [*How we're organized*](#how-were-organized), this role only requires good faith and a basic understanding of our development process.
+
+### Maintaining code
+
+Maintainers can merge uncontroversial pull requests that have at least two approvals (or at least one for trivial changes).
+
+These search filters show the requests that can be merged by maintainers, and those which need a final approval from @cart.
+
+1. Pulls requests which are ready for maintainers to merge without consultation: [requests to pull](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+-label%3AS-Controversial+-label%3AS-Blocked+-label%3AS-Adopt-Me+)
+2. Pull requests which need final input from @cart: [requests to verify](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+label%3AS-Controversial+)
 
 ### Contributing code
 

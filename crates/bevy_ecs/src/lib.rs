@@ -1129,7 +1129,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_bundle() {
+    fn remove() {
         let mut world = World::default();
         world.spawn((A(1), B(1), TableStored("1")));
         let e2 = world.spawn((A(2), B(2), TableStored("2"))).id();

@@ -33,19 +33,15 @@ use std::{
 /// See the *Generic `SystemParam`s* section for details and workarounds of the probable
 /// cause if this derive causes an error to be emitted.
 ///
-///
-/// The struct for which `SystemParam` is derived must (currently) have exactly
-/// two lifetime parameters.
-/// The first is the lifetime of the world, and the second the lifetime
-/// of the parameter's state.
+/// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
+/// and `'s` for data stored in the parameter's state.
 ///
 /// ## Attributes
 ///
 /// `#[system_param(ignore)]`:
 /// Can be added to any field in the struct. Fields decorated with this attribute
 /// will be created with the default value upon realisation.
-/// This is most useful for `PhantomData` fields, to ensure that the required lifetimes are
-/// used, as shown in the example.
+/// This is most useful for `PhantomData` fields, such as markers for generic types.
 ///
 /// # Example
 ///
@@ -57,17 +53,17 @@ use std::{
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct MyParam<'w, 's> {
+/// struct MyParam<'w, Marker: 'static> {
 ///     foo: Res<'w, SomeResource>,
 ///     #[system_param(ignore)]
-///     marker: PhantomData<&'s ()>,
+///     marker: PhantomData<Marker>,
 /// }
 ///
-/// fn my_system(param: MyParam) {
+/// fn my_system<T: 'static>(param: MyParam<T>) {
 ///     // Access the resource through `param.foo`
 /// }
 ///
-/// # bevy_ecs::system::assert_is_system(my_system);
+/// # bevy_ecs::system::assert_is_system(my_system::<()>);
 /// ```
 ///
 /// # Generic `SystemParam`s
@@ -1567,7 +1563,7 @@ pub mod lifetimeless {
 /// struct GenericParam<'w,'s, T: SystemParam> {
 ///     field: T,
 ///     #[system_param(ignore)]
-///     // Use the lifetimes, as the `SystemParam` derive requires them
+///     // Use the lifetimes in this type, or they will be unbound.
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
 /// # fn check_always_is_system<T: SystemParam + 'static>(){
@@ -1651,7 +1647,7 @@ unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
 
 #[cfg(test)]
 mod tests {
-    use super::SystemParam;
+    use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         query::{ReadOnlyWorldQuery, WorldQuery},
@@ -1668,4 +1664,17 @@ mod tests {
     > {
         _query: Query<'w, 's, Q, F>,
     }
+
+    #[derive(SystemParam)]
+    pub struct SpecialRes<'w, T: Resource> {
+        _res: Res<'w, T>,
+    }
+
+    #[derive(SystemParam)]
+    pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
+        _local: Local<'s, T>,
+    }
+
+    #[derive(SystemParam)]
+    pub struct UnitParam {}
 }
