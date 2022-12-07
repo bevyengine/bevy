@@ -3,7 +3,7 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},
-    storage::{Column, ComponentSparseSet, Table},
+    storage::{Column, ComponentSparseSet, Table, TableRow},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
@@ -85,7 +85,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     unsafe fn fetch<'w>(
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
-        _table_row: usize,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 
@@ -187,7 +187,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     unsafe fn fetch<'w>(
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
-        _table_row: usize,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 
@@ -330,7 +330,7 @@ macro_rules! impl_query_filter_tuple {
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
-                _table_row: usize
+                _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($filter,)*) = fetch;
                 false $(|| ($filter.matches && $filter::filter_fetch(&mut $filter.fetch, _entity, _table_row)))*
@@ -340,7 +340,7 @@ macro_rules! impl_query_filter_tuple {
             unsafe fn filter_fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> bool {
                 Self::fetch(fetch, entity, table_row)
             }
@@ -500,14 +500,14 @@ macro_rules! impl_tick_filter {
             unsafe fn fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> Self::Item<'w> {
                 match T::Storage::STORAGE_TYPE {
                     StorageType::Table => {
                         fetch
                             .table_ticks
                             .debug_checked_unwrap()
-                            .get(table_row)
+                            .get(table_row.index())
                             .deref()
                             .is_older_than(fetch.last_change_tick, fetch.change_tick)
                     }
@@ -527,7 +527,7 @@ macro_rules! impl_tick_filter {
             unsafe fn filter_fetch<'w>(
                 fetch: &mut Self::Fetch<'w>,
                 entity: Entity,
-                table_row: usize
+                table_row: TableRow
             ) -> bool {
                 Self::fetch(fetch, entity, table_row)
             }
