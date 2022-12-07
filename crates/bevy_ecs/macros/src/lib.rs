@@ -425,7 +425,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }
 
     let struct_name = &ast.ident;
-    let state_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
@@ -433,22 +432,19 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             unsafe impl<'_w, '_s, #punctuated_generics> #path::system::SystemParam for #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause {
-                type State = State<'_w, '_s, #punctuated_generic_idents>;
+                type State = <FieldsTuple<'_w, '_s, #punctuated_generic_idents> as #path::system::SystemParam>::State;
                 type Item<'w, 's> = #struct_name #ty_generics;
 
                 fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
-                    FetchState {
-                        state: <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::init(world, system_meta),
-                        marker: std::marker::PhantomData,
-                    }
+                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::init(world, system_meta)
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::new_archetype(&mut state.state, archetype, system_meta)
+                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::new_archetype(state, archetype, system_meta)
                 }
 
                 fn apply(state: &mut Self::State, world: &mut #path::world::World) {
-                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::apply(&mut state.state, world);
+                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::apply( state, world);
                 }
 
                 unsafe fn get_param<'w, 's>(
@@ -458,32 +454,17 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     change_tick: u32,
                 ) -> Self::Item<'w, 's> {
                     #struct_name {
-                        #(#fields: <#field_types as #path::system::SystemParam>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#fields: <#field_types as #path::system::SystemParam>::get_param(&mut state.#field_indices, system_meta, world, change_tick),)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
             }
 
             #[doc(hidden)]
-            type State<'w, 's, #punctuated_generic_idents> = FetchState<
-                (
-                    #(<#field_types as #path::system::SystemParam>::State,)*
-                    (), // State for the `PhantomData` param.
-                ),
-                #punctuated_generic_idents
-            >;
-
-            #[doc(hidden)]
             type FieldsTuple<'w, 's, #punctuated_generic_idents> = (
                 #(#field_types,)*
                 std::marker::PhantomData<fn() -> (#punctuated_generic_idents)>,
             );
-
-            #[doc(hidden)]
-            #state_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
-                state: TSystemParamState,
-                marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
-            }
 
             // Safety: The `ParamState` is `ReadOnlySystemParam`, so this can only read from the `World`
             unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
