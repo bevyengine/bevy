@@ -51,9 +51,13 @@ fn calculate_neighboring_depth_differences(pixel_coordinates: vec2<i32>) -> f32 
 
 fn load_normal_view_space(uv: vec2<f32>) -> vec3<f32> {
     let world_normal = textureSampleLevel(normals, point_clamp_sampler, uv, 0.0).xyz;
-    let world_normal = vec4<f32>((world_normal * 2.0) - 1.0, 0.0);
-    let view_normal = view.view * world_normal;
-    return view_normal.xyz;
+    let world_normal = (world_normal * 2.0) - 1.0;
+    let inverse_view = mat3x3<f32>(
+        view.inverse_view[0].xyz,
+        view.inverse_view[1].xyz,
+        view.inverse_view[2].xyz,
+    );
+    return inverse_view * world_normal;
 }
 
 fn reconstruct_view_space_position(depth: f32, uv: vec2<f32>) -> vec3<f32> {
