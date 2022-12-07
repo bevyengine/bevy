@@ -49,10 +49,7 @@ where
     item: SystemParamItem<'w, 's, P>,
 }
 
-impl<'w, 's, P> SystemParam for Extract<'w, 's, P>
-where
-    P: ReadOnlySystemParam,
-{
+impl<'w, 's, P: ReadOnlySystemParam> SystemParam for Extract<'w, 's, P> {
     type State = ExtractState<P>;
 }
 
@@ -64,10 +61,7 @@ pub struct ExtractState<P: SystemParam + 'static> {
 
 // SAFETY: only accesses MainWorld resource with read only system params using ResState,
 // which is initialized in init()
-unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P>
-where
-    P: ReadOnlySystemParam + 'static,
-{
+unsafe impl<P: ReadOnlySystemParam + 'static> SystemParamState for ExtractState<P> {
     type Item<'w, 's> = Extract<'w, 's, P>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
