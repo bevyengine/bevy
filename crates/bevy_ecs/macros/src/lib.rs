@@ -466,13 +466,17 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             #[doc(hidden)]
             type State<'w, 's, #punctuated_generic_idents> = FetchState<
-                (#(<#field_types as #path::system::SystemParam>::State,)*),
+                (
+                    #(<#field_types as #path::system::SystemParam>::State,)*
+                    (), // State for the `PhantomData` param.
+                ),
                 #punctuated_generic_idents
             >;
 
             #[doc(hidden)]
             type FieldsTuple<'w, 's, #punctuated_generic_idents> = (
                 #(#field_types,)*
+                std::marker::PhantomData<fn() -> (#punctuated_generic_idents)>,
             );
 
             #[doc(hidden)]
