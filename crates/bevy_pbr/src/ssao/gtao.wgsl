@@ -9,6 +9,20 @@
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
 
+fn fast_sqrt(x: f32) -> f32 {
+    return bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
+}
+
+fn fast_acos(in_x: f32) -> f32 {
+    let pi = 3.1415926535897932384626433832795;
+    let half_pi = pi / 2.0;
+
+    let x = abs(in_x);
+    var res = -0.156583 * x + half_pi;
+    res *= fast_sqrt(1.0 - x);
+    return select(pi - res, res, in_x >= 0.0);
+}
+
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).r;
 
@@ -109,7 +123,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         let sign_norm = sign(dot(orthographic_direction, projected_normal));
         let cos_norm = saturate(dot(projected_normal, view_vec) / projected_normal_length);
-        let n = sign_norm * acos(cos_norm);
+        let n = sign_norm * fast_acos(cos_norm);
 
         for (var slice_side = 0.0; slice_side < 2.0; slice_side += 1.0) {
             let side_modifier = -1.0 + (2.0 * slice_side);
@@ -138,7 +152,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 cos_horizon = max(cos_horizon, sample_cos_horizon);
             }
 
-            let horizon = acos(cos_horizon);
+            let horizon = fast_acos(cos_horizon);
             let horizon = n + clamp((side_modifier * horizon) - n, -half_pi, half_pi);
             visibility += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * horizon - n)) / 4.0;
         }
