@@ -1555,7 +1555,10 @@ impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
 pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
 
 // SAFETY: This doesn't add any more reads, and the delegated fetch confirms it
-unsafe impl<S, P: ReadOnlySystemParam> ReadOnlySystemParam for StaticSystemParamState<S, P> {}
+unsafe impl<'w, 's, P: SystemParam + ReadOnlySystemParam> ReadOnlySystemParam
+    for StaticSystemParam<'w, 's, P>
+{
+}
 
 impl<'world, 'state, P: SystemParam + 'static> SystemParam
     for StaticSystemParam<'world, 'state, P>
