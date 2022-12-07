@@ -1565,6 +1565,26 @@ unsafe impl<'_w, '_s, P: SystemParam + 'static> SystemParam for StaticSystemPara
     }
 }
 
+// SAFETY: PhantomData accesses no World data
+unsafe impl<T: Send + Sync + ?Sized> SystemParam for PhantomData<T> {
+    type State = ();
+    type Item<'world, 'state> = Self;
+
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
+
+    unsafe fn get_param<'world, 'state>(
+        _state: &'state mut Self::State,
+        _system_meta: &SystemMeta,
+        _world: &'world World,
+        _change_tick: u32,
+    ) -> Self::Item<'world, 'state> {
+        Self
+    }
+}
+
+// SAFETY: PhantomData accesses no World data
+unsafe impl<T: Send + Sync + ?Sized> ReadOnlySystemParam for PhantomData<T> {}
+
 #[cfg(test)]
 mod tests {
     use super::*;
