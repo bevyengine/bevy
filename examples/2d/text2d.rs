@@ -57,6 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2dBundle {
             text: Text::from_section("scale", text_style.clone()).with_alignment(text_alignment),
+            transform: Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
             ..default()
         },
         AnimateScale,
@@ -110,14 +111,10 @@ fn animate_rotation(
     }
 }
 
-fn animate_scale(
-    time: Res<Time>,
-    mut query: Query<&mut Transform, (With<Text>, With<AnimateScale>)>,
-) {
-    // Consider changing font-size instead of scaling the transform. Scaling a Text2D will scale the
-    // rendered quad, resulting in a pixellated look.
-    for mut transform in &mut query {
-        transform.translation = Vec3::new(400.0, 0.0, 0.0);
-        transform.scale = Vec3::splat((time.elapsed_seconds().sin() + 1.1) * 2.0);
+fn animate_scale(time: Res<Time>, mut query: Query<&mut Text, With<AnimateScale>>) {
+    for mut text in &mut query {
+        for section in &mut text.sections {
+            section.style.font_size = (time.elapsed_seconds().sin() + 1.1) * 2.0 * 60.0;
+        }
     }
 }
