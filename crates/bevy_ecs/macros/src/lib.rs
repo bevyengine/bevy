@@ -480,11 +480,9 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     world: &'w #path::world::World,
                     change_tick: u32,
                 ) -> Self::Item {
-                    let (#(#tuple_patterns,)*) = &mut state.state;
+                    let (#(#tuple_patterns,)*) = #path::system::SystemParamFetch::get_param(&mut state.state, system_meta, world, change_tick,);
                     #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(
-                            #field_local_names, system_meta, world, change_tick,
-                        ),)*
+                        #(#fields: #field_local_names,)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
