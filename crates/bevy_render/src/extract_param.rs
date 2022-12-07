@@ -2,8 +2,7 @@ use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
     system::{
-        ReadOnlySystemParam, ResState, SystemMeta, SystemParam, SystemParamItem, SystemParamState,
-        SystemState,
+        ReadOnlySystemParam, ResState, SystemMeta, SystemParam, SystemParamItem, SystemState,
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -49,36 +48,30 @@ where
     item: SystemParamItem<'w, 's, P>,
 }
 
-impl<'w, 's, P: ReadOnlySystemParam> SystemParam for Extract<'w, 's, P> {
-    type State = ExtractState<P>;
-}
-
-#[doc(hidden)]
-pub struct ExtractState<P: SystemParam + 'static> {
-    state: SystemState<P>,
-    main_world_state: ResState<MainWorld>,
-}
-
-// SAFETY: only accesses MainWorld resource with read only system params using ResState,
+// SAFETY: only accesses MainWorld resource with read only system params using Res,
 // which is initialized in init()
-unsafe impl<P: ReadOnlySystemParam + 'static> SystemParamState for ExtractState<P> {
+unsafe impl<'_w, '_s, P> SystemParam for Extract<'_w, '_s, P>
+where
+    P: ReadOnlySystemParam,
+{
+    type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
 
-    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
-        Self {
+        ExtractState {
             state: SystemState::new(&mut main_world),
-            main_world_state: ResState::init(world, system_meta),
+            main_world_state: Res::init(world, system_meta),
         }
     }
 
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self,
+        state: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        let main_world = ResState::<MainWorld>::get_param(
+        let main_world = Res::<MainWorld>::get_param(
             &mut state.main_world_state,
             system_meta,
             world,
@@ -89,7 +82,13 @@ unsafe impl<P: ReadOnlySystemParam + 'static> SystemParamState for ExtractState<
     }
 }
 
-impl<'w, 's, P: SystemParam> Deref for Extract<'w, 's, P>
+#[doc(hidden)]
+pub struct ExtractState<P: SystemParam + 'static> {
+    state: SystemState<P>,
+    main_world_state: ResState<MainWorld>,
+}
+
+impl<'w, 's, P> Deref for Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam,
 {
@@ -101,7 +100,7 @@ where
     }
 }
 
-impl<'w, 's, P: SystemParam> DerefMut for Extract<'w, 's, P>
+impl<'w, 's, P> DerefMut for Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam,
 {
@@ -111,7 +110,7 @@ where
     }
 }
 
-impl<'a, 'w, 's, P: SystemParam> IntoIterator for &'a Extract<'w, 's, P>
+impl<'a, 'w, 's, P> IntoIterator for &'a Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam,
     &'a SystemParamItem<'w, 's, P>: IntoIterator,

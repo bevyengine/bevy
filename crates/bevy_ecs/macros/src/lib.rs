@@ -216,7 +216,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_params = 8;
     let params = get_idents(|i| format!("P{i}"), max_params);
-    let params_state = get_idents(|i| format!("PF{i}"), max_params);
     let metas = get_idents(|i| format!("m{i}"), max_params);
     let mut param_fn_muts = Vec::new();
     for (i, param) in params.iter().enumerate() {
@@ -228,7 +227,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    <#param::State as SystemParamState>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
+                    <#param as SystemParam>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
         });
@@ -236,36 +235,25 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 
     for param_count in 1..=max_params {
         let param = &params[0..param_count];
-        let param_state = &params_state[0..param_count];
         let meta = &metas[0..param_count];
         let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<'w, 's, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
+            unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
+            where #(
+                for<'w, 's> #param::Item::<'w, 's>: SystemParam<State = #param::State>,
+            )*
             {
                 type State = ParamSetState<(#(#param::State,)*)>;
-            }
+                type Item<'w, 's> = ParamSet<'w, 's, (#(#param::Item<'w, 's>,)*)>;
 
-            // SAFETY: All parameters are constrained to ReadOnlyState, so World is only read
-
-            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
-            where #(#param: ReadOnlySystemParam,)*
-            { }
-
-            // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
-            // with any prior access, a panic will occur.
-
-            unsafe impl<#(#param_state: SystemParamState,)*> SystemParamState for ParamSetState<(#(#param_state,)*)>
-            {
-                type Item<'w, 's> = ParamSet<'w, 's, (#(<#param_state as SystemParamState>::Item::<'w, 's>,)*)>;
-
-                fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
+                fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
                         let mut #meta = system_meta.clone();
                         #meta.component_access_set.clear();
                         #meta.archetype_component_access.clear();
-                        #param_state::init(world, &mut #meta);
-                        let #param = #param_state::init(world, &mut system_meta.clone());
+                        #param::init(world, &mut #meta);
+                        let #param = #param::init(world, &mut system_meta.clone());
                     )*
                     #(
                         system_meta
@@ -278,20 +266,20 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     ParamSetState((#(#param,)*))
                 }
 
-                fn new_archetype(&mut self, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    let (#(#param,)*) = &mut self.0;
+                fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
+                    let (#(#param,)*) = &mut state.0;
                     #(
-                        #param.new_archetype(archetype, system_meta);
+                        <#param as SystemParam>::new_archetype(#param, archetype, system_meta);
                     )*
                 }
 
-                fn apply(&mut self, world: &mut World) {
-                    self.0.apply(world)
+                fn apply(state: &mut Self::State, world: &mut World) {
+                    <(#(#param,)*)>::apply(&mut state.0, world);
                 }
 
                 #[inline]
                 unsafe fn get_param<'w, 's>(
-                    state: &'s mut Self,
+                    state: &'s mut Self::State,
                     system_meta: &SystemMeta,
                     world: &'w World,
                     change_tick: u32,
@@ -305,9 +293,13 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
             }
 
+            // SAFETY: All parameters are constrained to ReadOnlyState, so World is only read
+            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
+            where #(#param: ReadOnlySystemParam,)*
+            { }
+
             impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
             {
-
                 #(#param_fn_mut)*
             }
         }));
@@ -401,6 +393,12 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .filter(|g| matches!(g, GenericParam::Type(_)))
         .collect();
 
+    let mut shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|x| x.lifetime.clone()).collect();
+    for lifetime in &mut shadowed_lifetimes {
+        let shadowed_ident = format_ident!("_{}", lifetime.ident);
+        lifetime.ident = shadowed_ident;
+    }
+
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
     punctuated_generics.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => GenericParam::Type(TypeParam {
@@ -434,8 +432,36 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
-            impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type State = State<'w, 's, #punctuated_generic_idents>;
+            unsafe impl<'_w, '_s, #punctuated_generics> #path::system::SystemParam for #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause {
+                type State = State<'_w, '_s, #punctuated_generic_idents>;
+                type Item<'w, 's> = #struct_name #ty_generics;
+
+                fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
+                    FetchState {
+                        state: <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::init(world, system_meta),
+                        marker: std::marker::PhantomData,
+                    }
+                }
+
+                fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
+                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::new_archetype(&mut state.state, archetype, system_meta)
+                }
+
+                fn apply(state: &mut Self::State, world: &mut #path::world::World) {
+                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::apply(&mut state.state, world);
+                }
+
+                unsafe fn get_param<'w, 's>(
+                    state: &'s mut Self::State,
+                    system_meta: &#path::system::SystemMeta,
+                    world: &'w #path::world::World,
+                    change_tick: u32,
+                ) -> Self::Item<'w, 's> {
+                    #struct_name {
+                        #(#fields: <#field_types as #path::system::SystemParam>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#ignored_fields: <#ignored_field_types>::default(),)*
+                    }
+                }
             }
 
             #[doc(hidden)]
@@ -445,45 +471,17 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             >;
 
             #[doc(hidden)]
+            type FieldsTuple<'w, 's, #punctuated_generic_idents> = (
+                #(#field_types,)*
+            );
+
+            #[doc(hidden)]
             #state_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
                 state: TSystemParamState,
                 marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
             }
 
-            unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState for
-                State<'__w, '__s, #punctuated_generic_idents>
-            #where_clause {
-                type Item<'w, 's> = #struct_name #ty_generics;
-
-                fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
-                    Self {
-                        state: #path::system::SystemParamState::init(world, system_meta),
-                        marker: std::marker::PhantomData,
-                    }
-                }
-
-                fn new_archetype(&mut self, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    self.state.new_archetype(archetype, system_meta)
-                }
-
-                fn apply(&mut self, world: &mut #path::world::World) {
-                    self.state.apply(world)
-                }
-
-                unsafe fn get_param<'w, 's>(
-                    state: &'s mut Self,
-                    system_meta: &#path::system::SystemMeta,
-                    world: &'w #path::world::World,
-                    change_tick: u32,
-                ) -> Self::Item<'w, 's> {
-                    #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::State as #path::system::SystemParamState>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
-                        #(#ignored_fields: <#ignored_field_types>::default(),)*
-                    }
-                }
-            }
-
-            // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
+            // Safety: The `ParamState` is `ReadOnlySystemParam`, so this can only read from the `World`
             unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
         };
     })

@@ -2,11 +2,7 @@ use std::cell::Cell;
 
 use thread_local::ThreadLocal;
 
-use crate::{
-    entity::Entities,
-    prelude::World,
-    system::{SystemParam, SystemParamState},
-};
+use crate::{entity::Entities, prelude::World, system::SystemParam};
 
 use super::{CommandQueue, Commands};
 
@@ -48,26 +44,23 @@ pub struct ParallelCommands<'w, 's> {
     entities: &'w Entities,
 }
 
-impl SystemParam for ParallelCommands<'_, '_> {
-    type State = ParallelCommandsState;
-}
-
 // SAFETY: no component or resource access to report
-unsafe impl SystemParamState for ParallelCommandsState {
+unsafe impl SystemParam for ParallelCommands<'_, '_> {
+    type State = ParallelCommandsState;
     type Item<'w, 's> = ParallelCommands<'w, 's>;
 
-    fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self {
-        Self::default()
+    fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {
+        ParallelCommandsState::default()
     }
 
-    fn apply(&mut self, world: &mut World) {
-        for cq in &mut self.thread_local_storage {
+    fn apply(state: &mut Self::State, world: &mut World) {
+        for cq in &mut state.thread_local_storage {
             cq.get_mut().apply(world);
         }
     }
 
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self,
+        state: &'s mut Self::State,
         _: &crate::system::SystemMeta,
         world: &'w World,
         _: u32,

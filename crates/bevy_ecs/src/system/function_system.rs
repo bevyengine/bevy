@@ -5,10 +5,7 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
-    system::{
-        check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem,
-        SystemParamState,
-    },
+    system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
@@ -144,7 +141,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        let param_state = <Param::State as SystemParamState>::init(world, &mut meta);
+        let param_state = <Param as SystemParam>::init(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -182,7 +179,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
-        self.param_state.apply(world);
+        Param::apply(&mut self.param_state, world);
     }
 
     #[inline]
@@ -198,7 +195,8 @@ impl<Param: SystemParam> SystemState<Param> {
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
-            self.param_state.new_archetype(
+            Param::new_archetype(
+                &mut self.param_state,
                 &archetypes[ArchetypeId::new(archetype_index)],
                 &mut self.meta,
             );
@@ -217,7 +215,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        let param = <Param::State as SystemParamState>::get_param(
+        let param = <Param as SystemParam>::get_param(
             &mut self.param_state,
             &self.meta,
             world,
@@ -394,7 +392,7 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = <Param as SystemParam>::State::get_param(
+        let params = <Param as SystemParam>::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
@@ -416,17 +414,14 @@ where
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
-        param_state.apply(world);
+        Param::apply(param_state, world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::State as SystemParamState>::init(
-            world,
-            &mut self.system_meta,
-        ));
+        self.param_state = Some(<Param as SystemParam>::init(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {
@@ -437,7 +432,9 @@ where
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
-            self.param_state.as_mut().unwrap().new_archetype(
+            let param_state = self.param_state.as_mut().unwrap();
+            Param::new_archetype(
+                param_state,
                 &archetypes[ArchetypeId::new(archetype_index)],
                 &mut self.system_meta,
             );
