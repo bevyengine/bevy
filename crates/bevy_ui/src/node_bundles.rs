@@ -65,8 +65,8 @@ impl Default for NodeBundle {
 pub struct ImageBundle {
     /// Describes the size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
-    pub style: Style,
+   
+    
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// The background color, which serves as a "fill" for this node
@@ -100,8 +100,6 @@ pub struct ImageBundle {
 pub struct TextBundle {
     /// Describes the size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
-    pub style: Style,
     /// Contains the text of the node
     pub text: Text,
     /// The calculated size based on the given image
@@ -152,12 +150,6 @@ impl TextBundle {
         self.text.alignment = alignment;
         self
     }
-
-    /// Returns this [`TextBundle`] with a new [`Style`].
-    pub const fn with_style(mut self, style: Style) -> Self {
-        self.style = style;
-        self
-    }
 }
 
 impl Default for TextBundle {
@@ -167,7 +159,6 @@ impl Default for TextBundle {
             text: Default::default(),
             node: Default::default(),
             calculated_size: Default::default(),
-            style: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
             visibility: Default::default(),
@@ -184,8 +175,6 @@ pub struct ButtonBundle {
     pub node: Node,
     /// Marker component that signals this node is a button
     pub button: Button,
-    /// Describes the style including flexbox settings
-    pub style: Style,
     /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
@@ -221,7 +210,6 @@ impl Default for ButtonBundle {
             interaction: Default::default(),
             focus_policy: Default::default(),
             node: Default::default(),
-            style: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
             transform: Default::default(),
