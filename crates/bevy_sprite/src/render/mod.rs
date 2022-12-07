@@ -738,6 +738,8 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
 pub struct DrawSpriteBatch;
 impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = (SRes<SpriteMeta>, SQuery<Read<SpriteBatch>>);
+    type ViewWorldQuery = ();
+    type WorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _view: Entity,

@@ -5,6 +5,7 @@ use crate::{
 use bevy_app::App;
 use bevy_ecs::{
     all_tuples,
+    query::ReadOnlyWorldQuery,
     entity::Entity,
     system::{
         lifetimeless::SRes, ReadOnlySystemParamFetch, Resource, SystemParam, SystemParamItem,
@@ -170,6 +171,8 @@ pub trait RenderCommand<P: PhaseItem> {
     /// Specifies all ECS data required by [`RenderCommand::render`].
     /// All parameters have to be read only.
     type Param: SystemParam + 'static;
+    type ViewWorldQuery: ReadOnlyWorldQuery;
+    type WorldQuery: ReadOnlyWorldQuery;
 
     /// Renders the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn render<'w>(
@@ -250,6 +253,8 @@ where
     E::Param: 'static,
 {
     type Param = E::Param;
+    type ViewWorldQuery = ();
+    type WorldQuery = ();
 
     #[inline]
     fn render<'w>(
@@ -265,6 +270,8 @@ where
 pub struct SetItemPipeline;
 impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type Param = SRes<PipelineCache>;
+    type ViewWorldQuery = ();
+    type WorldQuery = ();
     #[inline]
     fn render<'w>(
         _view: Entity,
@@ -288,6 +295,8 @@ macro_rules! render_command_tuple_impl {
     ($($name: ident),*) => {
         impl<P: PhaseItem, $($name: RenderCommand<P>),*> RenderCommand<P> for ($($name,)*) {
             type Param = ($($name::Param,)*);
+            type ViewWorldQuery = ($($name::ViewWorldQuery,)*);
+            type WorldQuery = ($($name::WorldQuery,)*);
 
             #[allow(non_snake_case)]
             fn render<'w>(
