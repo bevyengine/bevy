@@ -9,14 +9,14 @@ fn _naga_oil__mod__O5TXG3C7NVXWI5LMMU__member__wgsl_func() -> f32 {
 }
 
 fn main_1() {
-    let _e1: f32 = _naga_oil__mod__O5TXG3C7NVXWI5LMMU__member__wgsl_func();
-    o_Target = vec4<f32>(_e1);
+    let _e0: f32 = _naga_oil__mod__O5TXG3C7NVXWI5LMMU__member__wgsl_func();
+    o_Target = vec4<f32>(_e0);
     return;
 }
 
 @vertex 
 fn main() -> VertexOutput {
     main_1();
-    let _e3: vec4<f32> = o_Target;
-    return VertexOutput(_e3);
+    let _e1: vec4<f32> = o_Target;
+    return VertexOutput(_e1);
 }

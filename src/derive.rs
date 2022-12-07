@@ -1,10 +1,10 @@
 use crate::util::copy_type;
 use naga::{
     Arena, ArraySize, Block, Constant, ConstantInner, EntryPoint, Expression, Function,
-    FunctionArgument, FunctionResult, GlobalVariable, Handle, LocalVariable, Module, Span,
-    Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
+    FunctionArgument, FunctionResult, GlobalVariable, Handle, ImageQuery, LocalVariable, Module,
+    Span, Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Debug, Default)]
 pub struct DerivedModule<'a> {
@@ -199,7 +199,13 @@ impl<'a> DerivedModule<'a> {
     }
 
     // remap a block
-    fn import_block(&self, block: &Block) -> Block {
+    fn import_block(
+        &mut self,
+        block: &Block,
+        old_expressions: &Arena<Expression>,
+        already_imported: &mut HashMap<Handle<Expression>, Handle<Expression>>,
+        new_expressions: &mut Arena<Expression>,
+    ) -> Block {
         let statements = block
             .iter()
             .map(|stmt| {
@@ -211,28 +217,79 @@ impl<'a> DerivedModule<'a> {
                         result,
                     } => Statement::Call {
                         function: self.map_function_handle(function),
-                        arguments: arguments.clone(),
-                        result: *result,
+                        arguments: arguments
+                            .iter()
+                            .map(|expr| {
+                                self.import_expression(
+                                    *expr,
+                                    old_expressions,
+                                    already_imported,
+                                    new_expressions,
+                                    false,
+                                )
+                            })
+                            .collect(),
+                        result: result.as_ref().map(|result| {
+                            self.import_expression(
+                                *result,
+                                old_expressions,
+                                already_imported,
+                                new_expressions,
+                                false,
+                            )
+                        }),
                     },
 
                     // recursively
-                    Statement::Block(b) => Statement::Block(self.import_block(b)),
+                    Statement::Block(b) => Statement::Block(self.import_block(
+                        b,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                    )),
                     Statement::If {
                         condition,
                         accept,
                         reject,
                     } => Statement::If {
-                        condition: *condition,
-                        accept: self.import_block(accept),
-                        reject: self.import_block(reject),
+                        condition: self.import_expression(
+                            *condition,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                        accept: self.import_block(
+                            accept,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                        ),
+                        reject: self.import_block(
+                            reject,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                        ),
                     },
                     Statement::Switch { selector, cases } => Statement::Switch {
-                        selector: *selector,
+                        selector: self.import_expression(
+                            *selector,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
                         cases: cases
                             .iter()
                             .map(|case| SwitchCase {
                                 value: case.value.clone(),
-                                body: self.import_block(&case.body),
+                                body: self.import_block(
+                                    &case.body,
+                                    old_expressions,
+                                    already_imported,
+                                    new_expressions,
+                                ),
                                 fall_through: case.fall_through,
                             })
                             .collect(),
@@ -242,21 +299,154 @@ impl<'a> DerivedModule<'a> {
                         continuing,
                         break_if,
                     } => Statement::Loop {
-                        body: self.import_block(body),
-                        continuing: self.import_block(continuing),
-                        break_if: *break_if,
+                        body: self.import_block(
+                            body,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                        ),
+                        continuing: self.import_block(
+                            continuing,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                        ),
+                        break_if: break_if.as_ref().map(|break_if| {
+                            self.import_expression(
+                                *break_if,
+                                old_expressions,
+                                already_imported,
+                                new_expressions,
+                                false,
+                            )
+                        }),
                     },
 
-                    // else copy
-                    Statement::Emit(_)
-                    | Statement::Break
+                    // map expressions
+                    Statement::Emit(exprs) => {
+                        // iterate once to add expressions that should NOT be part of the emit statement
+                        for expr in exprs.clone() {
+                            self.import_expression(
+                                expr,
+                                old_expressions,
+                                already_imported,
+                                new_expressions,
+                                true,
+                            );
+                        }
+                        let old_length = new_expressions.len();
+                        // iterate again to add expressions that should be part of the emit statement
+                        for expr in exprs.clone() {
+                            self.import_expression(
+                                expr,
+                                old_expressions,
+                                already_imported,
+                                new_expressions,
+                                false,
+                            );
+                        }
+
+                        Statement::Emit(new_expressions.range_from(old_length))
+                    }
+                    Statement::Store { pointer, value } => Statement::Store {
+                        pointer: self.import_expression(
+                            *pointer,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                        value: self.import_expression(
+                            *value,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                    },
+                    Statement::ImageStore {
+                        image,
+                        coordinate,
+                        array_index,
+                        value,
+                    } => Statement::ImageStore {
+                        image: self.import_expression(
+                            *image,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                        coordinate: self.import_expression(
+                            *coordinate,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                        array_index: array_index.as_ref().map(|array_index| {
+                            self.import_expression(
+                                *array_index,
+                                old_expressions,
+                                already_imported,
+                                new_expressions,
+                                false,
+                            )
+                        }),
+                        value: self.import_expression(
+                            *value,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                    },
+                    Statement::Atomic {
+                        pointer,
+                        fun,
+                        value,
+                        result,
+                    } => Statement::Atomic {
+                        pointer: self.import_expression(
+                            *pointer,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                        fun: *fun,
+                        value: self.import_expression(
+                            *value,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                        result: self.import_expression(
+                            *result,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            false,
+                        ),
+                    },
+                    Statement::Return { value } => Statement::Return {
+                        value: value.as_ref().map(|value| {
+                            self.import_expression(
+                                *value,
+                                old_expressions,
+                                already_imported,
+                                new_expressions,
+                                false,
+                            )
+                        }),
+                    },
+
+                    // else just copy
+                    Statement::Break
                     | Statement::Continue
-                    | Statement::Return { .. }
                     | Statement::Kill
-                    | Statement::Barrier(_)
-                    | Statement::Store { .. }
-                    | Statement::ImageStore { .. }
-                    | Statement::Atomic { .. } => stmt.clone(),
+                    | Statement::Barrier(_) => stmt.clone(),
                 }
             })
             .collect();
@@ -270,135 +460,386 @@ impl<'a> DerivedModule<'a> {
         new_block
     }
 
-    fn gather_expr_used_expressions(expr: Handle<Expression>, exprs: &Arena<Expression>, into: &mut HashSet<Handle<Expression>>) {
-        into.insert(expr);
-        let expr = exprs.try_get(expr).unwrap();
-        match expr {
-            Expression::Access { base, index } => {
-                Self::gather_expr_used_expressions(*base, exprs, into);
-                Self::gather_expr_used_expressions(*index, exprs, into);
-            },
-            Expression::AccessIndex { base, .. } => {
-                Self::gather_expr_used_expressions(*base, exprs, into);
-            }
-            Expression::Splat { value, .. } => {
-                Self::gather_expr_used_expressions(*value, exprs, into);
-            },
-            Expression::Swizzle { vector, .. } => {
-                Self::gather_expr_used_expressions(*vector, exprs, into);
-            },
-            Expression::Compose { components, .. } => {
-                for component in components {
-                    Self::gather_expr_used_expressions(*component, exprs, into);
-                }
-            },
-            Expression::Load { pointer } => {
-                Self::gather_expr_used_expressions(*pointer, exprs, into);
-            }
-            Expression::ImageSample { image, sampler, coordinate, array_index, depth_ref, .. } => {
-                Self::gather_expr_used_expressions(*image, exprs, into);
-                Self::gather_expr_used_expressions(*sampler, exprs, into);
-                Self::gather_expr_used_expressions(*coordinate, exprs, into);
-                array_index.map(|array_index| Self::gather_expr_used_expressions(array_index, exprs, into));
-                depth_ref.map(|depth_ref| Self::gather_expr_used_expressions(depth_ref, exprs, into)); 
-            },
-            Expression::ImageLoad { image, coordinate, array_index, sample, level } => {
-                Self::gather_expr_used_expressions(*image, exprs, into);
-                Self::gather_expr_used_expressions(*coordinate, exprs, into);
-                array_index.map(|array_index| Self::gather_expr_used_expressions(array_index, exprs, into));
-                sample.map(|sample| Self::gather_expr_used_expressions(sample, exprs, into));
-                level.map(|level| Self::gather_expr_used_expressions(level, exprs, into));
-            },
-            Expression::ImageQuery { image, .. } => {
-                Self::gather_expr_used_expressions(*image, exprs, into);
-            }
-            Expression::Binary { left, right, .. } => {
-                Self::gather_expr_used_expressions(*left, exprs, into);
-                Self::gather_expr_used_expressions(*right, exprs, into);
-            }
-            Expression::Select { condition, accept, reject } => {
-                Self::gather_expr_used_expressions(*condition, exprs, into);
-                Self::gather_expr_used_expressions(*accept, exprs, into);
-                Self::gather_expr_used_expressions(*reject, exprs, into);                
-            },
-            Expression::Relational { argument, .. } => {
-                Self::gather_expr_used_expressions(*argument, exprs, into);
-            },
-            Expression::Math { arg, arg1, arg2, arg3, .. } => {
-                Self::gather_expr_used_expressions(*arg, exprs, into);
-                arg1.map(|arg| Self::gather_expr_used_expressions(arg, exprs, into));
-                arg2.map(|arg| Self::gather_expr_used_expressions(arg, exprs, into));
-                arg3.map(|arg| Self::gather_expr_used_expressions(arg, exprs, into));
-            },
-            Expression::Unary { expr, .. } |
-            Expression::Derivative { expr, .. } |
-            Expression::As { expr, .. } |
-            Expression::ArrayLength(expr) => {
-                Self::gather_expr_used_expressions(*expr, exprs, into);
-            },
-            Expression::AtomicResult { .. } |
-            Expression::CallResult(_) |
-            Expression::Constant(_) |
-            Expression::FunctionArgument(_) |
-            Expression::GlobalVariable(_) |
-            Expression::LocalVariable(_) => (),
+    fn import_expression(
+        &mut self,
+        h_expr: Handle<Expression>,
+        old_expressions: &Arena<Expression>,
+        already_imported: &mut HashMap<Handle<Expression>, Handle<Expression>>,
+        new_expressions: &mut Arena<Expression>,
+        non_emitting_only: bool, // only brings items that should NOT be emitted into scope
+    ) -> Handle<Expression> {
+        if let Some(h_new) = already_imported.get(&h_expr) {
+            return *h_new;
         }
-    }
 
-    fn gather_block_used_expressions(block: &Block, exprs: &Arena<Expression>, into: &mut HashSet<Handle<Expression>>) {
-        for stmt in block {
-            match stmt {
-                Statement::Emit(range) => {
-                    for h in range.clone() {
-                        Self::gather_expr_used_expressions(h, exprs, into);
-                    }
-                },
-                Statement::Block(b) => Self::gather_block_used_expressions(b, exprs, into),
-                Statement::If { condition, accept, reject } => {
-                    Self::gather_expr_used_expressions(*condition, exprs, into);
-                    Self::gather_block_used_expressions(accept, exprs, into);
-                    Self::gather_block_used_expressions(reject, exprs, into);
-                }
-                Statement::Switch { selector, cases } => {
-                    Self::gather_expr_used_expressions(*selector, exprs, into);
-                    for case in cases {
-                        Self::gather_block_used_expressions(&case.body, exprs, into);
-                    }
-                },
-                Statement::Loop { body, continuing, break_if } => {
-                    break_if.map(|break_if| into.insert(break_if));
-                    Self::gather_block_used_expressions(body, exprs, into);
-                    Self::gather_block_used_expressions(continuing, exprs, into);
-                },
-                Statement::Return { value } => {
-                    value.map(|value| Self::gather_expr_used_expressions(value, exprs, into));
-                },
-                Statement::Store { pointer, value } => {
-                    Self::gather_expr_used_expressions(*pointer, exprs, into);
-                    Self::gather_expr_used_expressions(*value, exprs, into);
-                },
-                Statement::ImageStore { image, coordinate, array_index, value } => {
-                    Self::gather_expr_used_expressions(*image, exprs, into);                    
-                    Self::gather_expr_used_expressions(*coordinate, exprs, into);
-                    array_index.map(|array_index| Self::gather_expr_used_expressions(array_index, exprs, into));
-                    Self::gather_expr_used_expressions(*value, exprs, into);
-                }
-                Statement::Atomic { pointer, value, result, .. } => {
-                    Self::gather_expr_used_expressions(*pointer, exprs, into);
-                    Self::gather_expr_used_expressions(*value, exprs, into);
-                    Self::gather_expr_used_expressions(*result, exprs, into);
-                },
-                Statement::Call { arguments, result, .. } => {
-                    for arg in arguments {
-                        Self::gather_expr_used_expressions(*arg, exprs, into);
-                    }
-                    result.map(|result| Self::gather_expr_used_expressions(result, exprs, into));
-                },
-                Statement::Break |
-                Statement::Continue |
-                Statement::Kill |
-                Statement::Barrier(_) => (),
+        let mut is_external = false;
+        let expr = old_expressions.try_get(h_expr).unwrap();
+        let expr = match expr {
+            Expression::CallResult(f) => Expression::CallResult(self.map_function_handle(f)),
+            Expression::Constant(c) => {
+                is_external = true;
+                Expression::Constant(self.import_const(c))
             }
+            Expression::Compose { ty, components } => Expression::Compose {
+                ty: self.import_type(ty),
+                components: components
+                    .iter()
+                    .map(|expr| {
+                        self.import_expression(
+                            *expr,
+                            old_expressions,
+                            already_imported,
+                            new_expressions,
+                            non_emitting_only,
+                        )
+                    })
+                    .collect(),
+            },
+            Expression::GlobalVariable(gv) => {
+                is_external = true;
+                Expression::GlobalVariable(self.import_global(gv))
+            }
+            Expression::ImageSample {
+                image,
+                sampler,
+                gather,
+                coordinate,
+                array_index,
+                offset,
+                level,
+                depth_ref,
+            } => Expression::ImageSample {
+                image: self.import_expression(
+                    *image,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                sampler: self.import_expression(
+                    *sampler,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                gather: *gather,
+                coordinate: self.import_expression(
+                    *coordinate,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                array_index: array_index.as_ref().map(|array_index| {
+                    self.import_expression(
+                        *array_index,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                }),
+                offset: offset.map(|c| self.import_const(&c)),
+                level: *level,
+                depth_ref: depth_ref.as_ref().map(|depth_ref| {
+                    self.import_expression(
+                        *depth_ref,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                }),
+            },
+            Expression::Access { base, index } => Expression::Access {
+                base: self.import_expression(
+                    *base,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                index: self.import_expression(
+                    *index,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+            },
+            Expression::AccessIndex { base, index } => Expression::AccessIndex {
+                base: self.import_expression(
+                    *base,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                index: *index,
+            },
+            Expression::Splat { size, value } => Expression::Splat {
+                size: *size,
+                value: self.import_expression(
+                    *value,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+            },
+            Expression::Swizzle {
+                size,
+                vector,
+                pattern,
+            } => Expression::Swizzle {
+                size: *size,
+                vector: self.import_expression(
+                    *vector,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                pattern: *pattern,
+            },
+            Expression::Load { pointer } => Expression::Load {
+                pointer: self.import_expression(
+                    *pointer,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+            },
+            Expression::ImageLoad {
+                image,
+                coordinate,
+                array_index,
+                sample,
+                level,
+            } => Expression::ImageLoad {
+                image: self.import_expression(
+                    *image,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                coordinate: self.import_expression(
+                    *coordinate,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                array_index: array_index.as_ref().map(|array_index| {
+                    self.import_expression(
+                        *array_index,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                }),
+                sample: sample.as_ref().map(|sample| {
+                    self.import_expression(
+                        *sample,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                }),
+                level: level.as_ref().map(|level| {
+                    self.import_expression(
+                        *level,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                }),
+            },
+            Expression::ImageQuery { image, query } => Expression::ImageQuery {
+                image: self.import_expression(
+                    *image,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                query: match query {
+                    ImageQuery::Size { level } => ImageQuery::Size {
+                        level: level.as_ref().map(|level| {
+                            self.import_expression(
+                                *level,
+                                old_expressions,
+                                already_imported,
+                                new_expressions,
+                                non_emitting_only,
+                            )
+                        }),
+                    },
+                    _ => *query,
+                },
+            },
+            Expression::Unary { op, expr } => Expression::Unary {
+                op: *op,
+                expr: self.import_expression(
+                    *expr,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+            },
+            Expression::Binary { op, left, right } => Expression::Binary {
+                op: *op,
+                left: self.import_expression(
+                    *left,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                right: self.import_expression(
+                    *right,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+            },
+            Expression::Select {
+                condition,
+                accept,
+                reject,
+            } => Expression::Select {
+                condition: self.import_expression(
+                    *condition,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                accept: self.import_expression(
+                    *accept,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                reject: self.import_expression(
+                    *reject,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+            },
+            Expression::Derivative { axis, expr } => Expression::Derivative {
+                axis: *axis,
+                expr: self.import_expression(
+                    *expr,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+            },
+            Expression::Relational { fun, argument } => Expression::Relational {
+                fun: *fun,
+                argument: self.import_expression(
+                    *argument,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+            },
+            Expression::Math {
+                fun,
+                arg,
+                arg1,
+                arg2,
+                arg3,
+            } => Expression::Math {
+                fun: *fun,
+                arg: self.import_expression(
+                    *arg,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                arg1: arg1.as_ref().map(|arg| {
+                    self.import_expression(
+                        *arg,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                }),
+                arg2: arg2.as_ref().map(|arg| {
+                    self.import_expression(
+                        *arg,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                }),
+                arg3: arg3.as_ref().map(|arg| {
+                    self.import_expression(
+                        *arg,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                }),
+            },
+            Expression::As {
+                expr,
+                kind,
+                convert,
+            } => Expression::As {
+                expr: self.import_expression(
+                    *expr,
+                    old_expressions,
+                    already_imported,
+                    new_expressions,
+                    non_emitting_only,
+                ),
+                kind: *kind,
+                convert: *convert,
+            },
+            Expression::ArrayLength(expr) => Expression::ArrayLength(self.import_expression(
+                *expr,
+                old_expressions,
+                already_imported,
+                new_expressions,
+                non_emitting_only,
+            )),
+
+            Expression::LocalVariable(_) | Expression::FunctionArgument(_) => {
+                is_external = true;
+                expr.clone()
+            }
+
+            Expression::AtomicResult { .. } => expr.clone(),
+        };
+
+        if !non_emitting_only || is_external {
+            let span = old_expressions.get_span(h_expr);
+            let h_new = new_expressions.append(expr, self.map_span(span));
+
+            already_imported.insert(h_expr, h_new);
+            h_new
+        } else {
+            h_expr
         }
     }
 
@@ -432,79 +873,14 @@ impl<'a> DerivedModule<'a> {
         }
 
         let mut expressions = Arena::new();
+        let mut expr_map = HashMap::new();
 
-        // gather used globals - we want to avoid importing globals / consts that are not required by the function,
-        // but function local expressions contain all constants and global variables, whether used or not.
-        let mut used_exprs = HashSet::new();
-        Self::gather_block_used_expressions(&func.body, &func.expressions, &mut used_exprs);
-
-        for (h_expr, expr) in func.expressions.iter() {
-            let expr = match expr {
-                Expression::CallResult(f) => Expression::CallResult(self.map_function_handle(f)),
-                Expression::Constant(c) => {
-                    if !used_exprs.contains(&h_expr) {
-                        // emit a dummy expression
-                        Expression::AtomicResult{ kind: naga::ScalarKind::Uint, width: 4, comparison: true }
-                    } else {
-                        Expression::Constant(self.import_const(c))
-                    }
-                },
-                Expression::Compose { ty, components } => Expression::Compose {
-                    ty: self.import_type(ty),
-                    components: components.to_vec(),
-                },
-                Expression::GlobalVariable(gv) => {
-                    if !used_exprs.contains(&h_expr) {
-                        // emit a dummy expression
-                        Expression::AtomicResult{ kind: naga::ScalarKind::Uint, width: 4, comparison: true }
-                    } else {
-                        Expression::GlobalVariable(self.import_global(gv))
-                    }
-                }
-                Expression::ImageSample {
-                    image,
-                    sampler,
-                    gather,
-                    coordinate,
-                    array_index,
-                    offset,
-                    level,
-                    depth_ref,
-                } => Expression::ImageSample {
-                    image: *image,
-                    sampler: *sampler,
-                    gather: *gather,
-                    coordinate: *coordinate,
-                    array_index: *array_index,
-                    offset: offset.map(|c| self.import_const(&c)),
-                    level: *level,
-                    depth_ref: *depth_ref,
-                },
-                // remaining expressions are bound to function context so don't need any modification
-                Expression::Access { .. }
-                | Expression::AccessIndex { .. }
-                | Expression::Splat { .. }
-                | Expression::Swizzle { .. }
-                | Expression::FunctionArgument(_)
-                | Expression::LocalVariable(_)
-                | Expression::Load { .. }
-                | Expression::ImageLoad { .. }
-                | Expression::ImageQuery { .. }
-                | Expression::Unary { .. }
-                | Expression::Binary { .. }
-                | Expression::Select { .. }
-                | Expression::Derivative { .. }
-                | Expression::Relational { .. }
-                | Expression::Math { .. }
-                | Expression::As { .. }
-                | Expression::AtomicResult { .. }
-                | Expression::ArrayLength(_) => expr.clone(),
-            };
-            let span = func.expressions.get_span(h_expr);
-            expressions.append(expr, self.map_span(span));
-        }
-
-        let body = self.import_block(&func.body);
+        let body = self.import_block(
+            &func.body,
+            &func.expressions,
+            &mut expr_map,
+            &mut expressions,
+        );
 
         Function {
             name: func.name.clone(),

@@ -7,7 +7,7 @@ let _naga_oil__mod__MJUW4ZA__member___naga_oil__mod__MNXW443UOM__member__X: u32 
 var<private> _naga_oil__mod__MJUW4ZA__member__arr: array<u32,_naga_oil__mod__MJUW4ZA__member___naga_oil__mod__MNXW443UOM__member__X>;
 
 fn main() -> f32 {
-    let _e6: u32 = _naga_oil__mod__MJUW4ZA__member__arr[0];
-    return f32(_e6);
+    let _e2: u32 = _naga_oil__mod__MJUW4ZA__member__arr[0];
+    return f32(_e2);
 }
 

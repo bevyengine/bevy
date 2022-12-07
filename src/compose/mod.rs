@@ -90,11 +90,11 @@
 /// final shaders can also be written in GLSL or WGSL. for GLSL users must specify whether the shader is a vertex shader or fragment shader via the `ShaderType` argument (GLSL compute shaders are not supported).
 ///
 /// ## preprocessing
-/// 
+///
 /// when generating a final shader or adding a composable module, a set of `shader_def` string/value pairs must be provided. The value can be a bool (`ShaderDefValue::Bool`) or an i32 (`ShaderDefValue::Int`).
-/// 
+///
 /// these allow conditional compilation of parts of modules and the final shader. conditional compilation is performed with `#if` / `#ifdef` / `#ifndef`, `#else` and `#endif` preprocessor directives:
-/// 
+///
 /// ```ignore
 /// fn get_number() -> f32 {
 ///     #ifdef BIG_NUMBER
@@ -105,14 +105,14 @@
 /// }
 /// ```
 /// the `#ifdef` directive matches when the def name exists in the input binding set (regardless of value). the `#ifndef` directive is the reverse.
-/// 
+///
 /// the `#if` directive requires a def name, an operator, and a value for comparison:
-/// - the def name must be a provided `shader_def` name. 
+/// - the def name must be a provided `shader_def` name.
 /// - the operator must be one of `==`, `!=`, `>=`, `>`, `<`, `<=`
 /// - the value must be an integer literal if comparing to a `ShaderDef::Int`, or `true` or `false` if comparing to a `ShaderDef::Bool`.
-/// 
+///
 /// shader defs can also be used in the shader source with `#SHADER_DEF` or `#{SHADER_DEF}`, and will be substituted for their value.
-/// 
+///
 /// ## error reporting
 ///
 /// codespan reporting for errors is available using the error `emit_to_string` method. this requires validation to be enabled, which is true by default. `Composer::non_validating()` produces a non-validating composer that is not able to give accurate error reporting.
@@ -1507,7 +1507,10 @@ impl Composer {
         span_offset: usize,
     ) {
         let items: Option<HashSet<String>> = items.map(|items| {
-            items.iter().map(|item| format!("{}{}", composable.decorated_name, item)).collect()
+            items
+                .iter()
+                .map(|item| format!("{}{}", composable.decorated_name, item))
+                .collect()
         });
         let items = items.as_ref();
 
@@ -1515,7 +1518,9 @@ impl Composer {
 
         for (h, ty) in composable.module_ir.types.iter() {
             if let Some(name) = &ty.name {
-                if composable.owned_types.contains(name) && items.map_or(true, |items| items.contains(name)) {
+                if composable.owned_types.contains(name)
+                    && items.map_or(true, |items| items.contains(name))
+                {
                     derived.import_type(&h);
                 }
             }
@@ -1523,7 +1528,9 @@ impl Composer {
 
         for (h, c) in composable.module_ir.constants.iter() {
             if let Some(name) = &c.name {
-                if composable.owned_constants.contains(name) && items.map_or(true, |items| items.contains(name)) {
+                if composable.owned_constants.contains(name)
+                    && items.map_or(true, |items| items.contains(name))
+                {
                     derived.import_const(&h);
                 }
             }
@@ -1531,7 +1538,9 @@ impl Composer {
 
         for (h, v) in composable.module_ir.global_variables.iter() {
             if let Some(name) = &v.name {
-                if composable.owned_vars.contains(name) && items.map_or(true, |items| items.contains(name)) {
+                if composable.owned_vars.contains(name)
+                    && items.map_or(true, |items| items.contains(name))
+                {
                     derived.import_global(&h);
                 }
             }
@@ -1539,7 +1548,9 @@ impl Composer {
 
         for (h_f, f) in composable.module_ir.functions.iter() {
             if let Some(name) = &f.name {
-                if composable.owned_functions.contains(name) && items.map_or(true, |items| items.contains(name)) {
+                if composable.owned_functions.contains(name)
+                    && items.map_or(true, |items| items.contains(name))
+                {
                     let span = composable.module_ir.functions.get_span(h_f);
                     derived.import_function_if_new(f, span);
                 }
@@ -1911,8 +1922,6 @@ impl Composer {
                 });
             }
         }
-        println!("creating module with {:?}", shader_defs);
-
         self.ensure_imports(
             imports.iter().map(|import| &import.definition),
             &shader_defs,
