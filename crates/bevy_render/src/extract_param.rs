@@ -1,9 +1,7 @@
 use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
-    system::{
-        ReadOnlySystemParam, ResState, SystemMeta, SystemParam, SystemParamItem, SystemState,
-    },
+    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
 };
 use std::ops::{Deref, DerefMut};
 
@@ -61,7 +59,7 @@ where
         let mut main_world = world.resource_mut::<MainWorld>();
         ExtractState {
             state: SystemState::new(&mut main_world),
-            main_world_state: Res::init(world, system_meta),
+            main_world_state: Res::<MainWorld>::init(world, system_meta),
         }
     }
 
@@ -85,7 +83,7 @@ where
 #[doc(hidden)]
 pub struct ExtractState<P: SystemParam + 'static> {
     state: SystemState<P>,
-    main_world_state: ResState<MainWorld>,
+    main_world_state: <Res<'static, MainWorld> as SystemParam>::State,
 }
 
 impl<'w, 's, P> Deref for Extract<'w, 's, P>

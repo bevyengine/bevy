@@ -130,7 +130,7 @@ use std::{
 /// conflicting access across all [`SystemParam`]'s.
 pub unsafe trait SystemParam: Sized {
     type State: Send + Sync + 'static;
-    type Item<'world, 'state>;
+    type Item<'world, 'state>: SystemParam<State = Self::State>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
@@ -377,20 +377,13 @@ where
     }
 }
 
-/// The [`SystemParamState`] of [`Res<T>`].
-#[doc(hidden)]
-pub struct ResState<T> {
-    component_id: ComponentId,
-    marker: PhantomData<T>,
-}
-
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
-    type State = ResState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -412,21 +405,19 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         system_meta
             .archetype_component_access
             .add_read(archetype_component_id);
-        ResState {
-            component_id,
-            marker: PhantomData,
-        }
+
+        component_id
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let (ptr, ticks) = world
-            .get_resource_with_ticks(state.component_id)
+            .get_resource_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -444,33 +435,25 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Option<Res<T>>`].
-/// See: [`Res<T>`]
-#[doc(hidden)]
-pub struct OptionResState<T>(ResState<T>);
-
-// SAFETY: Only reads a single World resource
-unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
-
 // SAFETY: this impl defers to `ResState`, which initializes
 // and validates the correct world access
 unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
-    type State = OptionResState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = Option<Res<'w, T>>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        OptionResState(Res::init(world, system_meta))
+        Res::<T>::init(world, system_meta)
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
-            .get_resource_with_ticks(state.0.component_id)
+            .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
                 added: ticks.added.deref(),
@@ -481,17 +464,13 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     }
 }
 
-/// The [`SystemParamState`] of [`ResMut<T>`].
-#[doc(hidden)]
-pub struct ResMutState<T> {
-    component_id: ComponentId,
-    marker: PhantomData<T>,
-}
+// SAFETY: Only reads a single World resource
+unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
-    type State = ResMutState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -516,21 +495,19 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         system_meta
             .archetype_component_access
             .add_write(archetype_component_id);
-        ResMutState {
-            component_id,
-            marker: PhantomData,
-        }
+
+        component_id
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         let value = world
-            .get_resource_unchecked_mut_with_id(state.component_id)
+            .get_resource_unchecked_mut_with_id(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Resource requested by {} does not exist: {}",
@@ -550,30 +527,25 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Option<ResMut<T>>`].
-/// See: [`ResMut<T>`]
-#[doc(hidden)]
-pub struct OptionResMutState<T>(ResMutState<T>);
-
 // SAFETY: this impl defers to `ResMutState`, which initializes
 // and validates the correct world access
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
-    type State = OptionResMutState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = Option<ResMut<'w, T>>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        OptionResMutState(ResMut::init(world, system_meta))
+        ResMut::<T>::init(world, system_meta)
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world
-            .get_resource_unchecked_mut_with_id(state.0.component_id)
+            .get_resource_unchecked_mut_with_id(component_id)
             .map(|value| ResMut {
                 value: value.value,
                 ticks: Ticks {
@@ -616,13 +588,9 @@ unsafe impl<'_w, '_s> SystemParam for Commands<'_w, '_s> {
 /// SAFETY: only reads world
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
-/// The [`SystemParamState`] of [`&World`](crate::world::World).
-#[doc(hidden)]
-pub struct WorldState;
-
 // SAFETY: `read_all` access is set and conflicts result in a panic
 unsafe impl<'_w> SystemParam for &'_w World {
-    type State = WorldState;
+    type State = ();
     type Item<'w, 's> = &'w World;
 
     fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -647,8 +615,6 @@ unsafe impl<'_w> SystemParam for &'_w World {
             panic!("&World conflicts with a previous mutable system parameter. Allowing this would break Rust's mutability rules");
         }
         system_meta.component_access_set.add(filtered_access);
-
-        WorldState
     }
 
     unsafe fn get_param<'w, 's>(
@@ -940,17 +906,10 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`NonSend<T>`].
-#[doc(hidden)]
-pub struct NonSendState<T> {
-    component_id: ComponentId,
-    marker: PhantomData<fn() -> T>,
-}
-
 // SAFETY: NonSendComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSend conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
-    type State = NonSendState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = NonSend<'w, T>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -974,22 +933,20 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         system_meta
             .archetype_component_access
             .add_read(archetype_component_id);
-        NonSendState {
-            component_id,
-            marker: PhantomData,
-        }
+
+        component_id
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
-            .get_resource_with_ticks(state.component_id)
+            .get_resource_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1007,34 +964,26 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Option<NonSend<T>>`].
-/// See: [`NonSend<T>`]
-#[doc(hidden)]
-pub struct OptionNonSendState<T>(NonSendState<T>);
-
-// SAFETY: Only reads a single non-send resource
-unsafe impl<'w, T: 'static> ReadOnlySystemParam for Option<NonSend<'w, T>> {}
-
 // SAFETY: this impl defers to `NonSendState`, which initializes
 // and validates the correct world access
 unsafe impl<'_w, T: 'static> SystemParam for Option<NonSend<'_w, T>> {
-    type State = OptionNonSendState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = Option<NonSend<'w, T>>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        OptionNonSendState(NonSend::init(world, system_meta))
+        NonSend::<T>::init(world, system_meta)
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.validate_non_send_access::<T>();
         world
-            .get_resource_with_ticks(state.0.component_id)
+            .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
@@ -1047,17 +996,10 @@ unsafe impl<'_w, T: 'static> SystemParam for Option<NonSend<'_w, T>> {
 // SAFETY: Only reads a single non-send resource
 unsafe impl<'a, T: 'static> ReadOnlySystemParam for NonSendMut<'a, T> {}
 
-/// The [`SystemParamState`] of [`NonSendMut<T>`].
-#[doc(hidden)]
-pub struct NonSendMutState<T> {
-    component_id: ComponentId,
-    marker: PhantomData<fn() -> T>,
-}
-
 // SAFETY: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
-    type State = NonSendMutState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = NonSendMut<'w, T>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
@@ -1084,22 +1026,20 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         system_meta
             .archetype_component_access
             .add_write(archetype_component_id);
-        NonSendMutState {
-            component_id,
-            marker: PhantomData,
-        }
+
+        component_id
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
-            .get_resource_with_ticks(state.component_id)
+            .get_resource_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1114,31 +1054,26 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     }
 }
 
-/// The [`SystemParamState`] of [`Option<NonSendMut<T>>`].
-/// See: [`NonSendMut<T>`]
-#[doc(hidden)]
-pub struct OptionNonSendMutState<T>(NonSendMutState<T>);
-
 // SAFETY: this impl defers to `NonSendMutState`, which initializes
 // and validates the correct world access
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
-    type State = OptionNonSendMutState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = Option<NonSendMut<'w, T>>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        OptionNonSendMutState(NonSendMut::init(world, system_meta))
+        NonSendMut::<T>::init(world, system_meta)
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
         world.validate_non_send_access::<T>();
         world
-            .get_resource_with_ticks(state.0.component_id)
+            .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
@@ -1148,12 +1083,10 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
 
 // SAFETY: no component value access
 unsafe impl<'a> SystemParam for &'a Archetypes {
-    type State = ArchetypesState;
+    type State = ();
     type Item<'w, 's> = &'w Archetypes;
 
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        ArchetypesState
-    }
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
     unsafe fn get_param<'w, 's>(
@@ -1169,18 +1102,12 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
 // SAFETY: Only reads World archetypes
 unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
 
-/// The [`SystemParamState`] of [`Archetypes`].
-#[doc(hidden)]
-pub struct ArchetypesState;
-
 // SAFETY: no component value access
 unsafe impl<'a> SystemParam for &'a Components {
-    type State = ComponentsState;
+    type State = ();
     type Item<'w, 's> = &'w Components;
 
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        ComponentsState
-    }
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
     unsafe fn get_param<'w, 's>(
@@ -1196,18 +1123,12 @@ unsafe impl<'a> SystemParam for &'a Components {
 // SAFETY: Only reads World components
 unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
 
-/// The [`SystemParamState`] of [`Components`].
-#[doc(hidden)]
-pub struct ComponentsState;
-
 // SAFETY: no component value access
 unsafe impl<'a> SystemParam for &'a Entities {
-    type State = EntitiesState;
+    type State = ();
     type Item<'w, 's> = &'w Entities;
 
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        EntitiesState
-    }
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
     unsafe fn get_param<'w, 's>(
@@ -1223,18 +1144,12 @@ unsafe impl<'a> SystemParam for &'a Entities {
 // SAFETY: Only reads World entities
 unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
 
-/// The [`SystemParamState`] of [`Entities`].
-#[doc(hidden)]
-pub struct EntitiesState;
-
 // SAFETY: no component value access
 unsafe impl<'a> SystemParam for &'a Bundles {
-    type State = BundlesState;
+    type State = ();
     type Item<'w, 's> = &'w Bundles;
 
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        BundlesState
-    }
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     #[inline]
     unsafe fn get_param<'w, 's>(
@@ -1249,10 +1164,6 @@ unsafe impl<'a> SystemParam for &'a Bundles {
 
 // SAFETY: Only reads World bundles
 unsafe impl<'a> ReadOnlySystemParam for &'a Bundles {}
-
-/// The [`SystemParamState`] of [`Bundles`].
-#[doc(hidden)]
-pub struct BundlesState;
 
 /// A [`SystemParam`] that reads the previous and current change ticks of the system.
 ///
@@ -1288,12 +1199,10 @@ unsafe impl ReadOnlySystemParam for SystemChangeTick {}
 
 // SAFETY: `SystemParamTickState` doesn't require any world access
 unsafe impl SystemParam for SystemChangeTick {
-    type State = SystemChangeTickState;
+    type State = ();
     type Item<'w, 's> = SystemChangeTick;
 
-    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        SystemChangeTickState {}
-    }
+    fn init(_world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {}
 
     unsafe fn get_param<'w, 's>(
         _state: &'s mut Self::State,
@@ -1307,10 +1216,6 @@ unsafe impl SystemParam for SystemChangeTick {
         }
     }
 }
-
-/// The [`SystemParamState`] of [`SystemChangeTick`].
-#[doc(hidden)]
-pub struct SystemChangeTickState {}
 
 /// Name of the system that corresponds to this [`crate::system::SystemState`].
 ///
@@ -1527,10 +1432,6 @@ impl<'w, 's, P: SystemParam> StaticSystemParam<'w, 's, P> {
     }
 }
 
-/// The [`SystemParamState`] of [`StaticSystemParam`].
-#[doc(hidden)]
-pub struct StaticSystemParamState<S, P>(S, PhantomData<fn() -> P>);
-
 // SAFETY: This doesn't add any more reads, and the delegated fetch confirms it
 unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
     for StaticSystemParam<'w, 's, P>
@@ -1539,19 +1440,19 @@ unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
 
 // SAFETY: all methods are just delegated to `S`'s `SystemParamState` implementation
 unsafe impl<'_w, '_s, P: SystemParam + 'static> SystemParam for StaticSystemParam<'_w, '_s, P> {
-    type State = StaticSystemParamState<P::State, P>;
+    type State = P::State;
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        StaticSystemParamState(P::init(world, system_meta), PhantomData)
+        P::init(world, system_meta)
     }
 
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-        P::new_archetype(&mut state.0, archetype, system_meta);
+        P::new_archetype(state, archetype, system_meta);
     }
 
     fn apply(state: &mut Self::State, world: &mut World) {
-        P::apply(&mut state.0, world);
+        P::apply(state, world);
     }
 
     unsafe fn get_param<'world, 'state>(
@@ -1561,7 +1462,7 @@ unsafe impl<'_w, '_s, P: SystemParam + 'static> SystemParam for StaticSystemPara
         change_tick: u32,
     ) -> Self::Item<'world, 'state> {
         // SAFETY: We properly delegate SystemParamState
-        StaticSystemParam(P::get_param(&mut state.0, system_meta, world, change_tick))
+        StaticSystemParam(P::get_param(state, system_meta, world, change_tick))
     }
 }
 
