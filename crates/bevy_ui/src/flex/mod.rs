@@ -4,7 +4,7 @@ use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
-    query::{Changed, ReadOnlyWorldQuery, With, Without},
+    query::{Changed, With, Without},
     system::{Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_hierarchy::{Children, Parent};
@@ -115,6 +115,47 @@ impl FlexSurface {
         }
     }
 
+    fn upsert_widget(
+        &mut self,
+        entity: Entity,
+        calculated_size: CalculatedSize,
+        scale_factor: f64
+    ) {
+        let taffy = &mut self.taffy;
+        let measure = taffy::node::MeasureFunc::Boxed(Box::new(
+            move |constraints: taffy::geometry::Size<Number>| {
+                let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
+                match (constraints.width, constraints.height) {
+                    (Number::Undefined, Number::Undefined) => {}
+                    (Number::Defined(width), Number::Undefined) => {
+                        if calculated_size.preserve_aspect_ratio {
+                            size.height = width * size.height / size.width;
+                        }
+                        size.width = width;
+                    }
+                    (Number::Undefined, Number::Defined(height)) => {
+                        if calculated_size.preserve_aspect_ratio {
+                            size.width = height * size.width / size.height;
+                        }
+                        size.height = height;
+                    }
+                    (Number::Defined(width), Number::Defined(height)) => {
+                        size.width = width;
+                        size.height = height;
+                    }
+                }
+                size
+            },
+        ));
+
+        if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
+        } else {
+            let taffy_node = taffy.new_leaf(taffy::style::Style::default(), measure).unwrap();
+            self.entity_to_taffy.insert(entity, taffy_node);
+        }
+    }
+
     pub fn update_children(&mut self, entity: Entity, children: &Children) {
         let mut taffy_children = Vec::with_capacity(children.len());
         for child in children {
@@ -220,12 +261,14 @@ pub fn flex_node_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
-    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
-    changed_size_query: Query<
-        (Entity, &Style, &CalculatedSize),
-        (With<Node>, Changed<CalculatedSize>),
-    >,
+    node_query: Query<(Entity, &Style), (With<Node>, Changed<Style>)>,
+    full_node_query: Query<(Entity, &Style), With<Node>>,
+    widget_query: Query<(Entity, &CalculatedSize), (With<Node>, Without<Style>)>,
+    changed_widget_query: Query<(Entity, &CalculatedSize), (With<Node>, Changed<CalculatedSize>, Without<Style>)>,
+    // changed_size_query: Query<
+    //     (Entity, &Style, &CalculatedSize),
+    //     (With<Node>, Changed<CalculatedSize>),
+    // >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
     removed_children: RemovedComponents<Children>,
     mut node_transform_query: Query<(Entity, &mut Node, &mut Transform, Option<&Parent>)>,
@@ -240,30 +283,20 @@ pub fn flex_node_system(
     let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
-    fn update_changed<F: ReadOnlyWorldQuery>(
-        flex_surface: &mut FlexSurface,
-        scaling_factor: f64,
-        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
-    ) {
-        // update changed nodes
-        for (entity, style, calculated_size) in &query {
-            // TODO: remove node from old hierarchy if its root has changed
-            if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
-            } else {
-                flex_surface.upsert_node(entity, style, scaling_factor);
-            }
+    
+
+    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
+        for (entity,   style) in &full_node_query {
+            flex_surface.upsert_node(entity, style, scale_factor);
+        }
+
+        for (entity, calculated_size) in &widget_query {
+            flex_surface.upsert_widget(entity, *calculated_size, scale_factor);
         }
     }
 
-    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
-        update_changed(&mut flex_surface, scale_factor, full_node_query);
-    } else {
-        update_changed(&mut flex_surface, scale_factor, node_query);
-    }
-
-    for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
+    for (entity, calculated_size) in &changed_widget_query {
+        flex_surface.upsert_widget(entity, *calculated_size, scale_factor);
     }
 
     // clean up removed nodes
