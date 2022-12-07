@@ -1597,4 +1597,11 @@ mod tests {
 
     #[derive(SystemParam)]
     pub struct UnitParam {}
+
+    #[derive(SystemParam)]
+    struct MyParam<'w, T: Resource, Marker: 'static> {
+        _foo: Res<'w, T>,
+        #[system_param(ignore)]
+        marker: PhantomData<Marker>,
+    }
 }
