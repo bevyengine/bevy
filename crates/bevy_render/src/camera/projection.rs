@@ -206,10 +206,14 @@ pub struct OrthographicProjection {
     /// The distance of the near clipping plane in world units.
     ///
     /// Objects closer than this will not be rendered.
+    ///
+    /// Defaults to `0.0`
     pub near: f32,
     /// The distance of the far clipping plane in world units.
     ///
     /// Objects further than this will not be rendered.
+    ///
+    /// Defaults to `1000.0`
     pub far: f32,
     /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
     /// and (1, 1) is the top right. This determines where the camera's position sits inside the viewport.
@@ -222,12 +226,18 @@ pub struct OrthographicProjection {
     /// Consequently, this is pivot point when scaling. With a bottom left pivot, the projection will expand
     /// upwards and to the right. With a top right pivot, the projection will expand downwards and to the left.
     /// Values in between will caused the projection to scale proportionally on each axis.
+    ///
+    /// Defaults to `(0.5, 0.5)`
     pub viewport_origin: Vec2,
     /// How the projection will scale when the viewport is resized.
+    ///
+    /// Defaults to `ScalingMode::WindowScale(1.0)`
     pub scaling_mode: ScalingMode,
     /// Scales the projection in world units.
     ///
     /// As scale increases, the apparent size of objects decreases, and vice versa.
+    ///
+    /// Defaults to `1.0`
     pub scale: f32,
     /// The area that the projection covers.
     ///
