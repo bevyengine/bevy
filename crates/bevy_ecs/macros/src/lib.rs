@@ -415,10 +415,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }));
 
     let mut tuple_types: Vec<_> = field_types.iter().map(|x| quote! { #x }).collect();
-    let field_local_names: Vec<_> = (0..field_types.len())
-        .map(|x| format_ident!("f{x}"))
-        .collect();
-    let mut tuple_patterns: Vec<_> = field_local_names.iter().map(|x| quote! { #x }).collect();
+    let mut tuple_patterns: Vec<_> = fields.iter().map(|x| quote! { #x }).collect();
 
     // If the number of fields exceeds the 16-parameter limit,
     // fold the fields into tuples of tuples until we are below the limit.
@@ -482,7 +479,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 ) -> Self::Item {
                     let (#(#tuple_patterns,)*) = #path::system::SystemParamFetch::get_param(&mut state.state, system_meta, world, change_tick,);
                     #struct_name {
-                        #(#fields: #field_local_names,)*
+                        #(#fields,)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
