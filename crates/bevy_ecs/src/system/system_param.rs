@@ -803,7 +803,7 @@ impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalSt
 /// note that the `RemovedComponents` list will not be automatically cleared for you,
 /// and will need to be manually flushed using [`World::clear_trackers`]
 ///
-/// For users of `bevy` itself, this is automatically done in `bevy_app::App::update`.
+/// For users of `bevy` and `bevy_app`, this is automatically done in `bevy_app::App::update`.
 ///
 /// # Examples
 ///
