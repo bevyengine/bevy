@@ -805,8 +805,8 @@ impl World {
     /// Returns `None` if a value was not previously present.
     ///
     /// # Panics
-    /// If a value is present, this function will panic if called from a thread that the
-    /// value was inserted from.
+    /// If a value is present, this function will panic if called from a different
+    /// thread than where the value was inserted from.
     #[inline]
     pub fn remove_non_send_resource<R: 'static>(&mut self) -> Option<R> {
         let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
@@ -1389,8 +1389,8 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Panics
-    /// If a value is already present, this function will panic if called from a thread that the original
-    /// value was inserted from.
+    /// If a value is already present, this function will panic if not called from the same
+    /// thread that the original value was inserted from.
     ///
     /// # Safety
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world

@@ -37,7 +37,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     #[inline]
     fn validate_access(&self) {
         // Avoid aborting due to double panicking on the same thread.
-        if SEND || std::thread::panicking() {
+        if SEND {
             return;
         }
         if self.origin_thread_id != Some(std::thread::current().id()) {
