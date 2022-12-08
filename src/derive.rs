@@ -424,7 +424,15 @@ impl<'a> DerivedModule<'a> {
                 coordinate: map_expr!(coordinate),
                 array_index: map_expr_opt!(array_index),
                 offset: offset.map(|c| self.import_const(&c)),
-                level: *level,
+                level: match level {
+                    SampleLevel::Auto | SampleLevel::Zero => *level,
+                    SampleLevel::Exact(expr) => SampleLevel::Exact(map_expr!(expr)),
+                    SampleLevel::Bias(expr) => SampleLevel::Bias(map_expr!(expr)),
+                    SampleLevel::Gradient { x, y } => SampleLevel::Gradient {
+                        x: map_expr!(x),
+                        y: map_expr!(y),
+                    },
+                },
                 depth_ref: map_expr_opt!(depth_ref),
             },
             Expression::Access { base, index } => Expression::Access {
