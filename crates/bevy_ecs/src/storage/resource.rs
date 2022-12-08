@@ -29,7 +29,8 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
         }
         // SAFETY: Drop is only called once upon dropping the ResourceData
         // and is inaccessible after this as the parent ResourceData has
-        // been dropped.
+        // been dropped. The validate_access call above will check that the 
+        // data is dropped on the thread it was inserted from.
         unsafe {
             ManuallyDrop::drop(&mut self.column);
         }
