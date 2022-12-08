@@ -339,8 +339,8 @@ where
         item: &P,
     ) {
         let param = self.state.get(world);
-        let Ok(view) = self.view.get_manual(world, view) else { return };
-        let Ok(entity) = self.entity.get_manual(world, item.entity()) else { return };
+        let view = self.view.get_manual(world, view).unwrap();
+        let entity = self.entity.get_manual(world, item.entity()).unwrap();
         C::render(item, view, entity, param, pass);
     }
 }
