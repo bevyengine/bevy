@@ -93,7 +93,7 @@
 ///
 /// ## preprocessing
 ///
-/// when generating a final shader or adding a composable module, a set of `shader_def` string/value pairs must be provided. The value can be a bool (`ShaderDefValue::Bool`) or an i32 (`ShaderDefValue::Int`).
+/// when generating a final shader or adding a composable module, a set of `shader_def` string/value pairs must be provided. The value can be a bool (`ShaderDefValue::Bool`), an i32 (`ShaderDefValue::Int`) or a u32 (`ShaderDefValue::UInt`).
 ///
 /// these allow conditional compilation of parts of modules and the final shader. conditional compilation is performed with `#if` / `#ifdef` / `#ifndef`, `#else` and `#endif` preprocessor directives:
 ///
@@ -169,11 +169,22 @@ impl From<ShaderType> for ShaderLanguage {
 pub enum ShaderDefValue {
     Bool(bool),
     Int(i32),
+    UInt(u32),
 }
 
 impl Default for ShaderDefValue {
     fn default() -> Self {
         ShaderDefValue::Bool(true)
+    }
+}
+
+impl ShaderDefValue {
+    fn value_as_string(&self) -> String {
+        match self {
+            ShaderDefValue::Bool(val) => val.to_string(),
+            ShaderDefValue::Int(val) => val.to_string(),
+            ShaderDefValue::UInt(val) => val.to_string(),
+        }
     }
 }
 
@@ -925,6 +936,17 @@ impl Composer {
                         })?;
                         act_on(*def_value, val, op.as_str(), offset)?
                     }
+                    ShaderDefValue::UInt(def_value) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ComposerErrorInner::InvalidShaderDefComparisonValue {
+                                pos: offset,
+                                shader_def_name: def.as_str().to_string(),
+                                value: val.as_str().to_string(),
+                                expected: "int".to_string(),
+                            }
+                        })?;
+                        act_on(*def_value, val, op.as_str(), offset)?
+                    }
                 };
                 scopes.push(*scopes.last().unwrap() && new_scope);
             } else if self.else_regex.is_match(line) {
@@ -980,24 +1002,16 @@ impl Composer {
                     for capture in self.def_regex.captures_iter(line) {
                         let def = capture.get(1).unwrap();
                         if let Some(def) = shader_defs.get(def.as_str()) {
-                            let def = match def {
-                                ShaderDefValue::Bool(def) => def.to_string(),
-                                ShaderDefValue::Int(def) => def.to_string(),
-                            };
                             line_with_defs =
-                                self.def_regex.replace(&line_with_defs, def).to_string();
+                                self.def_regex.replace(&line_with_defs, def.value_as_string()).to_string();
                         }
                     }
                     for capture in self.def_regex_delimited.captures_iter(line) {
                         let def = capture.get(1).unwrap();
                         if let Some(def) = shader_defs.get(def.as_str()) {
-                            let def = match def {
-                                ShaderDefValue::Bool(def) => def.to_string(),
-                                ShaderDefValue::Int(def) => def.to_string(),
-                            };
                             line_with_defs = self
                                 .def_regex_delimited
-                                .replace(&line_with_defs, def)
+                                .replace(&line_with_defs, def.value_as_string())
                                 .to_string();
                         }
                     }
