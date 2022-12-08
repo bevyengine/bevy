@@ -1,6 +1,6 @@
 [package]
 name = "naga_oil"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "a crate for combining and manipulating shaders using naga IR"
