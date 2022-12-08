@@ -26,8 +26,8 @@ use bevy_render::{
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, RenderCommandResult, RenderPhase,
-        SetItemPipeline, TrackedRenderPass, RenderCommand, PhaseItem,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,

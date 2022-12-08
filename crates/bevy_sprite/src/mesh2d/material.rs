@@ -4,8 +4,8 @@ use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::EventReader,
-    query::ROQueryItem,
     prelude::{Bundle, World},
+    query::ROQueryItem,
     schedule::IntoSystemDescriptor,
     system::{
         lifetimeless::{Read, SRes},
@@ -21,8 +21,8 @@ use bevy_render::{
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, RenderCommandResult, RenderPhase,
-        SetItemPipeline, TrackedRenderPass, PhaseItem, RenderCommand
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
@@ -281,11 +281,13 @@ type DrawMaterial2d<M> = (
 );
 
 pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
-impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetMaterial2dBindGroup<M, I> {
+impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
+    for SetMaterial2dBindGroup<M, I>
+{
     type Param = SRes<RenderMaterials2d<M>>;
     type ViewWorldQuery = ();
     type WorldQuery = Read<Handle<M>>;
-    
+
     #[inline]
     fn render<'w>(
         _item: &P,
