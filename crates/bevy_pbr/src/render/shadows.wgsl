@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::shadows
 
-#import bevy_pbr::mesh_view_types as view_types
+#from bevy_pbr::mesh_view_types import POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE
 #import bevy_pbr::mesh_view_bindings as view_bindings
 
 fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
@@ -53,7 +53,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
     // reconstruct spot dir from x/z and y-direction flag
     spot_dir.y = sqrt(1.0 - spot_dir.x * spot_dir.x - spot_dir.z * spot_dir.z);
-    if ((light.flags & view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
+    if ((light.flags & ::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE) != 0u) {
         spot_dir.y = -spot_dir.y;
     }
 

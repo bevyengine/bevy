@@ -1,17 +1,18 @@
 #define_import_path bevy_pbr::fragment
 
-#import bevy_pbr::mesh_vertex_output
 #import bevy_pbr::pbr_functions as pbr_functions
 #import bevy_pbr::pbr_bindings as pbr_bindings
 #import bevy_pbr::pbr_types as pbr_types
-#import bevy_pbr::mesh_view_bindings
-#import bevy_core_pipeline::tonemapping
+
+#from bevy_pbr::mesh_vertex_output      import MeshVertexOutput
+#from bevy_pbr::mesh_view_bindings      import view
+#from bevy_core_pipeline::tonemapping   import screen_space_dither
 // load user-defined function overrides
 #import bevy_pbr::user_overrides
 
 @fragment
 fn fragment(
-    mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
+    mesh: ::MeshVertexOutput,
     @builtin(front_facing) is_front: bool,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = pbr_bindings::material.base_color;
@@ -74,7 +75,7 @@ fn fragment(
             is_front,
         );
 
-        pbr_input.is_orthographic = bevy_pbr::mesh_view_bindings::view.projection[3].w == 1.0;
+        pbr_input.is_orthographic = ::view.projection[3].w == 1.0;
 
         pbr_input.N = pbr_functions::apply_normal_mapping(
             pbr_bindings::material.flags,
@@ -100,7 +101,7 @@ fn fragment(
 #ifdef DEBAND_DITHER
     var output_rgb = output_color.rgb;
     output_rgb = pow(output_rgb, vec3<f32>(1.0 / 2.2));
-    output_rgb = output_rgb + bevy_core_pipeline::tonemapping::screen_space_dither(mesh.clip_position.xy);
+    output_rgb = output_rgb + ::screen_space_dither(mesh.clip_position.xy);
     // This conversion back to linear space is required because our output texture format is
     // SRGB; the GPU will assume our output is linear and will apply an SRGB conversion.
     output_rgb = pow(output_rgb, vec3<f32>(2.2));

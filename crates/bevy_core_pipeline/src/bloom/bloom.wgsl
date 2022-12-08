@@ -1,5 +1,3 @@
-#import bevy_core_pipeline::fullscreen_vertex_shader
-
 struct BloomUniforms {
     threshold: f32,
     knee: f32,

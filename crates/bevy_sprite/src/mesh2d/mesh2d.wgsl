@@ -1,6 +1,6 @@
-#import bevy_sprite::mesh2d_bindings
 #import bevy_sprite::mesh2d_functions as mesh_functions
-#import bevy_sprite::mesh2d_vertex_output
+#from bevy_sprite::mesh2d_bindings      import mesh
+#from bevy_sprite::mesh2d_vertex_output import MeshVertexOutput
 
 struct Vertex {
 #ifdef VERTEX_POSITIONS
@@ -21,15 +21,15 @@ struct Vertex {
 };
 
 @vertex
-fn vertex(vertex: Vertex) -> bevy_sprite::mesh2d_vertex_output::MeshVertexOutput {
-    var out: bevy_sprite::mesh2d_vertex_output::MeshVertexOutput;
+fn vertex(vertex: Vertex) -> ::MeshVertexOutput {
+    var out: ::MeshVertexOutput;
 #ifdef VERTEX_UVS
     out.uv = vertex.uv;
 #endif
 
 #ifdef VERTEX_POSITIONS
     out.world_position = mesh_functions::mesh2d_position_local_to_world(
-        bevy_sprite::mesh2d_bindings::mesh.model, 
+        ::mesh.model, 
         vec4<f32>(vertex.position, 1.0)
     );
     out.clip_position = mesh_functions::mesh2d_position_world_to_clip(out.world_position);
@@ -41,7 +41,7 @@ fn vertex(vertex: Vertex) -> bevy_sprite::mesh2d_vertex_output::MeshVertexOutput
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh2d_tangent_local_to_world(
-        bevy_sprite::mesh2d_bindings::mesh.model, 
+        ::mesh.model, 
         vertex.tangent
     );
 #endif
@@ -54,7 +54,7 @@ fn vertex(vertex: Vertex) -> bevy_sprite::mesh2d_vertex_output::MeshVertexOutput
 
 @fragment
 fn fragment(
-    mesh: bevy_sprite::mesh2d_vertex_output::MeshVertexOutput,
+    mesh: ::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
 #ifdef VERTEX_COLORS
     return in.color;

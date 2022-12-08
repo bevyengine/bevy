@@ -1,7 +1,7 @@
-#import bevy_pbr::mesh_vertex_output
-#import bevy_pbr::pbr_functions
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::pbr_types
+#from bevy_pbr::mesh_vertex_output  import MeshVertexOutput
+#from bevy_pbr::mesh_view_bindings  import view
+#from bevy_pbr::pbr_types           import STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT
+#import bevy_pbr::pbr_functions as fns
 
 @group(1) @binding(0)
 var my_array_texture: texture_2d_array<f32>;
@@ -11,13 +11,13 @@ var my_array_texture_sampler: sampler;
 @fragment
 fn fragment(
     @builtin(front_facing) is_front: bool,
-    mesh: bevy_pbr::mesh_vertex_output::MeshVertexOutput,
+    mesh: ::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
     let layer = i32(mesh.world_position.x) & 0x3;
 
     // Prepare a 'processed' StandardMaterial by sampling all textures to resolve
     // the material members
-    var pbr_input: bevy_pbr::pbr_functions::PbrInput = bevy_pbr::pbr_functions::pbr_input_new();
+    var pbr_input: fns::PbrInput = fns::pbr_input_new();
 
     pbr_input.material.base_color = textureSample(my_array_texture, my_array_texture_sampler, mesh.uv, layer);
 #ifdef VERTEX_COLORS
@@ -26,15 +26,15 @@ fn fragment(
 
     pbr_input.frag_coord = mesh.clip_position;
     pbr_input.world_position = mesh.world_position;
-    pbr_input.world_normal = bevy_pbr::pbr_functions::prepare_world_normal(
+    pbr_input.world_normal = fns::prepare_world_normal(
         mesh.world_normal,
-        (pbr_input.material.flags & bevy_pbr::pbr_types::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
+        (pbr_input.material.flags & ::STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u,
         is_front,
     );
 
-    pbr_input.is_orthographic = bevy_pbr::mesh_view_bindings::view.projection[3].w == 1.0;
+    pbr_input.is_orthographic = ::view.projection[3].w == 1.0;
 
-    pbr_input.N = bevy_pbr::pbr_functions::apply_normal_mapping(
+    pbr_input.N = fns::apply_normal_mapping(
         pbr_input.material.flags,
         mesh.world_normal,
 #ifdef VERTEX_TANGENTS
@@ -44,7 +44,7 @@ fn fragment(
 #endif
         mesh.uv,
     );
-    pbr_input.V = bevy_pbr::pbr_functions::calculate_view(mesh.world_position, pbr_input.is_orthographic);
+    pbr_input.V = fns::calculate_view(mesh.world_position, pbr_input.is_orthographic);
 
-    return bevy_pbr::pbr_functions::tone_mapping(bevy_pbr::pbr_functions::pbr(pbr_input));
+    return fns::tone_mapping(fns::pbr(pbr_input));
 }

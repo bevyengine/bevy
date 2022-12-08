@@ -6,7 +6,7 @@
 //
 // Tweaks by mrDIMAS - https://github.com/FyroxEngine/Fyrox/blob/master/src/renderer/shaders/fxaa_fs.glsl
 
-#import bevy_core_pipeline::fullscreen_vertex_shader
+#from bevy_core_pipeline::fullscreen_vertex_shader import FullscreenVertexOutput
 
 @group(0) @binding(0)
 var screenTexture: texture_2d<f32>;
@@ -75,7 +75,7 @@ fn rgb2luma(rgb: vec3<f32>) -> f32 {
 
 // Performs FXAA post-process anti-aliasing as described in the Nvidia FXAA white paper and the associated shader code.
 @fragment
-fn fragment(in: bevy_core_pipeline::fullscreen_vertex_shader::FullscreenVertexOutput) -> @location(0) vec4<f32> {
+fn fragment(in: ::FullscreenVertexOutput) -> @location(0) vec4<f32> {
     let resolution = vec2<f32>(textureDimensions(screenTexture));
     let fragCoord = in.position.xy;
     let inverseScreenSize = 1.0 / resolution.xy;

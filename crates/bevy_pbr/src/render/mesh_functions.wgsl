@@ -1,15 +1,15 @@
 #define_import_path bevy_pbr::mesh_functions
 
-#import bevy_pbr::mesh_view_bindings
-#import bevy_pbr::mesh_bindings as mesh_bindings
-#import bevy_pbr::mesh_types
+#from bevy_pbr::mesh_view_bindings  import view
+#from bevy_pbr::mesh_bindings       import mesh
+#from bevy_pbr::mesh_types          import MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT
 
 fn mesh_position_local_to_world(model: mat4x4<f32>, vertex_position: vec4<f32>) -> vec4<f32> {
     return model * vertex_position;
 }
 
 fn mesh_position_world_to_clip(world_position: vec4<f32>) -> vec4<f32> {
-    return bevy_pbr::mesh_view_bindings::view.view_proj * world_position;
+    return ::view.view_proj * world_position;
 }
 
 // NOTE: The intermediate world_position assignment is important
@@ -29,9 +29,9 @@ fn mesh_normal_local_to_world(vertex_normal: vec3<f32>) -> vec3<f32> {
     // http://www.mikktspace.com/
     return normalize(
         mat3x3<f32>(
-            mesh_bindings::mesh.inverse_transpose_model[0].xyz,
-            mesh_bindings::mesh.inverse_transpose_model[1].xyz,
-            mesh_bindings::mesh.inverse_transpose_model[2].xyz
+            ::mesh.inverse_transpose_model[0].xyz,
+            ::mesh.inverse_transpose_model[1].xyz,
+            ::mesh.inverse_transpose_model[2].xyz
         ) * vertex_normal
     );
 }
@@ -42,7 +42,7 @@ fn sign_determinant_model_3x3() -> f32 {
     // bool(u32) is false if 0u else true
     // f32(bool) is 1.0 if true else 0.0
     // * 2.0 - 1.0 remaps 0.0 or 1.0 to -1.0 or 1.0 respectively
-    return f32(bool(mesh_bindings::mesh.flags & bevy_pbr::mesh_types::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
+    return f32(bool(::mesh.flags & ::MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT)) * 2.0 - 1.0;
 }
 
 fn mesh_tangent_local_to_world(model: mat4x4<f32>, vertex_tangent: vec4<f32>) -> vec4<f32> {

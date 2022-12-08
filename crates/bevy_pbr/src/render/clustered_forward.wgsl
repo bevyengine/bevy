@@ -1,7 +1,7 @@
 #define_import_path bevy_pbr::clustered_forward
 
 #import bevy_pbr::mesh_view_bindings as bindings
-#import bevy_pbr::utils
+#from bevy_pbr::utils import hsv2rgb
 
 // NOTE: Keep in sync with bevy_pbr/src/light.rs
 fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
@@ -74,7 +74,7 @@ fn cluster_debug_visualization(
     if ((z_slice & 1u) == 1u) {
         z_slice = z_slice + bindings::lights.cluster_dimensions.z / 2u;
     }
-    let slice_color = bevy_pbr::utils::hsv2rgb(f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u), 1.0, 0.5);
+    let slice_color = ::hsv2rgb(f32(z_slice) / f32(bindings::lights.cluster_dimensions.z + 1u), 1.0, 0.5);
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * slice_color,
         output_color.a
@@ -93,7 +93,7 @@ fn cluster_debug_visualization(
 #ifdef CLUSTERED_FORWARD_DEBUG_CLUSTER_COHERENCY
     // NOTE: Visualizes the cluster to which the fragment belongs
     let cluster_overlay_alpha = 0.1;
-    let cluster_color = bevy_pbr::utils::hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
+    let cluster_color = ::hsv2rgb(random1D(f32(cluster_index)), 1.0, 0.5);
     output_color = vec4<f32>(
         (1.0 - cluster_overlay_alpha) * output_color.rgb + cluster_overlay_alpha * cluster_color,
         output_color.a

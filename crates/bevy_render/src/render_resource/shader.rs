@@ -282,6 +282,7 @@ impl AssetLoader for ShaderLoader {
 pub struct ShaderImportProcessor {
     import_asset_path_regex: Regex,
     import_custom_path_regex: Regex,
+    import_items_regex: Regex,
     define_import_path_regex: Regex,
 }
 
@@ -304,6 +305,7 @@ impl Default for ShaderImportProcessor {
         Self {
             import_asset_path_regex: Regex::new(r#"^\s*#\s*import\s+"([^\s]+)""#).unwrap(),
             import_custom_path_regex: Regex::new(r"^\s*#\s*import\s+([^\s]+)").unwrap(),
+            import_items_regex: Regex::new(r"^\s*#\s*from\s+([^\s]+)").unwrap(),
             define_import_path_regex: Regex::new(r"^\s*#\s*define_import_path\s+([^\s]+)").unwrap(),
         }
     }
@@ -333,6 +335,11 @@ impl ShaderImportProcessor {
                     .imports
                     .push(ShaderImport::AssetPath(import.as_str().to_string()));
             } else if let Some(cap) = self.import_custom_path_regex.captures(line) {
+                let import = cap.get(1).unwrap();
+                shader_imports
+                    .imports
+                    .push(ShaderImport::Custom(import.as_str().to_string()));
+            } else if let Some(cap) = self.import_items_regex.captures(line) {
                 let import = cap.get(1).unwrap();
                 shader_imports
                     .imports

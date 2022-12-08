@@ -4,6 +4,16 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
+#import bevy_pbr::pbr_types as pbr_types
+#import bevy_pbr::pbr_bindings as pbr_bindings
+#import bevy_pbr::mesh_view_bindings as view_bindings
+#import bevy_pbr::mesh_view_types as mesh_view_types
+#import bevy_pbr::lighting as lighting
+#import bevy_pbr::clustered_forward as clustering
+#import bevy_pbr::shadows as shadows
+
+#from bevy_pbr::mesh_bindings   import mesh
+#from bevy_pbr::mesh_types      import MESH_FLAGS_SHADOW_RECEIVER_BIT
 
 fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
     var color = output_color;
@@ -22,16 +32,6 @@ fn alpha_discard(material: pbr_types::StandardMaterial, output_color: vec4<f32>)
     }
     return color;
 }
-
-#import bevy_pbr::pbr_types as pbr_types
-#import bevy_pbr::pbr_bindings as pbr_bindings
-#import bevy_pbr::mesh_types as mesh_types
-#import bevy_pbr::mesh_bindings as mesh_bindings
-#import bevy_pbr::mesh_view_types as view_types
-#import bevy_pbr::mesh_view_bindings as view_bindings
-#import bevy_pbr::lighting as lighting
-#import bevy_pbr::clustered_forward as clustering
-#import bevy_pbr::shadows as shadows
 
 fn prepare_world_normal(
     world_normal: vec3<f32>,
@@ -208,8 +208,8 @@ fn pbr(
         let light_id = clustering::get_light_id(i);
         let light = view_bindings::point_lights.data[light_id];
         var shadow: f32 = 1.0;
-        if ((mesh_bindings::mesh.flags & mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+        if ((::mesh.flags & ::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (light.flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = lighting::point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
@@ -221,8 +221,8 @@ fn pbr(
         let light_id = clustering::get_light_id(i);
         let light = view_bindings::point_lights.data[light_id];
         var shadow: f32 = 1.0;
-        if ((mesh_bindings::mesh.flags & mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+        if ((::mesh.flags & ::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (light.flags & mesh_view_types::POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = lighting::spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
@@ -233,8 +233,8 @@ fn pbr(
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
         let light = view_bindings::lights.directional_lights[i];
         var shadow: f32 = 1.0;
-        if ((mesh_bindings::mesh.flags & mesh_types::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+        if ((::mesh.flags & ::MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
+                && (light.flags & mesh_view_types::DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = shadows::fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
         let light_contrib = lighting::directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);

@@ -1,5 +1,5 @@
-#import bevy_sprite::mesh2d_types
-#import bevy_sprite::mesh2d_vertex_output
+#from bevy_sprite::mesh2d_types         import Mesh2d
+#from bevy_sprite::mesh2d_vertex_output import MeshVertexOutput
 
 struct ColorMaterial {
     color: vec4<f32>,
@@ -15,12 +15,9 @@ var texture: texture_2d<f32>;
 @group(1) @binding(2)
 var texture_sampler: sampler;
 
-@group(2) @binding(0)
-var<uniform> mesh: bevy_sprite::mesh2d_types::Mesh2d;
-
 @fragment
 fn fragment(
-    mesh: bevy_sprite::mesh2d_vertex_output::MeshVertexOutput,
+    mesh: ::MeshVertexOutput,
 ) -> @location(0) vec4<f32> {
     var output_color: vec4<f32> = material.color;
 #ifdef VERTEX_COLORS

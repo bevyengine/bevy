@@ -1,9 +1,9 @@
 #define_import_path bevy_pbr::pbr_bindings
 
-#import bevy_pbr::pbr_types
+#from bevy_pbr::pbr_types import StandardMaterial
 
 @group(1) @binding(0)
-var<uniform> material: bevy_pbr::pbr_types::StandardMaterial;
+var<uniform> material: ::StandardMaterial;
 @group(1) @binding(1)
 var base_color_texture: texture_2d<f32>;
 @group(1) @binding(2)
