@@ -1183,6 +1183,15 @@ mod tests {
     }
 
     #[test]
+    fn non_send_resource_points_to_distinct_data() {
+        let mut world = World::default();
+        world.insert_resource(A(123));
+        world.insert_non_send_resource(A(456));
+        assert_eq!(*world.resource::<A>(), A(123));
+        assert_eq!(*world.non_send_resource::<A>(), A(456));
+    }
+
+    #[test]
     #[should_panic]
     fn non_send_resource_panic() {
         let mut world = World::default();
