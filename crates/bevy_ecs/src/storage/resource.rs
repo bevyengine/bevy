@@ -19,6 +19,12 @@ pub struct ResourceData<const SEND: bool> {
 impl<const SEND: bool> Drop for ResourceData<SEND> {
     fn drop(&mut self) {
         if self.is_present() {
+            // If this thread is already panicking, panicking again will cause
+            // the entire process to abort. In this case we choose to avoid 
+            // dropping or checking this altogether and just leak the column.
+            if std::thread::panicking() {
+                return;
+            }
             self.validate_access();
         }
         // SAFETY: Drop is only called once upon dropping the ResourceData
@@ -36,7 +42,6 @@ impl<const SEND: bool> ResourceData<SEND> {
 
     #[inline]
     fn validate_access(&self) {
-        // Avoid aborting due to double panicking on the same thread.
         if SEND {
             return;
         }
