@@ -153,29 +153,6 @@ impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
     }
 }
 
-/// Describes vertical alignment preference for positioning & bounds. Currently a placeholder
-/// for future functionality.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize)]
-pub enum VerticalAlign {
-    /// Characters/bounds start underneath the render position and progress downwards.
-    Top,
-    /// Characters/bounds center at the render position and progress outward equally.
-    Center,
-    /// Characters/bounds start above the render position and progress upward.
-    Bottom,
-}
-
-impl From<VerticalAlign> for glyph_brush_layout::VerticalAlign {
-    fn from(val: VerticalAlign) -> Self {
-        match val {
-            VerticalAlign::Top => glyph_brush_layout::VerticalAlign::Top,
-            VerticalAlign::Center => glyph_brush_layout::VerticalAlign::Center,
-            VerticalAlign::Bottom => glyph_brush_layout::VerticalAlign::Bottom,
-        }
-    }
-}
-
 #[derive(Clone, Debug, Reflect, FromReflect)]
 pub struct TextStyle {
     pub font: Handle<Font>,
