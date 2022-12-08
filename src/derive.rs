@@ -606,18 +606,14 @@ impl<'a> DerivedModule<'a> {
 
     // get the derived handle corresponding to the given source function handle
     // requires func to be named
-    pub fn map_function_handle(&self, h_func: &Handle<Function>) -> Handle<Function> {
-        let name = self
-            .shader
-            .as_ref()
-            .unwrap()
-            .functions
-            .try_get(*h_func)
-            .unwrap()
-            .name
-            .as_ref()
-            .unwrap();
-        *self.function_map.get(name).unwrap()
+    pub fn map_function_handle(&mut self, h_func: &Handle<Function>) -> Handle<Function> {
+        let functions = &self.shader.as_ref().unwrap().functions;
+        let func = functions.try_get(*h_func).unwrap();
+        let name = func.name.as_ref().unwrap();
+        self.function_map.get(name).copied().unwrap_or_else(|| {
+            let span = functions.get_span(*h_func);
+            self.import_function(func, span)
+        })
     }
 
     /// swap an already imported function for a new one.
