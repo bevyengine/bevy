@@ -804,6 +804,8 @@ impl<'w, 's, T: FromWorld + Send + 'static> SystemParamFetch<'w, 's> for LocalSt
 /// and will need to be manually flushed using [`World::clear_trackers`]
 ///
 /// For users of `bevy` and `bevy_app`, this is automatically done in `bevy_app::App::update`.
+/// For the main world, [`World::clear_trackers`] is run after the main schedule is run and after
+/// `SubApp`'s have run.
 ///
 /// # Examples
 ///
