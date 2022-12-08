@@ -31,69 +31,74 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     // Text with one section
 
-    commands.spawn(NodeBundle {
-        style: Style {
-           size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-           flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::SpaceBetween,    
-            ..default()
-        },
-        ..Default::default()
-    }).with_children(|parent| {   
-
-            parent.spawn(NodeBundle {
-                style: Style {
-                    
-                    size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
-                    ..Default::default()
-                },
-                ..Default::default() 
-            }).with_children(|parent| {    
-                parent.spawn((TextBundle {
-                        text: Text::from_section(
-                            "hello\nbevy!",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                font_size: 100.0,
-                                color: Color::WHITE,
-                            },
-                        ),
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceBetween,
+                ..default()
+            },
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
                         ..Default::default()
                     },
-                    ColorText,
-                ));
-            });
-
-            parent.spawn(NodeBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
-                    align_items: AlignItems::FlexEnd,
-                    justify_content: JustifyContent::FlexEnd,
                     ..Default::default()
-                },
-                ..Default::default() 
-            }).with_children(|parent| {
-            // Text with multiple sections
-                parent.spawn((
-                    // Create a TextBundle that has a Text with a list of sections.
-                    TextBundle::from_sections([
-                        TextSection::new(
-                            "FPS: ",
-                            TextStyle {
-                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                })
+                .with_children(|parent| {
+                    parent.spawn((
+                        TextBundle {
+                            text: Text::from_section(
+                                "hello\nbevy!",
+                                TextStyle {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 100.0,
+                                    color: Color::WHITE,
+                                },
+                            ),
+                            ..Default::default()
+                        },
+                        ColorText,
+                    ));
+                });
+
+            parent
+                .spawn(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
+                        align_items: AlignItems::FlexEnd,
+                        justify_content: JustifyContent::FlexEnd,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .with_children(|parent| {
+                    // Text with multiple sections
+                    parent.spawn((
+                        // Create a TextBundle that has a Text with a list of sections.
+                        TextBundle::from_sections([
+                            TextSection::new(
+                                "FPS: ",
+                                TextStyle {
+                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                    font_size: 60.0,
+                                    color: Color::WHITE,
+                                },
+                            ),
+                            TextSection::from_style(TextStyle {
+                                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                                 font_size: 60.0,
-                                color: Color::WHITE,
-                            },
-                        ),
-                        TextSection::from_style(TextStyle {
-                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                            font_size: 60.0,
-                            color: Color::GOLD,
-                        }),
-                    ]),
-                    FpsText,
-                ));
-            });
+                                color: Color::GOLD,
+                            }),
+                        ]),
+                        FpsText,
+                    ));
+                });
         });
 }
 

@@ -16,8 +16,13 @@ use bevy_transform::components::GlobalTransform;
 pub fn update_clipping_system(
     mut commands: Commands,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    mut node_query: Query<(&Node, &GlobalTransform, Option<&Style>, Option<&mut CalculatedClip>)>,
-    
+    mut node_query: Query<(
+        &Node,
+        &GlobalTransform,
+        Option<&Style>,
+        Option<&mut CalculatedClip>,
+    )>,
+
     children_query: Query<&Children>,
 ) {
     for root_node in &root_node_query {
@@ -34,7 +39,12 @@ pub fn update_clipping_system(
 fn update_clipping(
     commands: &mut Commands,
     children_query: &Query<&Children>,
-    node_query: &mut Query<(&Node, &GlobalTransform, Option<&Style>, Option<&mut CalculatedClip>)>,
+    node_query: &mut Query<(
+        &Node,
+        &GlobalTransform,
+        Option<&Style>,
+        Option<&mut CalculatedClip>,
+    )>,
     entity: Entity,
     clip: Option<Rect>,
 ) {
@@ -54,20 +64,19 @@ fn update_clipping(
             }
         }
     }
-    let children_clip =
-        if let Some(style) = style {
+    let children_clip = if let Some(style) = style {
         // Calculate new clip for its children
-            match style.overflow {
-                Overflow::Visible => clip,
-                Overflow::Hidden => {
-                    let node_center = global_transform.translation().truncate();
-                    let node_rect = Rect::from_center_size(node_center, node.calculated_size);
-                    Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
-                }
+        match style.overflow {
+            Overflow::Visible => clip,
+            Overflow::Hidden => {
+                let node_center = global_transform.translation().truncate();
+                let node_rect = Rect::from_center_size(node_center, node.calculated_size);
+                Some(clip.map_or(node_rect, |c| c.intersect(node_rect)))
             }
-        } else {
-            clip
-        };
+        }
+    } else {
+        clip
+    };
 
     if let Ok(children) = children_query.get(entity) {
         for child in children.iter().cloned() {

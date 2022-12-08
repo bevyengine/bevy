@@ -65,8 +65,7 @@ impl Default for NodeBundle {
 pub struct ImageBundle {
     /// Describes the size of the node
     pub node: Node,
-   
-    
+
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// The background color, which serves as a "fill" for this node

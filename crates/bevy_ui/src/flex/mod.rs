@@ -119,7 +119,7 @@ impl FlexSurface {
         &mut self,
         entity: Entity,
         calculated_size: CalculatedSize,
-        scale_factor: f64
+        scale_factor: f64,
     ) {
         let taffy = &mut self.taffy;
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
@@ -149,9 +149,14 @@ impl FlexSurface {
         ));
 
         if let Some(taffy_node) = self.entity_to_taffy.get(&entity) {
+            self.taffy
+                .set_style(*taffy_node, taffy::style::Style::default())
+                .unwrap();
             self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
         } else {
-            let taffy_node = taffy.new_leaf(taffy::style::Style::default(), measure).unwrap();
+            let taffy_node = taffy
+                .new_leaf(taffy::style::Style::default(), measure)
+                .unwrap();
             self.entity_to_taffy.insert(entity, taffy_node);
         }
     }
@@ -264,7 +269,10 @@ pub fn flex_node_system(
     node_query: Query<(Entity, &Style), (With<Node>, With<Style>)>,
     full_node_query: Query<(Entity, &Style), With<Node>>,
     widget_query: Query<(Entity, &CalculatedSize), (With<Node>, Without<Style>)>,
-    changed_widget_query: Query<(Entity, &CalculatedSize), (With<Node>, With<CalculatedSize>, Without<Style>)>,
+    changed_widget_query: Query<
+        (Entity, &CalculatedSize),
+        (With<Node>, With<CalculatedSize>, Without<Style>),
+    >,
     // changed_size_query: Query<
     //     (Entity, &Style, &CalculatedSize),
     //     (With<Node>, Changed<CalculatedSize>),
@@ -283,10 +291,8 @@ pub fn flex_node_system(
     let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
-    
-
     if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
-        for (entity,   style) in &full_node_query {
+        for (entity, style) in &full_node_query {
             flex_surface.upsert_node(entity, style, scale_factor);
         }
 

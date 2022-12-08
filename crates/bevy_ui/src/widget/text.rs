@@ -1,4 +1,4 @@
-use crate::{CalculatedSize, Size, UiScale, Val, Node, draw_ui_graph::node};
+use crate::{draw_ui_graph::node, CalculatedSize, Node, Size, UiScale, Val};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -45,7 +45,7 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-       Query<Entity, (With<Text>, With<Node>)>,
+        Query<Entity, (With<Text>, With<Node>)>,
         Query<Entity, With<Text>>,
         Query<(
             &Parent,

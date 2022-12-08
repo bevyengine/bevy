@@ -1464,6 +1464,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "layout"
+path = "examples/ui/layout.rs"
+
+[package.metadata.example.layout]
+name = "Layout"
+description = "Creates a more complex UI layout and demonstrates how the different JustifyContent and AlignItems variants compose."
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 

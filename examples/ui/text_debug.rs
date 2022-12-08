@@ -27,30 +27,31 @@ struct TextChanges;
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = asset_server.load("fonts/FiraSans-Bold.ttf");
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(NodeBundle {
-        style: Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(15.0),
-                ..default()
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    top: Val::Px(5.0),
+                    left: Val::Px(15.0),
+                    ..default()
+                },
+                size: Size::new(Val::Px(300.0), Val::Percent(300.)),
+                ..Default::default()
             },
-            size: Size::new(Val::Px(300.0), Val::Percent(300.)),
             ..Default::default()
-        },
-        ..Default::default()
-    })
-    .with_children(|parent| {
-        parent.spawn(TextBundle::from_section(
-            "This is\ntext with\nline breaks\nin the top left",
-            TextStyle {
-                font: font.clone(),
-                font_size: 50.0,
-                color: Color::WHITE,
-            },
-        ));
-    });
-    
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "This is\ntext with\nline breaks\nin the top left",
+                TextStyle {
+                    font: font.clone(),
+                    font_size: 50.0,
+                    color: Color::WHITE,
+                },
+            ));
+        });
+
     commands.spawn(NodeBundle {
         style: Style {
             position_type: PositionType::Absolute,
@@ -80,101 +81,103 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
         );
     });
 
-    commands.spawn(NodeBundle {
-        style: Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                right: Val::Px(15.0),
-                ..default()
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Px(5.0),
+                    right: Val::Px(15.0),
+                    ..default()
+                },
+                size: Size {
+                    width: Val::Px(1000.),
+                    height: Val::Px(300.),
+                },
+                align_items: AlignItems::FlexEnd,
+                justify_content: JustifyContent::FlexEnd,
+                ..Default::default()
             },
-            size: Size {
-                width: Val::Px(1000.),
-                height: Val::Px(300.),
-            },
-            align_items: AlignItems::FlexEnd,
-            justify_content: JustifyContent::FlexEnd,
             ..Default::default()
-        },
-        ..Default::default()
-    }).with_children(|parent| {   
-        parent.spawn((
-            TextBundle::from_sections([
-                TextSection::new(
-                    "This text changes in the bottom right",
-                    TextStyle {
+        })
+        .with_children(|parent| {
+            parent.spawn((
+                TextBundle::from_sections([
+                    TextSection::new(
+                        "This text changes in the bottom right",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 30.0,
+                            color: Color::WHITE,
+                        },
+                    ),
+                    TextSection::new(
+                        "\nThis text changes in the bottom right - ",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 30.0,
+                            color: Color::RED,
+                        },
+                    ),
+                    TextSection::from_style(TextStyle {
                         font: font.clone(),
                         font_size: 30.0,
-                        color: Color::WHITE,
-                    },
-                ),
-                TextSection::new(
-                    "\nThis text changes in the bottom right - ",
-                    TextStyle {
+                        color: Color::ORANGE_RED,
+                    }),
+                    TextSection::new(
+                        " fps, ",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 30.0,
+                            color: Color::YELLOW,
+                        },
+                    ),
+                    TextSection::from_style(TextStyle {
                         font: font.clone(),
                         font_size: 30.0,
-                        color: Color::RED,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: font.clone(),
-                    font_size: 30.0,
-                    color: Color::ORANGE_RED,
-                }),
-                TextSection::new(
-                    " fps, ",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::YELLOW,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: font.clone(),
-                    font_size: 30.0,
-                    color: Color::GREEN,
-                }),
-                TextSection::new(
-                    " ms/frame",
-                    TextStyle {
-                        font: font.clone(),
-                        font_size: 30.0,
-                        color: Color::BLUE,
-                    },
-                ),
-            ]),
-            TextChanges,
-        ));
-    });
+                        color: Color::GREEN,
+                    }),
+                    TextSection::new(
+                        " ms/frame",
+                        TextStyle {
+                            font: font.clone(),
+                            font_size: 30.0,
+                            color: Color::BLUE,
+                        },
+                    ),
+                ]),
+                TextChanges,
+            ));
+        });
 
-    commands.spawn(NodeBundle {
-        style: Style {
-            align_self: AlignSelf::FlexEnd,
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                left: Val::Px(15.0),
+    commands
+        .spawn(NodeBundle {
+            style: Style {
+                align_self: AlignSelf::FlexEnd,
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Px(5.0),
+                    left: Val::Px(15.0),
+                    ..default()
+                },
+                size: Size {
+                    width: Val::Px(200.),
+                    height: Val::Px(300.),
+                },
                 ..default()
             },
-            size: Size {
-                width: Val::Px(200.),
-                height: Val::Px(300.),
-            },
-            ..default()
-        },
-        ..Default::default()
-    }).with_children(|parent| {
-        parent.spawn(
-            TextBundle::from_section(
+            ..Default::default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
                 "This\ntext has\nline breaks and also a set width in the bottom left",
                 TextStyle {
                     font,
                     font_size: 50.0,
                     color: Color::WHITE,
                 },
-            )
-        );
-    });
+            ));
+        });
 }
 
 fn change_text_system(

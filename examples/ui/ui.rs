@@ -55,32 +55,33 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         })
                         .with_children(|parent| {
                             parent.spawn(|parent| {
-                                parent.spawn(NodeBundle {
-                                    style: Style {
-                                        margin: UiRect::all(Val::Px(5.0)),
-                                        ..default()
-                                    },
-                                    ..Default::default()    
-                                })
-                                .with_children(|parent| {                            
-                                    // text
-                                    parent.spawn(
-                                        TextBundle::from_section(
-                                            "Text Example",
-                                            TextStyle {
-                                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                                font_size: 30.0,
-                                                color: Color::WHITE,
-                                            },
-                                        )
-                                        .with_style(Style {
+                                parent
+                                    .spawn(NodeBundle {
+                                        style: Style {
                                             margin: UiRect::all(Val::Px(5.0)),
                                             ..default()
-                                        }),
-                                    );
-                                });
+                                        },
+                                        ..Default::default()
+                                    })
+                                    .with_children(|parent| {
+                                        // text
+                                        parent.spawn(
+                                            TextBundle::from_section(
+                                                "Text Example",
+                                                TextStyle {
+                                                    font: asset_server
+                                                        .load("fonts/FiraSans-Bold.ttf"),
+                                                    font_size: 30.0,
+                                                    color: Color::WHITE,
+                                                },
+                                            )
+                                            .with_style(Style {
+                                                margin: UiRect::all(Val::Px(5.0)),
+                                                ..default()
+                                            }),
+                                        );
+                                    });
                             });
-
                         });
                 });
             // right vertical fill
@@ -97,30 +98,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // Title
-                    parent.spawn(NodeBundle {
-                        style: Style {
-                            size: Size::new(Val::Undefined, Val::Px(25.)),
-                            margin: UiRect {
-                                left: Val::Auto,
-                                right: Val::Auto,
+                    parent
+                        .spawn(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Undefined, Val::Px(25.)),
+                                margin: UiRect {
+                                    left: Val::Auto,
+                                    right: Val::Auto,
+                                    ..default()
+                                },
                                 ..default()
                             },
                             ..default()
-                        },
-                        ..default()
-                    })
-                    .with_children(|parent| {
-                        parent.spawn(
-                            TextBundle::from_section(
+                        })
+                        .with_children(|parent| {
+                            parent.spawn(TextBundle::from_section(
                                 "Scrolling list",
                                 TextStyle {
                                     font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                     font_size: 25.,
                                     color: Color::WHITE,
                                 },
-                            )
-                        );
-                    });
+                            ));
+                        });
                     // List with hidden overflow
                     parent
                         .spawn(NodeBundle {
@@ -299,18 +299,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // bevy logo (image)
-                    parent.spawn(NodeBundle {
-                        style: Style {
-                            size: Size::new(Val::Px(500.0), Val::Auto),
+                    parent
+                        .spawn(NodeBundle {
+                            style: Style {
+                                size: Size::new(Val::Px(500.0), Val::Auto),
+                                ..default()
+                            },
                             ..default()
-                        },
-                        ..default()
-                    }).with_children(|builder| {
-                        builder.spawn(ImageBundle {
-                            image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
-                            ..default()
-                        });
-                    })
+                        })
+                        .with_children(|builder| {
+                            builder.spawn(ImageBundle {
+                                image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
+                                ..default()
+                            });
+                        })
                 });
         });
 }
