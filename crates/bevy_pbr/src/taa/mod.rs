@@ -334,10 +334,10 @@ impl SpecializedRenderPipeline for TAAPipeline {
     type Key = TAAPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let format = if key.hdr {
-            ViewTarget::TEXTURE_FORMAT_HDR
+        let (format, shader_defs) = if key.hdr {
+            (ViewTarget::TEXTURE_FORMAT_HDR, vec!["TONEMAP".into()])
         } else {
-            TextureFormat::bevy_default()
+            (TextureFormat::bevy_default(), vec![])
         };
 
         RenderPipelineDescriptor {
@@ -346,7 +346,7 @@ impl SpecializedRenderPipeline for TAAPipeline {
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TAA_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec![],
+                shader_defs,
                 entry_point: "taa".into(),
                 targets: vec![
                     Some(ColorTargetState {
