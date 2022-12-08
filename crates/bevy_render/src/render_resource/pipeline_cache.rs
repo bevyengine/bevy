@@ -278,6 +278,9 @@ impl ShaderCache {
                                 ShaderDefVal::Int(k, v) => {
                                     (k, naga_oil::compose::ShaderDefValue::Int(v))
                                 }
+                                ShaderDefVal::UInt(k, v) => {
+                                    (k, naga_oil::compose::ShaderDefValue::UInt(v))
+                                }
                             })
                             .collect::<std::collections::HashMap<_, _>>();
 
