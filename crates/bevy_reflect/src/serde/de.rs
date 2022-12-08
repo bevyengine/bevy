@@ -1536,10 +1536,11 @@ mod tests {
             108, 101, 144, 146, 100, 145, 101,
         ];
 
-        let deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut reader = std::io::BufReader::new(input.as_slice());
 
+        let deserializer = UntypedReflectDeserializer::new(&registry);
         let dynamic_output = deserializer
-            .deserialize(&mut rmp_serde::Deserializer::new(input.as_slice()))
+            .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
