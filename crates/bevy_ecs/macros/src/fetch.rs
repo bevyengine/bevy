@@ -333,10 +333,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let readonly_impl = if fetch_struct_attributes.is_mutable {
         let world_query_impl = impl_fetch(true);
         quote! {
-            #[doc(hidden)]
-            #[doc = "Automatically generated internal [`WorldQuery`] type for [`"]
+            #[doc = "Automatically generated [`WorldQuery`] type for a read-only variant of [`"]
             #[doc = stringify!(#struct_name)]
-            #[doc = "`], used for read-only access."]
+            #[doc = "`]."]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #( #field_idents: #read_only_field_types, )*
