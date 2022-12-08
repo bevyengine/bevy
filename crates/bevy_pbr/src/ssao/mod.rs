@@ -149,7 +149,7 @@ impl ScreenSpaceAmbientOcclusionSettings {
             ScreenSpaceAmbientOcclusionSettings::Low => (1, 2), // 4 spp (1 * (2 * 2)), plus optional temporal samples
             ScreenSpaceAmbientOcclusionSettings::Medium => (2, 2), // 8 spp (2 * (2 * 2)), plus optional temporal samples
             ScreenSpaceAmbientOcclusionSettings::High => (3, 3), // 18 spp (3 * (3 * 2)), plus optional temporal samples
-            ScreenSpaceAmbientOcclusionSettings::Ultra => (9, 3),
+            ScreenSpaceAmbientOcclusionSettings::Ultra => (9, 3), // 54 spp (9 * (3 * 2)), plus optional temporal samples
             ScreenSpaceAmbientOcclusionSettings::Custom {
                 slice_count: slices,
                 samples_per_slice_side,
