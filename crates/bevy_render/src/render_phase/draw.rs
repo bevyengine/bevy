@@ -177,8 +177,8 @@ pub trait RenderCommand<P: PhaseItem> {
     /// Renders the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
-        view: ROQueryItem<'_, Self::ViewWorldQuery>,
-        entity: ROQueryItem<'_, Self::WorldQuery>,
+        view: ROQueryItem<'w, Self::ViewWorldQuery>,
+        entity: ROQueryItem<'w, Self::WorldQuery>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
@@ -274,8 +274,8 @@ macro_rules! render_command_tuple_impl {
             #[allow(non_snake_case)]
             fn render<'w>(
                 _item: &P,
-                ($($view,)*): ROQueryItem<'_, Self::ViewWorldQuery>,
-                ($($entity,)*): ROQueryItem<'_, Self::WorldQuery>,
+                ($($view,)*): ROQueryItem<'w, Self::ViewWorldQuery>,
+                ($($entity,)*): ROQueryItem<'w, Self::WorldQuery>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {

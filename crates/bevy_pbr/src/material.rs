@@ -10,12 +10,11 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity,
     event::EventReader,
     prelude::World,
     schedule::IntoSystemDescriptor,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
+        lifetimeless::{Read, SRes},
         Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,

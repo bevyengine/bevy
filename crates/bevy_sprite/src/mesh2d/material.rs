@@ -3,13 +3,12 @@ use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity,
     event::EventReader,
     query::ROQueryItem,
     prelude::{Bundle, World},
     schedule::IntoSystemDescriptor,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
+        lifetimeless::{Read, SRes},
         Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,

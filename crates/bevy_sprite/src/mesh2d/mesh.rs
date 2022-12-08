@@ -504,7 +504,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'_, Self::ViewWorldQuery>,
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
         _view: (),
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -548,7 +548,7 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     fn render<'w>(
         _item: &P,
         _view: (),
-        mesh_handle: ROQueryItem<'_, Self::WorldQuery>,
+        mesh_handle: ROQueryItem<'w, Self::WorldQuery>,
         meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
