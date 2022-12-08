@@ -2,7 +2,7 @@ use crate::util::copy_type;
 use naga::{
     Arena, ArraySize, Block, Constant, ConstantInner, EntryPoint, Expression, Function,
     FunctionArgument, FunctionResult, GlobalVariable, Handle, ImageQuery, LocalVariable, Module,
-    Span, Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
+    SampleLevel, Span, Statement, StructMember, SwitchCase, Type, TypeInner, UniqueArena,
 };
 use std::collections::HashMap;
 
@@ -226,12 +226,7 @@ impl<'a> DerivedModule<'a> {
 
         macro_rules! map_block {
             ($b:expr) => {
-                self.import_block(
-                    $b,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                )
+                self.import_block($b, old_expressions, already_imported, new_expressions)
             };
         }
 
@@ -246,10 +241,7 @@ impl<'a> DerivedModule<'a> {
                         result,
                     } => Statement::Call {
                         function: self.map_function_handle(function),
-                        arguments: arguments
-                            .iter()
-                            .map(|expr| map_expr!(expr))
-                            .collect(),
+                        arguments: arguments.iter().map(|expr| map_expr!(expr)).collect(),
                         result: result.as_ref().map(|result| map_expr!(result)),
                     },
 
@@ -379,13 +371,15 @@ impl<'a> DerivedModule<'a> {
 
         macro_rules! map_expr_opt {
             ($e:expr) => {
-                $e.as_ref().map(|expr| self.import_expression(
-                    *expr,
-                    old_expressions,
-                    already_imported,
-                    new_expressions,
-                    non_emitting_only,
-                ))
+                $e.as_ref().map(|expr| {
+                    self.import_expression(
+                        *expr,
+                        old_expressions,
+                        already_imported,
+                        new_expressions,
+                        non_emitting_only,
+                    )
+                })
             };
         }
 
@@ -399,10 +393,7 @@ impl<'a> DerivedModule<'a> {
             }
             Expression::Compose { ty, components } => Expression::Compose {
                 ty: self.import_type(ty),
-                components: components
-                    .iter()
-                    .map(|expr| map_expr!(expr))
-                    .collect(),
+                components: components.iter().map(|expr| map_expr!(expr)).collect(),
             },
             Expression::GlobalVariable(gv) => {
                 is_external = true;

@@ -43,11 +43,11 @@
 ///     return ::my_func(::my_const);
 /// }
 /// ```
-/// 
+///
 /// imports can be nested - modules may import other modules, but not recursively. when a new module is added, all its `#import`s must already have been added.
 /// the same module can be imported multiple times by different modules in the import tree.
 /// there is no overlap of namespaces, so the same function names (or type, constant, or variable names) may be used in different modules.
-/// 
+///
 /// note: when importing an item with the `#from` directive, the final shader will include the required dependencies (bindings, globals, consts, other functions) of the imported item, but will not include the rest of the imported module. it will however still include all of any modules imported by the imported module. this is probably not desired in general and may be fixed in a future version. currently for a more complete culling of unused dependencies the `prune` module can be used.
 ///
 /// ## overriding functions
@@ -1002,8 +1002,10 @@ impl Composer {
                     for capture in self.def_regex.captures_iter(line) {
                         let def = capture.get(1).unwrap();
                         if let Some(def) = shader_defs.get(def.as_str()) {
-                            line_with_defs =
-                                self.def_regex.replace(&line_with_defs, def.value_as_string()).to_string();
+                            line_with_defs = self
+                                .def_regex
+                                .replace(&line_with_defs, def.value_as_string())
+                                .to_string();
                         }
                     }
                     for capture in self.def_regex_delimited.captures_iter(line) {
