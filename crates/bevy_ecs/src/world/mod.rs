@@ -1558,6 +1558,46 @@ impl World {
         })
     }
 
+    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer must not be used to modify the resource, and must not be
+    /// dereferenced after the immutable borrow of the [`World`] ends.
+    ///
+    /// **You should prefer to use the typed API [`World::get_resource`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Panics
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    #[inline]
+    pub fn get_non_send_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+        self.storages.non_send_resources.get(component_id)?.get_data()
+    }
+
+    /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.
+    /// The returned pointer may be used to modify the resource, as long as the mutable borrow
+    /// of the [`World`] is still valid.
+    ///
+    /// **You should prefer to use the typed API [`World::get_resource_mut`] where possible and only
+    /// use this in cases where the actual types are not known at compile time.**
+    ///
+    /// # Panics
+    /// This function will panic if it isn't called from the same thread that the resource was inserted from.
+    #[inline]
+    pub fn get_non_send_mut_by_id(&mut self, component_id: ComponentId) -> Option<MutUntyped<'_>> {
+        let change_tick = self.change_tick();
+        let (ptr, ticks) = self.get_non_send_with_ticks(component_id)?;
+
+        // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
+        // - index is in-bounds because the column is initialized and non-empty
+        // - no other reference to the ticks of the same row can exist at the same time
+        let ticks = unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+
+        Some(MutUntyped {
+            // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
+            value: unsafe { ptr.assert_unique() },
+            ticks,
+        })
+    }
+
     /// Removes the resource of a given type, if it exists. Otherwise returns [None].
     ///
     /// **You should prefer to use the typed API [`World::remove_resource`] where possible and only
