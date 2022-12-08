@@ -6,11 +6,16 @@
 #import bevy_core_pipeline::tonemapping
 
 @group(0) @binding(0) var view_target: texture_2d<f32>;
-@group(0) @binding(1) var taa_accumulation: texture_2d<f32>;
+@group(0) @binding(1) var history: texture_2d<f32>;
 @group(0) @binding(2) var velocity: texture_2d<f32>;
 @group(0) @binding(3) var depth: texture_depth_2d;
 @group(0) @binding(4) var nearest_sampler: sampler;
 @group(0) @binding(5) var linear_sampler: sampler;
+
+struct Output {
+    @location(0) view_target: vec4<f32>,
+    @location(1) history: vec4<f32>,
+};
 
 // The following 3 functions are from Playdead
 // https://github.com/playdeadgames/temporal/blob/master/Assets/Shaders/TemporalReprojection.shader
@@ -52,7 +57,7 @@ fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
 }
 
 @fragment
-fn taa(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+fn taa(@location(0) uv: vec2<f32>) -> Output {
     let texture_size = vec2<f32>(textureDimensions(view_target));
     let texel_size = 1.0 / texture_size;
 
@@ -108,11 +113,11 @@ fn taa(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let texel_position_3 = (texel_position_1 + 2.0) * texel_size;
     let texel_position_12 = (texel_position_1 + offset12) * texel_size;
     var previous_color = vec3(0.0);
-    previous_color += textureSample(taa_accumulation, linear_sampler, vec2(texel_position_12.x, texel_position_0.y)).rgb * w12.x * w0.y;
-    previous_color += textureSample(taa_accumulation, linear_sampler, vec2(texel_position_0.x, texel_position_12.y)).rgb * w0.x * w12.y;
-    previous_color += textureSample(taa_accumulation, linear_sampler, vec2(texel_position_12.x, texel_position_12.y)).rgb * w12.x * w12.y;
-    previous_color += textureSample(taa_accumulation, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
-    previous_color += textureSample(taa_accumulation, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
+    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_0.y)).rgb * w12.x * w0.y;
+    previous_color += textureSample(history, linear_sampler, vec2(texel_position_0.x, texel_position_12.y)).rgb * w0.x * w12.y;
+    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_12.y)).rgb * w12.x * w12.y;
+    previous_color += textureSample(history, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
+    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
 
     // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
     let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
@@ -138,30 +143,13 @@ fn taa(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var output = (current_color * current_weight) + (previous_color * previous_weight);
     output /= current_weight + previous_weight;
 
-    return vec4(output, original_color.a);
-}
-
-// ----------------------------------------------------------------------------
-
-@group(0) @binding(0) var taa_output: texture_2d<f32>;
-@group(0) @binding(1) var blit_sampler: sampler;
-
-struct BlitOutput {
-    @location(0) view_target: vec4<f32>,
-    @location(1) taa_accumulation: vec4<f32>,
-}
-
-@fragment
-fn blit(@location(0) uv: vec2<f32>) -> BlitOutput {
-    var out: BlitOutput;
-
-    out.taa_accumulation = textureSample(taa_output, blit_sampler, uv);
-
+    // Write output to history and view target
+    var out: Output;
+    out.history = vec4(output, original_color.a);
 #ifdef TONEMAP
-    out.view_target = vec4(inverse_reinhard_luminance(out.taa_accumulation.rgb), out.taa_accumulation.a);
+    out.view_target = vec4(inverse_reinhard_luminance(out.history.rgb), out.history.a);
 #else
-    out.view_target = out.taa_accumulation;
+    out.view_target = out.history;
 #endif
-
     return out;
 }

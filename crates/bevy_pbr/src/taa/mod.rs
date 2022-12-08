@@ -18,7 +18,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
         Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
@@ -57,8 +57,7 @@ impl Plugin for TemporalAntialiasPlugin {
         render_app
             .init_resource::<TAAPipelines>()
             .add_system_to_stage(RenderStage::Extract, extract_taa_settings)
-            .add_system_to_stage(RenderStage::Prepare, prepare_taa_textures)
-            .add_system_to_stage(RenderStage::Queue, queue_taa_blit_bind_groups);
+            .add_system_to_stage(RenderStage::Prepare, prepare_taa_history_textures);
 
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -98,9 +97,8 @@ struct TAANode {
         &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewTarget,
-        &'static TAATextures,
+        &'static TAAHistoryTextures,
         &'static ViewPrepassTextures,
-        &'static TAABlitBindGroup,
     )>,
 }
 
@@ -134,7 +132,7 @@ impl Node for TAANode {
 
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
-            Ok((camera, view, view_target, taa_textures, prepass_textures, blit_bind_group)),
+            Ok((camera, view, view_target, taa_history_textures, prepass_textures)),
             Some(pipelines),
             Some(pipeline_cache),
         ) = (
@@ -144,19 +142,25 @@ impl Node for TAANode {
         ) else {
             return Ok(());
         };
-        let (taa_pipeline, blit_pipeline) = match view.hdr {
-            true => (pipelines.taa_hdr_pipeline, pipelines.blit_hdr_pipeline),
-            false => (pipelines.taa_sdr_pipeline, pipelines.blit_sdr_pipeline),
+        let taa_pipeline = if view.hdr {
+            pipelines.taa_hdr_pipeline
+        } else {
+            pipelines.taa_sdr_pipeline
         };
-        let (Some(taa_pipeline), Some(blit_pipeline), Some(prepass_velocity_texture), Some(prepass_depth_texture)) = (
+        let (Some(taa_pipeline), Some(prepass_velocity_texture), Some(prepass_depth_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline),
-            pipeline_cache.get_render_pipeline(blit_pipeline),
             &prepass_textures.velocity,
             &prepass_textures.depth,
         ) else {
             return Ok(());
         };
         let view_target = view_target.post_process_write();
+
+        render_context.command_encoder.copy_texture_to_texture(
+            taa_history_textures.write.texture.as_image_copy(),
+            taa_history_textures.read.texture.as_image_copy(),
+            taa_history_textures.size,
+        );
 
         let taa_bind_group = render_context
             .render_device
@@ -171,7 +175,7 @@ impl Node for TAANode {
                     BindGroupEntry {
                         binding: 1,
                         resource: BindingResource::TextureView(
-                            &taa_textures.accumulation.default_view,
+                            &taa_history_textures.read.default_view,
                         ),
                     },
                     BindGroupEntry {
@@ -200,11 +204,18 @@ impl Node for TAANode {
                 TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
                     &(RenderPassDescriptor {
                         label: Some("taa_pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view: &taa_textures.output.default_view,
-                            resolve_target: None,
-                            ops: Operations::default(),
-                        })],
+                        color_attachments: &[
+                            Some(RenderPassColorAttachment {
+                                view: view_target.destination,
+                                resolve_target: None,
+                                ops: Operations::default(),
+                            }),
+                            Some(RenderPassColorAttachment {
+                                view: &taa_history_textures.write.default_view,
+                                resolve_target: None,
+                                ops: Operations::default(),
+                            }),
+                        ],
                         depth_stencil_attachment: None,
                     }),
                 ));
@@ -216,34 +227,6 @@ impl Node for TAANode {
             taa_pass.draw(0..3, 0..1);
         }
 
-        {
-            let mut blit_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &(RenderPassDescriptor {
-                        label: Some("taa_blit_pass"),
-                        color_attachments: &[
-                            Some(RenderPassColorAttachment {
-                                view: view_target.destination,
-                                resolve_target: None,
-                                ops: Operations::default(),
-                            }),
-                            Some(RenderPassColorAttachment {
-                                view: &taa_textures.accumulation.default_view,
-                                resolve_target: None,
-                                ops: Operations::default(),
-                            }),
-                        ],
-                        depth_stencil_attachment: None,
-                    }),
-                ));
-            blit_pass.set_render_pipeline(blit_pipeline);
-            blit_pass.set_bind_group(0, &blit_bind_group.bind_group, &[]);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                blit_pass.set_camera_viewport(viewport);
-            }
-            blit_pass.draw(0..3, 0..1);
-        }
-
         Ok(())
     }
 }
@@ -253,11 +236,7 @@ struct TAAPipelines {
     taa_sdr_pipeline: CachedRenderPipelineId,
     taa_hdr_pipeline: CachedRenderPipelineId,
 
-    blit_sdr_pipeline: CachedRenderPipelineId,
-    blit_hdr_pipeline: CachedRenderPipelineId,
-
     taa_bind_group_layout: BindGroupLayout,
-    blit_bind_group_layout: BindGroupLayout,
 
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
@@ -284,7 +263,7 @@ impl FromWorld for TAAPipelines {
             render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("taa_bind_group_layout"),
                 entries: &[
-                    // View target
+                    // View target (read)
                     BindGroupLayoutEntry {
                         binding: 0,
                         visibility: ShaderStages::FRAGMENT,
@@ -295,7 +274,7 @@ impl FromWorld for TAAPipelines {
                         },
                         count: None,
                     },
-                    // TAA Accumulation
+                    // TAA History (read)
                     BindGroupLayoutEntry {
                         binding: 1,
                         visibility: ShaderStages::FRAGMENT,
@@ -345,31 +324,6 @@ impl FromWorld for TAAPipelines {
                 ],
             });
 
-        let blit_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("taa_blit_bind_group_layout"),
-                entries: &[
-                    // TAA Output
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // Linear sampler
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                        count: None,
-                    },
-                ],
-            });
-
         let mut pipeline_cache = world.resource_mut::<PipelineCache>();
 
         let taa_sdr_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
@@ -380,44 +334,6 @@ impl FromWorld for TAAPipelines {
                 shader: TAA_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs: vec![],
                 entry_point: "taa".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-        });
-
-        let taa_hdr_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("taa_hdr_pipeline".into()),
-            layout: Some(vec![taa_bind_group_layout.clone()]),
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: TAA_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec!["TONEMAP".into()],
-                entry_point: "taa".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: ViewTarget::TEXTURE_FORMAT_HDR,
-                    blend: None,
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-        });
-
-        let blit_sdr_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("taa_blit_sdr_pipeline".into()),
-            layout: Some(vec![blit_bind_group_layout.clone()]),
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: TAA_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec![],
-                entry_point: "blit".into(),
                 targets: vec![
                     Some(ColorTargetState {
                         format: TextureFormat::bevy_default(),
@@ -436,14 +352,14 @@ impl FromWorld for TAAPipelines {
             multisample: MultisampleState::default(),
         });
 
-        let blit_hdr_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("taa_blit_hdr_pipeline".into()),
-            layout: Some(vec![blit_bind_group_layout.clone()]),
+        let taa_hdr_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+            label: Some("taa_hdr_pipeline".into()),
+            layout: Some(vec![taa_bind_group_layout.clone()]),
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TAA_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs: vec!["TONEMAP".into()],
-                entry_point: "blit".into(),
+                entry_point: "taa".into(),
                 targets: vec![
                     Some(ColorTargetState {
                         format: ViewTarget::TEXTURE_FORMAT_HDR,
@@ -466,11 +382,7 @@ impl FromWorld for TAAPipelines {
             taa_sdr_pipeline,
             taa_hdr_pipeline,
 
-            blit_sdr_pipeline,
-            blit_hdr_pipeline,
-
             taa_bind_group_layout,
-            blit_bind_group_layout,
 
             nearest_sampler,
             linear_sampler,
@@ -494,12 +406,13 @@ fn extract_taa_settings(
 }
 
 #[derive(Component)]
-struct TAATextures {
-    accumulation: CachedTexture,
-    output: CachedTexture,
+struct TAAHistoryTextures {
+    write: CachedTexture,
+    read: CachedTexture,
+    size: Extent3d,
 }
 
-fn prepare_taa_textures(
+fn prepare_taa_history_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
@@ -508,20 +421,22 @@ fn prepare_taa_textures(
         With<TemporalAntialiasSettings>,
     >,
 ) {
-    let mut accumulation_textures = HashMap::default();
-    let mut output_textures = HashMap::default();
+    let mut write_textures = HashMap::default();
+    let mut read_textures = HashMap::default();
     let views = views.iter().filter(|(_, _, _, prepass_settings)| {
         prepass_settings.velocity_enabled && prepass_settings.depth_enabled
     });
     for (entity, camera, view, _) in views {
         if let Some(physical_viewport_size) = camera.physical_viewport_size {
-            let mut texture_descriptor = TextureDescriptor {
-                label: None,
-                size: Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_viewport_size.x,
-                    height: physical_viewport_size.y,
-                },
+            let size = Extent3d {
+                depth_or_array_layers: 1,
+                width: physical_viewport_size.x,
+                height: physical_viewport_size.y,
+            };
+
+            let texture_descriptor = TextureDescriptor {
+                label: Some("taa_history_write_texture"),
+                size,
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -530,58 +445,34 @@ fn prepare_taa_textures(
                 } else {
                     TextureFormat::bevy_default()
                 },
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
+                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
             };
-
-            texture_descriptor.label = Some("taa_accumulation_texture");
-            let accumulation = accumulation_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
-                .clone();
-
-            texture_descriptor.label = Some("taa_view_target_blit_texture");
-            let output = output_textures
+            let write = write_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
                 .clone();
 
-            commands.entity(entity).insert(TAATextures {
-                accumulation,
-                output,
-            });
+            let texture_descriptor = TextureDescriptor {
+                label: Some("taa_history_read_texture"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: if view.hdr {
+                    ViewTarget::TEXTURE_FORMAT_HDR
+                } else {
+                    TextureFormat::bevy_default()
+                },
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            };
+            let read = read_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
+                .clone();
+
+            commands
+                .entity(entity)
+                .insert(TAAHistoryTextures { write, read, size });
         }
-    }
-}
-
-#[derive(Component)]
-struct TAABlitBindGroup {
-    bind_group: BindGroup,
-}
-
-fn queue_taa_blit_bind_groups(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    pipelines: Res<TAAPipelines>,
-    views: Query<(Entity, &TAATextures), With<TemporalAntialiasSettings>>,
-) {
-    for (entity, taa_textures) in &views {
-        let blit_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("taa_blit_bind_group"),
-            layout: &pipelines.blit_bind_group_layout,
-            entries: &[
-                BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::TextureView(&taa_textures.output.default_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
-                    resource: BindingResource::Sampler(&pipelines.nearest_sampler),
-                },
-            ],
-        });
-
-        commands.entity(entity).insert(TAABlitBindGroup {
-            bind_group: blit_bind_group,
-        });
     }
 }
