@@ -189,16 +189,6 @@ pub enum RenderCommandResult {
     Failure,
 }
 
-pub trait EntityRenderCommand {
-    type Param: SystemParam + 'static;
-    fn render<'w>(
-        view: Entity,
-        item: Entity,
-        param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult;
-}
-
 pub trait CachedRenderPipelinePhaseItem: PhaseItem {
     fn cached_pipeline(&self) -> CachedRenderPipelineId;
 }
@@ -247,26 +237,6 @@ pub enum BatchResult {
     Success,
     /// `self` and `other` cannot be batched together
     IncompatibleItems,
-}
-
-impl<P: PhaseItem, E: EntityRenderCommand> RenderCommand<P> for E
-where
-    E::Param: 'static,
-{
-    type Param = E::Param;
-    type ViewWorldQuery = ();
-    type WorldQuery = ();
-
-    #[inline]
-    fn render<'w>(
-        item: &P,
-        _view: (),
-        _entity: (),
-        param: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        <E as EntityRenderCommand>::render(item.entity(), item.entity(), param, pass)
-    }
 }
 
 pub struct SetItemPipeline;

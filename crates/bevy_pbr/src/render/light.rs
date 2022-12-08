@@ -18,7 +18,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityRenderCommand,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, RenderCommand,
         PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
@@ -1808,16 +1808,19 @@ pub type DrawShadowMesh = (
 );
 
 pub struct SetShadowViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
-    type Param = (SRes<LightMeta>, SQuery<Read<ViewUniformOffset>>);
+impl<const I: usize> RenderCommand<Shadow> for SetShadowViewBindGroup<I> {
+    type Param = SRes<LightMeta>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type WorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (light_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &Shadow,
+        view_uniform_offset: &'_ ViewUniformOffset,
+        _entity: (),
+        light_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform_offset = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             light_meta

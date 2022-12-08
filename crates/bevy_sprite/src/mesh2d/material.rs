@@ -5,6 +5,7 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     event::EventReader,
+    query::ROQueryItem,
     prelude::{Bundle, World},
     schedule::IntoSystemDescriptor,
     system::{
@@ -21,8 +22,8 @@ use bevy_render::{
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-        SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, RenderCommandResult, RenderPhase,
+        SetItemPipeline, TrackedRenderPass, PhaseItem, RenderCommand
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
@@ -281,15 +282,19 @@ type DrawMaterial2d<M> = (
 );
 
 pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
-impl<M: Material2d, const I: usize> EntityRenderCommand for SetMaterial2dBindGroup<M, I> {
-    type Param = (SRes<RenderMaterials2d<M>>, SQuery<Read<Handle<M>>>);
+impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P> for SetMaterial2dBindGroup<M, I> {
+    type Param = SRes<RenderMaterials2d<M>>;
+    type ViewWorldQuery = ();
+    type WorldQuery = Read<Handle<M>>;
+    
+    #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (materials, query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        material2d_handle: ROQueryItem<'_, Self::WorldQuery>,
+        materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d_handle = query.get(item).unwrap();
         let material2d = materials.into_inner().get(material2d_handle).unwrap();
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
