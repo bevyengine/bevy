@@ -23,6 +23,10 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 /// are more modular.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
+    #[allow(unused_variables)]
+    fn prepare<'w>(&mut self, world: &'w World) {}
+
+    /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn draw<'w>(
         &mut self,
         world: &'w World,
@@ -78,6 +82,12 @@ pub struct DrawFunctionsInternal<P: PhaseItem> {
 }
 
 impl<P: PhaseItem> DrawFunctionsInternal<P> {
+    pub fn prepare(&mut self, world: &World) {
+        for function in &mut self.draw_functions {
+            function.prepare(world);
+        }
+    }
+
     /// Adds the [`Draw`] function and associates it to its own type.
     pub fn add<T: Draw<P>>(&mut self, draw_function: T) -> DrawFunctionId {
         self.add_with::<T, T>(draw_function)
@@ -312,6 +322,14 @@ impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for Rend
 where
     <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
 {
+    fn prepare<'w>(
+        &mut self,
+        world: &'w World,
+    ) {
+        self.view.update_archetypes(world);
+        self.entity.update_archetypes(world);
+    }
+
     /// Prepares the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
     fn draw<'w>(
         &mut self,
@@ -321,8 +339,8 @@ where
         item: &P,
     ) {
         let param = self.state.get(world);
-        let Ok(view) = self.view.get(world, view) else { return };
-        let Ok(entity) = self.entity.get(world, item.entity()) else { return };
+        let Ok(view) = self.view.get_manual(world, view) else { return };
+        let Ok(entity) = self.entity.get_manual(world, item.entity()) else { return };
         C::render(item, view, entity, param, pass);
     }
 }
