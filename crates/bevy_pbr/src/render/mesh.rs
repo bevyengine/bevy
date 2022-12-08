@@ -71,9 +71,9 @@ impl Plugin for MeshRenderPlugin {
             MESH_VIEW_TYPES_HANDLE,
             "mesh_view_types.wgsl",
             Shader::from_wgsl_with_path_and_defs,
-            vec![ShaderDefVal::Int(
+            vec![ShaderDefVal::UInt(
                 "MAX_DIRECTIONAL_LIGHTS".into(),
-                MAX_DIRECTIONAL_LIGHTS as i32
+                MAX_DIRECTIONAL_LIGHTS as u32
             )]
         );
         load_internal_asset_with_path!(

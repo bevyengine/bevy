@@ -124,6 +124,7 @@ struct ShaderCache {
 pub enum ShaderDefVal {
     Bool(String, bool),
     Int(String, i32),
+    UInt(String, u32),
 }
 
 impl From<&str> for ShaderDefVal {
@@ -135,6 +136,16 @@ impl From<&str> for ShaderDefVal {
 impl From<String> for ShaderDefVal {
     fn from(key: String) -> Self {
         ShaderDefVal::Bool(key, true)
+    }
+}
+
+impl ShaderDefVal {
+    pub fn value_as_string(&self) -> String {
+        match self {
+            ShaderDefVal::Bool(_, def) => def.to_string(),
+            ShaderDefVal::Int(_, def) => def.to_string(),
+            ShaderDefVal::UInt(_, def) => def.to_string(),
+        }
     }
 }
 
@@ -237,9 +248,9 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                shader_defs.push(ShaderDefVal::Int(
+                shader_defs.push(ShaderDefVal::UInt(
                     String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                    render_device.limits().max_storage_buffers_per_shader_stage as i32,
+                    render_device.limits().max_storage_buffers_per_shader_stage,
                 ));
 
                 debug!(

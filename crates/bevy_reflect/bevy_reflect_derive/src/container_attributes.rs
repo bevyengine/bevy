@@ -5,6 +5,7 @@
 //! the derive helper attribute for `Reflect`, which looks like:
 //! `#[reflect(PartialEq, Default, ...)]` and `#[reflect_value(PartialEq, Default, ...)]`.
 
+use crate::fq_std::{FQAny, FQDefault, FQOption};
 use crate::utility;
 use proc_macro2::{Ident, Span};
 use quote::quote_spanned;
@@ -222,17 +223,17 @@ impl ReflectTraits {
     pub fn get_hash_impl(&self, bevy_reflect_path: &Path) -> Option<proc_macro2::TokenStream> {
         match &self.hash {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_hash(&self) -> Option<u64> {
-                    use std::hash::{Hash, Hasher};
-                    let mut hasher = #bevy_reflect_path::ReflectHasher::default();
-                    Hash::hash(&std::any::Any::type_id(self), &mut hasher);
+                fn reflect_hash(&self) -> #FQOption<u64> {
+                    use ::core::hash::{Hash, Hasher};
+                    let mut hasher: #bevy_reflect_path::ReflectHasher = #FQDefault::default();
+                    Hash::hash(&#FQAny::type_id(self), &mut hasher);
                     Hash::hash(self, &mut hasher);
-                    Some(hasher.finish())
+                    #FQOption::Some(Hasher::finish(&hasher))
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_hash(&self) -> Option<u64> {
-                    Some(#impl_fn(self))
+                fn reflect_hash(&self) -> #FQOption<u64> {
+                    #FQOption::Some(#impl_fn(self))
                 }
             }),
             TraitImpl::NotImplemented => None,
@@ -248,18 +249,18 @@ impl ReflectTraits {
     ) -> Option<proc_macro2::TokenStream> {
         match &self.partial_eq {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
-                    let value = value.as_any();
-                    if let Some(value) = value.downcast_ref::<Self>() {
-                        Some(std::cmp::PartialEq::eq(self, value))
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                    let value = <dyn #bevy_reflect_path::Reflect>::as_any(value);
+                    if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
+                        #FQOption::Some(::core::cmp::PartialEq::eq(self, value))
                     } else {
-                        Some(false)
+                        #FQOption::Some(false)
                     }
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
-                    Some(#impl_fn(self, value))
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
+                    #FQOption::Some(#impl_fn(self, value))
                 }
             }),
             TraitImpl::NotImplemented => None,
@@ -272,12 +273,12 @@ impl ReflectTraits {
     pub fn get_debug_impl(&self) -> Option<proc_macro2::TokenStream> {
         match &self.debug {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
-                fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                    std::fmt::Debug::fmt(self, f)
+                fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
+                    ::core::fmt::Debug::fmt(self, f)
                 }
             }),
             &TraitImpl::Custom(ref impl_fn, span) => Some(quote_spanned! {span=>
-                fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                fn debug(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result {
                     #impl_fn(self, f)
                 }
             }),

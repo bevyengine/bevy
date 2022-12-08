@@ -145,6 +145,9 @@ impl<'a> From<&'a Shader> for naga_oil::compose::ComposableModuleDescriptor<'a> 
                 ShaderDefVal::Int(name, i) => {
                     (name.clone(), naga_oil::compose::ShaderDefValue::Int(*i))
                 }
+                ShaderDefVal::UInt(name, i) => {
+                    (name.clone(), naga_oil::compose::ShaderDefValue::UInt(*i))
+                }
             })
             .collect();
 
