@@ -75,8 +75,7 @@ fn spawn_panel(
                 justify_content,
                 size: Size::new(Val::Px(190.), Val::Px(190.)),
                 margin: UiRect::all(Val::Px(5.)),
-                padding: UiRect::all(Val::Px(3.)),
-                overflow: Overflow::Hidden,
+                padding: UiRect::all(Val::Px(4.)),
                 ..Default::default()
             },
             background_color: BackgroundColor(Color::BLACK),
@@ -88,7 +87,7 @@ fn spawn_panel(
                 (
                     format!("{:?}", justify_content),
                     Color::DARK_GREEN,
-                    Val::Px(2.),
+                    Val::Px(4.),
                 ),
             ];
             for (text, color, top_margin) in items {
@@ -96,7 +95,7 @@ fn spawn_panel(
                     .spawn(NodeBundle {
                         style: Style {
                             margin: UiRect::top(top_margin),
-                            padding: UiRect::all(Val::Px(5.)),
+                            padding: UiRect::all(Val::Px(4.)),
                             ..Default::default()
                         },
                         background_color: BackgroundColor(color),
