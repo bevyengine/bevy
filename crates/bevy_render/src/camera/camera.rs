@@ -542,6 +542,7 @@ pub struct TemporalJitter;
 
 impl TemporalJitter {
     pub fn jitter_projection(projection: &mut Mat4, viewport: Vec4, frame_count: usize) {
+        // Halton sequence (2, 3) minus 0.5
         let halton_sequence = [
             vec2(0.0, -0.16666666),
             vec2(-0.25, 0.16666669),
@@ -556,10 +557,15 @@ impl TemporalJitter {
             vec2(0.3125, 0.2037037),
             vec2(-0.3125, -0.35185185),
         ];
-        let jitter = halton_sequence[frame_count % 12] / viewport.zw();
+        let jitter = halton_sequence[frame_count % halton_sequence.len()] / viewport.zw();
 
-        // TODO: Perspective only, handle orthographic projections
-        projection.z_axis[0] += jitter.x;
-        projection.z_axis[1] += jitter.y;
+        if projection.w_axis.w == 1.0 {
+            // Orthographic
+            todo!("TAA is not yet supported for orthographic cameras");
+        } else {
+            // Perspective
+            projection.z_axis[0] += jitter.x;
+            projection.z_axis[1] += jitter.y;
+        }
     }
 }
