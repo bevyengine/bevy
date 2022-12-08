@@ -5,8 +5,8 @@ use crate::{
 use bevy_app::App;
 use bevy_ecs::{
     all_tuples,
-    query::ReadOnlyWorldQuery,
     entity::Entity,
+    query::{QueryState, ROQueryItem, ReadOnlyWorldQuery},
     system::{
         lifetimeless::SRes, ReadOnlySystemParamFetch, Resource, SystemParam, SystemParamItem,
         SystemState,
@@ -176,8 +176,9 @@ pub trait RenderCommand<P: PhaseItem> {
 
     /// Renders the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn render<'w>(
-        view: Entity,
         item: &P,
+        view: ROQueryItem<'_, Self::ViewWorldQuery>,
+        entity: ROQueryItem<'_, Self::WorldQuery>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
@@ -258,12 +259,13 @@ where
 
     #[inline]
     fn render<'w>(
-        view: Entity,
         item: &P,
+        _view: (),
+        _entity: (),
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        <E as EntityRenderCommand>::render(view, item.entity(), param, pass)
+        <E as EntityRenderCommand>::render(item.entity(), item.entity(), param, pass)
     }
 }
 
@@ -274,8 +276,9 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type WorldQuery = ();
     #[inline]
     fn render<'w>(
-        _view: Entity,
         item: &P,
+        _view: (),
+        _entity: (),
         pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -292,7 +295,7 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
 }
 
 macro_rules! render_command_tuple_impl {
-    ($($name: ident),*) => {
+    ($(($name: ident, $view: ident, $entity: ident)),*) => {
         impl<P: PhaseItem, $($name: RenderCommand<P>),*> RenderCommand<P> for ($($name,)*) {
             type Param = ($($name::Param,)*);
             type ViewWorldQuery = ($($name::ViewWorldQuery,)*);
@@ -300,12 +303,13 @@ macro_rules! render_command_tuple_impl {
 
             #[allow(non_snake_case)]
             fn render<'w>(
-                _view: Entity,
                 _item: &P,
+                ($($view,)*): ROQueryItem<'_, Self::ViewWorldQuery>,
+                ($($entity,)*): ROQueryItem<'_, Self::WorldQuery>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
-            ) -> RenderCommandResult{
-                $(if let RenderCommandResult::Failure = $name::render(_view, _item, $name, _pass) {
+            ) -> RenderCommandResult {
+                $(if let RenderCommandResult::Failure = $name::render(_item, $view, $entity, $name, _pass) {
                     return RenderCommandResult::Failure;
                 })*
                 RenderCommandResult::Success
@@ -314,18 +318,22 @@ macro_rules! render_command_tuple_impl {
     };
 }
 
-all_tuples!(render_command_tuple_impl, 0, 15, C);
+all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
 /// Therefore the [`RenderCommand::Param`] is queried from the ECS and passed to the command.
 pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
     state: SystemState<C::Param>,
+    view: QueryState<C::ViewWorldQuery>,
+    entity: QueryState<C::WorldQuery>,
 }
 
 impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
     pub fn new(world: &mut World) -> Self {
         Self {
             state: SystemState::new(world),
+            view: world.query(),
+            entity: world.query(),
         }
     }
 }
@@ -343,7 +351,9 @@ where
         item: &P,
     ) {
         let param = self.state.get(world);
-        C::render(view, item, param, pass);
+        let Ok(view) = self.view.get(world, view) else { return };
+        let Ok(entity) = self.entity.get(world, item.entity()) else { return };
+        C::render(item, view, entity, param, pass);
     }
 }
 
