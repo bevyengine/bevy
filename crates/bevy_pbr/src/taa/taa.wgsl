@@ -30,11 +30,12 @@ fn clip_towards_aabb_center(previous_color: vec3<f32>, current_color: vec3<f32>,
     let v_unit = v_clip / e_clip;
     let a_unit = abs(v_unit);
     let ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
-    if ma_unit > 1.0 {
-        return p_clip + v_clip / ma_unit;
-    } else {
-        return previous_color;
-    }
+    return select(previous_color, p_clip + v_clip / ma_unit, ma_unit > 1.0);
+}
+
+// http://graphicrants.blogspot.com/2013/12/tone-mapping.html
+fn karis_weight(color: vec3<f32>) -> f32 {
+    return 1.0 / (1.0 + tonemapping_luminance(color));
 }
 
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
@@ -57,7 +58,8 @@ fn taa(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let current_color = reinhard_luminance(current_color);
 #endif
 
-    // Reproject to find the equivalent sample from the past, using 5-tap Catmull-Rom filtering
+    // Reproject to find the equivalent sample from the past
+    // Uses 5-tap Catmull-Rom filtering (reduces blurriness)
     // from https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
     // and https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
     let current_velocity = textureSample(velocity, nearest_sampler, uv).rg;
@@ -80,7 +82,7 @@ fn taa(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     previous_color += textureSample(taa_accumulation, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
     previous_color += textureSample(taa_accumulation, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
 
-    // Constrain past sample with 3x3 YCoCg variance clipping to handle disocclusion
+    // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
     let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
     let s_tm = sample_view_target(uv + vec2(0.0, texel_size.y));
     let s_tr = sample_view_target(uv + texel_size);
@@ -98,10 +100,13 @@ fn taa(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let previous_color = clip_towards_aabb_center(previous_color, s_mm, mean - variance, mean + variance);
     let previous_color = YCoCg_to_RGB(previous_color);
 
-    // Blend current and past sample
-    let output = (current_color * 0.1) + (previous_color * 0.9);
+    // Blend current and past sample according to karis weight (reduces flickering)
+    let current_weight = 0.1 * karis_weight(current_color);
+    let previous_weight = 0.9 * karis_weight(previous_color);
+    var output = (current_color * current_weight) + (previous_color * previous_weight);
+    output /= current_weight + previous_weight;
 
-    return vec4<f32>(output, original_color.a);
+    return vec4(output, original_color.a);
 }
 
 // ----------------------------------------------------------------------------
