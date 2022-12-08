@@ -1,10 +1,11 @@
-use crate::{CalculatedSize, Size, UiScale, Val, Node};
+use crate::{CalculatedSize, Size, UiScale, Val, Node, draw_ui_graph::node};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
     system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
+use bevy_hierarchy::Parent;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
@@ -44,15 +45,16 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Node>)>>,
+       Query<Entity, (With<Text>, With<Node>)>,
         Query<Entity, With<Text>>,
         Query<(
-            &Node,
+            &Parent,
             &Text,
             &mut CalculatedSize,
             Option<&mut TextLayoutInfo>,
         )>,
     )>,
+    node_query: Query<&Node>,
 ) {
     // TODO: This should support window-independent scale settings.
     // See https://github.com/bevyengine/bevy/issues/5621
@@ -63,20 +65,10 @@ pub fn text_system(
     };
 
     let inv_scale_factor = 1. / scale_factor;
-
-    #[allow(clippy::float_cmp)]
-    if *last_scale_factor == scale_factor {
-        // Adds all entities where the text or the style has changed to the local queue
-        for entity in text_queries.p0().iter() {
-            queued_text.entities.push(entity);
-        }
-    } else {
-        // If the scale factor has changed, queue all text
-        for entity in text_queries.p1().iter() {
-            queued_text.entities.push(entity);
-        }
-        *last_scale_factor = scale_factor;
+    for entity in text_queries.p1().iter() {
+        queued_text.entities.push(entity);
     }
+    *last_scale_factor = scale_factor;
 
     if queued_text.entities.is_empty() {
         return;
@@ -86,9 +78,12 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((node, text, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
-            let node_size = node.calculated_size;
-            println!("node_size: {:?}", node_size);
+        if let Ok((parent, text, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
+            let node_size = if let Ok(node) = node_query.get(parent.get()) {
+                node.calculated_size
+            } else {
+                continue;
+            };
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,

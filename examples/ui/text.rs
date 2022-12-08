@@ -33,52 +33,68 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn(NodeBundle {
         style: Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                right: Val::Px(15.0),
-                ..default()
-            },
+           size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+           flex_direction: FlexDirection::Column,
+                justify_content: JustifyContent::SpaceBetween,    
             ..default()
         },
         ..Default::default()
-    }).with_children(|builder| {
-        builder.spawn((TextBundle {
-                text: Text::from_section(
-                    "hello\nbevy!",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 100.0,
-                        color: Color::WHITE,
-                    },
-                ),
-                ..Default::default()
-            }.with_text_alignment(TextAlignment::TOP_CENTER),
-            ColorText,
-        ));
-    });
+    }).with_children(|parent| {   
 
-
-    // Text with multiple sections
-    commands.spawn((
-        // Create a TextBundle that has a Text with a list of sections.
-        TextBundle::from_sections([
-            TextSection::new(
-                "FPS: ",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 60.0,
-                    color: Color::WHITE,
+            parent.spawn(NodeBundle {
+                style: Style {
+                    
+                    size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
+                    ..Default::default()
                 },
-            ),
-            TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 60.0,
-                color: Color::GOLD,
-            }),
-        ]),
-        FpsText,
-    ));
+                ..Default::default() 
+            }).with_children(|parent| {    
+                parent.spawn((TextBundle {
+                        text: Text::from_section(
+                            "hello\nbevy!",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 100.0,
+                                color: Color::WHITE,
+                            },
+                        ),
+                        ..Default::default()
+                    },
+                    ColorText,
+                ));
+            });
+
+            parent.spawn(NodeBundle {
+                style: Style {
+                    size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
+                    align_items: AlignItems::FlexEnd,
+                    justify_content: JustifyContent::FlexEnd,
+                    ..Default::default()
+                },
+                ..Default::default() 
+            }).with_children(|parent| {
+            // Text with multiple sections
+                parent.spawn((
+                    // Create a TextBundle that has a Text with a list of sections.
+                    TextBundle::from_sections([
+                        TextSection::new(
+                            "FPS: ",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 60.0,
+                                color: Color::WHITE,
+                            },
+                        ),
+                        TextSection::from_style(TextStyle {
+                            font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                            font_size: 60.0,
+                            color: Color::GOLD,
+                        }),
+                    ]),
+                    FpsText,
+                ));
+            });
+        });
 }
 
 fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText>>) {
