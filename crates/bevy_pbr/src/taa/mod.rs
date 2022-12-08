@@ -148,10 +148,11 @@ impl Node for TAANode {
             true => (pipelines.taa_hdr_pipeline, pipelines.blit_hdr_pipeline),
             false => (pipelines.taa_sdr_pipeline, pipelines.blit_sdr_pipeline),
         };
-        let (Some(taa_pipeline), Some(blit_pipeline), Some(prepass_velocity_texture)) = (
+        let (Some(taa_pipeline), Some(blit_pipeline), Some(prepass_velocity_texture), Some(prepass_depth_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline),
             pipeline_cache.get_render_pipeline(blit_pipeline),
             &prepass_textures.velocity,
+            &prepass_textures.depth,
         ) else {
             return Ok(());
         };
@@ -181,10 +182,14 @@ impl Node for TAANode {
                     },
                     BindGroupEntry {
                         binding: 3,
-                        resource: BindingResource::Sampler(&pipelines.nearest_sampler),
+                        resource: BindingResource::TextureView(&prepass_depth_texture.default_view),
                     },
                     BindGroupEntry {
                         binding: 4,
+                        resource: BindingResource::Sampler(&pipelines.nearest_sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 5,
                         resource: BindingResource::Sampler(&pipelines.linear_sampler),
                     },
                 ],
@@ -312,16 +317,27 @@ impl FromWorld for TAAPipelines {
                         },
                         count: None,
                     },
-                    // Nearest sampler
+                    // Depth
                     BindGroupLayoutEntry {
                         binding: 3,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Depth,
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // Nearest sampler
+                    BindGroupLayoutEntry {
+                        binding: 4,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                         count: None,
                     },
                     // Linear sampler
                     BindGroupLayoutEntry {
-                        binding: 4,
+                        binding: 5,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
@@ -494,9 +510,9 @@ fn prepare_taa_textures(
 ) {
     let mut accumulation_textures = HashMap::default();
     let mut output_textures = HashMap::default();
-    let views = views
-        .iter()
-        .filter(|(_, _, _, prepass_settings)| prepass_settings.velocity_enabled);
+    let views = views.iter().filter(|(_, _, _, prepass_settings)| {
+        prepass_settings.velocity_enabled && prepass_settings.depth_enabled
+    });
     for (entity, camera, view, _) in views {
         if let Some(physical_viewport_size) = camera.physical_viewport_size {
             let mut texture_descriptor = TextureDescriptor {

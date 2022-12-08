@@ -1,11 +1,16 @@
+// References:
+// https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail
+// http://behindthepixels.io/assets/files/TemporalAA.pdf
+
 #import bevy_core_pipeline::fullscreen_vertex_shader
 #import bevy_core_pipeline::tonemapping
 
 @group(0) @binding(0) var view_target: texture_2d<f32>;
 @group(0) @binding(1) var taa_accumulation: texture_2d<f32>;
 @group(0) @binding(2) var velocity: texture_2d<f32>;
-@group(0) @binding(3) var nearest_sampler: sampler;
-@group(0) @binding(4) var linear_sampler: sampler;
+@group(0) @binding(3) var depth: texture_depth_2d;
+@group(0) @binding(4) var nearest_sampler: sampler;
+@group(0) @binding(5) var linear_sampler: sampler;
 
 // The following 3 functions are from Playdead
 // https://github.com/playdeadgames/temporal/blob/master/Assets/Shaders/TemporalReprojection.shader
@@ -58,11 +63,38 @@ fn taa(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let current_color = reinhard_luminance(current_color);
 #endif
 
+    // Pick the closest velocity (reduces aliasing on the edges of moving entities)
+    let offset = texel_size * 2.0;
+    let v_tl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, offset.y)).rg;
+    let v_tr = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, offset.y)).rg;
+    var current_velocity = textureSample(velocity, nearest_sampler, uv).rg;
+    let v_bl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, -offset.y)).rg;
+    let v_br = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, -offset.y)).rg;
+    let d_tl = textureSample(depth, nearest_sampler, uv + vec2(-offset.x, offset.y));
+    let d_tr = textureSample(depth, nearest_sampler, uv + vec2(offset.x, offset.y));
+    var closest_depth = textureSample(depth, nearest_sampler, uv);
+    let d_bl = textureSample(depth, nearest_sampler, uv + vec2(-offset.x, -offset.y));
+    let d_br = textureSample(depth, nearest_sampler, uv + vec2(offset.x, -offset.y));
+    if d_tl > closest_depth {
+        current_velocity = v_tl;
+        closest_depth = d_tl;
+    }
+    if d_tr > closest_depth {
+        current_velocity = v_tr;
+        closest_depth = d_tr;
+    }
+    if d_bl > closest_depth {
+        current_velocity = v_bl;
+        closest_depth = d_bl;
+    }
+    if d_br > closest_depth {
+        current_velocity = v_br;
+    }
+
     // Reproject to find the equivalent sample from the past
     // Uses 5-tap Catmull-Rom filtering (reduces blurriness)
     // from https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
     // and https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
-    let current_velocity = textureSample(velocity, nearest_sampler, uv).rg;
     let sample_position = (uv + current_velocity) * texture_size;
     let texel_position_1 = floor(sample_position - 0.5) + 0.5;
     let f = sample_position - texel_position_1;
