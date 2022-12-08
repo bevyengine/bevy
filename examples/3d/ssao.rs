@@ -163,6 +163,7 @@ fn update(
         Some(ScreenSpaceAmbientOcclusionSettings::Medium) => ("", "", "*", "", ""),
         Some(ScreenSpaceAmbientOcclusionSettings::High) => ("", "", "", "*", ""),
         Some(ScreenSpaceAmbientOcclusionSettings::Ultra) => ("", "", "", "", "*"),
+        _ => unreachable!(),
     };
 
     text.push_str("SSAO Quality:\n");
