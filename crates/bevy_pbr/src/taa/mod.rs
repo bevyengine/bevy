@@ -23,8 +23,8 @@ use bevy_render::{
         ColorTargetState, ColorWrites, Extent3d, FilterMode, FragmentState, MultisampleState,
         Operations, PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
         RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-        TextureUsages, TextureViewDimension,
+        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureViewDimension,
     },
     renderer::{RenderContext, RenderDevice},
     texture::{BevyDefault, CachedTexture, TextureCache},
@@ -55,9 +55,11 @@ impl Plugin for TemporalAntialiasPlugin {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
-            .init_resource::<TAAPipelines>()
+            .init_resource::<TAAPipeline>()
+            .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_taa_settings)
-            .add_system_to_stage(RenderStage::Prepare, prepare_taa_history_textures);
+            .add_system_to_stage(RenderStage::Prepare, prepare_taa_history_textures)
+            .add_system_to_stage(RenderStage::Prepare, prepare_taa_pipelines);
 
         let taa_node = TAANode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
@@ -95,10 +97,10 @@ pub struct TemporalAntialiasSettings;
 struct TAANode {
     view_query: QueryState<(
         &'static ExtractedCamera,
-        &'static ExtractedView,
         &'static ViewTarget,
         &'static TAAHistoryTextures,
         &'static ViewPrepassTextures,
+        &'static TAAPipelineId,
     )>,
 }
 
@@ -132,23 +134,18 @@ impl Node for TAANode {
 
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
-            Ok((camera, view, view_target, taa_history_textures, prepass_textures)),
+            Ok((camera, view_target, taa_history_textures, prepass_textures, taa_pipeline_id)),
             Some(pipelines),
             Some(pipeline_cache),
         ) = (
             self.view_query.get_manual(world, view_entity),
-            world.get_resource::<TAAPipelines>(),
+            world.get_resource::<TAAPipeline>(),
             world.get_resource::<PipelineCache>(),
         ) else {
             return Ok(());
         };
-        let taa_pipeline = if view.hdr {
-            pipelines.taa_hdr_pipeline
-        } else {
-            pipelines.taa_sdr_pipeline
-        };
         let (Some(taa_pipeline), Some(prepass_velocity_texture), Some(prepass_depth_texture)) = (
-            pipeline_cache.get_render_pipeline(taa_pipeline),
+            pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.velocity,
             &prepass_textures.depth,
         ) else {
@@ -232,17 +229,13 @@ impl Node for TAANode {
 }
 
 #[derive(Resource)]
-struct TAAPipelines {
-    taa_sdr_pipeline: CachedRenderPipelineId,
-    taa_hdr_pipeline: CachedRenderPipelineId,
-
+struct TAAPipeline {
     taa_bind_group_layout: BindGroupLayout,
-
     nearest_sampler: Sampler,
     linear_sampler: Sampler,
 }
 
-impl FromWorld for TAAPipelines {
+impl FromWorld for TAAPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
@@ -324,11 +317,32 @@ impl FromWorld for TAAPipelines {
                 ],
             });
 
-        let mut pipeline_cache = world.resource_mut::<PipelineCache>();
+        TAAPipeline {
+            taa_bind_group_layout,
+            nearest_sampler,
+            linear_sampler,
+        }
+    }
+}
 
-        let taa_sdr_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("taa_sdr_pipeline".into()),
-            layout: Some(vec![taa_bind_group_layout.clone()]),
+#[derive(PartialEq, Eq, Hash, Clone)]
+struct TAAPipelineKey {
+    hdr: bool,
+}
+
+impl SpecializedRenderPipeline for TAAPipeline {
+    type Key = TAAPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let format = if key.hdr {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
+        };
+
+        RenderPipelineDescriptor {
+            label: Some("taa_pipeline".into()),
+            layout: Some(vec![self.taa_bind_group_layout.clone()]),
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {
                 shader: TAA_SHADER_HANDLE.typed::<Shader>(),
@@ -336,12 +350,12 @@ impl FromWorld for TAAPipelines {
                 entry_point: "taa".into(),
                 targets: vec![
                     Some(ColorTargetState {
-                        format: TextureFormat::bevy_default(),
+                        format,
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     }),
                     Some(ColorTargetState {
-                        format: TextureFormat::bevy_default(),
+                        format,
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     }),
@@ -350,45 +364,10 @@ impl FromWorld for TAAPipelines {
             primitive: PrimitiveState::default(),
             depth_stencil: None,
             multisample: MultisampleState::default(),
-        });
-
-        let taa_hdr_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("taa_hdr_pipeline".into()),
-            layout: Some(vec![taa_bind_group_layout.clone()]),
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: TAA_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec!["TONEMAP".into()],
-                entry_point: "taa".into(),
-                targets: vec![
-                    Some(ColorTargetState {
-                        format: ViewTarget::TEXTURE_FORMAT_HDR,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                    Some(ColorTargetState {
-                        format: ViewTarget::TEXTURE_FORMAT_HDR,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                ],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-        });
-
-        TAAPipelines {
-            taa_sdr_pipeline,
-            taa_hdr_pipeline,
-
-            taa_bind_group_layout,
-
-            nearest_sampler,
-            linear_sampler,
         }
     }
 }
+
 fn extract_taa_settings(
     mut commands: Commands,
     cameras_3d: Extract<
@@ -474,5 +453,26 @@ fn prepare_taa_history_textures(
                 .entity(entity)
                 .insert(TAAHistoryTextures { write, read, size });
         }
+    }
+}
+
+#[derive(Component)]
+struct TAAPipelineId(CachedRenderPipelineId);
+
+fn prepare_taa_pipelines(
+    mut commands: Commands,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
+    pipeline: Res<TAAPipeline>,
+    views: Query<(Entity, &ExtractedView), With<TemporalAntialiasSettings>>,
+) {
+    for (entity, view) in &views {
+        let pipeline_id = pipelines.specialize(
+            &mut pipeline_cache,
+            &pipeline,
+            TAAPipelineKey { hdr: view.hdr },
+        );
+
+        commands.entity(entity).insert(TAAPipelineId(pipeline_id));
     }
 }
