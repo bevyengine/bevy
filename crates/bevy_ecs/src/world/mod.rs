@@ -1569,7 +1569,10 @@ impl World {
     /// This function will panic if it isn't called from the same thread that the resource was inserted from.
     #[inline]
     pub fn get_non_send_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
-        self.storages.non_send_resources.get(component_id)?.get_data()
+        self.storages
+            .non_send_resources
+            .get(component_id)?
+            .get_data()
     }
 
     /// Gets a `!Send` resource to the resource with the id [`ComponentId`] if it exists.

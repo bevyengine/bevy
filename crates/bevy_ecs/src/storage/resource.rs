@@ -20,7 +20,7 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
     fn drop(&mut self) {
         if self.is_present() {
             // If this thread is already panicking, panicking again will cause
-            // the entire process to abort. In this case we choose to avoid 
+            // the entire process to abort. In this case we choose to avoid
             // dropping or checking this altogether and just leak the column.
             if std::thread::panicking() {
                 return;
@@ -29,7 +29,7 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
         }
         // SAFETY: Drop is only called once upon dropping the ResourceData
         // and is inaccessible after this as the parent ResourceData has
-        // been dropped. The validate_access call above will check that the 
+        // been dropped. The validate_access call above will check that the
         // data is dropped on the thread it was inserted from.
         unsafe {
             ManuallyDrop::drop(&mut self.column);
