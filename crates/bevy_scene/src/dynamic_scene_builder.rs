@@ -155,12 +155,12 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// # let mut world = World::default();
     /// # world.init_resource::<AppTypeRegistry>();
-    /// let _resource = world.insert_resource(MyResource);
+    /// world.insert_resource(MyResource);
     ///
     /// let mut builder = DynamicSceneBuilder::from_world(&world);
     /// builder.extract_resources(&world);
     /// let scene = builder.build();
-    ///
+    /// ```
     pub fn extract_resources(&mut self, world: &'w World) -> &mut Self {
         let type_registry = self.type_registry.read();
         for (component_id, _) in world.storages().resources.iter() {

@@ -54,7 +54,7 @@ impl DynamicScene {
         builder.build()
     }
 
-    /// Write the resources, the dynamic entities and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities, and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// in the provided [`AppTypeRegistry`] resource, or doesn't reflect the
@@ -124,7 +124,7 @@ impl DynamicScene {
         Ok(())
     }
 
-    /// Write the resources, the dynamic entities and their corresponding components to the given world.
+    /// Write the resources, the dynamic entities, and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
     /// in the world's [`AppTypeRegistry`] resource, or doesn't reflect the
