@@ -6,10 +6,10 @@ use crate::{
         Component, ComponentId, ComponentStorage, ComponentTicks, Components, StorageType,
     },
     entity::{Entities, Entity, EntityLocation},
-    storage::Storages,
+    storage::{SparseSet, Storages},
     world::{Mut, World},
 };
-use bevy_ptr::Ptr;
+use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
@@ -71,15 +71,11 @@ impl<'w> EntityRef<'w> {
     pub fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY:
         // - entity location and entity is valid
-        // - archetypes and components come from the same world
         // - the storage type provided is correct for T
         // - world access is immutable, lifetime tied to `&self`
         unsafe {
             self.world
-                .storages
                 .get_component_with_type(
-                    &self.world.archetypes,
-                    &self.world.components,
                     TypeId::of::<T>(),
                     T::Storage::STORAGE_TYPE,
                     self.entity,
@@ -96,13 +92,10 @@ impl<'w> EntityRef<'w> {
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY:
         // - entity location and entity is valid
-        // - archetypes and components come from the same world
         // - world access is immutable, lifetime tied to `&self`
         // - the storage type provided is correct for T
         unsafe {
-            self.world.storages.get_ticks_with_type(
-                &self.world.archetypes,
-                &self.world.components,
+            self.world.get_ticks_with_type(
                 TypeId::of::<T>(),
                 T::Storage::STORAGE_TYPE,
                 self.entity,
@@ -122,12 +115,10 @@ impl<'w> EntityRef<'w> {
         let info = self.world.components().get_info(component_id)?;
         // SAFETY:
         // - entity location and entity is valid
-        // - archetypes and components come from the same world
         // - world access is immutable, lifetime tied to `&self`
         // - the storage type provided is correct for T
         unsafe {
-            self.world.storages.get_ticks(
-                &self.world.archetypes,
+            self.world.get_ticks(
                 component_id,
                 info.storage_type(),
                 self.entity,
@@ -157,10 +148,7 @@ impl<'w> EntityRef<'w> {
         // - returned component is of type T
         // - the storage type provided is correct for T
         self.world
-            .storages
             .get_component_and_ticks_with_type(
-                &self.world.archetypes,
-                &self.world.components,
                 TypeId::of::<T>(),
                 T::Storage::STORAGE_TYPE,
                 self.entity,
@@ -193,8 +181,7 @@ impl<'w> EntityRef<'w> {
         // . component_id is valid as checked by the line above
         // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
-            self.world.storages.get_component(
-                &self.world.archetypes,
+            self.world.get_component(
                 component_id,
                 info.storage_type(),
                 self.entity,
@@ -268,15 +255,11 @@ impl<'w> EntityMut<'w> {
     pub fn get<T: Component>(&self) -> Option<&'_ T> {
         // SAFETY:
         // - entity location is valid
-        // - archetypes and components come from the same world
         // - world access is immutable, lifetime tied to `&self`
         // - the storage type provided is correct for T
         unsafe {
             self.world
-                .storages
                 .get_component_with_type(
-                    &self.world.archetypes,
-                    &self.world.components,
                     TypeId::of::<T>(),
                     T::Storage::STORAGE_TYPE,
                     self.entity,
@@ -299,13 +282,10 @@ impl<'w> EntityMut<'w> {
     pub fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY:
         // - entity location is valid
-        // - archetypes and components come from the same world
         // - world access is immutable, lifetime tied to `&self`
         // - the storage type provided is correct for T
         unsafe {
-            self.world.storages.get_ticks_with_type(
-                &self.world.archetypes,
-                &self.world.components,
+            self.world.get_ticks_with_type(
                 TypeId::of::<T>(),
                 T::Storage::STORAGE_TYPE,
                 self.entity,
@@ -325,12 +305,10 @@ impl<'w> EntityMut<'w> {
         let info = self.world.components().get_info(component_id)?;
         // SAFETY:
         // - entity location is valid
-        // - archetypes and components come from the same world
         // - world access is immutable, lifetime tied to `&self`
         // - the storage type provided is correct for T
         unsafe {
-            self.world.storages.get_ticks(
-                &self.world.archetypes,
+            self.world.get_ticks(
                 component_id,
                 info.storage_type(),
                 self.entity,
@@ -356,10 +334,7 @@ impl<'w> EntityMut<'w> {
         // - returned component is of type T
         // - the storage type provided is correct for T
         self.world
-            .storages
             .get_component_and_ticks_with_type(
-                &self.world.archetypes,
-                &self.world.components,
                 TypeId::of::<T>(),
                 T::Storage::STORAGE_TYPE,
                 self.entity,
@@ -441,7 +416,8 @@ impl<'w> EntityMut<'w> {
                 // - entity location is valid
                 // - table row is removed below, without dropping the contents
                 // - `components` comes from the same world as `storages`
-                storages.take_component(
+                take_component(
+                    storages,
                     components,
                     removed_components,
                     component_id,
@@ -694,8 +670,7 @@ impl<'w> EntityMut<'w> {
         // - component_id is valid as checked by the line above
         // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
-            self.world.storages.get_component(
-                &self.world.archetypes,
+            self.world.get_component(
                 component_id,
                 info.storage_type(),
                 self.entity,
@@ -866,12 +841,8 @@ pub(crate) unsafe fn get_mut<T: Component>(
     // - world access is unique
     // - entity location is valid
     // - and returned component is of type T
-    // - archetypes and components comes from the same world
     world
-        .storages
         .get_component_and_ticks_with_type(
-            &world.archetypes,
-            &world.components,
             TypeId::of::<T>(),
             T::Storage::STORAGE_TYPE,
             entity,
@@ -901,21 +872,58 @@ pub(crate) unsafe fn get_mut_by_id(
     // - world access is unique
     // - entity location is valid
     // - and returned component is of type T
-    // - archetypes and components comes from the same world
     world
-        .storages
-        .get_component_and_ticks(
-            &world.archetypes,
-            component_id,
-            info.storage_type(),
-            entity,
-            location,
-        )
+        .get_component_and_ticks(component_id, info.storage_type(), entity, location)
         .map(|(value, ticks)| MutUntyped {
             // SAFETY: world access is unique and ties world lifetime to `MutUntyped` lifetime
             value: value.assert_unique(),
             ticks: TicksMut::from_tick_cells(ticks, world.last_change_tick(), change_tick),
         })
+}
+
+/// Moves component data out of storage.
+///
+/// This function leaves the underlying memory unchanged, but the component behind
+/// returned pointer is semantically owned by the caller and will not be dropped in its original location.
+/// Caller is responsible to drop component data behind returned pointer.
+///
+/// # Safety
+/// - `location` must be within bounds of the given archetype and `entity` must exist inside the `archetype`
+/// - `component_id` must be valid
+/// - `components` must come from the same world as `self`
+/// - The relevant table row **must be removed** by the caller once all components are taken, without dropping the value
+#[inline]
+pub(crate) unsafe fn take_component<'a>(
+    storages: &'a mut Storages,
+    components: &Components,
+    removed_components: &mut SparseSet<ComponentId, Vec<Entity>>,
+    component_id: ComponentId,
+    entity: Entity,
+    location: EntityLocation,
+) -> OwningPtr<'a> {
+    let component_info = components.get_info_unchecked(component_id);
+    let removed_components = removed_components.get_or_insert_with(component_id, Vec::new);
+    removed_components.push(entity);
+    match component_info.storage_type() {
+        StorageType::Table => {
+            let table = &mut storages.tables[location.table_id];
+            // SAFETY: archetypes will always point to valid columns
+            let components = table.get_column_mut(component_id).unwrap();
+            // SAFETY:
+            // - archetypes only store valid table_rows
+            // - index is in bounds as promised by caller
+            // - promote is safe because the caller promises to remove the table row without dropping it immediately afterwards
+            components
+                .get_data_unchecked_mut(location.table_row)
+                .promote()
+        }
+        StorageType::SparseSet => storages
+            .sparse_sets
+            .get_mut(component_id)
+            .unwrap()
+            .remove_and_forget(entity)
+            .unwrap(),
+    }
 }
 
 #[cfg(test)]

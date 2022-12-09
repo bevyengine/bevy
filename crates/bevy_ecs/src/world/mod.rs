@@ -12,13 +12,14 @@ use crate::{
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, TicksMut},
     component::{
-        Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
+        Component, ComponentDescriptor, ComponentId, ComponentInfo, ComponentTicks, Components,
+        StorageType, TickCells,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
     ptr::UnsafeCellDeref,
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
-    storage::{ResourceData, SparseSet, Storages},
+    storage::{Column, ComponentSparseSet, ResourceData, SparseSet, Storages, TableRow},
     system::Resource,
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -1729,8 +1730,7 @@ impl World {
         // - component_id is valid as checked by the line above
         // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
-            self.storages.get_component(
-                &self.archetypes,
+            self.get_component(
                 component_id,
                 info.storage_type(),
                 entity,
@@ -1761,6 +1761,170 @@ impl World {
             )
         }
     }
+}
+
+impl World {
+    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
+    ///
+    /// # Safety
+    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
+    /// - `location` must refer to an archetype that contains `entity`
+    /// - the caller must ensure that no aliasing rules are violated
+    #[inline]
+    pub(crate) unsafe fn get_component_and_ticks_with_type(
+        &self,
+        type_id: TypeId,
+        storage_type: StorageType,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
+        let component_id = self.components.get_id(type_id)?;
+        // SAFETY: component_id is valid, the rest is deferred to caller
+        self.get_component_and_ticks(component_id, storage_type, entity, location)
+    }
+
+    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
+    ///
+    /// # Safety
+    /// - `location` must refer to an archetype that contains `entity`
+    /// - `component_id` must be valid
+    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
+    /// - the caller must ensure that no aliasing rules are violated
+    #[inline]
+    pub(crate) unsafe fn get_component_and_ticks(
+        &self,
+        component_id: ComponentId,
+        storage_type: StorageType,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> Option<(Ptr<'_>, TickCells<'_>)> {
+        match storage_type {
+            StorageType::Table => {
+                let (components, table_row) = fetch_table(self, location, component_id)?;
+
+                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
+                Some((
+                    components.get_data_unchecked(table_row),
+                    TickCells {
+                        added: components.get_added_ticks_unchecked(table_row),
+                        changed: components.get_changed_ticks_unchecked(table_row),
+                    },
+                ))
+            }
+            StorageType::SparseSet => fetch_sparse_set(self, component_id)?.get_with_ticks(entity),
+        }
+    }
+
+    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
+    ///
+    /// # Safety
+    /// - `location` must refer to an archetype that contains `entity`
+    /// the archetype
+    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
+    /// - the caller must ensure that no aliasing rules are violated
+    #[inline]
+    pub(crate) unsafe fn get_component_with_type(
+        &self,
+        type_id: TypeId,
+        storage_type: StorageType,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> Option<Ptr<'_>> {
+        let component_id = self.components.get_id(type_id)?;
+        // SAFETY: component_id is valid, the rest is deferred to caller
+        self.get_component(component_id, storage_type, entity, location)
+    }
+
+    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
+    ///
+    /// # Safety
+    /// - `location` must refer to an archetype that contains `entity`
+    /// the archetype
+    /// - `component_id` must be valid
+    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
+    /// - the caller must ensure that no aliasing rules are violated
+    #[inline]
+    pub(crate) unsafe fn get_component(
+        &self,
+        component_id: ComponentId,
+        storage_type: StorageType,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> Option<Ptr<'_>> {
+        // SAFETY: component_id exists and is therefore valid
+        match storage_type {
+            StorageType::Table => {
+                let (components, table_row) = fetch_table(self, location, component_id)?;
+                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
+                Some(components.get_data_unchecked(table_row))
+            }
+            StorageType::SparseSet => fetch_sparse_set(self, component_id)?.get(entity),
+        }
+    }
+
+    /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`], identified by the component's [`TypeId`]
+    ///
+    /// # Safety
+    /// - `location` must refer to an archetype that contains `entity`
+    /// the archetype
+    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
+    /// - the caller must ensure that no aliasing rules are violated
+    #[inline]
+    pub(crate) unsafe fn get_ticks_with_type(
+        &self,
+        type_id: TypeId,
+        storage_type: StorageType,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> Option<ComponentTicks> {
+        let component_id = self.components.get_id(type_id)?;
+        // SAFETY: component_id is valid, the rest is deferred to caller
+        self.get_ticks(component_id, storage_type, entity, location)
+    }
+
+    /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`]
+    ///
+    /// # Safety
+    /// - `location` must refer to an archetype that contains `entity`
+    /// the archetype
+    /// - `component_id` must be valid
+    /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
+    /// - the caller must ensure that no aliasing rules are violated
+    #[inline]
+    pub(crate) unsafe fn get_ticks(
+        &self,
+        component_id: ComponentId,
+        storage_type: StorageType,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> Option<ComponentTicks> {
+        match storage_type {
+            StorageType::Table => {
+                let (components, table_row) = fetch_table(self, location, component_id)?;
+                // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
+                Some(components.get_ticks_unchecked(table_row))
+            }
+            StorageType::SparseSet => fetch_sparse_set(self, component_id)?.get_ticks(entity),
+        }
+    }
+}
+
+#[inline]
+unsafe fn fetch_table<'s>(
+    world: &World,
+    location: EntityLocation,
+    component_id: ComponentId,
+) -> Option<(&Column, TableRow)> {
+    let archetype = &world.archetypes[location.archetype_id];
+    let table = &world.storages.tables[archetype.table_id()];
+    let components = table.get_column(component_id)?;
+    let table_row = archetype.entity_table_row(location.archetype_row);
+    Some((components, table_row))
+}
+
+#[inline]
+fn fetch_sparse_set(world: &World, component_id: ComponentId) -> Option<&ComponentSparseSet> {
+    world.storages.sparse_sets.get(component_id)
 }
 
 impl fmt::Debug for World {
