@@ -127,7 +127,12 @@ use std::{
 /// struct NotSync {
 ///    counter: RefCell<usize>,
 /// }
+/// ```
 ///
+/// ```
+/// # use std::cell::RefCell;
+/// # use bevy_ecs::system::Resource;
+/// # use bevy_utils::synccell::SyncCell;
 /// // This will compile.
 /// #[derive(Component)]
 /// struct ActuallySync {
