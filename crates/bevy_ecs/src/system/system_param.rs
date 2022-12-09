@@ -96,23 +96,23 @@ use std::{
 /// having mutable access (`&mut T` only, never `&T`), but makes it safe to reference across multiple
 /// threads.
 ///
+/// This will fail to compile since `RefCell` is `!Sync`.
 /// ```compile_fail
 /// # use std::cell::RefCell;
 /// # use bevy_ecs::system::Resource;
-/// use bevy_utils::synccell::SyncCell;
 ///
-/// // This will fail to compile since RefCell is !Sync.
 /// #[derive(Resource)]
 /// struct NotSync {
 ///    counter: RefCell<usize>,
 /// }
 /// ```
 ///
+/// This will compile since the `RefCell` is wrapped with `SyncCell`.
 /// ```
 /// # use std::cell::RefCell;
 /// # use bevy_ecs::system::Resource;
-/// # use bevy_utils::synccell::SyncCell;
-/// // This will compile.
+/// use bevy_utils::synccell::SyncCell;
+///
 /// #[derive(Resource)]
 /// struct ActuallySync {
 ///    counter: SyncCell<RefCell<usize>>,
