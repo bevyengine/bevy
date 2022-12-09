@@ -1,5 +1,7 @@
+mod alpha_mask_pass_3d_node;
 mod camera_3d;
-mod main_pass_3d_node;
+mod opaque_pass_3d_node;
+mod transparent_pass_3d_node;
 
 pub mod graph {
     pub const NAME: &str = "core_3d";
@@ -7,6 +9,9 @@ pub mod graph {
         pub const VIEW_ENTITY: &str = "view_entity";
     }
     pub mod node {
+        pub const OPAQUE_PASS: &str = "opaque_pass";
+        pub const ALPHA_MASK_PASS: &str = "alpha_mask_pass";
+        pub const TRANSPARENT_PASS: &str = "transparent_pass";
         pub const MAIN_PASS: &str = "main_pass";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const UPSCALING: &str = "upscaling";
@@ -16,8 +21,10 @@ pub mod graph {
 
 use std::cmp::Reverse;
 
+pub use alpha_mask_pass_3d_node::*;
 pub use camera_3d::*;
-pub use main_pass_3d_node::*;
+pub use opaque_pass_3d_node::*;
+pub use transparent_pass_3d_node::*;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
@@ -65,14 +72,62 @@ impl Plugin for Core3dPlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
+        
+        let mut main_pass_sub_graph = RenderGraph::default();
+        let main_pass_input_node_id = main_pass_sub_graph.set_input(vec![SlotInfo::new(
+            graph::input::VIEW_ENTITY,
+            SlotType::Entity,
+        )]);
 
-        let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
+        // Opaque pass
+        let opaque_pass = OpaquePass3dNode::new(&mut render_app.world);
+        main_pass_sub_graph.add_node(graph::node::OPAQUE_PASS, opaque_pass);
+        main_pass_sub_graph
+            .add_slot_edge(
+                main_pass_input_node_id,
+                graph::input::VIEW_ENTITY,
+                graph::node::OPAQUE_PASS,
+                OpaquePass3dNode::IN_VIEW,
+            )
+            .unwrap();
+
+        // Alpha mask pass
+        let alpha_mask_pass = AlphaMaskPass3dNode::new(&mut render_app.world);
+        main_pass_sub_graph.add_node(graph::node::ALPHA_MASK_PASS, alpha_mask_pass);
+        main_pass_sub_graph
+            .add_slot_edge(
+                main_pass_input_node_id,
+                graph::input::VIEW_ENTITY,
+                graph::node::ALPHA_MASK_PASS,
+                AlphaMaskPass3dNode::IN_VIEW,
+            )
+            .unwrap();
+        main_pass_sub_graph
+            .add_node_edge(graph::node::OPAQUE_PASS, graph::node::ALPHA_MASK_PASS)
+            .unwrap();
+        
+        // Transparent pass
+        let transparent_pass = TransparentPass3dNode::new(&mut render_app.world);
+        main_pass_sub_graph.add_node(graph::node::TRANSPARENT_PASS, transparent_pass);
+        main_pass_sub_graph
+            .add_slot_edge(
+                main_pass_input_node_id,
+                graph::input::VIEW_ENTITY,
+                graph::node::TRANSPARENT_PASS,
+                TransparentPass3dNode::IN_VIEW,
+            )
+            .unwrap();
+        main_pass_sub_graph
+            .add_node_edge(graph::node::ALPHA_MASK_PASS, graph::node::TRANSPARENT_PASS)
+            .unwrap();
+        
         let tonemapping = TonemappingNode::new(&mut render_app.world);
         let upscaling = UpscalingNode::new(&mut render_app.world);
-        let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
+        let mut graph = render_app.world.resource_mut::<RenderGraph>();
+        
         let mut draw_3d_graph = RenderGraph::default();
-        draw_3d_graph.add_node(graph::node::MAIN_PASS, pass_node_3d);
+        draw_3d_graph.add_sub_graph(graph::node::MAIN_PASS, main_pass_sub_graph);
         draw_3d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
         draw_3d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
         draw_3d_graph.add_node(graph::node::UPSCALING, upscaling);
@@ -85,7 +140,7 @@ impl Plugin for Core3dPlugin {
                 input_node_id,
                 graph::input::VIEW_ENTITY,
                 graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
+                graph::input::VIEW_ENTITY,
             )
             .unwrap();
         draw_3d_graph
