@@ -275,6 +275,12 @@ By giving feedback on this work (and related supporting work), you can help us m
 Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
 As discussed in [*How we're organized*](#how-were-organized), this role only requires good faith and a basic understanding of our development process.
 
+### How to adopt pull requests
+
+When you want to contribute pull request with the label *S-Adopt-Me*, to preserve the credit of the original authors, you must reference the PR hash in the description.
+
+* Example: `Adopted #number-pull-request`
+
 ### Maintaining code
 
 Maintainers can merge uncontroversial pull requests that have at least two approvals (or at least one for trivial changes).
