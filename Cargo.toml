@@ -1613,3 +1613,9 @@ inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[profile.stress-test]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+panic = "abort"
