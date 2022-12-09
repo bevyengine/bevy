@@ -1,5 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
+use bevy_core::FrameCount;
 use bevy_core_pipeline::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
@@ -31,7 +32,6 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     Extract, RenderApp, RenderStage,
 };
-use bevy_utils::HashMap;
 
 mod draw_3d_graph {
     pub mod node {
@@ -152,12 +152,6 @@ impl Node for TAANode {
             return Ok(());
         };
         let view_target = view_target.post_process_write();
-
-        render_context.command_encoder.copy_texture_to_texture(
-            taa_history_textures.write.texture.as_image_copy(),
-            taa_history_textures.read.texture.as_image_copy(),
-            taa_history_textures.size,
-        );
 
         let taa_bind_group = render_context
             .render_device
@@ -388,34 +382,30 @@ fn extract_taa_settings(
 struct TAAHistoryTextures {
     write: CachedTexture,
     read: CachedTexture,
-    size: Extent3d,
 }
 
 fn prepare_taa_history_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
+    frame_count: Res<FrameCount>,
     views: Query<
         (Entity, &ExtractedCamera, &ExtractedView, &PrepassSettings),
         With<TemporalAntialiasSettings>,
     >,
 ) {
-    let mut write_textures = HashMap::default();
-    let mut read_textures = HashMap::default();
     let views = views.iter().filter(|(_, _, _, prepass_settings)| {
         prepass_settings.velocity_enabled && prepass_settings.depth_enabled
     });
     for (entity, camera, view, _) in views {
         if let Some(physical_viewport_size) = camera.physical_viewport_size {
-            let size = Extent3d {
-                depth_or_array_layers: 1,
-                width: physical_viewport_size.x,
-                height: physical_viewport_size.y,
-            };
-
-            let texture_descriptor = TextureDescriptor {
-                label: Some("taa_history_write_texture"),
-                size,
+            let mut texture_descriptor = TextureDescriptor {
+                label: None,
+                size: Extent3d {
+                    depth_or_array_layers: 1,
+                    width: physical_viewport_size.x,
+                    height: physical_viewport_size.y,
+                },
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
@@ -424,34 +414,28 @@ fn prepare_taa_history_textures(
                 } else {
                     TextureFormat::bevy_default()
                 },
-                usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::RENDER_ATTACHMENT,
             };
-            let write = write_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
-                .clone();
 
-            let texture_descriptor = TextureDescriptor {
-                label: Some("taa_history_read_texture"),
-                size,
-                mip_level_count: 1,
-                sample_count: 1,
-                dimension: TextureDimension::D2,
-                format: if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                },
-                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
+            texture_descriptor.label = Some("taa_history_1_texture");
+            let history_1_texture = texture_cache.get(&render_device, texture_descriptor.clone());
+
+            texture_descriptor.label = Some("taa_history_2_texture");
+            let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
+
+            let textures = if frame_count.0 % 2 == 0 {
+                TAAHistoryTextures {
+                    write: history_1_texture,
+                    read: history_2_texture,
+                }
+            } else {
+                TAAHistoryTextures {
+                    write: history_2_texture,
+                    read: history_1_texture,
+                }
             };
-            let read = read_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
-                .clone();
 
-            commands
-                .entity(entity)
-                .insert(TAAHistoryTextures { write, read, size });
+            commands.entity(entity).insert(textures);
         }
     }
 }
