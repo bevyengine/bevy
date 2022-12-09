@@ -193,8 +193,8 @@ impl<Param: SystemParam> SystemState<Param> {
     /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
-    pub fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
-        self.param_state.apply(system_meta, world);
+    pub fn apply(&mut self, world: &mut World) {
+        self.param_state.apply(&self.meta, world);
     }
 
     #[inline]
