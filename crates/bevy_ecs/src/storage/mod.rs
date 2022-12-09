@@ -35,7 +35,7 @@ impl Storages {
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
-    pub unsafe fn get_component_and_ticks_with_type(
+    pub(crate) unsafe fn get_component_and_ticks_with_type(
         &self,
         archetypes: &Archetypes,
         components: &Components,
@@ -58,7 +58,7 @@ impl Storages {
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
-    pub unsafe fn get_component_and_ticks(
+    pub(crate) unsafe fn get_component_and_ticks(
         &self,
         archetypes: &Archetypes,
         component_id: ComponentId,
@@ -93,7 +93,7 @@ impl Storages {
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
-    pub unsafe fn get_component_with_type(
+    pub(crate) unsafe fn get_component_with_type(
         &self,
         archetypes: &Archetypes,
         components: &Components,
@@ -117,7 +117,7 @@ impl Storages {
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
-    pub unsafe fn get_component(
+    pub(crate) unsafe fn get_component(
         &self,
         archetypes: &Archetypes,
         component_id: ComponentId,
@@ -146,7 +146,7 @@ impl Storages {
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
-    pub unsafe fn get_ticks_with_type(
+    pub(crate) unsafe fn get_ticks_with_type(
         &self,
         archetypes: &Archetypes,
         components: &Components,
@@ -170,7 +170,7 @@ impl Storages {
     /// - `Archetypes` and `Components` must come from the world this of this `Storages`
     /// - the caller must ensure that no aliasing rules are violated
     #[inline]
-    pub unsafe fn get_ticks(
+    pub(crate) unsafe fn get_ticks(
         &self,
         archetypes: &Archetypes,
         component_id: ComponentId,
