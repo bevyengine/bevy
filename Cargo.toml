@@ -1613,3 +1613,6 @@ inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[profile.release]
+lto = "fat"

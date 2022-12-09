@@ -23,6 +23,7 @@ pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 mod iter;
+pub use core_affinity;
 pub use iter::ParallelIterator;
 
 #[allow(missing_docs)]

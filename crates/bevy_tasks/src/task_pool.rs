@@ -1,3 +1,4 @@
+use core_affinity::CoreId;
 use std::{
     future::Future,
     marker::PhantomData,
@@ -13,7 +14,7 @@ use futures_lite::{future, pin, FutureExt};
 use crate::Task;
 
 /// Used to create a [`TaskPool`]
-#[derive(Debug, Default, Clone)]
+#[derive(Clone)]
 #[must_use]
 pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most `num_threads` threads.
@@ -24,12 +25,25 @@ pub struct TaskPoolBuilder {
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
     /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
     thread_name: Option<String>,
+
+    core_id_gen: Option<Arc<dyn Fn() -> Option<CoreId> + Send + Sync>>,
+}
+
+impl Default for TaskPoolBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TaskPoolBuilder {
     /// Creates a new [`TaskPoolBuilder`] instance
-    pub fn new() -> Self {
-        Self::default()
+    pub const fn new() -> Self {
+        Self {
+            num_threads: None,
+            thread_name: None,
+            stack_size: None,
+            core_id_gen: None,
+        }
     }
 
     /// Override the number of threads created for the pool. If unset, we default to the number
@@ -52,13 +66,19 @@ impl TaskPoolBuilder {
         self
     }
 
+    /// Sets a callback for getting a per-thread [`CoreId`]. If set, it'll be
+    /// called once when starting up each thread in the [`TaskPool`].
+    pub fn core_id_fn<F>(mut self, f: F) -> Self
+    where
+        F: Fn() -> Option<CoreId> + Send + Sync + 'static,
+    {
+        self.core_id_gen = Some(Arc::new(f));
+        self
+    }
+
     /// Creates a new [`TaskPool`] based on the current options.
     pub fn build(self) -> TaskPool {
-        TaskPool::new_internal(
-            self.num_threads,
-            self.stack_size,
-            self.thread_name.as_deref(),
-        )
+        TaskPool::new_internal(self)
     }
 }
 
@@ -88,35 +108,45 @@ impl TaskPool {
         TaskPoolBuilder::new().build()
     }
 
-    fn new_internal(
-        num_threads: Option<usize>,
-        stack_size: Option<usize>,
-        thread_name: Option<&str>,
-    ) -> Self {
+    fn new_internal(builder: TaskPoolBuilder) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
         let executor = Arc::new(async_executor::Executor::new());
 
-        let num_threads = num_threads.unwrap_or_else(crate::available_parallelism);
+        let num_threads = builder
+            .num_threads
+            .unwrap_or_else(crate::available_parallelism);
 
         let threads = (0..num_threads)
             .map(|i| {
                 let ex = Arc::clone(&executor);
                 let shutdown_rx = shutdown_rx.clone();
 
-                let thread_name = if let Some(thread_name) = thread_name {
+                let thread_name = if let Some(thread_name) = builder.thread_name.as_deref() {
                     format!("{thread_name} ({i})")
                 } else {
                     format!("TaskPool ({i})")
                 };
                 let mut thread_builder = thread::Builder::new().name(thread_name);
 
-                if let Some(stack_size) = stack_size {
+                if let Some(stack_size) = builder.stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
                 }
 
+                let core_id_gen = builder.core_id_gen.clone();
                 thread_builder
                     .spawn(move || {
+                        if let Some(core_id_gen) = core_id_gen {
+                            if let Some(core_id) = core_id_gen() {
+                                core_affinity::set_for_current(core_id);
+                                println!(
+                                    "Assigned thread {:?} to core {:?}",
+                                    std::thread::current().name(),
+                                    core_id
+                                );
+                            }
+                        }
+
                         TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
                             loop {
                                 let res = std::panic::catch_unwind(|| {
