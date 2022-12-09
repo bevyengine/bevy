@@ -44,16 +44,17 @@ fn clip_towards_aabb_center(previous_color: vec3<f32>, current_color: vec3<f32>,
 }
 
 // http://graphicrants.blogspot.com/2013/12/tone-mapping.html
-fn karis_weight(color: vec3<f32>) -> f32 {
-    return 1.0 / (1.0 + tonemapping_luminance(color));
+fn karis_weight(color: vec3<f32>) -> vec4<f32> {
+    let weight = 1.0 / (1.0 + tonemapping_luminance(color));
+    return vec4(color, 1.0) * weight;
 }
 
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
-    let c = textureSample(view_target, nearest_sampler, uv).rgb;
+    var sample = textureSample(view_target, nearest_sampler, uv).rgb;
 #ifdef TONEMAP
-    let c = reinhard_luminance(c);
+    sample = karis_weight(sample).rgb;
 #endif
-    return RGB_to_YCoCg(c);
+    return RGB_to_YCoCg(sample);
 }
 
 @fragment
@@ -65,7 +66,9 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let original_color = textureSample(view_target, nearest_sampler, uv);
     let current_color = original_color.rgb;
 #ifdef TONEMAP
-    let current_color = reinhard_luminance(current_color);
+    let current_color = karis_weight(original_color.rgb);
+#else
+    let current_color = vec4(original_color.rgb, 1.0);
 #endif
 
     // Pick the closest velocity (reduces aliasing on the edges of moving entities)
@@ -118,13 +121,18 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_12.y)).rgb * w12.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
+#ifdef TONEMAP
+    let previous_color = karis_weight(previous_color);
+#else
+    let previous_color = vec4(previous_color, 1.0);
+#endif
 
     // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
     let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
     let s_tm = sample_view_target(uv + vec2(0.0, texel_size.y));
     let s_tr = sample_view_target(uv + texel_size);
     let s_ml = sample_view_target(uv - vec2(texel_size.x, 0.0));
-    let s_mm = RGB_to_YCoCg(current_color);
+    let s_mm = RGB_to_YCoCg(current_color.rgb);
     let s_mr = sample_view_target(uv + vec2(texel_size.x, 0.0));
     let s_bl = sample_view_target(uv - texel_size);
     let s_bm = sample_view_target(uv - vec2(0.0, texel_size.y));
@@ -133,23 +141,19 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let moment_2 = (s_tl * s_tl) + (s_tm * s_tm) + (s_tr * s_tr) + (s_ml * s_ml) + (s_mm * s_mm) + (s_mr * s_mr) + (s_bl * s_bl) + (s_bm * s_bm) + (s_br * s_br);
     let mean = moment_1 / 9.0;
     let variance = sqrt((moment_2 / 9.0) - (mean * mean));
-    let previous_color = RGB_to_YCoCg(previous_color);
-    let previous_color = clip_towards_aabb_center(previous_color, s_mm, mean - variance, mean + variance);
-    let previous_color = YCoCg_to_RGB(previous_color);
+    let previous_color_clipped = RGB_to_YCoCg(previous_color.rgb);
+    let previous_color_clipped = clip_towards_aabb_center(previous_color_clipped, s_mm, mean - variance, mean + variance);
+    let previous_color_clipped = YCoCg_to_RGB(previous_color_clipped);
 
     // Blend current and past sample according to karis weight (reduces flickering)
-    let current_weight = 0.1 * karis_weight(current_color);
-    let previous_weight = 0.9 * karis_weight(previous_color);
-    var output = (current_color * current_weight) + (previous_color * previous_weight);
+    let current_weight = 0.1 * current_color.w;
+    let previous_weight = 0.9 * previous_color.w;
+    var output = (current_color.rgb * current_weight) + (previous_color_clipped * previous_weight);
     output /= current_weight + previous_weight;
 
     // Write output to history and view target
     var out: Output;
     out.history = vec4(output, original_color.a);
-#ifdef TONEMAP
-    out.view_target = vec4(inverse_reinhard_luminance(out.history.rgb), out.history.a);
-#else
     out.view_target = out.history;
-#endif
     return out;
 }
