@@ -3,8 +3,9 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    ApplyError, Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo,
+    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration,
+    Typed,
 };
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
@@ -104,6 +105,10 @@ where
 
     fn apply(&mut self, value: &dyn Reflect) {
         crate::list_apply(self, value);
+    }
+
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        crate::list_try_apply(self, value)
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {

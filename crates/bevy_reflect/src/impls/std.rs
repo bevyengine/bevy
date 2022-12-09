@@ -1,11 +1,11 @@
 use crate::std_traits::ReflectDefault;
 use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
 use crate::{
-    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
-    EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
-    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TupleVariantInfo,
-    TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
-    VariantInfo, VariantType,
+    map_apply, map_partial_eq, map_try_apply, ApplyError, Array, ArrayInfo, ArrayIter, DynamicEnum,
+    DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map,
+    MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize,
+    TupleVariantInfo, TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo,
+    VariantFieldIter, VariantInfo, VariantType,
 };
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
@@ -264,6 +264,10 @@ impl<T: FromReflect> Reflect for Vec<T> {
         crate::list_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        crate::list_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -448,6 +452,10 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
         map_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        map_try_apply(self, value)
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -584,6 +592,11 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
         crate::array_apply(self, value);
+    }
+
+    #[inline]
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        crate::array_try_apply(self, value)
     }
 
     #[inline]
@@ -829,6 +842,49 @@ impl<T: FromReflect> Reflect for Option<T> {
     }
 
     #[inline]
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        if let ReflectRef::Enum(value) = value.reflect_ref() {
+            if self.variant_name() == value.variant_name() {
+                // Same variant -> just update fields
+                for (index, field) in value.iter_fields().enumerate() {
+                    if let Some(v) = self.field_at_mut(index) {
+                        v.try_apply(field.value())?;
+                    }
+                }
+            } else {
+                // New variant -> perform a switch
+                match value.variant_name() {
+                    "Some" => {
+                        let field = value.field_at(0);
+                        if field.is_none() {
+                            return Err(ApplyError::AbsentField(
+                                std::any::type_name::<Option<T>>().to_string(),
+                            ));
+                        }
+                        let field2 = field.unwrap().clone_value().take::<T>();
+                        if let Err(_e) = field2 {
+                            return Err(ApplyError::MismatchedFieldTypes(
+                                std::any::type_name::<Option<T>>().to_string(),
+                                std::any::type_name::<T>().to_string(),
+                            ));
+                        }
+                        *self = Some(field2.unwrap());
+                    }
+                    "None" => {
+                        *self = None;
+                    }
+                    _ => {
+                        return Err(ApplyError::WrongType(
+                            std::any::type_name::<Self>().to_string(),
+                        ))
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -956,6 +1012,18 @@ impl Reflect for Cow<'static, str> {
         }
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let value = value.as_any();
+        if let Some(value) = value.downcast_ref::<Self>() {
+            *self = value.clone();
+        } else {
+            return Err(ApplyError::WrongType(
+                std::any::type_name::<Self>().to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
@@ -1062,6 +1130,18 @@ impl Reflect for &'static Path {
         } else {
             panic!("Value is not a {}.", std::any::type_name::<Self>());
         }
+    }
+
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        let value = value.as_any();
+        if let Some(&value) = value.downcast_ref::<Self>() {
+            *self = value;
+        } else {
+            return Err(ApplyError::WrongType(
+                std::any::type_name::<Self>().to_string(),
+            ));
+        }
+        Ok(())
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {

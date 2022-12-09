@@ -185,6 +185,20 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 }
             }
 
+            #[inline]
+            fn try_apply(&mut self, value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError> {
+                if let #bevy_reflect_path::ReflectRef::TupleStruct(struct_value) = value.reflect_ref() {
+                    for (i, value) in struct_value.iter_fields().enumerate() {
+                        if let Some(v) = #bevy_reflect_path::TupleStruct::field_mut(self, i) {
+                            v.try_apply(value)?;
+                        }
+                    }
+                } else {
+                    return Err(#bevy_reflect_path::ApplyError::MismatchedTypes("TupleStruct".to_string()));
+                }
+                Ok(())
+            }
+
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::TupleStruct(self)
             }

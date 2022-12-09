@@ -1,6 +1,6 @@
 use crate::{
-    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, Typed,
+    utility::NonGenericTypeInfoCell, ApplyError, DynamicInfo, Reflect, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, Typed,
 };
 use std::{
     any::{Any, TypeId},
@@ -216,6 +216,10 @@ impl Reflect for DynamicArray {
         array_apply(self, value);
     }
 
+    fn try_apply(&mut self, value: &dyn Reflect) -> Result<(), ApplyError> {
+        array_try_apply(self, value)
+    }
+
     #[inline]
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
@@ -358,6 +362,31 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
     } else {
         panic!("Attempted to apply a non-`Array` type to an `Array` type.");
     }
+}
+
+/// Tries to apply the reflected [array](Array) data to the given [array](Array) and
+/// returns a Result.
+///
+/// # Errors
+///
+/// * Returns an [`ApplyError::DifferentSize`] if the two arrays have differing lengths.
+/// * Returns an [`ApplyError::MismatchedTypes`] if the reflected value is not a
+///   [valid array](ReflectRef::Array).
+///
+#[inline]
+pub fn array_try_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) -> Result<(), ApplyError> {
+    if let ReflectRef::Array(reflect_array) = reflect.reflect_ref() {
+        if array.len() != reflect_array.len() {
+            return Err(ApplyError::DifferentSize("Array".to_string()));
+        }
+        for (i, value) in reflect_array.iter().enumerate() {
+            let v = array.get_mut(i).unwrap();
+            v.try_apply(value)?;
+        }
+    } else {
+        return Err(ApplyError::MismatchedTypes("Array".to_string()));
+    }
+    Ok(())
 }
 
 /// Compares two [arrays](Array) (one concrete and one reflected) to see if they

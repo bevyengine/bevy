@@ -262,6 +262,46 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 }
             }
 
+            #[inline]
+            fn try_apply(&mut self, #ref_value: &dyn #bevy_reflect_path::Reflect) -> Result<(), #bevy_reflect_path::ApplyError>  {
+                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
+                    if #bevy_reflect_path::Enum::variant_name(self) == #ref_value.variant_name() {
+                        // Same variant -> just update fields
+                        match #ref_value.variant_type() {
+                            #bevy_reflect_path::VariantType::Struct => {
+                                for field in #ref_value.iter_fields() {
+                                    let name = field.name().unwrap();
+                                    if let Some(v) = #bevy_reflect_path::Enum::field_mut(self, name) {
+                                       v.try_apply(field.value())?;
+                                    }
+                                }
+                            }
+                            #bevy_reflect_path::VariantType::Tuple => {
+                                for (index, field) in #ref_value.iter_fields().enumerate() {
+                                    if let Some(v) = #bevy_reflect_path::Enum::field_at_mut(self, index) {
+                                        v.try_apply(field.value())?;
+                                    }
+                                }
+                            }
+                            _ => {}
+                        }
+                    } else {
+                        // New variant -> perform a switch
+                        match #ref_value.variant_name() {
+                            #(#variant_names => {
+                                *self = #variant_constructors
+                            })*
+                            name => {
+                                return Err(#bevy_reflect_path::ApplyError::UnknownVariant(name.to_string(), std::any::type_name::<Self>().to_string()));
+                            }
+                        }
+                    }
+                } else {
+                    return Err(#bevy_reflect_path::ApplyError::WrongType("enum".to_string()));
+                }
+                Ok(())
+            }
+
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::Enum(self)
             }
