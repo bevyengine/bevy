@@ -4,7 +4,7 @@ use crate::{
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
-    storage::{ComponentSparseSet, Table},
+    storage::{ComponentSparseSet, Table, TableRow},
     world::{Mut, World},
 };
 use bevy_ecs_macros::all_tuples;
@@ -342,7 +342,7 @@ pub unsafe trait WorldQuery {
     /// # Safety
     /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
     /// that the returned value is not used in any way that would cause two `QueryItem<Self>` for the same
-    /// `archetype_index` or `table_row` to be alive at the same time.
+    /// `archetype_row` or `table_row` to be alive at the same time.
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w>;
 
     /// Returns true if (and only if) every table of every archetype matched by this fetch contains
@@ -395,7 +395,7 @@ pub unsafe trait WorldQuery {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w>;
 
     /// # Safety
@@ -404,7 +404,11 @@ pub unsafe trait WorldQuery {
     /// `table_row` must be in the range of the current table and archetype.
     #[allow(unused_variables)]
     #[inline(always)]
-    unsafe fn filter_fetch(fetch: &mut Self::Fetch<'_>, entity: Entity, table_row: usize) -> bool {
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
         true
     }
 
@@ -484,7 +488,7 @@ unsafe impl WorldQuery for Entity {
     unsafe fn fetch<'w>(
         _fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        _table_row: usize,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
         entity
     }
@@ -595,13 +599,13 @@ unsafe impl<T: Component> WorldQuery for &T {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => fetch
                 .table_components
                 .debug_checked_unwrap()
-                .get(table_row)
+                .get(table_row.index())
                 .deref(),
             StorageType::SparseSet => fetch
                 .sparse_set
@@ -743,17 +747,17 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => {
                 let (table_components, added_ticks, changed_ticks) =
                     fetch.table_data.debug_checked_unwrap();
                 Mut {
-                    value: table_components.get(table_row).deref_mut(),
+                    value: table_components.get(table_row.index()).deref_mut(),
                     ticks: Ticks {
-                        added: added_ticks.get(table_row).deref_mut(),
-                        changed: changed_ticks.get(table_row).deref_mut(),
+                        added: added_ticks.get(table_row.index()).deref_mut(),
+                        changed: changed_ticks.get(table_row.index()).deref_mut(),
                         change_tick: fetch.change_tick,
                         last_change_tick: fetch.last_change_tick,
                     },
@@ -872,7 +876,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
         fetch
             .matches
@@ -1082,7 +1086,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
-        table_row: usize,
+        table_row: TableRow,
     ) -> Self::Item<'w> {
         match T::Storage::STORAGE_TYPE {
             StorageType::Table => ChangeTrackers {
@@ -1091,12 +1095,12 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
                         added: fetch
                             .table_added
                             .debug_checked_unwrap()
-                            .get(table_row)
+                            .get(table_row.index())
                             .read(),
                         changed: fetch
                             .table_changed
                             .debug_checked_unwrap()
-                            .get(table_row)
+                            .get(table_row.index())
                             .read(),
                     }
                 },
@@ -1210,7 +1214,7 @@ macro_rules! impl_tuple_fetch {
             unsafe fn fetch<'w>(
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
-                _table_row: usize
+                _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($name,)*) = _fetch;
                 ($($name::fetch($name, _entity, _table_row),)*)
@@ -1220,7 +1224,7 @@ macro_rules! impl_tuple_fetch {
             unsafe fn filter_fetch<'w>(
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
-                _table_row: usize
+                _table_row: TableRow
             ) -> bool {
                 let ($($name,)*) = _fetch;
                 true $(&& $name::filter_fetch($name, _entity, _table_row))*
@@ -1329,7 +1333,7 @@ macro_rules! impl_anytuple_fetch {
             unsafe fn fetch<'w>(
                 _fetch: &mut Self::Fetch<'w>,
                 _entity: Entity,
-                _table_row: usize
+                _table_row: TableRow
             ) -> Self::Item<'w> {
                 let ($($name,)*) = _fetch;
                 ($(
@@ -1443,7 +1447,7 @@ unsafe impl<Q: WorldQuery> WorldQuery for NopWorldQuery<Q> {
     unsafe fn fetch<'w>(
         _fetch: &mut Self::Fetch<'w>,
         _entity: Entity,
-        _table_row: usize,
+        _table_row: TableRow,
     ) -> Self::Item<'w> {
     }
 

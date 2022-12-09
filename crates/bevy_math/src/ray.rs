@@ -17,7 +17,7 @@ impl Ray {
         let denominator = plane_normal.dot(self.direction);
         if denominator.abs() > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(plane_normal) / denominator;
-            if distance >= f32::EPSILON {
+            if distance > f32::EPSILON {
                 return Some(distance);
             }
         }
@@ -32,17 +32,17 @@ impl Ray {
 }
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
 
     #[test]
-    fn intersects_plane() {
+    fn intersect_plane() {
         let ray = Ray {
             origin: Vec3::ZERO,
             direction: Vec3::Z,
         };
 
-        // Orthogonal, and test that plane_normal direction doesn't matter
+        // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::Z));
         assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::NEG_Z));
         assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::Z));
@@ -52,10 +52,10 @@ mod test {
         assert_eq!(Some(1.), ray.intersect_plane(Vec3::Z, Vec3::ONE));
         assert_eq!(None, ray.intersect_plane(Vec3::NEG_Z, Vec3::ONE));
 
-        // Parralel
+        // Parallel
         assert_eq!(None, ray.intersect_plane(Vec3::X, Vec3::X));
 
-        // Parralel with simulated rounding error
+        // Parallel with simulated rounding error
         assert_eq!(
             None,
             ray.intersect_plane(Vec3::X, Vec3::X + Vec3::Z * f32::EPSILON)
