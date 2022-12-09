@@ -9,6 +9,7 @@ use serde::{
     ser::SerializeStruct,
     Deserialize, Deserializer, Serialize, Serializer,
 };
+use std::borrow::Cow;
 use std::fmt::Formatter;
 
 pub const SCENE_STRUCT: &str = "Scene";
@@ -352,7 +353,7 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
     {
         let mut added = HashSet::new();
         let mut components = Vec::new();
-        while let Some(key) = map.next_key::<String>()? {
+        while let Some(key) = map.next_key::<Cow<'de, str>>()? {
             if !added.insert(key.clone()) {
                 return Err(Error::custom(format!("duplicate component: `{key}`")));
             }

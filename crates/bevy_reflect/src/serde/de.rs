@@ -12,6 +12,7 @@ use serde::de::{
 };
 use serde::Deserialize;
 use std::any::TypeId;
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::slice::Iter;
@@ -273,7 +274,7 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
         A: MapAccess<'de>,
     {
         let type_name = map
-            .next_key::<String>()?
+            .next_key::<Cow<'de, str>>()?
             .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
 
         let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
