@@ -5,7 +5,7 @@ use thread_local::ThreadLocal;
 use crate::{
     entity::Entities,
     prelude::World,
-    system::{SystemParam, SystemParamFetch, SystemParamState},
+    system::{SystemParam, SystemParamFetch, SystemParamState, SystemMeta},
 };
 
 use super::{CommandQueue, Commands};
@@ -74,7 +74,13 @@ unsafe impl SystemParamState for ParallelCommandsState {
         Self::default()
     }
 
-    fn apply(&mut self, world: &mut World) {
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span = bevy_utils::tracing::info_span!(
+            "system_commands",
+            name = _system_meta.name()
+        )
+        .entered();
         for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
         }

@@ -39,6 +39,12 @@ impl SystemMeta {
 
     /// Returns true if the system is [`Send`].
     #[inline]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Returns true if the system is [`Send`].
+    #[inline]
     pub fn is_send(&self) -> bool {
         self.is_send
     }
@@ -187,8 +193,8 @@ impl<Param: SystemParam> SystemState<Param> {
     /// by a [`Commands`](`super::Commands`) parameter to the given [`World`].
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
-    pub fn apply(&mut self, world: &mut World) {
-        self.param_state.apply(world);
+    pub fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        self.param_state.apply(system_meta, world);
     }
 
     #[inline]
@@ -422,7 +428,7 @@ where
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
-        param_state.apply(world);
+        param_state.apply(&self.system_meta, world);
     }
 
     #[inline]

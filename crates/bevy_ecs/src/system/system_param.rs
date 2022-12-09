@@ -108,7 +108,8 @@ pub unsafe trait SystemParamState: Send + Sync + 'static {
     #[inline]
     fn new_archetype(&mut self, _archetype: &Archetype, _system_meta: &mut SystemMeta) {}
     #[inline]
-    fn apply(&mut self, _world: &mut World) {}
+    #[allow(unused_variables)]
+    fn apply(&mut self, system_meta: &SystemMeta, _world: &mut World) {}
 }
 
 /// A [`SystemParamFetch`] that only reads a given [`World`].
@@ -595,7 +596,13 @@ unsafe impl SystemParamState for CommandQueue {
         Default::default()
     }
 
-    fn apply(&mut self, world: &mut World) {
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span = bevy_utils::tracing::info_span!(
+            "system_commands",
+            name = _system_meta.name()
+        )
+        .entered();
         self.apply(world);
     }
 }
@@ -1499,9 +1506,9 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            fn apply(&mut self, _world: &mut World) {
+            fn apply(&mut self, _system_meta: &SystemMeta, _world: &mut World) {
                 let ($($param,)*) = self;
-                $($param.apply(_world);)*
+                $($param.apply(_system_meta, _world);)*
             }
         }
     };
@@ -1640,8 +1647,8 @@ unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
         self.0.new_archetype(archetype, system_meta);
     }
 
-    fn apply(&mut self, world: &mut World) {
-        self.0.apply(world);
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        self.0.apply(system_meta, world);
     }
 }
 
