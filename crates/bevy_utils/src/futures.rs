@@ -10,7 +10,7 @@ use std::{
 /// Consumes the future, polls it once, and immediately returns the output
 /// or returns `None` if it wasn't ready yet.
 ///
-/// This will drop the future which will cancel it if it's not ready.
+/// This will cancel the future if it's not ready.
 pub fn now_or_never<F: Future>(mut future: F) -> Option<F::Output> {
     let noop_waker = noop_waker();
     let mut cx = Context::from_waker(&noop_waker);
