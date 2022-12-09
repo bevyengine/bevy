@@ -421,7 +421,7 @@ impl Color {
         self
     }
 
-    /// Returns this color with a new aplha value.
+    /// Returns this color with a new alpha value.
     #[must_use]
     pub fn with_a(mut self, a: f32) -> Self {
         self.set_a(a);
