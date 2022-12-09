@@ -1367,8 +1367,7 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
-    /// `component_id` must exist in this [`World`].
+    /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
     pub unsafe fn insert_resource_by_id(
         &mut self,
@@ -1393,8 +1392,7 @@ impl World {
     /// thread that the original value was inserted from.
     ///
     /// # Safety
-    /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world
-    /// `component_id` must exist in this [`World`].
+    /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
     pub unsafe fn insert_non_send_by_id(
         &mut self,
