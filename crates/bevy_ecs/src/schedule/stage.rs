@@ -230,8 +230,7 @@ impl SystemStage {
 
     pub fn apply_buffers(&mut self, world: &mut World) {
         #[cfg(feature = "trace")]
-        let _span = bevy_utils::tracing::info_span!("stage::apply_buffers")
-            .entered();
+        let _span = bevy_utils::tracing::info_span!("stage::apply_buffers").entered();
         for container in &mut self.parallel {
             container.system_mut().apply_buffers(world);
         }
