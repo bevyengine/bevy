@@ -186,16 +186,17 @@ impl SkinnedMeshJoints {
         buffer: &mut BufferVec<Mat4>,
     ) -> Option<Self> {
         let inverse_bindposes = inverse_bindposes.get(&skin.inverse_bindposes)?;
-        let bindposes = inverse_bindposes.iter();
-        let skin_joints = skin.joints.iter();
         let start = buffer.len();
-        for (inverse_bindpose, joint) in bindposes.zip(skin_joints).take(MAX_JOINTS) {
-            if let Ok(joint) = joints.get(*joint) {
-                buffer.push(joint.affine() * *inverse_bindpose);
-            } else {
-                buffer.truncate(start);
-                return None;
-            }
+        let target = start + skin.joints.len().min(MAX_JOINTS);
+        buffer.extend(
+            joints
+                .iter_many(&skin.joints)
+                .zip(inverse_bindposes.iter())
+                .map(|(joint, bindpose)| joint.affine() * *bindpose),
+        );
+        if buffer.len() != target {
+            buffer.truncate(start);
+            return None;
         }
 
         // Pad to 256 byte alignment

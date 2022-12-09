@@ -139,3 +139,10 @@ impl<T: Pod> BufferVec<T> {
         self.values.clear();
     }
 }
+
+impl<T: Pod> Extend<T> for BufferVec<T> {
+    #[inline]
+    fn extend<I: IntoIterator<Item=T>>(&mut self, iter: I) {
+        self.values.extend(iter)
+    }
+}
