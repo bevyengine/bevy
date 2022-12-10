@@ -433,40 +433,34 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
-            unsafe impl<'_w, '_s, #punctuated_generics> #path::system::SystemParam for #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause {
-                type State = <FieldsTuple<'_w, '_s, #punctuated_generic_idents> as #path::system::SystemParam>::State;
-                type Item<'w, 's> = #struct_name #ty_generics;
+            unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+                type State = <(#(#field_types,)*) as #path::system::SystemParam>::State;
+                type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
-                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::init(world, system_meta)
+                    <(#(#field_types,)*) as #path::system::SystemParam>::init(world, system_meta)
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::new_archetype(state, archetype, system_meta)
+                    <(#(#field_types,)*) as #path::system::SystemParam>::new_archetype(state, archetype, system_meta)
                 }
 
                 fn apply(state: &mut Self::State, world: &mut #path::world::World) {
-                    <FieldsTuple<'_w, '_s, #punctuated_generic_idents>>::apply( state, world);
+                    <(#(#field_types,)*) as #path::system::SystemParam>::apply( state, world);
                 }
 
-                unsafe fn get_param<'w, 's>(
-                    state: &'s mut Self::State,
+                unsafe fn get_param<'w2, 's2>(
+                    state: &'s2 mut Self::State,
                     system_meta: &#path::system::SystemMeta,
-                    world: &'w #path::world::World,
+                    world: &'w2 #path::world::World,
                     change_tick: u32,
-                ) -> Self::Item<'w, 's> {
+                ) -> Self::Item<'w2, 's2> {
                     #struct_name {
                         #(#fields: <#field_types as #path::system::SystemParam>::get_param(&mut state.#field_indices, system_meta, world, change_tick),)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
             }
-
-            #[doc(hidden)]
-            type FieldsTuple<'w, 's, #punctuated_generic_idents> = (
-                #(#field_types,)*
-                std::marker::PhantomData<fn() -> (#punctuated_generic_idents)>,
-            );
 
             // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
             unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
