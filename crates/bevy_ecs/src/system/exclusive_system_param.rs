@@ -1,7 +1,7 @@
 use crate::{
     prelude::{FromWorld, QueryState},
     query::{ReadOnlyWorldQuery, WorldQuery},
-    system::{Local, LocalState, SystemMeta, SystemParam, SystemState},
+    system::{Local, SystemMeta, SystemParam, SystemState},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
@@ -49,15 +49,15 @@ impl<'a, P: SystemParam + 'static> ExclusiveSystemParam for &'a mut SystemState<
 }
 
 impl<'_s, T: FromWorld + Send + Sync + 'static> ExclusiveSystemParam for Local<'_s, T> {
-    type State = LocalState<T>;
+    type State = SyncCell<T>;
     type Item<'s> = Local<'s, T>;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        LocalState(SyncCell::new(T::from_world(world)))
+        SyncCell::new(T::from_world(world))
     }
 
     fn get_param<'s>(state: &'s mut Self::State, _system_meta: &SystemMeta) -> Self::Item<'s> {
-        Local(state.0.get())
+        Local(state.get())
     }
 }
 

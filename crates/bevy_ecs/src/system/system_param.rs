@@ -722,17 +722,13 @@ where
     }
 }
 
-/// The [`SystemParamState`] of [`Local<T>`].
-#[doc(hidden)]
-pub struct LocalState<T: Send + 'static>(pub(crate) SyncCell<T>);
-
 // SAFETY: only local state is accessed
 unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
-    type State = LocalState<T>;
+    type State = SyncCell<T>;
     type Item<'w, 's> = Local<'s, T>;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        LocalState(SyncCell::new(T::from_world(world)))
+        SyncCell::new(T::from_world(world))
     }
 
     #[inline]
@@ -742,7 +738,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        Local(state.0.get())
+        Local(state.get())
     }
 }
 
