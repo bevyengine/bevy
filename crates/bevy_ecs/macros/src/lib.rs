@@ -238,6 +238,11 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         let meta = &metas[0..param_count];
         let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
+            // SAFETY: All parameters are constrained to ReadOnlySystemParam, so World is only read
+            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
+            where #(#param: ReadOnlySystemParam,)*
+            { }
+
             unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
             where #(
                 for<'w, 's> #param::Item::<'w, 's>: SystemParam<State = #param::State>,
@@ -292,11 +297,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     }
                 }
             }
-
-            // SAFETY: All parameters are constrained to ReadOnlyState, so World is only read
-            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
-            where #(#param: ReadOnlySystemParam,)*
-            { }
 
             impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
             {
@@ -466,7 +466,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 std::marker::PhantomData<fn() -> (#punctuated_generic_idents)>,
             );
 
-            // Safety: The `ParamState` is `ReadOnlySystemParam`, so this can only read from the `World`
+            // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
             unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
         };
     })
