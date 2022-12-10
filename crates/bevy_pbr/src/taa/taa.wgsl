@@ -103,12 +103,11 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let w2 = f * (0.5 + f * (2.0 - 1.5 * f));
     let w3 = f * f * (-0.5 + 0.5 * f);
     let w12 = w1 + w2;
-    let sw0 = w12.x * w0.y;
     let texel_position_0 = (texel_center - 1.0) * texel_size;
     let texel_position_3 = (texel_center + 2.0) * texel_size;
     let texel_position_12 = (texel_center + (w2 / w12)) * texel_size;
     var previous_color = vec3(0.0);
-    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_0.y)).rgb * sw0;
+    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_0.y)).rgb * w12.x * w0.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_0.x, texel_position_12.y)).rgb * w0.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_12.y)).rgb * w12.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
