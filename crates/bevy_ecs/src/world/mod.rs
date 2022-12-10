@@ -479,6 +479,28 @@ impl World {
         unsafe { EntityMut::new(self, entity, entity_location) }
     }
 
+    /// Convienent combination of `spawn` and calling `.id()` on the resulting [EntityMut].
+    /// This variant formats nicer if you intent to call .id() immediately after spawning.
+    ///
+    /// before:
+    ///
+    /// let id = commands
+    ///     .spawn((
+    ///         Transform::default(),
+    ///         GlobalTransform::default(),
+    ///     ))
+    ///     .id();
+    ///
+    /// after:
+    /// let id = commands.spawn_entity((
+    ///     Transform::default(),
+    ///     GlobalTransform::default()
+    /// ));
+    pub fn spawn_id<B: Bundle>(&mut self, bundle: B) -> Entity {
+        self.spawn(bundle).id()
+    }
+
+
     /// # Safety
     /// must be called on an entity that was just allocated
     unsafe fn spawn_at_empty_internal(&mut self, entity: Entity) -> EntityMut {
