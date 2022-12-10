@@ -73,7 +73,7 @@ impl Plugin for TemporalAntialiasPlugin {
             draw_3d_graph::node::TAA,
             TAANode::IN_VIEW,
         );
-        // MAIN_PASS -> TAA -> BLOOM/TONEMAPPING
+        // MAIN_PASS -> TAA -> BLOOM -> TONEMAPPING
         draw_3d_graph.add_node_edge(
             bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
             draw_3d_graph::node::TAA,

@@ -43,13 +43,11 @@ fn clip_towards_aabb_center(previous_color: vec3<f32>, current_color: vec3<f32>,
     return select(previous_color, p_clip + v_clip / ma_unit, ma_unit > 1.0);
 }
 
-// http://graphicrants.blogspot.com/2013/12/tone-mapping.html
-fn karis_weight(color: vec3<f32>) -> f32 {
-    return 1.0 / (1.0 + tonemapping_luminance(color));
-}
-
 fn sample_view_target(uv: vec2<f32>) -> vec3<f32> {
     var sample = textureSample(view_target, nearest_sampler, uv).rgb;
+#ifdef TONEMAP
+    let sample = reinhard_luminance(sample);
+#endif
     return RGB_to_YCoCg(sample);
 }
 
@@ -61,6 +59,9 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Fetch the current sample
     let original_color = textureSample(view_target, nearest_sampler, uv);
     let current_color = original_color.rgb;
+#ifdef TONEMAP
+    let current_color = reinhard_luminance(current_color);
+#endif
 
     // Pick the closest velocity from 5 samples (reduces aliasing on the edges of moving entities)
     // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 27
@@ -133,21 +134,16 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     previous_color = clip_towards_aabb_center(previous_color, s_mm, mean - variance, mean + variance);
     previous_color = YCoCg_to_RGB(previous_color);
 
-    // Blend current and past sample according to karis weight (reduces flickering)
-    var current_weight = 0.1;
-    var previous_weight = 0.9;
-#ifdef TONEMAP
-    current_weight *= karis_weight(current_color);
-    previous_weight *= karis_weight(previous_color);
-#endif
-    var output = (current_color * current_weight) + (previous_color * previous_weight);
-#ifdef TONEMAP
-    output /= current_weight + previous_weight;
-#endif
+    // Blend current and past sample
+    let output = mix(previous_color, current_color, 0.1)
 
     // Write output to history and view target
     var out: Output;
     out.history = vec4(output, original_color.a);
+#ifdef TONEMAP
+    out.view_target = vec4(inverse_reinhard_luminance(out.history.rgb), out.history.a);
+#else
     out.view_target = out.history;
+#endif
     return out;
 }
