@@ -135,7 +135,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     previous_color = YCoCg_to_RGB(previous_color);
 
     // Blend current and past sample
-    let output = mix(previous_color, current_color, 0.1)
+    let output = mix(previous_color, current_color, 0.1);
 
     // Write output to history and view target
     var out: Output;
