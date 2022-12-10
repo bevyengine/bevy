@@ -184,7 +184,7 @@ unsafe impl<C: Component> Bundle for C {
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized,
     {
-        // Safety: The id given in `component_ids` is for `Self`
+        // SAFETY: The id given in `component_ids` is for `Self`
         func(ctx).read()
     }
 
@@ -423,16 +423,17 @@ impl BundleInfo {
         if let Some(add_bundle_id) = archetypes[archetype_id].edges().get_add_bundle(self.id) {
             return add_bundle_id;
         }
+        assert!(self.component_ids.len() <= 64, "Bundles can have at most 64 components!");
+
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
-        let mut bundle_status = Vec::with_capacity(self.component_ids.len());
+        let mut bundle_status = 0;
 
         let current_archetype = &mut archetypes[archetype_id];
+        let mut current = 1;
         for component_id in self.component_ids.iter().cloned() {
-            if current_archetype.contains(component_id) {
-                bundle_status.push(ComponentStatus::Mutated);
-            } else {
-                bundle_status.push(ComponentStatus::Added);
+            if !current_archetype.contains(component_id) {
+                bundle_status |= current;
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };
                 match component_info.storage_type() {
@@ -440,6 +441,7 @@ impl BundleInfo {
                     StorageType::SparseSet => new_sparse_set_components.push(component_id),
                 }
             }
+            current <<= 1;
         }
 
         if new_table_components.is_empty() && new_sparse_set_components.is_empty() {

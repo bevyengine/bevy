@@ -98,7 +98,7 @@ pub(crate) enum ComponentStatus {
 
 pub(crate) struct AddBundle {
     pub archetype_id: ArchetypeId,
-    pub bundle_status: Vec<ComponentStatus>,
+    pub bundle_status: u64,
 }
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
@@ -116,8 +116,11 @@ pub(crate) trait BundleComponentStatus {
 impl BundleComponentStatus for AddBundle {
     #[inline]
     unsafe fn get_status(&self, index: usize) -> ComponentStatus {
-        // SAFETY: caller has ensured index is a valid bundle index for this bundle
-        *self.bundle_status.get_unchecked(index)
+        if self.bundle_status & (1 << index) != 0 {
+            ComponentStatus::Added
+        } else {
+            ComponentStatus::Mutated
+        }
     }
 }
 
@@ -181,7 +184,7 @@ impl Edges {
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
-        bundle_status: Vec<ComponentStatus>,
+        bundle_status: u64,
     ) {
         self.add_bundle.insert(
             bundle_id,
