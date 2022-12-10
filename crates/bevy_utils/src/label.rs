@@ -13,7 +13,7 @@ pub trait DynEq: Any {
 
     /// This method tests for `self` and `other` values to be equal.
     ///
-    /// Implementors should avoid returning `true` when the underlying types are
+    /// Implementers should avoid returning `true` when the underlying types are
     /// not the same.
     fn dyn_eq(&self, other: &dyn DynEq) -> bool;
 }
