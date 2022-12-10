@@ -1,12 +1,9 @@
-/*
-    async_client - a very basic example of how to use the async_source_external_thread 
-    example (https://github.com/bevyengine/bevy/blob/main/examples/async_tasks/external_source_external_thread.rs)
-    to implement a server/client model. This is the client, which will start up, send an initial packet to the server,
-    spawn a thread that listens for incoming connections and parses incoming connections and passes them into the
-    crossbeam_channel. Another system reads from that channel and writes to the Bevy event queue, which is then read from 
-    and parsed to, in this case, spawn a rectangle.
-
-*/
+//! async_client - a very basic example of how to use the async_source_external_thread 
+//! example (https://github.com/bevyengine/bevy/blob/main/examples/async_tasks/external_source_external_thread.rs)
+//! to implement a server/client model. This is the client, which will start up, send an initial packet to the server,
+//! spawn a thread that listens for incoming connections and parses incoming connections and passes them into the
+//! crossbeam_channel. Another system reads from that channel and writes to the Bevy event queue, which is then read from 
+//! and parsed to, in this case, spawn a rectangle.
 
 
 use std::io::prelude::*;

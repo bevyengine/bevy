@@ -1,10 +1,9 @@
-/*
-    async_server - a very basic example of how to use the async_source_external_thread 
-    example (https://github.com/bevyengine/bevy/blob/main/examples/async_tasks/external_source_external_thread.rs)
-    to implement a server/client model. This server example creates a plugin that initializes a listener that sends incoming streams
-    to a parsing function, which will parse the sent stream from the client, compare it to a hardcoded value and send a response to the 
-    client
-*/
+//! async_server - a very basic example of how to use the async_source_external_thread 
+//! example (https://github.com/bevyengine/bevy/blob/main/examples/async_tasks/external_source_external_thread.rs)
+//! to implement a server/client model. This server example creates a plugin that initializes a listener that sends incoming streams
+//! to a parsing function, which will parse the sent stream from the client, compare it to a hardcoded value and send a response to the 
+//! client
+
 
 use bevy::prelude::*;
 use bevy::prelude::*;
