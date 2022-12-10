@@ -1403,7 +1403,7 @@ pub mod lifetimeless {
 /// # }
 /// ```
 ///
-pub struct StaticSystemParam<'w, 's, P: SystemParam + 's>(SystemParamItem<'w, 's, P>);
+pub struct StaticSystemParam<'w, 's, P: SystemParam>(SystemParamItem<'w, 's, P>);
 
 impl<'w, 's, P: SystemParam> Deref for StaticSystemParam<'w, 's, P> {
     type Target = SystemParamItem<'w, 's, P>;
