@@ -7,12 +7,12 @@
 
 #import bevy_pbr::mesh_view_types
 
-@group(0) @binding(0) var input_depth: texture_2d<f32>;
-@group(0) @binding(1) var preprocessed_depth_mip0: texture_storage_2d<r32float, write>;
-@group(0) @binding(2) var preprocessed_depth_mip1: texture_storage_2d<r32float, write>;
-@group(0) @binding(3) var preprocessed_depth_mip2: texture_storage_2d<r32float, write>;
-@group(0) @binding(4) var preprocessed_depth_mip3: texture_storage_2d<r32float, write>;
-@group(0) @binding(5) var preprocessed_depth_mip4: texture_storage_2d<r32float, write>;
+@group(0) @binding(0) var input_depth: texture_depth_2d;
+@group(0) @binding(1) var preprocessed_depth_mip0: texture_storage_2d<r16float, write>;
+@group(0) @binding(2) var preprocessed_depth_mip1: texture_storage_2d<r16float, write>;
+@group(0) @binding(3) var preprocessed_depth_mip2: texture_storage_2d<r16float, write>;
+@group(0) @binding(4) var preprocessed_depth_mip3: texture_storage_2d<r16float, write>;
+@group(0) @binding(5) var preprocessed_depth_mip4: texture_storage_2d<r16float, write>;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
 

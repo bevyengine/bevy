@@ -34,14 +34,14 @@ use bevy_render::{
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
         TextureView, TextureViewDescriptor, TextureViewDimension,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-use bevy_utils::{prelude::default, HashMap};
+use bevy_utils::{prelude::default, tracing::warn, HashMap};
 use std::{mem, num::NonZeroU32};
 
 pub mod draw_3d_graph {
@@ -89,6 +89,19 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         app.register_type::<ScreenSpaceAmbientOcclusionSettings>();
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+
+        if !render_app
+            .world
+            .resource::<RenderAdapter>()
+            .get_texture_format_features(TextureFormat::R16Float)
+            .allowed_usages
+            .contains(TextureUsages::STORAGE_BINDING)
+        {
+            warn!(
+                "ScreenSpaceAmbientOcclusionPlugin not loaded. TextureFormat::R16Float does not support TextureUsages::STORAGE_BINDING."
+            );
+            return;
+        }
 
         render_app
             .init_resource::<SSAOPipelines>()
@@ -351,7 +364,7 @@ impl FromWorld for SSAOPipelines {
             visibility: ShaderStages::COMPUTE,
             ty: BindingType::StorageTexture {
                 access: StorageTextureAccess::WriteOnly,
-                format: TextureFormat::R32Float,
+                format: TextureFormat::R16Float,
                 view_dimension: TextureViewDimension::D2,
             },
             count: None,
@@ -364,7 +377,7 @@ impl FromWorld for SSAOPipelines {
                         binding: 0,
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: false },
+                            sample_type: TextureSampleType::Depth,
                             view_dimension: TextureViewDimension::D2,
                             multisampled: false,
                         },
@@ -429,7 +442,7 @@ impl FromWorld for SSAOPipelines {
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::StorageTexture {
                             access: StorageTextureAccess::WriteOnly,
-                            format: TextureFormat::R32Float,
+                            format: TextureFormat::R16Float,
                             view_dimension: TextureViewDimension::D2,
                         },
                         count: None,
@@ -486,7 +499,7 @@ impl FromWorld for SSAOPipelines {
                         visibility: ShaderStages::COMPUTE,
                         ty: BindingType::StorageTexture {
                             access: StorageTextureAccess::WriteOnly,
-                            format: TextureFormat::R32Float,
+                            format: TextureFormat::R16Float,
                             view_dimension: TextureViewDimension::D2,
                         },
                         count: None,
@@ -641,7 +654,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 5,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R32Float,
+                format: TextureFormat::R16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
             let preprocessed_depth_texture = preprocessed_depth_textures
@@ -655,7 +668,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R32Float,
+                format: TextureFormat::R16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
             let ssao_noisy1_texture = ssao_noisy1_textures
@@ -669,7 +682,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R32Float,
+                format: TextureFormat::R16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
             let ssao_noisy2_texture = ssao_noisy2_textures
@@ -683,7 +696,7 @@ fn prepare_ssao_textures(
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::R32Float,
+                format: TextureFormat::R16Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
             let ssao_texture = ssao_textures
@@ -791,7 +804,7 @@ fn queue_ssao_bind_groups(
         });
 
         let preprocess_depth_mip_view_descriptor = TextureViewDescriptor {
-            format: Some(TextureFormat::R32Float),
+            format: Some(TextureFormat::R16Float),
             dimension: Some(TextureViewDimension::D2),
             mip_level_count: NonZeroU32::new(1),
             ..default()
