@@ -246,9 +246,6 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
             unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
-            where #(
-                for<'w, 's> #param::Item::<'w, 's>: SystemParam<State = #param::State>,
-            )*
             {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param::Item<'w, 's>,)*)>;
