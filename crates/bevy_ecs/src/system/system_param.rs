@@ -3,7 +3,7 @@ use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
     change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, Components},
+    component::{Component, ComponentId, ComponentTicks, Components, Tick},
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
@@ -33,19 +33,15 @@ use std::{
 /// See the *Generic `SystemParam`s* section for details and workarounds of the probable
 /// cause if this derive causes an error to be emitted.
 ///
-///
-/// The struct for which `SystemParam` is derived must (currently) have exactly
-/// two lifetime parameters.
-/// The first is the lifetime of the world, and the second the lifetime
-/// of the parameter's state.
+/// Derived `SystemParam` structs may have two lifetimes: `'w` for data stored in the [`World`],
+/// and `'s` for data stored in the parameter's state.
 ///
 /// ## Attributes
 ///
 /// `#[system_param(ignore)]`:
 /// Can be added to any field in the struct. Fields decorated with this attribute
 /// will be created with the default value upon realisation.
-/// This is most useful for `PhantomData` fields, to ensure that the required lifetimes are
-/// used, as shown in the example.
+/// This is most useful for `PhantomData` fields, such as markers for generic types.
 ///
 /// # Example
 ///
@@ -57,17 +53,17 @@ use std::{
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
-/// struct MyParam<'w, 's> {
+/// struct MyParam<'w, Marker: 'static> {
 ///     foo: Res<'w, SomeResource>,
 ///     #[system_param(ignore)]
-///     marker: PhantomData<&'s ()>,
+///     marker: PhantomData<Marker>,
 /// }
 ///
-/// fn my_system(param: MyParam) {
+/// fn my_system<T: 'static>(param: MyParam<T>) {
 ///     // Access the resource through `param.foo`
 /// }
 ///
-/// # bevy_ecs::system::assert_is_system(my_system);
+/// # bevy_ecs::system::assert_is_system(my_system::<()>);
 /// ```
 ///
 /// # Generic `SystemParam`s
@@ -273,7 +269,8 @@ pub trait Resource: Send + Sync + 'static {}
 /// Use `Option<Res<T>>` instead if the resource might not always exist.
 pub struct Res<'w, T: Resource> {
     value: &'w T,
-    ticks: &'w ComponentTicks,
+    added: &'w Tick,
+    changed: &'w Tick,
     last_change_tick: u32,
     change_tick: u32,
 }
@@ -296,7 +293,8 @@ impl<'w, T: Resource> Res<'w, T> {
     pub fn clone(this: &Self) -> Self {
         Self {
             value: this.value,
-            ticks: this.ticks,
+            added: this.added,
+            changed: this.changed,
             last_change_tick: this.last_change_tick,
             change_tick: this.change_tick,
         }
@@ -304,13 +302,14 @@ impl<'w, T: Resource> Res<'w, T> {
 
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
-        self.ticks.is_added(self.last_change_tick, self.change_tick)
+        self.added
+            .is_older_than(self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
-        self.ticks
-            .is_changed(self.last_change_tick, self.change_tick)
+        self.changed
+            .is_older_than(self.last_change_tick, self.change_tick)
     }
 
     pub fn into_inner(self) -> &'w T {
@@ -337,7 +336,8 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
     fn from(res: ResMut<'w, T>) -> Self {
         Self {
             value: res.value,
-            ticks: res.ticks.component_ticks,
+            added: res.ticks.added,
+            changed: res.ticks.changed,
             change_tick: res.ticks.change_tick,
             last_change_tick: res.ticks.last_change_tick,
         }
@@ -417,7 +417,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResState<T> {
             });
         Res {
             value: ptr.deref(),
-            ticks: ticks.deref(),
+            added: ticks.added.deref(),
+            changed: ticks.changed.deref(),
             last_change_tick: system_meta.last_change_tick,
             change_tick,
         }
@@ -458,7 +459,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResState<T> {
             .get_resource_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
-                ticks: ticks.deref(),
+                added: ticks.added.deref(),
+                changed: ticks.changed.deref(),
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
@@ -530,7 +532,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for ResMutState<T> {
         ResMut {
             value: value.value,
             ticks: Ticks {
-                component_ticks: value.ticks.component_ticks,
+                added: value.ticks.added,
+                changed: value.ticks.changed,
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             },
@@ -570,7 +573,8 @@ impl<'w, 's, T: Resource> SystemParamFetch<'w, 's> for OptionResMutState<T> {
             .map(|value| ResMut {
                 value: value.value,
                 ticks: Ticks {
-                    component_ticks: value.ticks.component_ticks,
+                    added: value.ticks.added,
+                    changed: value.ticks.changed,
                     last_change_tick: system_meta.last_change_tick,
                     change_tick,
                 },
@@ -942,7 +946,10 @@ impl<'a, T> From<NonSendMut<'a, T>> for NonSend<'a, T> {
     fn from(nsm: NonSendMut<'a, T>) -> Self {
         Self {
             value: nsm.value,
-            ticks: nsm.ticks.component_ticks.to_owned(),
+            ticks: ComponentTicks {
+                added: nsm.ticks.added.to_owned(),
+                changed: nsm.ticks.changed.to_owned(),
+            },
             change_tick: nsm.ticks.change_tick,
             last_change_tick: nsm.ticks.last_change_tick,
         }
@@ -1130,11 +1137,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for NonSendMutState<T> {
             });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks {
-                component_ticks: ticks.deref_mut(),
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
-            },
+            ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
         }
     }
 }
@@ -1171,11 +1174,7 @@ impl<'w, 's, T: 'static> SystemParamFetch<'w, 's> for OptionNonSendMutState<T> {
             .get_resource_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
-                ticks: Ticks {
-                    component_ticks: ticks.deref_mut(),
-                    last_change_tick: system_meta.last_change_tick,
-                    change_tick,
-                },
+                ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
             })
     }
 }
@@ -1564,7 +1563,7 @@ pub mod lifetimeless {
 /// struct GenericParam<'w,'s, T: SystemParam> {
 ///     field: T,
 ///     #[system_param(ignore)]
-///     // Use the lifetimes, as the `SystemParam` derive requires them
+///     // Use the lifetimes in this type, or they will be unbound.
 ///     phantom: core::marker::PhantomData<&'w &'s ()>
 /// }
 /// # fn check_always_is_system<T: SystemParam + 'static>(){
@@ -1648,7 +1647,7 @@ unsafe impl<S: SystemParamState, P: SystemParam + 'static> SystemParamState
 
 #[cfg(test)]
 mod tests {
-    use super::SystemParam;
+    use super::*;
     use crate::{
         self as bevy_ecs, // Necessary for the `SystemParam` Derive when used inside `bevy_ecs`.
         query::{ReadOnlyWorldQuery, WorldQuery},
@@ -1665,4 +1664,17 @@ mod tests {
     > {
         _query: Query<'w, 's, Q, F>,
     }
+
+    #[derive(SystemParam)]
+    pub struct SpecialRes<'w, T: Resource> {
+        _res: Res<'w, T>,
+    }
+
+    #[derive(SystemParam)]
+    pub struct SpecialLocal<'s, T: FromWorld + Send + 'static> {
+        _local: Local<'s, T>,
+    }
+
+    #[derive(SystemParam)]
+    pub struct UnitParam {}
 }

@@ -4,7 +4,7 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
-use converters::convert_cursor_grab_mode;
+use winit::window::CursorGrabMode;
 pub use winit_config::*;
 pub use winit_windows::*;
 
@@ -136,9 +136,18 @@ fn change_window(
                 }
                 bevy_window::WindowCommand::SetCursorGrabMode { grab_mode } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window
-                        .set_cursor_grab(convert_cursor_grab_mode(grab_mode))
-                        .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
+                    match grab_mode {
+                        bevy_window::CursorGrabMode::None => {
+                            window.set_cursor_grab(CursorGrabMode::None)
+                        }
+                        bevy_window::CursorGrabMode::Confined => window
+                            .set_cursor_grab(CursorGrabMode::Confined)
+                            .or_else(|_e| window.set_cursor_grab(CursorGrabMode::Locked)),
+                        bevy_window::CursorGrabMode::Locked => window
+                            .set_cursor_grab(CursorGrabMode::Locked)
+                            .or_else(|_e| window.set_cursor_grab(CursorGrabMode::Confined)),
+                    }
+                    .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
                 }
                 bevy_window::WindowCommand::SetCursorVisibility { visible } => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -229,6 +238,10 @@ fn change_window(
                 bevy_window::WindowCommand::SetAlwaysOnTop { always_on_top } => {
                     let window = winit_windows.get_window(id).unwrap();
                     window.set_always_on_top(always_on_top);
+                }
+                bevy_window::WindowCommand::SetCursorHitTest { hittest } => {
+                    let window = winit_windows.get_window(id).unwrap();
+                    window.set_cursor_hittest(hittest).unwrap();
                 }
                 bevy_window::WindowCommand::Close => {
                     // Since we have borrowed `windows` to iterate through them, we can't remove the window from it.
@@ -471,15 +484,7 @@ pub fn winit_runner_with(mut app: App) {
                         }
                     },
                     WindowEvent::Touch(touch) => {
-                        let mut location = touch.location.to_logical(window.scale_factor());
-
-                        // On a mobile window, the start is from the top while on PC/Linux/OSX from
-                        // bottom
-                        if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            let window_height = windows.primary().height();
-                            location.y = window_height - location.y;
-                        }
-
+                        let location = touch.location.to_logical(window.scale_factor());
                         world.send_event(converters::convert_touch_input(touch, location));
                     }
                     WindowEvent::ReceivedCharacter(c) => {

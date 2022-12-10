@@ -15,6 +15,7 @@ repository = "https://github.com/bevyengine/bevy"
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
 members = [
   "crates/*",
+  "examples/android",
   "examples/ios",
   "tools/ci",
   "tools/spancmp",
@@ -1443,6 +1444,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "window_fallthrough"
+path = "examples/ui/window_fallthrough.rs"
+
+[package.metadata.example.window_fallthrough]
+name = "Window Fallthrough"
+description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
@@ -1596,29 +1607,6 @@ name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
 wasm = true
-
-# Android
-[[example]]
-crate-type = ["cdylib"]
-name = "android_example"
-path = "examples/android/android.rs"
-
-[package.metadata.example.android_example]
-hidden = true
-
-[package.metadata.android]
-package = "org.bevyengine.example"
-apk_name = "bevyexample"
-assets = "assets"
-resources = "assets/android-res"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
-
-[package.metadata.android.application]
-icon = "@mipmap/ic_launcher"
-label = "Bevy Example"
 
 [profile.wasm-release]
 inherits = "release"
