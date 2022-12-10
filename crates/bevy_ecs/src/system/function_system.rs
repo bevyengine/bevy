@@ -37,7 +37,7 @@ impl SystemMeta {
         }
     }
 
-    /// Returns true if the system is [`Send`].
+    /// Returns the system's name
     #[inline]
     pub fn name(&self) -> &str {
         &self.name
