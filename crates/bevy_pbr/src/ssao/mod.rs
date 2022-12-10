@@ -264,6 +264,11 @@ impl Node for SSAONode {
                 &bind_groups.common_bind_group,
                 &[view_uniform_offset.offset],
             );
+
+            denoise_pass.set_bind_group(0, &bind_groups.denoise1_bind_group, &[]);
+            denoise_pass.dispatch_workgroups((camera_size.x + 7) / 8, (camera_size.y + 7) / 8, 1);
+
+            denoise_pass.set_bind_group(0, &bind_groups.denoise2_bind_group, &[]);
             denoise_pass.dispatch_workgroups((camera_size.x + 7) / 8, (camera_size.y + 7) / 8, 1);
         }
 
@@ -606,8 +611,9 @@ fn extract_ssao_settings(
 #[derive(Component)]
 pub struct ScreenSpaceAmbientOcclusionTextures {
     preprocessed_depth_texture: CachedTexture,
-    ssao_noisy_texture: CachedTexture, // Pre-denoised texture
-    pub screen_space_ambient_occlusion_texture: CachedTexture, // Denoised texture
+    ssao_noisy1_texture: CachedTexture, // Pre-denoised texture
+    ssao_noisy2_texture: CachedTexture, // Denoised first pass texture
+    pub screen_space_ambient_occlusion_texture: CachedTexture, // Denoised second pass texture
     depth_differences_texture: CachedTexture,
 }
 
@@ -618,7 +624,8 @@ fn prepare_ssao_textures(
     views: Query<(Entity, &ExtractedCamera), With<ScreenSpaceAmbientOcclusionSettings>>,
 ) {
     let mut preprocessed_depth_textures = HashMap::default();
-    let mut ssao_noisy_textures = HashMap::default();
+    let mut ssao_noisy1_textures = HashMap::default();
+    let mut ssao_noisy2_textures = HashMap::default();
     let mut ssao_textures = HashMap::default();
     let mut depth_differences_textures = HashMap::default();
     for (entity, camera) in &views {
@@ -644,7 +651,7 @@ fn prepare_ssao_textures(
                 .clone();
 
             let texture_descriptor = TextureDescriptor {
-                label: Some("ssao_noisy_texture"),
+                label: Some("ssao_noisy1_texture"),
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -652,7 +659,21 @@ fn prepare_ssao_textures(
                 format: TextureFormat::R32Float,
                 usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
             };
-            let ssao_noisy_texture = ssao_noisy_textures
+            let ssao_noisy1_texture = ssao_noisy1_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
+                .clone();
+
+            let texture_descriptor = TextureDescriptor {
+                label: Some("ssao_noisy2_texture"),
+                size,
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::R32Float,
+                usage: TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING,
+            };
+            let ssao_noisy2_texture = ssao_noisy2_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
                 .clone();
@@ -689,7 +710,8 @@ fn prepare_ssao_textures(
                 .entity(entity)
                 .insert(ScreenSpaceAmbientOcclusionTextures {
                     preprocessed_depth_texture,
-                    ssao_noisy_texture,
+                    ssao_noisy1_texture,
+                    ssao_noisy2_texture,
                     screen_space_ambient_occlusion_texture: ssao_texture,
                     depth_differences_texture,
                 });
@@ -730,7 +752,8 @@ struct SSAOBindGroups {
     common_bind_group: BindGroup,
     preprocess_depth_bind_group: BindGroup,
     gtao_bind_group: BindGroup,
-    denoise_bind_group: BindGroup,
+    denoise1_bind_group: BindGroup,
+    denoise2_bind_group: BindGroup,
 }
 
 fn queue_ssao_bind_groups(
@@ -875,7 +898,7 @@ fn queue_ssao_bind_groups(
                 BindGroupEntry {
                     binding: 3,
                     resource: BindingResource::TextureView(
-                        &ssao_textures.ssao_noisy_texture.default_view,
+                        &ssao_textures.ssao_noisy1_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
@@ -891,14 +914,39 @@ fn queue_ssao_bind_groups(
             ],
         });
 
-        let denoise_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            label: Some("ssao_denoise_bind_group"),
+        let denoise1_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("ssao_denoise1_bind_group"),
             layout: &pipelines.denoise_bind_group_layout,
             entries: &[
                 BindGroupEntry {
                     binding: 0,
                     resource: BindingResource::TextureView(
-                        &ssao_textures.ssao_noisy_texture.default_view,
+                        &ssao_textures.ssao_noisy1_texture.default_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(
+                        &ssao_textures.depth_differences_texture.default_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(
+                        &ssao_textures.ssao_noisy2_texture.default_view,
+                    ),
+                },
+            ],
+        });
+
+        let denoise2_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("ssao_denoise2_bind_group"),
+            layout: &pipelines.denoise_bind_group_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(
+                        &ssao_textures.ssao_noisy2_texture.default_view,
                     ),
                 },
                 BindGroupEntry {
@@ -922,7 +970,8 @@ fn queue_ssao_bind_groups(
             common_bind_group,
             preprocess_depth_bind_group,
             gtao_bind_group,
-            denoise_bind_group,
+            denoise1_bind_group,
+            denoise2_bind_group,
         });
     }
 }

@@ -1,6 +1,6 @@
 // Inputs a depth texture and outputs a MIP-chain of depths.
 //
-// Because GTAO's performance is bound by texture reads, this increases
+// Because SSAO's performance is bound by texture reads, this increases
 // performance over using the full resolution depth for every sample.
 
 // Reference: https://research.nvidia.com/sites/default/files/pubs/2012-06_Scalable-Ambient-Obscurance/McGuire12SAO.pdf, section 2.2

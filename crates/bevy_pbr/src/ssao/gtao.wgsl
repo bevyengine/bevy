@@ -27,7 +27,7 @@ fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
     var index = textureLoad(hilbert_index, pixel_coordinates % 64, 0).r;
 
 #ifdef TEMPORAL_NOISE
-    index += 72u * (globals.frame_count % 64u);
+    index += 288u * (globals.frame_count % 64u);
 #endif
 
     // R2 sequence - http://extremelearning.com.au/unreasonable-effectiveness-of-quasirandom-sequences
@@ -158,7 +158,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
     visibility /= slice_count;
-    visibility = pow(visibility, 2.2);
+    visibility *= visibility * visibility;
     visibility = clamp(visibility, 0.03, 1.0);
 
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(visibility, 0.0, 0.0, 0.0));
