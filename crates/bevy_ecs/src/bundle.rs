@@ -9,7 +9,7 @@ use crate::{
         Archetype, ArchetypeId, ArchetypeRow, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, Components, ComponentStorage, StorageType, Tick},
+    component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
@@ -401,10 +401,11 @@ impl BundleInfo {
                     }
                 }
                 StorageType::SparseSet => {
-                    sparse_sets
-                        .get_mut(component_id)
-                        .unwrap()
-                        .insert(entity, component_ptr, change_tick);
+                    sparse_sets.get_mut(component_id).unwrap().insert(
+                        entity,
+                        component_ptr,
+                        change_tick,
+                    );
                 }
             }
             bundle_component += 1;
@@ -708,10 +709,9 @@ impl Bundles {
             let mut component_ids = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
-            // SAFETY: T::component_id ensures info was created
-            let bundle_info = unsafe {
-                initialize_bundle(std::any::type_name::<T>(), component_ids, id)
-            };
+            let bundle_info =
+                // SAFETY: T::component_id ensures info was created
+                unsafe { initialize_bundle(std::any::type_name::<T>(), component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -737,8 +737,5 @@ unsafe fn initialize_bundle(
         bundle_type_name
     );
 
-    BundleInfo {
-        id,
-        component_ids,
-    }
+    BundleInfo { id, component_ids }
 }
