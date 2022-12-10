@@ -163,6 +163,7 @@ pub unsafe trait Bundle: Send + Sync + 'static {
     /// ownership of the component values to `func`.
     ///
     /// # Safety
+    ///
     /// The passed in `StorageType` needs to be correct for the provided component
     #[doc(hidden)]
     unsafe fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
