@@ -961,6 +961,90 @@ mod tests {
     }
 
     #[test]
+    fn changed_trackers_sparse() {
+        let mut world = World::default();
+        let e1 = world.spawn(SparseStored(0)).id();
+        let e2 = world.spawn(SparseStored(0)).id();
+        let e3 = world.spawn(SparseStored(0)).id();
+        world.spawn(SparseStored(0));
+
+        world.clear_trackers();
+
+        for (i, mut a) in world
+            .query::<&mut SparseStored>()
+            .iter_mut(&mut world)
+            .enumerate()
+        {
+            if i % 2 == 0 {
+                a.0 += 1;
+            }
+        }
+
+        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+            world
+                .query_filtered::<Entity, F>()
+                .iter(world)
+                .collect::<Vec<Entity>>()
+        }
+
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            vec![e1, e3]
+        );
+
+        // ensure changing an entity's archetypes also moves its changed state
+        world.entity_mut(e1).insert(C);
+
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+
+        // spawning a new SparseStored entity should not change existing changed state
+        world.entity_mut(e1).insert(SparseStored(0));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            vec![e3, e1],
+            "changed entities list should not change"
+        );
+
+        // removing an unchanged entity should not change changed state
+        assert!(world.despawn(e2));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            vec![e3, e1],
+            "changed entities list should not change"
+        );
+
+        // removing a changed entity should remove it from enumeration
+        assert!(world.despawn(e1));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            vec![e3],
+            "e1 should no longer be returned"
+        );
+
+        world.clear_trackers();
+
+        assert!(get_filtered::<Changed<SparseStored>>(&mut world).is_empty());
+
+        let e4 = world.spawn_empty().id();
+
+        world.entity_mut(e4).insert(SparseStored(0));
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Added<SparseStored>>(&mut world), vec![e4]);
+
+        world.entity_mut(e4).insert(A(1));
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
+
+        world.clear_trackers();
+
+        // ensure inserting multiple components set changed state for all components and set added
+        // state for non existing components even when changing archetype.
+        world.entity_mut(e4).insert(SparseStored(0));
+
+        assert!(get_filtered::<Added<SparseStored>>(&mut world).is_empty());
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
+    }
+
+    #[test]
     fn empty_spawn() {
         let mut world = World::default();
         let e = world.spawn_empty().id();
