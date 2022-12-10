@@ -32,9 +32,9 @@ fn setup(
         Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             prepass_settings: PrepassSettings {
-                velocity_enabled: true, // 3. Enable the velocity prepass on the camera
-                depth_enabled: false,
-                normal_enabled: false,
+                depth_enabled: true,
+                velocity_enabled: true, // 3. Enable the depth and velocity prepass on the camera
+                ..default()
             },
             ..default()
         },
