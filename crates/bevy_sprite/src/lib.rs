@@ -7,6 +7,7 @@ mod render;
 mod sprite;
 mod texture_atlas;
 mod texture_atlas_builder;
+mod texture_atlas_layout;
 
 pub mod collide_aabb;
 
@@ -15,7 +16,8 @@ pub mod prelude {
     pub use crate::{
         bundle::{SpriteBundle, SpriteSheetBundle},
         sprite::Sprite,
-        texture_atlas::{TextureAtlas, TextureSheetIndex},
+        texture_atlas::TextureAtlas,
+        texture_atlas_layout::TextureAtlasLayout,
         ColorMaterial, ColorMesh2dBundle, TextureAtlasBuilder,
     };
 }
@@ -27,6 +29,7 @@ pub use render::*;
 pub use sprite::*;
 pub use texture_atlas::*;
 pub use texture_atlas_builder::*;
+pub use texture_atlas_layout::*;
 
 use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Assets, Handle, HandleUntyped};
@@ -59,11 +62,12 @@ impl Plugin for SpritePlugin {
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         let sprite_shader = Shader::from_wgsl(include_str!("render/sprite.wgsl"));
         shaders.set_untracked(SPRITE_SHADER_HANDLE, sprite_shader);
-        app.add_asset::<TextureAtlas>()
-            .register_asset_reflect::<TextureAtlas>()
+        app.add_asset::<TextureAtlasLayout>()
+            .register_asset_reflect::<TextureAtlasLayout>()
             .register_type::<Sprite>()
             .register_type::<TextureAtlasSprite>()
             .register_type::<Anchor>()
+            .register_type::<TextureAtlas>()
             .register_type::<Mesh2dHandle>()
             .add_plugin(Mesh2dRenderPlugin)
             .add_plugin(ColorMaterialPlugin)

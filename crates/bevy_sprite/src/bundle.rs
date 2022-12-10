@@ -1,4 +1,4 @@
-use crate::{texture_atlas::TextureAtlas, Sprite, TextureSheetIndex};
+use crate::{Sprite, TextureAtlas};
 use bevy_asset::Handle;
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -33,19 +33,19 @@ impl Default for SpriteBundle {
 }
 
 /// A Bundle of components for drawing a single sprite from a sprite sheet (also referred
-/// to as a `TextureAtlas`)
+/// to as a `TextureAtlas`) or for animated sprites.
+///
+/// Note:
+/// This bundle is identical to [`SpriteBundle`] with an additional [`TextureAtlas`] component.
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteSheetBundle {
     pub sprite: Sprite,
-    /// The sprite sheet texture
-    pub texture: Handle<Image>,
-    /// A handle to the texture atlas that holds the sprite images
-    pub texture_atlas: Handle<TextureAtlas>,
-    /// The texture sheet sprite index
-    pub index: TextureSheetIndex,
-    /// Data pertaining to how the sprite is drawn on the screen
     pub transform: Transform,
     pub global_transform: GlobalTransform,
+    /// The sprite sheet base texture
+    pub texture: Handle<Image>,
+    /// The sprite sheet texture atlas and the section to draw
+    pub atlas: TextureAtlas,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering

@@ -48,7 +48,7 @@ fn setup(
     mut commands: Commands,
     rpg_sprite_handles: Res<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut textures: ResMut<Assets<Image>>,
 ) {
     // Build a `TextureAtlas` using the individual sprites
@@ -78,8 +78,10 @@ fn setup(
             scale: Vec3::splat(4.0),
             ..default()
         },
-        index: vendor_index.into(),
-        texture_atlas: atlas_handle,
+        atlas: TextureAtlas {
+            index: vendor_index,
+            layout: atlas_handle,
+        },
         ..default()
     });
     // draw the atlas itself

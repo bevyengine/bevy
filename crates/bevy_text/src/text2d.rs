@@ -17,7 +17,7 @@ use bevy_render::{
     view::{ComputedVisibility, Visibility},
     Extract,
 };
-use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlas};
+use bevy_sprite::{Anchor, ExtractedSprite, ExtractedSprites, TextureAtlasLayout};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_utils::HashSet;
 use bevy_window::{PrimaryWindow, Window, WindowScaleFactorChanged};
@@ -78,7 +78,7 @@ pub struct Text2dBundle {
 
 pub fn extract_text2d_sprite(
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
@@ -159,7 +159,7 @@ pub fn update_text2d_layout(
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
     windows: Query<&Window, With<PrimaryWindow>>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Entity, Ref<Text>, Ref<Text2dBounds>, &mut TextLayoutInfo)>,

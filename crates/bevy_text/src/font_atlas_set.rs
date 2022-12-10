@@ -4,7 +4,7 @@ use bevy_asset::{Assets, Handle};
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 
@@ -21,7 +21,7 @@ pub struct FontAtlasSet {
 
 #[derive(Debug, Clone)]
 pub struct GlyphAtlasInfo {
-    pub texture_atlas: Handle<TextureAtlas>,
+    pub texture_atlas: Handle<TextureAtlasLayout>,
     pub texture: Handle<Image>,
     pub glyph_index: usize,
 }
@@ -52,7 +52,7 @@ impl FontAtlasSet {
 
     pub fn add_glyph_to_atlas(
         &mut self,
-        texture_atlases: &mut Assets<TextureAtlas>,
+        texture_atlases: &mut Assets<TextureAtlasLayout>,
         textures: &mut Assets<Image>,
         outlined_glyph: OutlinedGlyph,
     ) -> Result<GlyphAtlasInfo, TextError> {

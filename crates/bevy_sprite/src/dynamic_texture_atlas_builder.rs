@@ -1,4 +1,4 @@
-use crate::{Rect, TextureAtlas};
+use crate::TextureAtlasLayout;
 use bevy_asset::{Assets, Handle};
 use bevy_math::{IVec2, Rect, Vec2};
 use bevy_render::texture::{Image, TextureFormatPixelInfo};
@@ -31,7 +31,7 @@ impl DynamicTextureAtlasBuilder {
     /// It is user's responsibility to pass in the correct [`TextureAtlas`]
     pub fn add_texture(
         &mut self,
-        texture_atlas: &mut TextureAtlas,
+        texture_atlas: &mut TextureAtlasLayout,
         textures: &mut Assets<Image>,
         texture: &Image,
         texture_handle: &Handle<Image>,

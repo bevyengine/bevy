@@ -29,7 +29,7 @@ use bevy_render::{
 };
 use bevy_sprite::SpriteAssetEvents;
 #[cfg(feature = "bevy_text")]
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::{TextureAtlas, TextureAtlasLayout};
 #[cfg(feature = "bevy_text")]
 use bevy_text::{PositionedGlyph, Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
@@ -275,7 +275,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
 #[cfg(feature = "bevy_text")]
 pub fn extract_text_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     ui_stack: Extract<Res<UiStack>>,
     uinode_query: Extract<

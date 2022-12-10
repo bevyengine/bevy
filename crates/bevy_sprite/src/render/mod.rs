@@ -1,6 +1,6 @@
 use std::cmp::Ordering;
 
-use crate::{texture_atlas::TextureAtlas, Rect, Sprite, TextureSheetIndex, SPRITE_SHADER_HANDLE};
+use crate::{Sprite, TextureAtlas, TextureAtlasLayout, SPRITE_SHADER_HANDLE};
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
@@ -344,21 +344,24 @@ pub fn extract_sprite_events(
 
 pub fn extract_sprites(
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    texture_atlases: Extract<Res<Assets<TextureAtlas>>>,
-    sprite_query: Extract<Query<(Entity, &ComputedVisibility, &Sprite, &GlobalTransform, &Handle<Image>)>>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    sprite_query: Extract<
+        Query<(
+            Entity,
+            &ComputedVisibility,
+            &Sprite,
+            &GlobalTransform,
+            &Handle<Image>,
+            Option<&TextureAtlas>,
+        )>,
+    >,
 ) {
     extracted_sprites.sprites.clear();
-    for (entity, visibility, sprite, transform, handle, atlas, index) in sprite_query.iter() {
-        if !visibility.is_visible {
+    for (entity, visibility, sprite, transform, handle, sheet) in sprite_query.iter() {
+        if !visibility.is_visible() {
             continue;
         }
-        let atlas: Option<&Handle<TextureAtlas>> = atlas;
-        let rect = atlas.and_then(|h| texture_atlases.get(h)).map(|atlas| {
-            let index = index.map(|i| i.0).unwrap_or(0);
-            atlas.textures.get(index).copied().unwrap_or_else(|| {
-                panic!("TextureAtlas {:?} as no texture at index {}", atlas, index)
-            })
-        });
+        let rect = sheet.and_then(|s| s.texture_rect(&texture_atlases));
 
         // PERF: we don't check in this function that the `Image` asset is ready, since it should be in most cases and hashing the handle is expensive
         extracted_sprites.sprites.push(ExtractedSprite {

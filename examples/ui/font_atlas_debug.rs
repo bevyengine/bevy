@@ -43,7 +43,7 @@ fn atlas_render_system(
             }
             let font_atlas = &font_atlas[state.atlas_count as usize];
             state.atlas_count += 1;
-            commands.spawn_bundle(ImageBundle {
+            commands.spawn(ImageBundle {
                 image: font_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,

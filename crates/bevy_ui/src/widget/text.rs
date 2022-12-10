@@ -10,7 +10,7 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::texture::Image;
-use bevy_sprite::TextureAtlas;
+use bevy_sprite::TextureAtlasLayout;
 use bevy_text::{
     Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextMeasureInfo,
     TextPipeline, TextSettings, YAxisOrientation,
@@ -221,7 +221,7 @@ pub fn text_system(
     text_settings: Res<TextSettings>,
     mut font_atlas_warning: ResMut<FontAtlasWarning>,
     ui_scale: Res<UiScale>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(Ref<Node>, &Text, &mut TextLayoutInfo, &mut TextFlags)>,
