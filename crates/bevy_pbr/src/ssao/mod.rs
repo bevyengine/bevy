@@ -258,7 +258,6 @@ impl Node for SSAONode {
                         label: Some("ssao_denoise_pass"),
                     });
             denoise_pass.set_pipeline(&denoise_pipeline);
-            denoise_pass.set_bind_group(0, &bind_groups.denoise_bind_group, &[]);
             denoise_pass.set_bind_group(
                 1,
                 &bind_groups.common_bind_group,
