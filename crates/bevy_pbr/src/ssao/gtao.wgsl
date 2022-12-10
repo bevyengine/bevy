@@ -102,6 +102,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     let pixel_coordinates = vec2<i32>(global_id.xy);
     var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
+    pixel_depth *= 0.999999999; // Avoid depth precision issues
 
     let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
     let noise = load_noise(pixel_coordinates);
@@ -143,8 +144,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
                 let sample_difference = sample_position - pixel_position;
                 let sample_distance = length(sample_difference);
-                let sample_horizon = sample_difference / sample_distance;
-                var sample_cos_horizon = dot(normalize(sample_position - pixel_position), view_vec);
+                var sample_cos_horizon = dot(sample_difference / sample_distance, view_vec);
 
                 let weight = saturate(sample_distance * falloff_mul + falloff_add);
                 sample_cos_horizon = mix(min_cos_horizon, sample_cos_horizon, weight);
@@ -152,8 +152,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
                 cos_horizon = max(cos_horizon, sample_cos_horizon);
             }
 
-            let horizon = fast_acos(cos_horizon);
-            let horizon = n + clamp((side_modifier * horizon) - n, -half_pi, half_pi);
+            let horizon = n + clamp((side_modifier * fast_acos(cos_horizon)) - n, -half_pi, half_pi);
             visibility += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * horizon - n)) / 4.0;
         }
     }
