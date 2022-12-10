@@ -62,7 +62,8 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let original_color = textureSample(view_target, nearest_sampler, uv);
     let current_color = original_color.rgb;
 
-    // Pick the closest velocity (reduces aliasing on the edges of moving entities)
+    // Pick the closest velocity from 5 samples (reduces aliasing on the edges of moving entities)
+    // https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 27
     let offset = texel_size * 2.0;
     let v_tl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, offset.y)).rg;
     let v_tr = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, offset.y)).rg;
@@ -92,28 +93,30 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
-    // from https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
-    // and https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
+    // https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
+    // https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
     let sample_position = (uv + current_velocity) * texture_size;
-    let texel_position_1 = floor(sample_position - 0.5) + 0.5;
-    let f = sample_position - texel_position_1;
+    let texel_center = floor(sample_position - 0.5) + 0.5;
+    let f = sample_position - texel_center;
     let w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
     let w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
     let w2 = f * (0.5 + f * (2.0 - 1.5 * f));
     let w3 = f * f * (-0.5 + 0.5 * f);
     let w12 = w1 + w2;
-    let offset12 = w2 / (w1 + w2);
-    let texel_position_0 = (texel_position_1 - 1.0) * texel_size;
-    let texel_position_3 = (texel_position_1 + 2.0) * texel_size;
-    let texel_position_12 = (texel_position_1 + offset12) * texel_size;
+    let sw0 = w12.x * w0.y;
+    let texel_position_0 = (texel_center - 1.0) * texel_size;
+    let texel_position_3 = (texel_center + 2.0) * texel_size;
+    let texel_position_12 = (texel_center + (w2 / w12)) * texel_size;
     var previous_color = vec3(0.0);
-    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_0.y)).rgb * w12.x * w0.y;
+    previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_0.y)).rgb * sw0;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_0.x, texel_position_12.y)).rgb * w0.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_12.y)).rgb * w12.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
 
     // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
+    // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
+    // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
     let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
     let s_tm = sample_view_target(uv + vec2(0.0, texel_size.y));
     let s_tr = sample_view_target(uv + texel_size);
