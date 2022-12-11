@@ -55,6 +55,7 @@ pub struct GltfNode {
     pub children: Vec<GltfNode>,
     pub mesh: Option<Handle<GltfMesh>>,
     pub transform: bevy_transform::prelude::Transform,
+    pub extras: Option<GltfExtras>,
 }
 
 /// A glTF mesh, which may consist of multiple [`GltfPrimitives`](GltfPrimitive).

@@ -368,6 +368,12 @@ async fn load_gltf<'a, 'b>(
                         scale: bevy_math::Vec3::from(scale),
                     },
                 },
+                extras: node
+                    .mesh()
+                    .and_then(|mesh| mesh.extras().as_ref())
+                    .map(|extras| super::GltfExtras {
+                        value: extras.get().to_string(),
+                    }),
             },
             node.children()
                 .map(|child| child.index())
@@ -1166,6 +1172,7 @@ mod test {
                 children: vec![],
                 mesh: None,
                 transform: bevy_transform::prelude::Transform::IDENTITY,
+                extras: None,
             }
         }
     }
