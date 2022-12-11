@@ -130,7 +130,6 @@ use std::{any::TypeId, collections::HashMap};
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`](derive@Bundle).
 ///
-///
 /// [`Query`]: crate::system::Query
 // Some safety points:
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
@@ -159,19 +158,19 @@ pub unsafe trait Bundle: Send + Sync + 'static {
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
 
+    // SAFETY:
+    // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
+    // component being fetched.
+    //
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
-    ///
-    /// # Safety
-    ///
-    /// The passed in `StorageType` needs to be correct for the provided component
     #[doc(hidden)]
-    unsafe fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
 }
 
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C.
+// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on it's associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(
@@ -193,7 +192,7 @@ unsafe impl<C: Component> Bundle for C {
     }
 
     #[inline]
-    unsafe fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
         OwningPtr::make(self, |ptr| func(C::Storage::STORAGE_TYPE, ptr));
     }
 }
@@ -204,6 +203,8 @@ macro_rules! tuple_impl {
         // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `Bundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
+        // - `Bundle::get_components` is exactly once for each member. Rely's on the above implementation to pass the correct
+        //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
@@ -223,7 +224,7 @@ macro_rules! tuple_impl {
 
             #[allow(unused_variables, unused_mut)]
             #[inline(always)]
-            unsafe fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+            fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
