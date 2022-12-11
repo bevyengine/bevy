@@ -58,7 +58,7 @@ impl Text {
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             sections: vec![TextSection::new(value, style)],
-            ..Default::default()
+            ..default()
         }
     }
 
@@ -93,7 +93,7 @@ impl Text {
     pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
             sections: sections.into_iter().collect(),
-            ..Default::default()
+            ..default()
         }
     }
 
