@@ -14,7 +14,11 @@ crate-type = ["staticlib"]
 bevy = { path = "../../", features = [ 
   "bevy_audio",
   "bevy_winit",
-  "render",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_render",
+  "bevy_text",
+  "bevy_ui",
   "vorbis",
   "filesystem_watcher"
 ], default-features = false}
