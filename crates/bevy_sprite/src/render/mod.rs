@@ -31,8 +31,8 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
+use bevy_utils::OrderedFloat;
 use bytemuck::{Pod, Zeroable};
 use fixedbitset::FixedBitSet;
 
@@ -632,7 +632,7 @@ pub fn queue_sprites(
                 });
 
                 // These items will be sorted by depth with other phase items
-                let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
+                let sort_key = OrderedFloat(extracted_sprite.transform.translation().z);
 
                 // Store the vertex data and add the item to the render phase
                 if current_batch.colored {

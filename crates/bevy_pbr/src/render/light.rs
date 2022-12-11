@@ -32,7 +32,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
-use bevy_utils::FloatOrd;
+use bevy_utils::OrderedFloat;
 use bevy_utils::{
     tracing::{error, warn},
     HashMap,
@@ -1697,11 +1697,11 @@ pub struct Shadow {
 }
 
 impl PhaseItem for Shadow {
-    type SortKey = FloatOrd;
+    type SortKey = OrderedFloat<f32>;
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        OrderedFloat(self.distance)
     }
 
     #[inline]

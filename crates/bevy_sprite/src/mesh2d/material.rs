@@ -35,7 +35,7 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_utils::{FloatOrd, HashMap, HashSet};
+use bevy_utils::{HashMap, HashSet, OrderedFloat};
 use std::hash::Hash;
 use std::marker::PhantomData;
 
@@ -371,7 +371,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                             // lowest sort key and getting closer should increase. As we have
                             // -z in front of the camera, the largest distance is -far with values increasing toward the
                             // camera. As such we can just use mesh_z as the distance
-                            sort_key: FloatOrd(mesh_z),
+                            sort_key: OrderedFloat(mesh_z),
                             // This material is not batched
                             batch_range: None,
                         });
