@@ -126,35 +126,44 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let cos_norm = saturate(dot(projected_normal, view_vec) / projected_normal_length);
         let n = sign_norm * fast_acos(cos_norm);
 
-        for (var slice_side = 0.0; slice_side < 2.0; slice_side += 1.0) {
-            let side_modifier = -1.0 + (2.0 * slice_side);
-            let min_cos_horizon = cos(n + (side_modifier * half_pi));
-            var cos_horizon = min_cos_horizon;
-            for (var sample_t = 0.0; sample_t < samples_per_slice_side; sample_t += 1.0) {
-                var sample_noise = (slice_t + sample_t * samples_per_slice_side) * 0.6180339887498948482;
-                sample_noise = fract(noise.y + sample_noise);
+        let min_cos_horizon_1 = cos(n + half_pi);
+        let min_cos_horizon_2 = cos(n - half_pi);
+        var cos_horizon_1 = min_cos_horizon_1;
+        var cos_horizon_2 = min_cos_horizon_2;
+        for (var sample_t = 0.0; sample_t < samples_per_slice_side; sample_t += 1.0) {
+            var sample_noise = (slice_t + sample_t * samples_per_slice_side) * 0.6180339887498948482;
+            sample_noise = fract(noise.y + sample_noise);
 
-                var sample = (sample_t + sample_noise) / samples_per_slice_side;
-                sample *= sample; // https://github.com/GameTechDev/XeGTAO#sample-distribution
-                let sample = sample * vec2<f32>(omega.x, -omega.y);
+            var sample = (sample_t + sample_noise) / samples_per_slice_side;
+            sample *= sample; // https://github.com/GameTechDev/XeGTAO#sample-distribution
+            let sample = sample * vec2<f32>(omega.x, -omega.y);
 
-                let sample_uv = uv + side_modifier * sample;
-                let sample_mip_level = clamp(log2(length(sample)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
-                let sample_position = load_and_reconstruct_view_space_position(sample_uv, sample_mip_level);
+            let sample_mip_level = clamp(log2(length(sample)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
+            let sample_uv_1 = uv + sample;
+            let sample_uv_2 = uv - sample;
+            let sample_position_1 = load_and_reconstruct_view_space_position(sample_uv_1, sample_mip_level);
+            let sample_position_2 = load_and_reconstruct_view_space_position(sample_uv_2, sample_mip_level);
 
-                let sample_difference = sample_position - pixel_position;
-                let sample_distance = length(sample_difference);
-                var sample_cos_horizon = dot(sample_difference / sample_distance, view_vec);
+            let sample_difference_1 = sample_position_1 - pixel_position;
+            let sample_difference_2 = sample_position_2 - pixel_position;
+            let sample_distance_1 = length(sample_difference_1);
+            let sample_distance_2 = length(sample_difference_2);
+            var sample_cos_horizon_1 = dot(sample_difference_1 / sample_distance_1, view_vec);
+            var sample_cos_horizon_2 = dot(sample_difference_2 / sample_distance_2, view_vec);
 
-                let weight = saturate(sample_distance * falloff_mul + falloff_add);
-                sample_cos_horizon = mix(min_cos_horizon, sample_cos_horizon, weight);
+            let weight_1 = saturate(sample_distance_1 * falloff_mul + falloff_add);
+            let weight_2 = saturate(sample_distance_2 * falloff_mul + falloff_add);
+            sample_cos_horizon_1 = mix(min_cos_horizon_1, sample_cos_horizon_1, weight_1);
+            sample_cos_horizon_2 = mix(min_cos_horizon_2, sample_cos_horizon_2, weight_2);
 
-                cos_horizon = max(cos_horizon, sample_cos_horizon);
-            }
-
-            let horizon = n + clamp((side_modifier * fast_acos(cos_horizon)) - n, -half_pi, half_pi);
-            visibility += projected_normal_length * (cos_norm + 2.0 * horizon * sin(n) - cos(2.0 * horizon - n)) / 4.0;
+            cos_horizon_1 = max(cos_horizon_1, sample_cos_horizon_1);
+            cos_horizon_2 = max(cos_horizon_2, sample_cos_horizon_2);
         }
+
+        let horizon_1 = n + clamp(fast_acos(cos_horizon_1) - n, -half_pi, half_pi);
+        let horizon_2 = n + clamp(-fast_acos(cos_horizon_2) - n, -half_pi, half_pi);
+        visibility += projected_normal_length * (cos_norm + 2.0 * horizon_1 * sin(n) - cos(2.0 * horizon_1 - n)) / 4.0;
+        visibility += projected_normal_length * (cos_norm + 2.0 * horizon_2 * sin(n) - cos(2.0 * horizon_2 - n)) / 4.0;
     }
     visibility /= slice_count;
     visibility *= visibility * visibility;
