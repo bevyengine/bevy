@@ -113,7 +113,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
                     for label in labels.iter().take(i) {
                         sys = sys.after(*label);
                     }
-                    for label in labels.iter().take(graph_size).skip(i + 1) {
+                    for label in &labels[i + 1..graph_size] {
                         sys = sys.before(*label);
                     }
                     app.add_system(sys);

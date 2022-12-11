@@ -192,7 +192,6 @@ fn dynamic_struct_insert(criterion: &mut Criterion) {
                     || s.clone_dynamic(),
                     |mut s| {
                         s.insert(black_box(&field), ());
-                        black_box(());
                     },
                     BatchSize::SmallInput,
                 );
