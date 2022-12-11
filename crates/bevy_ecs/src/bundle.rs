@@ -203,7 +203,7 @@ macro_rules! tuple_impl {
         // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `Bundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
-        // - `Bundle::get_components` is exactly once for each member. Rely's on the above implementation to pass the correct
+        // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
