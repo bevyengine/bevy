@@ -81,7 +81,7 @@ impl ReflectFromReflect {
     }
 }
 
-impl<T: FromReflect + Reflect> FromType<T> for ReflectFromReflect {
+impl<T: FromReflect> FromType<T> for ReflectFromReflect {
     fn from_type() -> Self {
         Self {
             from_reflect: |reflect_value| {
