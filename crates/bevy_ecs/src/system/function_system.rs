@@ -6,8 +6,8 @@ use crate::{
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
-        SystemParamItem, SystemParamState,
+        check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem,
+        SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -135,7 +135,7 @@ impl SystemMeta {
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
-    param_state: <Param as SystemParam>::Fetch,
+    param_state: <Param as SystemParam>::State,
     world_id: WorldId,
     archetype_generation: ArchetypeGeneration,
 }
@@ -144,7 +144,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
+        let param_state = <Param::State as SystemParamState>::init(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -160,12 +160,9 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item
+    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
     where
-        Param::Fetch: ReadOnlySystemParamFetch,
+        Param: ReadOnlySystemParam,
     {
         self.validate_world_and_update_archetypes(world);
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
@@ -174,10 +171,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
+    pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
         self.validate_world_and_update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
@@ -221,9 +215,9 @@ impl<Param: SystemParam> SystemState<Param> {
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
+    ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        let param = <Param::Fetch as SystemParamFetch>::get_param(
+        let param = <Param::State as SystemParamState>::get_param(
             &mut self.param_state,
             &self.meta,
             world,
@@ -315,7 +309,7 @@ where
     Param: SystemParam,
 {
     func: F,
-    param_state: Option<Param::Fetch>,
+    param_state: Option<Param::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
@@ -400,7 +394,7 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = <Param as SystemParam>::Fetch::get_param(
+        let params = <Param as SystemParam>::State::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
@@ -429,7 +423,7 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::Fetch as SystemParamState>::init(
+        self.param_state = Some(<Param::State as SystemParamState>::init(
             world,
             &mut self.system_meta,
         ));
@@ -588,7 +582,7 @@ macro_rules! impl_system_function {
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
-                FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out, Out: 'static
+                FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
             #[inline]
             fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {
