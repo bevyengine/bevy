@@ -139,7 +139,7 @@ Note that this template does not add Rust to the environment because there are m
 
 When using an AMD Radeon GPU, you may also need to emerge `amdgpu-pro-vulkan` to get Bevy to find the GPU. 
 
-When using a NVIDIA GPU with the proprietary driver (eg. `x11-drivers/nvidia-drivers`), you may also need to emerge `media-libs/vulkan-loader` to get Bevy to find the GPU. NVIDIA Vulkan driver is included in `nvidia-driver`, but may need the loader to find the correct ICD. See Gentoo [Documentation](https://wiki.gentoo.org/wiki/) for details..
+When using a NVIDIA GPU with the proprietary driver (eg. `x11-drivers/nvidia-drivers`), you may also need to emerge `media-libs/vulkan-loader` to get Bevy to find the GPU. NVIDIA Vulkan driver is included in `nvidia-driver`, but may need the loader to find the correct ICD. See Gentoo [Documentation](https://wiki.gentoo.org/wiki/Vulkan) for details..
 
 ## [Clear Linux OS](https://clearlinux.org/)
 
