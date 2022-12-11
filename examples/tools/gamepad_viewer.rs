@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     input::gamepad::{GamepadButton, GamepadSettings},
     prelude::*,
-    sprite::{MaterialMesh2dBundle, Mesh2dHandle},
+    sprite::{MaterialMesh2dBundle, Mesh2dHandle, Anchor},
 };
 
 const BUTTON_RADIUS: f32 = 25.;
@@ -340,8 +340,8 @@ fn setup_sticks(
                                 value: format!("{:.3}", 0.),
                                 style,
                             },
-                        ])
-                        .with_alignment(TextAlignment::Center),
+                        ]),
+                        anchor: Anchor::BottomCenter,
                         ..default()
                     },
                     TextWithAxes { x_axis, y_axis },
@@ -407,8 +407,7 @@ fn setup_triggers(
                                 font_size: 16.,
                                 color: TEXT_COLOR,
                             },
-                        )
-                        .with_alignment(TextAlignment::Center),
+                        ),
                         ..default()
                     },
                     TextWithButtonValue(button_type),
