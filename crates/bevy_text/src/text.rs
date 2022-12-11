@@ -93,7 +93,7 @@ impl Text {
     pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
         Self {
             sections: sections.into_iter().collect(),
-            ..Default::default()
+            ..default()
         }
     }
 
