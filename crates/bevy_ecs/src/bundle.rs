@@ -9,7 +9,7 @@ use crate::{
         Archetype, ArchetypeId, ArchetypeRow, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
-    component::{Component, ComponentId, Components, StorageType, Tick},
+    component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
@@ -130,7 +130,6 @@ use std::{any::TypeId, collections::HashMap};
 /// That is, there is no safe way to implement this trait, and you must not do so.
 /// If you want a type to implement [`Bundle`], you must use [`derive@Bundle`](derive@Bundle).
 ///
-///
 /// [`Query`]: crate::system::Query
 // Some safety points:
 // - [`Bundle::component_ids`] must return the [`ComponentId`] for each component type in the
@@ -159,15 +158,19 @@ pub unsafe trait Bundle: Send + Sync + 'static {
         F: for<'a> FnMut(&'a mut T) -> OwningPtr<'a>,
         Self: Sized;
 
+    // SAFETY:
+    // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
+    // component being fetched.
+    //
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>));
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
 }
 
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C.
+// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on it's associated constant.
 // - `Bundle::from_components` calls `func` exactly once for C, which is the exact value returned by `Bundle::component_ids`.
 unsafe impl<C: Component> Bundle for C {
     fn component_ids(
@@ -188,8 +191,9 @@ unsafe impl<C: Component> Bundle for C {
         func(ctx).read()
     }
 
-    fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
-        OwningPtr::make(self, func);
+    #[inline]
+    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+        OwningPtr::make(self, |ptr| func(C::Storage::STORAGE_TYPE, ptr));
     }
 }
 
@@ -199,6 +203,8 @@ macro_rules! tuple_impl {
         // - `Bundle::component_ids` calls `ids` for each component type in the
         // bundle, in the exact order that `Bundle::get_components` is called.
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
+        // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
+        //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
             #[allow(unused_variables)]
             fn component_ids(components: &mut Components, storages: &mut Storages, ids: &mut impl FnMut(ComponentId)){
@@ -217,7 +223,8 @@ macro_rules! tuple_impl {
             }
 
             #[allow(unused_variables, unused_mut)]
-            fn get_components(self, func: &mut impl FnMut(OwningPtr<'_>)) {
+            #[inline(always)]
+            fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
                 #[allow(non_snake_case)]
                 let ($(mut $name,)*) = self;
                 $(
@@ -254,7 +261,6 @@ impl SparseSetIndex for BundleId {
 pub struct BundleInfo {
     pub(crate) id: BundleId,
     pub(crate) component_ids: Vec<ComponentId>,
-    pub(crate) storage_types: Vec<StorageType>,
 }
 
 impl BundleInfo {
@@ -266,11 +272,6 @@ impl BundleInfo {
     #[inline]
     pub fn components(&self) -> &[ComponentId] {
         &self.component_ids
-    }
-
-    #[inline]
-    pub fn storage_types(&self) -> &[StorageType] {
-        &self.storage_types
     }
 
     pub(crate) fn get_bundle_inserter<'a, 'b>(
@@ -386,9 +387,9 @@ impl BundleInfo {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        bundle.get_components(&mut |component_ptr| {
+        bundle.get_components(&mut |storage_type, component_ptr| {
             let component_id = *self.component_ids.get_unchecked(bundle_component);
-            match self.storage_types[bundle_component] {
+            match storage_type {
                 StorageType::Table => {
                     let column = table.get_column_mut(component_id).unwrap();
                     // SAFETY: bundle_component is a valid index for this bundle
@@ -402,8 +403,11 @@ impl BundleInfo {
                     }
                 }
                 StorageType::SparseSet => {
-                    let sparse_set = sparse_sets.get_mut(component_id).unwrap();
-                    sparse_set.insert(entity, component_ptr, change_tick);
+                    sparse_sets.get_mut(component_id).unwrap().insert(
+                        entity,
+                        component_ptr,
+                        change_tick,
+                    );
                 }
             }
             bundle_component += 1;
@@ -707,10 +711,9 @@ impl Bundles {
             let mut component_ids = Vec::new();
             T::component_ids(components, storages, &mut |id| component_ids.push(id));
             let id = BundleId(bundle_infos.len());
-            // SAFETY: T::component_id ensures info was created
-            let bundle_info = unsafe {
-                initialize_bundle(std::any::type_name::<T>(), component_ids, id, components)
-            };
+            let bundle_info =
+                // SAFETY: T::component_id ensures info was created
+                unsafe { initialize_bundle(std::any::type_name::<T>(), component_ids, id) };
             bundle_infos.push(bundle_info);
             id
         });
@@ -726,16 +729,7 @@ unsafe fn initialize_bundle(
     bundle_type_name: &'static str,
     component_ids: Vec<ComponentId>,
     id: BundleId,
-    components: &mut Components,
 ) -> BundleInfo {
-    let mut storage_types = Vec::new();
-
-    for &component_id in &component_ids {
-        // SAFETY: component_id exists and is therefore valid
-        let component_info = components.get_info_unchecked(component_id);
-        storage_types.push(component_info.storage_type());
-    }
-
     let mut deduped = component_ids.clone();
     deduped.sort();
     deduped.dedup();
@@ -745,9 +739,5 @@ unsafe fn initialize_bundle(
         bundle_type_name
     );
 
-    BundleInfo {
-        id,
-        component_ids,
-        storage_types,
-    }
+    BundleInfo { id, component_ids }
 }
