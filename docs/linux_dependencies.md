@@ -127,6 +127,18 @@ Note that this template does not add Rust to the environment because there are m
 
 ## [OpenSUSE](https://www.opensuse.org/)
 
+### Tumbleweed
+
+Tumbleweed is the rolling release of OpenSUSE. As of 20221120, the following packages are required:
+
+```bash
+   sudo zypper install gcc-c++ systemd-devel alsa-devel
+```
+
+You may also need to install a vulkan driver, either: `libvulkan_intel`, `libvulkan_radeon`.
+
+### Leap
+
 ```bash
    sudo zypper install libudev-devel gcc-c++ alsa-lib-devel
 ```
