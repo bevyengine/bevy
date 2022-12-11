@@ -34,7 +34,8 @@ fn denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let right_edges = unpack4x8unorm(edges1.x);
     let top_edges = unpack4x8unorm(edges0.z);
     let bottom_edges = unpack4x8unorm(edges2.w);
-    let center_edges = unpack4x8unorm(edges0.y) * vec4<f32>(left_edges.y, right_edges.x, top_edges.w, bottom_edges.z);
+    var center_edges = unpack4x8unorm(edges0.y);
+    center_edges *= vec4<f32>(left_edges.y, right_edges.x, top_edges.w, bottom_edges.z);
 
     let center_weight = 1.2;
     let left_weight = center_edges.x;
@@ -56,9 +57,27 @@ fn denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let bottom_left_visibility = visibility2.w;
     let bottom_right_visibility = visibility3.w;
 
-    let sum = (center_weight * center_visibility) + (left_weight * left_visibility) + (top_weight * top_visibility) + (bottom_weight * bottom_visibility) + (top_left_weight * top_left_visibility) + (top_right_weight * top_right_visibility) + (bottom_left_weight * bottom_left_visibility) + (bottom_right_weight * bottom_right_visibility);
-    let sum_weight = center_weight + left_weight + top_weight + bottom_weight + top_left_weight + top_right_weight + bottom_left_weight + bottom_right_weight;
-    let denoised_visibility = saturate(sum / sum_weight);
+    var sum = center_visibility;
+    sum += left_visibility * left_weight;
+    sum += right_visibility * right_weight;
+    sum += top_visibility * top_weight;
+    sum += bottom_visibility * bottom_weight;
+    sum += top_left_visibility * top_left_weight;
+    sum += top_right_visibility * top_right_weight;
+    sum += bottom_left_visibility * bottom_left_weight;
+    sum += bottom_right_visibility * bottom_right_weight;
+
+    var sum_weight = center_weight;
+    sum_weight += left_weight;
+    sum_weight += right_weight;
+    sum_weight += top_weight;
+    sum_weight += bottom_weight;
+    sum_weight += top_left_weight;
+    sum_weight += top_right_weight;
+    sum_weight += bottom_left_weight;
+    sum_weight += bottom_right_weight;
+
+    let denoised_visibility = sum / sum_weight;
 
     textureStore(ambient_occlusion, pixel_coordinates, vec4<f32>(denoised_visibility, 0.0, 0.0, 0.0));
 }
