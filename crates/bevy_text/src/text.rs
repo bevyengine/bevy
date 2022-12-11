@@ -58,7 +58,7 @@ impl Text {
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
             sections: vec![TextSection::new(value, style)],
-            ..Default::default()
+            ..default()
         }
     }
 
