@@ -38,7 +38,7 @@ impl<'a> Serialize for SceneSerializer<'a> {
         state.serialize_field(
             SCENE_RESOURCES,
             &SceneMapSerializer {
-                reflect_array: &self.scene.resources,
+                entries: &self.scene.resources,
                 registry: self.registry,
             },
         )?;
@@ -91,7 +91,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
         state.serialize_field(
             ENTITY_FIELD_COMPONENTS,
             &SceneMapSerializer {
-                reflect_array: &self.entity.components,
+                entries: &self.entity.components,
                 registry: self.registry,
             },
         )?;
@@ -100,7 +100,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
 }
 
 pub struct SceneMapSerializer<'a> {
-    pub reflect_array: &'a [Box<dyn Reflect>],
+    pub entries: &'a [Box<dyn Reflect>],
     pub registry: &'a TypeRegistryArc,
 }
 
@@ -109,8 +109,8 @@ impl<'a> Serialize for SceneMapSerializer<'a> {
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_map(Some(self.reflect_array.len()))?;
-        for reflect in self.reflect_array {
+        let mut state = serializer.serialize_map(Some(self.entries.len()))?;
+        for reflect in self.entries {
             state.serialize_entry(
                 reflect.type_name(),
                 &TypedReflectSerializer::new(&**reflect, &self.registry.read()),
@@ -382,7 +382,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
         A: MapAccess<'de>,
     {
         let mut added = HashSet::new();
-        let mut reflect_array = Vec::new();
+        let mut entries = Vec::new();
         while let Some(key) = map.next_key::<&str>()? {
             if !added.insert(key) {
                 return Err(Error::custom(format!("duplicate impl reflect: `{key}`")));
@@ -392,12 +392,12 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
                 .registry
                 .get_with_name(key)
                 .ok_or_else(|| Error::custom(format!("no registration found for `{key}`")))?;
-            reflect_array.push(
+            entries.push(
                 map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
             );
         }
 
-        Ok(reflect_array)
+        Ok(entries)
     }
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>

@@ -14,7 +14,9 @@ use bevy_ecs::reflect::ReflectResource;
 #[cfg(feature = "serialize")]
 use serde::Serialize;
 
-/// A collection of serializable resources and dynamic entities, each of the latter with its own run-time defined set of components.
+/// A collection of serializable resources and dynamic entities.
+///
+/// Each dynamic entity in the collection contains its own run-time defined set of components.
 /// To spawn a dynamic scene, you can use either:
 /// * [`SceneSpawner::spawn_dynamic`](crate::SceneSpawner::spawn_dynamic)
 /// * adding the [`DynamicSceneBundle`](crate::DynamicSceneBundle) to an entity
