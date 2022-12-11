@@ -139,10 +139,8 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
             let sample = sample * vec2<f32>(omega.x, -omega.y);
 
             let sample_mip_level = clamp(log2(length(sample)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
-            let sample_uv_1 = uv + sample;
-            let sample_uv_2 = uv - sample;
-            let sample_position_1 = load_and_reconstruct_view_space_position(sample_uv_1, sample_mip_level);
-            let sample_position_2 = load_and_reconstruct_view_space_position(sample_uv_2, sample_mip_level);
+            let sample_position_1 = load_and_reconstruct_view_space_position(uv + sample, sample_mip_level);
+            let sample_position_2 = load_and_reconstruct_view_space_position(uv - sample, sample_mip_level);
 
             let sample_difference_1 = sample_position_1 - pixel_position;
             let sample_difference_2 = sample_position_2 - pixel_position;
