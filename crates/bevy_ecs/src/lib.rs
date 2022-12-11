@@ -38,7 +38,7 @@ pub mod prelude {
             Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            adapter as system_adapter, Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend,
+            adapter as system_adapter, adapter::{unwrap, info, warn, dbg, error, ignore}, Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend,
             NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut,
             Resource, System, SystemParamFunction,
         },

@@ -16,11 +16,11 @@ fn main() {
             filter: "".to_string(),
         })
         .add_system(parse_message_system.pipe(handler_system))
-        .add_system(data_pipe_system.pipe(system_adapter::info))
-        .add_system(parse_message_system.pipe(system_adapter::dbg))
-        .add_system(warning_pipe_system.pipe(system_adapter::warn))
-        .add_system(parse_error_message_system.pipe(system_adapter::error))
-        .add_system(parse_message_system.pipe(system_adapter::ignore))
+        .add_system(data_pipe_system.pipe(info))
+        .add_system(parse_message_system.pipe(dbg))
+        .add_system(warning_pipe_system.pipe(warn))
+        .add_system(parse_error_message_system.pipe(error))
+        .add_system(parse_message_system.pipe(ignore))
         .run();
 }
 
