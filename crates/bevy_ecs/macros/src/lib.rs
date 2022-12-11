@@ -285,8 +285,8 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     )*
                 }
 
-                fn apply(&mut self, world: &mut World) {
-                    self.0.apply(world)
+                fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+                    self.0.apply(system_meta, world)
                 }
 
                 #[inline]
@@ -466,8 +466,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     self.state.new_archetype(archetype, system_meta)
                 }
 
-                fn apply(&mut self, world: &mut #path::world::World) {
-                    self.state.apply(world)
+                fn apply(&mut self, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
+                    self.state.apply(system_meta, world)
                 }
 
                 unsafe fn get_param<'w, 's>(

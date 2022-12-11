@@ -37,6 +37,12 @@ impl SystemMeta {
         }
     }
 
+    /// Returns the system's name
+    #[inline]
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
     /// Returns true if the system is [`Send`].
     #[inline]
     pub fn is_send(&self) -> bool {
@@ -182,7 +188,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
-        self.param_state.apply(world);
+        self.param_state.apply(&self.meta, world);
     }
 
     #[inline]
@@ -416,7 +422,7 @@ where
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
-        param_state.apply(world);
+        param_state.apply(&self.system_meta, world);
     }
 
     #[inline]
