@@ -353,7 +353,7 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
     {
         let mut added = HashSet::new();
         let mut components = Vec::new();
-        while let Some(key) = map.next_key::<Cow<'de, str>>()? {
+        while let Some(BorrowableCowStr(key)) = map.next_key()? {
             if !added.insert(key.clone()) {
                 return Err(Error::custom(format!("duplicate component: `{key}`")));
             }
@@ -384,6 +384,13 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
         Ok(dynamic_properties)
     }
 }
+
+/// Helper struct for deserializing strings without allocating (when possible).
+///
+/// Based on [this comment](https://github.com/bevyengine/bevy/pull/6894#discussion_r1045069010).
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct BorrowableCowStr<'a>(#[serde(borrow)] Cow<'a, str>);
 
 #[cfg(test)]
 mod tests {

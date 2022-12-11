@@ -211,6 +211,13 @@ impl<'de> Visitor<'de> for U32Visitor {
     }
 }
 
+/// Helper struct for deserializing strings without allocating (when possible).
+///
+/// Based on [this comment](https://github.com/bevyengine/bevy/pull/6894#discussion_r1045069010).
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct BorrowableCowStr<'a>(#[serde(borrow)] Cow<'a, str>);
+
 /// A general purpose deserializer for reflected types.
 ///
 /// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
@@ -274,8 +281,9 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
         A: MapAccess<'de>,
     {
         let type_name = map
-            .next_key::<Cow<'de, str>>()?
-            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
+            .next_key::<BorrowableCowStr>()?
+            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?
+            .0;
 
         let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
             Error::custom(format_args!("No registration found for `{type_name}`"))
