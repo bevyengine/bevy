@@ -136,7 +136,7 @@ fn scene_load_check(
                         scene_handle.scene_index,
                         gltf.scenes.len()
                     );
-                    info!("You can select the scene by using #Scene0 at the end of the file path");
+                    info!("You can select the scene by adding '#Scene' followed by a number to the end of the file path (e.g '#Scene1' to load the second scene).");
                 }
 
                 let gltf_scene_handle =
