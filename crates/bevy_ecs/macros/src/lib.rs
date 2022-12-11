@@ -170,7 +170,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        /// SAFETY: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
+        //   the correct `StorageType` into the callback.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
@@ -191,7 +194,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             #[allow(unused_variables)]
-            fn get_components(self, func: &mut impl FnMut(#ecs_path::ptr::OwningPtr<'_>)) {
+            #[inline]
+            fn get_components(
+                self,
+                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
+            ) {
                 #(#field_get_components)*
             }
         }
