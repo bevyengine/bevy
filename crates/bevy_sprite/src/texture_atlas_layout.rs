@@ -4,9 +4,17 @@ use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use bevy_render::texture::Image;
 use bevy_utils::HashMap;
 
-/// An atlas containing multiple textures (like a spritesheet or a tilemap).
+/// Maps a layout for a texture. Used with the [`TextureAtlas`] component it allows to
+/// either draw a specific area of the target texture, or to animate a sprite sheet.
+///
+/// Optionaly it can store a mapping from sub texture handles to the related area index (see
+/// [`TextureAtlasBuilder`]).
+///
 /// [Example usage animating sprite.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
 /// [Example usage loading sprite sheet.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
+///
+/// [`TextureAtlas`]: crate::TextureAtlas
+/// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
 #[derive(Reflect, FromReflect, Debug, Clone, TypeUuid)]
 #[uuid = "7233c597-ccfa-411f-bd59-9af349432ada"]
 #[reflect(Debug)]
@@ -15,12 +23,14 @@ pub struct TextureAtlasLayout {
     pub size: Vec2,
     /// The specific areas of the atlas where each texture can be found
     pub textures: Vec<Rect>,
+    /// Texture handle to area index mapping. Set by [`TextureAtlasBuilder`].
+    ///
+    /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
     pub texture_handles: Option<HashMap<Handle<Image>, usize>>,
 }
 
 impl TextureAtlasLayout {
-    /// Create a new `TextureAtlas` that has a texture, but does not have
-    /// any individual sprites specified
+    /// Create a new empty layout with custom `dimensions`
     pub fn new_empty(dimensions: Vec2) -> Self {
         Self {
             size: dimensions,
@@ -29,11 +39,19 @@ impl TextureAtlasLayout {
         }
     }
 
-    /// Generate a `TextureAtlas` by splitting a texture into a grid where each
-    /// `tile_size` by `tile_size` grid-cell is one of the textures in the
+    /// Generate a [`TextureAtlasLayout`] as a grid where each
+    /// `tile_size` by `tile_size` grid-cell is one of the *section* in the
     /// atlas. Grid cells are separated by some `padding`, and the grid starts
-    /// at `offset` pixels from the top left corner. Resulting `TextureAtlas` is
+    /// at `offset` pixels from the top left corner. Resulting layout is
     /// indexed left to right, top to bottom.
+    ///
+    /// # Arguments
+    ///
+    /// * `tile_size` - Each layout grid cell size
+    /// * `columns` - Grid column count
+    /// * `rows` - Grid row count
+    /// * `padding` - Optional padding between cells
+    /// * `offset` - Optional global grid offset
     pub fn from_grid(
         tile_size: Vec2,
         columns: usize,
@@ -75,13 +93,12 @@ impl TextureAtlasLayout {
         }
     }
 
-    /// Add a sprite to the list of textures in the `TextureAtlas`
-    /// returns an index to the texture which can be used with `TextureAtlasSprite`
+    /// Add a *section* to the list in the layout and returns its index
+    /// which can be used with [`TextureAtlas`]
     ///
     /// # Arguments
     ///
-    /// * `rect` - The section of the atlas that contains the texture to be added,
-    /// from the top-left corner of the texture to the bottom-right corner
+    /// * `rect` - The section of the texture to be added
     pub fn add_texture(&mut self, rect: Rect) -> usize {
         self.textures.push(rect);
         self.textures.len() - 1
@@ -96,6 +113,11 @@ impl TextureAtlasLayout {
         self.textures.is_empty()
     }
 
+    /// Retrieves the texture *section* index of the given `texture` handle.
+    ///
+    /// This requires the layout to have been built using a [`TextureAtlasBuilder`]
+    ///
+    /// [`TextureAtlasBuilder`]: crate::TextureAtlasBuilder
     pub fn get_texture_index(&self, texture: &Handle<Image>) -> Option<usize> {
         self.texture_handles
             .as_ref()

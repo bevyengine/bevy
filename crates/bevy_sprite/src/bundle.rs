@@ -37,6 +37,10 @@ impl Default for SpriteBundle {
 ///
 /// Note:
 /// This bundle is identical to [`SpriteBundle`] with an additional [`TextureAtlas`] component.
+///
+/// Check the following examples for usage:
+/// - [`animated sprite sheet example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/sprite_sheet.rs)
+/// - [`texture atlas example`](https://github.com/bevyengine/bevy/blob/latest/examples/2d/texture_atlas.rs)
 #[derive(Bundle, Clone, Default)]
 pub struct SpriteSheetBundle {
     pub sprite: Sprite,
@@ -44,7 +48,7 @@ pub struct SpriteSheetBundle {
     pub global_transform: GlobalTransform,
     /// The sprite sheet base texture
     pub texture: Handle<Image>,
-    /// The sprite sheet texture atlas and the section to draw
+    /// The sprite sheet texture atlas, allowing to draw a custom section of `texture`.
     pub atlas: TextureAtlas,
     /// User indication of whether an entity is visible
     pub visibility: Visibility,

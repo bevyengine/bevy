@@ -136,10 +136,10 @@ impl TextureAtlasBuilder {
         }
     }
 
-    /// Consumes the builder and returns a result with a new texture atlas and a texture handle.
+    /// Consumes the builder, and returns the newly created texture handle and the assciated atlas layout.
     ///
     /// Internally it copies all rectangles from the textures and copies them
-    /// into a new texture which the texture atlas will use. It is not useful to
+    /// into a new texture atlas will use. It is not useful to
     /// hold a strong handle to the texture afterwards else it will exist twice
     /// in memory.
     ///
@@ -156,7 +156,7 @@ impl TextureAtlasBuilder {
     ///     let mut builder = TextureAtlasBuilder::default();
     ///     // Customize it
     ///     // ...
-    ///     // Build your texture
+    ///     // Build your texture and the atlas layout
     ///     let (atlas_layout, texture) = builder.finish(&mut textures).unwrap();
     ///     let layout = layouts.add(atlas_layout);
     ///     // Spawn your sprite

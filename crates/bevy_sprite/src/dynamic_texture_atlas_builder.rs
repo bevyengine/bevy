@@ -31,7 +31,7 @@ impl DynamicTextureAtlasBuilder {
     /// It is user's responsibility to pass in the correct [`TextureAtlas`]
     pub fn add_texture(
         &mut self,
-        texture_atlas: &mut TextureAtlasLayout,
+        atlas_layout: &mut TextureAtlasLayout,
         textures: &mut Assets<Image>,
         texture: &Image,
         texture_handle: &Handle<Image>,
@@ -45,7 +45,7 @@ impl DynamicTextureAtlasBuilder {
             self.place_texture(atlas_texture, allocation, texture);
             let mut rect: Rect = to_rect(allocation.rectangle);
             rect.max -= self.padding as f32;
-            Some(texture_atlas.add_texture(rect))
+            Some(atlas_layout.add_texture(rect))
         } else {
             None
         }
