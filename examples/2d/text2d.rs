@@ -82,7 +82,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // Wrap text in the rectangle
                     size: box_size,
                 },
-                transform: Transform::from_translation(1. * Vec3::Z),
+                // ensure the text is drawn on top of the box
+                transform: Transform::from_translation(Vec3::Z),
                 ..default()
             });
         });
