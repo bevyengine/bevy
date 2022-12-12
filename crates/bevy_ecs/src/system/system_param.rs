@@ -126,9 +126,6 @@ use std::{
 ///
 /// The implementor must ensure that [`SystemParam::init`] correctly registers all
 /// [`World`] accesses used by this [`SystemParam`] with the provided [`system_meta`](SystemMeta).
-///
-/// Additionally, it is the implementor's responsibility to ensure there is no
-/// conflicting access across all `SystemParam`'s.
 pub unsafe trait SystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
@@ -155,8 +152,8 @@ pub unsafe trait SystemParam: Sized {
 
     /// # Safety
     ///
-    /// This call might access any of the input parameters in an unsafe way. Make sure the data
-    /// access is safe in the context of the system scheduler.
+    /// This call might use any of the [`World`] accesses that were registered in [`Self::init`].
+    /// You must ensure that none of those accesses conflict with any other [`SystemParam`]s running in parallel with this one.
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
