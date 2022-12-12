@@ -31,12 +31,10 @@ use std::{
 /// # Example
 ///
 /// ```
-/// use bevy::{
-///     ecs::system::{
-///         Infallible, ResState, SystemMeta,
-///         SystemParam, SystemParamState,
-///     },
-///     prelude::*,
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::{
+///     Infallible, ResState, SystemMeta,
+///     SystemParam, SystemParamState,
 /// };
 /// # #[derive(Resource)]
 /// # struct SomeResource {
@@ -57,7 +55,7 @@ use std::{
 /// }
 ///
 /// unsafe impl SystemParamState<Infallible> for MyParamState {
-///     fn init(world: &mut World, system_meta: &mut bevy::ecs::system::SystemMeta) -> Self {
+///     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
 ///         Self {
 ///             res_state: <ResState<SomeResource> as SystemParamState<Infallible>>::init(world, system_meta),
 ///         }
@@ -96,12 +94,10 @@ pub struct Infallible;
 /// # Example
 ///
 /// ```
-/// use bevy::{
-///     ecs::system::{
-///         Infallible, Optional, OptionState, ResState, SystemMeta,
-///         SystemParam, SystemParamState,
-///     },
-///     prelude::*,
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::{
+///     Infallible, Optional, OptionState, ResState, SystemMeta,
+///     SystemParam, SystemParamState,
 /// };
 /// # #[derive(Resource)]
 /// # struct SomeResource {
@@ -122,7 +118,7 @@ pub struct Infallible;
 /// }
 ///
 /// unsafe impl SystemParamState<Optional> for MyParamState {
-///     fn init(world: &mut World, system_meta: &mut bevy::ecs::system::SystemMeta) -> Self {
+///     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
 ///         Self {
 ///             res_state: OptionState::init(world, system_meta),
 ///         }
@@ -163,12 +159,10 @@ pub struct Optional;
 /// # Example
 ///
 /// ```
-/// use bevy::{
-///     ecs::system::{
-///         Infallible, Resultful, OptionState, ResState, SystemMeta,
-///         SystemParam, SystemParamState,
-///     },
-///     prelude::*,
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::{
+///     Infallible, Resultful, OptionState, ResState, SystemMeta,
+///     SystemParam, SystemParamState,
 /// };
 /// use std::error::Error;
 /// # #[derive(Resource)]
@@ -190,7 +184,7 @@ pub struct Optional;
 /// }
 ///
 /// unsafe impl SystemParamState<Resultful> for MyParamState {
-///     fn init(world: &mut World, system_meta: &mut bevy::ecs::system::SystemMeta) -> Self {
+///     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
 ///         Self {
 ///             res_state: OptionState::init(world, system_meta),
 ///         }
