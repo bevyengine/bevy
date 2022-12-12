@@ -440,6 +440,9 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 }
 
+// SAFETY: Only reads a single World resource
+unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
+
 // SAFETY: this impl defers to `ResState`, which initializes
 // and validates the correct world access
 unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
@@ -468,9 +471,6 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
             })
     }
 }
-
-// SAFETY: Only reads a single World resource
-unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
@@ -1086,6 +1086,9 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     }
 }
 
+// SAFETY: Only reads World archetypes
+unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
+
 // SAFETY: no component value access
 unsafe impl<'a> SystemParam for &'a Archetypes {
     type State = ();
@@ -1104,8 +1107,8 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     }
 }
 
-// SAFETY: Only reads World archetypes
-unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
+// SAFETY: Only reads World components
+unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
 
 // SAFETY: no component value access
 unsafe impl<'a> SystemParam for &'a Components {
@@ -1125,8 +1128,8 @@ unsafe impl<'a> SystemParam for &'a Components {
     }
 }
 
-// SAFETY: Only reads World components
-unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
+// SAFETY: Only reads World entities
+unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
 
 // SAFETY: no component value access
 unsafe impl<'a> SystemParam for &'a Entities {
@@ -1146,8 +1149,8 @@ unsafe impl<'a> SystemParam for &'a Entities {
     }
 }
 
-// SAFETY: Only reads World entities
-unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
+// SAFETY: Only reads World bundles
+unsafe impl<'a> ReadOnlySystemParam for &'a Bundles {}
 
 // SAFETY: no component value access
 unsafe impl<'a> SystemParam for &'a Bundles {
@@ -1166,9 +1169,6 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         world.bundles()
     }
 }
-
-// SAFETY: Only reads World bundles
-unsafe impl<'a> ReadOnlySystemParam for &'a Bundles {}
 
 /// A [`SystemParam`] that reads the previous and current change ticks of the system.
 ///
