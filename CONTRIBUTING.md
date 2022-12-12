@@ -277,6 +277,8 @@ As discussed in [*How we're organized*](#how-were-organized), this role only req
 
 ### How to adopt pull requests
 
+Occasionally authors of pull requests get busy or become unresponsive. This is a natural part of any open source project. To avoid blocking these efforts, these pull requests may be *adopted*, where another contributor creates a new pull request with the same content.
+
 When you want to contribute pull request with the label *[S-Adopt-Me](https://github.com/bevyengine/bevy/labels/S-Adopt-Me)*, to preserve the credit, it's necessary to fork the original author's branch to maintain commits. When the new one is ready must reference the initial PR hash in the description and conferring with org members to close the original.
 
 * Example: `Adopted #number-original-pull-request`
