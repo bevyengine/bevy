@@ -130,6 +130,11 @@ use std::{
 /// conflicting access across all [`SystemParam`]'s.
 pub unsafe trait SystemParam: Sized {
     type State: Send + Sync + 'static;
+
+    /// The item type returned when constructing this system param.
+    /// The value of this associated type should be `Self`, instantiated with new lifetimes.
+    ///
+    /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to a type.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
