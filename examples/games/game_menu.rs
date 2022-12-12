@@ -101,7 +101,7 @@ mod splash {
                         size: Size::new(Val::Px(200.0), Val::Auto),
                         ..default()
                     },
-                    image: UiImage::new(icon),
+                    image: UiImage::from(icon),
                     ..default()
                 });
             });
@@ -493,7 +493,7 @@ mod menu {
                                 let icon = asset_server.load("textures/Game Icons/right.png");
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style.clone(),
-                                    image: UiImage::new(icon),
+                                    image: UiImage::from(icon),
                                     ..default()
                                 });
                                 parent.spawn(TextBundle::from_section(
@@ -514,7 +514,7 @@ mod menu {
                                 let icon = asset_server.load("textures/Game Icons/wrench.png");
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style.clone(),
-                                    image: UiImage::new(icon),
+                                    image: UiImage::from(icon),
                                     ..default()
                                 });
                                 parent.spawn(TextBundle::from_section(
@@ -535,7 +535,7 @@ mod menu {
                                 let icon = asset_server.load("textures/Game Icons/exitRight.png");
                                 parent.spawn(ImageBundle {
                                     style: button_icon_style,
-                                    image: UiImage::new(icon),
+                                    image: UiImage::from(icon),
                                     ..default()
                                 });
                                 parent.spawn(TextBundle::from_section("Quit", button_text_style));
