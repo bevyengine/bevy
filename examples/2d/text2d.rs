@@ -33,14 +33,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 60.0,
         color: Color::WHITE,
     };
-    let text_justification = TextJustification::JustifyCenter;
+    let text_justification = JustifyText::JustifyCenter;
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
     commands.spawn((
         Text2dBundle {
             text: Text::from_section("translation", text_style.clone())
-                .with_alignment(text_justification),
+                .with_justify(text_justification),
             ..default()
         },
         AnimateTranslation,
@@ -49,7 +49,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2dBundle {
             text: Text::from_section("rotation", text_style.clone())
-                .with_alignment(text_justification),
+                .with_justify(text_justification),
             ..default()
         },
         AnimateRotation,
@@ -58,7 +58,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Text2dBundle {
             text: Text::from_section("scale", text_style.clone())
-                .with_alignment(text_justification),
+                .with_justify(text_justification),
             ..default()
         },
         AnimateScale,
@@ -79,7 +79,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
                 text: Text::from_section("this text wraps in the box", text_style)
-                    .with_alignment(TextJustification::JustifyLeft),
+                    .with_justify(JustifyText::JustifyLeft),
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
                     size: box_size,

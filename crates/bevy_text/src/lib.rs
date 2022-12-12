@@ -21,7 +21,7 @@ pub use text2d::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        Font, Text, Text2dBundle, TextError, TextJustification, TextSection, TextStyle,
+        Font, Text, Text2dBundle, TextError, JustifyText, TextSection, TextStyle,
     };
 }
 
@@ -77,7 +77,7 @@ impl Plugin for TextPlugin {
             .register_type::<Vec<TextSection>>()
             .register_type::<TextStyle>()
             .register_type::<Text>()
-            .register_type::<TextJustification>()
+            .register_type::<JustifyText>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()

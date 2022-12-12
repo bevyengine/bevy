@@ -13,14 +13,14 @@ pub struct Text {
     pub sections: Vec<TextSection>,
     /// The text's internal justification.
     /// Should not affect its position within a container.
-    pub justification: TextJustification,
+    pub justify: JustifyText,
 }
 
 impl Default for Text {
     fn default() -> Self {
         Self {
             sections: Default::default(),
-            justification: TextJustification::JustifyLeft,
+            justify: JustifyText::JustifyLeft,
         }
     }
 }
@@ -31,7 +31,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, TextJustification};
+    /// # use bevy_text::{Font, Text, TextStyle, JustifyText};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -54,7 +54,7 @@ impl Text {
     ///         color: Color::WHITE,
     ///     },
     /// ) // You can still add an alignment.
-    /// with_text_justification(TextJustification::JustifyCenter);
+    /// with_text_justification(JustifyText::JustifyCenter);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
@@ -98,9 +98,9 @@ impl Text {
         }
     }
 
-    /// Returns this [`Text`] with a new [`TextAlignment`].
-    pub const fn with_alignment(mut self, alignment: TextJustification) -> Self {
-        self.justification = alignment;
+    /// Returns this [`Text`] with a new [`JustifyText`].
+    pub const fn with_justify(mut self, alignment: JustifyText) -> Self {
+        self.justify = alignment;
         self
     }
 }
@@ -132,7 +132,7 @@ impl TextSection {
 /// Describes horizontal alignment preference for positioning & bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum TextJustification {
+pub enum JustifyText {
     /// Leftmost character is immediately to the right of the render position.<br/>
     /// Bounds start from the render position and advance rightwards.
     JustifyLeft,
@@ -144,12 +144,12 @@ pub enum TextJustification {
     JustifyRight,
 }
 
-impl From<TextJustification> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: TextJustification) -> Self {
+impl From<JustifyText> for glyph_brush_layout::HorizontalAlign {
+    fn from(val: JustifyText) -> Self {
         match val {
-            TextJustification::JustifyLeft => glyph_brush_layout::HorizontalAlign::Left,
-            TextJustification::JustifyCenter => glyph_brush_layout::HorizontalAlign::Center,
-            TextJustification::JustifyRight => glyph_brush_layout::HorizontalAlign::Right,
+            JustifyText::JustifyLeft => glyph_brush_layout::HorizontalAlign::Left,
+            JustifyText::JustifyCenter => glyph_brush_layout::HorizontalAlign::Center,
+            JustifyText::JustifyRight => glyph_brush_layout::HorizontalAlign::Right,
         }
     }
 }
