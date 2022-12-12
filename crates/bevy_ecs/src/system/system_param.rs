@@ -143,7 +143,8 @@ pub unsafe trait SystemParam: Sized {
     }
 
     #[inline]
-    fn apply(_state: &mut Self::State, _world: &mut World) {}
+    #[allow(unused_variables)]
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {}
 
     /// # Safety
     ///
@@ -568,7 +569,11 @@ unsafe impl<'_w, '_s> SystemParam for Commands<'_w, '_s> {
         Default::default()
     }
 
-    fn apply(state: &mut Self::State, world: &mut World) {
+    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span =
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+                .entered();
         state.apply(world);
     }
 
@@ -1317,9 +1322,9 @@ macro_rules! impl_system_param_tuple {
             }
 
             #[inline]
-            fn apply(($($param,)*): &mut Self::State, _world: &mut World) {
+            fn apply(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, _world: &mut World) {
                 $(
-                    <$param as SystemParam>::apply($param, _world);
+                    <$param as SystemParam>::apply($param, _system_meta, _world);
                 )*
             }
 
@@ -1445,8 +1450,8 @@ unsafe impl<'_w, '_s, P: SystemParam + 'static> SystemParam for StaticSystemPara
         P::new_archetype(state, archetype, system_meta);
     }
 
-    fn apply(state: &mut Self::State, world: &mut World) {
-        P::apply(state, world);
+    fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
+        P::apply(state, system_meta, world);
     }
 
     unsafe fn get_param<'world, 'state>(
