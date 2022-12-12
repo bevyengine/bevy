@@ -150,11 +150,11 @@ pub struct Infallible;
 /// ```
 pub struct Optional;
 
-/// A [`SystemParam`] that can be used as `Result<T, Box<dyn Error>>`, `Option<T>`, and `T`.
+/// A [`SystemParam`] that can be used as `Result<T, &dyn Error>`, `Option<T>`, and `T`.
 ///
 /// `SystemParam<Resultful>` is best implemented for parameters that have multiple points of failure.
 ///
-/// By implementing `SystemParam<Resultful>`, `SystemParam<Optional>` is implemented for `T` and `SystemParam<Infallible>` is implemented for `Result<T, Box<dyn Error>>`.
+/// By implementing `SystemParam<Resultful>`, `SystemParam<Optional>` is implemented for `T` and `SystemParam<Infallible>` is implemented for `Result<T, &dyn Error>`.
 ///
 /// # Example
 ///
@@ -198,7 +198,7 @@ pub struct Optional;
 ///         system_meta: &SystemMeta,
 ///         world: &'w World,
 ///         change_tick: u32,
-///     ) -> Result<Self::Item<'w, 's>, Box<dyn Error>> {
+///     ) -> Result<Self::Item<'w, 's>, &'s dyn Error> {
 ///         // Since `Res<T>` doesn't implement `SystemParam<Resultful>`, we have to use `Option<Res<T>>` and map it to a result.
 ///         let some_res = <<Option<Res<SomeResource>> as SystemParam<Infallible>>::State as SystemParamState<Infallible>>::get_param(
 ///             &mut state.res_state,
@@ -215,7 +215,7 @@ pub struct Optional;
 ///                 })
 ///             }
 ///             None => {
-///                 Err(Box::new(MyError(45)))
+///                 Err(&MyError(45))
 ///             }
 ///         }
 ///     }
@@ -237,16 +237,16 @@ pub struct Resultful;
 mod sealed {
     use std::error::Error;
     pub trait Fallibility {
-        type Scope<T>;
+        type Scope<'s, T>;
     }
     impl Fallibility for super::Infallible {
-        type Scope<T> = T;
+        type Scope<'s, T> = T;
     }
     impl Fallibility for super::Optional {
-        type Scope<T> = Option<T>;
+        type Scope<'s, T> = Option<T>;
     }
     impl Fallibility for super::Resultful {
-        type Scope<T> = Result<T, Box<dyn Error>>;
+        type Scope<'s, T> = Result<T, &'s dyn Error>;
     }
 }
 
@@ -256,7 +256,7 @@ mod sealed {
 ///
 /// - [`Infallible`]: The base case, which can be used as `T`.
 /// - [`Optional`]: Which can be used as `Option<T>` or `T`.
-/// - [`Resultful`]: Which can be used as `Result<T, Box<dyn Error>>`, `Option<T>`, or `T`.
+/// - [`Resultful`]: Which can be used as `Result<T, &dyn Error>`, `Option<T>`, or `T`.
 ///
 /// # Derive
 ///
@@ -456,7 +456,7 @@ unsafe impl<T: SystemParamState<Resultful>> SystemParamState<Optional> for T {
     }
 }
 
-impl<T: SystemParam<Resultful>> SystemParam<Infallible> for Result<T, Box<dyn Error>> {
+impl<'s, T: SystemParam<Resultful>> SystemParam<Infallible> for Result<T, &'s dyn Error> {
     type State = ResultState<T::State>;
 }
 
@@ -477,7 +477,7 @@ unsafe impl<T: SystemParamState<Resultful>> SystemParamState<Infallible> for Res
         self.0.apply(system_meta, world);
     }
 
-    type Item<'world, 'state> = Result<T::Item<'world, 'state>, Box<dyn Error>>;
+    type Item<'world, 'state> = Result<T::Item<'world, 'state>, &'state dyn Error>;
 
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self,
@@ -518,7 +518,7 @@ pub unsafe trait SystemParamState<T: sealed::Fallibility>: Send + Sync + 'static
         system_meta: &SystemMeta,
         world: &'world World,
         change_tick: u32,
-    ) -> T::Scope<Self::Item<'world, 'state>>;
+    ) -> T::Scope<'state, Self::Item<'world, 'state>>;
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].
