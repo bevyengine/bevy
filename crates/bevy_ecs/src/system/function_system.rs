@@ -505,7 +505,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// use std::num::ParseIntError;
 ///
 /// use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{SystemParam, SystemParamItem};
+/// use bevy_ecs::system::{Infallible, SystemParam, SystemParamItem};
 ///
 /// // Unfortunately, we need all of these generics. `A` is the first system, with its
 /// // parameters and marker type required for coherence. `B` is the second system, and
@@ -519,8 +519,8 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     // We need A and B to be systems, add those bounds
 ///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,
 ///     B: SystemParamFunction<Shared, BOut, BParam, BMarker>,
-///     AParam: SystemParam,
-///     BParam: SystemParam,
+///     AParam: SystemParam<Infallible>,
+///     BParam: SystemParam<Infallible>,
 /// {
 ///     // The type of `params` is inferred based on the return of this function above
 ///     move |In(a_in), mut params| {

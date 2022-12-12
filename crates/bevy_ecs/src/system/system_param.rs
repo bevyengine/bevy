@@ -1493,14 +1493,14 @@ pub mod lifetimeless {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// use bevy_ecs::system::{SystemParam, StaticSystemParam};
+/// use bevy_ecs::system::{Infallible, SystemParam, StaticSystemParam};
 /// #[derive(SystemParam)]
-/// struct GenericParam<'w,'s, T: SystemParam + 'static> {
+/// struct GenericParam<'w,'s, T: SystemParam<Infallible> + 'static> {
 ///     field: StaticSystemParam<'w, 's, T>,
 /// }
-/// fn do_thing_generically<T: SystemParam + 'static>(t: StaticSystemParam<T>) {}
+/// fn do_thing_generically<T: SystemParam<Infallible> + 'static>(t: StaticSystemParam<T>) {}
 ///
-/// fn check_always_is_system<T: SystemParam + 'static>(){
+/// fn check_always_is_system<T: SystemParam<Infallible> + 'static>(){
 ///     bevy_ecs::system::assert_is_system(do_thing_generically::<T>);
 /// }
 /// ```
