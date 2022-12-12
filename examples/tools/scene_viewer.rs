@@ -1,8 +1,9 @@
 //! A simple glTF scene viewer made with Bevy.
 //!
-//! Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`,
+//! Just run `cargo run --release --example scene_viewer /path/to/model.gltf`,
 //! replacing the path as appropriate.
-//! With no arguments it will load the `FieldHelmet` glTF model from the repository assets subdirectory.
+//! In case of multiple scenes, you can select which to display by adapting the file path: `/path/to/model.gltf#Scene1`.
+//! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
 
 use bevy::{
     asset::LoadState,
@@ -77,7 +78,8 @@ Controls:
 
 #[derive(Resource)]
 struct SceneHandle {
-    handle: Handle<Gltf>,
+    gltf_handle: Handle<Gltf>,
+    scene_index: usize,
     #[cfg(feature = "animation")]
     animations: Vec<Handle<AnimationClip>>,
     instance_id: Option<InstanceId>,
@@ -85,13 +87,30 @@ struct SceneHandle {
     has_light: bool,
 }
 
+fn parse_scene(scene_path: String) -> (String, usize) {
+    if scene_path.contains('#') {
+        let gltf_and_scene = scene_path.split('#').collect::<Vec<_>>();
+        if let Some((last, path)) = gltf_and_scene.split_last() {
+            if let Some(index) = last
+                .strip_prefix("Scene")
+                .and_then(|index| index.parse::<usize>().ok())
+            {
+                return (path.join("#"), index);
+            }
+        }
+    }
+    (scene_path, 0)
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let scene_path = std::env::args()
         .nth(1)
         .unwrap_or_else(|| "assets/models/FlightHelmet/FlightHelmet.gltf".to_string());
     info!("Loading {}", scene_path);
+    let (file_path, scene_index) = parse_scene(scene_path);
     commands.insert_resource(SceneHandle {
-        handle: asset_server.load(&scene_path),
+        gltf_handle: asset_server.load(&file_path),
+        scene_index,
         #[cfg(feature = "animation")]
         animations: Vec::new(),
         instance_id: None,
@@ -109,9 +128,26 @@ fn scene_load_check(
 ) {
     match scene_handle.instance_id {
         None => {
-            if asset_server.get_load_state(&scene_handle.handle) == LoadState::Loaded {
-                let gltf = gltf_assets.get(&scene_handle.handle).unwrap();
-                let gltf_scene_handle = gltf.scenes.first().expect("glTF file contains no scenes!");
+            if asset_server.get_load_state(&scene_handle.gltf_handle) == LoadState::Loaded {
+                let gltf = gltf_assets.get(&scene_handle.gltf_handle).unwrap();
+                if gltf.scenes.len() > 1 {
+                    info!(
+                        "Displaying scene {} out of {}",
+                        scene_handle.scene_index,
+                        gltf.scenes.len()
+                    );
+                    info!("You can select the scene by adding '#Scene' followed by a number to the end of the file path (e.g '#Scene1' to load the second scene).");
+                }
+
+                let gltf_scene_handle =
+                    gltf.scenes
+                        .get(scene_handle.scene_index)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "glTF file doesn't contain scene {}!",
+                                scene_handle.scene_index
+                            )
+                        });
                 let scene = scenes.get_mut(gltf_scene_handle).unwrap();
 
                 let mut query = scene
