@@ -775,7 +775,7 @@ impl World {
     ///
     /// # Panics
     /// If a value is already present, this function will panic if called
-    /// from a thread that the original value was inserted from.
+    /// from a different thread than where the original value was inserted from.
     #[inline]
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         let component_id = self.components.init_non_send::<R>();
