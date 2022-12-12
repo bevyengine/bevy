@@ -8,7 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyWorldQuery},
     system::{
-        lifetimeless::SRes, ReadOnlySystemParamFetch, Resource, SystemParam, SystemParamItem,
+        lifetimeless::SRes, ReadOnlySystemParam, Resource, SystemParam, SystemParamItem,
         SystemState,
     },
     world::World,
@@ -320,7 +320,7 @@ impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
 
 impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for RenderCommandState<P, C>
 where
-    <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+    C::Param: ReadOnlySystemParam,
 {
     fn prepare<'w>(
         &mut self,
@@ -353,7 +353,7 @@ pub trait AddRenderCommand {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch;
+        C::Param: ReadOnlySystemParam;
 }
 
 impl AddRenderCommand for App {
@@ -361,7 +361,7 @@ impl AddRenderCommand for App {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+        C::Param: ReadOnlySystemParam,
     {
         let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
         let draw_functions = self
