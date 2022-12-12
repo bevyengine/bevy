@@ -7,7 +7,7 @@ use bevy_ecs::{
     all_tuples,
     entity::Entity,
     system::{
-        lifetimeless::SRes, ReadOnlySystemParamFetch, Resource, SystemParam, SystemParamItem,
+        lifetimeless::SRes, ReadOnlySystemParam, Resource, SystemParam, SystemParamItem,
         SystemState,
     },
     world::World,
@@ -325,7 +325,7 @@ impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
 
 impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for RenderCommandState<P, C>
 where
-    <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+    C::Param: ReadOnlySystemParam,
 {
     /// Prepares the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
     fn draw<'w>(
@@ -348,7 +348,7 @@ pub trait AddRenderCommand {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch;
+        C::Param: ReadOnlySystemParam;
 }
 
 impl AddRenderCommand for App {
@@ -356,7 +356,7 @@ impl AddRenderCommand for App {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+        C::Param: ReadOnlySystemParam,
     {
         let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
         let draw_functions = self
