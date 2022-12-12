@@ -72,7 +72,7 @@ use std::{
 ///
 /// ```text
 /// expected ... [ParamType]
-/// found associated type `<<[ParamType] as SystemParam>::State as SystemParamState>::Item<'_, '_>`
+/// found associated type `<[ParamType] as SystemParam>::Item<'_, '_>`
 /// ```
 /// where `[ParamType]` is the type of one of your fields.
 /// To solve this error, you can wrap the field of type `[ParamType]` with [`StaticSystemParam`]
@@ -81,7 +81,7 @@ use std::{
 /// ## Details
 ///
 /// The derive macro requires that the [`SystemParam`] implementation of
-/// each field `F`'s [`State`](`SystemParam::State`)'s [`Item`](`SystemParamState::Item`) is itself `F`
+/// each field `F`'s [`Item`](`SystemParam::Item`)'s is itself `F`
 /// (ignoring lifetimes for simplicity).
 /// This assumption is due to type inference reasons, so that the derived [`SystemParam`] can be
 /// used as an argument to a function system.
@@ -166,7 +166,7 @@ pub unsafe trait SystemParam: Sized {
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
-/// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParamState::get_param`]
+/// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParam::get_param`]
 pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
@@ -811,7 +811,7 @@ impl<'a, T: Component> IntoIterator for &'a RemovedComponents<'a, T> {
 // SAFETY: Only reads World components
 unsafe impl<'a, T: Component> ReadOnlySystemParam for RemovedComponents<'a, T> {}
 
-/// The [`SystemParamState`] of [`RemovedComponents<T>`].
+/// The [`SystemParam`] state of [`RemovedComponents<T>`].
 #[doc(hidden)]
 pub struct RemovedComponentsState<T> {
     component_id: ComponentId,
@@ -1296,7 +1296,7 @@ unsafe impl SystemParam for SystemName<'_> {
 // SAFETY: Only reads internal system state
 unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
 
-/// The [`SystemParamState`] of [`SystemName`].
+/// The [`SystemParam`] state of [`SystemName`].
 #[doc(hidden)]
 pub struct SystemNameState {
     name: Cow<'static, str>,
@@ -1308,7 +1308,7 @@ macro_rules! impl_system_param_tuple {
         // SAFETY: tuple consists only of ReadOnlySystemParams
         unsafe impl<$($param: ReadOnlySystemParam),*> ReadOnlySystemParam for ($($param,)*) {}
 
-        // SAFETY: implementors of each `SystemParamState` in the tuple have validated their impls
+        // SAFETY: implementors of each `SystemParam` in the tuple have validated their impls
         #[allow(clippy::undocumented_unsafe_blocks)] // false positive by clippy
         #[allow(non_snake_case)]
         unsafe impl<$($param: SystemParam),*> SystemParam for ($($param,)*) {
@@ -1443,7 +1443,7 @@ unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
 {
 }
 
-// SAFETY: all methods are just delegated to `S`'s `SystemParamState` implementation
+// SAFETY: all methods are just delegated to `P`'s `SystemParam` implementation
 unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, P> {
     type State = P::State;
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
@@ -1466,7 +1466,7 @@ unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, 
         world: &'world World,
         change_tick: u32,
     ) -> Self::Item<'world, 'state> {
-        // SAFETY: We properly delegate SystemParamState
+        // SAFETY: Defer to the safety of P::SystemParam
         StaticSystemParam(P::get_param(state, system_meta, world, change_tick))
     }
 }

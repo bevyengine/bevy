@@ -12,7 +12,7 @@ use super::{CommandQueue, Commands};
 
 #[doc(hidden)]
 #[derive(Default)]
-/// The internal [`SystemParamState`] of the [`ParallelCommands`] type
+/// The internal [`SystemParam`] state of the [`ParallelCommands`] type
 pub struct ParallelCommandsState {
     thread_local_storage: ThreadLocal<Cell<CommandQueue>>,
 }
