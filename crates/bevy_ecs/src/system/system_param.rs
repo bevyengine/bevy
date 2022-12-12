@@ -24,8 +24,220 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
+/// A [`SystemParam`] that can be used as `T`.
+///
+/// `SystemParam<Infallible>` is best implemented for parameters that can't fail.
+///
+/// # Example
+///
+/// ```
+/// use bevy::{
+///     ecs::system::{
+///         Infallible, ResState, SystemMeta,
+///         SystemParam, SystemParamState,
+///     },
+///     prelude::*,
+/// };
+/// # #[derive(Resource)]
+/// # struct SomeResource {
+/// #   value: u32,
+/// # }
+///
+/// #[derive(Debug)]
+/// struct MyParam<'w> {
+///     value: &'w u32,
+/// }
+///
+/// impl<'w> SystemParam<Infallible> for MyParam<'w> {
+///     type State = MyParamState;
+/// }
+///
+/// struct MyParamState {
+///     res_state: ResState<SomeResource>,
+/// }
+///
+/// unsafe impl SystemParamState<Infallible> for MyParamState {
+///     fn init(world: &mut World, system_meta: &mut bevy::ecs::system::SystemMeta) -> Self {
+///         Self {
+///             res_state: <ResState<SomeResource> as SystemParamState<Infallible>>::init(world, system_meta),
+///         }
+///     }
+///
+/// 	type Item<'w, 's> = MyParam<'w>;
+///
+///     #[inline]
+///     unsafe fn get_param<'w, 's>(
+///         state: &'s mut Self,
+///         system_meta: &SystemMeta,
+///         world: &'w World,
+///         change_tick: u32,
+///     ) -> Self::Item<'w, 's> {
+///         let some_res = <<Res<SomeResource> as SystemParam<Infallible>>::State as SystemParamState<Infallible>>::get_param(
+///             &mut state.res_state,
+///             system_meta,
+///             world,
+///             change_tick,
+///         );
+///         let r = some_res.into_inner();
+///         MyParam {
+///             value: &r.value,
+///         }
+///     }
+/// }
+/// ```
 pub struct Infallible;
+
+/// A [`SystemParam`] that can be used as `Option<T>` and `T`.
+///
+/// `SystemParam<Optional>` is best implemented for parameters that have a single point of failure.
+///
+/// By implementing `SystemParam<Optional>`, `SystemParam<Infallible>` is implemented for `Option<T>` and `T`.
+///
+/// # Example
+///
+/// ```
+/// use bevy::{
+///     ecs::system::{
+///         Infallible, Optional, OptionState, ResState, SystemMeta,
+///         SystemParam, SystemParamState,
+///     },
+///     prelude::*,
+/// };
+/// # #[derive(Resource)]
+/// # struct SomeResource {
+/// #   value: u32,
+/// # }
+///
+/// #[derive(Debug)]
+/// struct MyParam<'w> {
+///     value: &'w u32,
+/// }
+///
+/// impl<'w> SystemParam<Optional> for MyParam<'w> {
+///     type State = MyParamState;
+/// }
+///
+/// struct MyParamState {
+///     res_state: OptionState<ResState<SomeResource>>,
+/// }
+///
+/// unsafe impl SystemParamState<Optional> for MyParamState {
+///     fn init(world: &mut World, system_meta: &mut bevy::ecs::system::SystemMeta) -> Self {
+///         Self {
+///             res_state: OptionState::init(world, system_meta),
+///         }
+///     }
+///     
+///     type Item<'w, 's> = MyParam<'w>;
+///     
+///     #[inline]
+///     unsafe fn get_param<'w, 's>(
+///         state: &'s mut Self,
+///         system_meta: &SystemMeta,
+///         world: &'w World,
+///         change_tick: u32,
+///     ) -> Option<Self::Item<'w, 's>> {
+///         let some_res = <<Option<Res<SomeResource>> as SystemParam<Infallible>>::State as SystemParamState<Infallible>>::get_param(
+///             &mut state.res_state,
+///             system_meta,
+///             world,
+///             change_tick,
+///         );
+///         some_res.map(|r| {
+///             let r = r.into_inner();
+///             MyParam {
+///                 value: &r.value,
+///             }
+///         })
+///     }
+/// }
+/// ```
 pub struct Optional;
+
+/// A [`SystemParam`] that can be used as `Result<T, Box<dyn Error>>`, `Option<T>`, and `T`.
+///
+/// `SystemParam<Resultful>` is best implemented for parameters that have multiple points of failure.
+///
+/// By implementing `SystemParam<Resultful>`, `SystemParam<Optional>` is implemented for `T` and `SystemParam<Infallible>` is implemented for `Result<T, Box<dyn Error>>`.
+///
+/// # Example
+///
+/// ```
+/// use bevy::{
+///     ecs::system::{
+///         Infallible, Resultful, OptionState, ResState, SystemMeta,
+///         SystemParam, SystemParamState,
+///     },
+///     prelude::*,
+/// };
+/// use std::error::Error;
+/// # #[derive(Resource)]
+/// # struct SomeResource {
+/// #   value: u32,
+/// # }
+///
+/// #[derive(Debug)]
+/// struct MyParam<'w> {
+///     value: &'w u32,
+/// }
+///
+/// impl<'w> SystemParam<Resultful> for MyParam<'w> {
+///     type State = MyParamState;
+/// }
+///
+/// struct MyParamState {
+///     res_state: OptionState<ResState<SomeResource>>,
+/// }
+///
+/// unsafe impl SystemParamState<Resultful> for MyParamState {
+///     fn init(world: &mut World, system_meta: &mut bevy::ecs::system::SystemMeta) -> Self {
+///         Self {
+///             res_state: OptionState::init(world, system_meta),
+///         }
+///     }
+///     
+///     type Item<'w, 's> = MyParam<'w>;
+///     
+///     #[inline]
+///     unsafe fn get_param<'w, 's>(
+///         state: &'s mut Self,
+///         system_meta: &SystemMeta,
+///         world: &'w World,
+///         change_tick: u32,
+///     ) -> Result<Self::Item<'w, 's>, Box<dyn Error>> {
+///         // Since `Res<T>` doesn't implement `SystemParam<Resultful>`, we have to use `Option<Res<T>>` and map it to a result.
+///         let some_res = <<Option<Res<SomeResource>> as SystemParam<Infallible>>::State as SystemParamState<Infallible>>::get_param(
+///             &mut state.res_state,
+///             system_meta,
+///             world,
+///             change_tick,
+///         );
+///         
+///         match some_res {
+///             Some(r) => {
+///                 let r = r.into_inner();
+///                 Ok(MyParam {
+///                     value: &r.value,
+///                 })
+///             }
+///             None => {
+///                 Err(Box::new(MyError(45)))
+///             }
+///         }
+///     }
+/// }
+///
+/// #[derive(Debug)]
+/// struct MyError(u32);
+///
+/// impl std::fmt::Display for MyError {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         write!(f, "MyError has {}!", self.0)
+///     }
+/// }
+///
+/// impl Error for MyError {}
+/// ```
 pub struct Resultful;
 
 mod sealed {
@@ -45,6 +257,12 @@ mod sealed {
 }
 
 /// A parameter that can be used in a [`System`](super::System).
+///
+/// This type comes in three variants:
+///
+/// - [`Infallible`]: The base case, which can be used as `T`.
+/// - [`Optional`]: Which can be used as `Option<T>` or `T`.
+/// - [`Resultful`]: Which can be used as `Result<T, Box<dyn Error>>`, `Option<T>`, or `T`.
 ///
 /// # Derive
 ///
