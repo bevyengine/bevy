@@ -63,7 +63,7 @@ use std::{
 ///         }
 ///     }
 ///
-/// 	type Item<'w, 's> = MyParam<'w>;
+///     type Item<'w, 's> = MyParam<'w>;
 ///
 ///     #[inline]
 ///     unsafe fn get_param<'w, 's>(
