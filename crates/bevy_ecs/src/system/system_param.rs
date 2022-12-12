@@ -150,6 +150,7 @@ impl<T: SystemParam<Optional>> SystemParam<Infallible> for T {
     type State = T::State;
 }
 
+// SAFETY: `SystemParamState<Optional>` must be safely implemented.
 unsafe impl<T: SystemParamState<Optional>> SystemParamState<Infallible> for T {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         T::init(world, system_meta)
@@ -187,6 +188,7 @@ impl<T: SystemParam<Optional>> SystemParam<Infallible> for Option<T> {
 #[doc(hidden)]
 pub struct OptionState<T: SystemParamState<Optional>>(T);
 
+// SAFETY: `SystemParamState<Optional>` must be safely implemented.
 unsafe impl<T: SystemParamState<Optional>> SystemParamState<Infallible> for OptionState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(T::init(world, system_meta))
@@ -216,6 +218,7 @@ impl<T: SystemParam<Resultful>> SystemParam<Optional> for T {
     type State = T::State;
 }
 
+// SAFETY: `SystemParamState<Resultful>` must be safely implemented.
 unsafe impl<T: SystemParamState<Resultful>> SystemParamState<Optional> for T {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         T::init(world, system_meta)
@@ -248,6 +251,7 @@ impl<T: SystemParam<Resultful>> SystemParam<Infallible> for Result<T, Box<dyn Er
 #[doc(hidden)]
 pub struct ResultState<T: SystemParamState<Resultful>>(T);
 
+// SAFETY: `SystemParamState<Resultful>` must be safely implemented.
 unsafe impl<T: SystemParamState<Resultful>> SystemParamState<Infallible> for ResultState<T> {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         Self(T::init(world, system_meta))
