@@ -130,6 +130,7 @@ use std::{
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all `SystemParam`'s.
 pub unsafe trait SystemParam: Sized {
+    /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
 
     /// The item type returned when constructing this system param.
