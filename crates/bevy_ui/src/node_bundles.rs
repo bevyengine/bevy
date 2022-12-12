@@ -9,7 +9,7 @@ use bevy_render::{
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
-use bevy_text::{Text, JustifyText, TextSection, TextStyle};
+use bevy_text::{JustifyText, Text, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -148,8 +148,8 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`TextAlignmen`] on [`Text`].
-    pub const fn with_justify_text(mut self, justification: JustifyText) -> Self {
-        self.text.justify = justification;
+    pub const fn with_justify_text(mut self, justify: JustifyText) -> Self {
+        self.text.justify = justify;
         self
     }
 

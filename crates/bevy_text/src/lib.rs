@@ -20,9 +20,7 @@ pub use text2d::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        Font, Text, Text2dBundle, TextError, JustifyText, TextSection, TextStyle,
-    };
+    pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};
 }
 
 use bevy_app::prelude::*;

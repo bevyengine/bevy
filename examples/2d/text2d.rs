@@ -57,8 +57,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("scale", text_style.clone())
-                .with_justify(text_justification),
+            text: Text::from_section("scale", text_style.clone()).with_justify(text_justification),
             ..default()
         },
         AnimateScale,

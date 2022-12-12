@@ -53,8 +53,8 @@ impl Text {
     ///         font_size: 60.0,
     ///         color: Color::WHITE,
     ///     },
-    /// ) // You can still add an alignment.
-    /// with_text_justification(JustifyText::JustifyCenter);
+    /// ) // You can still add text justification.
+    /// with_justify(JustifyText::JustifyCenter);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
@@ -99,8 +99,8 @@ impl Text {
     }
 
     /// Returns this [`Text`] with a new [`JustifyText`].
-    pub const fn with_justify(mut self, alignment: JustifyText) -> Self {
-        self.justify = alignment;
+    pub const fn with_justify(mut self, justify: JustifyText) -> Self {
+        self.justify = justify;
         self
     }
 }
