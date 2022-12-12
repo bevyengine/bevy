@@ -185,11 +185,18 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
+                update_directional_light_cascades
+                    .label(SimulationLightSystems::UpdateDirectionalLightCascades)
+                    .after(TransformSystem::TransformPropagate),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
                     // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
                     .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::UpdateDirectionalLightCascades)
                     // We assume that no entity will be both a directional light and a spot light,
                     // so these systems will run independently of one another.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.

@@ -275,6 +275,7 @@ pub fn extract_default_ui_camera_view<T: Component>(
                         0.0,
                         UI_CAMERA_FAR + UI_CAMERA_TRANSFORM_OFFSET,
                     ),
+                    view_projection: None,
                     hdr: camera.hdr,
                     viewport: UVec4::new(
                         physical_origin.x,

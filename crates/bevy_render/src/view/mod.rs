@@ -91,6 +91,7 @@ impl Msaa {
 pub struct ExtractedView {
     pub projection: Mat4,
     pub transform: GlobalTransform,
+    pub view_projection: Option<Mat4>,
     pub hdr: bool,
     // uvec4(origin.x, origin.y, width, height)
     pub viewport: UVec4,
@@ -251,7 +252,9 @@ fn prepare_view_uniforms(
         let inverse_view = view.inverse();
         let view_uniforms = ViewUniformOffset {
             offset: view_uniforms.uniforms.push(ViewUniform {
-                view_proj: projection * inverse_view,
+                view_proj: camera
+                    .view_projection
+                    .unwrap_or_else(|| projection * inverse_view),
                 inverse_view_proj: view * inverse_projection,
                 view,
                 inverse_view,
