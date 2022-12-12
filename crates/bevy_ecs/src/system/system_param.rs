@@ -1021,7 +1021,6 @@ unsafe impl<T: 'static> SystemParamState for NonSendState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
             .get_non_send_with_ticks(state.component_id)
             .unwrap_or_else(|| {
@@ -1069,7 +1068,6 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.validate_non_send_access::<T>();
         world
             .get_non_send_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSend {
@@ -1134,7 +1132,6 @@ unsafe impl<T: 'static> SystemParamState for NonSendMutState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
             .get_non_send_with_ticks(state.component_id)
             .unwrap_or_else(|| {
@@ -1176,7 +1173,6 @@ unsafe impl<T: 'static> SystemParamState for OptionNonSendMutState<T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.validate_non_send_access::<T>();
         world
             .get_non_send_with_ticks(state.0.component_id)
             .map(|(ptr, ticks)| NonSendMut {
