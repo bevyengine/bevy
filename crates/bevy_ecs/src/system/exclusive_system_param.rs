@@ -1,7 +1,7 @@
 use crate::{
     prelude::{FromWorld, QueryState},
     query::{ReadOnlyWorldQuery, WorldQuery},
-    system::{Local, LocalState, SystemMeta, SystemParam, SystemState},
+    system::{Infallible, Local, LocalState, SystemMeta, SystemParam, SystemState},
     world::World,
 };
 use bevy_ecs_macros::all_tuples;
@@ -45,11 +45,11 @@ impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> ExclusiveSystemPa
     }
 }
 
-impl<'a, P: SystemParam + 'static> ExclusiveSystemParam for &'a mut SystemState<P> {
+impl<'a, P: SystemParam<Infallible> + 'static> ExclusiveSystemParam for &'a mut SystemState<P> {
     type State = SystemState<P>;
 }
 
-impl<P: SystemParam> ExclusiveSystemParamState for SystemState<P> {
+impl<P: SystemParam<Infallible>> ExclusiveSystemParamState for SystemState<P> {
     type Item<'s> = &'s mut SystemState<P>;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {

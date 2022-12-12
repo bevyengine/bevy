@@ -3,7 +3,7 @@ use bevy_ecs::{
     prelude::*,
     system::{
         ReadOnlySystemParam, ResState, SystemMeta, SystemParam, SystemParamItem, SystemParamState,
-        SystemState,
+        SystemState, Infallible
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -49,7 +49,7 @@ where
     item: SystemParamItem<'w, 's, P>,
 }
 
-impl<'w, 's, P> SystemParam for Extract<'w, 's, P>
+impl<'w, 's, P> SystemParam<Infallible> for Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam,
 {
@@ -57,14 +57,14 @@ where
 }
 
 #[doc(hidden)]
-pub struct ExtractState<P: SystemParam + 'static> {
+pub struct ExtractState<P: SystemParam<Infallible> + 'static> {
     state: SystemState<P>,
     main_world_state: ResState<MainWorld>,
 }
 
 // SAFETY: only accesses MainWorld resource with read only system params using ResState,
 // which is initialized in init()
-unsafe impl<P: SystemParam + 'static> SystemParamState for ExtractState<P>
+unsafe impl<P: SystemParam<Infallible> + 'static> SystemParamState<Infallible> for ExtractState<P>
 where
     P: ReadOnlySystemParam + 'static,
 {
@@ -74,7 +74,7 @@ where
         let mut main_world = world.resource_mut::<MainWorld>();
         Self {
             state: SystemState::new(&mut main_world),
-            main_world_state: ResState::init(world, system_meta),
+            main_world_state: <ResState<MainWorld> as SystemParamState<Infallible>>::init(world, system_meta),
         }
     }
 
@@ -84,7 +84,7 @@ where
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        let main_world = ResState::<MainWorld>::get_param(
+        let main_world = <ResState<MainWorld> as SystemParamState<Infallible>>::get_param(
             &mut state.main_world_state,
             system_meta,
             world,
@@ -95,7 +95,7 @@ where
     }
 }
 
-impl<'w, 's, P: SystemParam> Deref for Extract<'w, 's, P>
+impl<'w, 's, P: SystemParam<Infallible>> Deref for Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam,
 {
@@ -107,7 +107,7 @@ where
     }
 }
 
-impl<'w, 's, P: SystemParam> DerefMut for Extract<'w, 's, P>
+impl<'w, 's, P: SystemParam<Infallible>> DerefMut for Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam,
 {
@@ -117,7 +117,7 @@ where
     }
 }
 
-impl<'a, 'w, 's, P: SystemParam> IntoIterator for &'a Extract<'w, 's, P>
+impl<'a, 'w, 's, P: SystemParam<Infallible>> IntoIterator for &'a Extract<'w, 's, P>
 where
     P: ReadOnlySystemParam,
     &'a SystemParamItem<'w, 's, P>: IntoIterator,

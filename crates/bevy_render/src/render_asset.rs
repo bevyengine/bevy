@@ -4,7 +4,7 @@ use bevy_asset::{Asset, AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
-    system::{StaticSystemParam, SystemParam, SystemParamItem},
+    system::{Infallible, StaticSystemParam, SystemParam, SystemParamItem},
 };
 use bevy_utils::{HashMap, HashSet};
 use std::marker::PhantomData;
@@ -29,7 +29,7 @@ pub trait RenderAsset: Asset {
     type PreparedAsset: Send + Sync + 'static;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
     /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) [`SystemParam`].
-    type Param: SystemParam;
+    type Param: SystemParam<Infallible>;
     /// Converts the asset into a [`RenderAsset::ExtractedAsset`].
     fn extract_asset(&self) -> Self::ExtractedAsset;
     /// Prepares the `extracted asset` for the GPU by transforming it into

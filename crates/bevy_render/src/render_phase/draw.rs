@@ -8,7 +8,7 @@ use bevy_ecs::{
     entity::Entity,
     system::{
         lifetimeless::SRes, ReadOnlySystemParam, Resource, SystemParam, SystemParamItem,
-        SystemState,
+        SystemState, Infallible,
     },
     world::World,
 };
@@ -167,7 +167,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
 pub trait RenderCommand<P: PhaseItem> {
     /// Specifies all ECS data required by [`RenderCommand::render`].
     /// All parameters have to be read only.
-    type Param: SystemParam + 'static;
+    type Param: SystemParam<Infallible> + 'static;
 
     /// Renders the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn render<'w>(
@@ -184,7 +184,7 @@ pub enum RenderCommandResult {
 }
 
 pub trait EntityRenderCommand {
-    type Param: SystemParam + 'static;
+    type Param: SystemParam<Infallible> + 'static;
     fn render<'w>(
         view: Entity,
         item: Entity,

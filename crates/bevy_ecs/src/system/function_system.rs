@@ -6,8 +6,8 @@ use crate::{
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem,
-        SystemParamState,
+        check_system_change_tick, Infallible, ReadOnlySystemParam, System, SystemParam,
+        SystemParamItem, SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -139,18 +139,18 @@ impl SystemMeta {
 ///     };
 /// });
 /// ```
-pub struct SystemState<Param: SystemParam + 'static> {
+pub struct SystemState<Param: SystemParam<Infallible> + 'static> {
     meta: SystemMeta,
-    param_state: <Param as SystemParam>::State,
+    param_state: <Param as SystemParam<Infallible>>::State,
     world_id: WorldId,
     archetype_generation: ArchetypeGeneration,
 }
 
-impl<Param: SystemParam> SystemState<Param> {
+impl<Param: SystemParam<Infallible>> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        let param_state = <Param::State as SystemParamState>::init(world, &mut meta);
+        let param_state = <Param::State as SystemParamState<Infallible>>::init(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -223,7 +223,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        let param = <Param::State as SystemParamState>::get_param(
+        let param = <Param::State as SystemParamState<Infallible>>::get_param(
             &mut self.param_state,
             &self.meta,
             world,
@@ -234,7 +234,7 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 }
 
-impl<Param: SystemParam> FromWorld for SystemState<Param> {
+impl<Param: SystemParam<Infallible>> FromWorld for SystemState<Param> {
     fn from_world(world: &mut World) -> Self {
         Self::new(world)
     }
@@ -312,7 +312,7 @@ pub struct InputMarker;
 /// [`FunctionSystem`] must be `.initialized` before they can be run.
 pub struct FunctionSystem<In, Out, Param, Marker, F>
 where
-    Param: SystemParam,
+    Param: SystemParam<Infallible>,
 {
     func: F,
     param_state: Option<Param::State>,
@@ -329,7 +329,7 @@ impl<In, Out, Param, Marker, F> IntoSystem<In, Out, (IsFunctionSystem, Param, Ma
 where
     In: 'static,
     Out: 'static,
-    Param: SystemParam + 'static,
+    Param: SystemParam<Infallible> + 'static,
     Marker: 'static,
     F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
 {
@@ -348,7 +348,7 @@ where
 
 impl<In, Out, Param, Marker, F> FunctionSystem<In, Out, Param, Marker, F>
 where
-    Param: SystemParam,
+    Param: SystemParam<Infallible>,
 {
     /// Message shown when a system isn't initialised
     // When lines get too long, rustfmt can sometimes refuse to format them.
@@ -360,7 +360,7 @@ impl<In, Out, Param, Marker, F> System for FunctionSystem<In, Out, Param, Marker
 where
     In: 'static,
     Out: 'static,
-    Param: SystemParam + 'static,
+    Param: SystemParam<Infallible> + 'static,
     Marker: 'static,
     F: SystemParamFunction<In, Out, Param, Marker> + Send + Sync + 'static,
 {
@@ -400,7 +400,7 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = <Param as SystemParam>::State::get_param(
+        let params = <Param as SystemParam<Infallible>>::State::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
@@ -429,7 +429,7 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::State as SystemParamState>::init(
+        self.param_state = Some(<Param::State as SystemParamState<Infallible>>::init(
             world,
             &mut self.system_meta,
         ));
@@ -553,14 +553,14 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// ```
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
-pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
+pub trait SystemParamFunction<In, Out, Param: SystemParam<Infallible>, Marker>: Send + Sync + 'static {
     fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
 }
 
 macro_rules! impl_system_function {
     ($($param: ident),*) => {
         #[allow(non_snake_case)]
-        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
+        impl<Out, Func: Send + Sync + 'static, $($param: SystemParam<Infallible>),*> SystemParamFunction<(), Out, ($($param,)*), ()> for Func
         where
         for <'a> &'a mut Func:
                 FnMut($($param),*) -> Out +
@@ -584,7 +584,7 @@ macro_rules! impl_system_function {
         }
 
         #[allow(non_snake_case)]
-        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
+        impl<Input, Out, Func: Send + Sync + 'static, $($param: SystemParam<Infallible>),*> SystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
@@ -617,7 +617,7 @@ pub trait AsSystemLabel<Marker> {
     fn as_system_label(&self) -> SystemLabelId;
 }
 
-impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
+impl<In, Out, Param: SystemParam<Infallible>, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
     AsSystemLabel<(In, Out, Param, Marker)> for T
 {
     #[inline]

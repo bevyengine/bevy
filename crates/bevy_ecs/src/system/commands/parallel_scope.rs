@@ -5,7 +5,7 @@ use thread_local::ThreadLocal;
 use crate::{
     entity::Entities,
     prelude::World,
-    system::{SystemMeta, SystemParam, SystemParamState},
+    system::{Infallible, SystemMeta, SystemParam, SystemParamState},
 };
 
 use super::{CommandQueue, Commands};
@@ -48,12 +48,12 @@ pub struct ParallelCommands<'w, 's> {
     entities: &'w Entities,
 }
 
-impl SystemParam for ParallelCommands<'_, '_> {
+impl SystemParam<Infallible> for ParallelCommands<'_, '_> {
     type State = ParallelCommandsState;
 }
 
 // SAFETY: no component or resource access to report
-unsafe impl SystemParamState for ParallelCommandsState {
+unsafe impl SystemParamState<Infallible> for ParallelCommandsState {
     type Item<'w, 's> = ParallelCommands<'w, 's>;
 
     fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self {

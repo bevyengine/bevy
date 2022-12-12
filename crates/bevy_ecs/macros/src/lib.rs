@@ -228,7 +228,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    <#param::State as SystemParamState>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
+                    <#param::State as SystemParamState<Infallible>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
         });
@@ -240,7 +240,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
         let meta = &metas[0..param_count];
         let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
-            impl<'w, 's, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
+            impl<'w, 's, #(#param: SystemParam<Infallible>,)*> SystemParam<Infallible> for ParamSet<'w, 's, (#(#param,)*)>
             {
                 type State = ParamSetState<(#(#param::State,)*)>;
             }
@@ -254,9 +254,9 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
 
-            unsafe impl<#(#param_state: SystemParamState,)*> SystemParamState for ParamSetState<(#(#param_state,)*)>
+            unsafe impl<#(#param_state: SystemParamState<Infallible>,)*> SystemParamState<Infallible> for ParamSetState<(#(#param_state,)*)>
             {
-                type Item<'w, 's> = ParamSet<'w, 's, (#(<#param_state as SystemParamState>::Item::<'w, 's>,)*)>;
+                type Item<'w, 's> = ParamSet<'w, 's, (#(<#param_state as SystemParamState<Infallible>>::Item::<'w, 's>,)*)>;
 
                 fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
                     #(
@@ -305,7 +305,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
+            impl<'w, 's, #(#param: SystemParam<Infallible>,)*> ParamSet<'w, 's, (#(#param,)*)>
             {
 
                 #(#param_fn_mut)*
@@ -434,13 +434,13 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
-            impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+            impl<'w, 's, #punctuated_generics> #path::system::SystemParam<#path::system::Infallible> for #struct_name #ty_generics #where_clause {
                 type State = State<'w, 's, #punctuated_generic_idents>;
             }
 
             #[doc(hidden)]
             type State<'w, 's, #punctuated_generic_idents> = FetchState<
-                (#(<#field_types as #path::system::SystemParam>::State,)*),
+                (#(<#field_types as #path::system::SystemParam<#path::system::Infallible>>::State,)*),
                 #punctuated_generic_idents
             >;
 
@@ -450,7 +450,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
             }
 
-            unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState for
+            unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState<#path::system::Infallible> for
                 State<'__w, '__s, #punctuated_generic_idents>
             #where_clause {
                 type Item<'w, 's> = #struct_name #ty_generics;
@@ -477,7 +477,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     change_tick: u32,
                 ) -> Self::Item<'w, 's> {
                     #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::State as #path::system::SystemParamState>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#fields: <<#field_types as #path::system::SystemParam<#path::system::Infallible>>::State as #path::system::SystemParamState<#path::system::Infallible>>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
