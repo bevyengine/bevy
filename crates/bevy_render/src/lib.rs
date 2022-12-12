@@ -194,8 +194,10 @@ impl Plugin for RenderPlugin {
             // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
 
+            // This stage applies the commands from the extract stage while the render schedule
+            // is running in parallel with the main app.
             let mut extract_commands_stage = SystemStage::parallel();
-            extract_commands_stage.add_system(extract_commands.at_start());
+            extract_commands_stage.add_system(apply_extract_commands.at_start());
             render_app
                 .add_stage(RenderStage::Extract, extract_stage)
                 .add_stage(RenderStage::ExtractCommands, extract_commands_stage)
@@ -210,7 +212,7 @@ impl Plugin for RenderPlugin {
                 )
                 .add_stage(
                     RenderStage::Cleanup,
-                    SystemStage::parallel().with_system(clear_entities.at_end()),
+                    SystemStage::parallel().with_system(World::clear_entities.at_end()),
                 )
                 .init_resource::<RenderGraph>()
                 .insert_resource(RenderInstance(instance))
@@ -317,13 +319,8 @@ fn extract(app_world: &mut World, render_app: &mut App) {
 }
 
 // system for render app to apply the extract commands
-fn extract_commands(world: &mut World) {
+fn apply_extract_commands(world: &mut World) {
     world.resource_scope(|world, mut extract_stage: Mut<ExtractStage>| {
         extract_stage.0.apply_buffers(world);
     });
-}
-
-// system for render app to clear entities
-fn clear_entities(world: &mut World) {
-    world.clear_entities();
 }
