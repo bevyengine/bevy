@@ -143,6 +143,6 @@ impl<T: Pod> BufferVec<T> {
 impl<T: Pod> Extend<T> for BufferVec<T> {
     #[inline]
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        self.values.extend(iter)
+        self.values.extend(iter);
     }
 }
