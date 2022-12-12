@@ -689,7 +689,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             // For the opaque and alpha mask passes, fragments that are closer will replace
             // the current fragment value in the output and the depth is written to the
             // depth buffer
-            depth_write_enabled = !key.contains(MeshPipelineKey::PREPASS_DEPTH);
+            depth_write_enabled = true;
         }
 
         if key.contains(MeshPipelineKey::TONEMAP_IN_SHADER) {
@@ -737,11 +737,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled,
-                depth_compare: if key.contains(MeshPipelineKey::PREPASS_DEPTH) {
-                    CompareFunction::Equal
-                } else {
-                    CompareFunction::GreaterEqual
-                },
+                depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,

@@ -28,7 +28,7 @@ use bevy_utils::FloatOrd;
 #[derive(Clone, Component)]
 pub struct PrepassSettings {
     /// If true then depth values will be copied to a separate texture available to the main pass.
-    /// This will help reduce overdraw in the main pass.
+    /// The main pass already uses a depth texture by default which helps reduce overdraw, but this will help reduce it even more.
     pub depth_enabled: bool,
     /// If true then vertex world normals will be copied to a separate texture available to the main pass.
     pub normal_enabled: bool,
