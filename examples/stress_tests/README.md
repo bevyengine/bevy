@@ -6,5 +6,5 @@ These should be run with the "stress-test" profile to accurately represent perfo
 ## Example Command
 
 ```
-cargo run --example <EXAMPLE> --profile stress-test
+cargo run --profile stress-test --example <EXAMPLE> 
 ```
