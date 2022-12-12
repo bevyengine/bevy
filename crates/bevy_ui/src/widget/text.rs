@@ -121,7 +121,7 @@ pub fn text_system(
                 &fonts,
                 &text.sections,
                 scale_factor,
-                text.alignment,
+                text.justification,
                 node_size,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,

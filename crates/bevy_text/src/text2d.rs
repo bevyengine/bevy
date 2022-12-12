@@ -58,7 +58,7 @@ impl Text2dBounds {
 #[derive(Bundle, Clone, Debug, Default)]
 pub struct Text2dBundle {
     pub text: Text,
-    pub anchor: Anchor,
+    pub text_anchor: Anchor,
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub text_2d_bounds: Text2dBounds,
@@ -184,7 +184,7 @@ pub fn update_text2d_layout(
                 &fonts,
                 &text.sections,
                 scale_factor,
-                text.alignment,
+                text.justification,
                 text_bounds,
                 &mut font_atlas_set_storage,
                 &mut texture_atlases,

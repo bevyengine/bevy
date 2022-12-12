@@ -341,7 +341,7 @@ fn setup_sticks(
                                 style,
                             },
                         ]),
-                        anchor: Anchor::BottomCenter,
+                        text_anchor: Anchor::BottomCenter,
                         ..default()
                     },
                     TextWithAxes { x_axis, y_axis },

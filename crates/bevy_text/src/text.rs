@@ -11,16 +11,16 @@ use crate::Font;
 #[reflect(Component, Default)]
 pub struct Text {
     pub sections: Vec<TextSection>,
-    /// The text's internal alignment.
-    /// Should not affect its position.
-    pub alignment: TextAlignment,
+    /// The text's internal justification.
+    /// Should not affect its position within a container.
+    pub justification: TextJustification,
 }
 
 impl Default for Text {
     fn default() -> Self {
         Self {
             sections: Default::default(),
-            alignment: TextAlignment::Left,
+            justification: TextJustification::JustifyLeft,
         }
     }
 }
@@ -31,7 +31,7 @@ impl Text {
     /// ```
     /// # use bevy_asset::Handle;
     /// # use bevy_render::color::Color;
-    /// # use bevy_text::{Font, Text, TextStyle, TextAlignment};
+    /// # use bevy_text::{Font, Text, TextStyle, TextJustification};
     /// #
     /// # let font_handle: Handle<Font> = Default::default();
     /// #
@@ -54,7 +54,7 @@ impl Text {
     ///         color: Color::WHITE,
     ///     },
     /// ) // You can still add an alignment.
-    /// .with_alignment(TextAlignment::Center);
+    /// with_text_justification(TextJustification::JustifyCenter);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {
@@ -99,8 +99,8 @@ impl Text {
     }
 
     /// Returns this [`Text`] with a new [`TextAlignment`].
-    pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
-        self.alignment = alignment;
+    pub const fn with_alignment(mut self, alignment: TextJustification) -> Self {
+        self.justification = alignment;
         self
     }
 }
@@ -132,24 +132,24 @@ impl TextSection {
 /// Describes horizontal alignment preference for positioning & bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum TextAlignment {
+pub enum TextJustification {
     /// Leftmost character is immediately to the right of the render position.<br/>
     /// Bounds start from the render position and advance rightwards.
-    Left,
+    JustifyLeft,
     /// Leftmost & rightmost characters are equidistant to the render position.<br/>
     /// Bounds start from the render position and advance equally left & right.
-    Center,
+    JustifyCenter,
     /// Rightmost character is immediately to the left of the render position.<br/>
     /// Bounds start from the render position and advance leftwards.
-    Right,
+    JustifyRight,
 }
 
-impl From<TextAlignment> for glyph_brush_layout::HorizontalAlign {
-    fn from(val: TextAlignment) -> Self {
+impl From<TextJustification> for glyph_brush_layout::HorizontalAlign {
+    fn from(val: TextJustification) -> Self {
         match val {
-            TextAlignment::Left => glyph_brush_layout::HorizontalAlign::Left,
-            TextAlignment::Center => glyph_brush_layout::HorizontalAlign::Center,
-            TextAlignment::Right => glyph_brush_layout::HorizontalAlign::Right,
+            TextJustification::JustifyLeft => glyph_brush_layout::HorizontalAlign::Left,
+            TextJustification::JustifyCenter => glyph_brush_layout::HorizontalAlign::Center,
+            TextJustification::JustifyRight => glyph_brush_layout::HorizontalAlign::Right,
         }
     }
 }
