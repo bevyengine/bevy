@@ -426,9 +426,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
-        // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
-        // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             unsafe impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
                 type State = <(#(#field_types,)*) as #path::system::SystemParam>::State;

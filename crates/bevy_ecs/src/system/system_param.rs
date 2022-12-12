@@ -443,8 +443,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
 // SAFETY: Only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 
-// SAFETY: this impl defers to `ResState`, which initializes
-// and validates the correct world access
+// SAFETY: this impl defers to `Res`, which initializes and validates the correct world access.
 unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<Res<'w, T>>;
@@ -532,8 +531,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 }
 
-// SAFETY: this impl defers to `ResMutState`, which initializes
-// and validates the correct world access
+// SAFETY: this impl defers to `ResMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<ResMut<'w, T>>;
@@ -969,8 +967,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 }
 
-// SAFETY: this impl defers to `NonSendState`, which initializes
-// and validates the correct world access
+// SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
 unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSend<'w, T>>;
@@ -1059,8 +1056,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     }
 }
 
-// SAFETY: this impl defers to `NonSendMutState`, which initializes
-// and validates the correct world access
+// SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSendMut<'w, T>>;
@@ -1202,7 +1198,7 @@ impl SystemChangeTick {
 // SAFETY: Only reads internal system state
 unsafe impl ReadOnlySystemParam for SystemChangeTick {}
 
-// SAFETY: `SystemParamTickState` doesn't require any world access
+// SAFETY: `SystemChangeTick` doesn't require any world access
 unsafe impl SystemParam for SystemChangeTick {
     type State = ();
     type Item<'w, 's> = SystemChangeTick;
