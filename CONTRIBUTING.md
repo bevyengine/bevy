@@ -279,7 +279,7 @@ As discussed in [*How we're organized*](#how-were-organized), this role only req
 
 Occasionally authors of pull requests get busy or become unresponsive. This is a natural part of any open source project. To avoid blocking these efforts, these pull requests may be *adopted*, where another contributor creates a new pull request with the same content.
 
-When you want to contribute pull request with the label *[S-Adopt-Me](https://github.com/bevyengine/bevy/labels/S-Adopt-Me)*, to preserve the credit, it's necessary to fork the original author's branch to maintain commits. When the new one is ready must reference the initial PR hash in the description and conferring with org members to close the original.
+These PRs are labeled with *[S-Adopt-Me](https://github.com/bevyengine/bevy/labels/S-Adopt-Me)*. It's best practice to fork the original author's branch. This ensures that they still get credit for working on it and that the commit history is retained. When the new pull request is ready, it should reference the original PR in the description. Then notify org members to close the original.
 
 * Example: `Adopted #number-original-pull-request`
 
