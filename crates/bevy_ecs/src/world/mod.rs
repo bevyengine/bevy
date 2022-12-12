@@ -1282,7 +1282,7 @@ impl World {
 
     /// Sends a batch of [`Event`](crate::event::Event)s from an iterator.
     #[inline]
-    pub fn send_event_batch<E: crate::event::Event>(&mut self, events: impl Iterator<Item = E>) {
+    pub fn send_event_batch<E: crate::event::Event>(&mut self, events: impl IntoIterator<Item = E>) {
         match self.get_resource_mut::<crate::event::Events<E>>() {
             Some(mut events_resource) => events_resource.extend(events),
             None => bevy_utils::tracing::error!(
