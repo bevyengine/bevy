@@ -19,6 +19,9 @@ use bevy_utils::FloatOrd;
 /// Add a [`PrepassSettings`] component to a [`crate::prelude::Camera3d`] to perform a depth and/or normal prepass.
 /// These textures are useful for various screen-space effects and reducing overdraw in the main pass.
 ///
+/// The prepass runs for each `Material`, you can control if the prepass should run by setting the `prepass_enabled`
+/// flag on the `MaterialPlugin`.
+///
 /// The textures are automatically added to the default mesh view bindings. You can also get the raw textures
 /// by querying the [`ViewPrepassTextures`] component on the camera with the [`PrepassSettings`].
 ///
@@ -29,8 +32,12 @@ use bevy_utils::FloatOrd;
 pub struct PrepassSettings {
     /// If true then depth values will be copied to a separate texture available to the main pass.
     /// The main pass already uses a depth texture by default which helps reduce overdraw, but this will help reduce it even more.
+    ///
+    /// Make sure to enable the prepass on your `Material` for this to do anything.
     pub depth_enabled: bool,
     /// If true then vertex world normals will be copied to a separate texture available to the main pass.
+    ///
+    /// Make sure to enable the prepass on your `Material` for this to do anything.
     pub normal_enabled: bool,
 }
 
