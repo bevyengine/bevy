@@ -111,7 +111,7 @@ fn setup(
 
     // Create the animation player, and set it to repeat
     let mut player = AnimationPlayer::default();
-    player.play(animations.add(animation)).repeat();
+    player.play(animations.add(animation), None).repeat();
 
     // Create the scene that will be animated
     // First entity is the planet

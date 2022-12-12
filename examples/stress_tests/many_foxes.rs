@@ -190,7 +190,7 @@ fn setup_scene_once_loaded(
 ) {
     if !*done && player.iter().len() == foxes.count {
         for mut player in &mut player {
-            player.play(animations.0[0].clone_weak()).repeat();
+            player.play(animations.0[0].clone_weak(), None).repeat();
         }
         *done = true;
     }
@@ -266,7 +266,7 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Return) {
             player
-                .play(animations.0[*current_animation].clone_weak())
+                .play(animations.0[*current_animation].clone_weak(), None)
                 .repeat();
         }
     }
