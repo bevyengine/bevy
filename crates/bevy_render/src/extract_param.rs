@@ -48,7 +48,7 @@ where
 
 // SAFETY: only accesses MainWorld resource with read only system params using Res,
 // which is initialized in init()
-unsafe impl<'_w, '_s, P> SystemParam for Extract<'_w, '_s, P>
+unsafe impl<P> SystemParam for Extract<'_, '_, P>
 where
     P: ReadOnlySystemParam,
 {

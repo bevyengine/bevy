@@ -179,8 +179,8 @@ unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'st
 
 // SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
 // this Query conflicts with any prior access, a panic will occur.
-unsafe impl<'_w, '_s, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
-    for Query<'_w, '_s, Q, F>
+unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
+    for Query<'_, '_, Q, F>
 {
     type State = QueryState<Q, F>;
     type Item<'w, 's> = Query<'w, 's, Q, F>;
@@ -567,7 +567,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
 unsafe impl<'w, 's> ReadOnlySystemParam for Commands<'w, 's> {}
 
 // SAFETY: only local state is accessed
-unsafe impl<'_w, '_s> SystemParam for Commands<'_w, '_s> {
+unsafe impl SystemParam for Commands<'_, '_> {
     type State = CommandQueue;
     type Item<'w, 's> = Commands<'w, 's>;
 
@@ -598,7 +598,7 @@ unsafe impl<'_w, '_s> SystemParam for Commands<'_w, '_s> {
 unsafe impl<'w> ReadOnlySystemParam for &'w World {}
 
 // SAFETY: `read_all` access is set and conflicts result in a panic
-unsafe impl<'_w> SystemParam for &'_w World {
+unsafe impl SystemParam for &'_ World {
     type State = ();
     type Item<'w, 's> = &'w World;
 
@@ -971,7 +971,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
 
 // SAFETY: this impl defers to `NonSendState`, which initializes
 // and validates the correct world access
-unsafe impl<'_w, T: 'static> SystemParam for Option<NonSend<'_w, T>> {
+unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     type State = ComponentId;
     type Item<'w, 's> = Option<NonSend<'w, T>>;
 
@@ -1270,7 +1270,7 @@ impl<'s> std::fmt::Display for SystemName<'s> {
 }
 
 // SAFETY: no component value access
-unsafe impl<'_s> SystemParam for SystemName<'_s> {
+unsafe impl SystemParam for SystemName<'_> {
     type State = SystemNameState;
     type Item<'w, 's> = SystemName<'s>;
 
@@ -1444,7 +1444,7 @@ unsafe impl<'w, 's, P: ReadOnlySystemParam + 'static> ReadOnlySystemParam
 }
 
 // SAFETY: all methods are just delegated to `S`'s `SystemParamState` implementation
-unsafe impl<'_w, '_s, P: SystemParam + 'static> SystemParam for StaticSystemParam<'_w, '_s, P> {
+unsafe impl<P: SystemParam + 'static> SystemParam for StaticSystemParam<'_, '_, P> {
     type State = P::State;
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
 
