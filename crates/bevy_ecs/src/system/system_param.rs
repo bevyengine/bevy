@@ -166,11 +166,11 @@ unsafe impl<T: SystemParamState<Optional>> SystemParamState<Infallible> for T {
     type Item<'world, 'state> = T::Item<'world, 'state>;
 
     unsafe fn get_param<'world, 'state>(
-            state: &'state mut Self,
-            system_meta: &SystemMeta,
-            world: &'world World,
-            change_tick: u32,
-        ) -> Self::Item<'world, 'state> {
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Self::Item<'world, 'state> {
         T::get_param(state, system_meta, world, change_tick).unwrap_or_else(|| {
             panic!(
                 "Failed to get system param `{}`",
@@ -203,11 +203,11 @@ unsafe impl<T: SystemParamState<Optional>> SystemParamState<Infallible> for Opti
     type Item<'world, 'state> = Option<T::Item<'world, 'state>>;
 
     unsafe fn get_param<'world, 'state>(
-            state: &'state mut Self,
-            system_meta: &SystemMeta,
-            world: &'world World,
-            change_tick: u32,
-        ) -> Self::Item<'world, 'state> {
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Self::Item<'world, 'state> {
         T::get_param(&mut state.0, system_meta, world, change_tick)
     }
 }
@@ -216,7 +216,7 @@ impl<T: SystemParam<Resultful>> SystemParam<Optional> for T {
     type State = T::State;
 }
 
-unsafe impl <T: SystemParamState<Resultful>> SystemParamState<Optional> for T {
+unsafe impl<T: SystemParamState<Resultful>> SystemParamState<Optional> for T {
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
         T::init(world, system_meta)
     }
@@ -232,11 +232,11 @@ unsafe impl <T: SystemParamState<Resultful>> SystemParamState<Optional> for T {
     type Item<'world, 'state> = T::Item<'world, 'state>;
 
     unsafe fn get_param<'world, 'state>(
-            state: &'state mut Self,
-            system_meta: &SystemMeta,
-            world: &'world World,
-            change_tick: u32,
-        ) -> Option<Self::Item<'world, 'state>> {
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Option<Self::Item<'world, 'state>> {
         T::get_param(state, system_meta, world, change_tick).ok()
     }
 }
@@ -264,16 +264,17 @@ unsafe impl<T: SystemParamState<Resultful>> SystemParamState<Infallible> for Res
     type Item<'world, 'state> = Result<T::Item<'world, 'state>, Box<dyn Error>>;
 
     unsafe fn get_param<'world, 'state>(
-            state: &'state mut Self,
-            system_meta: &SystemMeta,
-            world: &'world World,
-            change_tick: u32,
-        ) -> Self::Item<'world, 'state> {
+        state: &'state mut Self,
+        system_meta: &SystemMeta,
+        world: &'world World,
+        change_tick: u32,
+    ) -> Self::Item<'world, 'state> {
         T::get_param(&mut state.0, system_meta, world, change_tick)
     }
 }
 
-pub type SystemParamItem<'w, 's, P> = <<P as SystemParam<Infallible>>::State as SystemParamState<Infallible>>::Item<'w, 's>;
+pub type SystemParamItem<'w, 's, P> =
+    <<P as SystemParam<Infallible>>::State as SystemParamState<Infallible>>::Item<'w, 's>;
 
 /// The state of a [`SystemParam`].
 ///
@@ -1568,8 +1569,8 @@ impl<'world, 'state, P: SystemParam<Infallible> + 'static> SystemParam<Infallibl
 }
 
 // SAFETY: all methods are just delegated to `S`'s `SystemParamState` implementation
-unsafe impl<S: SystemParamState<Infallible>, P: SystemParam<Infallible, State = S> + 'static> SystemParamState<Infallible>
-    for StaticSystemParamState<S, P>
+unsafe impl<S: SystemParamState<Infallible>, P: SystemParam<Infallible, State = S> + 'static>
+    SystemParamState<Infallible> for StaticSystemParamState<S, P>
 {
     type Item<'world, 'state> = StaticSystemParam<'world, 'state, P>;
 

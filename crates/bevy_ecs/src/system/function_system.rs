@@ -553,7 +553,9 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// ```
 /// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
-pub trait SystemParamFunction<In, Out, Param: SystemParam<Infallible>, Marker>: Send + Sync + 'static {
+pub trait SystemParamFunction<In, Out, Param: SystemParam<Infallible>, Marker>:
+    Send + Sync + 'static
+{
     fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
 }
 
@@ -617,8 +619,13 @@ pub trait AsSystemLabel<Marker> {
     fn as_system_label(&self) -> SystemLabelId;
 }
 
-impl<In, Out, Param: SystemParam<Infallible>, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
-    AsSystemLabel<(In, Out, Param, Marker)> for T
+impl<
+        In,
+        Out,
+        Param: SystemParam<Infallible>,
+        Marker,
+        T: SystemParamFunction<In, Out, Param, Marker>,
+    > AsSystemLabel<(In, Out, Param, Marker)> for T
 {
     #[inline]
     fn as_system_label(&self) -> SystemLabelId {

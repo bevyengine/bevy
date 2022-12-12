@@ -2,8 +2,8 @@ use crate::MainWorld;
 use bevy_ecs::{
     prelude::*,
     system::{
-        ReadOnlySystemParam, ResState, SystemMeta, SystemParam, SystemParamItem, SystemParamState,
-        SystemState, Infallible
+        Infallible, ReadOnlySystemParam, ResState, SystemMeta, SystemParam, SystemParamItem,
+        SystemParamState, SystemState,
     },
 };
 use std::ops::{Deref, DerefMut};
@@ -74,7 +74,10 @@ where
         let mut main_world = world.resource_mut::<MainWorld>();
         Self {
             state: SystemState::new(&mut main_world),
-            main_world_state: <ResState<MainWorld> as SystemParamState<Infallible>>::init(world, system_meta),
+            main_world_state: <ResState<MainWorld> as SystemParamState<Infallible>>::init(
+                world,
+                system_meta,
+            ),
         }
     }
 

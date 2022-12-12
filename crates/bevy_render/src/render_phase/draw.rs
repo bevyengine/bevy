@@ -7,8 +7,8 @@ use bevy_ecs::{
     all_tuples,
     entity::Entity,
     system::{
-        lifetimeless::SRes, ReadOnlySystemParam, Resource, SystemParam, SystemParamItem,
-        SystemState, Infallible,
+        lifetimeless::SRes, Infallible, ReadOnlySystemParam, Resource, SystemParam,
+        SystemParamItem, SystemState,
     },
     world::World,
 };
