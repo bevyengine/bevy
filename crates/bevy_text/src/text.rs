@@ -54,7 +54,7 @@ impl Text {
     ///         color: Color::WHITE,
     ///     },
     /// ) // You can still add text justification.
-    /// with_justify(JustifyText::JustifyCenter);
+    /// .with_justify(JustifyText::JustifyCenter);
     /// ```
     pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
         Self {

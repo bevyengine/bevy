@@ -147,7 +147,7 @@ impl TextBundle {
         }
     }
 
-    /// Returns this [`TextBundle`] with a new [`TextAlignmen`] on [`Text`].
+    /// Returns this [`TextBundle`] with a new [`JustifyText`] on [`Text`].
     pub const fn with_justify_text(mut self, justify: JustifyText) -> Self {
         self.text.justify = justify;
         self
