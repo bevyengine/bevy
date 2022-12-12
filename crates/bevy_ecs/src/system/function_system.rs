@@ -511,7 +511,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
+/// ) -> impl FnMut(In<AIn>, ParamSet<(AParam, BParam)>) -> BOut
 /// where
 ///     // We need A and B to be systems, add those bounds
 ///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,

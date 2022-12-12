@@ -248,7 +248,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
             unsafe impl<'_w, '_s, #(#param: SystemParam,)*> SystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
             {
                 type State = (#(#param::State,)*);
-                type Item<'w, 's> = ParamSet<'w, 's, (#(#param::Item<'w, 's>,)*)>;
+                type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
 
                 fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
