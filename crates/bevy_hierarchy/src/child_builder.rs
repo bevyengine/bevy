@@ -248,40 +248,7 @@ impl<'w, 's, 'a> ChildBuilder<'w, 's, 'a> {
 /// Trait defining how to build children
 pub trait BuildChildren {
     /// Creates a [`ChildBuilder`] with the given children built in the given closure
-    ///
-    /// Compared to [`add_children`][BuildChildren::add_children], this method returns self
-    /// to allow chaining.
     fn with_children(&mut self, f: impl FnOnce(&mut ChildBuilder)) -> &mut Self;
-    /// Creates a [`ChildBuilder`] with the given children built in the given closure
-    ///
-    /// Compared to [`with_children`][BuildChildren::with_children], this method returns the
-    /// the value returned from the closure, but doesn't allow chaining.
-    ///
-    /// ## Example
-    ///
-    /// ```no_run
-    /// # use bevy_ecs::prelude::*;
-    /// # use bevy_hierarchy::*;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct SomethingElse;
-    /// #
-    /// # #[derive(Component)]
-    /// # struct MoreStuff;
-    /// #
-    /// # fn foo(mut commands: Commands) {
-    ///     let mut parent_commands = commands.spawn_empty();
-    ///     let child_id = parent_commands.add_children(|parent| {
-    ///         parent.spawn_empty().id()
-    ///     });
-    ///
-    ///     parent_commands.insert(SomethingElse);
-    ///     commands.entity(child_id).with_children(|parent| {
-    ///         parent.spawn(MoreStuff);
-    ///     });
-    /// # }
-    /// ```
-    fn add_children<T>(&mut self, f: impl FnOnce(&mut ChildBuilder) -> T) -> T;
     /// Pushes children to the back of the builder's children. For any entities that are
     /// already a child of this one, this method does nothing.
     ///
@@ -313,11 +280,6 @@ pub trait BuildChildren {
 
 impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
     fn with_children(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder)) -> &mut Self {
-        self.add_children(spawn_children);
-        self
-    }
-
-    fn add_children<T>(&mut self, spawn_children: impl FnOnce(&mut ChildBuilder) -> T) -> T {
         let parent = self.id();
         let mut builder = ChildBuilder {
             commands: self.commands(),
@@ -327,11 +289,10 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
             },
         };
 
-        let result = spawn_children(&mut builder);
+        spawn_children(&mut builder);
         let children = builder.push_children;
         self.commands().add(children);
-
-        result
+        self
     }
 
     fn push_children(&mut self, children: &[Entity]) -> &mut Self {
@@ -506,12 +467,13 @@ mod tests {
         let mut commands = Commands::new(&mut queue, &world);
 
         let parent = commands.spawn(C(1)).id();
-        let children = commands.entity(parent).add_children(|parent| {
-            [
+        let mut children = Vec::new();
+        commands.entity(parent).with_children(|parent| {
+            children.extend([
                 parent.spawn(C(2)).id(),
                 parent.spawn(C(3)).id(),
                 parent.spawn(C(4)).id(),
-            ]
+            ]);
         });
 
         queue.apply(&mut world);
