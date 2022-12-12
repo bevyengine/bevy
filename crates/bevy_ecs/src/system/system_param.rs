@@ -134,7 +134,7 @@ pub unsafe trait SystemParam: Sized {
     /// The item type returned when constructing this system param.
     /// The value of this associated type should be `Self`, instantiated with new lifetimes.
     ///
-    /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to a type.
+    /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
