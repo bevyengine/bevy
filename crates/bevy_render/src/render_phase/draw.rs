@@ -322,10 +322,7 @@ impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for Rend
 where
     C::Param: ReadOnlySystemParam,
 {
-    fn prepare<'w>(
-        &mut self,
-        world: &'w World,
-    ) {
+    fn prepare<'w>(&mut self, world: &'w World) {
         self.view.update_archetypes(world);
         self.entity.update_archetypes(world);
     }
