@@ -136,6 +136,8 @@ pub unsafe trait SystemParam: Sized {
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
     type Item<'world, 'state>: SystemParam<State = Self::State>;
 
+    /// Registers any [`World`] access used by this [`SystemParam`]
+    /// and creates a new instance of this param's [`State`](Self::State).
     fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State;
 
     /// For the specified [`Archetype`], registers the components accessed by this [`SystemParam`] (if applicable).
