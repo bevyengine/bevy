@@ -194,6 +194,8 @@ impl SkinnedMeshJoints {
                 .zip(inverse_bindposes.iter())
                 .map(|(joint, bindpose)| joint.affine() * *bindpose),
         );
+        // iter_many will skip any failed fetches. This will cause it to assign the wrong bones,
+        // so just bail by truncating to the start.
         if buffer.len() != target {
             buffer.truncate(start);
             return None;
