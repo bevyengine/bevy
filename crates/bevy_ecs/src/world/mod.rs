@@ -595,7 +595,45 @@ impl World {
         }
     }
 
-    /// Clears component tracker state
+    /// Clears the internal component tracker state.
+    ///
+    /// The world maintains some internal state about changed and removed components. This state
+    /// is used by [`RemovedComponents`] to provide access to the entities that had a specific type
+    /// of component removed since last tick.
+    ///
+    /// The state is also used for change detection when accessing components and resources outside
+    /// of a system, for example via [`World::get_mut()`] or [`World::get_resource_mut()`].
+    ///
+    /// By clearing this internal state, the world "forgets" about those changes, allowing a new round
+    /// of detection to be recorded.
+    ///
+    /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
+    /// main app, to run during the `CoreStage::Last`, so you don't need to call it manually. When using
+    /// `bevy_ecs` as a separate standalone crate however, you need to call this manually.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Default)]
+    /// # struct Transform;
+    /// // a whole new world
+    /// let mut world = World::new();
+    ///
+    /// // you changed it
+    /// let entity = world.spawn(Transform::default()).id();
+    ///
+    /// // change is detected
+    /// let transform = world.get_mut::<Transform>(entity).unwrap();
+    /// assert!(transform.is_changed());
+    ///
+    /// // update the last change tick
+    /// world.clear_trackers();
+    ///
+    /// // change is no longer detected
+    /// let transform = world.get_mut::<Transform>(entity).unwrap();
+    /// assert!(!transform.is_changed());
+    /// ```
+    ///
+    /// [`RemovedComponents`]: crate::system::RemovedComponents
     pub fn clear_trackers(&mut self) {
         for entities in self.removed_components.values_mut() {
             entities.clear();
