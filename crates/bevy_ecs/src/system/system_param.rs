@@ -124,8 +124,9 @@ use std::{
 ///
 /// # Safety
 ///
-/// It is the implementor's responsibility to ensure `system_meta` is populated with the _exact_
-/// [`World`] access used by this [`SystemParam`].
+/// The implementor must ensure that [`SystemParam::init`] correctly registers all
+/// [`World`] accesses used by this [`SystemParam`] with the provided [`system_meta`](SystemMeta).
+///
 /// Additionally, it is the implementor's responsibility to ensure there is no
 /// conflicting access across all `SystemParam`'s.
 pub unsafe trait SystemParam: Sized {
