@@ -1,6 +1,9 @@
 use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
-use bevy_ecs::system::{Res, ResMut, Resource};
+use bevy_ecs::{
+    change_detection::DetectChanges,
+    system::{Res, ResMut, Resource},
+};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_utils::{tracing::info, HashMap};
 use thiserror::Error;
@@ -1160,7 +1163,7 @@ pub fn gamepad_event_system(
     mut events: EventWriter<GamepadEvent>,
     settings: Res<GamepadSettings>,
 ) {
-    button_input.clear();
+    button_input.bypass_change_detection().clear();
     for event in raw_events.iter() {
         match &event.event_type {
             GamepadEventType::Connected(_) => {
