@@ -177,7 +177,8 @@ unsafe impl<'w, 's, Q: ReadOnlyWorldQuery + 'static, F: ReadOnlyWorldQuery + 'st
 {
 }
 
-// SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
+// SAFETY: Relevant query ComponentId and ArchetypeComponentId access is applied to SystemMeta. If
+// this Query conflicts with any prior access, a panic will occur.
 unsafe impl<'_w, '_s, Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemParam
     for Query<'_w, '_s, Q, F>
 {
