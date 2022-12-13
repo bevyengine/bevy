@@ -17,30 +17,7 @@ mod scene_viewer_plugin;
 use camera_controller_plugin::{CameraController, CameraControllerPlugin};
 use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-struct CameraControllerCheckSystem;
-
 fn main() {
-    println!(
-        "
-Controls:
-    MOUSE       - Move camera orientation
-    LClick/M    - Enable mouse movement
-    WSAD        - forward/back/strafe left/right
-    LShift      - 'run'
-    E           - up
-    Q           - down
-    L           - animate light direction
-    U           - toggle shadows
-    C           - cycle through the camera controller and any cameras loaded from the scene
-    5/6         - decrease/increase shadow projection width
-    7/8         - decrease/increase shadow projection height
-    9/0         - decrease/increase shadow projection near/far
-
-    Space       - Play/Pause animation
-    Enter       - Cycle through animations
-"
-    );
     let mut app = App::new();
     app.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -61,8 +38,8 @@ Controls:
                 watch_for_changes: true,
             }),
     )
-    .add_plugin(CameraControllerPlugin::default())
-    .add_plugin(SceneViewerPlugin::default())
+    .add_plugin(CameraControllerPlugin)
+    .add_plugin(SceneViewerPlugin)
     .add_startup_system(setup)
     .add_system_to_stage(CoreStage::PreUpdate, setup_scene_after_load);
 
@@ -129,6 +106,13 @@ fn setup_scene_after_load(
         info!("Spawning a controllable 3D perspective camera");
         let mut projection = PerspectiveProjection::default();
         projection.far = projection.far.max(size * 10.0);
+
+        let camera_controller = CameraController::default();
+
+        // Display the controls of the scene viewer
+        info!("{}", camera_controller);
+        info!("{}", *scene_handle);
+
         commands.spawn((
             Camera3dBundle {
                 projection: projection.into(),
@@ -142,7 +126,7 @@ fn setup_scene_after_load(
                 },
                 ..default()
             },
-            CameraController::default(),
+            camera_controller,
         ));
 
         // Spawn a default light if the scene does not have one

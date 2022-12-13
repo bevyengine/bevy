@@ -1,6 +1,12 @@
+//! A freecam-style camera controller plugin.
+//! To use:
+//! - Load CameraControllerPlugin into your App
+//! - Attach the CameraController component to an entity with a Camera3dBundle.
+
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
 use std::f32::consts::*;
+use std::fmt;
 
 #[derive(Component)]
 pub struct CameraController {
@@ -49,7 +55,32 @@ impl Default for CameraController {
     }
 }
 
-#[derive(Default)]
+impl fmt::Display for CameraController {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "
+Freecam Controls:
+    MOUSE\t- Move camera orientation
+    {:?}/{:?}\t- Enable mouse movement
+    {:?}{:?}\t- forward/backward
+    {:?}{:?}\t- strafe left/right
+    {:?}\t- 'run'
+    {:?}\t- up
+    {:?}\t- down",
+            self.mouse_key_enable_mouse,
+            self.keyboard_key_enable_mouse,
+            self.key_forward,
+            self.key_back,
+            self.key_left,
+            self.key_right,
+            self.key_run,
+            self.key_up,
+            self.key_down
+        )
+    }
+}
+
 pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {

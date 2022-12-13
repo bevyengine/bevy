@@ -1,6 +1,12 @@
+//! A glTF scene viewer plugin.  Provides controls for animation, directional lighting, and switching between scene cameras.
+//! To use:
+//! - Load SceneViewerPlugin into your App
+//! - Insert an initalized SceneHandle resource into your App's AssetServer.
+
 use bevy::{asset::LoadState, gltf::Gltf, prelude::*, scene::InstanceId};
 
 use std::f32::consts::*;
+use std::fmt;
 
 use super::camera_controller_plugin::*;
 
@@ -29,7 +35,26 @@ impl SceneHandle {
     }
 }
 
-#[derive(Default)]
+impl fmt::Display for SceneHandle {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "
+Scene Controls:
+    L           - animate light direction
+    U           - toggle shadows
+    C           - cycle through the camera controller and any cameras loaded from the scene
+    5/6         - decrease/increase shadow projection width
+    7/8         - decrease/increase shadow projection height
+    9/0         - decrease/increase shadow projection near/far
+
+    Space       - Play/Pause animation
+    Enter       - Cycle through animations
+"
+        )
+    }
+}
+
 pub struct SceneViewerPlugin;
 
 impl Plugin for SceneViewerPlugin {
