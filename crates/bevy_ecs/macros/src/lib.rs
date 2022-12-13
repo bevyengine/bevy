@@ -347,7 +347,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     for attr in &ast.attrs {
         let Some(attr_ident) = attr.path.get_ident() else { continue };
         if attr_ident == FALLIBILITY_ATTRIBUTE_NAME {
-            if fallibility == None {
+            if fallibility.is_none() {
                 if let Ok(fallible_ident) =
                     attr.parse_args_with(|input: ParseStream| input.parse::<Ident>())
                 {
