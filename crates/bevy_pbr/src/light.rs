@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, Rect, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::Camera,
