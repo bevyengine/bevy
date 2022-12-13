@@ -28,7 +28,6 @@ bevy_sprite = { path = "../bevy_sprite", version = "0.9.0" }
 bevy_text = { path = "../bevy_text", version = "0.9.0" }
 bevy_transform = { path = "../bevy_transform", version = "0.9.0" }
 bevy_window = { path = "../bevy_window", version = "0.9.0" }
-bevy_winit = { path = "../bevy_winit", version = "0.9.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
 # other

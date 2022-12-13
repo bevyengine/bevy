@@ -1,13 +1,13 @@
 //! This example illustrates the various features of Bevy UI.
 
 use bevy::{
+    a11y::{
+        accesskit::{Node as AccessKitNode, Role},
+        AccessibilityNode,
+    },
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
-    winit::{
-        accessibility::AccessibilityNode,
-        accesskit::{Node as AccessKitNode, Role},
-        WinitSettings,
-    },
+    winit::WinitSettings,
 };
 
 fn main() {

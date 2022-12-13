@@ -1,24 +1,22 @@
 use bevy_a11y::{
     accesskit::{
         kurbo::Rect, Action, ActionRequest, DefaultActionVerb, Node as AccessKitNode, Role,
-        TreeUpdate,
     },
-    AccessKitEntityExt, AccessibilityNode,
+    AccessKitEntityExt, AccessibilityNode, Focus,
 };
 use bevy_app::{App, CoreStage, Plugin};
-use bevy_derive::{Deref, DerefMut};
+
 use bevy_ecs::{
     prelude::{Entity, EventReader},
     query::{Changed, Without},
-    system::{Commands, NonSend, Query, RemovedComponents, ResMut, Resource},
+    system::{Commands, Query, RemovedComponents, ResMut},
 };
 use bevy_hierarchy::Children;
 use bevy_render::{camera::RenderTarget, prelude::Camera};
 use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
-use bevy_utils::{default, HashMap};
+use bevy_utils::default;
 use bevy_window::Windows;
-use bevy_winit::accessibility::Adapters;
 
 use crate::{
     prelude::{Button, Label, UiCameraConfig},
@@ -116,49 +114,22 @@ fn label_changed(
     }
 }
 
-#[derive(Resource, Default, Deref, DerefMut)]
-struct InteractionCache(HashMap<Entity, Interaction>);
-
 fn interaction_changed(
-    mut cache: ResMut<InteractionCache>,
-    adapters: NonSend<Adapters>,
+    mut focus: ResMut<Focus>,
     query: Query<(Entity, &Interaction), Changed<Interaction>>,
 ) {
     for (entity, interaction) in &query {
-        if let Some(adapter) = adapters.get_primary_adapter() {
-            if *interaction == Interaction::Hovered {
-                let focus = Some(entity.to_node_id());
-                adapter.update(TreeUpdate { focus, ..default() });
-            } else if let Some(old_interaction) = cache.get(&entity) {
-                if *old_interaction == Interaction::Hovered {
-                    adapter.update(TreeUpdate {
-                        focus: None,
-                        ..default()
-                    });
-                }
-            }
+        if *interaction == Interaction::Hovered {
+            focus.from_entity(Some(entity));
         }
-        cache.insert(entity, interaction.clone());
     }
 }
 
-fn interaction_removed(
-    mut cache: ResMut<InteractionCache>,
-    adapters: NonSend<Adapters>,
-    removed: RemovedComponents<Interaction>,
-) {
+fn interaction_removed(mut focus: ResMut<Focus>, removed: RemovedComponents<Interaction>) {
     for entity in removed.iter() {
-        if let Some(old_interaction) = cache.get(&entity) {
-            if *old_interaction == Interaction::Hovered {
-                if let Some(adapter) = adapters.get_primary_adapter() {
-                    adapter.update(TreeUpdate {
-                        focus: None,
-                        ..default()
-                    });
-                }
-            }
+        if focus.entity() == Some(entity) {
+            **focus = None;
         }
-        cache.remove(&entity);
     }
 }
 
@@ -209,8 +180,7 @@ pub(crate) struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<InteractionCache>()
-            .add_system_to_stage(CoreStage::PreUpdate, button_changed)
+        app.add_system_to_stage(CoreStage::PreUpdate, button_changed)
             .add_system_to_stage(CoreStage::PreUpdate, image_changed)
             .add_system_to_stage(CoreStage::PreUpdate, label_changed)
             .add_system_to_stage(CoreStage::PreUpdate, interaction_changed)
