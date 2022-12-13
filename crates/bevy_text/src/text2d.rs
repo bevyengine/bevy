@@ -168,8 +168,8 @@ pub fn update_text2d_layout(
     for (entity, text_changed, text, bounds, text_layout_info) in &mut text_query {
         if factor_changed || text_changed || queue.remove(&entity) {
             let text_bounds = Vec2::new(
-                    scale_value(bounds.size.x, scale_factor),
-                    scale_value(bounds.size.y, scale_factor)
+                scale_value(bounds.size.x, scale_factor),
+                scale_value(bounds.size.y, scale_factor),
             );
 
             match text_pipeline.queue_text(
