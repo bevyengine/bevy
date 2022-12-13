@@ -1330,9 +1330,14 @@ pub enum HexColorError {
     Char(char),
 }
 
+// Convert hex to rgb[a] u8
+// For rgb: `fff` -> [u8; 6] -> [r, g, b, ..]
+// For rgba: `E2E2E2FF` -> [u8; 8] -> [r, g, b, a, ..]
 const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexColorError> {
     let mut i = 0;
     while i < bytes.len() {
+        // Convert hex to u8
+        // e.g `f` -> 102 -> 15
         let val = match hex_ascii_byte(bytes[i]) {
             Ok(val) => val,
             Err(byte) => return Err(HexColorError::Char(byte as char)),
@@ -1342,6 +1347,8 @@ const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexCo
     }
     i = 0;
     while i < bytes.len() / 2 {
+        // Convert u8 to r/g/b/a
+        // e.g `ff` -> [102, 102] -> [15, 15] = 255
         bytes[i] = bytes[i * 2] << 4 | bytes[i * 2 + 1];
         i += 1;
     }
