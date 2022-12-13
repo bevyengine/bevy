@@ -5,16 +5,20 @@
 //! In case of multiple scenes, you can select which to display by adapting the file path: `/path/to/model.gltf#Scene1`.
 //! With no arguments it will load the `FlightHelmet` glTF model from the repository assets subdirectory.
 
+mod camera_controller_plugin;
+mod scene_viewer_plugin;
+
+pub use camera_controller_plugin::*;
+pub use scene_viewer_plugin::*;
+
 use bevy::{
     math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
 };
 
-mod scene_viewer_utils;
-use scene_viewer_utils::{
-    CameraController, CameraControllerPlugin, SceneHandle, SceneViewerPlugin,
-};
+use camera_controller_plugin::{CameraController, CameraControllerPlugin};
+use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 struct CameraControllerCheckSystem;

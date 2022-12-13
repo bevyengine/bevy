@@ -30,7 +30,7 @@ impl SceneHandle {
 }
 
 #[derive(Default)]
-pub struct SceneViewerPlugin {}
+pub struct SceneViewerPlugin;
 
 impl Plugin for SceneViewerPlugin {
     fn build(&self, app: &mut App) {

@@ -50,7 +50,7 @@ impl Default for CameraController {
 }
 
 #[derive(Default)]
-pub struct CameraControllerPlugin {}
+pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
     fn build(&self, app: &mut App) {
