@@ -322,9 +322,17 @@ struct SystemParamFieldAttributes {
 }
 
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
+static FALLIBILITY_ATTRIBUTE_NAME: &str = "fallibility";
+
+#[derive(PartialEq)]
+enum Fallibility {
+    Infallible,
+    Optional,
+    Resultful,
+}
 
 /// Implement `SystemParam` to use a struct as a parameter in a system
-#[proc_macro_derive(SystemParam, attributes(system_param))]
+#[proc_macro_derive(SystemParam, attributes(fallibility, system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let fields = match get_named_struct_fields(&ast.data) {
@@ -333,6 +341,66 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     };
     let path = bevy_ecs_path();
 
+    let mut fallibility = None;
+
+    // Read struct-level attributes
+    for attr in &ast.attrs {
+        let Some(attr_ident) = attr.path.get_ident() else { continue };
+        if attr_ident == FALLIBILITY_ATTRIBUTE_NAME {
+            if fallibility == None {
+                if let Ok(fallible_ident) =
+                    attr.parse_args_with(|input: ParseStream| input.parse::<Ident>())
+                {
+                    match fallible_ident.to_string().as_str() {
+                        "Infallible" => {
+                            fallibility = Some(Fallibility::Infallible);
+                        }
+                        "Optional" => {
+                            fallibility = Some(Fallibility::Optional);
+                        }
+                        "Resultful" => {
+                            fallibility = Some(Fallibility::Resultful);
+                        },
+                        _ => return syn::Error::new_spanned(
+                            attr,
+                            "The content of `fallibility` should be either `Infallible`, `Optional`, or `Resultful`."
+                        )
+                        .into_compile_error()
+                        .into()
+                    }
+                } else {
+                    return syn::Error::new_spanned(
+                        attr,
+                        "The content of `fallibility` should be a single identifier."
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            } else {
+                return syn::Error::new_spanned(
+                    attr,
+                    "There should only be one `fallibility` attribute."
+                )
+                .into_compile_error()
+                .into();
+            }
+        }
+    }
+
+    let fallibility = fallibility.unwrap_or(Fallibility::Infallible);
+
+    let fallible = {
+        let mut f = path.clone();
+        f.segments.push(format_ident!("system").into());
+        match fallibility {
+            Fallibility::Infallible => f.segments.push(format_ident!("Infallible").into()),
+            Fallibility::Optional => f.segments.push(format_ident!("Optional").into()),
+            Fallibility::Resultful => f.segments.push(format_ident!("Resultful").into()),
+        }
+        f
+    };
+
+    // Read field-level attributes 
     let field_attributes = fields
         .iter()
         .map(|field| {
@@ -429,18 +497,54 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
 
+    let returned_struct = quote! {
+        #struct_name {
+            #(#fields,)*
+            #(#ignored_fields: <#ignored_field_types>::default(),)*
+        }
+    };
+
+    let (get_param_body, get_param_return) = match fallibility {
+        Fallibility::Infallible => (
+            quote! {
+                #(let #fields = <<#field_types as #path::system::SystemParam<#fallible>>::State as #path::system::SystemParamState<#fallible>>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick);)*
+
+                #returned_struct
+            },
+            quote! { Self::Item<'w, 's> }
+        ),
+        Fallibility::Optional => (
+            quote! {
+                #(let Some(#fields) = <<#field_types as #path::system::SystemParam<#fallible>>::State as #path::system::SystemParamState<#fallible>>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick) else {
+                    return None;
+                };)*
+
+                Some(#returned_struct)
+            },
+            quote! { Option<Self::Item<'w, 's>> }
+    ),
+        Fallibility::Resultful => (
+            quote! {
+                #(let #fields = <<#field_types as #path::system::SystemParam<#fallible>>::State as #path::system::SystemParamState<#fallible>>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick)?;)*
+
+                Ok(#returned_struct)
+            },
+            quote! { Result<Self::Item<'w, 's>, &'s dyn std::error::Error> }
+        )
+    };
+
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
-            impl<'w, 's, #punctuated_generics> #path::system::SystemParam<#path::system::Infallible> for #struct_name #ty_generics #where_clause {
+            impl<'w, 's, #punctuated_generics> #path::system::SystemParam<#fallible> for #struct_name #ty_generics #where_clause {
                 type State = State<'w, 's, #punctuated_generic_idents>;
             }
 
             #[doc(hidden)]
             type State<'w, 's, #punctuated_generic_idents> = FetchState<
-                (#(<#field_types as #path::system::SystemParam<#path::system::Infallible>>::State,)*),
+                (#(<#field_types as #path::system::SystemParam<#fallible>>::State,)*),
                 #punctuated_generic_idents
             >;
 
@@ -450,7 +554,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
             }
 
-            unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState<#path::system::Infallible> for
+            unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState<#fallible> for
                 State<'__w, '__s, #punctuated_generic_idents>
             #where_clause {
                 type Item<'w, 's> = #struct_name #ty_generics;
@@ -467,7 +571,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
 
                 fn apply(&mut self, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                    self.state.apply(system_meta, world)
+                    #path::system::SystemParamState::apply(&mut self.state, system_meta, world)
                 }
 
                 unsafe fn get_param<'w, 's>(
@@ -475,11 +579,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     system_meta: &#path::system::SystemMeta,
                     world: &'w #path::world::World,
                     change_tick: u32,
-                ) -> Self::Item<'w, 's> {
-                    #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam<#path::system::Infallible>>::State as #path::system::SystemParamState<#path::system::Infallible>>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
-                        #(#ignored_fields: <#ignored_field_types>::default(),)*
-                    }
+                ) -> #get_param_return {
+                    #get_param_body
                 }
             }
 

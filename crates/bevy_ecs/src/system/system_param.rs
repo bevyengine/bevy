@@ -255,9 +255,9 @@ mod sealed {
 
 /// A parameter that can be used in a [`System`](super::System).
 ///
-/// This type comes in three variants:
+/// This trait comes in three variants, where [`Infallible`] is the base variant:
 ///
-/// - [`Infallible`]: The base case, which can be used as `T`.
+/// - [`Infallible`]: Which can be used as `T`.
 /// - [`Optional`]: Which can be used as `Option<T>` or `T`.
 /// - [`Resultful`]: Which can be used as `Result<T, &dyn Error>`, `Option<T>`, or `T`.
 ///
@@ -274,6 +274,11 @@ mod sealed {
 ///
 /// ## Attributes
 ///
+/// `#[fallibility(T)]`:
+/// Can be added to the struct. `T` can be one of [`Infallible`], [`Optional`], or [`Resultful`].
+/// This requires the fields to have the same fallibility.
+/// If the attribute is not specified, the fallibility defaults to [`Infallible`].
+///
 /// `#[system_param(ignore)]`:
 /// Can be added to any field in the struct. Fields decorated with this attribute
 /// will be created with the default value upon realisation.
@@ -289,6 +294,7 @@ mod sealed {
 /// use bevy_ecs::system::SystemParam;
 ///
 /// #[derive(SystemParam)]
+/// #[fallibility(Optional)]
 /// struct MyParam<'w, Marker: 'static> {
 ///     foo: Res<'w, SomeResource>,
 ///     #[system_param(ignore)]
@@ -1848,4 +1854,10 @@ mod tests {
 
     #[derive(SystemParam)]
     pub struct UnitParam {}
+
+    #[derive(SystemParam)]
+    #[fallibility(Optional)]
+    pub struct OptionalParam<'w, T: Resource> {
+        _res: Res<'w, T>,
+    }
 }
