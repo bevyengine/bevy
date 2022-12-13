@@ -1,6 +1,6 @@
 use std::{num::NonZeroU128, sync::Arc};
 
-use crate::accessibility::{Adapters, Handlers, WinitActionHandler};
+use crate::accessibility::{AccessKitAdapters, WinitActionHandlers, WinitActionHandler};
 use crate::converters::convert_cursor_grab_mode;
 use accesskit_winit::Adapter;
 use bevy_a11y::accesskit::{Node, NodeId, Role, Tree, TreeUpdate};
@@ -33,8 +33,8 @@ impl WinitWindows {
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         window_id: WindowId,
         window_descriptor: &WindowDescriptor,
-        adapters: &mut Adapters,
-        handlers: &mut Handlers,
+        adapters: &mut AccessKitAdapters,
+        handlers: &mut WinitActionHandlers,
     ) -> Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 

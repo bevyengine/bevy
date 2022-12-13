@@ -667,8 +667,8 @@ fn handle_create_window_events(
     let mut winit_windows = world.non_send_resource_mut::<WinitWindows>();
     let mut windows = world.resource_mut::<Windows>();
     let create_window_events = world.resource::<Events<CreateWindow>>();
-    let mut adapters = world.non_send_resource_mut::<accessibility::Adapters>();
-    let mut receivers = world.resource_mut::<accessibility::Handlers>();
+    let mut adapters = world.non_send_resource_mut::<accessibility::AccessKitAdapters>();
+    let mut receivers = world.resource_mut::<accessibility::WinitActionHandlers>();
     for create_window_event in create_window_event_reader.iter(&create_window_events) {
         let window = winit_windows.create_window(
             event_loop,

@@ -20,16 +20,16 @@ use bevy_utils::{default, HashMap};
 use bevy_window::{WindowClosed, WindowFocused, WindowId};
 
 #[derive(Default, Deref, DerefMut)]
-pub struct Adapters(pub HashMap<WindowId, Adapter>);
+pub struct AccessKitAdapters(pub HashMap<WindowId, Adapter>);
 
-impl Adapters {
+impl AccessKitAdapters {
     pub fn get_primary_adapter(&self) -> Option<&Adapter> {
         self.get(&WindowId::primary())
     }
 }
 
 #[derive(Resource, Default, Deref, DerefMut)]
-pub struct Handlers(pub HashMap<WindowId, WinitActionHandler>);
+pub struct WinitActionHandlers(pub HashMap<WindowId, WinitActionHandler>);
 
 #[derive(Clone, Default, Deref, DerefMut)]
 pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
@@ -44,7 +44,7 @@ impl ActionHandler for WinitActionHandler {
 
 fn handle_window_focus(
     focus: Res<Focus>,
-    adapters: NonSend<Adapters>,
+    adapters: NonSend<AccessKitAdapters>,
     mut focused: EventReader<WindowFocused>,
 ) {
     let focus_id = (*focus)
@@ -60,8 +60,8 @@ fn handle_window_focus(
 }
 
 fn window_closed(
-    mut adapters: NonSendMut<Adapters>,
-    mut receivers: ResMut<Handlers>,
+    mut adapters: NonSendMut<AccessKitAdapters>,
+    mut receivers: ResMut<WinitActionHandlers>,
     mut events: EventReader<WindowClosed>,
 ) {
     for WindowClosed { id, .. } in events.iter() {
@@ -70,7 +70,7 @@ fn window_closed(
     }
 }
 
-fn poll_receivers(handlers: Res<Handlers>, mut actions: EventWriter<ActionRequest>) {
+fn poll_receivers(handlers: Res<WinitActionHandlers>, mut actions: EventWriter<ActionRequest>) {
     for (_id, handler) in handlers.iter() {
         let mut handler = handler.lock().unwrap();
         while let Some(event) = handler.pop_front() {
@@ -80,7 +80,7 @@ fn poll_receivers(handlers: Res<Handlers>, mut actions: EventWriter<ActionReques
 }
 
 fn update_accessibility_nodes(
-    adapters: NonSend<Adapters>,
+    adapters: NonSend<AccessKitAdapters>,
     focus: Res<Focus>,
     query: Query<(Entity, &AccessibilityNode)>,
 ) {
@@ -113,7 +113,7 @@ fn update_accessibility_nodes(
 }
 
 fn remove_accessibility_nodes(
-    adapters: NonSend<Adapters>,
+    adapters: NonSend<AccessKitAdapters>,
     mut focus: ResMut<Focus>,
     removed: RemovedComponents<AccessibilityNode>,
     remaining_nodes: Query<Entity, With<AccessibilityNode>>,
@@ -155,8 +155,8 @@ pub struct AccessibilityPlugin;
 
 impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
-        app.init_non_send_resource::<Adapters>()
-            .init_resource::<Handlers>()
+        app.init_non_send_resource::<AccessKitAdapters>()
+            .init_resource::<WinitActionHandlers>()
             .init_resource::<Focus>()
             .add_event::<ActionRequest>()
             .add_system_to_stage(CoreStage::PreUpdate, handle_window_focus)
