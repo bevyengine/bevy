@@ -5,7 +5,6 @@ mod web_resize;
 mod winit_config;
 mod winit_windows;
 
-pub use accesskit;
 use winit::window::CursorGrabMode;
 pub use winit_config::*;
 pub use winit_windows::*;

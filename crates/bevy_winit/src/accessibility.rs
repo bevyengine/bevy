@@ -4,8 +4,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use accesskit::{ActionHandler, ActionRequest, Node, NodeId, Role, TreeUpdate};
 use accesskit_winit::Adapter;
+use bevy_a11y::accesskit::{ActionHandler, ActionRequest, Node, NodeId, Role, TreeUpdate};
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{

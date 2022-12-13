@@ -2,8 +2,8 @@ use std::{num::NonZeroU128, sync::Arc};
 
 use crate::accessibility::{Adapters, Handlers, WinitActionHandler};
 use crate::converters::convert_cursor_grab_mode;
-use accesskit::{Node, NodeId, Role, Tree, TreeUpdate};
 use accesskit_winit::Adapter;
+use bevy_a11y::accesskit::{Node, NodeId, Role, Tree, TreeUpdate};
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::{default, HashMap};
 use bevy_window::{
