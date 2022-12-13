@@ -276,7 +276,7 @@ impl Color {
                     Err(byte) => Err(HexColorError::Char(byte as char)),
                 }
             }
-            _ => return Err(HexColorError::Length),
+            _ => Err(HexColorError::Length),
         }
     }
 
