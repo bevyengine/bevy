@@ -236,17 +236,20 @@ pub struct Resultful;
 
 mod sealed {
     use std::error::Error;
+
+    /// Describes a [`SystemParam`](super::SystemParam)'s level of fallibility.
     pub trait Fallibility {
-        type Scope<'s, T>;
+        /// Maps `T` to some form of error-handling.
+        type Fallible<'s, T>;
     }
     impl Fallibility for super::Infallible {
-        type Scope<'s, T> = T;
+        type Fallible<'s, T> = T;
     }
     impl Fallibility for super::Optional {
-        type Scope<'s, T> = Option<T>;
+        type Fallible<'s, T> = Option<T>;
     }
     impl Fallibility for super::Resultful {
-        type Scope<'s, T> = Result<T, &'s dyn Error>;
+        type Fallible<'s, T> = Result<T, &'s dyn Error>;
     }
 }
 
@@ -518,7 +521,7 @@ pub unsafe trait SystemParamState<T: sealed::Fallibility>: Send + Sync + 'static
         system_meta: &SystemMeta,
         world: &'world World,
         change_tick: u32,
-    ) -> T::Scope<'state, Self::Item<'world, 'state>>;
+    ) -> T::Fallible<'state, Self::Item<'world, 'state>>;
 }
 
 /// A [`SystemParam`] that only reads a given [`World`].
