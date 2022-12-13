@@ -1,3 +1,4 @@
+use crate::proxy::Proxy;
 use crate::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
     DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
@@ -67,7 +68,7 @@ pub trait Array: Reflect {
     /// Clones the list, producing a [`DynamicArray`].
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            name: self.type_name().to_string(),
+            represented_type: Some(self.get_type_info()),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -167,7 +168,7 @@ impl ArrayInfo {
 /// [`DynamicList`]: crate::DynamicList
 #[derive(Debug)]
 pub struct DynamicArray {
-    pub(crate) name: String,
+    pub(crate) represented_type: Option<&'static TypeInfo>,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
 }
 
@@ -175,14 +176,14 @@ impl DynamicArray {
     #[inline]
     pub fn new(values: Box<[Box<dyn Reflect>]>) -> Self {
         Self {
-            name: String::default(),
+            represented_type: None,
             values,
         }
     }
 
     pub fn from_vec<T: Reflect>(values: Vec<T>) -> Self {
         Self {
-            name: String::default(),
+            represented_type: None,
             values: values
                 .into_iter()
                 .map(|field| Box::new(field) as Box<dyn Reflect>)
@@ -191,21 +192,21 @@ impl DynamicArray {
         }
     }
 
-    #[inline]
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    #[inline]
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+    /// Sets the [type] to be [represented] by this `DynamicArray`.
+    ///
+    /// [type]: TypeInfo
+    /// [represented]: Proxy::represents
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        self.represented_type = represented_type;
     }
 }
 
 impl Reflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
-        self.name.as_str()
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_default()
     }
 
     #[inline]
@@ -312,13 +313,19 @@ impl Array for DynamicArray {
     #[inline]
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
                 .map(|value| value.clone_value())
                 .collect(),
         }
+    }
+}
+
+impl Proxy for DynamicArray {
+    fn represents(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 

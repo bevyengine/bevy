@@ -1,3 +1,4 @@
+use crate::proxy::Proxy;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
@@ -222,19 +223,17 @@ impl GetTupleStructField for dyn TupleStruct {
 /// A tuple struct which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicTupleStruct {
-    name: String,
+    represented_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicTupleStruct {
-    /// Returns the type name of the tuple struct.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Sets the type name of the tuple struct.
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+    /// Sets the [type] to be [represented] by this `DynamicTupleStruct`.
+    ///
+    /// [type]: TypeInfo
+    /// [represented]: Proxy::represents
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        self.represented_type = represented_type;
     }
 
     /// Appends an element with value `value` to the tuple struct.
@@ -274,7 +273,7 @@ impl TupleStruct for DynamicTupleStruct {
 
     fn clone_dynamic(&self) -> DynamicTupleStruct {
         DynamicTupleStruct {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             fields: self
                 .fields
                 .iter()
@@ -287,7 +286,9 @@ impl TupleStruct for DynamicTupleStruct {
 impl Reflect for DynamicTupleStruct {
     #[inline]
     fn type_name(&self) -> &str {
-        self.name.as_str()
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_default()
     }
 
     #[inline]
@@ -370,6 +371,12 @@ impl Reflect for DynamicTupleStruct {
         write!(f, "DynamicTupleStruct(")?;
         tuple_struct_debug(self, f)?;
         write!(f, ")")
+    }
+}
+
+impl Proxy for DynamicTupleStruct {
+    fn represents(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 

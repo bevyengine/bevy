@@ -4,6 +4,7 @@ use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
+use crate::proxy::Proxy;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
 
@@ -184,26 +185,18 @@ const HASH_ERROR: &str = "the given key does not support hashing";
 /// An ordered mapping between reflected values.
 #[derive(Default)]
 pub struct DynamicMap {
-    name: String,
+    represented_type: Option<&'static TypeInfo>,
     values: Vec<(Box<dyn Reflect>, Box<dyn Reflect>)>,
     indices: HashMap<u64, usize>,
 }
 
 impl DynamicMap {
-    /// Returns the type name of the map.
+    /// Sets the [type] to be [represented] by this `DynamicMap`.
     ///
-    /// The value returned by this method is the same value returned by
-    /// [`Reflect::type_name`].
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Sets the type name of the map.
-    ///
-    /// The value set by this method is the same value returned by
-    /// [`Reflect::type_name`].
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+    /// [type]: TypeInfo
+    /// [represented]: Proxy::represents
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        self.represented_type = represented_type;
     }
 
     /// Inserts a typed key-value pair into the map.
@@ -232,7 +225,7 @@ impl Map for DynamicMap {
 
     fn clone_dynamic(&self) -> DynamicMap {
         DynamicMap {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
@@ -289,7 +282,9 @@ impl Map for DynamicMap {
 
 impl Reflect for DynamicMap {
     fn type_name(&self) -> &str {
-        &self.name
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_default()
     }
 
     #[inline]
@@ -357,6 +352,12 @@ impl Reflect for DynamicMap {
         write!(f, "DynamicMap(")?;
         map_debug(self, f)?;
         write!(f, ")")
+    }
+}
+
+impl Proxy for DynamicMap {
+    fn represents(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 

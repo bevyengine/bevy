@@ -2,6 +2,7 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
+use crate::proxy::Proxy;
 use crate::utility::{reflect_hasher, NonGenericTypeInfoCell};
 use crate::{
     DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
@@ -97,7 +98,7 @@ pub trait List: Reflect {
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
-            name: self.type_name().to_string(),
+            represented_type: Some(self.get_type_info()),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
     }
@@ -177,25 +178,17 @@ impl ListInfo {
 /// A list of reflected values.
 #[derive(Default)]
 pub struct DynamicList {
-    name: String,
+    represented_type: Option<&'static TypeInfo>,
     values: Vec<Box<dyn Reflect>>,
 }
 
 impl DynamicList {
-    /// Returns the type name of the list.
+    /// Sets the [type] to be [represented] by this `DynamicList`.
     ///
-    /// The value returned by this method is the same value returned by
-    /// [`Reflect::type_name`].
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Sets the type name of the list.
-    ///
-    /// The value set by this method is the value returned by
-    /// [`Reflect::type_name`].
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+    /// [type]: TypeInfo
+    /// [represented]: Proxy::represents
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        self.represented_type = represented_type;
     }
 
     /// Appends a typed value to the list.
@@ -248,7 +241,7 @@ impl List for DynamicList {
 
     fn clone_dynamic(&self) -> DynamicList {
         DynamicList {
-            name: self.name.clone(),
+            represented_type: self.represented_type,
             values: self
                 .values
                 .iter()
@@ -261,7 +254,9 @@ impl List for DynamicList {
 impl Reflect for DynamicList {
     #[inline]
     fn type_name(&self) -> &str {
-        self.name.as_str()
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_default()
     }
 
     #[inline]
@@ -342,6 +337,12 @@ impl Reflect for DynamicList {
         write!(f, "DynamicList(")?;
         list_debug(self, f)?;
         write!(f, ")")
+    }
+}
+
+impl Proxy for DynamicList {
+    fn represents(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 

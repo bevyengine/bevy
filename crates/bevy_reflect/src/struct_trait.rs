@@ -1,3 +1,4 @@
+use crate::proxy::Proxy;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
@@ -272,21 +273,19 @@ impl GetField for dyn Struct {
 /// A struct type which allows fields to be added at runtime.
 #[derive(Default)]
 pub struct DynamicStruct {
-    name: String,
+    represented_type: Option<&'static TypeInfo>,
     fields: Vec<Box<dyn Reflect>>,
     field_names: Vec<Cow<'static, str>>,
     field_indices: HashMap<Cow<'static, str>, usize>,
 }
 
 impl DynamicStruct {
-    /// Returns the type name of the struct.
-    pub fn name(&self) -> &str {
-        &self.name
-    }
-
-    /// Sets the type name of the struct.
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
+    /// Sets the [type] to be [represented] by this `DynamicStruct`.
+    ///
+    /// [type]: TypeInfo
+    /// [represented]: Proxy::represents
+    pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
+        self.represented_type = represented_type;
     }
 
     /// Inserts a field named `name` with value `value` into the struct.
@@ -370,7 +369,7 @@ impl Struct for DynamicStruct {
 
     fn clone_dynamic(&self) -> DynamicStruct {
         DynamicStruct {
-            name: self.name.clone(),
+            represented_type: Some(self.get_type_info()),
             field_names: self.field_names.clone(),
             field_indices: self.field_indices.clone(),
             fields: self
@@ -385,7 +384,9 @@ impl Struct for DynamicStruct {
 impl Reflect for DynamicStruct {
     #[inline]
     fn type_name(&self) -> &str {
-        &self.name
+        self.represented_type
+            .map(|info| info.type_name())
+            .unwrap_or_default()
     }
 
     #[inline]
@@ -469,6 +470,12 @@ impl Reflect for DynamicStruct {
         write!(f, "DynamicStruct(")?;
         struct_debug(self, f)?;
         write!(f, ")")
+    }
+}
+
+impl Proxy for DynamicStruct {
+    fn represents(&self) -> Option<&'static TypeInfo> {
+        self.represented_type
     }
 }
 

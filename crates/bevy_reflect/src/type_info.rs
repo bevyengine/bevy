@@ -1,7 +1,9 @@
+use crate::proxy::Proxy;
 use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
 };
 use std::any::{Any, TypeId};
+use std::fmt::{Debug, Formatter};
 
 /// A static accessor to compile-time type information.
 ///
@@ -227,25 +229,67 @@ impl ValueInfo {
 /// This is functionally the same as [`ValueInfo`], however, semantically it refers to dynamic
 /// types such as [`DynamicStruct`], [`DynamicTuple`], [`DynamicList`], etc.
 ///
+/// This struct may also be used to extract the proxied [`TypeInfo`] from a dynamic type.
+///
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [`DynamicTuple`]: crate::DynamicTuple
 /// [`DynamicList`]: crate::DynamicList
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct DynamicInfo {
     type_name: &'static str,
     type_id: TypeId,
+    represents: fn(&dyn Reflect) -> Option<&'static TypeInfo>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
 
+impl Debug for DynamicInfo {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let mut state = f.debug_struct("DynamicInfo");
+
+        state
+            .field("type_name", &self.type_name)
+            .field("type_name", &self.type_id);
+
+        #[cfg(feature = "documentation")]
+        state.field("docs", &self.docs);
+
+        state.finish()
+    }
+}
+
 impl DynamicInfo {
-    pub fn new<T: Reflect>() -> Self {
+    pub fn new<T: Proxy>() -> Self {
+        fn represents<T: Proxy>(value: &dyn Reflect) -> Option<&'static TypeInfo> {
+            let value: &T = value.downcast_ref().unwrap_or_else(|| {
+                panic!(
+                    "expected dynamic type `{}`, but received `{}`",
+                    std::any::type_name::<T>(),
+                    value.type_name()
+                )
+            });
+            value.represents()
+        }
+
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            represents: represents::<T>,
             #[cfg(feature = "documentation")]
             docs: None,
         }
+    }
+
+    /// Returns the [type info] represented by the given dynamic type, if any.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if the given value is not the same type as the one
+    /// represented by this [`DynamicInfo`].
+    ///
+    /// [type info]: TypeInfo
+    pub fn represents(&self, value: &dyn Reflect) -> Option<&'static TypeInfo> {
+        (self.represents)(value)
     }
 
     /// Sets the docstring for this dynamic value.
@@ -275,5 +319,21 @@ impl DynamicInfo {
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{DynamicArray, DynamicList, TypeInfo, Typed};
+
+    #[test]
+    #[should_panic(
+        expected = "expected dynamic type `bevy_reflect::array::DynamicArray`, but received ``"
+    )]
+    fn dynamic_represents_should_panic_on_type_mismatch() {
+        let TypeInfo::Dynamic(info) = DynamicArray::type_info() else { panic!("expected `TypeInfo::Dynamic`") };
+
+        let value = DynamicList::default();
+        info.represents(&value);
     }
 }
