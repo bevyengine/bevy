@@ -34,7 +34,8 @@ use bevy_ecs::schedule::StageLabel;
 /// The relative [`Stages`](bevy_ecs::schedule::Stage) are added by [`App::add_default_stages`].
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
-    /// The [`Stage`](bevy_ecs::schedule::Stage) that runs before all other app stages.
+    /// The [`Stage`](bevy_ecs::schedule::Stage) that runs before all other app stages, including
+    /// [`StartupStage`]s. All other `CoreStage`s run *after* startup stages complete.
     PreStartup,
     /// The [`Stage`](bevy_ecs::schedule::Stage) that runs before [`CoreStage::Update`].
     PreUpdate,
