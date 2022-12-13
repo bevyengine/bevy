@@ -25,42 +25,41 @@ pub fn gilrs_event_system(mut gilrs: NonSendMut<Gilrs>, mut events: EventWriter<
     {
         gilrs.update(&gilrs_event);
 
-        match gilrs_event.event {
+        let maybe_gamepad_event = match gilrs_event.event {
             EventType::Connected => {
                 let pad = gilrs.gamepad(gilrs_event.id);
                 let info = GamepadInfo {
                     name: pad.name().into(),
                 };
 
-                events.send(GamepadEventRaw::new(
-                    convert_gamepad_id(gilrs_event.id),
-                    GamepadEventType::Connected(info),
-                ));
+                Some(GamepadEventType::Connected(info))
             }
             EventType::Disconnected => {
-                events.send(GamepadEventRaw::new(
-                    convert_gamepad_id(gilrs_event.id),
-                    GamepadEventType::Disconnected,
-                ));
+                Some(GamepadEventRaw::new(gampad, GamepadEventType::Disconnected));
             }
             EventType::ButtonChanged(gilrs_button, value, _) => {
                 if let Some(button_type) = convert_button(gilrs_button) {
-                    events.send(GamepadEventRaw::new(
-                        convert_gamepad_id(gilrs_event.id),
-                        GamepadEventType::ButtonChanged(button_type, value),
-                    ));
+                    Some(GamepadEventType::ButtonChanged(button_type, value))
+                } else {
+                    None
                 }
             }
             EventType::AxisChanged(gilrs_axis, value, _) => {
                 if let Some(axis_type) = convert_axis(gilrs_axis) {
-                    events.send(GamepadEventRaw::new(
-                        convert_gamepad_id(gilrs_event.id),
-                        GamepadEventType::AxisChanged(axis_type, value),
-                    ));
+                    Some(GamepadEventType::AxisChanged(axis_type, value))
+                } else {
+                    None
                 }
             }
-            _ => (),
+            _ => None,
         };
+
+        if let Some(gamepad_event) = maybe_gamepad_event {
+            events.send(GamepadEventRaw {
+                gamepad: convert_gamepad_id(gilrs_event.id),
+                event_type: gamepad_event,
+            });
+        }
     }
     gilrs.inc();
 }
