@@ -615,7 +615,7 @@ impl App {
     /// All the added stages, with the exception of the startup stage, run every time the
     /// schedule is invoked. The stages are the following, in order of execution:
     ///
-    /// - **First:** Runs at the very start of the schedule execution cycle, even before the
+    /// - **Pre-startup:** Runs at the very start of the schedule execution cycle, even before the
     ///   startup stage.
     /// - **Startup:** This is actually a schedule containing sub-stages. Runs only once
     ///   when the app starts.
@@ -657,7 +657,7 @@ impl App {
     /// Setup the application to manage events of type `T`.
     ///
     /// This is done by adding a [`Resource`] of type [`Events::<T>`],
-    /// and inserting an [`update_system`](Events::update_system) into [`CoreStage::First`].
+    /// and inserting an [`update_system`](Events::update_system) into [`CoreStage::PreStartup`].
     ///
     /// See [`Events`] for defining events.
     ///
