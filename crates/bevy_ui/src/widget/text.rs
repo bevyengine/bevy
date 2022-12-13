@@ -135,8 +135,7 @@ pub fn text_system(
                     // queue for further processing
                     new_queue.push(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_))
-                | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
+                Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
