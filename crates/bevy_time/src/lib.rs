@@ -41,7 +41,10 @@ impl Plugin for TimePlugin {
             .register_type::<Stopwatch>()
             // time system is added as an "exclusive system" to ensure it runs before other systems
             // in CoreStage::First
-            .add_system_to_stage(CoreStage::First, time_system.at_start().label(TimeSystem));
+            .add_system_to_stage(
+                CoreStage::PreStartup,
+                time_system.at_start().label(TimeSystem),
+            );
     }
 }
 

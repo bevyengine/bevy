@@ -35,7 +35,7 @@ use bevy_ecs::schedule::StageLabel;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum CoreStage {
     /// The [`Stage`](bevy_ecs::schedule::Stage) that runs before all other app stages.
-    First,
+    PreStartup,
     /// The [`Stage`](bevy_ecs::schedule::Stage) that runs before [`CoreStage::Update`].
     PreUpdate,
     /// The [`Stage`](bevy_ecs::schedule::Stage) responsible for doing most app logic. Systems should be registered here by default.

@@ -639,7 +639,7 @@ impl App {
     /// let app = App::empty().add_default_stages();
     /// ```
     pub fn add_default_stages(&mut self) -> &mut Self {
-        self.add_stage(CoreStage::First, SystemStage::parallel())
+        self.add_stage(CoreStage::PreStartup, SystemStage::parallel())
             .add_stage(
                 StartupSchedule,
                 Schedule::default()
@@ -678,7 +678,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system_to_stage(CoreStage::First, Events::<T>::update_system);
+                .add_system_to_stage(CoreStage::PreStartup, Events::<T>::update_system);
         }
         self
     }
