@@ -270,11 +270,12 @@ impl Color {
                 Err(byte) => Err(HexColorError::Char(byte as char)),
             },
             // RRGGBBAA
-            [r1, r2, g1, g2, b1, b2, a1, a2] => match decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])
-            {
-                Ok([r, g, b, a, ..]) => Ok(Color::rgba_u8(r, g, b, a)),
-                Err(byte) => Err(HexColorError::Char(byte as char)),
-            },
+            [r1, r2, g1, g2, b1, b2, a1, a2] => {
+                match decode_hex([r1, r2, g1, g2, b1, b2, a1, a2]) {
+                    Ok([r, g, b, a, ..]) => Ok(Color::rgba_u8(r, g, b, a)),
+                    Err(byte) => Err(HexColorError::Char(byte as char)),
+                }
+            }
             _ => return Err(HexColorError::Length),
         }
     }
