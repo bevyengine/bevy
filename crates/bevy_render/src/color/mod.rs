@@ -253,39 +253,30 @@ impl Color {
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
-        let hex = hex.as_ref();
-
-        // RGB
-        if hex.len() == 3 {
-            let mut data = [0; 6];
-            for (i, ch) in hex.chars().enumerate() {
-                data[i * 2] = ch as u8;
-                data[i * 2 + 1] = ch as u8;
-            }
-            return decode_rgb(&data);
+        match hex.as_ref().as_bytes() {
+            // RGB
+            &[r, g, b] => match decode_hex([r, r, g, g, b, b]) {
+                Ok([r, g, b, ..]) => Ok(Color::rgb_u8(r, g, b)),
+                Err(byte) => Err(HexColorError::Char(byte as char)),
+            },
+            // RGBA
+            &[r, g, b, a] => match decode_hex([r, r, g, g, b, b, a, a]) {
+                Ok([r, g, b, a, ..]) => Ok(Color::rgba_u8(r, g, b, a)),
+                Err(byte) => Err(HexColorError::Char(byte as char)),
+            },
+            // RRGGBB
+            &[r1, r2, g1, g2, b1, b2] => match decode_hex([r1, r2, g1, g2, b1, b2]) {
+                Ok([r, g, b, ..]) => Ok(Color::rgb_u8(r, g, b)),
+                Err(byte) => Err(HexColorError::Char(byte as char)),
+            },
+            // RRGGBBAA
+            &[r1, r2, g1, g2, b1, b2, a1, a2] => match decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])
+            {
+                Ok([r, g, b, a, ..]) => Ok(Color::rgba_u8(r, g, b, a)),
+                Err(byte) => Err(HexColorError::Char(byte as char)),
+            },
+            _ => return Err(HexColorError::Length),
         }
-
-        // RGBA
-        if hex.len() == 4 {
-            let mut data = [0; 8];
-            for (i, ch) in hex.chars().enumerate() {
-                data[i * 2] = ch as u8;
-                data[i * 2 + 1] = ch as u8;
-            }
-            return decode_rgba(&data);
-        }
-
-        // RRGGBB
-        if hex.len() == 6 {
-            return decode_rgb(hex.as_bytes());
-        }
-
-        // RRGGBBAA
-        if hex.len() == 8 {
-            return decode_rgba(hex.as_bytes());
-        }
-
-        Err(HexColorError::Length)
     }
 
     /// New `Color` from sRGB colorspace.
@@ -1332,38 +1323,38 @@ impl encase::private::CreateFrom for Color {
 
 impl encase::ShaderSize for Color {}
 
-#[derive(Debug, Error)]
+#[derive(Debug, Error, PartialEq, Eq)]
 pub enum HexColorError {
     #[error("Unexpected length of hex string")]
     Length,
-    #[error("Error parsing hex value")]
-    Hex(#[from] hex::FromHexError),
+    #[error("Invalid hex char")]
+    Char(char),
 }
 
-fn decode_rgb(data: &[u8]) -> Result<Color, HexColorError> {
-    let mut buf = [0; 3];
-    match hex::decode_to_slice(data, &mut buf) {
-        Ok(_) => {
-            let r = buf[0] as f32 / 255.0;
-            let g = buf[1] as f32 / 255.0;
-            let b = buf[2] as f32 / 255.0;
-            Ok(Color::rgb(r, g, b))
-        }
-        Err(err) => Err(HexColorError::Hex(err)),
+const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], u8> {
+    let mut i = 0;
+    while i < bytes.len() {
+        let val = match hex_ascii_byte(bytes[i]) {
+            Ok(val) => val,
+            Err(byte) => return Err(byte),
+        };
+        bytes[i] = val;
+        i += 1;
     }
+    i = 0;
+    while i < bytes.len() / 2 {
+        bytes[i] = bytes[i * 2] << 4 | bytes[i * 2 + 1];
+        i += 1;
+    }
+    Ok(bytes)
 }
 
-fn decode_rgba(data: &[u8]) -> Result<Color, HexColorError> {
-    let mut buf = [0; 4];
-    match hex::decode_to_slice(data, &mut buf) {
-        Ok(_) => {
-            let r = buf[0] as f32 / 255.0;
-            let g = buf[1] as f32 / 255.0;
-            let b = buf[2] as f32 / 255.0;
-            let a = buf[3] as f32 / 255.0;
-            Ok(Color::rgba(r, g, b, a))
-        }
-        Err(err) => Err(HexColorError::Hex(err)),
+const fn hex_ascii_byte(b: u8) -> Result<u8, u8> {
+    match b {
+        b'0'..=b'9' => Ok(b - b'0'),
+        b'A'..=b'F' => Ok(b - b'A' + 10),
+        b'a'..=b'f' => Ok(b - b'a' + 10),
+        _ => Err(b),
     }
 }
 
@@ -1373,29 +1364,17 @@ mod tests {
 
     #[test]
     fn hex_color() {
-        assert_eq!(Color::hex("FFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
-        assert_eq!(Color::hex("000").unwrap(), Color::rgb(0.0, 0.0, 0.0));
-        assert!(Color::hex("---").is_err());
-
-        assert_eq!(Color::hex("FFFF").unwrap(), Color::rgba(1.0, 1.0, 1.0, 1.0));
-        assert_eq!(Color::hex("0000").unwrap(), Color::rgba(0.0, 0.0, 0.0, 0.0));
-        assert!(Color::hex("----").is_err());
-
-        assert_eq!(Color::hex("FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
-        assert_eq!(Color::hex("000000").unwrap(), Color::rgb(0.0, 0.0, 0.0));
-        assert!(Color::hex("------").is_err());
-
-        assert_eq!(
-            Color::hex("FFFFFFFF").unwrap(),
-            Color::rgba(1.0, 1.0, 1.0, 1.0)
-        );
-        assert_eq!(
-            Color::hex("00000000").unwrap(),
-            Color::rgba(0.0, 0.0, 0.0, 0.0)
-        );
-        assert!(Color::hex("--------").is_err());
-
-        assert!(Color::hex("1234567890").is_err());
+        assert_eq!(Color::hex("FFF").unwrap(), Color::WHITE);
+        assert_eq!(Color::hex("FFFF").unwrap(), Color::WHITE);
+        assert_eq!(Color::hex("FFFFFF").unwrap(), Color::WHITE);
+        assert_eq!(Color::hex("FFFFFFFF").unwrap(), Color::WHITE);
+        assert_eq!(Color::hex("000").unwrap(), Color::BLACK);
+        assert_eq!(Color::hex("000F").unwrap(), Color::BLACK);
+        assert_eq!(Color::hex("000000").unwrap(), Color::BLACK);
+        assert_eq!(Color::hex("000000FF").unwrap(), Color::BLACK);
+        assert_eq!(Color::hex("03a9f4").unwrap(), Color::rgb_u8(3, 169, 244));
+        assert_eq!(Color::hex("yy"), Err(HexColorError::Length));
+        assert_eq!(Color::hex("yyy"), Err(HexColorError::Char('y')));
     }
 
     #[test]
