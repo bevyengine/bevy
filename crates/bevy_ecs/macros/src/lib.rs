@@ -371,7 +371,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 } else {
                     return syn::Error::new_spanned(
                         attr,
-                        "The content of `fallibility` should be a single identifier."
+                        "The content of `fallibility` should be a single identifier.",
                     )
                     .into_compile_error()
                     .into();
@@ -379,7 +379,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             } else {
                 return syn::Error::new_spanned(
                     attr,
-                    "There should only be one `fallibility` attribute."
+                    "There should only be one `fallibility` attribute.",
                 )
                 .into_compile_error()
                 .into();
@@ -400,7 +400,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         f
     };
 
-    // Read field-level attributes 
+    // Read field-level attributes
     let field_attributes = fields
         .iter()
         .map(|field| {
@@ -511,7 +511,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 #returned_struct
             },
-            quote! { Self::Item<'w, 's> }
+            quote! { Self::Item<'w, 's> },
         ),
         Fallibility::Optional => (
             quote! {
@@ -521,16 +521,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
                 Some(#returned_struct)
             },
-            quote! { Option<Self::Item<'w, 's>> }
-    ),
+            quote! { Option<Self::Item<'w, 's>> },
+        ),
         Fallibility::Resultful => (
             quote! {
                 #(let #fields = <<#field_types as #path::system::SystemParam<#fallible>>::State as #path::system::SystemParamState<#fallible>>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick)?;)*
 
                 Ok(#returned_struct)
             },
-            quote! { Result<Self::Item<'w, 's>, &'s dyn std::error::Error> }
-        )
+            quote! { Result<Self::Item<'w, 's>, &'s dyn std::error::Error> },
+        ),
     };
 
     TokenStream::from(quote! {
