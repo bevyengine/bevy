@@ -255,26 +255,24 @@ impl Color {
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
         match *hex.as_ref().as_bytes() {
             // RGB
-            [r, g, b] => match decode_hex([r, r, g, g, b, b]) {
-                Ok([r, g, b, ..]) => Ok(Color::rgb_u8(r, g, b)),
-                Err(byte) => Err(HexColorError::Char(byte as char)),
-            },
+            [r, g, b] => {
+                let [r, g, b, ..] = decode_hex([r, r, g, g, b, b])?;
+                Ok(Color::rgb_u8(r, g, b))
+            }
             // RGBA
-            [r, g, b, a] => match decode_hex([r, r, g, g, b, b, a, a]) {
-                Ok([r, g, b, a, ..]) => Ok(Color::rgba_u8(r, g, b, a)),
-                Err(byte) => Err(HexColorError::Char(byte as char)),
-            },
+            [r, g, b, a] => {
+                let [r, g, b, a, ..] = decode_hex([r, r, g, g, b, b, a, a])?;
+                Ok(Color::rgba_u8(r, g, b, a))
+            }
             // RRGGBB
-            [r1, r2, g1, g2, b1, b2] => match decode_hex([r1, r2, g1, g2, b1, b2]) {
-                Ok([r, g, b, ..]) => Ok(Color::rgb_u8(r, g, b)),
-                Err(byte) => Err(HexColorError::Char(byte as char)),
-            },
+            [r1, r2, g1, g2, b1, b2] => {
+                let [r, g, b, ..] = decode_hex([r1, r2, g1, g2, b1, b2])?;
+                Ok(Color::rgb_u8(r, g, b))
+            }
             // RRGGBBAA
             [r1, r2, g1, g2, b1, b2, a1, a2] => {
-                match decode_hex([r1, r2, g1, g2, b1, b2, a1, a2]) {
-                    Ok([r, g, b, a, ..]) => Ok(Color::rgba_u8(r, g, b, a)),
-                    Err(byte) => Err(HexColorError::Char(byte as char)),
-                }
+                let [r, g, b, a, ..] = decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])?;
+                Ok(Color::rgba_u8(r, g, b, a))
             }
             _ => Err(HexColorError::Length),
         }
@@ -1332,12 +1330,12 @@ pub enum HexColorError {
     Char(char),
 }
 
-const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], u8> {
+const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexColorError> {
     let mut i = 0;
     while i < bytes.len() {
         let val = match hex_ascii_byte(bytes[i]) {
             Ok(val) => val,
-            Err(byte) => return Err(byte),
+            Err(byte) => return Err(HexColorError::Char(byte as char)),
         };
         bytes[i] = val;
         i += 1;
