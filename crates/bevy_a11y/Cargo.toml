@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 accesskit = "0.8"
+bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }

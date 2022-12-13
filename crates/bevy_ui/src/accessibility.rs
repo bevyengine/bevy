@@ -1,5 +1,9 @@
-use bevy_a11y::accesskit::{
-    kurbo::Rect, Action, ActionRequest, DefaultActionVerb, Node as AccessKitNode, Role, TreeUpdate,
+use bevy_a11y::{
+    accesskit::{
+        kurbo::Rect, Action, ActionRequest, DefaultActionVerb, Node as AccessKitNode, Role,
+        TreeUpdate,
+    },
+    AccessKitEntityExt, AccessibilityNode,
 };
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_derive::{Deref, DerefMut};
@@ -14,7 +18,7 @@ use bevy_text::Text;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_utils::{default, HashMap};
 use bevy_window::Windows;
-use bevy_winit::accessibility::{AccessKitEntityExt, AccessibilityNode, Adapters};
+use bevy_winit::accessibility::Adapters;
 
 use crate::{
     prelude::{Button, Label, UiCameraConfig},

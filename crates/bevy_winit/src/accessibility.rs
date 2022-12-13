@@ -5,25 +5,19 @@ use std::{
 };
 
 use accesskit_winit::Adapter;
-use bevy_a11y::accesskit::{ActionHandler, ActionRequest, Node, NodeId, Role, TreeUpdate};
+use bevy_a11y::{
+    accesskit::{ActionHandler, ActionRequest, Node, NodeId, Role, TreeUpdate},
+    AccessKitEntityExt, AccessibilityNode,
+};
 use bevy_app::{App, CoreStage, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    prelude::{Component, Entity, EventReader, EventWriter},
+    prelude::{Entity, EventReader, EventWriter},
     query::{Changed, With},
     system::{NonSend, NonSendMut, Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_utils::{default, HashMap};
 use bevy_window::{WindowClosed, WindowFocused, WindowId};
-
-#[derive(Component, Clone, Default, Deref, DerefMut)]
-pub struct AccessibilityNode(pub Node);
-
-impl From<Node> for AccessibilityNode {
-    fn from(node: Node) -> Self {
-        Self(node)
-    }
-}
 
 #[derive(Default, Deref, DerefMut)]
 pub struct Adapters(pub HashMap<WindowId, Adapter>);
@@ -45,21 +39,6 @@ impl ActionHandler for WinitActionHandler {
         println!("Pushing {:?}", request);
         let mut requests = self.0.lock().unwrap();
         requests.push_back(request);
-    }
-}
-
-pub trait AccessKitEntityExt {
-    fn from_node_id(id: &NodeId) -> Entity {
-        Entity::from_bits((id.0.get() - 1) as u64)
-    }
-
-    fn to_node_id(&self) -> NodeId;
-}
-
-impl AccessKitEntityExt for Entity {
-    fn to_node_id(&self) -> NodeId {
-        let id = NonZeroU128::new((self.to_bits() + 1) as u128);
-        NodeId(id.unwrap())
     }
 }
 
