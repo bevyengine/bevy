@@ -137,7 +137,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
             assets_resource_type_id: TypeId::of::<Assets<A>>(),
             get: |world, handle| {
                 let assets = world.resource::<Assets<A>>();
-                let asset = assets.get(&handle.typed());
+                let asset = assets.get(handle);
                 asset.map(|asset| asset as &dyn Reflect)
             },
             get_mut: |world, handle| {

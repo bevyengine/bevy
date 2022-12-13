@@ -136,7 +136,7 @@ impl<T: Asset> Assets<T> {
     ///
     /// This is the main method for accessing asset data from an [Assets] collection. If you need
     /// mutable access to the asset, use [`get_mut`](Assets::get_mut).
-    pub fn get(&self, handle: &Handle<T>) -> Option<&T> {
+    pub fn get<H: Into<HandleId>>(&self, handle: H) -> Option<&T> {
         self.assets.get(&handle.into())
     }
 
