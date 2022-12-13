@@ -253,24 +253,24 @@ impl Color {
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
-        match hex.as_ref().as_bytes() {
+        match *hex.as_ref().as_bytes() {
             // RGB
-            &[r, g, b] => match decode_hex([r, r, g, g, b, b]) {
+            [r, g, b] => match decode_hex([r, r, g, g, b, b]) {
                 Ok([r, g, b, ..]) => Ok(Color::rgb_u8(r, g, b)),
                 Err(byte) => Err(HexColorError::Char(byte as char)),
             },
             // RGBA
-            &[r, g, b, a] => match decode_hex([r, r, g, g, b, b, a, a]) {
+            [r, g, b, a] => match decode_hex([r, r, g, g, b, b, a, a]) {
                 Ok([r, g, b, a, ..]) => Ok(Color::rgba_u8(r, g, b, a)),
                 Err(byte) => Err(HexColorError::Char(byte as char)),
             },
             // RRGGBB
-            &[r1, r2, g1, g2, b1, b2] => match decode_hex([r1, r2, g1, g2, b1, b2]) {
+            [r1, r2, g1, g2, b1, b2] => match decode_hex([r1, r2, g1, g2, b1, b2]) {
                 Ok([r, g, b, ..]) => Ok(Color::rgb_u8(r, g, b)),
                 Err(byte) => Err(HexColorError::Char(byte as char)),
             },
             // RRGGBBAA
-            &[r1, r2, g1, g2, b1, b2, a1, a2] => match decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])
+            [r1, r2, g1, g2, b1, b2, a1, a2] => match decode_hex([r1, r2, g1, g2, b1, b2, a1, a2])
             {
                 Ok([r, g, b, a, ..]) => Ok(Color::rgba_u8(r, g, b, a)),
                 Err(byte) => Err(HexColorError::Char(byte as char)),
