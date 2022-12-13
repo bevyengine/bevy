@@ -759,7 +759,7 @@ impl<'a, T: Resource> SystemParam<Optional> for Res<'a, T> {
     type State = ResState<T>;
 }
 
-// SAFETY: Res ComponentI d and ArchetypeComponentId access is applied to SystemMeta. If this Res
+// SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
 unsafe impl<T: Resource> SystemParamState<Optional> for ResState<T> {
     type Item<'w, 's> = Res<'w, T>;
