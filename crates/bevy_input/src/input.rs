@@ -7,6 +7,17 @@ use std::hash::Hash;
 #[allow(unused_imports)]
 use bevy_ecs::schedule::State;
 
+// type PressableInput = Copy + Eq + Hash + Send + Sync + 'static;
+
+pub trait PressableInputEvent {
+    fn just_pressed(&self) -> bool;
+    fn just_released(&self) -> bool;
+}
+
+// pub trait PressableInputValue<T: PressableInput> {
+//     fn get_value(&self) -> T;
+// }
+
 /// A "press-able" input of type `T`.
 ///
 /// ## Usage
@@ -44,6 +55,7 @@ use bevy_ecs::schedule::State;
 #[derive(Debug, Clone, Resource, Reflect)]
 #[reflect(Default)]
 pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
+    // : PressableInput> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that has just been pressed.

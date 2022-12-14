@@ -146,24 +146,24 @@ impl Gamepads {
 }
 
 /// The data contained in a [`GamepadEvent`] or [`GamepadEventRaw`].
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub enum GamepadEventType {
-    /// A [`Gamepad`] has been connected.
-    Connected(GamepadInfo),
-    /// A [`Gamepad`] has been disconnected.
-    Disconnected,
+// #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+// #[reflect(Debug, PartialEq)]
+// #[cfg_attr(
+//     feature = "serialize",
+//     derive(serde::Serialize, serde::Deserialize),
+//     reflect(Serialize, Deserialize)
+// )]
+// pub enum GamepadEventType {
+//     /// A [`Gamepad`] has been connected.
+//     Connected(GamepadInfo),
+//     /// A [`Gamepad`] has been disconnected.
+//     Disconnected,
 
-    /// The value of a [`Gamepad`] button has changed.
-    ButtonChanged(GamepadButtonType, f32),
-    /// The value of a [`Gamepad`] axis has changed.
-    AxisChanged(GamepadAxisType, f32),
-}
+//     /// The value of a [`Gamepad`] button has changed.
+//     ButtonChanged(GamepadButtonType, f32),
+//     /// The value of a [`Gamepad`] axis has changed.
+//     AxisChanged(GamepadAxisType, f32),
+// }
 
 /// An event of a [`Gamepad`].
 ///
@@ -184,29 +184,29 @@ pub enum GamepadEventType {
 /// [`Axis<GamepadAxis>`], and [`Axis<GamepadButton>`] resources won't be updated correctly.
 ///
 /// An example for gamepad input mocking can be seen in the documentation of the [`GamepadEventRaw`].
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct GamepadEvent {
-    /// The gamepad this event corresponds to.
-    pub gamepad: Gamepad,
-    /// The type of the event.
-    pub event_type: GamepadEventType,
-}
+// #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+// #[reflect(Debug, PartialEq)]
+// #[cfg_attr(
+//     feature = "serialize",
+//     derive(serde::Serialize, serde::Deserialize),
+//     reflect(Serialize, Deserialize)
+// )]
+// pub struct GamepadEvent {
+//     /// The gamepad this event corresponds to.
+//     pub gamepad: Gamepad,
+//     /// The type of the event.
+//     pub event_type: GamepadEventType,
+// }
 
-impl GamepadEvent {
-    /// Creates a new [`GamepadEvent`].
-    pub fn new(gamepad: Gamepad, event_type: GamepadEventType) -> Self {
-        Self {
-            gamepad,
-            event_type,
-        }
-    }
-}
+// impl GamepadEvent {
+//     /// Creates a new [`GamepadEvent`].
+//     pub fn new(gamepad: Gamepad, event_type: GamepadEventType) -> Self {
+//         Self {
+//             gamepad,
+//             event_type,
+//         }
+//     }
+// }
 
 /// A raw event of a [`Gamepad`].
 ///
@@ -293,29 +293,29 @@ impl GamepadEvent {
 /// #
 /// # bevy_ecs::system::assert_is_system(change_resource_on_gamepad_button_press);
 /// ```
-#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
-#[reflect(Debug, PartialEq)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-pub struct GamepadEventRaw {
-    /// The gamepad this event corresponds to.
-    pub gamepad: Gamepad,
-    /// The type of the event.
-    pub event_type: GamepadEventType,
-}
+// #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+// #[reflect(Debug, PartialEq)]
+// #[cfg_attr(
+//     feature = "serialize",
+//     derive(serde::Serialize, serde::Deserialize),
+//     reflect(Serialize, Deserialize)
+// )]
+// pub struct GamepadEventRaw {
+//     /// The gamepad this event corresponds to.
+//     pub gamepad: Gamepad,
+//     /// The type of the event.
+//     pub event_type: GamepadEventType,
+// }
 
-impl GamepadEventRaw {
-    /// Creates a new [`GamepadEventRaw`].
-    pub fn new(gamepad: Gamepad, event_type: GamepadEventType) -> Self {
-        Self {
-            gamepad,
-            event_type,
-        }
-    }
-}
+// impl GamepadEventRaw {
+//     /// Creates a new [`GamepadEventRaw`].
+//     pub fn new(gamepad: Gamepad, event_type: GamepadEventType) -> Self {
+//         Self {
+//             gamepad,
+//             event_type,
+//         }
+//     }
+// }
 
 /// A type of a [`GamepadButton`].
 ///
@@ -1161,17 +1161,17 @@ pub fn gamepad_connection_system(
     for connection_event in connection_events.iter() {
         let gamepad = connection_event.gamepad;
 
-        if let Gamepad::Connection(info) = connection_event.connection {
+        if let GamepadConnection::Connected(info) = &connection_event.connection {
             gamepads.register(gamepad, info.clone());
             info!("{:?} Connected", gamepad);
 
             for button_type in &ALL_BUTTON_TYPES {
-                let gamepad_button = GamepadButton::new(event.gamepad, *button_type);
+                let gamepad_button = GamepadButton::new(gamepad, *button_type);
                 button_input.reset(gamepad_button);
                 button_axis.set(gamepad_button, 0.0);
             }
             for axis_type in &ALL_AXIS_TYPES {
-                axis.set(GamepadAxis::new(event.gamepad, *axis_type), 0.0);
+                axis.set(GamepadAxis::new(gamepad, *axis_type), 0.0);
             }
         } else {
             gamepads.deregister(gamepad);
@@ -1188,35 +1188,76 @@ pub fn gamepad_connection_system(
         }
     }
 }
-
-enum GamepadConnection {
+#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub enum GamepadConnection {
     Connected(GamepadInfo),
     Disconnected,
 }
 
+#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GamepadConnectionEvent {
     pub gamepad: Gamepad,
     pub connection: GamepadConnection,
 }
 
+#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RawGamepadAxisChangedEvent {
     pub gamepad: Gamepad,
     pub axis: GamepadAxis,
     pub unfiltered_value: f32,
 }
 
+#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GamepadAxisChangedEvent {
     pub gamepad: Gamepad,
     pub axis: GamepadAxis,
     pub value: f32,
 }
 
+#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct RawGamepadButtonChangedEvent {
     pub gamepad: Gamepad,
     pub button: GamepadButton,
     pub unfiltered_value: f32,
 }
 
+#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct GamepadButtonChangedEvent {
     pub gamepad: Gamepad,
     pub button: GamepadButton,
@@ -1225,22 +1266,27 @@ pub struct GamepadButtonChangedEvent {
 
 pub fn gamepad_raw_axis_event_system(
     mut button_input: ResMut<Input<GamepadButton>>,
-    mut axis: ResMut<Axis<GamepadAxis>>,
+    mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
     mut raw_axis_events: EventReader<RawGamepadAxisChangedEvent>,
-    mut events: EventWriter<GamepadEvent>,
+    mut axis_events: EventWriter<GamepadAxisChangedEvent>,
     settings: Res<GamepadSettings>,
 ) {
     button_input.bypass_change_detection().clear();
-    for RawGamepadAxisEvent(gamepad, gamepad_axis) in raw_events.iter() {
+    for RawGamepadAxisChangedEvent {
+        gamepad,
+        axis,
+        unfiltered_value,
+    } in raw_axis_events.iter()
+    {
         if let Some(filtered_value) = settings
-            .get_axis_settings(gamepad_axis)
-            .filter(*value, axis.get(gamepad_axis))
+            .get_axis_settings(*axis)
+            .filter(*unfiltered_value, gamepad_axis.get(*axis))
         {
-            axis.set(gamepad_axis, filtered_value);
-            events.send(GamepadAxisChangedEvent {
-                gamepad,
-                axis: gamepad_axis,
+            gamepad_axis.set(*axis, filtered_value);
+            axis_events.send(GamepadAxisChangedEvent {
+                gamepad: *gamepad,
+                axis: *axis,
                 value: filtered_value,
             });
         }
@@ -1248,32 +1294,37 @@ pub fn gamepad_raw_axis_event_system(
 }
 
 pub fn gamepad_raw_button_event_system(
+    mut raw_button_events: EventReader<RawGamepadButtonChangedEvent>,
+    mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
-    mut raw_events: EventReader<GamepadEventRaw>,
-    mut events: EventWriter<GamepadEvent>,
     settings: Res<GamepadSettings>,
 ) {
     button_input.bypass_change_detection().clear();
-    for RawGamepadButtonChangedEvent(gamepad, gamepad_button, value) in raw_button_events.iter() {
+    for RawGamepadButtonChangedEvent {
+        gamepad,
+        button,
+        unfiltered_value,
+    } in raw_button_events.iter()
+    {
         if let Some(filtered_value) = settings
-            .get_button_axis_settings(gamepad_button)
-            .filter(*value, button_axis.get(gamepad_button))
+            .get_button_axis_settings(*button)
+            .filter(*unfiltered_value, button_axis.get(*button))
         {
-            button_axis.set(gamepad_button, filtered_value);
-            events.send(GamepadButtonChangedEvent {
-                gamepad,
-                button,
+            button_axis.set(*button, filtered_value);
+            button_events.send(GamepadButtonChangedEvent {
+                gamepad: *gamepad,
+                button: *button,
                 value: filtered_value,
             });
         }
 
-        let button_property = settings.get_button_settings(gamepad_button);
-        if button_property.is_released(*value) {
-            button_input.release(gamepad_button);
-        } else if button_property.is_pressed(*value) {
-            button_input.press(gamepad_button);
+        let button_property = settings.get_button_settings(*button);
+        if button_property.is_released(*unfiltered_value) {
+            button_input.release(*button);
+        } else if button_property.is_pressed(*unfiltered_value) {
+            button_input.press(*button);
         }
     }
 }
