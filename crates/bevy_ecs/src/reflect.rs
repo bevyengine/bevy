@@ -49,9 +49,7 @@ pub struct ReflectComponentFns {
     pub apply_or_insert: fn(&mut World, Entity, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut World, Entity),
-    /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(&World, Entity) -> Option<&dyn Reflect>,
-    /// Function pointer implementing [`ReflectComponent::reflect_ref()`].
+    /// Function pointer implementing [`ReflectComponent::reflect()`] and [`ReflectComponent::reflect_ref()`].
     pub reflect_ref: for<'a> fn(&EntityRef<'a>) -> Option<&'a dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
     pub reflect_mut: unsafe fn(&World, Entity) -> Option<Mut<dyn Reflect>>,
@@ -116,7 +114,7 @@ impl ReflectComponent {
     /// If repeatedly fetching multiple components from the same entity, prefer using
     /// [`ReflectComponent::reflect_ref`] where possible to avoid multiple entity location lookups.
     pub fn reflect<'a>(&self, world: &'a World, entity: Entity) -> Option<&'a dyn Reflect> {
-        (self.0.reflect)(world, entity)
+        (self.0.reflect_ref)(&world.get_entity(entity)?)
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
@@ -250,12 +248,6 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .entity_mut(destination_entity)
                     .insert(destination_component);
             },
-            reflect: |world, entity| {
-                world
-                    .get_entity(entity)?
-                    .get::<C>()
-                    .map(|c| c as &dyn Reflect)
-            },
             reflect_ref: |entity_ref| entity_ref.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |world, entity| {
                 // SAFETY: reflect_mut is an unsafe function pointer used by `reflect_unchecked_mut` which promises to never
@@ -278,8 +270,8 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             reflect_mut_unchecked_ref: |entity_ref| {
                 let world = entity_ref.world();
-                // SAFETY: reflect_mut_ref is an unsafe function pointer used by `reflect_unchecked_mut_ref ` which promises to never
-                // produce aliasing mutable references, and reflect_mut_ref, which has mutable world access
+                // SAFETY: reflect_mut_unchecked_ref is an unsafe function pointer used by `reflect_unchecked_mut_ref ` which promises to 
+                // never produce aliasing mutable references
                 unsafe {
                     entity_ref
                         .get_unchecked_mut::<C>(world.last_change_tick(), world.read_change_tick())
