@@ -17,7 +17,7 @@ use bevy_ecs::{
     system::{NonSend, NonSendMut, Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_utils::{default, HashMap};
-use bevy_window::{WindowClosed, WindowFocused, WindowId};
+use bevy_window::{WindowClosed, WindowFocused, WindowId, Windows};
 
 #[derive(Default, Deref, DerefMut)]
 pub struct AccessKitAdapters(pub HashMap<WindowId, Adapter>);
@@ -82,6 +82,7 @@ fn poll_receivers(handlers: Res<WinitActionHandlers>, mut actions: EventWriter<A
 }
 
 fn update_accessibility_nodes(
+    windows: Res<Windows>,
     adapters: NonSend<AccessKitAdapters>,
     focus: Res<Focus>,
     query: Query<(Entity, &AccessibilityNode), Changed<AccessibilityNode>>,
@@ -91,9 +92,22 @@ fn update_accessibility_nodes(
         if should_run {
             adapter.update_if_active(|| {
                 let mut nodes = vec![];
-                let focus_id = (*focus).unwrap_or_else(|| {
-                    NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap())
-                });
+                let mut has_focus = false;
+                for window in windows.iter() {
+                    if window.is_focused() {
+                        has_focus = true;
+                        break;
+                    }
+                }
+                let focus_id = if has_focus {
+                    (**focus).or_else(|| {
+                        Some(NodeId(
+                            NonZeroU128::new(WindowId::primary().as_u128()).unwrap(),
+                        ))
+                    })
+                } else {
+                    None
+                };
                 for (entity, node) in &query {
                     nodes.push((entity.to_node_id(), Arc::new((**node).clone())));
                 }
@@ -110,7 +124,7 @@ fn update_accessibility_nodes(
                 nodes.insert(0, window_update);
                 TreeUpdate {
                     nodes,
-                    focus: Some(focus_id),
+                    focus: focus_id,
                     ..default()
                 }
             });
