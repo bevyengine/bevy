@@ -13,7 +13,7 @@ use bevy_app::{App, CoreStage, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::{Entity, EventReader, EventWriter},
-    query::With,
+    query::{Changed, With},
     system::{NonSend, NonSendMut, Query, RemovedComponents, Res, ResMut, Resource},
 };
 use bevy_utils::{default, HashMap};
@@ -85,35 +85,37 @@ fn poll_receivers(handlers: Res<WinitActionHandlers>, mut actions: EventWriter<A
 fn update_accessibility_nodes(
     adapters: NonSend<AccessKitAdapters>,
     focus: Res<Focus>,
-    query: Query<(Entity, &AccessibilityNode)>,
+    query: Query<(Entity, &AccessibilityNode), Changed<AccessibilityNode>>,
 ) {
     if let Some(adapter) = adapters.get_primary_adapter() {
-        adapter.update_if_active(|| {
-            let mut nodes = vec![];
-            let focus_id = (*focus).unwrap_or_else(|| {
-                NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap())
-            });
-            for (entity, node) in &query {
-                nodes.push((entity.to_node_id(), Arc::new((**node).clone())));
-            }
-            let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
-            let children = nodes.iter().map(|v| v.0).collect::<Vec<NodeId>>();
-            let window_update = (
-                root_id,
-                Arc::new(Node {
-                    role: Role::Window,
-                    children,
+        let should_run = focus.is_changed() || !query.is_empty();
+        if should_run {
+            adapter.update_if_active(|| {
+                let mut nodes = vec![];
+                let focus_id = (*focus).unwrap_or_else(|| {
+                    NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap())
+                });
+                for (entity, node) in &query {
+                    nodes.push((entity.to_node_id(), Arc::new((**node).clone())));
+                }
+                let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
+                let children = nodes.iter().map(|v| v.0).collect::<Vec<NodeId>>();
+                let window_update = (
+                    root_id,
+                    Arc::new(Node {
+                        role: Role::Window,
+                        children,
+                        ..default()
+                    }),
+                );
+                nodes.insert(0, window_update);
+                TreeUpdate {
+                    nodes,
+                    focus: Some(focus_id),
                     ..default()
-                }),
-            );
-            nodes.insert(0, window_update);
-            // Dummy
-            TreeUpdate {
-                nodes,
-                focus: Some(focus_id),
-                ..default()
-            }
-        });
+                }
+            });
+        }
     }
 }
 
