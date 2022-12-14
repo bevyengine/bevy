@@ -289,7 +289,7 @@ macro_rules! render_command_tuple_impl {
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {
-                $(if let RenderCommandResult::Failure = $name::render(_item, $view, $entity, $name, _pass) {
+                $(if $name::render(_item, $view, $entity, $name, _pass) == RenderCommandResult::Failure {
                     return RenderCommandResult::Failure;
                 })*
                 RenderCommandResult::Success
