@@ -28,7 +28,7 @@ pub trait AccessKitEntityExt {
 
 impl AccessKitEntityExt for Entity {
     fn to_node_id(&self) -> NodeId {
-        let id = NonZeroU128::new((self.to_bits() + 1) as u128);
+        let id = NonZeroU128::new(self.to_bits() as u128 + 1);
         NodeId(id.unwrap())
     }
 }
