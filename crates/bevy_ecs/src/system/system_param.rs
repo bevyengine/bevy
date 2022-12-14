@@ -173,6 +173,7 @@ pub unsafe trait SystemParam: Sized {
 /// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParam::get_param`]
 pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
+/// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
 // SAFETY: QueryState is constrained to read-only fetches, so it only reads World.
