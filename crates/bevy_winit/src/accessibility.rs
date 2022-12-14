@@ -165,7 +165,6 @@ impl Plugin for AccessibilityPlugin {
     fn build(&self, app: &mut App) {
         app.init_non_send_resource::<AccessKitAdapters>()
             .init_resource::<WinitActionHandlers>()
-            .init_resource::<Focus>()
             .add_event::<ActionRequest>()
             .add_system_to_stage(CoreStage::PreUpdate, handle_window_focus)
             .add_system_to_stage(CoreStage::PreUpdate, window_closed)
