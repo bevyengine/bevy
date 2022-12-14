@@ -270,7 +270,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             reflect_mut_unchecked_ref: |entity_ref| {
                 let world = entity_ref.world();
-                // SAFETY: reflect_mut_unchecked_ref is an unsafe function pointer used by `reflect_unchecked_mut_ref ` which promises to 
+                // SAFETY: reflect_mut_unchecked_ref is an unsafe function pointer used by `reflect_unchecked_mut_ref ` which promises to
                 // never produce aliasing mutable references
                 unsafe {
                     entity_ref
