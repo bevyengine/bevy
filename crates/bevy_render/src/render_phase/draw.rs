@@ -24,7 +24,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     #[allow(unused_variables)]
-    fn prepare<'w>(&mut self, world: &'w World) {}
+    fn prepare(&mut self, world: &'_ World) {}
 
     /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn draw<'w>(
@@ -289,7 +289,7 @@ macro_rules! render_command_tuple_impl {
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {
-                $(if $name::render(_item, $view, $entity, $name, _pass) == RenderCommandResult::Failure {
+                $(if let RenderCommandResult::Failure = $name::render(_item, $view, $entity, $name, _pass) {
                     return RenderCommandResult::Failure;
                 })*
                 RenderCommandResult::Success
@@ -322,7 +322,7 @@ impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for Rend
 where
     C::Param: ReadOnlySystemParam,
 {
-    fn prepare<'w>(&mut self, world: &'w World) {
+    fn prepare(&mut self, world: &'_ World) {
         self.view.update_archetypes(world);
         self.entity.update_archetypes(world);
     }
