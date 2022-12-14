@@ -359,18 +359,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         })
         .collect::<Vec<(&Field, SystemParamFieldAttributes)>>();
     let mut fields = Vec::new();
-    let mut field_indices = Vec::new();
     let mut field_types = Vec::new();
     let mut ignored_fields = Vec::new();
     let mut ignored_field_types = Vec::new();
-    for (i, (field, attrs)) in field_attributes.iter().enumerate() {
+    for (field, attrs) in &field_attributes {
         if attrs.ignore {
             ignored_fields.push(field.ident.as_ref().unwrap());
             ignored_field_types.push(&field.ty);
         } else {
             fields.push(field.ident.as_ref().unwrap());
             field_types.push(&field.ty);
-            field_indices.push(Index::from(i));
         }
     }
 
