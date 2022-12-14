@@ -7,6 +7,6 @@ very slow.
 
 ## Example Command
 
-```
+```bash
 cargo run --profile stress-test --example <EXAMPLE>
 ```
