@@ -1330,7 +1330,7 @@ pub enum HexColorError {
     Char(char),
 }
 
-/// Converts ASCII hex digits to an array of rgb[a] components
+/// Converts ASCII hex digits to an array of rgb\[a\] components
 ///
 /// # Example
 /// For RGB: "fff" -> `[255, 255, 255, ..]`
