@@ -1267,7 +1267,6 @@ pub struct GamepadButtonChangedEvent {
 pub fn gamepad_raw_axis_event_system(
     mut button_input: ResMut<Input<GamepadButton>>,
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
-    mut button_axis: ResMut<Axis<GamepadButton>>,
     mut raw_axis_events: EventReader<RawGamepadAxisChangedEvent>,
     mut axis_events: EventWriter<GamepadAxisChangedEvent>,
     settings: Res<GamepadSettings>,
@@ -1297,7 +1296,6 @@ pub fn gamepad_raw_button_event_system(
     mut raw_button_events: EventReader<RawGamepadButtonChangedEvent>,
     mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
-    mut axis: ResMut<Axis<GamepadAxis>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
     settings: Res<GamepadSettings>,
 ) {
