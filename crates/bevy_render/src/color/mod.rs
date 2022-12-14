@@ -1347,11 +1347,12 @@ const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexCo
         bytes[i] = val;
         i += 1;
     }
+    // Modify the original bytes to give an `N / 2` length result
     i = 0;
     while i < bytes.len() / 2 {
         // Convert u8 to r/g/b/a
         // e.g `ff` -> [102, 102] -> [15, 15] = 255
-        bytes[i] = bytes[i * 2] << 4 | bytes[i * 2 + 1];
+        bytes[i] = bytes[i * 2] * 16 + bytes[i * 2 + 1];
         i += 1;
     }
     Ok(bytes)
@@ -1372,15 +1373,15 @@ mod tests {
 
     #[test]
     fn hex_color() {
-        assert_eq!(Color::hex("FFF").unwrap(), Color::WHITE);
-        assert_eq!(Color::hex("FFFF").unwrap(), Color::WHITE);
-        assert_eq!(Color::hex("FFFFFF").unwrap(), Color::WHITE);
-        assert_eq!(Color::hex("FFFFFFFF").unwrap(), Color::WHITE);
-        assert_eq!(Color::hex("000").unwrap(), Color::BLACK);
-        assert_eq!(Color::hex("000F").unwrap(), Color::BLACK);
-        assert_eq!(Color::hex("000000").unwrap(), Color::BLACK);
-        assert_eq!(Color::hex("000000FF").unwrap(), Color::BLACK);
-        assert_eq!(Color::hex("03a9f4").unwrap(), Color::rgb_u8(3, 169, 244));
+        assert_eq!(Color::hex("FFF"), Ok(Color::WHITE));
+        assert_eq!(Color::hex("FFFF"), Ok(Color::WHITE));
+        assert_eq!(Color::hex("FFFFFF"), Ok(Color::WHITE));
+        assert_eq!(Color::hex("FFFFFFFF"), Ok(Color::WHITE));
+        assert_eq!(Color::hex("000"), Ok(Color::BLACK));
+        assert_eq!(Color::hex("000F"), Ok(Color::BLACK));
+        assert_eq!(Color::hex("000000"), Ok(Color::BLACK));
+        assert_eq!(Color::hex("000000FF"), Ok(Color::BLACK));
+        assert_eq!(Color::hex("03a9f4"), Ok(Color::rgb_u8(3, 169, 244)));
         assert_eq!(Color::hex("yy"), Err(HexColorError::Length));
         assert_eq!(Color::hex("yyy"), Err(HexColorError::Char('y')));
     }
