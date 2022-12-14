@@ -124,12 +124,10 @@ fn update_bloom_settings(
         (entity, Some(mut bloom_settings)) => {
             *text = "BloomSettings (Toggle: Space)\n".to_string();
             text.push_str("-----------------------------\n");
-            text.push_str(&format!("(Q/W) Intensity: {}\n", bloom_settings.intensity));
-            text.push_str(&format!("(A/S) Threshold: {}\n", bloom_settings.threshold));
-            text.push_str(&format!(
-                "(D/F) Threshold Softness: {}",
-                bloom_settings.threshold_softness
-            ));
+            text.push_str(&format!("(Q/A) Intensity: {}\n", bloom_settings.intensity));
+            text.push_str(&format!("(W/S) Mid offset: {}\n", bloom_settings.mid_offset));
+            text.push_str(&format!("(E/D) Mid intensity: {}\n", bloom_settings.mid_intensity));
+            text.push_str(&format!("(R/F) Side intensity: {}\n", bloom_settings.side_intensity));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<BloomSettings>();
@@ -137,27 +135,40 @@ fn update_bloom_settings(
 
             let dt = time.delta_seconds();
 
-            if keycode.pressed(KeyCode::Q) {
+            //
+            //
+            //
+            if keycode.pressed(KeyCode::A) {
                 bloom_settings.intensity -= dt / 10.0;
             }
-            if keycode.pressed(KeyCode::W) {
+            if keycode.pressed(KeyCode::Q) {
                 bloom_settings.intensity += dt / 10.0;
             }
+            bloom_settings.intensity = bloom_settings.intensity.clamp(0.0, 1.0);
 
-            if keycode.pressed(KeyCode::A) {
-                bloom_settings.threshold -= dt;
-            }
             if keycode.pressed(KeyCode::S) {
-                bloom_settings.threshold += dt;
+                bloom_settings.mid_offset -= dt / 10.0;
             }
+            if keycode.pressed(KeyCode::W) {
+                bloom_settings.mid_offset += dt / 10.0;
+            }
+            bloom_settings.mid_offset = bloom_settings.mid_offset.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::D) {
-                bloom_settings.threshold_softness -= dt / 5.0;
+                bloom_settings.mid_intensity -= dt / 10.0;
             }
+            if keycode.pressed(KeyCode::E) {
+                bloom_settings.mid_intensity += dt / 10.0;
+            }
+            bloom_settings.mid_intensity = bloom_settings.mid_intensity.clamp(0.0, 1.0);
+
             if keycode.pressed(KeyCode::F) {
-                bloom_settings.threshold_softness += dt / 5.0;
+                bloom_settings.side_intensity -= dt / 10.0;
             }
-            bloom_settings.threshold_softness = bloom_settings.threshold_softness.clamp(0.0, 1.0);
+            if keycode.pressed(KeyCode::R) {
+                bloom_settings.side_intensity += dt / 10.0;
+            }
+            bloom_settings.side_intensity = bloom_settings.side_intensity.clamp(0.0, 1.0);
         }
 
         (entity, None) => {

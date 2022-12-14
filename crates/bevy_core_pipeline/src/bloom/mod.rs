@@ -129,6 +129,23 @@ impl Plugin for BloomPlugin {
     }
 }
 
+impl BloomSettings {
+    fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
+        let x = mip / max_mip;
+
+        fn sigmoid(x: f32, curvature: f32) -> f32 {
+            (x - curvature * x) / (curvature - 2.0 * curvature * x.abs() + 1.0)
+        }
+        
+        let c = (2.0 * x.powf(self.mid_offset) - 1.0).powi(2);
+        let s = (1.0 + sigmoid(0.5_f32.powf(1.0 / self.mid_offset) - x, -1.0)) / 2.0;
+        let d = self.side_intensity + (self.intensity - self.side_intensity) * s;
+        let out = (1.0 - c * (1.0 - d)) * self.mid_intensity;
+
+        return out;
+    }
+}
+
 struct BloomNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
@@ -294,7 +311,8 @@ impl Node for BloomNode {
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_pass.set_camera_viewport(viewport);
             }
-            let blend = bloom_settings.intensity;
+            let blend = bloom_settings
+                .compute_blend_factor((mip) as f32, (bloom_texture.mip_count - 1) as f32);
             upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_pass.draw(0..3, 0..1);
         }
@@ -326,7 +344,8 @@ impl Node for BloomNode {
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_final_pass.set_camera_viewport(viewport);
             }
-            let blend = bloom_settings.intensity;
+            let blend =
+                bloom_settings.compute_blend_factor(0.0, (bloom_texture.mip_count - 1) as f32);
             upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
@@ -616,11 +635,15 @@ fn prepare_bloom_uniforms(
     let entities = bloom_query
         .iter()
         .map(|(entity, settings)| {
-            let knee = settings.threshold * settings.threshold_softness.clamp(0.0, 1.0);
+            let knee = settings.prefilter_settings.threshold
+                * settings
+                    .prefilter_settings
+                    .threshold_softness
+                    .clamp(0.0, 1.0);
             let uniform = BloomUniform {
                 threshold_precomputations: Vec4::new(
-                    settings.threshold,
-                    settings.threshold - knee,
+                    settings.prefilter_settings.threshold,
+                    settings.prefilter_settings.threshold - knee,
                     2.0 * knee,
                     0.25 / (knee + 0.00001),
                 ),
