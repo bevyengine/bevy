@@ -229,12 +229,10 @@ impl SystemStage {
     }
 
     pub fn apply_buffers(&mut self, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("stage::apply_buffers").entered();
         for container in &mut self.parallel {
-            let system = container.system_mut();
-            #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name())
-                .entered();
-            system.apply_buffers(world);
+            container.system_mut().apply_buffers(world);
         }
     }
 
@@ -781,15 +779,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 
@@ -813,15 +803,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 
@@ -829,12 +811,6 @@ impl Stage for SystemStage {
                 if self.apply_buffers {
                     for container in &mut self.parallel {
                         if container.should_run {
-                            #[cfg(feature = "trace")]
-                            let _span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
                             container.system_mut().apply_buffers(world);
                         }
                     }
@@ -852,15 +828,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 

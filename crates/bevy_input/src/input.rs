@@ -34,6 +34,13 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
+///
+/// Note: Calling `clear` from a [`ResMut`] will trigger change detection.
+/// It may be preferable to use [`DetectChanges::bypass_change_detection`]
+/// to avoid causing the resource to always be marked as changed.
+///
+///[`ResMut`]: bevy_ecs::system::ResMut
+///[`DetectChanges::bypass_change_detection`]: bevy_ecs::change_detection::DetectChanges::bypass_change_detection
 #[derive(Debug, Clone, Resource, Reflect)]
 #[reflect(Default)]
 pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
