@@ -9,7 +9,7 @@ use glyph_brush_layout::{
 };
 
 use crate::{
-    error::TextError, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo, JustifyText,
+    error::TextError, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo, TextAlignment,
     TextSettings, YAxisOrientation,
 };
 
@@ -34,7 +34,7 @@ impl GlyphBrush {
         &self,
         sections: &[S],
         bounds: Vec2,
-        text_alignment: JustifyText,
+        text_alignment: TextAlignment,
     ) -> Result<Vec<SectionGlyph>, TextError> {
         let geom = SectionGeometry {
             bounds: (bounds.x, bounds.y),

@@ -20,7 +20,7 @@ pub use text2d::*;
 
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{Font, JustifyText, Text, Text2dBundle, TextError, TextSection, TextStyle};
+    pub use crate::{Font, TextAlignment, Text, Text2dBundle, TextError, TextSection, TextStyle};
 }
 
 use bevy_app::prelude::*;
@@ -75,7 +75,7 @@ impl Plugin for TextPlugin {
             .register_type::<Vec<TextSection>>()
             .register_type::<TextStyle>()
             .register_type::<Text>()
-            .register_type::<JustifyText>()
+            .register_type::<TextAlignment>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()

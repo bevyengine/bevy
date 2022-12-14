@@ -121,7 +121,7 @@ fn setup_scene(
                         color: Color::BLACK,
                     },
                 )
-                .with_justify_text(JustifyText::JustifyCenter),
+                .with_text_alignment(TextAlignment::Center),
             );
         });
 }
