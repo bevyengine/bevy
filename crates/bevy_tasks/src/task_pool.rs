@@ -2,6 +2,7 @@ use std::{
     future::Future,
     marker::PhantomData,
     mem,
+    panic::AssertUnwindSafe,
     sync::Arc,
     thread::{self, JoinHandle},
 };
@@ -300,19 +301,54 @@ impl TaskPool {
 
                 let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
                 if let Some(thread_ticker) = thread_executor.ticker() {
-                    let tick_forever = async move {
+                    if tick_task_pool_executor {
+                        let execute_forever = async move {
+                            // we restart the executors if a task errors. if a scoped
+                            // task errors it will panic the scope on the call to get_results
+                            loop {
+                                let tick_forever = async {
+                                    loop {
+                                        thread_ticker.tick().await;
+                                    }
+                                };
+
+                                // we don't care if it errors. If a scoped task errors it will propagate
+                                // to get_results
+                                let _result = AssertUnwindSafe(executor.run(tick_forever))
+                                    .catch_unwind()
+                                    .await
+                                    .is_ok();
+                            }
+                        };
+                        execute_forever.or(get_results).await
+                    } else {
+                        let execute_forever = async {
+                            loop {
+                                let tick_forever = async {
+                                    loop {
+                                        thread_ticker.tick().await;
+                                    }
+                                };
+
+                                let _result =
+                                    AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
+                            }
+                        };
+
+                        execute_forever.or(get_results).await
+                    }
+                } else if tick_task_pool_executor {
+                    let execute_forever = async {
                         loop {
-                            thread_ticker.tick().await;
+                            let _result =
+                                AssertUnwindSafe(executor.run(std::future::pending::<()>()))
+                                    .catch_unwind()
+                                    .await
+                                    .is_ok();
                         }
                     };
 
-                    if tick_task_pool_executor {
-                        executor.run(tick_forever).or(get_results).await
-                    } else {
-                        tick_forever.or(get_results).await
-                    }
-                } else if tick_task_pool_executor {
-                    executor.run(get_results).await
+                    execute_forever.or(get_results).await
                 } else {
                     get_results.await
                 }
