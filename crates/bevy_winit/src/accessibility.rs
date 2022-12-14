@@ -47,13 +47,16 @@ fn handle_window_focus(
     adapters: NonSend<AccessKitAdapters>,
     mut focused: EventReader<WindowFocused>,
 ) {
-    let focus_id = (*focus)
-        .unwrap_or_else(|| NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap()));
     for event in focused.iter() {
         if let Some(adapter) = adapters.get_primary_adapter() {
-            adapter.update(TreeUpdate {
-                focus: if event.focused { Some(focus_id) } else { None },
-                ..default()
+            adapter.update_if_active(|| {
+                let focus_id = (*focus).unwrap_or_else(|| {
+                    NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap())
+                });
+                TreeUpdate {
+                    focus: if event.focused { Some(focus_id) } else { None },
+                    ..default()
+                }
             });
         }
     }
@@ -84,14 +87,15 @@ fn update_accessibility_nodes(
     focus: Res<Focus>,
     query: Query<(Entity, &AccessibilityNode)>,
 ) {
-    let mut nodes = vec![];
-    let focus_id = (*focus)
-        .unwrap_or_else(|| NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap()));
-    for (entity, node) in &query {
-        nodes.push((entity.to_node_id(), Arc::new((**node).clone())));
-    }
     if let Some(adapter) = adapters.get_primary_adapter() {
-        if !nodes.is_empty() {
+        adapter.update_if_active(|| {
+            let mut nodes = vec![];
+            let focus_id = (*focus).unwrap_or_else(|| {
+                NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap())
+            });
+            for (entity, node) in &query {
+                nodes.push((entity.to_node_id(), Arc::new((**node).clone())));
+            }
             let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
             let children = nodes.iter().map(|v| v.0).collect::<Vec<NodeId>>();
             let window_update = (
@@ -103,12 +107,13 @@ fn update_accessibility_nodes(
                 }),
             );
             nodes.insert(0, window_update);
-            adapter.update(TreeUpdate {
+            // Dummy
+            TreeUpdate {
                 nodes,
                 focus: Some(focus_id),
                 ..default()
-            });
-        }
+            }
+        });
     }
 }
 
@@ -119,33 +124,35 @@ fn remove_accessibility_nodes(
     remaining_nodes: Query<Entity, With<AccessibilityNode>>,
 ) {
     if removed.iter().len() != 0 {
-        if let Some(last_focused_entity) = focus.entity() {
-            for entity in removed.iter() {
-                if entity == last_focused_entity {
-                    **focus = None;
-                    break;
-                }
-            }
-        }
         if let Some(adapter) = adapters.get_primary_adapter() {
-            let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
-            let children = remaining_nodes
-                .iter()
-                .map(|v| v.to_node_id())
-                .collect::<Vec<NodeId>>();
-            let window_update = (
-                root_id,
-                Arc::new(Node {
-                    role: Role::Window,
-                    children,
+            adapter.update_if_active(|| {
+                if let Some(last_focused_entity) = focus.entity() {
+                    for entity in removed.iter() {
+                        if entity == last_focused_entity {
+                            **focus = None;
+                            break;
+                        }
+                    }
+                }
+                let root_id = NodeId(NonZeroU128::new(WindowId::primary().as_u128()).unwrap());
+                let children = remaining_nodes
+                    .iter()
+                    .map(|v| v.to_node_id())
+                    .collect::<Vec<NodeId>>();
+                let window_update = (
+                    root_id,
+                    Arc::new(Node {
+                        role: Role::Window,
+                        children,
+                        ..default()
+                    }),
+                );
+                let focus = (**focus).unwrap_or(root_id);
+                TreeUpdate {
+                    nodes: vec![window_update],
+                    focus: Some(focus),
                     ..default()
-                }),
-            );
-            let focus = (**focus).unwrap_or(root_id);
-            adapter.update(TreeUpdate {
-                nodes: vec![window_update],
-                focus: Some(focus),
-                ..default()
+                }
             });
         }
     }

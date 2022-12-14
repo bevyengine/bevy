@@ -1,6 +1,6 @@
 use std::{num::NonZeroU128, sync::Arc};
 
-use crate::accessibility::{AccessKitAdapters, WinitActionHandlers, WinitActionHandler};
+use crate::accessibility::{AccessKitAdapters, WinitActionHandler, WinitActionHandlers};
 use crate::converters::convert_cursor_grab_mode;
 use accesskit_winit::Adapter;
 use bevy_a11y::accesskit::{Node, NodeId, Role, Tree, TreeUpdate};
@@ -145,7 +145,7 @@ impl WinitWindows {
             move || TreeUpdate {
                 nodes: vec![(accesskit_window_id, root)],
                 tree: Some(Tree::new(accesskit_window_id)),
-                focus: Some(accesskit_window_id),
+                focus: None,
             },
             Box::new(handler.clone()),
         );
