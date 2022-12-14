@@ -10,9 +10,9 @@ use crate::{
 
 use super::{CommandQueue, Commands};
 
+/// The internal [`SystemParam`] state of the [`ParallelCommands`] type
 #[doc(hidden)]
 #[derive(Default)]
-/// The internal [`SystemParam`] state of the [`ParallelCommands`] type
 pub struct ParallelCommandsState {
     thread_local_storage: ThreadLocal<Cell<CommandQueue>>,
 }
