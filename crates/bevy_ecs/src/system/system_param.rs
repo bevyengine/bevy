@@ -1262,36 +1262,26 @@ impl<'s> std::fmt::Display for SystemName<'s> {
 
 // SAFETY: no component value access
 unsafe impl SystemParam for SystemName<'_> {
-    type State = SystemNameState;
+    type State = Cow<'static, str>;
     type Item<'w, 's> = SystemName<'s>;
 
     fn init(_world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        SystemNameState {
-            name: system_meta.name.clone(),
-        }
+        system_meta.name.clone()
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        name: &'s mut Self::State,
         _system_meta: &SystemMeta,
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        SystemName {
-            name: state.name.as_ref(),
-        }
+        SystemName { name }
     }
 }
 
 // SAFETY: Only reads internal system state
 unsafe impl<'s> ReadOnlySystemParam for SystemName<'s> {}
-
-/// The [`SystemParam`] state of [`SystemName`].
-#[doc(hidden)]
-pub struct SystemNameState {
-    name: Cow<'static, str>,
-}
 
 macro_rules! impl_system_param_tuple {
     ($($param: ident),*) => {
