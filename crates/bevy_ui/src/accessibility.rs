@@ -168,11 +168,8 @@ fn action_requested(
                     }
                 }
             }
-            _ => {
-                println!("Unsupported: {:?}", action);
-            }
+            _ => {}
         };
-        println!("AT action request: {:?}", action);
     }
 }
 

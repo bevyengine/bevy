@@ -36,7 +36,6 @@ pub struct WinitActionHandler(pub Arc<Mutex<VecDeque<ActionRequest>>>);
 
 impl ActionHandler for WinitActionHandler {
     fn do_action(&self, request: ActionRequest) {
-        println!("Pushing {:?}", request);
         let mut requests = self.0.lock().unwrap();
         requests.push_back(request);
     }
