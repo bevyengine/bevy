@@ -33,9 +33,10 @@ use mouse::{
 use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
 
 use gamepad::{
-    gamepad_connection_system, gamepad_event_system, AxisSettings, ButtonAxisSettings,
-    ButtonSettings, Gamepad, GamepadAxis, GamepadAxisType, GamepadButton, GamepadButtonType,
-    GamepadEvent, GamepadEventRaw, GamepadEventType, GamepadSettings, Gamepads,
+    gamepad_connection_system, gamepad_event_system, gamepad_raw_button_event_handler,
+    AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis, GamepadAxisType,
+    GamepadButton, GamepadButtonType, GamepadEvent, GamepadEventRaw, GamepadEventType,
+    GamepadSettings, Gamepads,
 };
 
 #[cfg(feature = "serialize")]
@@ -78,7 +79,11 @@ impl Plugin for InputPlugin {
             .init_resource::<Axis<GamepadButton>>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
-                gamepad_event_system.label(InputSystem),
+                gamepad_raw_button_event_system.label(InputSystem),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                gamepad_raw_axis_event_system.after(InputSystem),
             )
             .add_system_to_stage(
                 CoreStage::PreUpdate,
@@ -144,5 +149,9 @@ pub enum ButtonState {
 impl ButtonState {
     pub fn is_pressed(&self) -> bool {
         matches!(self, ButtonState::Pressed)
+    }
+
+    pub fn is_released(&self) -> bool {
+        matches!(self, ButtonState::Released)
     }
 }
