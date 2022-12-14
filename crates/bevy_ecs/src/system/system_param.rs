@@ -814,36 +814,26 @@ impl<'a, T: Component> IntoIterator for &'a RemovedComponents<'a, T> {
 // SAFETY: Only reads World components
 unsafe impl<'a, T: Component> ReadOnlySystemParam for RemovedComponents<'a, T> {}
 
-/// The [`SystemParam`] state of [`RemovedComponents<T>`].
-#[doc(hidden)]
-pub struct RemovedComponentsState<T> {
-    component_id: ComponentId,
-    marker: PhantomData<T>,
-}
-
 // SAFETY: no component access. removed component entity collections can be read in parallel and are
 // never mutably borrowed during system execution
 unsafe impl<'a, T: Component> SystemParam for RemovedComponents<'a, T> {
-    type State = RemovedComponentsState<T>;
+    type State = ComponentId;
     type Item<'w, 's> = RemovedComponents<'w, T>;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
-        RemovedComponentsState {
-            component_id: world.init_component::<T>(),
-            marker: PhantomData,
-        }
+        world.init_component::<T>()
     }
 
     #[inline]
     unsafe fn get_param<'w, 's>(
-        state: &'s mut Self::State,
+        &mut component_id: &'s mut Self::State,
         _system_meta: &SystemMeta,
         world: &'w World,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
         RemovedComponents {
             world,
-            component_id: state.component_id,
+            component_id,
             marker: PhantomData,
         }
     }
