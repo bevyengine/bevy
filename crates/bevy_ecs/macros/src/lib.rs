@@ -327,13 +327,14 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let fields = match get_named_struct_fields(&ast.data) {
-        Ok(fields) => &fields.named,
-        Err(e) => return e.into_compile_error().into(),
+    let syn::Data::Struct(syn::DataStruct { fields: field_definitions, ..}) = ast.data else {
+        return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
+            .into_compile_error()
+            .into();
     };
     let path = bevy_ecs_path();
 
-    let field_attributes = fields
+    let field_attributes = field_definitions
         .iter()
         .map(|field| {
             (
@@ -368,9 +369,16 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             ignored_fields.push(field.ident.as_ref().unwrap());
             ignored_field_types.push(&field.ty);
         } else {
-            fields.push(field.ident.as_ref().unwrap());
+            let i = Index::from(i);
+            fields.push(
+                field
+                    .ident
+                    .as_ref()
+                    .map(|f| quote! { #f })
+                    .unwrap_or_else(|| quote! { #i }),
+            );
             field_types.push(&field.ty);
-            field_indices.push(Index::from(i));
+            field_indices.push(i);
         }
     }
 
