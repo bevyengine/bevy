@@ -31,7 +31,7 @@ pub mod prelude {
         render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
-        view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
+        view::{ComputedVisibility, Msaa, MultiSampleLevel, Visibility, VisibilityBundle},
     };
 }
 

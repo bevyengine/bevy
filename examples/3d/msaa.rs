@@ -6,11 +6,11 @@
 //! Ultimately we plan on supporting whatever is natively supported on a given device.
 //! Check out [this issue](https://github.com/gfx-rs/wgpu/issues/1832) for more info.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::view::MultiSampleLevel};
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
+        .insert_resource(Msaa::from(MultiSampleLevel::Off))
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(cycle_msaa)
@@ -46,12 +46,12 @@ fn setup(
 
 fn cycle_msaa(input: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
     if input.just_pressed(KeyCode::M) {
-        if msaa.samples == 4 {
+        if msaa.level == MultiSampleLevel::Sample4 {
             info!("Not using MSAA");
-            msaa.samples = 1;
+            msaa.level = MultiSampleLevel::Off;
         } else {
             info!("Using 4x MSAA");
-            msaa.samples = 4;
+            msaa.level = MultiSampleLevel::Sample4;
         }
     }
 }

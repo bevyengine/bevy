@@ -61,11 +61,12 @@ impl Plugin for ViewPlugin {
 /// # use bevy_app::prelude::App;
 /// # use bevy_render::prelude::Msaa;
 /// App::new()
-///     .insert_resource(Msaa { samples: 4 })
+///     .insert_resource(Msaa::from(MultiSampleLevel::Sample4))
 ///     .run();
 /// ```
 #[derive(Resource, Clone, ExtractResource, Reflect)]
 #[reflect(Resource)]
+#[non_exhaustive]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
     /// smoother edges.
@@ -74,13 +75,33 @@ pub struct Msaa {
     /// Note that WGPU currently only supports 1 or 4 samples.
     /// Ultimately we plan on supporting whatever is natively supported on a given device.
     /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
-    pub samples: u32,
+    pub level: MultiSampleLevel,
+}
+
+impl Msaa {
+    pub fn samples(&self) -> u32 {
+        self.level as u32
+    }
 }
 
 impl Default for Msaa {
     fn default() -> Self {
-        Self { samples: 4 }
+        Self {
+            level: MultiSampleLevel::Sample4,
+        }
     }
+}
+
+impl From<MultiSampleLevel> for Msaa {
+    fn from(level: MultiSampleLevel) -> Self {
+        Self { level }
+    }
+}
+
+#[derive(Clone, Copy, Reflect, PartialEq)]
+pub enum MultiSampleLevel {
+    Off = 1,
+    Sample4 = 4,
 }
 
 #[derive(Component)]
@@ -334,7 +355,7 @@ fn prepare_view_targets(
                                     },
                                 )
                                 .default_view,
-                            sampled: (msaa.samples > 1).then(|| {
+                            sampled: (msaa.level as u32 > 1).then(|| {
                                 texture_cache
                                     .get(
                                         &render_device,
@@ -342,7 +363,7 @@ fn prepare_view_targets(
                                             label: Some("main_texture_sampled"),
                                             size,
                                             mip_level_count: 1,
-                                            sample_count: msaa.samples,
+                                            sample_count: msaa.level as u32,
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,
