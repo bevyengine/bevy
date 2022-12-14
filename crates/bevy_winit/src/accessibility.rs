@@ -93,9 +93,12 @@ fn update_accessibility_nodes(
             adapter.update_if_active(|| {
                 let mut nodes = vec![];
                 let mut has_focus = false;
+                let mut name = None;
                 for window in windows.iter() {
                     if window.is_focused() {
                         has_focus = true;
+                        let title = window.title().to_string();
+                        name = Some(title.into_boxed_str());
                         break;
                     }
                 }
@@ -117,6 +120,7 @@ fn update_accessibility_nodes(
                     root_id,
                     Arc::new(Node {
                         role: Role::Window,
+                        name,
                         children,
                         ..default()
                     }),
