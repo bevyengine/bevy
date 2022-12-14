@@ -1330,9 +1330,11 @@ pub enum HexColorError {
     Char(char),
 }
 
-// Convert hex to rgb[a] u8
-// For rgb: `fff` -> [u8; 6] -> [r, g, b, ..]
-// For rgba: `E2E2E2FF` -> [u8; 8] -> [r, g, b, a, ..]
+/// Converts ASCII hex digits to an array of rgb[a] components
+///
+/// # Example
+/// For RGB: "fff" -> `[255, 255, 255, ..]`
+/// For RGBA: "E2E2E2FF" -> `[226, 226, 226, 255, ..]`
 const fn decode_hex<const N: usize>(mut bytes: [u8; N]) -> Result<[u8; N], HexColorError> {
     let mut i = 0;
     while i < bytes.len() {
