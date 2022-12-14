@@ -20,7 +20,7 @@ impl From<Node> for AccessibilityNode {
 
 pub trait AccessKitEntityExt {
     fn from_node_id(id: &NodeId) -> Entity {
-        Entity::from_bits((id.0.get() - 1) as u64)
+        Entity::from_bits(id.0.get() as u64 - 2)
     }
 
     fn to_node_id(&self) -> NodeId;
@@ -28,7 +28,7 @@ pub trait AccessKitEntityExt {
 
 impl AccessKitEntityExt for Entity {
     fn to_node_id(&self) -> NodeId {
-        let id = NonZeroU128::new(self.to_bits() as u128 + 1);
+        let id = NonZeroU128::new(self.to_bits() as u128 + 2);
         NodeId(id.unwrap())
     }
 }
