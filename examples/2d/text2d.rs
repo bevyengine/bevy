@@ -48,8 +48,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing rotation
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("rotation", text_style.clone())
-                .with_alignment(text_alignment),
+            text: Text::from_section("rotation", text_style.clone()).with_alignment(text_alignment),
             ..default()
         },
         AnimateRotation,
