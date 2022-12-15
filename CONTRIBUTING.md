@@ -291,9 +291,8 @@ When the new pull request is ready, it should reference the original PR in the d
 Then notify org members to close the original.
 
 * For example, you can reference the original PR by adding the following to your PR description:
-```
-Adopted #number-original-pull-request
-```
+
+`Adopted #number-original-pull-request`
 
 ### Maintaining code
 
