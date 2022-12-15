@@ -185,7 +185,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 ///
 /// [`EntityRef`]s can be fetched from a query. This will give read-only access to any component on the entity,
 /// and can be use to dynamically fetch any component without baking it into the query type. Due to this global
-/// acess to the entity, this will block any other system from parallelizing with it. As such these queries
+/// access to the entity, this will block any other system from parallelizing with it. As such these queries
 /// should be sparingly used.
 ///
 /// ```
