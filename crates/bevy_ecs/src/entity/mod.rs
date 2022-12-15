@@ -720,7 +720,7 @@ impl Entities {
 // with u8::MAX, as required by [`Entities::flush_and_reserve_invalid_assuming_no_entities`].
 // Safety:
 // This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
-/// Metadata for a given [`Entity`].
+/// Metadata for an [`Entity`].
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
 struct EntityMeta {
