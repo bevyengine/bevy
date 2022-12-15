@@ -181,6 +181,41 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 ///
 /// An alternative to this idiom is to wrap the conflicting queries into a [`ParamSet`](super::ParamSet).
 ///
+/// ## Whole Entity Access
+///
+/// [`EntityRef`]s can be fetched from a query. This will give read-only access to any component on the entity,
+/// and can be use to dynamically fetch any component without baking it into the query type. Due to this global
+/// acess to the entity, this will block any other system from parallelizing with it. As such these queries
+/// should be sparingly used.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::EntityRef;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # fn system(
+/// query: Query<(EntityRef, &ComponentA)>
+/// # ) {}
+/// # bevy_ecs::system::assert_is_system(system);
+/// ```
+///
+/// As `EntityRef` can read any component on an entity, a query using it will conflict with *any* mutable
+/// access. It is strongly advised to couple `EntityRef` queries with the use of either `With`/`Without`
+/// filters or `ParamSets`. This also limits the scope of the query, which will improve iteration performance
+/// and also allows it to parallelize with other non-conflicting systems.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::world::EntityRef;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # fn system(
+/// // This will panic!
+/// query: Query<(EntityRef, &mut ComponentA)>
+/// # ) {}
+/// # bevy_ecs::system::assert_is_system(system);
+/// ```
+///
 /// # Accessing query items
 ///
 /// The following table summarizes the behavior of the safe methods that can be used to get query items.
@@ -246,6 +281,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`Changed`]: crate::query::Changed
 /// [components]: crate::component::Component
 /// [entity identifiers]: crate::entity::Entity
+/// [`EntityRef`]: crate::world::EntityRef
 /// [`for_each`]: Self::for_each
 /// [`for_each_mut`]: Self::for_each_mut
 /// [`get`]: Self::get
