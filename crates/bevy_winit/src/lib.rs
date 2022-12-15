@@ -1,8 +1,14 @@
+#[cfg(target_os = "android")]
+pub mod android;
 mod converters;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;
+
 mod winit_config;
 mod winit_windows;
+
+use converters::convert_window_level;
+use winit::event_loop::EventLoopBuilder;
 
 use winit::window::CursorGrabMode;
 pub use winit_config::*;
@@ -44,7 +50,17 @@ impl Plugin for WinitPlugin {
             .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
-        let event_loop = EventLoop::new();
+
+        // Build event loop
+        let mut event_loop_builder = EventLoopBuilder::new();
+        #[cfg(target_os = "android")]
+        {
+            use winit::platform::android::EventLoopBuilderExtAndroid;
+            let android_resource = app.world.resource::<android::AndroidActivityApp>();
+            event_loop_builder.with_android_app(android_resource.android_app.clone());
+        }
+        let event_loop = event_loop_builder.build();
+
         #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         let mut create_window_reader = WinitCreateWindowReader::default();
         #[cfg(any(target_os = "android", target_os = "ios", target_os = "macos"))]
@@ -235,9 +251,9 @@ fn change_window(
                         window.set_max_inner_size(Some(max_inner_size));
                     }
                 }
-                bevy_window::WindowCommand::SetAlwaysOnTop { always_on_top } => {
+                bevy_window::WindowCommand::SetWindowLevel { window_level } => {
                     let window = winit_windows.get_window(id).unwrap();
-                    window.set_always_on_top(always_on_top);
+                    window.set_window_level(convert_window_level(window_level));
                 }
                 bevy_window::WindowCommand::SetCursorHitTest { hittest } => {
                     let window = winit_windows.get_window(id).unwrap();
@@ -338,7 +354,11 @@ struct WinitPersistentState {
 impl Default for WinitPersistentState {
     fn default() -> Self {
         Self {
+            #[cfg(not(target_os = "android"))]
             active: true,
+            // Note: Could be false for ever os, since winit sends a resume event on start for every os now
+            #[cfg(target_os = "android")]
+            active: false,
             low_power_event: false,
             redraw_request_sent: false,
             timeout_reached: false,
@@ -580,18 +600,26 @@ pub fn winit_runner_with(mut app: App) {
             }
             event::Event::Suspended => {
                 winit_state.active = false;
+                #[cfg(target_os = "android")]
+                {
+                    // Bevy doesnt support suspend/resume so we just exit
+                    // and android will restart the bevy on resume
+                    // TODO: Save save some state and load on resume
+                    *control_flow = ControlFlow::Exit;
+                }
             }
             event::Event::Resumed => {
                 winit_state.active = true;
             }
             event::Event::MainEventsCleared => {
-                handle_create_window_events(
-                    &mut app.world,
-                    event_loop,
-                    &mut create_window_event_reader,
-                );
-                let winit_config = app.world.resource::<WinitSettings>();
                 let update = if winit_state.active {
+                    handle_create_window_events(
+                        &mut app.world,
+                        event_loop,
+                        &mut create_window_event_reader,
+                    );
+
+                    let winit_config = app.world.resource::<WinitSettings>();
                     let windows = app.world.resource::<Windows>();
                     let focused = windows.iter().any(|w| w.is_focused());
                     match winit_config.update_mode(focused) {

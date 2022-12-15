@@ -12,6 +12,7 @@ keywords = ["bevy"]
 trace = []
 wayland = ["winit/wayland"]
 x11 = ["winit/x11"]
+android = ["winit/android-native-activity"]
 
 [dependencies]
 # bevy
@@ -26,6 +27,9 @@ bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 winit = { version = "0.27", default-features = false }
 approx = { version = "0.5", default-features = false }
 raw-window-handle = "0.5"
+
+[target.'cfg(target_os = "android")'.dependencies]
+ndk = "0.7" # Need till https://github.com/rib/android-activity/issues/45
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }

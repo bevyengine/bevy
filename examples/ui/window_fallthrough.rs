@@ -4,11 +4,11 @@
 use bevy::prelude::*;
 
 fn main() {
-    // Set the window's parameters, note we're setting always_on_top to be true.
+    // Set the window's parameters, note we're setting window_level to AlwaysOnTop.
     let window_desc = WindowDescriptor {
         transparent: true,
         decorations: true,
-        always_on_top: true,
+        window_level: WindowLevel::AlwaysOnTop,
         ..default()
     };
 

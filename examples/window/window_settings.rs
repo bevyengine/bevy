@@ -15,7 +15,7 @@ fn main() {
                 width: 500.,
                 height: 300.,
                 present_mode: PresentMode::AutoVsync,
-                always_on_top: true,
+                window_level: WindowLevel::Normal,
                 ..default()
             },
             ..default()
@@ -26,7 +26,7 @@ fn main() {
         .add_system(toggle_cursor)
         .add_system(toggle_vsync)
         .add_system(cycle_cursor_icon)
-        .add_system(toggle_always_on_top)
+        .add_system(cycle_window_level)
         .run();
 }
 
@@ -45,25 +45,24 @@ fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     }
 }
 
-/// This system toggles whether the window is always on top when pressing the T button
-/// You'll notice it won't be covered by other windows.
+/// This system cycles though whether the window is always on top, always on bottom, or normal when pressing the T button
 ///
 /// This feature only works on some platforms. Please check the
-/// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.always_on_top)
+/// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.window_level)
 /// for more details.
-fn toggle_always_on_top(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
+fn cycle_window_level(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
     if input.just_pressed(KeyCode::T) {
         let window = windows.primary_mut();
 
-        let on_top: bool = window.always_on_top();
+        let new_level = match window.window_level() {
+            WindowLevel::Normal => WindowLevel::AlwaysOnTop,
+            WindowLevel::AlwaysOnTop => WindowLevel::AlwaysOnBottom,
+            WindowLevel::AlwaysOnBottom => WindowLevel::Normal,
+        };
 
-        if on_top {
-            info!("UNLOCKING WINDOW");
-        } else {
-            info!("LOCKING WINDOW ON TOP");
-        }
+        info!("SETTING WINDOW LEVEL: {:?}", new_level);
 
-        window.set_always_on_top(!on_top);
+        window.set_window_level(new_level);
     }
 }
 

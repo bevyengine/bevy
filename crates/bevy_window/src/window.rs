@@ -68,6 +68,34 @@ pub enum PresentMode {
     Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
 }
 
+/// A window level groups windows with respect to their z-position.
+///
+/// The relative ordering between windows in different window levels is fixed.
+/// The z-order of a window within the same window level may change dynamically on user interaction.
+///
+/// ## Platform-specific
+///
+/// - **iOS / Android / Web / Wayland:** Unsupported.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize", 
+    derive(serde::Serialize, serde::Deserialize), 
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Hash)]
+pub enum WindowLevel {
+    /// The default.
+    Normal = 0,
+    /// The window will always be below normal windows.
+    ///
+    /// This is useful for a widget-based app.
+    AlwaysOnBottom = 1,
+
+    /// The window will always be on top of normal windows.
+    AlwaysOnTop = 2,
+}
+
 /// Specifies how the alpha channel of the textures should be handled during compositing.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
@@ -317,7 +345,7 @@ pub struct Window {
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
     alpha_mode: CompositeAlphaMode,
-    always_on_top: bool,
+    window_level: WindowLevel,
 }
 /// A command to be sent to a window.
 ///
@@ -397,9 +425,9 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
-    /// Set whether the window is always on top.
-    SetAlwaysOnTop {
-        always_on_top: bool,
+    /// Set whether the window level
+    SetWindowLevel {
+        window_level: WindowLevel,
     },
     Close,
 }
@@ -481,7 +509,7 @@ impl Window {
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
             alpha_mode: window_descriptor.alpha_mode,
-            always_on_top: window_descriptor.always_on_top,
+            window_level: window_descriptor.window_level,
         }
     }
     /// Get the window's [`WindowId`].
@@ -861,15 +889,15 @@ impl Window {
     }
     /// Get whether or not the window is always on top.
     #[inline]
-    pub fn always_on_top(&self) -> bool {
-        self.always_on_top
+    pub fn window_level(&self) -> WindowLevel {
+        self.window_level
     }
 
     /// Set whether of not the window is always on top.
-    pub fn set_always_on_top(&mut self, always_on_top: bool) {
-        self.always_on_top = always_on_top;
+    pub fn set_window_level(&mut self, window_level: WindowLevel) {
+        self.window_level = window_level;
         self.command_queue
-            .push(WindowCommand::SetAlwaysOnTop { always_on_top });
+            .push(WindowCommand::SetWindowLevel { window_level });
     }
     /// Close the operating system window corresponding to this [`Window`].
     ///
@@ -1064,12 +1092,12 @@ pub struct WindowDescriptor {
     pub fit_canvas_to_parent: bool,
     /// Specifies how the alpha channel of the textures should be handled during compositing.
     pub alpha_mode: CompositeAlphaMode,
-    /// Sets the window to always be on top of other windows.
+    /// Sets the window level
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
     /// - Linux (Wayland): Unsupported.
-    pub always_on_top: bool,
+    pub window_level: WindowLevel,
 }
 
 impl Default for WindowDescriptor {
@@ -1093,7 +1121,7 @@ impl Default for WindowDescriptor {
             canvas: None,
             fit_canvas_to_parent: false,
             alpha_mode: CompositeAlphaMode::Auto,
-            always_on_top: false,
+            window_level: WindowLevel::Normal,
         }
     }
 }

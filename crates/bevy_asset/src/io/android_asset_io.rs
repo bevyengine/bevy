@@ -1,6 +1,7 @@
 use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 use bevy_utils::BoxedFuture;
+use bevy_winit::android::AssetManager;
 use std::{
     convert::TryFrom,
     ffi::CString,
@@ -19,12 +20,17 @@ use std::{
 /// [AssetManager]: https://developer.android.com/reference/android/content/res/AssetManager
 pub struct AndroidAssetIo {
     root_path: PathBuf,
+    asset_manager: AssetManager,
 }
 
 impl AndroidAssetIo {
-    pub fn new<P: AsRef<Path>>(path: P) -> Self {
+    /// Creates a new `AndroidAssetIo` from apk
+    ///
+    /// See `get_base_path` below.
+    pub fn new<P: AsRef<Path>>(path: P, asset_manager: AssetManager) -> Self {
         AndroidAssetIo {
             root_path: path.as_ref().to_owned(),
+            asset_manager,
         }
     }
 }
@@ -32,8 +38,8 @@ impl AndroidAssetIo {
 impl AssetIo for AndroidAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
-            let asset_manager = ndk_glue::native_activity().asset_manager();
-            let mut opened_asset = asset_manager
+            let mut opened_asset = self
+                .asset_manager
                 .open(&CString::new(path.to_str().unwrap()).unwrap())
                 .ok_or(AssetIoError::NotFound(path.to_path_buf()))?;
             let bytes = opened_asset.get_buffer()?;

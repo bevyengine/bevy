@@ -5,7 +5,7 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::Vec2;
-use bevy_window::{CursorGrabMode, CursorIcon};
+use bevy_window::{CursorGrabMode, CursorIcon, WindowLevel};
 
 pub fn convert_keyboard_input(keyboard_input: &winit::event::KeyboardInput) -> KeyboardInput {
     KeyboardInput {
@@ -273,5 +273,14 @@ pub fn convert_cursor_grab_mode(mode: CursorGrabMode) -> winit::window::CursorGr
         CursorGrabMode::None => winit::window::CursorGrabMode::None,
         CursorGrabMode::Confined => winit::window::CursorGrabMode::Confined,
         CursorGrabMode::Locked => winit::window::CursorGrabMode::Locked,
+    }
+}
+
+/// Map [`bevy_window::WindowLevel`] to [`winit::window::WindowLevel`].
+pub fn convert_window_level(level: WindowLevel) -> winit::window::WindowLevel {
+    match level {
+        WindowLevel::Normal => winit::window::WindowLevel::Normal,
+        WindowLevel::AlwaysOnTop => winit::window::WindowLevel::AlwaysOnTop,
+        WindowLevel::AlwaysOnBottom => winit::window::WindowLevel::AlwaysOnBottom,
     }
 }

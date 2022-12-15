@@ -2,28 +2,53 @@
 name = "bevy-android-example"
 version = "0.1.0"
 edition = "2021"
-description = "Example for building an Android app with Bevy"
+description = "Example for building an Android app with Bevy and Native Activity"
 publish = false
 license = "MIT OR Apache-2.0"
 
+[features]
+default = ["bevy/android"]
+desktop = ["bevy/x11"] 
+
+[[bin]]
+name = "bevy-android-example"
+path = "src/main.rs"
+required-features = ["desktop"]
+
 [lib]
-name = "bevy_android_example"
-crate-type = ["cdylib"]
+crate-type = ["lib", "cdylib"]
 
 [dependencies]
-bevy = { path = "../../" }
+bevy = { path = "../../", features = [  
+  "animation",
+  "bevy_asset",
+  "bevy_audio",
+  #"bevy_gilrs", Gilrs does not support android 
+  "bevy_scene",
+  "bevy_winit",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
+  "png",
+  "hdr",
+  "vorbis",  
+  "filesystem_watcher",
+], default-features = false }
 
 [package.metadata.android]
 package = "org.bevyengine.example"
 apk_name = "bevyexample"
 assets = "../../assets"
 resources = "../../assets/android-res"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi", "x86_64-linux-android"]
 
 [package.metadata.android.sdk]
-target_sdk_version = 31
+target_sdk_version = 33
 
 [package.metadata.android.application]
 icon = "@mipmap/ic_launcher"
 label = "Bevy Example"
-

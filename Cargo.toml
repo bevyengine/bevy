@@ -98,6 +98,7 @@ serialize = ["bevy_internal/serialize"]
 # Display server protocol support (X11 is enabled by default)
 wayland = ["bevy_internal/wayland"]
 x11 = ["bevy_internal/x11"]
+android = ["bevy_internal/android"]
 
 # Enable rendering of font glyphs using subpixel accuracy
 subpixel_glyph_atlas = ["bevy_internal/subpixel_glyph_atlas"]
@@ -129,6 +130,10 @@ bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
 crossbeam-channel = "0.5.0"
+
+# TODO: Move these
+[patch.crates-io]
+winit = { git = "https://github.com/rust-windowing/winit", branch = "master" }
 
 [[example]]
 name = "hello_world"
