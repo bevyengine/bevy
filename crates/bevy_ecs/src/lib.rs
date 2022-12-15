@@ -43,7 +43,7 @@ pub mod prelude {
             Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{FromWorld, Mut, World, EntityRef},
+        world::{EntityRef, FromWorld, Mut, World},
     };
 }
 
@@ -61,7 +61,7 @@ mod tests {
             Added, ChangeTrackers, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without,
         },
         system::Resource,
-        world::{Mut, World, EntityRef},
+        world::{EntityRef, Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use std::{
