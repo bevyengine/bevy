@@ -5,7 +5,7 @@ use crate::{
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{Mut, World},
+    world::{EntityRef, Mut, World},
 };
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
@@ -514,6 +514,83 @@ unsafe impl WorldQuery for Entity {
 
 /// SAFETY: access is read only
 unsafe impl ReadOnlyWorldQuery for Entity {}
+
+/// SAFETY: no component or archetype access
+unsafe impl<'a> WorldQuery for EntityRef<'a> {
+    type Fetch<'w> = &'w World;
+    type Item<'w> = EntityRef<'w>;
+    type ReadOnly = Self;
+    type State = ();
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        item
+    }
+
+    const IS_DENSE: bool = true;
+
+    const IS_ARCHETYPAL: bool = true;
+
+    unsafe fn init_fetch<'w>(
+        world: &'w World,
+        _state: &Self::State,
+        _last_change_tick: u32,
+        _change_tick: u32,
+    ) -> Self::Fetch<'w> {
+        world
+    }
+
+    unsafe fn clone_fetch<'w>(world: &Self::Fetch<'w>) -> Self::Fetch<'w> {
+        world
+    }
+
+    #[inline]
+    unsafe fn set_archetype<'w>(
+        _fetch: &mut Self::Fetch<'w>,
+        _state: &Self::State,
+        _archetype: &'w Archetype,
+        _table: &Table,
+    ) {
+    }
+
+    #[inline]
+    unsafe fn set_table<'w>(_fetch: &mut Self::Fetch<'w>, _state: &Self::State, _table: &'w Table) {
+    }
+
+    #[inline(always)]
+    unsafe fn fetch<'w>(
+        world: &mut Self::Fetch<'w>,
+        entity: Entity,
+        _table_row: TableRow,
+    ) -> Self::Item<'w> {
+        world.get_entity(entity).debug_checked_unwrap()
+    }
+
+    fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        access.read_all();
+    }
+
+    fn update_archetype_component_access(
+        _state: &Self::State,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        for component_id in archetype.components() {
+            access.add_read(archetype.get_archetype_component_id(component_id).unwrap());
+        }
+    }
+
+    fn init_state(_world: &mut World) {}
+
+    fn matches_component_set(
+        _state: &Self::State,
+        _set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        true
+    }
+}
+
+/// SAFETY: access is read only
+unsafe impl<'a> ReadOnlyWorldQuery for EntityRef<'a> {}
 
 #[doc(hidden)]
 pub struct ReadFetch<'w, T> {
