@@ -515,7 +515,7 @@ unsafe impl WorldQuery for Entity {
 /// SAFETY: access is read only
 unsafe impl ReadOnlyWorldQuery for Entity {}
 
-/// SAFETY: no component or archetype access
+/// SAFETY: `Self` is the same as `Self::ReadOnly`
 unsafe impl<'a> WorldQuery for EntityRef<'a> {
     type Fetch<'w> = &'w World;
     type Item<'w> = EntityRef<'w>;
