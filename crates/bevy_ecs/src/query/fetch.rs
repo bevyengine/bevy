@@ -566,6 +566,10 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        assert!(
+            !access.access().has_any_write(),
+            "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
+        );
         access.read_all();
     }
 
