@@ -277,9 +277,18 @@ As discussed in [*How we're organized*](#how-were-organized), this role only req
 
 ### How to adopt pull requests
 
-Occasionally authors of pull requests get busy or become unresponsive. This is a natural part of any open source project. To avoid blocking these efforts, these pull requests may be *adopted*, where another contributor creates a new pull request with the same content. If there is an old Pull request without the label that is without updates, comment to the organization whether it is appropriate to add the *[S-Adopt-Me](https://github.com/bevyengine/bevy/labels/S-Adopt-Me)* label, to indicate that it can be *adopted*.
+Occasionally authors of pull requests get busy or become unresponsive. This is a natural part of any open source project. 
+To avoid blocking these efforts, these pull requests may be *adopted*, where another contributor creates a new pull request 
+with the same content. If there is an old Pull request without the label that is without updates, comment to the organization 
+whether it is appropriate to add the *[S-Adopt-Me](https://github.com/bevyengine/bevy/labels/S-Adopt-Me)* label, to indicate 
+that it can be *adopted*. Otherwise, should leave a comment on the PR asking the author if they plan on returning,
+if the author gives permission or simply doesn't respond after few days, then it can be adopted.
+This may sometimes even skip the labeling since at that point the PR has been adopted.
 
-With this label added, it's best practice to fork the original author's branch. This ensures that they still get credit for working on it and that the commit history is retained. When the new pull request is ready, it should reference the original PR in the description. Then notify org members to close the original.
+With this label added, it's best practice to fork the original author's branch. 
+This ensures that they still get credit for working on it and that the commit history is retained. 
+When the new pull request is ready, it should reference the original PR in the description. 
+Then notify org members to close the original.
 
 * For example, you can reference the original PR by adding the following to your PR description:
 ```
