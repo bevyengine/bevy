@@ -281,7 +281,10 @@ Occasionally authors of pull requests get busy or become unresponsive. This is a
 
 With this label added, it's best practice to fork the original author's branch. This ensures that they still get credit for working on it and that the commit history is retained. When the new pull request is ready, it should reference the original PR in the description. Then notify org members to close the original.
 
-* Example: `Adopted #number-original-pull-request`
+* For example, you can reference the original PR by adding the following to your PR description:
+```
+Adopted #number-original-pull-request
+```
 
 ### Maintaining code
 
