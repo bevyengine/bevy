@@ -1,6 +1,7 @@
 // References:
 // https://www.elopezr.com/temporal-aa-and-the-quest-for-the-holy-trail
 // http://behindthepixels.io/assets/files/TemporalAA.pdf
+// http://leiy.cc/publications/TAA/TAA_EG2020_Talk.pdf
 
 #import bevy_core_pipeline::fullscreen_vertex_shader
 #import bevy_core_pipeline::tonemapping
