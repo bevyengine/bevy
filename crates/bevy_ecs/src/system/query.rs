@@ -190,7 +190,6 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::world::EntityRef;
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// # fn system(
@@ -206,7 +205,6 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs::world::EntityRef;
 /// # #[derive(Component)]
 /// # struct ComponentA;
 /// # fn system(

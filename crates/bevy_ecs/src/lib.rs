@@ -43,7 +43,7 @@ pub mod prelude {
             Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
             ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
         },
-        world::{FromWorld, Mut, World},
+        world::{FromWorld, Mut, World, EntityRef},
     };
 }
 
