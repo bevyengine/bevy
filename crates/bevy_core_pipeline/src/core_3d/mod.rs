@@ -293,7 +293,7 @@ pub fn prepare_core_3d_depth_textures(
             .or_insert_with(|| {
                 // Default usage required to write to the depth texture
                 let mut usage = TextureUsages::RENDER_ATTACHMENT;
-                if prepass_settings.map_or(false, |settings| settings.depth_enabled) {
+                if prepass_settings.map_or(false, |settings| settings.depth_enabled()) {
                     // Required to read the output of the prepass
                     usage |= TextureUsages::COPY_SRC;
                 }

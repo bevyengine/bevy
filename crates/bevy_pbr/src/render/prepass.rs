@@ -1,8 +1,12 @@
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
+use bevy_core::FrameCount;
 use bevy_core_pipeline::{
     prelude::Camera3d,
-    prepass::{AlphaMask3dPrepass, Opaque3dPrepass, PrepassSettings, ViewPrepassTextures},
+    prepass::{
+        AlphaMask3dPrepass, Opaque3dPrepass, PrepassDepthSettings, PrepassSettings,
+        ViewPrepassTextures,
+    },
 };
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -458,6 +462,7 @@ pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
+    frame_count: Res<FrameCount>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
         (Entity, &ExtractedCamera, &PrepassSettings),
@@ -467,7 +472,8 @@ pub fn prepare_prepass_textures(
         ),
     >,
 ) {
-    let mut depth_textures = HashMap::default();
+    let mut depth_1_textures = HashMap::default();
+    let mut depth_2_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
     let mut velocity_textures = HashMap::default();
     for (entity, camera, prepass_settings) in &views_3d {
@@ -481,18 +487,46 @@ pub fn prepare_prepass_textures(
             height: physical_target_size.y,
         };
 
-        let cached_depth_texture = prepass_settings.depth_enabled.then(|| {
-            depth_textures
+        let cached_depth_1_texture = prepass_settings.depth_enabled().then(|| {
+            depth_1_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
-                        label: Some("prepass_depth_texture"),
+                        label: Some("prepass_depth_1_texture"),
                         size,
                         mip_level_count: 1,
                         sample_count: msaa.samples,
                         dimension: TextureDimension::D2,
                         format: TextureFormat::Depth32Float,
-                        usage: TextureUsages::COPY_DST
+                        usage: TextureUsages::COPY_SRC
+                            | TextureUsages::COPY_DST
+                            | TextureUsages::RENDER_ATTACHMENT
+                            | TextureUsages::TEXTURE_BINDING,
+                    };
+                    texture_cache.get(&render_device, descriptor)
+                })
+                .clone()
+        });
+
+        let need_second_depth = matches!(
+            prepass_settings.depth_settings,
+            PrepassDepthSettings::Enabled {
+                keep_1_frame_history: true,
+            }
+        );
+        let cached_depth_2_texture = need_second_depth.then(|| {
+            depth_2_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let descriptor = TextureDescriptor {
+                        label: Some("prepass_depth_2_texture"),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: msaa.samples,
+                        dimension: TextureDimension::D2,
+                        format: TextureFormat::Depth32Float,
+                        usage: TextureUsages::COPY_SRC
+                            | TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,
                     };
@@ -543,12 +577,25 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        commands.entity(entity).insert(ViewPrepassTextures {
-            depth: cached_depth_texture,
-            normal: cached_normals_texture,
-            velocity: cached_velocities_texture,
-            size,
-        });
+        let textures = if frame_count.0 % 2 == 0 && need_second_depth {
+            ViewPrepassTextures {
+                depth: cached_depth_2_texture,
+                previous_depth: cached_depth_1_texture,
+                normal: cached_normals_texture,
+                velocity: cached_velocities_texture,
+                size,
+            }
+        } else {
+            ViewPrepassTextures {
+                depth: cached_depth_1_texture,
+                previous_depth: cached_depth_2_texture,
+                normal: cached_normals_texture,
+                velocity: cached_velocities_texture,
+                size,
+            }
+        };
+
+        commands.entity(entity).insert(textures);
     }
 }
 

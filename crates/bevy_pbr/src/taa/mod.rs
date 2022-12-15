@@ -4,7 +4,7 @@ use bevy_core::FrameCount;
 use bevy_core_pipeline::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
-    prepass::{PrepassSettings, ViewPrepassTextures},
+    prepass::{PrepassDepthSettings, PrepassSettings, ViewPrepassTextures},
 };
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
@@ -95,8 +95,18 @@ pub struct TemporalAntialiasBundle {
     pub jitter: TemporalJitter,
 }
 
-#[derive(Component, Reflect, Default, Clone)]
-pub struct TemporalAntialiasSettings;
+#[derive(Component, Reflect, Clone)]
+pub struct TemporalAntialiasSettings {
+    depth_rejection_enabled: bool,
+}
+
+impl Default for TemporalAntialiasSettings {
+    fn default() -> Self {
+        Self {
+            depth_rejection_enabled: true,
+        }
+    }
+}
 
 struct TAANode {
     view_query: QueryState<(
@@ -148,10 +158,11 @@ impl Node for TAANode {
         ) else {
             return Ok(());
         };
-        let (Some(taa_pipeline), Some(prepass_velocity_texture), Some(prepass_depth_texture)) = (
+        let (Some(taa_pipeline), Some(prepass_velocity_texture), Some(prepass_depth_texture), Some(prepass_previous_depth_texture)) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.velocity,
             &prepass_textures.depth,
+            &prepass_textures.previous_depth,
         ) else {
             return Ok(());
         };
@@ -185,10 +196,16 @@ impl Node for TAANode {
                     },
                     BindGroupEntry {
                         binding: 4,
-                        resource: BindingResource::Sampler(&pipelines.nearest_sampler),
+                        resource: BindingResource::TextureView(
+                            &prepass_previous_depth_texture.default_view,
+                        ),
                     },
                     BindGroupEntry {
                         binding: 5,
+                        resource: BindingResource::Sampler(&pipelines.nearest_sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 6,
                         resource: BindingResource::Sampler(&pipelines.linear_sampler),
                     },
                 ],
@@ -298,16 +315,27 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Nearest sampler
+                    // Previous Depth
                     BindGroupLayoutEntry {
                         binding: 4,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Depth,
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // Nearest sampler
+                    BindGroupLayoutEntry {
+                        binding: 5,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                         count: None,
                     },
                     // Linear sampler
                     BindGroupLayoutEntry {
-                        binding: 5,
+                        binding: 6,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
@@ -326,17 +354,25 @@ impl FromWorld for TAAPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct TAAPipelineKey {
     hdr: bool,
+    depth_rejection_enabled: bool,
 }
 
 impl SpecializedRenderPipeline for TAAPipeline {
     type Key = TAAPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let (format, shader_defs) = if key.hdr {
-            (ViewTarget::TEXTURE_FORMAT_HDR, vec!["TONEMAP".into()])
+        let mut shader_defs = vec![];
+
+        let format = if key.hdr {
+            shader_defs.push("TONEMAP".into());
+            ViewTarget::TEXTURE_FORMAT_HDR
         } else {
-            (TextureFormat::bevy_default(), vec![])
+            TextureFormat::bevy_default()
         };
+
+        if key.depth_rejection_enabled {
+            shader_defs.push("DEPTH_REJECTION".into());
+        }
 
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
@@ -370,13 +406,32 @@ fn extract_taa_settings(
     mut commands: Commands,
     cameras_3d: Extract<
         Query<
-            (Entity, &Camera, &TemporalAntialiasSettings),
-            (With<Camera3d>, With<PrepassSettings>, With<TemporalJitter>),
+            (
+                Entity,
+                &Camera,
+                &TemporalAntialiasSettings,
+                &PrepassSettings,
+            ),
+            (With<Camera3d>, With<TemporalJitter>),
         >,
     >,
 ) {
-    for (entity, camera, taa_settings) in &cameras_3d {
-        if camera.is_active {
+    for (entity, camera, taa_settings, prepass_settings) in &cameras_3d {
+        let history_rejection_test = match (
+            taa_settings.depth_rejection_enabled,
+            &prepass_settings.depth_settings,
+        ) {
+            (
+                true,
+                PrepassDepthSettings::Enabled {
+                    keep_1_frame_history: true,
+                },
+            )
+            | (false, _) => true,
+            _ => false,
+        };
+
+        if camera.is_active && prepass_settings.velocity_enabled && history_rejection_test {
             commands.get_or_spawn(entity).insert(taa_settings.clone());
         }
     }
@@ -393,15 +448,9 @@ fn prepare_taa_history_textures(
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
     frame_count: Res<FrameCount>,
-    views: Query<
-        (Entity, &ExtractedCamera, &ExtractedView, &PrepassSettings),
-        With<TemporalAntialiasSettings>,
-    >,
+    views: Query<(Entity, &ExtractedCamera, &ExtractedView), With<TemporalAntialiasSettings>>,
 ) {
-    let views = views.iter().filter(|(_, _, _, prepass_settings)| {
-        prepass_settings.velocity_enabled && prepass_settings.depth_enabled
-    });
-    for (entity, camera, view, _) in views {
+    for (entity, camera, view) in &views {
         if let Some(physical_viewport_size) = camera.physical_viewport_size {
             let mut texture_descriptor = TextureDescriptor {
                 label: None,
@@ -452,14 +501,15 @@ fn prepare_taa_pipelines(
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
-    views: Query<(Entity, &ExtractedView), With<TemporalAntialiasSettings>>,
+    views: Query<(Entity, &ExtractedView, &TemporalAntialiasSettings)>,
 ) {
-    for (entity, view) in &views {
-        let pipeline_id = pipelines.specialize(
-            &mut pipeline_cache,
-            &pipeline,
-            TAAPipelineKey { hdr: view.hdr },
-        );
+    for (entity, view, taa_settings) in &views {
+        let pipeline_key = TAAPipelineKey {
+            hdr: view.hdr,
+            depth_rejection_enabled: taa_settings.depth_rejection_enabled,
+        };
+
+        let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pipeline, pipeline_key);
 
         commands.entity(entity).insert(TAAPipelineId(pipeline_id));
     }

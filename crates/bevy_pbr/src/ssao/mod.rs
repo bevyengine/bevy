@@ -610,7 +610,7 @@ fn extract_ssao_settings(
     >,
 ) {
     for (entity, camera, ssao_settings, prepass_settings) in &cameras {
-        if camera.is_active && prepass_settings.depth_enabled && prepass_settings.normal_enabled {
+        if camera.is_active && prepass_settings.depth_enabled() && prepass_settings.normal_enabled {
             commands.get_or_spawn(entity).insert(ssao_settings.clone());
         }
     }
