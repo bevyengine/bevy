@@ -116,6 +116,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
 
+    // Detect large depth differences between frames, and skip blending (reduces ghosting)
     var disocclusion_detected = false;
 #ifdef DEPTH_REJECTION
     let previous_depth = textureSample(previous_depth, nearest_sampler, uv);
