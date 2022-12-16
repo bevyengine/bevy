@@ -703,9 +703,7 @@ fn fetch_table(
     location: EntityLocation,
     component_id: ComponentId,
 ) -> Option<&Column> {
-    let table = &world.storages.tables[location.table_id];
-    let components = table.get_column(component_id)?;
-    Some(components)
+    world.storages.tables[location.table_id].get_column(component_id)
 }
 
 #[inline]
