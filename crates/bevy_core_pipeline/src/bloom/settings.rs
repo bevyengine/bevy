@@ -59,17 +59,20 @@ pub struct BloomSettings {
 
 impl BloomSettings {
     //// Recommended for HDR rendering
-    pub fn natural() -> Self { Self {
+    pub const NATURAL: Self = Self {
         side_intensity: 0.4,
         mid_intensity: 0.9,
         mid_offset: 0.4,
         intensity: 0.3,
-        prefilter_settings: PrefilterSettings::default(),
+        prefilter_settings: PrefilterSettings {
+            threshold: 0.0,
+            threshold_softness: 0.0,
+        },
         mode: BloomMode::EnergyConserving,
-    }}
+    };
 
     /// Recommended for SDR rendering
-    pub fn oldschool() -> Self { Self {
+    pub const OLDSCHOOL: Self = Self {
         // TODO: Confirm whether the intensity values are good
         side_intensity: 0.8,
         mid_intensity: 0.9,
@@ -80,20 +83,23 @@ impl BloomSettings {
             threshold_softness: 0.2,
         },
         mode: BloomMode::Additive,
-    }}
+    };
 
-    pub fn screen_blur() -> Self { Self {
+    pub const SCREEN_BLUR: Self = Self {
         side_intensity: 0.0,
         mid_intensity: 1.0,
         mid_offset: 0.6,
         intensity: 1.0,
-        prefilter_settings: PrefilterSettings::default(),
+        prefilter_settings: PrefilterSettings {
+            threshold: 0.0,
+            threshold_softness: 0.0,
+        },
         mode: BloomMode::EnergyConserving,
-    }}
+    };
 }
 
 impl Default for BloomSettings {
     fn default() -> Self {
-        Self::natural()
+        Self::NATURAL
     }
 }
