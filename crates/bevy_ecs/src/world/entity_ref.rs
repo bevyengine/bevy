@@ -149,7 +149,6 @@ impl<'w> EntityRef<'w> {
         // - entity location and entity is valid
         // - returned component is of type T
         // - the storage type provided is correct for T
-        // - Caller guarentees that this reference will not alias.
         get_component_and_ticks_with_type(
             self.world,
             TypeId::of::<T>(),
@@ -158,6 +157,9 @@ impl<'w> EntityRef<'w> {
             self.location,
         )
         .map(|(value, ticks)| Mut {
+            // SAFETY:
+            // - returned component is of type T
+            // - Caller guarentees that this reference will not alias.
             value: value.assert_unique().deref_mut::<T>(),
             ticks: Ticks::from_tick_cells(ticks, last_change_tick, change_tick),
         })
