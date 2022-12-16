@@ -122,7 +122,6 @@ impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
     pub fn new() -> App {
-        println!("THIS IS A TEST VERSION");
         App::default()
     }
 
