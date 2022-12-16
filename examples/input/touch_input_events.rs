@@ -1,3 +1,5 @@
+//! Prints out all touch inputs.
+
 use bevy::{input::touch::*, prelude::*};
 
 fn main() {

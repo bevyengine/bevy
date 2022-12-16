@@ -1,11 +1,11 @@
 use crate::{error::TextError, Font, FontAtlas};
 use ab_glyph::{GlyphId, OutlinedGlyph, Point};
 use bevy_asset::{Assets, Handle};
-use bevy_core::FloatOrd;
 use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
+use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 
 type FontSizeKey = FloatOrd;
@@ -14,6 +14,9 @@ type FontSizeKey = FloatOrd;
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
 pub struct FontAtlasSet {
     font_atlases: HashMap<FontSizeKey, Vec<FontAtlas>>,
+    // TODO unused, remove
+    #[allow(dead_code)]
+    queue: Vec<FontSizeKey>,
 }
 
 #[derive(Debug, Clone)]
@@ -26,6 +29,7 @@ impl Default for FontAtlasSet {
     fn default() -> Self {
         FontAtlasSet {
             font_atlases: HashMap::with_capacity_and_hasher(1, Default::default()),
+            queue: Vec::new(),
         }
     }
 }
@@ -62,9 +66,10 @@ impl FontAtlasSet {
                 vec![FontAtlas::new(
                     textures,
                     texture_atlases,
-                    Vec2::new(512.0, 512.0),
+                    Vec2::splat(512.0),
                 )]
             });
+
         let glyph_texture = Font::get_outlined_glyph_texture(outlined_glyph);
         let add_char_to_font_atlas = |atlas: &mut FontAtlas| -> bool {
             atlas.add_glyph(
@@ -76,10 +81,18 @@ impl FontAtlasSet {
             )
         };
         if !font_atlases.iter_mut().any(add_char_to_font_atlas) {
+            // Find the largest dimension of the glyph, either its width or its height
+            let glyph_max_size: u32 = glyph_texture
+                .texture_descriptor
+                .size
+                .height
+                .max(glyph_texture.texture_descriptor.size.width);
+            // Pick the higher  of 512 or the smallest power of 2 greater than glyph_max_size
+            let containing = (1u32 << (32 - glyph_max_size.leading_zeros())).max(512) as f32;
             font_atlases.push(FontAtlas::new(
                 textures,
                 texture_atlases,
-                Vec2::new(512.0, 512.0),
+                Vec2::new(containing, containing),
             ));
             if !font_atlases.last_mut().unwrap().add_glyph(
                 textures,
@@ -98,7 +111,7 @@ impl FontAtlasSet {
     }
 
     pub fn get_glyph_atlas_info(
-        &self,
+        &mut self,
         font_size: f32,
         glyph_id: GlyphId,
         position: Point,
@@ -118,5 +131,9 @@ impl FontAtlasSet {
                         glyph_index,
                     })
             })
+    }
+
+    pub fn num_font_atlases(&self) -> usize {
+        self.font_atlases.len()
     }
 }

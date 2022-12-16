@@ -1,0 +1,163 @@
+name: validation jobs
+
+on:
+  push:
+    branches:
+      - staging
+      - trying
+      - main
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-install-on-iOS:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            target
+          key: ${{ runner.os }}-ios-install-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Add iOS targets
+        run: rustup target add aarch64-apple-ios x86_64-apple-ios
+
+      - name: Build and install iOS app in iOS Simulator.
+        run: cd examples/ios && make install
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-build-android-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Install Android targets
+        run: rustup target add aarch64-linux-android armv7-linux-androideabi
+
+      - name: Install Cargo APK
+        run: cargo install --force cargo-apk
+
+      - name: Build APK
+        run: ANDROID_NDK_ROOT=$ANDROID_NDK_LATEST_HOME cargo apk build --package bevy-android-example
+
+  run-examples-on-windows-dx12:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-windows-run-examples-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: Build bevy
+        shell: bash
+        # this uses the same command as when running the example to ensure build is reused
+        run: |
+          WGPU_BACKEND=dx12 CI_TESTING_CONFIG=.github/example-run/alien_cake_addict.ron cargo build --example alien_cake_addict --features "bevy_ci_testing"
+
+      - name: Run examples
+        shell: bash
+        run: |
+          for example in .github/example-run/*.ron; do
+            example_name=`basename $example .ron`
+            echo "running $example_name - "`date`
+            time WGPU_BACKEND=dx12 CI_TESTING_CONFIG=$example cargo run --example $example_name --features "bevy_ci_testing"
+            sleep 10
+          done
+
+  run-examples-on-wasm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: wasm32-unknown-unknown
+
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.github/start-wasm-example/node_modules
+            target/
+          key: ${{ runner.os }}-wasm-run-examples-${{ hashFiles('**/Cargo.toml') }}
+
+      - name: install xvfb, llvmpipe and lavapipe
+        run: |
+          sudo apt-get update -y -qq
+          sudo add-apt-repository ppa:oibaf/graphics-drivers -y
+          sudo apt-get update
+          sudo apt install -y xvfb libegl1-mesa libgl1-mesa-dri libxcb-xfixes0-dev mesa-vulkan-drivers
+
+      - name: Install wasm-bindgen
+        run: cargo install --force wasm-bindgen-cli
+
+      - name: Setup playwright
+        run: |
+          cd .github/start-wasm-example
+          npm install
+          npx playwright install --with-deps
+          cd ../..
+
+      - name: First WASM build
+        run: |
+          cargo build --release --example ui --target wasm32-unknown-unknown
+
+      - name: Run examples
+        shell: bash
+        run: |
+          # start a webserver
+          python3 -m http.server --directory examples/wasm &
+
+          xvfb-run cargo run -p build-wasm-example -- --browsers chromium --browsers firefox --frames 25 --test 2d_shapes lighting text_debug breakout
+
+      - name: Save screenshots
+        uses: actions/upload-artifact@v3
+        with:
+          name: screenshots
+          path: .github/start-wasm-example/screenshot-*.png
+
+  build-without-default-features:
+    strategy:
+      matrix:
+        crate: [bevy_ecs, bevy_reflect, bevy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install alsa and udev
+        run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev
+      - name: Build
+        run: cargo build -p ${{ matrix.crate }} --no-default-features
+        env:
+          CARGO_INCREMENTAL: 0
+          RUSTFLAGS: "-C debuginfo=0 -D warnings"

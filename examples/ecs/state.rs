@@ -1,11 +1,13 @@
+//! This example illustrates how to use [`States`] to control transitioning from a `Menu` state to
+//! an `InGame` state.
+
 use bevy::prelude::*;
 
-/// This example illustrates how to use States to control transitioning from a Menu state to an
-/// InGame state.
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_state(AppState::Menu)
+        .add_startup_system(setup)
         .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
         .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
         .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
@@ -24,6 +26,7 @@ enum AppState {
     InGame,
 }
 
+#[derive(Resource)]
 struct MenuData {
     button_entity: Entity,
 }
@@ -32,37 +35,46 @@ const NORMAL_BUTTON: Color = Color::rgb(0.15, 0.15, 0.15);
 const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
+fn setup(mut commands: Commands) {
+    commands.spawn(Camera2dBundle::default());
+}
+
 fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // ui camera
-    commands.spawn_bundle(UiCameraBundle::default());
     let button_entity = commands
-        .spawn_bundle(ButtonBundle {
+        .spawn(NodeBundle {
             style: Style {
-                size: Size::new(Val::Px(150.0), Val::Px(65.0)),
                 // center button
-                margin: Rect::all(Val::Auto),
-                // horizontally center child text
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 justify_content: JustifyContent::Center,
-                // vertically center child text
                 align_items: AlignItems::Center,
-                ..Default::default()
+                ..default()
             },
-            color: NORMAL_BUTTON.into(),
-            ..Default::default()
+            ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(TextBundle {
-                text: Text::with_section(
-                    "Play",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::rgb(0.9, 0.9, 0.9),
+            parent
+                .spawn(ButtonBundle {
+                    style: Style {
+                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                        // horizontally center child text
+                        justify_content: JustifyContent::Center,
+                        // vertically center child text
+                        align_items: AlignItems::Center,
+                        ..default()
                     },
-                    Default::default(),
-                ),
-                ..Default::default()
-            });
+                    background_color: NORMAL_BUTTON.into(),
+                    ..default()
+                })
+                .with_children(|parent| {
+                    parent.spawn(TextBundle::from_section(
+                        "Play",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 40.0,
+                            color: Color::rgb(0.9, 0.9, 0.9),
+                        },
+                    ));
+                });
         })
         .id();
     commands.insert_resource(MenuData { button_entity });
@@ -71,11 +83,11 @@ fn setup_menu(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn menu(
     mut state: ResMut<State<AppState>>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiColor),
+        (&Interaction, &mut BackgroundColor),
         (Changed<Interaction>, With<Button>),
     >,
 ) {
-    for (interaction, mut color) in interaction_query.iter_mut() {
+    for (interaction, mut color) in &mut interaction_query {
         match *interaction {
             Interaction::Clicked => {
                 *color = PRESSED_BUTTON.into();
@@ -96,10 +108,9 @@ fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
 }
 
 fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
-        ..Default::default()
+        ..default()
     });
 }
 
@@ -109,7 +120,7 @@ fn movement(
     input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Sprite>>,
 ) {
-    for mut transform in query.iter_mut() {
+    for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
         if input.pressed(KeyCode::Left) {
             direction.x -= 1.0;
@@ -131,9 +142,9 @@ fn movement(
 }
 
 fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
-    for mut sprite in query.iter_mut() {
+    for mut sprite in &mut query {
         sprite
             .color
-            .set_b((time.seconds_since_startup() * 0.5).sin() as f32 + 2.0);
+            .set_b((time.elapsed_seconds() * 0.5).sin() + 2.0);
     }
 }

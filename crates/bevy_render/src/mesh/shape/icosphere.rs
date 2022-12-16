@@ -1,5 +1,6 @@
 use crate::mesh::{Indices, Mesh};
 use hexasphere::shapes::IcoSphere;
+use thiserror::Error;
 use wgpu::PrimitiveTopology;
 
 /// A sphere made from a subdivided Icosahedron.
@@ -20,8 +21,19 @@ impl Default for Icosphere {
     }
 }
 
-impl From<Icosphere> for Mesh {
-    fn from(sphere: Icosphere) -> Self {
+#[derive(Debug, Clone, Error)]
+pub enum FromIcosphereError {
+    #[error("Cannot create an icosphere of {subdivisions} subdivisions due to there being too many vertices being generated: {number_of_resulting_points}. (Limited to 65535 vertices or 79 subdivisions)")]
+    TooManyVertices {
+        subdivisions: usize,
+        number_of_resulting_points: usize,
+    },
+}
+
+impl TryFrom<Icosphere> for Mesh {
+    type Error = FromIcosphereError;
+
+    fn try_from(sphere: Icosphere) -> Result<Self, Self::Error> {
         if sphere.subdivisions >= 80 {
             /*
             Number of triangles:
@@ -53,12 +65,10 @@ impl From<Icosphere> for Mesh {
             */
             let temp = sphere.subdivisions + 1;
             let number_of_resulting_points = temp * temp * 10 + 2;
-
-            panic!(
-                "Cannot create an icosphere of {} subdivisions due to there being too many vertices being generated: {}. (Limited to 65535 vertices or 79 subdivisions)",
-                sphere.subdivisions,
-                number_of_resulting_points
-            );
+            return Err(FromIcosphereError::TooManyVertices {
+                subdivisions: sphere.subdivisions,
+                number_of_resulting_points,
+            });
         }
         let generated = IcoSphere::new(sphere.subdivisions, |point| {
             let inclination = point.y.acos();
@@ -95,9 +105,9 @@ impl From<Icosphere> for Mesh {
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, points);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, points);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        Ok(mesh)
     }
 }

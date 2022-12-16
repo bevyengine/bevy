@@ -21,14 +21,14 @@ struct Foo {
     a: u32,
     b: Bar,
     c: Vec<i32>,
-    d: Vec<Bar>,
+    d: Vec<Baz>,
 }
 
 // this will automatically implement the Reflect trait and the TupleStruct trait (because the type is a tuple struct)
 #[derive(Reflect)]
 struct Bar(String);
 
-#[derive(Reflect)]
+#[derive(Reflect, FromReflect)]
 struct Baz {
     value: f32,
 }
@@ -77,7 +77,7 @@ assert_eq!(value, 3.14);
 ```rust ignore
 for (i, value: &Reflect) in foo.iter_fields().enumerate() {
     let field_name = foo.name_at(i).unwrap();
-    if let Ok(value) = value.downcast_ref::<u32>() {
+    if let Some(value) = value.downcast_ref::<u32>() {
         println!("{} is a u32 with the value: {}", field_name, *value);
     }
 }
@@ -107,7 +107,7 @@ assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
 
 ### Trait "reflection"
 
-Call a trait on a given &dyn Reflect reference without knowing the underlying type!
+Call a trait on a given `&dyn Reflect` reference without knowing the underlying type!
 
 ```rust ignore
 #[derive(Reflect)]
@@ -137,7 +137,7 @@ let reflect_value: Box<dyn Reflect> = Box::new(MyType {
 // don't know the type at compile time?
 
 // Normally in rust we would be out of luck at this point. Lets use our new reflection powers to do something cool!
-let mut type_registry = TypeRegistry::default()
+let mut type_registry = TypeRegistry::default();
 type_registry.register::<MyType>();
 
 // The #[reflect] attribute we put on our DoThing trait generated a new `ReflectDoThing` struct, which implements TypeData.

@@ -1,4 +1,4 @@
-// This example shows how you can know when a `Component` has been removed, so you can react to it.
+//! This example shows how you can know when a `Component` has been removed, so you can react to it.
 
 use bevy::prelude::*;
 
@@ -27,13 +27,15 @@ fn main() {
 struct MyComponent;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
-    commands
-        .spawn_bundle(SpriteBundle {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn((
+        SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
-            ..Default::default()
-        })
-        .insert(MyComponent); // Add the `Component`.
+            ..default()
+        },
+        // Add the `Component`.
+        MyComponent,
+    ));
 }
 
 fn remove_component(
@@ -42,7 +44,7 @@ fn remove_component(
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
-    if time.seconds_since_startup() > 2.0 {
+    if time.elapsed_seconds() > 2.0 {
         if let Some(entity) = query.iter().next() {
             commands.entity(entity).remove::<MyComponent>();
         }

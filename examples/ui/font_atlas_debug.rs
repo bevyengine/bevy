@@ -1,8 +1,8 @@
+//! This example illustrates how `FontAtlas`'s are populated.
+//! Bevy uses `FontAtlas`'s under the hood to optimize text rendering.
+
 use bevy::{prelude::*, text::FontAtlasSet};
 
-// TODO: This is now broken. See #1243
-/// This example illustrates how FontAtlases are populated. Bevy uses FontAtlases under the hood to
-/// optimize text rendering.
 fn main() {
     App::new()
         .init_resource::<State>()
@@ -14,6 +14,7 @@ fn main() {
         .run();
 }
 
+#[derive(Resource)]
 struct State {
     atlas_count: u32,
     handle: Handle<Font>,
@@ -25,7 +26,7 @@ impl Default for State {
         Self {
             atlas_count: 0,
             handle: Handle::default(),
-            timer: Timer::from_seconds(0.05, true),
+            timer: Timer::from_seconds(0.05, TimerMode::Repeating),
         }
     }
 }
@@ -36,7 +37,7 @@ fn atlas_render_system(
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle.as_weak::<FontAtlasSet>()) {
+    if let Some(set) = font_atlas_sets.get(&state.handle.cast_weak::<FontAtlasSet>()) {
         if let Some((_size, font_atlas)) = set.iter().next() {
             let x_offset = state.atlas_count as f32;
             if state.atlas_count == font_atlas.len() as u32 {
@@ -46,18 +47,18 @@ fn atlas_render_system(
                 .get(&font_atlas[state.atlas_count as usize].texture_atlas)
                 .unwrap();
             state.atlas_count += 1;
-            commands.spawn_bundle(ImageBundle {
+            commands.spawn(ImageBundle {
                 image: texture_atlas.texture.clone().into(),
                 style: Style {
                     position_type: PositionType::Absolute,
-                    position: Rect {
+                    position: UiRect {
                         top: Val::Px(0.0),
                         left: Val::Px(512.0 * x_offset),
-                        ..Default::default()
+                        ..default()
                     },
-                    ..Default::default()
+                    ..default()
                 },
-                ..Default::default()
+                ..default()
             });
         }
     }
@@ -65,10 +66,11 @@ fn atlas_render_system(
 
 fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {
     if state.timer.tick(time.delta()).finished() {
-        for mut text in query.iter_mut() {
+        for mut text in &mut query {
             let c = rand::random::<u8>() as char;
-            if !text.sections[0].value.contains(c) {
-                text.sections[0].value.push(c);
+            let string = &mut text.sections[0].value;
+            if !string.contains(c) {
+                string.push(c);
             }
         }
 
@@ -79,17 +81,28 @@ fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Quer
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn_bundle(UiCameraBundle::default());
-    commands.spawn_bundle(TextBundle {
-        text: Text::with_section(
-            "a",
-            TextStyle {
-                font: font_handle,
-                font_size: 60.0,
-                color: Color::YELLOW,
+    commands.spawn(Camera2dBundle::default());
+    commands
+        .spawn(NodeBundle {
+            background_color: Color::NONE.into(),
+            style: Style {
+                position_type: PositionType::Absolute,
+                position: UiRect {
+                    bottom: Val::Px(0.0),
+                    ..default()
+                },
+                ..default()
             },
-            Default::default(),
-        ),
-        ..Default::default()
-    });
+            ..default()
+        })
+        .with_children(|parent| {
+            parent.spawn(TextBundle::from_section(
+                "a",
+                TextStyle {
+                    font: font_handle,
+                    font_size: 60.0,
+                    color: Color::YELLOW,
+                },
+            ));
+        });
 }

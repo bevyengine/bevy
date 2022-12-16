@@ -1,6 +1,6 @@
-use crate::{Rect, TextureAtlas};
+use crate::TextureAtlas;
 use bevy_asset::Assets;
-use bevy_math::Vec2;
+use bevy_math::{IVec2, Rect, Vec2};
 use bevy_render::texture::{Image, TextureFormatPixelInfo};
 use guillotiere::{size2, Allocation, AtlasAllocator};
 
@@ -30,9 +30,8 @@ impl DynamicTextureAtlasBuilder {
         if let Some(allocation) = allocation {
             let atlas_texture = textures.get_mut(&texture_atlas.texture).unwrap();
             self.place_texture(atlas_texture, allocation, texture);
-            let mut rect: Rect = allocation.rectangle.into();
-            rect.max.x -= self.padding as f32;
-            rect.max.y -= self.padding as f32;
+            let mut rect: Rect = to_rect(allocation.rectangle);
+            rect.max -= self.padding as f32;
             Some(texture_atlas.add_texture(rect))
         } else {
             None
@@ -86,12 +85,10 @@ impl DynamicTextureAtlasBuilder {
     }
 }
 
-impl From<guillotiere::Rectangle> for Rect {
-    fn from(rectangle: guillotiere::Rectangle) -> Self {
-        Rect {
-            min: Vec2::new(rectangle.min.x as f32, rectangle.min.y as f32),
-            max: Vec2::new(rectangle.max.x as f32, rectangle.max.y as f32),
-        }
+fn to_rect(rectangle: guillotiere::Rectangle) -> Rect {
+    Rect {
+        min: IVec2::new(rectangle.min.x, rectangle.min.y).as_vec2(),
+        max: IVec2::new(rectangle.max.x, rectangle.max.y).as_vec2(),
     }
 }
 

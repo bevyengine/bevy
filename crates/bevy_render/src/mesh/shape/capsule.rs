@@ -5,11 +5,11 @@ use wgpu::PrimitiveTopology;
 /// A cylinder with hemispheres at the top and bottom
 #[derive(Debug, Copy, Clone)]
 pub struct Capsule {
-    /// Radius on the xz plane.
+    /// Radius on the `XZ` plane.
     pub radius: f32,
     /// Number of sections in cylinder between hemispheres.
     pub rings: usize,
-    /// Height of the middle cylinder on the y axis, excluding the hemispheres.
+    /// Height of the middle cylinder on the `Y` axis, excluding the hemispheres.
     pub depth: f32,
     /// Number of latitudes, distributed by inclination. Must be even.
     pub latitudes: usize,
@@ -31,22 +31,17 @@ impl Default for Capsule {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy)]
 /// Manner in which UV coordinates are distributed vertically.
 pub enum CapsuleUvProfile {
     /// UV space is distributed by how much of the capsule consists of the hemispheres.
+    #[default]
     Aspect,
     /// Hemispheres get UV space according to the ratio of latitudes to rings.
     Uniform,
     /// Upper third of the texture goes to the northern hemisphere, middle third to the cylinder
     /// and lower third to the southern one.
     Fixed,
-}
-
-impl Default for CapsuleUvProfile {
-    fn default() -> Self {
-        CapsuleUvProfile::Aspect
-    }
 }
 
 impl From<Capsule> for Mesh {
@@ -123,7 +118,7 @@ impl From<Capsule> for Mesh {
             // North.
             vs[j] = Vec3::new(0.0, summit, 0.0);
             vts[j] = Vec2::new(s_texture_polar, 1.0);
-            vns[j] = Vec3::new(0.0, 1.0, 0.0);
+            vns[j] = Vec3::Y;
 
             // South.
             let idx = vert_offset_south_cap + j;
@@ -370,9 +365,9 @@ impl From<Capsule> for Mesh {
         assert_eq!(tris.len(), fs_len);
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_attribute(Mesh::ATTRIBUTE_POSITION, vs);
-        mesh.set_attribute(Mesh::ATTRIBUTE_NORMAL, vns);
-        mesh.set_attribute(Mesh::ATTRIBUTE_UV_0, vts);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vs);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, vns);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vts);
         mesh.set_indices(Some(Indices::U32(tris)));
         mesh
     }

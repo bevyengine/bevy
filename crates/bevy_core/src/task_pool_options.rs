@@ -1,4 +1,4 @@
-use bevy_ecs::world::World;
+use bevy_ecs::prelude::Resource;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use bevy_utils::tracing::trace;
 
@@ -32,14 +32,13 @@ impl TaskPoolThreadAssignmentPolicy {
 }
 
 /// Helper for configuring and creating the default task pools. For end-users who want full control,
-/// insert the default task pools into the resource map manually. If the pools are already inserted,
-/// this helper will do nothing.
-#[derive(Clone)]
-pub struct DefaultTaskPoolOptions {
+/// set up [`CorePlugin`](super::CorePlugin)
+#[derive(Clone, Resource)]
+pub struct TaskPoolOptions {
     /// If the number of physical cores is less than min_total_threads, force using
     /// min_total_threads
     pub min_total_threads: usize,
-    /// If the number of physical cores is grater than max_total_threads, force using
+    /// If the number of physical cores is greater than max_total_threads, force using
     /// max_total_threads
     pub max_total_threads: usize,
 
@@ -51,9 +50,9 @@ pub struct DefaultTaskPoolOptions {
     pub compute: TaskPoolThreadAssignmentPolicy,
 }
 
-impl Default for DefaultTaskPoolOptions {
+impl Default for TaskPoolOptions {
     fn default() -> Self {
-        DefaultTaskPoolOptions {
+        TaskPoolOptions {
             // By default, use however many cores are available on the system
             min_total_threads: 1,
             max_total_threads: std::usize::MAX,
@@ -82,10 +81,10 @@ impl Default for DefaultTaskPoolOptions {
     }
 }
 
-impl DefaultTaskPoolOptions {
+impl TaskPoolOptions {
     /// Create a configuration that forces using the given number of threads.
     pub fn with_num_threads(thread_count: usize) -> Self {
-        DefaultTaskPoolOptions {
+        TaskPoolOptions {
             min_total_threads: thread_count,
             max_total_threads: thread_count,
             ..Default::default()
@@ -93,14 +92,14 @@ impl DefaultTaskPoolOptions {
     }
 
     /// Inserts the default thread pools into the given resource map based on the configured values
-    pub fn create_default_pools(&self, world: &mut World) {
-        let total_threads =
-            bevy_tasks::logical_core_count().clamp(self.min_total_threads, self.max_total_threads);
+    pub fn create_default_pools(&self) {
+        let total_threads = bevy_tasks::available_parallelism()
+            .clamp(self.min_total_threads, self.max_total_threads);
         trace!("Assigning {} cores to default task pools", total_threads);
 
         let mut remaining_threads = total_threads;
 
-        if !world.contains_resource::<IoTaskPool>() {
+        {
             // Determine the number of IO threads we will use
             let io_threads = self
                 .io
@@ -109,15 +108,15 @@ impl DefaultTaskPoolOptions {
             trace!("IO Threads: {}", io_threads);
             remaining_threads = remaining_threads.saturating_sub(io_threads);
 
-            world.insert_resource(IoTaskPool(
+            IoTaskPool::init(|| {
                 TaskPoolBuilder::default()
                     .num_threads(io_threads)
                     .thread_name("IO Task Pool".to_string())
-                    .build(),
-            ));
+                    .build()
+            });
         }
 
-        if !world.contains_resource::<AsyncComputeTaskPool>() {
+        {
             // Determine the number of async compute threads we will use
             let async_compute_threads = self
                 .async_compute
@@ -126,15 +125,15 @@ impl DefaultTaskPoolOptions {
             trace!("Async Compute Threads: {}", async_compute_threads);
             remaining_threads = remaining_threads.saturating_sub(async_compute_threads);
 
-            world.insert_resource(AsyncComputeTaskPool(
+            AsyncComputeTaskPool::init(|| {
                 TaskPoolBuilder::default()
                     .num_threads(async_compute_threads)
                     .thread_name("Async Compute Task Pool".to_string())
-                    .build(),
-            ));
+                    .build()
+            });
         }
 
-        if !world.contains_resource::<ComputeTaskPool>() {
+        {
             // Determine the number of compute threads we will use
             // This is intentionally last so that an end user can specify 1.0 as the percent
             let compute_threads = self
@@ -142,12 +141,13 @@ impl DefaultTaskPoolOptions {
                 .get_number_of_threads(remaining_threads, total_threads);
 
             trace!("Compute Threads: {}", compute_threads);
-            world.insert_resource(ComputeTaskPool(
+
+            ComputeTaskPool::init(|| {
                 TaskPoolBuilder::default()
                     .num_threads(compute_threads)
                     .thread_name("Compute Task Pool".to_string())
-                    .build(),
-            ));
+                    .build()
+            });
         }
     }
 }

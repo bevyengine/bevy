@@ -1,3 +1,4 @@
+#![warn(missing_docs)]
 #![doc = include_str!("../README.md")]
 
 mod slice;
@@ -17,14 +18,14 @@ mod single_threaded_task_pool;
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;
+#[cfg(not(target_arch = "wasm32"))]
+pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
-
-mod countdown_event;
-pub use countdown_event::CountdownEvent;
 
 mod iter;
 pub use iter::ParallelIterator;
 
+#[allow(missing_docs)]
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
@@ -34,10 +35,16 @@ pub mod prelude {
     };
 }
 
-pub fn logical_core_count() -> usize {
-    num_cpus::get()
-}
+use std::num::NonZeroUsize;
 
-pub fn physical_core_count() -> usize {
-    num_cpus::get_physical()
+/// Gets the logical CPU core count available to the current process.
+///
+/// This is identical to [`std::thread::available_parallelism`], except
+/// it will return a default value of 1 if it internally errors out.
+///
+/// This will always return at least 1.
+pub fn available_parallelism() -> usize {
+    std::thread::available_parallelism()
+        .map(NonZeroUsize::get)
+        .unwrap_or(1)
 }

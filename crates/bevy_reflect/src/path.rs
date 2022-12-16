@@ -1,24 +1,25 @@
 use std::num::ParseIntError;
 
-use crate::{Reflect, ReflectMut, ReflectRef};
+use crate::{Array, Reflect, ReflectMut, ReflectRef};
 use thiserror::Error;
 
+/// An error returned from a failed path string query.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum ReflectPathError<'a> {
-    #[error("expected an identifier at the given index")]
+    #[error("expected an identifier at index {index}")]
     ExpectedIdent { index: usize },
-    #[error("the current struct doesn't have a field with the given name")]
+    #[error("the current struct doesn't have a field with the name `{field}`")]
     InvalidField { index: usize, field: &'a str },
-    #[error("the current tuple struct doesn't have a field with the given index")]
+    #[error("the current tuple struct doesn't have a field with the index {tuple_struct_index}")]
     InvalidTupleStructIndex {
         index: usize,
         tuple_struct_index: usize,
     },
-    #[error("the current list doesn't have a value at the given index")]
+    #[error("the current list doesn't have a value at the index {list_index}")]
     InvalidListIndex { index: usize, list_index: usize },
-    #[error("encountered an unexpected token")]
+    #[error("encountered an unexpected token `{token}`")]
     UnexpectedToken { index: usize, token: &'a str },
-    #[error("expected a token, but it wasn't there.")]
+    #[error("expected token `{token}`, but it wasn't there.")]
     ExpectedToken { index: usize, token: &'a str },
     #[error("expected a struct, but found a different reflect value")]
     ExpectedStruct { index: usize },
@@ -30,13 +31,41 @@ pub enum ReflectPathError<'a> {
     InvalidDowncast,
 }
 
+/// A trait which allows nested values to be retrieved with path strings.
+///
+/// Path strings use Rust syntax:
+/// - [`Struct`] items are accessed with a dot and a field name: `.field_name`
+/// - [`TupleStruct`] and [`Tuple`] items are accessed with a dot and a number: `.0`
+/// - [`List`] items are accessed with brackets: `[0]`
+///
+/// If the initial path element is a field of a struct, tuple struct, or tuple,
+/// the initial '.' may be omitted.
+///
+/// For example, given a struct with a field `foo` which is a reflected list of
+/// 2-tuples (like a `Vec<(T, U)>`), the path string `foo[3].0` would access tuple
+/// element 0 of element 3 of `foo`.
+///
+/// [`Struct`]: crate::Struct
+/// [`TupleStruct`]: crate::TupleStruct
+/// [`Tuple`]: crate::Tuple
+/// [`List`]: crate::List
 pub trait GetPath {
+    /// Returns a reference to the value specified by `path`.
+    ///
+    /// To retrieve a statically typed reference, use
+    /// [`get_path`][GetPath::get_path].
     fn path<'r, 'p>(&'r self, path: &'p str) -> Result<&'r dyn Reflect, ReflectPathError<'p>>;
+
+    /// Returns a mutable reference to the value specified by `path`.
+    ///
+    /// To retrieve a statically typed mutable reference, use
+    /// [`get_path_mut`][GetPath::get_path_mut].
     fn path_mut<'r, 'p>(
         &'r mut self,
         path: &'p str,
     ) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>;
 
+    /// Returns a statically typed reference to the value specified by `path`.
     fn get_path<'r, 'p, T: Reflect>(
         &'r self,
         path: &'p str,
@@ -47,6 +76,8 @@ pub trait GetPath {
         })
     }
 
+    /// Returns a statically typed mutable reference to the value specified by
+    /// `path`.
     fn get_path_mut<'r, 'p, T: Reflect>(
         &'r mut self,
         path: &'p str,
@@ -91,14 +122,10 @@ impl GetPath for dyn Reflect {
                     if let Some(Token::Ident(value)) = next_token(path, &mut index) {
                         match current.reflect_ref() {
                             ReflectRef::List(reflect_list) => {
-                                let list_index = value.parse::<usize>()?;
-                                let list_item = reflect_list.get(list_index).ok_or(
-                                    ReflectPathError::InvalidListIndex {
-                                        index: current_index,
-                                        list_index,
-                                    },
-                                )?;
-                                current = list_item;
+                                current = read_array_entry(reflect_list, value, current_index)?;
+                            }
+                            ReflectRef::Array(reflect_arr) => {
+                                current = read_array_entry(reflect_arr, value, current_index)?;
                             }
                             _ => {
                                 return Err(ReflectPathError::ExpectedList {
@@ -157,14 +184,10 @@ impl GetPath for dyn Reflect {
                     if let Some(Token::Ident(value)) = next_token(path, &mut index) {
                         match current.reflect_mut() {
                             ReflectMut::List(reflect_list) => {
-                                let list_index = value.parse::<usize>()?;
-                                let list_item = reflect_list.get_mut(list_index).ok_or(
-                                    ReflectPathError::InvalidListIndex {
-                                        index: current_index,
-                                        list_index,
-                                    },
-                                )?;
-                                current = list_item;
+                                current = read_array_entry_mut(reflect_list, value, current_index)?;
+                            }
+                            ReflectMut::Array(reflect_arr) => {
+                                current = read_array_entry_mut(reflect_arr, value, current_index)?;
                             }
                             _ => {
                                 return Err(ReflectPathError::ExpectedStruct {
@@ -200,6 +223,38 @@ impl GetPath for dyn Reflect {
 
         Ok(current)
     }
+}
+
+fn read_array_entry<'r, 'p, T>(
+    list: &'r T,
+    value: &'p str,
+    current_index: usize,
+) -> Result<&'r dyn Reflect, ReflectPathError<'p>>
+where
+    T: Array + ?Sized,
+{
+    let list_index = value.parse::<usize>()?;
+    list.get(list_index)
+        .ok_or(ReflectPathError::InvalidListIndex {
+            index: current_index,
+            list_index,
+        })
+}
+
+fn read_array_entry_mut<'r, 'p, T>(
+    list: &'r mut T,
+    value: &'p str,
+    current_index: usize,
+) -> Result<&'r mut dyn Reflect, ReflectPathError<'p>>
+where
+    T: Array + ?Sized,
+{
+    let list_index = value.parse::<usize>()?;
+    list.get_mut(list_index)
+        .ok_or(ReflectPathError::InvalidListIndex {
+            index: current_index,
+            list_index,
+        })
 }
 
 fn read_field<'r, 'p>(
@@ -310,6 +365,49 @@ mod tests {
     use super::GetPath;
     use crate as bevy_reflect;
     use crate::*;
+
+    #[test]
+    fn reflect_array_behaves_like_list() {
+        #[derive(Reflect)]
+        struct A {
+            list: Vec<u8>,
+            array: [u8; 10],
+        }
+
+        let a = A {
+            list: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            array: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        };
+
+        assert_eq!(*a.get_path::<u8>("list[5]").unwrap(), 5);
+        assert_eq!(*a.get_path::<u8>("array[5]").unwrap(), 5);
+        assert_eq!(*a.get_path::<u8>("list[0]").unwrap(), 0);
+        assert_eq!(*a.get_path::<u8>("array[0]").unwrap(), 0);
+    }
+
+    #[test]
+    fn reflect_array_behaves_like_list_mut() {
+        #[derive(Reflect)]
+        struct A {
+            list: Vec<u8>,
+            array: [u8; 10],
+        }
+
+        let mut a = A {
+            list: vec![0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+            array: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+        };
+
+        assert_eq!(*a.get_path_mut::<u8>("list[5]").unwrap(), 5);
+        assert_eq!(*a.get_path_mut::<u8>("array[5]").unwrap(), 5);
+
+        *a.get_path_mut::<u8>("list[5]").unwrap() = 10;
+        *a.get_path_mut::<u8>("array[5]").unwrap() = 10;
+
+        assert_eq!(*a.get_path_mut::<u8>("list[5]").unwrap(), 10);
+        assert_eq!(*a.get_path_mut::<u8>("array[5]").unwrap(), 10);
+    }
+
     #[test]
     fn reflect_path() {
         #[derive(Reflect)]

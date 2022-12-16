@@ -6,7 +6,9 @@
 
 ## What is Bevy ECS?
 
-Bevy ECS is an Entity Component System custom-built for the [Bevy][bevy] game engine. It aims to be simple to use, ergonomic, fast, massively parallel, opinionated, and featureful. It was created specifically for Bevy's needs, but it can easily be used as a standalone crate in other projects.
+Bevy ECS is an Entity Component System custom-built for the [Bevy][bevy] game engine.
+It aims to be simple to use, ergonomic, fast, massively parallel, opinionated, and featureful.
+It was created specifically for Bevy's needs, but it can easily be used as a standalone crate in other projects.
 
 ## ECS
 
@@ -55,9 +57,8 @@ struct Velocity { x: f32, y: f32 }
 
 let mut world = World::new();
 
-let entity = world.spawn()
-    .insert(Position { x: 0.0, y: 0.0 })
-    .insert(Velocity { x: 1.0, y: 0.0 })
+let entity = world
+    .spawn((Position { x: 0.0, y: 0.0 }, Velocity { x: 1.0, y: 0.0 }))
     .id();
 
 let entity_ref = world.entity(entity);
@@ -76,7 +77,7 @@ use bevy_ecs::prelude::*;
 struct Position { x: f32, y: f32 }
 
 fn print_position(query: Query<(Entity, &Position)>) {
-    for (entity, position) in query.iter() {
+    for (entity, position) in &query {
         println!("Entity {:?} is at position: x {}, y {}", entity, position.x, position.y);
     }
 }
@@ -89,7 +90,7 @@ Apps often require unique resources, such as asset collections, renderers, audio
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Time {
     seconds: f32,
 }
@@ -128,7 +129,7 @@ struct Velocity { x: f32, y: f32 }
 
 // This system moves each entity with a Position and Velocity component
 fn movement(mut query: Query<(&mut Position, &Velocity)>) {
-    for (mut position, velocity) in query.iter_mut() {
+    for (mut position, velocity) in &mut query {
         position.x += velocity.x;
         position.y += velocity.y;
     }
@@ -139,16 +140,21 @@ fn main() {
     let mut world = World::new();
 
     // Spawn an entity with Position and Velocity components
-    world.spawn()
-        .insert(Position { x: 0.0, y: 0.0 })
-        .insert(Velocity { x: 1.0, y: 0.0 });
+    world.spawn((
+        Position { x: 0.0, y: 0.0 },
+        Velocity { x: 1.0, y: 0.0 },
+    ));
 
     // Create a new Schedule, which defines an execution strategy for Systems
     let mut schedule = Schedule::default();
 
+    // Define a unique public name for a new Stage.
+    #[derive(StageLabel)]
+    pub struct UpdateLabel;
+
     // Add a Stage to our schedule. Each Stage in a schedule runs all of its systems
     // before moving on to the next Stage
-    schedule.add_stage("update", SystemStage::parallel()
+    schedule.add_stage(UpdateLabel, SystemStage::parallel()
         .with_system(movement)
     );
 
@@ -174,7 +180,7 @@ struct Alive;
 // Gets the Position component of all Entities with Player component and without the Alive
 // component. 
 fn system(query: Query<&Position, (With<Player>, Without<Alive>)>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 ```
@@ -195,13 +201,13 @@ struct Velocity { x: f32, y: f32 }
 
 // Gets the Position component of all Entities whose Velocity has changed since the last run of the System
 fn system_changed(query: Query<&Position, Changed<Velocity>>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 
-// Gets the i32 component of all Entities that had a f32 component added since the last run of the System
+// Gets the Position component of all Entities that had a Velocity component added since the last run of the System
 fn system_added(query: Query<&Position, Added<Velocity>>) {
-    for position in query.iter() {
+    for position in &query {
     }
 }
 ```
@@ -211,6 +217,7 @@ Resources also expose change state:
 ```rust
 use bevy_ecs::prelude::*;
 
+#[derive(Resource)]
 struct Time(f32);
 
 // Prints "time changed!" if the Time resource has changed since the last run of the System
@@ -269,10 +276,10 @@ struct PlayerBundle {
 let mut world = World::new();
 
 // Spawn a new entity and insert the default PlayerBundle
-world.spawn().insert_bundle(PlayerBundle::default());
+world.spawn(PlayerBundle::default());
 
 // Bundles play well with Rust's struct update syntax
-world.spawn().insert_bundle(PlayerBundle {
+world.spawn(PlayerBundle {
     position: Position { x: 1.0, y: 1.0 },
     ..Default::default()
 });

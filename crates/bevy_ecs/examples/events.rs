@@ -1,4 +1,4 @@
-use bevy_ecs::{event::Events, prelude::*};
+use bevy_ecs::prelude::*;
 
 // In this example a system sends a custom event with a 50/50 chance during any frame.
 // If an event was send, it will be printed by the console in a receiving system.
@@ -10,6 +10,12 @@ fn main() {
     // Create a schedule and a stage
     let mut schedule = Schedule::default();
 
+    #[derive(StageLabel)]
+    enum Stages {
+        First,
+        Second,
+    }
+
     // Events need to be updated in every frame. This update should happen before we use
     // the events. To guarantee this, we can let the update run in an earlier stage than our logic.
     // Here we will use a stage called "first" that will always run it's systems before the Stage
@@ -17,27 +23,21 @@ fn main() {
     // sending and receiving events.
     let mut first = SystemStage::parallel();
     first.add_system(Events::<MyEvent>::update_system);
-    schedule.add_stage("first", first);
+    schedule.add_stage(Stages::First, first);
 
     // Add systems sending and receiving events to a "second" Stage
     let mut second = SystemStage::parallel();
-    second.add_system(sending_system.label(EventSystem::Sending));
-    second.add_system(receiving_system.after(EventSystem::Sending));
+    second.add_system(sending_system);
+    second.add_system(receiving_system.after(sending_system));
 
     // Run the "second" Stage after the "first" Stage, so our Events always get updated before we use them
-    schedule.add_stage_after("first", "second", second);
+    schedule.add_stage_after(Stages::First, Stages::Second, second);
 
     // Simulate 10 frames of our world
     for iteration in 1..=10 {
-        println!("Simulating frame {}/10", iteration);
+        println!("Simulating frame {iteration}/10");
         schedule.run(&mut world);
     }
-}
-
-// System label to enforce a run order of our systems
-#[derive(SystemLabel, Debug, Clone, PartialEq, Eq, Hash)]
-enum EventSystem {
-    Sending,
 }
 
 // This is our event that we will send and receive in systems

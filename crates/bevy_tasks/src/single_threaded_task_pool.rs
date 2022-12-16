@@ -1,5 +1,6 @@
 use std::{
     future::Future,
+    marker::PhantomData,
     mem,
     sync::{Arc, Mutex},
 };
@@ -14,18 +15,22 @@ impl TaskPoolBuilder {
         Self::default()
     }
 
+    /// No op on the single threaded task pool
     pub fn num_threads(self, _num_threads: usize) -> Self {
         self
     }
 
+    /// No op on the single threaded task pool
     pub fn stack_size(self, _stack_size: usize) -> Self {
         self
     }
 
+    /// No op on the single threaded task pool
     pub fn thread_name(self, _thread_name: String) -> Self {
         self
     }
 
+    /// Creates a new [`TaskPool`]
     pub fn build(self) -> TaskPool {
         TaskPool::new_internal()
     }
@@ -57,42 +62,48 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
+    pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         let executor = &async_executor::LocalExecutor::new();
-        let executor: &'scope async_executor::LocalExecutor<'scope> =
+        let executor: &'env async_executor::LocalExecutor<'env> =
             unsafe { mem::transmute(executor) };
+
+        let results: Mutex<Vec<Arc<Mutex<Option<T>>>>> = Mutex::new(Vec::new());
+        let results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>> = unsafe { mem::transmute(&results) };
 
         let mut scope = Scope {
             executor,
-            results: Vec::new(),
+            results,
+            scope: PhantomData,
+            env: PhantomData,
         };
 
-        f(&mut scope);
+        let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
+
+        f(scope_ref);
 
         // Loop until all tasks are done
         while executor.try_tick() {}
 
-        scope
-            .results
+        let results = scope.results.lock().unwrap();
+        results
             .iter()
             .map(|result| result.lock().unwrap().take().unwrap())
             .collect()
     }
 
-    // Spawns a static future onto the JS event loop. For now it is returning FakeTask
-    // instance with no-op detach method. Returning real Task is possible here, but tricky:
-    // future is running on JS event loop, Task is running on async_executor::LocalExecutor
-    // so some proxy future is needed. Moreover currently we don't have long-living
-    // LocalExecutor here (above `spawn` implementation creates temporary one)
-    // But for typical use cases it seems that current implementation should be sufficient:
-    // caller can spawn long-running future writing results to some channel / event queue
-    // and simply call detach on returned Task (like AssetServer does) - spawned future
-    // can write results to some channel / event queue.
-
+    /// Spawns a static future onto the JS event loop. For now it is returning FakeTask
+    /// instance with no-op detach method. Returning real Task is possible here, but tricky:
+    /// future is running on JS event loop, Task is running on async_executor::LocalExecutor
+    /// so some proxy future is needed. Moreover currently we don't have long-living
+    /// LocalExecutor here (above `spawn` implementation creates temporary one)
+    /// But for typical use cases it seems that current implementation should be sufficient:
+    /// caller can spawn long-running future writing results to some channel / event queue
+    /// and simply call detach on returned Task (like AssetServer does) - spawned future
+    /// can write results to some channel / event queue.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
@@ -103,6 +114,7 @@ impl TaskPool {
         FakeTask
     }
 
+    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskSpool::spawn`].
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> FakeTask
     where
         T: 'static,
@@ -115,24 +127,44 @@ impl TaskPool {
 pub struct FakeTask;
 
 impl FakeTask {
+    /// No op on the single threaded task pool
     pub fn detach(self) {}
 }
 
+/// A `TaskPool` scope for running one or more non-`'static` futures.
+///
+/// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
-pub struct Scope<'scope, T> {
-    executor: &'scope async_executor::LocalExecutor<'scope>,
+pub struct Scope<'scope, 'env: 'scope, T> {
+    executor: &'env async_executor::LocalExecutor<'env>,
     // Vector to gather results of all futures spawned during scope run
-    results: Vec<Arc<Mutex<Option<T>>>>,
+    results: &'env Mutex<Vec<Arc<Mutex<Option<T>>>>>,
+
+    // make `Scope` invariant over 'scope and 'env
+    scope: PhantomData<&'scope mut &'scope ()>,
+    env: PhantomData<&'env mut &'env ()>,
 }
 
-impl<'scope, T: Send + 'scope> Scope<'scope, T> {
-    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        self.spawn_local(f);
+impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
+    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.
+    ///
+    /// On the single threaded task pool, it just calls [`Scope::spawn_local`].
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
+        self.spawn_on_scope(f);
     }
 
-    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
+    /// Spawns a scoped future that runs on the thread the scope called from. The
+    /// scope *must* outlive the provided future. The results of the future will be
+    /// returned as a part of [`TaskPool::scope`]'s return value.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'env>(&self, f: Fut) {
         let result = Arc::new(Mutex::new(None));
-        self.results.push(result.clone());
+        self.results.lock().unwrap().push(result.clone());
         let f = async move {
             result.lock().unwrap().replace(f.await);
         };

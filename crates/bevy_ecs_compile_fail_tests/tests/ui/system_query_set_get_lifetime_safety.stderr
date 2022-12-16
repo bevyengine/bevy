@@ -1,10 +1,10 @@
 error[E0499]: cannot borrow `queries` as mutable more than once at a time
   --> tests/ui/system_query_set_get_lifetime_safety.rs:10:14
    |
-7  |     let mut q2 = queries.q0();
+7  |     let mut q2 = queries.p0();
    |                  ------------ first mutable borrow occurs here
 ...
-10 |     let q1 = queries.q1();
+10 |     let q1 = queries.p1();
    |              ^^^^^^^^^^^^ second mutable borrow occurs here
 ...
 14 |     b.0 = a.0
@@ -13,10 +13,10 @@ error[E0499]: cannot borrow `queries` as mutable more than once at a time
 error[E0499]: cannot borrow `queries` as mutable more than once at a time
   --> tests/ui/system_query_set_get_lifetime_safety.rs:21:18
    |
-18 |     let q1 = queries.q1();
+18 |     let q1 = queries.p1();
    |              ------------ first mutable borrow occurs here
 ...
-21 |     let mut q2 = queries.q0();
+21 |     let mut q2 = queries.p0();
    |                  ^^^^^^^^^^^^ second mutable borrow occurs here
 ...
 25 |     b.0 = a.0

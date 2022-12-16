@@ -4,7 +4,7 @@ This page lists the required dependencies to build a Bevy project on your Linux 
 
 If you don't see your distro present in the list, feel free to add the instructions in this document.
 
-## Ubuntu 20.04
+## [Ubuntu](https://ubuntu.com/)
 
 ```bash
 sudo apt-get install g++ pkg-config libx11-dev libasound2-dev libudev-dev
@@ -26,10 +26,16 @@ Compiling with clang is also possible - replace the `g++` package with `clang`.
 Graphics and audio need to be configured for them to work with WSL 2 backend.
 Please see the ubuntu [WSL documentation](https://wiki.ubuntu.com/WSL) on how to set up graphics and audio.
 
-## Fedora
+## [Fedora](https://getfedora.org/)
 
 ```bash
 sudo dnf install gcc-c++ libX11-devel alsa-lib-devel systemd-devel
+```
+
+if using Wayland, you will also need to install
+
+```bash
+sudo dnf install wayland-devel libxkbcommon-devel
 ```
 
 If there are errors with linking during the build process such as:
@@ -49,11 +55,45 @@ Add your arch to the end of the package to remove the linker error. For example:
 sudo dnf install alsa-lib-devel.x86_64
 ```
 
+Or if there are errors such as:
+
+```txt
+  --- stderr
+  thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: "`\"pkg-config\" \"--libs\" \"--cflags\" \"libudev\"` did not exit successfully: exit status: 1\n--- stderr\nPackage libudev was not found in the pkg-config search path.\nPerhaps you should add the directory containing `libudev.pc'\nto the PKG_CONFIG_PATH environment variable\nNo package 'libudev' found\n"', /home/<user>/.cargo/registry/src/github.com-1ecc6299db9ec823/libudev-sys-0.1.4/build.rs:38:41
+  stack backtrace:
+     0: rust_begin_unwind
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/std/src/panicking.rs:517:5
+     1: core::panicking::panic_fmt
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/core/src/panicking.rs:96:14
+     2: core::result::unwrap_failed
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/core/src/result.rs:1617:5
+     3: core::result::Result<T,E>::unwrap
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/core/src/result.rs:1299:23
+     4: build_script_build::main
+               at ./build.rs:38:5
+     5: core::ops::function::FnOnce::call_once
+               at /rustc/9bb77da74dac4768489127d21e32db19b59ada5b/library/core/src/ops/function.rs:227:5
+  note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+warning: build failed, waiting for other jobs to finish...
+error: build failed
+```
+
+Set the `PKG_CONFIG_PATH` env var to `/usr/lib/<target>/pkgconfig/`. For example on an x86_64 system:
+
+```txt
+export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
+```
+
 ## Arch / Manjaro
 
 ```bash
 sudo pacman -S libx11 pkgconf alsa-lib
 ```
+
+Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
+
+Depending on your graphics card, you may have to install one of the following:
+`vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
 ## Void
 
@@ -63,92 +103,47 @@ sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
 
 ## NixOS
 
-Add a `build.rs` file to your project containing:
-
-```rust
-# build.rs
-
-fn main() {
-    if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=vulkan");
-    }
-}
-```
-
-These packages provide the dependencies required to run a bevy project. They can be installed globally or via nix-shell.
-Based on your global configuration it also might be necessary to allow unfree packages:
-
-```bash
-export NIXPKGS_ALLOW_UNFREE=1 # needed for lutris
-nix-shell -p cargo pkgconfig udev lutris alsaLib x11 xorg.libXcursor xorg.libXrandr xorg.libXi vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
-```
-
-Alternatively, you can define `shell.nix` containing:
+Add a `shell.nix` file to the root of the project containing:
 
 ```nix
-# shell.nix
-
-{ pkgs ? import <nixpkgs> { } }:
-with pkgs;
-mkShell {
-  buildInputs = [
-    cargo
-    pkgconfig udev alsaLib lutris
-    x11 xorg.libXcursor xorg.libXrandr xorg.libXi
-    vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
+{ pkgs ? import <nixpkgs> {} }:
+with pkgs; mkShell rec {
+  nativeBuildInputs = [
+    pkg-config
+    llvmPackages.bintools # To use lld linker
   ];
+  buildInputs = [
+    udev alsaLib vulkan-loader
+    xlibsWrapper xorg.libXcursor xorg.libXrandr xorg.libXi # To use x11 feature
+    libxkbcommon wayland # To use wayland feature
+  ];
+  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
 }
 ```
 
-And enter it by just running `nix-shell`.
+And enter it by just running `nix-shell`. You should be able compile Bevy programs using `cargo run` within this nix-shell. You can do this in one line with `nix-shell --run "cargo run"`.
 
-You should be able compile bevy programms using `cargo` within this nix-shell.
+Note that this template does not add Rust to the environment because there are many ways to do it. For example, to use stable Rust from nixpkgs you can add `cargo` to `nativeBuildInputs`.
 
-### Fast compilation
-
-According to the Bevy getting started guide (for v0.5), you can enable fast compilation by add a Cargo config file and by adding `lld` and `clang`. As long as you add `clang` and `lld` to your environment, it should mostly work, but you'll still need to modify the Cargo config file so that it doesn't point to `/usr/bin/clang` anymore.
-
-Working off the above files, let's make the necessary changes.
-
-For `.cargo/config.toml`, change the path to the linker from `/usr/bin/clang` to `clang`:
-
-``` diff
-  [target.x86_64-unknown-linux-gnu]
-- linker = "/usr/bin/clang"
-+ linker = "clang"
-  rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
-```
-
-In `shell.nix`, add `lld` and `clang`:
-
-``` diff
-  buildInputs = [
-    cargo
-    pkgconfig udev alsaLib lutris
-    x11 xorg.libXcursor xorg.libXrandr xorg.libXi
-    vulkan-tools vulkan-headers vulkan-loader vulkan-validation-layers
-+   clang lld
-  ];
-```
-
-### Building apps and using the GPU
-
-If you run into issues with building basic apps or activating the GPU ('thread 'main' panicked at 'Unable to find a GPU!'), then you may need to update your environment's `LD_LIBRARY_PATH`. To solve issues relating to missing `libudev.so.1` files, `alsa` drivers, and being unable to find a GPU, try updating the environment variable in your `shell.nix` by creating a `shellHook`:
-
-``` diff
-  { pkgs ? import <nixpkgs> { } }:
-  with pkgs;
-  mkShell {
-+   shellHook = ''export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:${pkgs.lib.makeLibraryPath [
-+     pkgs.alsaLib
-+     pkgs.udev
-+     pkgs.vulkan-loader
-+   ]}"'';
-    buildInputs = [
-```
-
-## Opensuse Tumbleweed
+## [OpenSUSE](https://www.opensuse.org/)
 
 ```bash
-   sudo zypper install libudev-devel gcc-c++
+   sudo zypper install libudev-devel gcc-c++ alsa-lib-devel
+```
+
+## Gentoo
+
+```bash
+   sudo emerge --ask libX11 pkgconf alsa-lib
+```
+
+When using an AMD Radeon GPU, you may also need to emerge `amdgpu-pro-vulkan` to get Bevy to find the GPU.
+
+When using a NVIDIA GPU with the proprietary driver (eg. `x11-drivers/nvidia-drivers`), you may also need to emerge `media-libs/vulkan-loader` to get Bevy to find the GPU. NVIDIA Vulkan driver is included in `nvidia-driver`, but may need the loader to find the correct driver. See Gentoo [Documentation](https://wiki.gentoo.org/wiki/Vulkan) for details.
+
+## [Clear Linux OS](https://clearlinux.org/)
+
+```bash
+sudo swupd bundle-add devpkg-alsa-lib
+sudo swupd bundle-add devpkg-libgudev
 ```

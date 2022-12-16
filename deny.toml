@@ -6,9 +6,7 @@ unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
 ignore = [
-    "RUSTSEC-2020-0056", # from gilrs v0.8.1 - unmaintained - https://github.com/koute/stdweb/issues/403
-    "RUSTSEC-2020-0095", # from crevice dev dependency - unmaintained - https://github.com/johannhof/difference.rs/issues/45
-    "RUSTSEC-2021-0119", # from rodio 0.14.0 - unsafety - https://github.com/nix-rust/nix/issues/1541
+    "RUSTSEC-2020-0056", # from cpal v0.14.1 - unmaintained - https://github.com/koute/stdweb/issues/403
 ]
 
 [licenses]
@@ -16,6 +14,7 @@ unlicensed = "deny"
 copyleft = "deny"
 allow = [
     "MIT",
+    "MIT-0",
     "Apache-2.0",
     "BSD-3-Clause",
     "ISC",
@@ -24,12 +23,10 @@ allow = [
     "BSD-2-Clause",
     "CC0-1.0",
 ]
+exceptions = [
+    { name = "unicode-ident", allow = ["Unicode-DFS-2016"] },
+]
 default = "deny"
-
-[[licenses.clarify]]
-name = "stretch"
-expression = "MIT"
-license-files = []
 
 [bans]
 multiple-versions = "deny"
@@ -37,25 +34,24 @@ wildcards = "deny"
 highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    { name = "cfg-if", version = "0.1" },               # from winit v0.26.0
-    { name = "core-foundation", version = "0.6" },      # from gilrs v0.8.1
-    { name = "core-foundation", version = "0.7" },      # from winit v0.26.0
-    { name = "core-foundation-sys", version = "0.6" },  # from gilrs v0.8.1
-    { name = "core-foundation-sys", version = "0.7" },  # from winit v0.26.0
-    { name = "core-graphics", version = "0.19" },       # from winit v0.26.0
-    { name = "darling", version = "0.10" },             # from rodio v0.14.0
-    { name = "darling_core", version = "0.10" },        # from rodio v0.14.0
-    { name = "darling_macro", version = "0.10" },       # from rodio v0.14.0
-    { name = "mach", version = "0.2" },                 # from gilrs v0.8.1
-    { name = "mio", version = "0.7" },                  # from notify v5.0.0-pre.11
-    { name = "ndk", version = "0.3" },                  # from rodio v0.14.0
-    { name = "ndk", version = "0.4" },                  # from rodio v0.14.0
-    { name = "ndk-macro", version = "0.2" },            # from rodio v0.14.0
-    { name = "ndk-glue", version = "0.3" },             # from rodio v0.14.0
-    { name = "ndk-glue", version = "0.4" },             # from rodio v0.14.0
-    { name = "proc-macro-crate", version = "0.1" },     # from rodio v0.14.0
-    { name = "stdweb", version = "0.1" },               # from rodio v0.14.0
-    { name = "strsim", version = "0.9" },               # from rodio v0.14.0
+    { name = "ndk-sys", version = "0.3" },               # from rodio v0.16.0
+    { name = "ndk", version = "0.6" },                   # from rodio v0.16.0
+    { name = "raw-window-handle", version = "0.4" },     # from winit v0.27.4
+    { name = "nix", version = "0.23" },                  # from cpal v0.14.1
+    { name = "rustc_version", version = "0.2" },         # from postcard v1.0.2
+    { name = "semver", version = "0.9" },                # from postcard v1.0.2
+    { name = "windows_aarch64_msvc", version = "0.36" }, # from notify v5.0.0
+    { name = "windows_i686_gnu", version = "0.36" },     # from notify v5.0.0
+    { name = "windows_i686_msvc", version = "0.36" },    # from notify v5.0.0
+    { name = "windows_x86_64_gnu", version = "0.36" },   # from notify v5.0.0
+    { name = "windows_x86_64_msvc", version = "0.36" },  # from notify v5.0.0
+    { name = "windows-sys", version = "0.36" },          # from notify v5.0.0
+    { name = "windows", version = "0.37" },              # from rodio v0.16.0
+    { name = "windows_aarch64_msvc", version = "0.37" }, # from rodio v0.16.0
+    { name = "windows_i686_gnu", version = "0.37" },     # from rodio v0.16.0
+    { name = "windows_i686_msvc", version = "0.37" },    # from rodio v0.16.0
+    { name = "windows_x86_64_gnu", version = "0.37" },   # from rodio v0.16.0
+    { name = "windows_x86_64_msvc", version = "0.37" },  # from rodio v0.16.0
 ]
 
 [sources]

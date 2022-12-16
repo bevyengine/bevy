@@ -1,23 +1,22 @@
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeGeneration},
+    archetype::ArchetypeComponentId,
     query::Access,
-    schedule::{ParallelSystemContainer, ParallelSystemExecutor},
+    schedule::{ParallelSystemExecutor, SystemContainer},
     world::World,
 };
 use async_channel::{Receiver, Sender};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::Instrument;
+use event_listener::Event;
 use fixedbitset::FixedBitSet;
 
 #[cfg(test)]
-use SchedulingEvent::*;
+use scheduling_event::*;
 
 struct SystemSchedulingMetadata {
     /// Used to signal the system's task to start the system.
-    start_sender: Sender<()>,
-    /// Receives the signal to start the system.
-    start_receiver: Receiver<()>,
+    start: Event,
     /// Indices of systems that depend on this one, used to decrement their
     /// dependency counters when this system finishes.
     dependants: Vec<usize>,
@@ -32,8 +31,6 @@ struct SystemSchedulingMetadata {
 }
 
 pub struct ParallelExecutor {
-    /// Last archetypes generation observed by parallel systems.
-    archetype_generation: ArchetypeGeneration,
     /// Cached metadata of every system.
     system_metadata: Vec<SystemSchedulingMetadata>,
     /// Used by systems to notify the executor that they have finished.
@@ -58,9 +55,12 @@ pub struct ParallelExecutor {
 
 impl Default for ParallelExecutor {
     fn default() -> Self {
-        let (finish_sender, finish_receiver) = async_channel::unbounded();
+        // Using a bounded channel here as it avoids allocations when signaling
+        // and generally remains hotter in memory. It'll take 128 systems completing
+        // before the parallel executor runs before this overflows. If it overflows
+        // all systems will just suspend until the parallel executor runs.
+        let (finish_sender, finish_receiver) = async_channel::bounded(128);
         Self {
-            archetype_generation: ArchetypeGeneration::initial(),
             system_metadata: Default::default(),
             finish_sender,
             finish_receiver,
@@ -77,20 +77,18 @@ impl Default for ParallelExecutor {
 }
 
 impl ParallelSystemExecutor for ParallelExecutor {
-    fn rebuild_cached_data(&mut self, systems: &[ParallelSystemContainer]) {
+    fn rebuild_cached_data(&mut self, systems: &[SystemContainer]) {
         self.system_metadata.clear();
         self.queued.grow(systems.len());
         self.running.grow(systems.len());
         self.should_run.grow(systems.len());
 
         // Construct scheduling data for systems.
-        for container in systems.iter() {
+        for container in systems {
             let dependencies_total = container.dependencies().len();
             let system = container.system();
-            let (start_sender, start_receiver) = async_channel::bounded(1);
             self.system_metadata.push(SystemSchedulingMetadata {
-                start_sender,
-                start_receiver,
+                start: Event::new(),
                 dependants: vec![],
                 dependencies_total,
                 dependencies_now: 0,
@@ -106,25 +104,35 @@ impl ParallelSystemExecutor for ParallelExecutor {
         }
     }
 
-    fn run_systems(&mut self, systems: &mut [ParallelSystemContainer], world: &mut World) {
+    fn run_systems(&mut self, systems: &mut [SystemContainer], world: &mut World) {
         #[cfg(test)]
         if self.events_sender.is_none() {
             let (sender, receiver) = async_channel::unbounded::<SchedulingEvent>();
-            world.insert_resource(receiver);
+            world.insert_resource(SchedulingEvents(receiver));
             self.events_sender = Some(sender);
         }
 
-        self.update_archetypes(systems, world);
+        {
+            #[cfg(feature = "trace")]
+            let _span = bevy_utils::tracing::info_span!("update_archetypes").entered();
+            for (index, container) in systems.iter_mut().enumerate() {
+                let meta = &mut self.system_metadata[index];
+                let system = container.system_mut();
+                system.update_archetype_component_access(world);
+                meta.archetype_component_access
+                    .extend(system.archetype_component_access());
+            }
+        }
 
-        let compute_pool = world
-            .get_resource_or_insert_with(|| ComputeTaskPool(TaskPool::default()))
-            .clone();
-        compute_pool.scope(|scope| {
+        ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             self.prepare_systems(scope, systems, world);
+            if self.should_run.count_ones(..) == 0 {
+                return;
+            }
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
                 while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
-                    self.process_queued_systems().await;
+                    self.process_queued_systems();
                     // Avoid deadlocking if no systems were actually started.
                     if self.running.count_ones(..) != 0 {
                         // Wait until at least one system has finished.
@@ -132,7 +140,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
                             .finish_receiver
                             .recv()
                             .await
-                            .unwrap_or_else(|error| unreachable!(error));
+                            .unwrap_or_else(|error| unreachable!("{}", error));
                         self.process_finished_system(index);
                         // Gather other systems than may have finished.
                         while let Ok(index) = self.finish_receiver.try_recv() {
@@ -154,70 +162,73 @@ impl ParallelSystemExecutor for ParallelExecutor {
 }
 
 impl ParallelExecutor {
-    /// Calls system.new_archetype() for each archetype added since the last call to
-    /// [update_archetypes] and updates cached archetype_component_access.
-    fn update_archetypes(&mut self, systems: &mut [ParallelSystemContainer], world: &World) {
-        #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!("update_archetypes");
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
-        let archetypes = world.archetypes();
-        let new_generation = archetypes.generation();
-        let old_generation = std::mem::replace(&mut self.archetype_generation, new_generation);
-        let archetype_index_range = old_generation.value()..new_generation.value();
-
-        for archetype in archetypes.archetypes[archetype_index_range].iter() {
-            for (index, container) in systems.iter_mut().enumerate() {
-                let meta = &mut self.system_metadata[index];
-                let system = container.system_mut();
-                system.new_archetype(archetype);
-                meta.archetype_component_access
-                    .extend(system.archetype_component_access());
-            }
-        }
-    }
-
     /// Populates `should_run` bitset, spawns tasks for systems that should run this iteration,
     /// queues systems with no dependencies to run (or skip) at next opportunity.
     fn prepare_systems<'scope>(
         &mut self,
-        scope: &mut Scope<'scope, ()>,
-        systems: &'scope mut [ParallelSystemContainer],
+        scope: &Scope<'_, 'scope, ()>,
+        systems: &'scope mut [SystemContainer],
         world: &'scope World,
     ) {
+        // These are used as a part of a unit test.
+        #[cfg(test)]
+        let mut started_systems = 0;
         #[cfg(feature = "trace")]
-        let span = bevy_utils::tracing::info_span!("prepare_systems");
-        #[cfg(feature = "trace")]
-        let _guard = span.enter();
+        let _span = bevy_utils::tracing::info_span!("prepare_systems").entered();
         self.should_run.clear();
         for (index, (system_data, system)) in
             self.system_metadata.iter_mut().zip(systems).enumerate()
         {
+            let should_run = system.should_run();
+            let can_start = should_run
+                && system_data.dependencies_total == 0
+                && Self::can_start_now(
+                    self.non_send_running,
+                    system_data,
+                    &self.active_archetype_component_access,
+                );
+
+            // Queue the system if it has no dependencies, otherwise reset its dependency counter.
+            if system_data.dependencies_total == 0 {
+                if !can_start {
+                    self.queued.insert(index);
+                }
+            } else {
+                system_data.dependencies_now = system_data.dependencies_total;
+            }
+
+            if !should_run {
+                continue;
+            }
+
             // Spawn the system task.
-            if system.should_run() {
-                self.should_run.set(index, true);
-                let start_receiver = system_data.start_receiver.clone();
-                let finish_sender = self.finish_sender.clone();
-                let system = system.system_mut();
-                #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
-                let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
+            self.should_run.insert(index);
+            let finish_sender = self.finish_sender.clone();
+            let system = system.system_mut();
+            #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
+            let system_span = bevy_utils::tracing::info_span!("system", name = &*system.name());
+            #[cfg(feature = "trace")]
+            let overhead_span =
+                bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
+
+            let mut run = move || {
                 #[cfg(feature = "trace")]
-                let overhead_span =
-                    bevy_utils::tracing::info_span!("system overhead", name = &*system.name());
+                let _system_guard = system_span.enter();
+                // SAFETY: the executor prevents two systems with conflicting access from running simultaneously.
+                unsafe { system.run_unsafe((), world) };
+            };
+
+            if can_start {
                 let task = async move {
-                    start_receiver
-                        .recv()
-                        .await
-                        .unwrap_or_else(|error| unreachable!(error));
-                    #[cfg(feature = "trace")]
-                    let system_guard = system_span.enter();
-                    unsafe { system.run_unsafe((), world) };
-                    #[cfg(feature = "trace")]
-                    drop(system_guard);
+                    run();
+                    // This will never panic:
+                    //  - The channel is never closed or dropped.
+                    //  - Overflowing the bounded size will just suspend until
+                    //    there is capacity.
                     finish_sender
                         .send(index)
                         .await
-                        .unwrap_or_else(|error| unreachable!(error));
+                        .unwrap_or_else(|error| unreachable!("{}", error));
                 };
 
                 #[cfg(feature = "trace")]
@@ -225,32 +236,71 @@ impl ParallelExecutor {
                 if system_data.is_send {
                     scope.spawn(task);
                 } else {
-                    scope.spawn_local(task);
+                    scope.spawn_on_scope(task);
+                }
+
+                #[cfg(test)]
+                {
+                    started_systems += 1;
+                }
+
+                self.running.insert(index);
+                if !system_data.is_send {
+                    self.non_send_running = true;
+                }
+                // Add this system's access information to the active access information.
+                self.active_archetype_component_access
+                    .extend(&system_data.archetype_component_access);
+            } else {
+                let start_listener = system_data.start.listen();
+                let task = async move {
+                    start_listener.await;
+                    run();
+                    // This will never panic:
+                    //  - The channel is never closed or dropped.
+                    //  - Overflowing the bounded size will just suspend until
+                    //    there is capacity.
+                    finish_sender
+                        .send(index)
+                        .await
+                        .unwrap_or_else(|error| unreachable!("{}", error));
+                };
+
+                #[cfg(feature = "trace")]
+                let task = task.instrument(overhead_span);
+                if system_data.is_send {
+                    scope.spawn(task);
+                } else {
+                    scope.spawn_on_scope(task);
                 }
             }
-            // Queue the system if it has no dependencies, otherwise reset its dependency counter.
-            if system_data.dependencies_total == 0 {
-                self.queued.insert(index);
-            } else {
-                system_data.dependencies_now = system_data.dependencies_total;
-            }
+        }
+        #[cfg(test)]
+        if started_systems != 0 {
+            self.emit_event(SchedulingEvent::StartedSystems(started_systems));
         }
     }
 
     /// Determines if the system with given index has no conflicts with already running systems.
-    fn can_start_now(&self, index: usize) -> bool {
-        let system_data = &self.system_metadata[index];
+    #[inline]
+    fn can_start_now(
+        non_send_running: bool,
+        system_data: &SystemSchedulingMetadata,
+        active_archetype_component_access: &Access<ArchetypeComponentId>,
+    ) -> bool {
         // Non-send systems are considered conflicting with each other.
-        (!self.non_send_running || system_data.is_send)
+        (!non_send_running || system_data.is_send)
             && system_data
                 .archetype_component_access
-                .is_compatible(&self.active_archetype_component_access)
+                .is_compatible(active_archetype_component_access)
     }
 
     /// Starts all non-conflicting queued systems, moves them from `queued` to `running`,
     /// adds their access information to active access information;
     /// processes queued systems that shouldn't run this iteration as completed immediately.
-    async fn process_queued_systems(&mut self) {
+    fn process_queued_systems(&mut self) {
+        // These are used as a part of a unit test as seen in `process_queued_systems`.
+        // Removing them will cause the test to fail.
         #[cfg(test)]
         let mut started_systems = 0;
         for index in self.queued.ones() {
@@ -259,17 +309,17 @@ impl ParallelExecutor {
             let system_metadata = &self.system_metadata[index];
             if !self.should_run[index] {
                 self.dependants_scratch.extend(&system_metadata.dependants);
-            } else if self.can_start_now(index) {
+            } else if Self::can_start_now(
+                self.non_send_running,
+                system_metadata,
+                &self.active_archetype_component_access,
+            ) {
                 #[cfg(test)]
                 {
                     started_systems += 1;
                 }
-                system_metadata
-                    .start_sender
-                    .send(())
-                    .await
-                    .unwrap_or_else(|error| unreachable!(error));
-                self.running.set(index, true);
+                system_metadata.start.notify_additional_relaxed(1);
+                self.running.insert(index);
                 if !system_metadata.is_send {
                     self.non_send_running = true;
                 }
@@ -280,7 +330,7 @@ impl ParallelExecutor {
         }
         #[cfg(test)]
         if started_systems != 0 {
-            self.emit_event(StartedSystems(started_systems));
+            self.emit_event(SchedulingEvent::StartedSystems(started_systems));
         }
         // Remove now running systems from the queue.
         self.queued.difference_with(&self.running);
@@ -328,33 +378,43 @@ impl ParallelExecutor {
 }
 
 #[cfg(test)]
-#[derive(Debug, PartialEq, Eq)]
-enum SchedulingEvent {
-    StartedSystems(usize),
+mod scheduling_event {
+    use crate as bevy_ecs;
+    use crate::system::Resource;
+    use async_channel::Receiver;
+
+    #[derive(Debug, PartialEq, Eq)]
+    pub(super) enum SchedulingEvent {
+        StartedSystems(usize),
+    }
+
+    #[derive(Resource)]
+    pub(super) struct SchedulingEvents(pub(crate) Receiver<SchedulingEvent>);
 }
 
 #[cfg(test)]
+#[cfg(test)]
 mod tests {
-    use super::SchedulingEvent::{self, *};
     use crate::{
-        schedule::{SingleThreadedExecutor, Stage, SystemStage},
-        system::{NonSend, Query, Res, ResMut},
+        self as bevy_ecs,
+        component::Component,
+        schedule::{
+            executor_parallel::scheduling_event::*, SingleThreadedExecutor, Stage, SystemStage,
+        },
+        system::{NonSend, Query, Res, ResMut, Resource},
         world::World,
     };
-    use async_channel::Receiver;
 
-    use crate as bevy_ecs;
-    use crate::component::Component;
+    use SchedulingEvent::StartedSystems;
+
     #[derive(Component)]
     struct W<T>(T);
+    #[derive(Resource, Default)]
+    struct Counter(usize);
 
     fn receive_events(world: &World) -> Vec<SchedulingEvent> {
         let mut events = Vec::new();
-        while let Ok(event) = world
-            .get_resource::<Receiver<SchedulingEvent>>()
-            .unwrap()
-            .try_recv()
-        {
+        while let Ok(event) = world.resource::<SchedulingEvents>().0.try_recv() {
             events.push(event);
         }
         events
@@ -373,15 +433,15 @@ mod tests {
         assert_eq!(
             receive_events(&world),
             vec![StartedSystems(3), StartedSystems(3),]
-        )
+        );
     }
 
     #[test]
     fn resources() {
         let mut world = World::new();
-        world.insert_resource(0usize);
-        fn wants_mut(_: ResMut<usize>) {}
-        fn wants_ref(_: Res<usize>) {}
+        world.init_resource::<Counter>();
+        fn wants_mut(_: ResMut<Counter>) {}
+        fn wants_ref(_: Res<Counter>) {}
         let mut stage = SystemStage::parallel()
             .with_system(wants_mut)
             .with_system(wants_mut);
@@ -408,7 +468,7 @@ mod tests {
     #[test]
     fn queries() {
         let mut world = World::new();
-        world.spawn().insert(W(0usize));
+        world.spawn(W(0usize));
         fn wants_mut(_: Query<&mut W<usize>>) {}
         fn wants_ref(_: Query<&W<usize>>) {}
         let mut stage = SystemStage::parallel()
@@ -433,7 +493,7 @@ mod tests {
         stage.run(&mut world);
         assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
         let mut world = World::new();
-        world.spawn().insert_bundle((W(0usize), W(0u32), W(0f32)));
+        world.spawn((W(0usize), W(0u32), W(0f32)));
         fn wants_mut_usize(_: Query<(&mut W<usize>, &W<f32>)>) {}
         fn wants_mut_u32(_: Query<(&mut W<u32>, &W<f32>)>) {}
         let mut stage = SystemStage::parallel()
@@ -444,10 +504,39 @@ mod tests {
     }
 
     #[test]
+    fn world() {
+        let mut world = World::new();
+        world.spawn(W(0usize));
+        fn wants_world(_: &World) {}
+        fn wants_mut(_: Query<&mut W<usize>>) {}
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut)
+            .with_system(wants_mut);
+        stage.run(&mut world);
+        assert_eq!(
+            receive_events(&world),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_mut)
+            .with_system(wants_world);
+        stage.run(&mut world);
+        assert_eq!(
+            receive_events(&world),
+            vec![StartedSystems(1), StartedSystems(1),]
+        );
+        let mut stage = SystemStage::parallel()
+            .with_system(wants_world)
+            .with_system(wants_world);
+        stage.run(&mut world);
+        assert_eq!(receive_events(&world), vec![StartedSystems(2),]);
+    }
+
+    #[test]
     fn non_send_resource() {
         use std::thread;
         let mut world = World::new();
-        world.insert_non_send(thread::current().id());
+        world.insert_non_send_resource(thread::current().id());
         fn non_send(thread_id: NonSend<thread::ThreadId>) {
             assert_eq!(thread::current().id(), *thread_id);
         }
@@ -469,7 +558,7 @@ mod tests {
                 StartedSystems(1),
             ]
         );
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
     }
 }

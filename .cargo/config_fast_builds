@@ -4,7 +4,7 @@
 # If you are using rust stable, remove the "-Zshare-generics=y" below.
 
 [target.x86_64-unknown-linux-gnu]
-linker = "/usr/bin/clang"
+linker = "clang"
 rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
 
 # NOTE: you must manually install https://github.com/michaeleisel/zld on mac. you can easily do this with the "brew" package manager:
@@ -13,7 +13,7 @@ rustflags = ["-Clink-arg=-fuse-ld=lld", "-Zshare-generics=y"]
 rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=y"]
 
 [target.aarch64-apple-darwin]
-rustflags = ["-C", "link-arg=-fuse-ld=/usr/local/bin/zld", "-Zshare-generics=y"]
+rustflags = ["-C", "link-arg=-fuse-ld=/opt/homebrew/bin/zld", "-Zshare-generics=y"]
 
 [target.x86_64-pc-windows-msvc]
 linker = "rust-lld.exe"

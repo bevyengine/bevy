@@ -1,11 +1,12 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::{std140::AsStd140, *},
+    render_resource::*,
     renderer::RenderDevice,
     texture::BevyDefault,
-    view::ViewUniform,
+    view::{ViewTarget, ViewUniform},
 };
 
+#[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
@@ -13,8 +14,7 @@ pub struct UiPipeline {
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
+        let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -23,7 +23,7 @@ impl FromWorld for UiPipeline {
                 ty: BindingType::Buffer {
                     ty: BufferBindingType::Uniform,
                     has_dynamic_offset: true,
-                    min_binding_size: BufferSize::new(ViewUniform::std140_size_static() as u64),
+                    min_binding_size: Some(ViewUniform::min_size()),
                 },
                 count: None,
             }],
@@ -60,35 +60,25 @@ impl FromWorld for UiPipeline {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiPipelineKey {}
+pub struct UiPipelineKey {
+    pub hdr: bool,
+}
 
-impl SpecializedPipeline for UiPipeline {
+impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
-    /// FIXME: there are no specialization for now, should this be removed?
-    fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
-        let vertex_buffer_layout = VertexBufferLayout {
-            array_stride: 24,
-            step_mode: VertexStepMode::Vertex,
-            attributes: vec![
-                // Position
-                VertexAttribute {
-                    format: VertexFormat::Float32x3,
-                    offset: 0,
-                    shader_location: 0,
-                },
-                // UV
-                VertexAttribute {
-                    format: VertexFormat::Float32x2,
-                    offset: 12,
-                    shader_location: 1,
-                },
-                VertexAttribute {
-                    format: VertexFormat::Uint32,
-                    offset: 20,
-                    shader_location: 2,
-                },
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let vertex_layout = VertexBufferLayout::from_vertex_formats(
+            VertexStepMode::Vertex,
+            vec![
+                // position
+                VertexFormat::Float32x3,
+                // uv
+                VertexFormat::Float32x2,
+                // color
+                VertexFormat::Float32x4,
             ],
-        };
+        );
         let shader_defs = Vec::new();
 
         RenderPipelineDescriptor {
@@ -96,17 +86,21 @@ impl SpecializedPipeline for UiPipeline {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
-                buffers: vec![vertex_buffer_layout],
+                buffers: vec![vertex_layout],
             },
             fragment: Some(FragmentState {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                targets: vec![Some(ColorTargetState {
+                    format: if key.hdr {
+                        ViewTarget::TEXTURE_FORMAT_HDR
+                    } else {
+                        TextureFormat::bevy_default()
+                    },
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
             primitive: PrimitiveState {
