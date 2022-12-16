@@ -339,7 +339,7 @@ impl LayoutCache {
 pub struct PipelineCache {
     layout_cache: LayoutCache,
     shader_cache: ShaderCache,
-    device: GPUDevice,
+    gpu_device: GPUDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
 }
@@ -350,9 +350,9 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: GPUDevice) -> Self {
+    pub fn new(gpu_device: GPUDevice) -> Self {
         Self {
-            device,
+            gpu_device,
             layout_cache: default(),
             shader_cache: default(),
             waiting_pipelines: default(),
@@ -514,7 +514,7 @@ impl PipelineCache {
         descriptor: &RenderPipelineDescriptor,
     ) -> CachedPipelineState {
         let vertex_module = match self.shader_cache.get(
-            &self.device,
+            &self.gpu_device,
             id,
             &descriptor.vertex.shader,
             &descriptor.vertex.shader_defs,
@@ -527,7 +527,7 @@ impl PipelineCache {
 
         let fragment_data = if let Some(fragment) = &descriptor.fragment {
             let fragment_module = match self.shader_cache.get(
-                &self.device,
+                &self.gpu_device,
                 id,
                 &fragment.shader,
                 &fragment.shader_defs,
@@ -558,7 +558,7 @@ impl PipelineCache {
             .collect::<Vec<_>>();
 
         let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
+            Some(self.layout_cache.get(&self.gpu_device, layout))
         } else {
             None
         };
@@ -584,7 +584,7 @@ impl PipelineCache {
                 }),
         };
 
-        let pipeline = self.device.create_render_pipeline(&descriptor);
+        let pipeline = self.gpu_device.create_render_pipeline(&descriptor);
 
         CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline))
     }
@@ -595,7 +595,7 @@ impl PipelineCache {
         descriptor: &ComputePipelineDescriptor,
     ) -> CachedPipelineState {
         let compute_module = match self.shader_cache.get(
-            &self.device,
+            &self.gpu_device,
             id,
             &descriptor.shader,
             &descriptor.shader_defs,
@@ -607,7 +607,7 @@ impl PipelineCache {
         };
 
         let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
+            Some(self.layout_cache.get(&self.gpu_device, layout))
         } else {
             None
         };
@@ -619,7 +619,7 @@ impl PipelineCache {
             entry_point: descriptor.entry_point.as_ref(),
         };
 
-        let pipeline = self.device.create_compute_pipeline(&descriptor);
+        let pipeline = self.gpu_device.create_compute_pipeline(&descriptor);
 
         CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline))
     }

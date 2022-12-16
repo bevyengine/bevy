@@ -100,11 +100,11 @@ impl<T: Pod> BufferVec<T> {
     /// In addition to any [`BufferUsages`](crate::render_resource::BufferUsages) provided when
     /// the `BufferVec` was created, the buffer on the [`GPUDevice`](crate::renderer::GPUDevice)
     /// is marked as [`BufferUsages::COPY_DST`](crate::render_resource::BufferUsages).
-    pub fn reserve(&mut self, capacity: usize, device: &GPUDevice) {
+    pub fn reserve(&mut self, capacity: usize, gpu_device: &GPUDevice) {
         if capacity > self.capacity || self.label_changed {
             self.capacity = capacity;
             let size = self.item_size * capacity;
-            self.buffer = Some(device.create_buffer(&wgpu::BufferDescriptor {
+            self.buffer = Some(gpu_device.create_buffer(&wgpu::BufferDescriptor {
                 label: self.label.as_deref(),
                 size: size as wgpu::BufferAddress,
                 usage: BufferUsages::COPY_DST | self.buffer_usage,
@@ -119,15 +119,15 @@ impl<T: Pod> BufferVec<T> {
     ///
     /// Before queuing the write, a [`reserve`](crate::render_resource::BufferVec::reserve) operation
     /// is executed.
-    pub fn write_buffer(&mut self, device: &GPUDevice, queue: &GPUQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GPUDevice, gpu_queue: &GPUQueue) {
         if self.values.is_empty() {
             return;
         }
-        self.reserve(self.values.len(), device);
+        self.reserve(self.values.len(), gpu_device);
         if let Some(buffer) = &self.buffer {
             let range = 0..self.item_size * self.values.len();
             let bytes: &[u8] = cast_slice(&self.values);
-            queue.write_buffer(buffer, 0, &bytes[range]);
+            gpu_queue.write_buffer(buffer, 0, &bytes[range]);
         }
     }
 

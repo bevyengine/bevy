@@ -95,8 +95,8 @@ impl Plugin for ImagePlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
-                let device = render_app.world.resource::<GPUDevice>();
-                device.create_sampler(&self.default_sampler.clone())
+                let gpu_device = render_app.world.resource::<GPUDevice>();
+                gpu_device.create_sampler(&self.default_sampler.clone())
             };
             render_app
                 .insert_resource(DefaultImageSampler(default_sampler))
