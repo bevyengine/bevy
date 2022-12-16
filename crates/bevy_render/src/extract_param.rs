@@ -55,11 +55,11 @@ where
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
 
-    fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
         ExtractState {
             state: SystemState::new(&mut main_world),
-            main_world_state: Res::<MainWorld>::init(world, system_meta),
+            main_world_state: Res::<MainWorld>::init_state(world, system_meta),
         }
     }
 

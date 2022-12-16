@@ -250,14 +250,14 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 type State = (#(#param::State,)*);
                 type Item<'w, 's> = ParamSet<'w, 's, (#(#param,)*)>;
 
-                fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+                fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
                         let mut #meta = system_meta.clone();
                         #meta.component_access_set.clear();
                         #meta.archetype_component_access.clear();
-                        #param::init(world, &mut #meta);
-                        let #param = #param::init(world, &mut system_meta.clone());
+                        #param::init_state(world, &mut #meta);
+                        let #param = #param::init_state(world, &mut system_meta.clone());
                     )*
                     #(
                         system_meta
@@ -431,8 +431,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 type State = <(#(#field_types,)*) as #path::system::SystemParam>::State;
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
-                fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
-                    <(#(#field_types,)*) as #path::system::SystemParam>::init(world, system_meta)
+                fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
+                    <(#(#field_types,)*) as #path::system::SystemParam>::init_state(world, system_meta)
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {

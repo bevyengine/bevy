@@ -53,7 +53,7 @@ unsafe impl SystemParam for ParallelCommands<'_, '_> {
     type State = ParallelCommandsState;
     type Item<'w, 's> = ParallelCommands<'w, 's>;
 
-    fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {
+    fn init_state(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {
         ParallelCommandsState::default()
     }
 

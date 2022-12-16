@@ -147,7 +147,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        let param_state = Param::init(world, &mut meta);
+        let param_state = Param::init_state(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -422,7 +422,7 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(Param::init(world, &mut self.system_meta));
+        self.param_state = Some(Param::init_state(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {
