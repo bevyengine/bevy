@@ -16,6 +16,7 @@ pub enum BloomMode {
 /// * It is recommended to use this only if HDR rendering is not possible.
 /// * Changing these settings creates a pshysically impossible image.
 /// * Changing these settings makes it easy to make the final result look worse.
+/// * Non-default prefilter settings should be used in conjuction with mode::Additive
 #[derive(Default, Clone, Reflect)]
 pub struct PrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
@@ -53,8 +54,16 @@ pub struct BloomSettings {
 
     pub prefilter_settings: PrefilterSettings,
 
-    /// Does nothing at the moment
-    pub mode: BloomMode, // TODO: Make it work
+    /// Compositing mode. Conthols whether bloom textures
+    /// are blended between or added to each other. Useful
+    /// if image brightening is desired and extremely
+    /// helpful if threshold is used.
+    /// 
+    /// # Recommendation
+    /// Set to Additive if prefilter_settings is
+    /// configured in a non-energy-conserving way,
+    /// otherwise set to EnergyConserving.
+    pub mode: BloomMode,
 }
 
 impl BloomSettings {

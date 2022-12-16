@@ -136,7 +136,7 @@ impl BloomSettings {
         fn sigmoid(x: f32, curvature: f32) -> f32 {
             (x - curvature * x) / (curvature - 2.0 * curvature * x.abs() + 1.0)
         }
-        
+
         let c = (2.0 * x.powf(self.mid_offset) - 1.0).powi(2);
         let s = (1.0 + sigmoid(0.5_f32.powf(1.0 / self.mid_offset) - x, -1.0)) / 2.0;
         let d = self.side_intensity + (self.intensity - self.side_intensity) * s;
@@ -194,18 +194,34 @@ impl Node for BloomNode {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
             Ok((camera, view_target, bloom_texture, bind_groups, uniform_index, bloom_settings)),
+            Some(bloom_uniforms),
+        ) = (
+            self.view_query.get_manual(world, view_entity),
+            bloom_uniforms.buffer.binding(),
+        ) else {
+            return Ok(());
+        };
+
+        let (
             Some(downsampling_first_pipeline),
             Some(downsampling_pipeline),
             Some(upsampling_pipeline),
             Some(upsampling_final_pipeline),
-            Some(bloom_uniforms),
         ) = (
-            self.view_query.get_manual(world, view_entity),
+            // Downsampling pipelines
             pipeline_cache.get_render_pipeline(pipelines.downsampling_first_pipeline),
             pipeline_cache.get_render_pipeline(pipelines.downsampling_pipeline),
-            pipeline_cache.get_render_pipeline(pipelines.upsampling_pipeline),
-            pipeline_cache.get_render_pipeline(pipelines.upsampling_final_pipeline),
-            bloom_uniforms.buffer.binding(),
+
+            // Upsampling pipleines.
+            // Get normal(energy conserving) or additive based on bloom_settings.mode
+            pipeline_cache.get_render_pipeline(match bloom_settings.mode {
+                BloomMode::EnergyConserving => pipelines.upsampling_pipeline,
+                BloomMode::Additive => pipelines.additive_upsampling_pipeline,
+            }),
+            pipeline_cache.get_render_pipeline(match bloom_settings.mode {
+                BloomMode::EnergyConserving => pipelines.upsampling_final_pipeline,
+                BloomMode::Additive => pipelines.additive_upsampling_final_pipeline,
+            }),
         ) else {
             return Ok(());
         };
@@ -360,6 +376,16 @@ struct BloomPipelines {
     downsampling_pipeline: CachedRenderPipelineId,
     upsampling_pipeline: CachedRenderPipelineId,
     upsampling_final_pipeline: CachedRenderPipelineId,
+    // A bit of a waste having normal and additive
+    // pipelines exist at the same time but I'm not sure
+    // how to avoid that. We need access to bloom settings
+    // to create them conditionally.
+    //
+    // TODO: Remove additive pipelines in favor of
+    // conditionally defining the normal pipelines
+    // with the proper blend components
+    additive_upsampling_pipeline: CachedRenderPipelineId,
+    additive_upsampling_final_pipeline: CachedRenderPipelineId,
 
     main_bind_group_layout: BindGroupLayout,
 
@@ -460,74 +486,97 @@ impl FromWorld for BloomPipelines {
                 multisample: MultisampleState::default(),
             });
 
-        let upsampling_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("bloom_upsampling_pipeline".into()),
-            layout: Some(vec![main_bind_group_layout.clone()]),
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec![],
-                entry_point: "upsample".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::Rg11b10Float,
-                    blend: Some(BlendState {
-                        // We blend our blur pyramid levels using native WGPU render
-                        // pass blend constants. They are set in the node's run function.
-                        color: BlendComponent {
-                            src_factor: BlendFactor::Constant,
-                            dst_factor: BlendFactor::OneMinusConstant,
-                            operation: BlendOperation::Add,
-                        },
-                        alpha: BlendComponent::REPLACE,
+        macro_rules! upsampling_pipeline {
+            // This macro uses pipeline_cache.queue_render_pipeline()
+            // to create a pipeline for upsampling. We use it because
+            // most things between all upsampling pipelines are the same.
+            (
+                $label:expr,
+                $texture_format:expr,
+                $color_blend:expr
+            ) => {
+                pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
+                    label: Some($label.into()),
+                    layout: Some(vec![main_bind_group_layout.clone()]),
+                    vertex: fullscreen_shader_vertex_state(),
+                    fragment: Some(FragmentState {
+                        shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
+                        shader_defs: vec![],
+                        entry_point: "upsample".into(),
+                        targets: vec![Some(ColorTargetState {
+                            format: $texture_format,
+                            blend: Some(BlendState {
+                                color: $color_blend,
+                                alpha: BlendComponent::REPLACE,
+                            }),
+                            write_mask: ColorWrites::ALL,
+                        })],
                     }),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-        });
+                    primitive: PrimitiveState::default(),
+                    depth_stencil: None,
+                    multisample: MultisampleState::default(),
+                })
+            };
+        }
 
-        // The only difference between this and the normal upsampling_pipeline
-        // is the target format (Rg11b10Float and ViewTarget::TEXTURE_FORMAT_HDR).
-        // Too bad.
-        let upsampling_final_pipeline =
-            pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("bloom_upsampling_final_pipeline".into()),
-                layout: Some(vec![main_bind_group_layout.clone()]),
-                vertex: fullscreen_shader_vertex_state(),
-                fragment: Some(FragmentState {
-                    shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                    shader_defs: vec![],
-                    entry_point: "upsample".into(),
-                    targets: vec![Some(ColorTargetState {
-                        // This must match whatever format the view_target's
-                        // main texture is in the run function of our Bloom node.
-                        // Defining this here might be a bad idea because
-                        // this will result in a runtime error if Bevy changes
-                        // main texture HDR format in the future.
-                        format: ViewTarget::TEXTURE_FORMAT_HDR,
-                        blend: Some(BlendState {
-                            color: BlendComponent {
-                                src_factor: BlendFactor::Constant,
-                                dst_factor: BlendFactor::OneMinusConstant,
-                                operation: BlendOperation::Add,
-                            },
-                            alpha: BlendComponent::REPLACE,
-                        }),
-                        write_mask: ColorWrites::ALL,
-                    })],
-                }),
-                primitive: PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: MultisampleState::default(),
-            });
+        macro_rules! energy_conserving_upsampling_pipeline {
+            (
+                $label:expr,
+                $texture_format:expr
+            ) => {
+                upsampling_pipeline!(
+                    $label,
+                    $texture_format,
+                    // We blend our blur pyramid levels using native WGPU render
+                    // pass blend constants. They are set in the node's run function.
+                    BlendComponent {
+                        src_factor: BlendFactor::Constant,
+                        dst_factor: BlendFactor::OneMinusConstant,
+                        operation: BlendOperation::Add,
+                    }
+                )
+            };
+        }
+
+        macro_rules! additive_upsampling_pipeline {
+            (
+                $label:expr,
+                $texture_format:expr
+            ) => {
+                upsampling_pipeline!(
+                    $label,
+                    $texture_format,
+                    BlendComponent {
+                        src_factor: BlendFactor::Constant,
+                        dst_factor: BlendFactor::One,
+                        operation: BlendOperation::Add,
+                    }
+                )
+            };
+        }
+
+        let upsampling_pipeline = energy_conserving_upsampling_pipeline!(
+            "bloom_upsampling_pipeline",
+            TextureFormat::Rg11b10Float
+        );
+        let upsampling_final_pipeline = energy_conserving_upsampling_pipeline!(
+            "bloom_upsampling_final_pipeline",
+            ViewTarget::TEXTURE_FORMAT_HDR
+        );
+        let additive_upsampling_pipeline =
+            additive_upsampling_pipeline!("bloom_upsampling_pipeline", TextureFormat::Rg11b10Float);
+        let additive_upsampling_final_pipeline = additive_upsampling_pipeline!(
+            "bloom_upsampling_final_pipeline",
+            ViewTarget::TEXTURE_FORMAT_HDR
+        );
 
         BloomPipelines {
             downsampling_first_pipeline,
             downsampling_pipeline,
             upsampling_pipeline,
             upsampling_final_pipeline,
+            additive_upsampling_pipeline,
+            additive_upsampling_final_pipeline,
 
             sampler,
 
