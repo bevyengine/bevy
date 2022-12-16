@@ -6,7 +6,7 @@
 //! Ultimately we plan on supporting whatever is natively supported on a given device.
 //! Check out [this issue](https://github.com/gfx-rs/wgpu/issues/1832) for more info.
 
-use bevy::{prelude::*, render::view::MultiSampleLevel};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
