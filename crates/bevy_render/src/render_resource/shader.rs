@@ -187,10 +187,8 @@ impl ProcessedShader {
                 }
                 ProcessedShader::Glsl(_source, _stage) => {
                     let reflection = self.reflect(features)?;
-                    // TODO: it probably makes more sense to convert this to spirv, but as of writing
-                    // this comment, naga's spirv conversion is broken
-                    let wgsl = reflection.get_wgsl()?;
-                    ShaderSource::Wgsl(wgsl.into())
+                    let spirv = reflection.get_spirv()?;
+                    ShaderSource::SpirV(spirv.into())
                 }
                 ProcessedShader::SpirV(source) => make_spirv(source),
             },
