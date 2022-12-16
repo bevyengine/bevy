@@ -1,6 +1,6 @@
 //! This examples compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing).
 
-use std::{f32::consts::PI, ops::Mul};
+use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::fxaa::{Fxaa, Sensitivity},

@@ -355,7 +355,7 @@ fn prepare_view_targets(
                                     },
                                 )
                                 .default_view,
-                            sampled: (msaa.level as u32 > 1).then(|| {
+                            sampled: (msaa.samples() > 1).then(|| {
                                 texture_cache
                                     .get(
                                         &render_device,
@@ -363,7 +363,7 @@ fn prepare_view_targets(
                                             label: Some("main_texture_sampled"),
                                             size,
                                             mip_level_count: 1,
-                                            sample_count: msaa.level as u32,
+                                            sample_count: msaa.samples(),
                                             dimension: TextureDimension::D2,
                                             format: main_texture_format,
                                             usage: TextureUsages::RENDER_ATTACHMENT,
