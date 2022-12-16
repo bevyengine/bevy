@@ -103,7 +103,7 @@ impl From<Cylinder> for Mesh {
                 uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
             }
 
-            for i in 1..(c.resolution as u32 - 1) {
+            for i in 1..(c.resolution - 1) {
                 indices.extend_from_slice(&[
                     offset,
                     offset + i + winding.0,
