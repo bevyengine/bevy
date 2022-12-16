@@ -11,7 +11,7 @@ use crate::{
     rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GPUDevice, GPUQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
 };
@@ -234,8 +234,8 @@ pub struct ViewDepthTexture {
 
 fn prepare_view_uniforms(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GPUDevice>,
+    gpu_queue: Res<GPUQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
     views: Query<(Entity, &ExtractedView)>,
 ) {
@@ -261,9 +261,7 @@ fn prepare_view_uniforms(
         commands.entity(entity).insert(view_uniforms);
     }
 
-    view_uniforms
-        .uniforms
-        .write_buffer(&render_device, &render_queue);
+    view_uniforms.uniforms.write_buffer(&gpu_device, &gpu_queue);
 }
 
 #[derive(Clone)]
@@ -279,7 +277,7 @@ fn prepare_view_targets(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GPUDevice>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
 ) {
@@ -318,7 +316,7 @@ fn prepare_view_targets(
                         MainTargetTextures {
                             a: texture_cache
                                 .get(
-                                    &render_device,
+                                    &gpu_device,
                                     TextureDescriptor {
                                         label: Some("main_texture_a"),
                                         ..descriptor
@@ -327,7 +325,7 @@ fn prepare_view_targets(
                                 .default_view,
                             b: texture_cache
                                 .get(
-                                    &render_device,
+                                    &gpu_device,
                                     TextureDescriptor {
                                         label: Some("main_texture_b"),
                                         ..descriptor
@@ -337,7 +335,7 @@ fn prepare_view_targets(
                             sampled: (msaa.samples > 1).then(|| {
                                 texture_cache
                                     .get(
-                                        &render_device,
+                                        &gpu_device,
                                         TextureDescriptor {
                                             label: Some("main_texture_sampled"),
                                             size,

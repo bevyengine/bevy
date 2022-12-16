@@ -1,6 +1,6 @@
 use crate::{
     render_resource::{Texture, TextureView},
-    renderer::RenderDevice,
+    renderer::GPUDevice,
 };
 use bevy_ecs::{prelude::ResMut, system::Resource};
 use bevy_utils::{Entry, HashMap};
@@ -36,7 +36,7 @@ impl TextureCache {
     /// [`CachedTexture`] is created.
     pub fn get(
         &mut self,
-        render_device: &RenderDevice,
+        gpu_device: &GPUDevice,
         descriptor: TextureDescriptor<'static>,
     ) -> CachedTexture {
         match self.textures.entry(descriptor) {
@@ -52,7 +52,7 @@ impl TextureCache {
                     }
                 }
 
-                let texture = render_device.create_texture(&entry.key().clone());
+                let texture = gpu_device.create_texture(&entry.key().clone());
                 let default_view = texture.create_view(&TextureViewDescriptor::default());
                 entry.get_mut().push(CachedTextureMeta {
                     texture: texture.clone(),
@@ -66,7 +66,7 @@ impl TextureCache {
                 }
             }
             Entry::Vacant(entry) => {
-                let texture = render_device.create_texture(entry.key());
+                let texture = gpu_device.create_texture(entry.key());
                 let default_view = texture.create_view(&TextureViewDescriptor::default());
                 entry.insert(vec![CachedTextureMeta {
                     texture: texture.clone(),

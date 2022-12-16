@@ -8,7 +8,7 @@ use super::ktx2::*;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GPUDevice, GPUQueue},
     texture::BevyDefault,
 };
 use bevy_asset::HandleUntyped;
@@ -494,11 +494,7 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
-    type Param = (
-        SRes<RenderDevice>,
-        SRes<RenderQueue>,
-        SRes<DefaultImageSampler>,
-    );
+    type Param = (SRes<GPUDevice>, SRes<GPUQueue>, SRes<DefaultImageSampler>);
 
     /// Clones the Image.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -508,13 +504,10 @@ impl RenderAsset for Image {
     /// Converts the extracted image into a [`GpuImage`].
     fn prepare_asset(
         image: Self::ExtractedAsset,
-        (render_device, render_queue, default_sampler): &mut SystemParamItem<Self::Param>,
+        (gpu_device, gpu_queue, default_sampler): &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
-        let texture = render_device.create_texture_with_data(
-            render_queue,
-            &image.texture_descriptor,
-            &image.data,
-        );
+        let texture =
+            gpu_device.create_texture_with_data(gpu_queue, &image.texture_descriptor, &image.data);
 
         let texture_view = texture.create_view(
             image
@@ -529,7 +522,7 @@ impl RenderAsset for Image {
         );
         let sampler = match image.sampler_descriptor {
             ImageSampler::Default => (***default_sampler).clone(),
-            ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            ImageSampler::Descriptor(descriptor) => gpu_device.create_sampler(&descriptor),
         };
 
         Ok(GpuImage {

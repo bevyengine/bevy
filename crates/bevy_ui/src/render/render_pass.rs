@@ -49,7 +49,7 @@ impl Node for UiPassNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GPUContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -85,7 +85,7 @@ impl Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        transparent_phase.render(world, render_context, view_entity, None, pass_descriptor);
+        transparent_phase.render(world, gpu_context, view_entity, None, pass_descriptor);
         Ok(())
     }
 }

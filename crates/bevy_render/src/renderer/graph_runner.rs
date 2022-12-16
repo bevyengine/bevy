@@ -13,7 +13,7 @@ use crate::{
         Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
         SlotType, SlotValue,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::{GPUContext, GPUDevice},
 };
 
 pub(crate) struct RenderGraphRunner;
@@ -54,22 +54,22 @@ pub enum RenderGraphRunnerError {
 impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
-        render_device: RenderDevice,
+        gpu_device: GPUDevice,
         queue: &wgpu::Queue,
         world: &World,
     ) -> Result<(), RenderGraphRunnerError> {
         let command_encoder =
-            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
-        let mut render_context = RenderContext {
-            render_device,
+            gpu_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let mut gpu_context = GPUContext {
+            gpu_device,
             command_encoder,
         };
 
-        Self::run_graph(graph, None, &mut render_context, world, &[])?;
+        Self::run_graph(graph, None, &mut gpu_context, world, &[])?;
         {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(vec![render_context.command_encoder.finish()]);
+            queue.submit(vec![gpu_context.command_encoder.finish()]);
         }
         Ok(())
     }
@@ -77,7 +77,7 @@ impl RenderGraphRunner {
     fn run_graph(
         graph: &RenderGraph,
         graph_name: Option<Cow<'static, str>>,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GPUContext,
         world: &World,
         inputs: &[SlotValue],
     ) -> Result<(), RenderGraphRunnerError> {
@@ -185,7 +185,7 @@ impl RenderGraphRunner {
                     #[cfg(feature = "trace")]
                     let _span = info_span!("node", name = node_state.type_name).entered();
 
-                    node_state.node.run(&mut context, render_context, world)?;
+                    node_state.node.run(&mut context, gpu_context, world)?;
                 }
 
                 for run_sub_graph in context.finish() {
@@ -195,7 +195,7 @@ impl RenderGraphRunner {
                     Self::run_graph(
                         sub_graph,
                         Some(run_sub_graph.name),
-                        render_context,
+                        gpu_context,
                         world,
                         &run_sub_graph.inputs,
                     )?;

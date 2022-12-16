@@ -8,7 +8,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
-    renderer::RenderContext,
+    renderer::GPUContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]
@@ -51,7 +51,7 @@ impl Node for MainPass3dNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GPUContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -66,7 +66,7 @@ impl Node for MainPass3dNode {
         // Always run opaque pass to ensure screen is cleared
         {
             // Run the opaque pass, sorted front-to-back
-            // NOTE: Scoped to drop the mutable borrow of render_context
+            // NOTE: Scoped to drop the mutable borrow of gpu_context
             #[cfg(feature = "trace")]
             let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
@@ -97,7 +97,7 @@ impl Node for MainPass3dNode {
 
             opaque_phase.render(
                 world,
-                render_context,
+                gpu_context,
                 view_entity,
                 camera.viewport.as_ref(),
                 pass_descriptor,
@@ -106,7 +106,7 @@ impl Node for MainPass3dNode {
 
         if !alpha_mask_phase.items.is_empty() {
             // Run the alpha mask pass, sorted front-to-back
-            // NOTE: Scoped to drop the mutable borrow of render_context
+            // NOTE: Scoped to drop the mutable borrow of gpu_context
             #[cfg(feature = "trace")]
             let _main_alpha_mask_pass_3d_span = info_span!("main_alpha_mask_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
@@ -129,7 +129,7 @@ impl Node for MainPass3dNode {
 
             alpha_mask_phase.render(
                 world,
-                render_context,
+                gpu_context,
                 view_entity,
                 camera.viewport.as_ref(),
                 pass_descriptor,
@@ -138,7 +138,7 @@ impl Node for MainPass3dNode {
 
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front
-            // NOTE: Scoped to drop the mutable borrow of render_context
+            // NOTE: Scoped to drop the mutable borrow of gpu_context
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
@@ -166,7 +166,7 @@ impl Node for MainPass3dNode {
 
             transparent_phase.render(
                 world,
-                render_context,
+                gpu_context,
                 view_entity,
                 camera.viewport.as_ref(),
                 pass_descriptor,
@@ -188,7 +188,7 @@ impl Node for MainPass3dNode {
                 depth_stencil_attachment: None,
             };
 
-            render_context
+            gpu_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
         }

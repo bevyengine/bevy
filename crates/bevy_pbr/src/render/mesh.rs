@@ -21,7 +21,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GPUDevice, GPUQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
@@ -263,15 +263,15 @@ pub struct MeshPipeline {
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<RenderDevice>,
+            Res<GPUDevice>,
             Res<DefaultImageSampler>,
-            Res<RenderQueue>,
+            Res<GPUQueue>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
-        let clustered_forward_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+        let (gpu_device, default_sampler, gpu_queue) = system_state.get_mut(world);
+        let clustered_forward_buffer_binding_type =
+            gpu_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
                 BindGroupLayoutEntry {
@@ -405,28 +405,27 @@ impl FromWorld for MeshPipeline {
             count: None,
         };
 
-        let mesh_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let mesh_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[mesh_binding],
             label: Some("mesh_layout"),
         });
 
-        let skinned_mesh_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                entries: &[
-                    mesh_binding,
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::VERTEX,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
-                        },
-                        count: None,
+        let skinned_mesh_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            entries: &[
+                mesh_binding,
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::VERTEX,
+                    ty: BindingType::Buffer {
+                        ty: BufferBindingType::Uniform,
+                        has_dynamic_offset: true,
+                        min_binding_size: BufferSize::new(JOINT_BUFFER_SIZE as u64),
                     },
-                ],
-                label: Some("skinned_mesh_layout"),
-            });
+                    count: None,
+                },
+            ],
+            label: Some("skinned_mesh_layout"),
+        });
 
         // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
         let dummy_white_gpu_image = {
@@ -436,14 +435,14 @@ impl FromWorld for MeshPipeline {
                 &[255u8; 4],
                 TextureFormat::bevy_default(),
             );
-            let texture = render_device.create_texture(&image.texture_descriptor);
+            let texture = gpu_device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+                ImageSampler::Descriptor(descriptor) => gpu_device.create_sampler(&descriptor),
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
+            gpu_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
                     mip_level: 0,
@@ -712,13 +711,13 @@ pub struct MeshBindGroup {
 pub fn queue_mesh_bind_group(
     mut commands: Commands,
     mesh_pipeline: Res<MeshPipeline>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GPUDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
     if let Some(mesh_binding) = mesh_uniforms.uniforms().binding() {
         let mut mesh_bind_group = MeshBindGroup {
-            normal: render_device.create_bind_group(&BindGroupDescriptor {
+            normal: gpu_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
                     resource: mesh_binding.clone(),
@@ -730,7 +729,7 @@ pub fn queue_mesh_bind_group(
         };
 
         if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
-            mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
+            mesh_bind_group.skinned = Some(gpu_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
@@ -773,8 +772,8 @@ impl Default for SkinnedMeshUniform {
 }
 
 pub fn prepare_skinned_meshes(
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    gpu_device: Res<GPUDevice>,
+    gpu_queue: Res<GPUQueue>,
     mut skinned_mesh_uniform: ResMut<SkinnedMeshUniform>,
 ) {
     if skinned_mesh_uniform.buffer.is_empty() {
@@ -782,10 +781,10 @@ pub fn prepare_skinned_meshes(
     }
 
     let len = skinned_mesh_uniform.buffer.len();
-    skinned_mesh_uniform.buffer.reserve(len, &render_device);
+    skinned_mesh_uniform.buffer.reserve(len, &gpu_device);
     skinned_mesh_uniform
         .buffer
-        .write_buffer(&render_device, &render_queue);
+        .write_buffer(&gpu_device, &gpu_queue);
 }
 
 #[derive(Component)]
@@ -796,7 +795,7 @@ pub struct MeshViewBindGroup {
 #[allow(clippy::too_many_arguments)]
 pub fn queue_mesh_view_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GPUDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_pipeline: Res<ShadowPipeline>,
     light_meta: Res<LightMeta>,
@@ -812,7 +811,7 @@ pub fn queue_mesh_view_bind_groups(
         globals_buffer.buffer.binding(),
     ) {
         for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
-            let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            let view_bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,

@@ -19,7 +19,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::*,
-    renderer::{RenderContext, RenderDevice},
+    renderer::{GPUContext, GPUDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     RenderApp, RenderStage,
@@ -200,7 +200,7 @@ impl Node for BloomNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GPUContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         #[cfg(feature = "trace")]
@@ -232,7 +232,7 @@ impl Node for BloomNode {
         {
             let view = &BloomTextures::texture_view(&textures.texture_a, 0);
             let mut prefilter_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
+                TrackedRenderPass::new(gpu_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_prefilter_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
@@ -258,7 +258,7 @@ impl Node for BloomNode {
         for mip in 1..textures.mip_count {
             let view = &BloomTextures::texture_view(&textures.texture_a, mip);
             let mut downsampling_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
+                TrackedRenderPass::new(gpu_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_downsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
@@ -284,7 +284,7 @@ impl Node for BloomNode {
         for mip in (1..textures.mip_count).rev() {
             let view = &BloomTextures::texture_view(&textures.texture_b, mip - 1);
             let mut upsampling_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
+                TrackedRenderPass::new(gpu_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_upsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
@@ -309,7 +309,7 @@ impl Node for BloomNode {
 
         {
             let mut upsampling_final_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
+                TrackedRenderPass::new(gpu_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_upsampling_final_pass"),
                         color_attachments: &[Some(view_target.get_unsampled_color_attachment(
@@ -350,9 +350,9 @@ struct BloomPipelines {
 
 impl FromWorld for BloomPipelines {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let gpu_device = world.resource::<GPUDevice>();
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
+        let sampler = gpu_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Linear,
             mag_filter: FilterMode::Linear,
             address_mode_u: AddressMode::ClampToEdge,
@@ -361,7 +361,7 @@ impl FromWorld for BloomPipelines {
         });
 
         let downsampling_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("bloom_downsampling_bind_group_layout"),
                 entries: &[
                     // Upsampled input texture (downsampled for final upsample)
@@ -397,7 +397,7 @@ impl FromWorld for BloomPipelines {
             });
 
         let upsampling_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("bloom_upsampling_bind_group_layout"),
                 entries: &[
                     // Downsampled input texture
@@ -563,7 +563,7 @@ impl BloomTextures {
 fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GPUDevice>,
     views: Query<(Entity, &ExtractedCamera), With<BloomUniform>>,
 ) {
     let mut texture_as = HashMap::default();
@@ -594,13 +594,13 @@ fn prepare_bloom_textures(
             texture_descriptor.label = Some("bloom_texture_a");
             let texture_a = texture_as
                 .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor.clone()))
+                .or_insert_with(|| texture_cache.get(&gpu_device, texture_descriptor.clone()))
                 .clone();
 
             texture_descriptor.label = Some("bloom_texture_b");
             let texture_b = texture_bs
                 .entry(camera.target.clone())
-                .or_insert_with(|| texture_cache.get(&render_device, texture_descriptor))
+                .or_insert_with(|| texture_cache.get(&gpu_device, texture_descriptor))
                 .clone();
 
             commands.entity(entity).insert(BloomTextures {
@@ -633,14 +633,14 @@ struct BloomBindGroups {
 
 fn queue_bloom_bind_groups(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GPUDevice>,
     pipelines: Res<BloomPipelines>,
     uniforms: Res<ComponentUniforms<BloomUniform>>,
     views: Query<(Entity, &ViewTarget, &BloomTextures)>,
 ) {
     if let Some(uniforms) = uniforms.binding() {
         for (entity, view_target, textures) in &views {
-            let prefilter_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            let prefilter_bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
                 label: Some("bloom_prefilter_bind_group"),
                 layout: &pipelines.downsampling_bind_group_layout,
                 entries: &[
@@ -663,7 +663,7 @@ fn queue_bloom_bind_groups(
 
             let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
             for mip in 1..textures.mip_count {
-                let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                let bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
                     label: Some("bloom_downsampling_bind_group"),
                     layout: &pipelines.downsampling_bind_group_layout,
                     entries: &[
@@ -700,7 +700,7 @@ fn queue_bloom_bind_groups(
                     mip,
                 );
 
-                let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                let bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
                     label: Some("bloom_upsampling_bind_group"),
                     layout: &pipelines.upsampling_bind_group_layout,
                     entries: &[
@@ -726,28 +726,27 @@ fn queue_bloom_bind_groups(
                 upsampling_bind_groups.push(bind_group);
             }
 
-            let upsampling_final_bind_group =
-                render_device.create_bind_group(&BindGroupDescriptor {
-                    label: Some("bloom_upsampling_final_bind_group"),
-                    layout: &pipelines.downsampling_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(&BloomTextures::texture_view(
-                                &textures.texture_b,
-                                0,
-                            )),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::Sampler(&pipelines.sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: uniforms.clone(),
-                        },
-                    ],
-                });
+            let upsampling_final_bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
+                label: Some("bloom_upsampling_final_bind_group"),
+                layout: &pipelines.downsampling_bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(&BloomTextures::texture_view(
+                            &textures.texture_b,
+                            0,
+                        )),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(&pipelines.sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 2,
+                        resource: uniforms.clone(),
+                    },
+                ],
+            });
 
             commands.entity(entity).insert(BloomBindGroups {
                 prefilter_bind_group,

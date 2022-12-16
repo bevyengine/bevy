@@ -61,7 +61,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
                     let converted: #converted_shader_type = self.as_bind_group_shader_type(images);
                     buffer.write(&converted).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                    #render_path::render_resource::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
                         &#render_path::render_resource::BufferInitDescriptor {
                             label: None,
                             usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
@@ -281,7 +281,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 binding_impls.push(quote! {{
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
                     buffer.write(&self.#field_name).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                    #render_path::render_resource::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
                         &#render_path::render_resource::BufferInitDescriptor {
                             label: None,
                             usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
@@ -324,7 +324,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     buffer.write(&#uniform_struct_name {
                         #(#field_name: &self.#field_name,)*
                     }).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                    #render_path::render_resource::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
                         &#render_path::render_resource::BufferInitDescriptor {
                             label: None,
                             usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
@@ -368,7 +368,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             fn as_bind_group(
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
-                render_device: &#render_path::renderer::RenderDevice,
+                gpu_device: &#render_path::renderer::GPUDevice,
                 images: &#render_path::render_asset::RenderAssets<#render_path::texture::Image>,
                 fallback_image: &#render_path::texture::FallbackImage,
             ) -> Result<#render_path::render_resource::PreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
@@ -380,7 +380,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         label: None,
                         layout: &layout,
                     };
-                    render_device.create_bind_group(&descriptor)
+                    gpu_device.create_bind_group(&descriptor)
                 };
 
                 Ok(#render_path::render_resource::PreparedBindGroup {
@@ -390,8 +390,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 })
             }
 
-            fn bind_group_layout(render_device: &#render_path::renderer::RenderDevice) -> #render_path::render_resource::BindGroupLayout {
-                render_device.create_bind_group_layout(&#render_path::render_resource::BindGroupLayoutDescriptor {
+            fn bind_group_layout(gpu_device: &#render_path::renderer::GPUDevice) -> #render_path::render_resource::BindGroupLayout {
+                gpu_device.create_bind_group_layout(&#render_path::render_resource::BindGroupLayoutDescriptor {
                     entries: &[#(#binding_layouts,)*],
                     label: None,
                 })

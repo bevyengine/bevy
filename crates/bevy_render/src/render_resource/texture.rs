@@ -9,7 +9,7 @@ render_resource_wrapper!(ErasedTexture, wgpu::Texture);
 /// A GPU-accessible texture.
 ///
 /// May be converted from and dereferences to a wgpu [`Texture`](wgpu::Texture).
-/// Can be created via [`RenderDevice::create_texture`](crate::renderer::RenderDevice::create_texture).
+/// Can be created via [`GPUDevice::create_texture`](crate::renderer::GPUDevice::create_texture).
 #[derive(Clone, Debug)]
 pub struct Texture {
     id: TextureId,
@@ -135,7 +135,7 @@ render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.
 ///
 /// May be converted from and dereferences to a wgpu [`Sampler`](wgpu::Sampler).
-/// Can be created via [`RenderDevice::create_sampler`](crate::renderer::RenderDevice::create_sampler).
+/// Can be created via [`GPUDevice::create_sampler`](crate::renderer::GPUDevice::create_sampler).
 #[derive(Clone, Debug)]
 pub struct Sampler {
     id: SamplerId,

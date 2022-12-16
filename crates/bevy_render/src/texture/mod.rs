@@ -28,7 +28,7 @@ pub use texture_cache::*;
 
 use crate::{
     render_asset::{PrepareAssetLabel, RenderAssetPlugin},
-    renderer::RenderDevice,
+    renderer::GPUDevice,
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -95,7 +95,7 @@ impl Plugin for ImagePlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             let default_sampler = {
-                let device = render_app.world.resource::<RenderDevice>();
+                let device = render_app.world.resource::<GPUDevice>();
                 device.create_sampler(&self.default_sampler.clone())
             };
             render_app
