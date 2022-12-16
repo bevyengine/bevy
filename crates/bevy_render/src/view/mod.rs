@@ -79,6 +79,7 @@ pub struct Msaa {
 }
 
 impl Msaa {
+    #[inline]
     pub fn samples(&self) -> u32 {
         self.level as u32
     }
