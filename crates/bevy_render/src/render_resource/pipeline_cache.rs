@@ -6,7 +6,7 @@ use crate::{
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport,
         ShaderProcessor, ShaderReflectError,
     },
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -151,7 +151,7 @@ impl ShaderDefVal {
 impl ShaderCache {
     fn get(
         &mut self,
-        render_device: &RenderDevice,
+        gpu_device: &GpuDevice,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[ShaderDefVal],
@@ -189,7 +189,7 @@ impl ShaderCache {
 
                 shader_defs.push(ShaderDefVal::UInt(
                     String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                    render_device.limits().max_storage_buffers_per_shader_stage,
+                    gpu_device.limits().max_storage_buffers_per_shader_stage,
                 ));
 
                 debug!(
@@ -202,8 +202,7 @@ impl ShaderCache {
                     &self.shaders,
                     &self.import_path_shaders,
                 )?;
-                let module_descriptor = match processed
-                    .get_module_descriptor(render_device.features())
+                let module_descriptor = match processed.get_module_descriptor(gpu_device.features())
                 {
                     Ok(module_descriptor) => module_descriptor,
                     Err(err) => {
@@ -211,11 +210,11 @@ impl ShaderCache {
                     }
                 };
 
-                render_device
+                gpu_device
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
-                let shader_module = render_device.create_shader_module(module_descriptor);
-                let error = render_device.wgpu_device().pop_error_scope();
+                let shader_module = gpu_device.create_shader_module(module_descriptor);
+                let error = gpu_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
                 // On native platforms, wgpu will yield the error immediatly while on wasm it may take longer since the browser APIs are asynchronous.
@@ -305,7 +304,7 @@ struct LayoutCache {
 impl LayoutCache {
     fn get(
         &mut self,
-        render_device: &RenderDevice,
+        gpu_device: &GpuDevice,
         bind_group_layouts: &[BindGroupLayout],
     ) -> &wgpu::PipelineLayout {
         let key = bind_group_layouts.iter().map(|l| l.id()).collect();
@@ -314,7 +313,7 @@ impl LayoutCache {
                 .iter()
                 .map(|l| l.value())
                 .collect::<Vec<_>>();
-            ErasedPipelineLayout::new(render_device.create_pipeline_layout(
+            ErasedPipelineLayout::new(gpu_device.create_pipeline_layout(
                 &PipelineLayoutDescriptor {
                     bind_group_layouts: &bind_group_layouts,
                     ..default()
@@ -340,7 +339,7 @@ impl LayoutCache {
 pub struct PipelineCache {
     layout_cache: LayoutCache,
     shader_cache: ShaderCache,
-    device: RenderDevice,
+    gpu_device: GpuDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
 }
@@ -351,9 +350,9 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(device: RenderDevice) -> Self {
+    pub fn new(gpu_device: GpuDevice) -> Self {
         Self {
-            device,
+            gpu_device,
             layout_cache: default(),
             shader_cache: default(),
             waiting_pipelines: default(),
@@ -515,7 +514,7 @@ impl PipelineCache {
         descriptor: &RenderPipelineDescriptor,
     ) -> CachedPipelineState {
         let vertex_module = match self.shader_cache.get(
-            &self.device,
+            &self.gpu_device,
             id,
             &descriptor.vertex.shader,
             &descriptor.vertex.shader_defs,
@@ -528,7 +527,7 @@ impl PipelineCache {
 
         let fragment_data = if let Some(fragment) = &descriptor.fragment {
             let fragment_module = match self.shader_cache.get(
-                &self.device,
+                &self.gpu_device,
                 id,
                 &fragment.shader,
                 &fragment.shader_defs,
@@ -559,7 +558,7 @@ impl PipelineCache {
             .collect::<Vec<_>>();
 
         let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
+            Some(self.layout_cache.get(&self.gpu_device, layout))
         } else {
             None
         };
@@ -585,7 +584,7 @@ impl PipelineCache {
                 }),
         };
 
-        let pipeline = self.device.create_render_pipeline(&descriptor);
+        let pipeline = self.gpu_device.create_render_pipeline(&descriptor);
 
         CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline))
     }
@@ -596,7 +595,7 @@ impl PipelineCache {
         descriptor: &ComputePipelineDescriptor,
     ) -> CachedPipelineState {
         let compute_module = match self.shader_cache.get(
-            &self.device,
+            &self.gpu_device,
             id,
             &descriptor.shader,
             &descriptor.shader_defs,
@@ -608,7 +607,7 @@ impl PipelineCache {
         };
 
         let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
+            Some(self.layout_cache.get(&self.gpu_device, layout))
         } else {
             None
         };
@@ -620,7 +619,7 @@ impl PipelineCache {
             entry_point: descriptor.entry_point.as_ref(),
         };
 
-        let pipeline = self.device.create_compute_pipeline(&descriptor);
+        let pipeline = self.gpu_device.create_compute_pipeline(&descriptor);
 
         CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline))
     }

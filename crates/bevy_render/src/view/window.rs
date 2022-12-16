@@ -1,6 +1,6 @@
 use crate::{
     render_resource::TextureView,
-    renderer::{RenderAdapter, RenderDevice, RenderInstance},
+    renderer::{GpuAdapter, GpuDevice, GpuInstance},
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -169,9 +169,9 @@ pub fn prepare_windows(
     _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
-    render_device: Res<RenderDevice>,
-    render_instance: Res<RenderInstance>,
-    render_adapter: Res<RenderAdapter>,
+    gpu_device: Res<GpuDevice>,
+    gpu_instance: Res<GpuInstance>,
+    gpu_adapter: Res<GpuAdapter>,
 ) {
     for window in windows
         .windows
@@ -185,15 +185,15 @@ pub fn prepare_windows(
             .entry(window.id)
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
-                let surface = render_instance
-                    .create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
+                let surface =
+                    gpu_instance.create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
                 let format = *surface
-                    .get_supported_formats(&render_adapter)
+                    .get_supported_formats(&gpu_adapter)
                     .get(0)
                     .unwrap_or_else(|| {
                         panic!(
                             "No supported formats found for surface {:?} on adapter {:?}",
-                            surface, render_adapter
+                            surface, gpu_adapter
                         )
                     });
                 SurfaceData { surface, format }
@@ -229,7 +229,7 @@ pub fn prepare_windows(
         // and https://github.com/gfx-rs/wgpu/issues/1218
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
-            render_instance
+            gpu_instance
                 .enumerate_adapters(wgpu::Backends::VULKAN)
                 .any(|adapter| {
                     let name = adapter.get_info().name;
@@ -241,7 +241,7 @@ pub fn prepare_windows(
 
         let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
-            render_device.configure_surface(surface, &surface_configuration);
+            gpu_device.configure_surface(surface, &surface_configuration);
             let frame = surface
                 .get_current_texture()
                 .expect("Error configuring surface");
@@ -252,7 +252,7 @@ pub fn prepare_windows(
                     window.swap_chain_texture = Some(TextureView::from(frame));
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
-                    render_device.configure_surface(surface, &surface_configuration);
+                    gpu_device.configure_surface(surface, &surface_configuration);
                     let frame = surface
                         .get_current_texture()
                         .expect("Error reconfiguring surface");

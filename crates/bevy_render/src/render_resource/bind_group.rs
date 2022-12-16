@@ -3,7 +3,7 @@ use crate::{
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::FallbackImage,
 };
 pub use bevy_render_macros::AsBindGroup;
@@ -19,7 +19,7 @@ render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 /// This makes them accessible in the pipeline (shaders) as uniforms.
 ///
 /// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
-/// Can be created via [`RenderDevice::create_bind_group`](crate::renderer::RenderDevice::create_bind_group).
+/// Can be created via [`GpuDevice::create_bind_group`](crate::renderer::GpuDevice::create_bind_group).
 #[derive(Clone, Debug)]
 pub struct BindGroup {
     id: BindGroupId,
@@ -256,13 +256,13 @@ pub trait AsBindGroup {
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
-        render_device: &RenderDevice,
+        gpu_device: &GpuDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    fn bind_group_layout(gpu_device: &GpuDevice) -> BindGroupLayout
     where
         Self: Sized;
 }

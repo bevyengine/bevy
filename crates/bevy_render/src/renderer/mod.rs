@@ -1,10 +1,10 @@
+mod gpu_device;
 mod graph_runner;
-mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
+pub use gpu_device::*;
 pub use graph_runner::*;
-pub use render_device::*;
 
 use crate::{
     render_graph::RenderGraph,
@@ -23,13 +23,13 @@ pub fn render_system(world: &mut World) {
         graph.update(world);
     });
     let graph = world.resource::<RenderGraph>();
-    let render_device = world.resource::<RenderDevice>();
-    let render_queue = world.resource::<RenderQueue>();
+    let gpu_device = world.resource::<GpuDevice>();
+    let gpu_queue = world.resource::<GpuQueue>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
-        render_device.clone(), // TODO: is this clone really necessary?
-        &render_queue.0,
+        gpu_device.clone(), // TODO: is this clone really necessary?
+        &gpu_queue.0,
         world,
     ) {
         error!("Error running render graph:");
@@ -86,21 +86,29 @@ pub fn render_system(world: &mut World) {
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderQueue(pub Arc<Queue>);
+pub struct GpuQueue(pub Arc<Queue>);
 
 /// The handle to the physical device being used for rendering.
-/// See [`wgpu::Adapter`] for more info.
+/// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct RenderAdapter(pub Arc<Adapter>);
+pub struct GpuAdapter(pub Arc<Adapter>);
 
-/// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
+/// The GPU instance is used to initialize the [`GpuQueue`] and [`GpuDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderInstance(pub Instance);
+pub struct GpuInstance(pub Instance);
 
 /// The `AdapterInfo` of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderAdapterInfo(pub AdapterInfo);
+pub struct GpuAdapterInfo(pub AdapterInfo);
+
+/// Encodes a series of GPU operations.
+///
+/// A command encoder can record [`RenderPass`](crate::render_resource::RenderPass)es,
+/// [`ComputePass`](crate::render_resource::ComputePass)es, and transfer operations between
+/// driver-managed resources like [`Buffer`](crate::render_resource::Buffer)s and
+/// [`Texture`](crate::render_resource::Texture)s.
+pub type GpuCommandEncoder = CommandEncoder;
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -114,7 +122,7 @@ pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
+) -> (GpuDevice, GpuQueue, GpuAdapterInfo, GpuAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -264,18 +272,18 @@ pub async fn initialize_renderer(
     let queue = Arc::new(queue);
     let adapter = Arc::new(adapter);
     (
-        RenderDevice::from(device),
-        RenderQueue(queue),
-        RenderAdapterInfo(adapter_info),
-        RenderAdapter(adapter),
+        GpuDevice::from(device),
+        GpuQueue(queue),
+        GpuAdapterInfo(adapter_info),
+        GpuAdapter(adapter),
     )
 }
 
 /// The context with all information required to interact with the GPU.
 ///
-/// The [`RenderDevice`] is used to create render resources and the
-/// the [`CommandEncoder`] is used to record a series of GPU operations.
-pub struct RenderContext {
-    pub render_device: RenderDevice,
-    pub command_encoder: CommandEncoder,
+/// The [`GpuDevice`] is used to create gpu resources (buffers, bind groups, pipelines, etc.) and
+/// the [`GpuCommandEncoder`] is used to record a series of GPU operations.
+pub struct GpuContext {
+    pub gpu_device: GpuDevice,
+    pub gpu_command_encoder: GpuCommandEncoder,
 }

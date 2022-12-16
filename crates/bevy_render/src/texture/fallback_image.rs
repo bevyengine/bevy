@@ -6,7 +6,7 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{
     prelude::Image,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{BevyDefault, GpuImage, ImageSampler},
 };
 
@@ -19,8 +19,8 @@ pub struct FallbackImage(GpuImage);
 
 impl FromWorld for FallbackImage {
     fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
+        let gpu_device = world.resource::<GpuDevice>();
+        let gpu_queue = world.resource::<GpuQueue>();
         let default_sampler = world.resource::<DefaultImageSampler>();
         let image = Image::new_fill(
             Extent3d::default(),
@@ -28,15 +28,12 @@ impl FromWorld for FallbackImage {
             &[255u8; 4],
             TextureFormat::bevy_default(),
         );
-        let texture = render_device.create_texture_with_data(
-            render_queue,
-            &image.texture_descriptor,
-            &image.data,
-        );
+        let texture =
+            gpu_device.create_texture_with_data(gpu_queue, &image.texture_descriptor, &image.data);
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
         let sampler = match image.sampler_descriptor {
             ImageSampler::Default => (**default_sampler).clone(),
-            ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+            ImageSampler::Descriptor(descriptor) => gpu_device.create_sampler(&descriptor),
         };
         Self(GpuImage {
             texture,

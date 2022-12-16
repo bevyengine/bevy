@@ -9,7 +9,7 @@ use bevy_render::{
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
-    renderer::RenderContext,
+    renderer::GpuContext,
     view::{ExtractedView, ViewTarget},
 };
 
@@ -43,7 +43,7 @@ impl Node for UpscalingNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -62,27 +62,26 @@ impl Node for UpscalingNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device
+                let sampler = gpu_context
+                    .gpu_device
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group =
-                    render_context
-                        .render_device
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &upscaling_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(upscaled_texture),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = gpu_context
+                    .gpu_device
+                    .create_bind_group(&BindGroupDescriptor {
+                        label: None,
+                        layout: &upscaling_pipeline.texture_bind_group,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(upscaled_texture),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&sampler),
+                            },
+                        ],
+                    });
 
                 let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
                 bind_group
@@ -107,8 +106,8 @@ impl Node for UpscalingNode {
             depth_stencil_attachment: None,
         };
 
-        let mut render_pass = render_context
-            .command_encoder
+        let mut render_pass = gpu_context
+            .gpu_command_encoder
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);

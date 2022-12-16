@@ -1,12 +1,10 @@
 mod draw;
 mod draw_state;
 
-use bevy_ecs::entity::Entity;
 pub use draw::*;
 pub use draw_state::*;
 
-use bevy_ecs::prelude::{Component, Query};
-use bevy_ecs::world::World;
+use bevy_ecs::prelude::*;
 
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]

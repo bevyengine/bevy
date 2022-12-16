@@ -3,7 +3,7 @@ use crate::{
         Edge, Node, NodeId, NodeLabel, NodeRunError, NodeState, RenderGraphContext,
         RenderGraphError, SlotInfo, SlotLabel,
     },
-    renderer::RenderContext,
+    renderer::GpuContext,
 };
 use bevy_ecs::{prelude::World, system::Resource};
 use bevy_utils::HashMap;
@@ -33,12 +33,12 @@ use super::EdgeExistence;
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::World;
 /// # use bevy_render::render_graph::{RenderGraph, Node, RenderGraphContext, NodeRunError};
-/// # use bevy_render::renderer::RenderContext;
+/// # use bevy_render::renderer::GpuContext;
 /// #
 /// # struct MyNode;
 /// #
 /// # impl Node for MyNode {
-/// #     fn run(&self, graph: &mut RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
+/// #     fn run(&self, graph: &mut RenderGraphContext, gpu_context: &mut GpuContext, world: &World) -> Result<(), NodeRunError> {
 /// #         unimplemented!()
 /// #     }
 /// # }
@@ -615,7 +615,7 @@ impl Node for GraphInputNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        _gpu_context: &mut GpuContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         for i in 0..graph.inputs().len() {
@@ -633,7 +633,7 @@ mod tests {
             Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
             SlotInfo, SlotType,
         },
-        renderer::RenderContext,
+        renderer::GpuContext,
     };
     use bevy_ecs::world::World;
     use bevy_utils::HashSet;
@@ -669,7 +669,7 @@ mod tests {
         fn run(
             &self,
             _: &mut RenderGraphContext,
-            _: &mut RenderContext,
+            _: &mut GpuContext,
             _: &World,
         ) -> Result<(), NodeRunError> {
             Ok(())
@@ -742,7 +742,7 @@ mod tests {
             fn run(
                 &self,
                 _: &mut RenderGraphContext,
-                _: &mut RenderContext,
+                _: &mut GpuContext,
                 _: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())

@@ -36,7 +36,7 @@ use bevy_render::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
     },
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
     Extract, RenderApp, RenderStage,
@@ -251,7 +251,7 @@ pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     views_3d: Query<
         (Entity, &ExtractedCamera),
         (
@@ -268,7 +268,7 @@ pub fn prepare_core_3d_depth_textures(
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
-                        &render_device,
+                        &gpu_device,
                         TextureDescriptor {
                             label: Some("view_depth_texture"),
                             size: Extent3d {

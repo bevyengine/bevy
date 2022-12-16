@@ -9,7 +9,7 @@ use bevy_render::{
     prelude::Camera,
     render_graph::RenderGraph,
     render_resource::*,
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     RenderApp, RenderStage,
@@ -153,7 +153,7 @@ pub struct FxaaPipeline {
 impl FromWorld for FxaaPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let texture_bind_group = render_world
-            .resource::<RenderDevice>()
+            .resource::<GpuDevice>()
             .create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("fxaa_texture_bind_group_layout"),
                 entries: &[

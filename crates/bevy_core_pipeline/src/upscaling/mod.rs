@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
-use bevy_render::renderer::RenderDevice;
+use bevy_render::renderer::GpuDevice;
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
@@ -41,30 +41,29 @@ pub struct UpscalingPipeline {
 
 impl FromWorld for UpscalingPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let render_device = render_world.resource::<RenderDevice>();
+        let gpu_device = render_world.resource::<GpuDevice>();
 
-        let texture_bind_group =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("upscaling_texture_bind_group_layout"),
-                entries: &[
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: false },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
+        let texture_bind_group = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+            label: Some("upscaling_texture_bind_group_layout"),
+            entries: &[
+                BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        sample_type: TextureSampleType::Float { filterable: false },
+                        view_dimension: TextureViewDimension::D2,
+                        multisampled: false,
                     },
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
-                        count: None,
-                    },
-                ],
-            });
+                    count: None,
+                },
+                BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
+                    count: None,
+                },
+            ],
+        });
 
         UpscalingPipeline { texture_bind_group }
     }

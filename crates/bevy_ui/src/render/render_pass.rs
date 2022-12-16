@@ -49,7 +49,7 @@ impl Node for UiPassNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -85,8 +85,8 @@ impl Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        let render_pass = render_context
-            .command_encoder
+        let render_pass = gpu_context
+            .gpu_command_encoder
             .begin_render_pass(&pass_descriptor);
         let mut render_pass = TrackedRenderPass::new(render_pass);
 

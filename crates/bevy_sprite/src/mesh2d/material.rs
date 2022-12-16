@@ -29,7 +29,7 @@ use bevy_render::{
         PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
-    renderer::RenderDevice,
+    renderer::GpuDevice,
     texture::FallbackImage,
     view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
     Extract, RenderApp, RenderStage,
@@ -251,8 +251,8 @@ where
 impl<M: Material2d> FromWorld for Material2dPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
-        let material2d_layout = M::bind_group_layout(render_device);
+        let gpu_device = world.resource::<GpuDevice>();
+        let material2d_layout = M::bind_group_layout(gpu_device);
 
         Material2dPipeline {
             mesh2d_pipeline: world.resource::<Mesh2dPipeline>().clone(),
@@ -473,20 +473,14 @@ fn prepare_materials_2d<M: Material2d>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedMaterials2d<M>>,
     mut render_materials: ResMut<RenderMaterials2d<M>>,
-    render_device: Res<RenderDevice>,
+    gpu_device: Res<GpuDevice>,
     images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<Material2dPipeline<M>>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (handle, material) in queued_assets {
-        match prepare_material2d(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_material2d(&material, &gpu_device, &images, &fallback_image, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -501,13 +495,7 @@ fn prepare_materials_2d<M: Material2d>(
     }
 
     for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_material2d(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_material2d(&material, &gpu_device, &images, &fallback_image, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -520,14 +508,14 @@ fn prepare_materials_2d<M: Material2d>(
 
 fn prepare_material2d<M: Material2d>(
     material: &M,
-    render_device: &RenderDevice,
+    gpu_device: &GpuDevice,
     images: &RenderAssets<Image>,
     fallback_image: &FallbackImage,
     pipeline: &Material2dPipeline<M>,
 ) -> Result<PreparedMaterial2d<M>, AsBindGroupError> {
     let prepared = material.as_bind_group(
         &pipeline.material2d_layout,
-        render_device,
+        gpu_device,
         images,
         fallback_image,
     )?;

@@ -1,7 +1,7 @@
 #![allow(clippy::doc_markdown)]
 
 use super::Buffer;
-use crate::renderer::{RenderDevice, RenderQueue};
+use crate::renderer::{GpuDevice, GpuQueue};
 use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
@@ -101,18 +101,18 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`GpuDevice`](crate::renderer::GpuDevice)
+    /// and the provided [`GpuQueue`](crate::renderer::GpuQueue).
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         self.scratch.write(&self.value).unwrap();
 
         let size = self.scratch.as_ref().len();
 
         if self.capacity < size || self.label_changed {
-            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+            self.buffer = Some(gpu_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
                 contents: self.scratch.as_ref(),
@@ -120,7 +120,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
             self.capacity = size;
             self.label_changed = false;
         } else if let Some(buffer) = &self.buffer {
-            queue.write_buffer(buffer, 0, self.scratch.as_ref());
+            gpu_queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }
 }
@@ -215,11 +215,11 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         let size = self.scratch.as_ref().len();
 
         if self.capacity < size || self.label_changed {
-            self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {
+            self.buffer = Some(gpu_device.create_buffer_with_data(&BufferInitDescriptor {
                 label: self.label.as_deref(),
                 usage: BufferUsages::COPY_DST | BufferUsages::STORAGE,
                 contents: self.scratch.as_ref(),
@@ -227,7 +227,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
             self.capacity = size;
             self.label_changed = false;
         } else if let Some(buffer) = &self.buffer {
-            queue.write_buffer(buffer, 0, self.scratch.as_ref());
+            gpu_queue.write_buffer(buffer, 0, self.scratch.as_ref());
         }
     }
 
