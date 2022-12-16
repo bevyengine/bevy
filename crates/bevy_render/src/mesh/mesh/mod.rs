@@ -4,7 +4,7 @@ pub use wgpu::PrimitiveTopology;
 
 use crate::{
     primitives::Aabb,
-    render_asset::{PrepareAssetError, RenderAsset, ExtractAssetError},
+    render_asset::{ExtractAssetError, PrepareAssetError, RenderAsset},
     render_resource::{Buffer, VertexBufferLayout},
     renderer::RenderDevice,
 };
