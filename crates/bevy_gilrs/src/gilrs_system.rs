@@ -2,12 +2,9 @@ use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
 use bevy_ecs::event::EventWriter;
 use bevy_ecs::system::{NonSend, NonSendMut};
 use bevy_input::gamepad::GamepadInfo;
-use bevy_input::{
-    gamepad::{
-        GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
-        RawGamepadButtonChangedEvent,
-    },
-    prelude::*,
+use bevy_input::gamepad::{
+    GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
+    RawGamepadButtonChangedEvent,
 };
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
 
@@ -58,20 +55,16 @@ pub fn gilrs_event_system(
             }),
             EventType::ButtonChanged(gilrs_button, value, _) => {
                 if let Some(button_type) = convert_button(gilrs_button) {
-                    button_events.send(RawGamepadButtonChangedEvent {
+                    button_events.send(RawGamepadButtonChangedEvent::new(
                         gamepad,
-                        button: GamepadButton::new(gamepad, button_type),
-                        unfiltered_value: value,
-                    });
+                        button_type,
+                        value,
+                    ));
                 }
             }
             EventType::AxisChanged(gilrs_axis, value, _) => {
                 if let Some(axis_type) = convert_axis(gilrs_axis) {
-                    axis_events.send(RawGamepadAxisChangedEvent {
-                        gamepad,
-                        axis: GamepadAxis::new(gamepad, axis_type),
-                        unfiltered_value: value,
-                    });
+                    axis_events.send(RawGamepadAxisChangedEvent::new(gamepad, axis_type, value));
                 }
             }
             _ => (),

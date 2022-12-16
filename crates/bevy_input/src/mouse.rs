@@ -28,16 +28,6 @@ pub struct MouseButtonInput {
     pub state: ButtonState,
 }
 
-// impl PressableInputEvent for MouseButtonInput {
-//     fn just_pressed(&self) -> bool {
-//         self.state.is_pressed()
-//     }
-
-//     fn just_released(&self) -> bool {
-//         self.state.is_released()
-//     }
-// }
-
 /// A button on a mouse device.
 ///
 /// ## Usage

@@ -30,16 +30,6 @@ pub struct KeyboardInput {
     pub state: ButtonState,
 }
 
-// impl PressableInputEvent for KeyboardInput {
-//     fn just_pressed(&self) -> bool {
-//         self.state.is_pressed()
-//     }
-
-//     fn just_released(&self) -> bool {
-//         self.state.is_released()
-//     }
-// }
-
 /// Updates the [`Input<KeyCode>`] resource with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
