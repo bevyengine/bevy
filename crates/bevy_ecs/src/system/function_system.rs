@@ -147,7 +147,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        let param_state = <Param as SystemParam>::init(world, &mut meta);
+        let param_state = Param::init(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -221,12 +221,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
     ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        let param = <Param as SystemParam>::get_param(
-            &mut self.param_state,
-            &self.meta,
-            world,
-            change_tick,
-        );
+        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
         self.meta.last_change_tick = change_tick;
         param
     }
@@ -398,7 +393,7 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = <Param as SystemParam>::get_param(
+        let params = Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
@@ -427,7 +422,7 @@ where
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param as SystemParam>::init(world, &mut self.system_meta));
+        self.param_state = Some(Param::init(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {
