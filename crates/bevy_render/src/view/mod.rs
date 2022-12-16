@@ -66,7 +66,6 @@ impl Plugin for ViewPlugin {
 /// ```
 #[derive(Resource, Clone, ExtractResource, Reflect)]
 #[reflect(Resource)]
-#[non_exhaustive]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
     /// smoother edges.
@@ -99,6 +98,7 @@ impl From<MultiSampleLevel> for Msaa {
 }
 
 #[derive(Clone, Copy, Reflect, PartialEq)]
+#[non_exhaustive]
 pub enum MultiSampleLevel {
     Off = 1,
     Sample4 = 4,
