@@ -32,10 +32,10 @@ pub trait RenderAsset: Asset {
     /// The GPU-representation of the asset.
     type PreparedAsset: Send + Sync + 'static;
     /// Specifies all ECS data required by [`RenderAsset::extract_asset`].
-    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) SystemParams.
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) `SystemParams`.
     type ExtractParam: SystemParam;
     /// Specifies all ECS data required by [`RenderAsset::prepare_asset`].
-    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) SystemParams.
+    /// For convenience use the [`lifetimeless`](bevy_ecs::system::lifetimeless) `SystemParams`.
     type PrepareParam: SystemParam;
     /// Converts the asset into a [`RenderAsset::ExtractedAsset`]. Therefore ECS data may be accessed via the `param`.
     fn extract_asset(
@@ -151,19 +151,19 @@ fn extract_render_asset<A: RenderAsset>(
     let mut changed_assets = HashSet::default();
     let mut removed = Vec::new();
     for event in events.iter() {
-        match event {
+        match &event {
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
                 changed_assets.insert(handle.clone_weak());
             }
             AssetEvent::Removed { handle } => {
-                changed_assets.remove(&handle);
+                changed_assets.remove(handle);
                 removed.push(handle.clone_weak());
             }
         }
     }
 
     let previous_frame_failures = extract_next_frame.drain(..).collect::<Vec<_>>();
-    for handle in previous_frame_failures.iter() {
+    for handle in &previous_frame_failures {
         changed_assets.insert(handle.clone_weak());
     }
 
