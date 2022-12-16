@@ -133,16 +133,17 @@ impl BloomSettings {
     fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
         let x = mip / max_mip;
 
-        fn sigmoid(x: f32, curvature: f32) -> f32 {
-            (x - curvature * x) / (curvature - 2.0 * curvature * x.abs() + 1.0)
-        }
+        // fn sigmoid(x: f32, curvature: f32) -> f32 {
+        //     (x - curvature * x) / (curvature - 2.0 * curvature * x.abs() + 1.0)
+        // }
 
-        let c = (2.0 * x.powf(self.mid_offset) - 1.0).powi(2);
-        let s = (1.0 + sigmoid(0.5_f32.powf(1.0 / self.mid_offset) - x, -1.0)) / 2.0;
-        let d = self.side_intensity + (self.intensity - self.side_intensity) * s;
-        let out = (1.0 - c * (1.0 - d)) * self.mid_intensity;
+        let c = (2.0 * x.powf(self.bump_angle) - 1.0).powi(2);
+        // let s = (1.0 + sigmoid(0.5_f32.powf(1.0 / self.bump_angle) - x, -0.99999)) / 2.0;
+        let s = (1.0 + (if x < self.bump_angle { 1.0 } else { 0.0 })) / 2.0; // this is the same as above
+        let d = self.far_contribution + (self.near_contribution - self.far_contribution) * s;
+        let blend = (1.0 - c * (1.0 - d)) * self.top_intensity;
 
-        return out;
+        return blend;
     }
 }
 

@@ -1,6 +1,6 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
-use bevy::{core_pipeline::bloom::BloomSettings, prelude::*};
+use bevy::{core_pipeline::bloom::{BloomSettings, BloomMode}, prelude::*};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -124,10 +124,14 @@ fn update_bloom_settings(
         (entity, Some(mut bloom_settings)) => {
             *text = "BloomSettings (Toggle: Space)\n".to_string();
             text.push_str("-----------------------------\n");
-            text.push_str(&format!("(Q/A) Intensity: {}\n", bloom_settings.intensity));
-            text.push_str(&format!("(W/S) Mid offset: {}\n", bloom_settings.mid_offset));
-            text.push_str(&format!("(E/D) Mid intensity: {}\n", bloom_settings.mid_intensity));
-            text.push_str(&format!("(R/F) Side intensity: {}\n", bloom_settings.side_intensity));
+            text.push_str(&format!("(Q/A) Top intensity: {}\n", bloom_settings.top_intensity));
+            text.push_str(&format!("(W/S) Bump angle: {}\n", bloom_settings.bump_angle));
+            text.push_str(&format!("(E/D) Near contribution: {}\n", bloom_settings.near_contribution));
+            text.push_str(&format!("(R/F) Far contribution: {}\n", bloom_settings.far_contribution));
+            text.push_str(&format!("(T/G) Mode: {}\n", match bloom_settings.mode {
+                BloomMode::EnergyConserving => "Energy-conserving",
+                BloomMode::Additive => "Additive",
+            }));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<BloomSettings>();
@@ -135,40 +139,44 @@ fn update_bloom_settings(
 
             let dt = time.delta_seconds();
 
-            //
-            //
-            //
             if keycode.pressed(KeyCode::A) {
-                bloom_settings.intensity -= dt / 10.0;
+                bloom_settings.top_intensity -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::Q) {
-                bloom_settings.intensity += dt / 10.0;
+                bloom_settings.top_intensity += dt / 10.0;
             }
-            bloom_settings.intensity = bloom_settings.intensity.clamp(0.0, 1.0);
+            bloom_settings.top_intensity = bloom_settings.top_intensity.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::S) {
-                bloom_settings.mid_offset -= dt / 10.0;
+                bloom_settings.bump_angle -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::W) {
-                bloom_settings.mid_offset += dt / 10.0;
+                bloom_settings.bump_angle += dt / 10.0;
             }
-            bloom_settings.mid_offset = bloom_settings.mid_offset.clamp(0.0, 1.0);
+            bloom_settings.bump_angle = bloom_settings.bump_angle.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::D) {
-                bloom_settings.mid_intensity -= dt / 10.0;
+                bloom_settings.near_contribution -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::E) {
-                bloom_settings.mid_intensity += dt / 10.0;
+                bloom_settings.near_contribution += dt / 10.0;
             }
-            bloom_settings.mid_intensity = bloom_settings.mid_intensity.clamp(0.0, 1.0);
+            bloom_settings.near_contribution = bloom_settings.near_contribution.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::F) {
-                bloom_settings.side_intensity -= dt / 10.0;
+                bloom_settings.far_contribution -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::R) {
-                bloom_settings.side_intensity += dt / 10.0;
+                bloom_settings.far_contribution += dt / 10.0;
             }
-            bloom_settings.side_intensity = bloom_settings.side_intensity.clamp(0.0, 1.0);
+            bloom_settings.far_contribution = bloom_settings.far_contribution.clamp(0.0, 1.0);
+
+            if keycode.pressed(KeyCode::G) {
+                bloom_settings.mode = BloomMode::Additive;
+            }
+            if keycode.pressed(KeyCode::T) {
+                bloom_settings.mode = BloomMode::EnergyConserving;
+            }
         }
 
         (entity, None) => {

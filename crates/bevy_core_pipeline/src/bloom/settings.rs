@@ -47,10 +47,10 @@ pub struct PrefilterSettings {
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
-    pub side_intensity: f32,
-    pub mid_intensity: f32,
-    pub mid_offset: f32,
-    pub intensity: f32,
+    pub far_contribution: f32,
+    pub top_intensity: f32,
+    pub bump_angle: f32,
+    pub near_contribution: f32,
 
     pub prefilter_settings: PrefilterSettings,
 
@@ -69,10 +69,10 @@ pub struct BloomSettings {
 impl BloomSettings {
     //// Recommended for HDR rendering
     pub const NATURAL: Self = Self {
-        side_intensity: 0.4,
-        mid_intensity: 0.9,
-        mid_offset: 0.4,
-        intensity: 0.3,
+        far_contribution: 0.8,
+        top_intensity: 0.9,
+        bump_angle: 0.5,
+        near_contribution: 0.3,
         prefilter_settings: PrefilterSettings {
             threshold: 0.0,
             threshold_softness: 0.0,
@@ -82,11 +82,10 @@ impl BloomSettings {
 
     /// Recommended for SDR rendering
     pub const OLDSCHOOL: Self = Self {
-        // TODO: Confirm whether the intensity values are good
-        side_intensity: 0.8,
-        mid_intensity: 0.9,
-        mid_offset: 0.6,
-        intensity: 0.8,
+        far_contribution: 0.8,
+        top_intensity: 0.9,
+        bump_angle: 0.5,
+        near_contribution: 0.1,
         prefilter_settings: PrefilterSettings {
             threshold: 0.6,
             threshold_softness: 0.2,
@@ -95,13 +94,13 @@ impl BloomSettings {
     };
 
     pub const SCREEN_BLUR: Self = Self {
-        side_intensity: 0.0,
-        mid_intensity: 1.0,
-        mid_offset: 0.6,
-        intensity: 1.0,
+        far_contribution: 0.0,
+        top_intensity: 1.0,
+        bump_angle: 0.3,
+        near_contribution: 1.0,
         prefilter_settings: PrefilterSettings {
-            threshold: 0.0,
-            threshold_softness: 0.0,
+            threshold: 0.625,
+            threshold_softness: 0.25,
         },
         mode: BloomMode::EnergyConserving,
     };
