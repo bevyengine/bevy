@@ -528,8 +528,23 @@ impl FromWorld for BloomPipelines {
                 upsampling_pipeline!(
                     $label,
                     $texture_format,
-                    // We blend our blur pyramid levels using native WGPU render
-                    // pass blend constants. They are set in the node's run function.
+                    // At the time of developing this we decided to blend our
+                    // blur pyramid levels using native WGPU render pass blend
+                    // constants. They are set in the node's run function.
+                    // This seemed like a good approach at the time which allowed
+                    // us to perform complex calculations for blend levels on the CPU,
+                    // however, we missed the fact that this prevented us from using
+                    // textures to customize bloom apperance on individual parts
+                    // of the screen and create effects such as lens dirt or
+                    // screen blur behind certain UI elements.
+                    //
+                    // TODO: Use alpha instead of blend constants and move
+                    // compute_blend_factor to the shader. The shader
+                    // will likely need to know current mip number or
+                    // mip "angle" (original texture is 0deg, max mip is 90deg)
+                    // so make sure you give it that as a uniform.
+                    // That does have to be provided per each pass unlike other
+                    // uniforms that are set once.
                     BlendComponent {
                         src_factor: BlendFactor::Constant,
                         dst_factor: BlendFactor::OneMinusConstant,
