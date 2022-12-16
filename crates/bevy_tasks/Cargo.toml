@@ -14,7 +14,7 @@ async-executor = "1.3.0"
 async-channel = "1.4.2"
 async-task = "4.2.0"
 once_cell = "1.7"
-concurrent-queue = "1.2.2"
+concurrent-queue = "2.0.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = "0.4"
