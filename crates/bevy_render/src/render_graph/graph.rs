@@ -1,11 +1,9 @@
-use crate::{
-    render_graph::{
-        Edge, Node, NodeId, NodeLabel, NodeRunError, NodeState, RenderGraphContext,
-        RenderGraphError, SlotInfo, SlotLabel,
-    },
-    renderer::GpuContext,
+use crate::render_graph::{
+    Edge, Node, NodeId, NodeLabel, NodeRunError, NodeState, RenderGraphContext, RenderGraphError,
+    SlotInfo, SlotLabel,
 };
 use bevy_ecs::{prelude::World, system::Resource};
+use bevy_gpu::GpuContext;
 use bevy_utils::HashMap;
 use std::{borrow::Cow, fmt::Debug};
 
@@ -32,8 +30,8 @@ use super::EdgeExistence;
 /// ```
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::World;
+/// # use bevy_gpu::GpuContext;
 /// # use bevy_render::render_graph::{RenderGraph, Node, RenderGraphContext, NodeRunError};
-/// # use bevy_render::renderer::GpuContext;
 /// #
 /// # struct MyNode;
 /// #
@@ -628,14 +626,12 @@ impl Node for GraphInputNode {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        render_graph::{
-            Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
-            SlotInfo, SlotType,
-        },
-        renderer::GpuContext,
+    use crate::render_graph::{
+        Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
+        SlotInfo, SlotType,
     };
     use bevy_ecs::world::World;
+    use bevy_gpu::GpuContext;
     use bevy_utils::HashSet;
 
     #[derive(Debug)]

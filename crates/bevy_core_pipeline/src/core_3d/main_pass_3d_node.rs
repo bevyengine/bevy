@@ -3,12 +3,14 @@ use crate::{
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
 };
 use bevy_ecs::prelude::*;
+use bevy_gpu::{
+    gpu_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
+    GpuContext,
+};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
-    renderer::GpuContext,
+    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]
@@ -95,13 +97,20 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            opaque_phase.render(
-                world,
-                gpu_context,
-                view_entity,
-                camera.viewport.as_ref(),
-                pass_descriptor,
-            );
+            let draw_functions = world.resource::<DrawFunctions<Opaque3d>>();
+
+            let render_pass = render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor);
+            let mut draw_functions = draw_functions.write();
+            let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            if let Some(viewport) = camera.viewport.as_ref() {
+                tracked_pass.set_camera_viewport(viewport);
+            }
+            for item in &opaque_phase.items {
+                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+                draw_function.draw(world, &mut tracked_pass, view_entity, item);
+            }
         }
 
         if !alpha_mask_phase.items.is_empty() {
@@ -127,13 +136,20 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            alpha_mask_phase.render(
-                world,
-                gpu_context,
-                view_entity,
-                camera.viewport.as_ref(),
-                pass_descriptor,
-            );
+            let draw_functions = world.resource::<DrawFunctions<AlphaMask3d>>();
+
+            let render_pass = render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor);
+            let mut draw_functions = draw_functions.write();
+            let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            if let Some(viewport) = camera.viewport.as_ref() {
+                tracked_pass.set_camera_viewport(viewport);
+            }
+            for item in &alpha_mask_phase.items {
+                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
+                draw_function.draw(world, &mut tracked_pass, view_entity, item);
+            }
         }
 
         if !transparent_phase.items.is_empty() {

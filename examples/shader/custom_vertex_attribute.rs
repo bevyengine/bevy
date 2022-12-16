@@ -1,16 +1,11 @@
 //! A shader that reads a mesh's custom vertex attribute.
 
 use bevy::{
+    gpu::gpu_resource::*,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypeUuid,
-    render::{
-        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-            VertexFormat,
-        },
-    },
+    render::mesh::{MeshVertexAttribute, MeshVertexBufferLayout, SpecializedMeshPipelineError},
 };
 
 fn main() {

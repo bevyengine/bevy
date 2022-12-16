@@ -9,6 +9,7 @@ use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiIm
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
+use bevy_gpu::{gpu_resource::*, GpuDevice, GpuQueue};
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::DEFAULT_IMAGE_HANDLE;
@@ -18,8 +19,6 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
-    render_resource::*,
-    renderer::{GpuDevice, GpuQueue},
     texture::Image,
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderStage,

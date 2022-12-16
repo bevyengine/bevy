@@ -1,7 +1,4 @@
-use crate::{
-    render_resource::Buffer,
-    renderer::{GpuDevice, GpuQueue},
-};
+use crate::{gpu_resource::Buffer, GpuDevice, GpuQueue};
 use bevy_core::{cast_slice, Pod};
 use wgpu::BufferUsages;
 
@@ -15,17 +12,17 @@ use wgpu::BufferUsages;
 /// Index, vertex, and instance-rate vertex buffers have no alignment nor padding requirements and
 /// so this helper type is a good choice for them.
 ///
-/// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
-/// allocates VRAM from the [`GpuDevice`](crate::renderer::GpuDevice).
-/// [`write_buffer`](crate::render_resource::BufferVec::write_buffer) queues copying of the data
+/// The contained data is stored in system RAM. Calling [`reserve`](BufferVec::reserve)
+/// allocates VRAM from the [`GpuDevice`].
+/// [`write_buffer`](BufferVec::write_buffer) queues copying of the data
 /// from system RAM to VRAM.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
-/// * [`Texture`](crate::render_resource::Texture)
+/// * [`DynamicStorageBuffer`](crate::gpu_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::gpu_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::gpu_resource::DynamicUniformBuffer)
+/// * [`BufferVec`](crate::gpu_resource::BufferVec)
+/// * [`Texture`](crate::gpu_resource::Texture)
 pub struct BufferVec<T: Pod> {
     values: Vec<T>,
     buffer: Option<Buffer>,
@@ -89,17 +86,17 @@ impl<T: Pod> BufferVec<T> {
         self.label.as_deref()
     }
 
-    /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`GpuDevice`](crate::renderer::GpuDevice) with size
-    /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
+    /// Creates a [`Buffer`] on the [`GpuDevice`] with size at least
+    /// `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
     ///
-    /// If a [`Buffer`](crate::render_resource::Buffer) exists, but is too small, references to it will be discarded,
-    /// and a new [`Buffer`](crate::render_resource::Buffer) will be created. Any previously created [`Buffer`](crate::render_resource::Buffer)s
-    /// that are no longer referenced will be deleted by the [`GPUDevice`](crate::renderer::GpuDevice)
+    /// If a [`Buffer`] exists, but is too small, references to it will be discarded,
+    /// and a new [`Buffer`] will be created. Any previously created [`Buffer`]s
+    /// that are no longer referenced will be deleted by the [`GpuDevice`]
     /// once it is done using them (typically 1-2 frames).
     ///
-    /// In addition to any [`BufferUsages`](crate::render_resource::BufferUsages) provided when
-    /// the `BufferVec` was created, the buffer on the [`GPUDevice`](crate::renderer::GpuDevice)
-    /// is marked as [`BufferUsages::COPY_DST`](crate::render_resource::BufferUsages).
+    /// In addition to any [`BufferUsages`] provided when
+    /// the `BufferVec` was created, the buffer on the [`GpuDevice`]
+    /// is marked as [`BufferUsages::COPY_DST`].
     pub fn reserve(&mut self, capacity: usize, gpu_device: &GpuDevice) {
         if capacity > self.capacity || self.label_changed {
             self.capacity = capacity;
@@ -114,10 +111,10 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GpuDevice)
-    /// and the provided [`GPUQueue`](crate::renderer::GpuQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`GpuDevice`]
+    /// and the provided [`GpuQueue`].
     ///
-    /// Before queuing the write, a [`reserve`](crate::render_resource::BufferVec::reserve) operation
+    /// Before queuing the write, a [`BufferVec::reserve`] operation
     /// is executed.
     pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         if self.values.is_empty() {

@@ -10,6 +10,7 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
+use bevy_gpu::{gpu_resource::*, GpuDevice, GpuQueue};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Uuid;
 use bevy_render::{
@@ -19,8 +20,6 @@ use bevy_render::{
         BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
-    render_resource::*,
-    renderer::{GpuDevice, GpuQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },

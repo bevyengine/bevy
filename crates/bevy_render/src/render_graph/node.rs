@@ -1,15 +1,13 @@
-use crate::{
-    define_atomic_id,
-    render_graph::{
-        Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
-        RunSubGraphError, SlotInfo, SlotInfos, SlotType, SlotValue,
-    },
-    renderer::GpuContext,
+use crate::render_graph::{
+    Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError, RunSubGraphError,
+    SlotInfo, SlotInfos, SlotType, SlotValue,
 };
 use bevy_ecs::world::World;
+use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
+use bevy_gpu::{define_atomic_id};
 
 define_atomic_id!(NodeId);
 

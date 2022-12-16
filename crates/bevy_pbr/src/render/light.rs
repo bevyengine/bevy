@@ -10,11 +10,12 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_gpu::{gpu_resource::*, GpuContext, GpuDevice, GpuQueue};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{pipeline::*, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
@@ -22,8 +23,6 @@ use bevy_render::{
         EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
         TrackedRenderPass,
     },
-    render_resource::*,
-    renderer::{GpuContext, GpuDevice, GpuQueue},
     texture::*,
     view::{
         ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,

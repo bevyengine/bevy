@@ -3,13 +3,12 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_gpu::{gpu_resource::*, GpuDevice};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
     render_graph::RenderGraph,
-    render_resource::*,
-    renderer::GpuDevice,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     RenderApp, RenderStage,

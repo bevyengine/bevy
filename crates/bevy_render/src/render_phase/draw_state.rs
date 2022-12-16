@@ -1,14 +1,7 @@
-use crate::{
-    camera::Viewport,
-    prelude::Color,
-    render_resource::{
-        BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
-        ShaderStages,
-    },
-};
+use crate::{camera::Viewport, prelude::Color};
+use bevy_gpu::gpu_resource::*;
 use bevy_utils::tracing::trace;
 use std::ops::Range;
-use wgpu::{IndexFormat, RenderPass};
 
 /// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
@@ -88,17 +81,17 @@ impl DrawState {
     }
 }
 
-/// A [`RenderPass`], which tracks the current pipeline state to ensure all draw calls are valid.
+/// A [`WgpuRenderPass`], which tracks the current pipeline state to ensure all draw calls are valid.
 /// It is used to set the current [`RenderPipeline`], [`BindGroups`](BindGroup) and buffers.
 /// After all requirements are specified, draw calls can be issued.
 pub struct TrackedRenderPass<'a> {
-    pass: RenderPass<'a>,
+    pass: WgpuRenderPass<'a>,
     state: DrawState,
 }
 
 impl<'a> TrackedRenderPass<'a> {
     /// Tracks the supplied render pass.
-    pub fn new(pass: RenderPass<'a>) -> Self {
+    pub fn new(pass: WgpuRenderPass<'a>) -> Self {
         Self {
             state: DrawState::default(),
             pass,
@@ -156,7 +149,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// will use the buffer referenced by `buffer_slice` as one of the source vertex buffer(s).
     ///
     /// The `slot_index` refers to the index of the matching descriptor in
-    /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
+    /// [`VertexState::buffers`](bevy_gpu::gpu_resource::VertexState::buffers).
     pub fn set_vertex_buffer(&mut self, slot_index: usize, buffer_slice: BufferSlice<'a>) {
         let offset = buffer_slice.offset();
         if self
@@ -563,6 +556,6 @@ impl<'a> TrackedRenderPass<'a> {
 
     pub fn set_blend_constant(&mut self, color: Color) {
         trace!("set blend constant: {:?}", color);
-        self.pass.set_blend_constant(wgpu::Color::from(color));
+        self.pass.set_blend_constant(WgpuColor::from(color));
     }
 }

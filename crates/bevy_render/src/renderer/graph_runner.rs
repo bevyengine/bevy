@@ -1,4 +1,9 @@
+use crate::render_graph::{
+    Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel, SlotType,
+    SlotValue,
+};
 use bevy_ecs::world::World;
+use bevy_gpu::{gpu_resource::*, GpuContext, GpuDevice, GpuQueue};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
@@ -7,14 +12,6 @@ use smallvec::{smallvec, SmallVec};
 use std::ops::Deref;
 use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
-
-use crate::{
-    render_graph::{
-        Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
-        SlotType, SlotValue,
-    },
-    renderer::{GpuContext, GpuDevice},
-};
 
 pub(crate) struct RenderGraphRunner;
 
@@ -55,11 +52,11 @@ impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
         gpu_device: GpuDevice,
-        queue: &wgpu::Queue,
+        queue: &GpuQueue,
         world: &World,
     ) -> Result<(), RenderGraphRunnerError> {
         let gpu_command_encoder =
-            gpu_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+            gpu_device.create_command_encoder(&CommandEncoderDescriptor::default());
         let mut gpu_context = GpuContext {
             gpu_device,
             gpu_command_encoder,
@@ -69,7 +66,7 @@ impl RenderGraphRunner {
         {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(vec![gpu_context.gpu_command_encoder.finish()]);
+            queue.submit(vec![render_context.command_encoder.finish()]);
         }
         Ok(())
     }

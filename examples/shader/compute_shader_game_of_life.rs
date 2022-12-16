@@ -4,13 +4,13 @@
 //! is rendered to the screen.
 
 use bevy::{
+    gpu::gpu_resource::*,
+    gpu::{GpuContext, GpuDevice},
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph},
-        render_resource::*,
-        renderer::{GpuContext, GpuDevice},
         RenderApp, RenderStage,
     },
 };

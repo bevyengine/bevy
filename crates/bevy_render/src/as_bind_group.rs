@@ -1,56 +1,9 @@
-use crate::{
-    define_atomic_id,
-    prelude::Image,
-    render_asset::RenderAssets,
-    render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
-    renderer::GpuDevice,
-    texture::FallbackImage,
-};
 pub use bevy_render_macros::AsBindGroup;
-use encase::ShaderType;
-use std::ops::Deref;
-use wgpu::BindingResource;
 
-define_atomic_id!(BindGroupId);
-render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
+use crate::{prelude::Image, render_asset::RenderAssets, texture::FallbackImage};
+use bevy_gpu::{gpu_resource::*, GpuDevice};
 
-/// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
-/// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
-/// This makes them accessible in the pipeline (shaders) as uniforms.
-///
-/// May be converted from and dereferences to a wgpu [`BindGroup`](wgpu::BindGroup).
-/// Can be created via [`GpuDevice::create_bind_group`](crate::renderer::GpuDevice::create_bind_group).
-#[derive(Clone, Debug)]
-pub struct BindGroup {
-    id: BindGroupId,
-    value: ErasedBindGroup,
-}
-
-impl BindGroup {
-    /// Returns the [`BindGroupId`].
-    #[inline]
-    pub fn id(&self) -> BindGroupId {
-        self.id
-    }
-}
-
-impl From<wgpu::BindGroup> for BindGroup {
-    fn from(value: wgpu::BindGroup) -> Self {
-        BindGroup {
-            id: BindGroupId::new(),
-            value: ErasedBindGroup::new(value),
-        }
-    }
-}
-
-impl Deref for BindGroup {
-    type Target = wgpu::BindGroup;
-
-    #[inline]
-    fn deref(&self) -> &Self::Target {
-        &self.value
-    }
-}
+// Todo: decide where this code should go
 
 /// Converts a value to a [`BindGroup`] with a given [`BindGroupLayout`], which can then be used in Bevy shaders.
 /// This trait can be derived (and generally should be). Read on for details and examples.
@@ -58,12 +11,12 @@ impl Deref for BindGroup {
 /// This is an opinionated trait that is intended to make it easy to generically
 /// convert a type into a [`BindGroup`]. It provides access to specific render resources,
 /// such as [`RenderAssets<Image>`] and [`FallbackImage`]. If a type has a [`Handle<Image>`](bevy_asset::Handle),
-/// these can be used to retrieve the corresponding [`Texture`](crate::render_resource::Texture) resource.
+/// these can be used to retrieve the corresponding [`Texture`](bevy_gpu::gpu_resource::Texture) resource.
 ///
 /// [`AsBindGroup::as_bind_group`] is intended to be called once, then the result cached somewhere. It is generally
 /// ok to do "expensive" work here, such as creating a [`Buffer`] for a uniform.
 ///
-/// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](crate::render_resource::Texture)
+/// If for some reason a [`BindGroup`] cannot be created yet (for example, the [`Texture`](bevy_gpu::gpu_resource::Texture)
 /// for an [`Image`] hasn't loaded yet), just return [`AsBindGroupError::RetryNextUpdate`], which signals that the caller
 /// should retry again later.
 ///
@@ -73,7 +26,8 @@ impl Deref for BindGroup {
 /// what their binding type is, and what index they should be bound at:
 ///
 /// ```
-/// # use bevy_render::{color::Color, render_resource::*, texture::Image};
+/// # use bevy_gpu::gpu_resource::*;
+/// # use bevy_render::{as_bind_group::AsBindGroup, color::Color, texture::Image};
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -106,7 +60,7 @@ impl Deref for BindGroup {
 ///   [`Color`](crate::color::Color). It can also be derived for custom structs.
 ///
 /// * `texture(BINDING_INDEX, arguments)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](crate::render_resource::Texture)
+///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Texture`](bevy_gpu::gpu_resource::Texture)
 ///     GPU resource, which will be bound as a texture in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `sampler` binding attribute
@@ -121,7 +75,7 @@ impl Deref for BindGroup {
 /// | `visibility(...)`     | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
 ///
 /// * `sampler(BINDING_INDEX, arguments)`
-///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`](crate::render_resource::Sampler) GPU
+///     * This field's [`Handle<Image>`](bevy_asset::Handle) will be used to look up the matching [`Sampler`](bevy_gpu::gpu_resource::Sampler) GPU
 ///     resource, which will be bound as a sampler in shaders. The field will be assumed to implement [`Into<Option<Handle<Image>>>`]. In practice,
 ///     most fields should be a [`Handle<Image>`](bevy_asset::Handle) or [`Option<Handle<Image>>`]. If the value of an [`Option<Handle<Image>>`] is
 ///     [`None`], the [`FallbackImage`] resource will be used instead. This attribute can be used in conjunction with a `texture` binding attribute
@@ -134,7 +88,7 @@ impl Deref for BindGroup {
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{as_bind_group::AsBindGroup, color::Color};
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -146,7 +100,7 @@ impl Deref for BindGroup {
 ///
 ///  As mentioned above, [`Option<Handle<Image>>`] is also supported:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup, texture::Image};
+/// # use bevy_render::{color::Color, as_bind_group::AsBindGroup, texture::Image};
 /// # use bevy_asset::Handle;
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
@@ -162,7 +116,7 @@ impl Deref for BindGroup {
 ///
 /// Field uniforms with the same index will be combined into a single binding:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{color::Color, as_bind_group::AsBindGroup};
 /// #[derive(AsBindGroup)]
 /// struct CoolMaterial {
 ///     #[uniform(0)]
@@ -195,12 +149,13 @@ impl Deref for BindGroup {
 ///     * The [`AsBindGroup`] type will be converted to some `DataType` using [`Into<DataType>`] and stored
 ///     as [`AsBindGroup::Data`] as part of the [`AsBindGroup::as_bind_group`] call. This is useful if data needs to be stored alongside
 ///     the generated bind group, such as a unique identifier for a material's bind group. The most common use case for this attribute
-///     is "shader pipeline specialization". See [`SpecializedRenderPipeline`](crate::render_resource::SpecializedRenderPipeline).
+///     is "shader pipeline specialization". See [`SpecializedRenderPipeline`](bevy_gpu::gpu_resource::SpecializedRenderPipeline).
 ///
 /// The previous `CoolMaterial` example illustrating "combining multiple field-level uniform attributes with the same binding index" can
 /// also be equivalently represented with a single struct-level uniform attribute:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::{AsBindGroup, ShaderType}};
+/// # use bevy_gpu::gpu_resource::*;
+/// # use bevy_render::{color::Color, as_bind_group::AsBindGroup};
 /// #[derive(AsBindGroup)]
 /// #[uniform(0, CoolMaterialUniform)]
 /// struct CoolMaterial {
@@ -226,7 +181,7 @@ impl Deref for BindGroup {
 ///
 /// Setting `bind_group_data` looks like this:
 /// ```
-/// # use bevy_render::{color::Color, render_resource::AsBindGroup};
+/// # use bevy_render::{color::Color, as_bind_group::AsBindGroup};
 /// #[derive(AsBindGroup)]
 /// #[bind_group_data(CoolMaterialKey)]
 /// struct CoolMaterial {

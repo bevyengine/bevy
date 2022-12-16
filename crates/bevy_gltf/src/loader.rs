@@ -5,6 +5,7 @@ use bevy_asset::{
 use bevy_core::Name;
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{entity::Entity, prelude::FromWorld, world::World};
+use bevy_gpu::{gpu_resource::*, GpuDevice};
 use bevy_hierarchy::{BuildWorldChildren, WorldChildBuilder};
 use bevy_log::warn;
 use bevy_math::{Mat4, Vec3};
@@ -24,8 +25,6 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::{Aabb, Frustum},
-    render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
-    renderer::GpuDevice,
     texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
     view::VisibleEntities,
 };

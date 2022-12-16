@@ -4,21 +4,15 @@ use std::f32::consts::PI;
 
 use bevy::{
     asset::LoadState,
+    gpu::{gpu_resource::*, GpuDevice},
     input::mouse::MouseMotion,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::MeshVertexBufferLayout,
+        as_bind_group::*,
+        mesh::{MeshVertexBufferLayout, SpecializedMeshPipelineError},
         render_asset::RenderAssets,
-        render_resource::{
-            AsBindGroup, AsBindGroupError, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-            OwnedBindingResource, PreparedBindGroup, RenderPipelineDescriptor, SamplerBindingType,
-            ShaderRef, ShaderStages, SpecializedMeshPipelineError, TextureSampleType,
-            TextureViewDescriptor, TextureViewDimension,
-        },
-        renderer::GpuDevice,
         texture::{CompressedImageFormats, FallbackImage},
     },
 };

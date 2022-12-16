@@ -3,6 +3,7 @@ compile_error!("bevy_render cannot compile for a 16-bit platform.");
 
 extern crate core;
 
+pub mod as_bind_group;
 pub mod camera;
 pub mod color;
 pub mod extract_component;
@@ -15,54 +16,47 @@ pub mod rangefinder;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
-pub mod render_resource;
 pub mod renderer;
-pub mod settings;
 mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
-use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
+pub use once_cell;
 
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
+        as_bind_group::AsBindGroup,
         camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection},
         color::Color,
         mesh::{shape, Mesh},
-        render_resource::Shader,
         spatial_bundle::SpatialBundle,
         texture::{Image, ImagePlugin},
         view::{ComputedVisibility, Msaa, Visibility, VisibilityBundle},
     };
 }
 
-use globals::GlobalsPlugin;
-pub use once_cell;
-
 use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
-    render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, GpuInstance},
-    settings::WgpuSettings,
+    renderer::render_system,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
-use bevy_asset::{AddAsset, AssetServer};
+use bevy_asset::{AssetEvent, AssetServer, Assets};
 use bevy_ecs::prelude::*;
-use bevy_utils::tracing::debug;
+use bevy_gpu::{gpu_resource::*, GpuAdapter, GpuAdapterInfo, GpuDevice, GpuInstance, GpuQueue};
+use bevy_hierarchy::ValidParentCheckPlugin;
+use globals::GlobalsPlugin;
 use std::{
     any::TypeId,
     ops::{Deref, DerefMut},
 };
 
-/// Contains the default Bevy rendering backend based on wgpu.
+/// Contains the default Bevy rendering backend based on `bevy_gpu`.
 #[derive(Default)]
-pub struct RenderPlugin {
-    pub wgpu_settings: WgpuSettings,
-}
+pub struct RenderPlugin;
 
 /// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -75,7 +69,7 @@ pub enum RenderStage {
     /// Prepare render resources from the extracted data for the GPU.
     Prepare,
 
-    /// Create [`BindGroups`](crate::render_resource::BindGroup) that depend on
+    /// Create [`BindGroups`](bevy_gpu::gpu_resource::BindGroup) that depend on
     /// [`Prepare`](RenderStage::Prepare) data and queue up draw calls to run during the
     /// [`Render`](RenderStage::Render) stage.
     Queue,
@@ -130,51 +124,33 @@ pub struct RenderApp;
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        app.add_asset::<Shader>()
-            .add_debug_asset::<Shader>()
-            .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>();
+        app.init_resource::<ScratchMainWorld>();
 
-        if let Some(backends) = self.wgpu_settings.backends {
-            let windows = app.world.resource_mut::<bevy_window::Windows>();
-            let instance = wgpu::Instance::new(backends);
+        let gpu_instance = app.world.get_resource::<GpuInstance>();
+        let gpu_device = app.world.get_resource::<GpuDevice>();
+        let gpu_queue = app.world.get_resource::<GpuQueue>();
+        let gpu_adapter = app.world.get_resource::<GpuAdapter>();
+        let gpu_adapter_info = app.world.get_resource::<GpuAdapterInfo>();
 
-            let surface = windows
-                .get_primary()
-                .and_then(|window| window.raw_handle())
-                .map(|wrapper| unsafe {
-                    let handle = wrapper.get_handle();
-                    instance.create_surface(&handle)
-                });
-
-            let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: self.wgpu_settings.power_preference,
-                compatible_surface: surface.as_ref(),
-                ..Default::default()
-            };
-            let (gpu_device, gpu_queue, gpu_adapter_info, gpu_adapter) =
-                futures_lite::future::block_on(renderer::initialize_renderer(
-                    &instance,
-                    &self.wgpu_settings,
-                    &request_adapter_options,
-                ));
-            debug!("Configured wgpu adapter Limits: {:#?}", gpu_device.limits());
-            debug!(
-                "Configured wgpu adapter Features: {:#?}",
-                gpu_device.features()
-            );
-            app.insert_resource(gpu_device.clone())
-                .insert_resource(gpu_queue.clone())
-                .insert_resource(gpu_adapter_info.clone())
-                .insert_resource(gpu_adapter.clone())
-                .init_resource::<ScratchMainWorld>();
-
+        // Todo: replace with if let chain
+        if let (
+            Some(gpu_instance),
+            Some(gpu_device),
+            Some(gpu_queue),
+            Some(gpu_adapter),
+            Some(gpu_adapter_info),
+        ) = (
+            gpu_instance,
+            gpu_device,
+            gpu_queue,
+            gpu_adapter,
+            gpu_adapter_info,
+        ) {
             let pipeline_cache = PipelineCache::new(gpu_device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
 
             let mut render_app = App::empty();
-            let mut extract_stage =
-                SystemStage::parallel().with_system(PipelineCache::extract_shaders);
+            let mut extract_stage = SystemStage::parallel().with_system(extract_shaders);
             // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
             render_app.init_resource::<MainWorld>();
             render_app.world.remove_resource::<MainWorld>();
@@ -203,11 +179,11 @@ impl Plugin for RenderPlugin {
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<render_graph::RenderGraph>()
-                .insert_resource(GpuInstance(instance))
-                .insert_resource(gpu_device)
-                .insert_resource(gpu_queue)
-                .insert_resource(gpu_adapter)
-                .insert_resource(gpu_adapter_info)
+                .insert_resource(gpu_instance.clone())
+                .insert_resource(gpu_device.clone())
+                .insert_resource(gpu_queue.clone())
+                .insert_resource(gpu_adapter.clone())
+                .insert_resource(gpu_adapter_info.clone())
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server);
 
@@ -217,10 +193,10 @@ impl Plugin for RenderPlugin {
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
-                let _render_span = bevy_utils::tracing::info_span!("renderer subapp").entered();
+                    let _render_span = bevy_utils::tracing::info_span!("renderer subapp").entered();
                 {
                     #[cfg(feature = "trace")]
-                    let _stage_span =
+                        let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush")
                             .entered();
 
@@ -245,7 +221,7 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _stage_span =
+                        let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "extract").entered();
 
                     // extract
@@ -254,7 +230,7 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _stage_span =
+                        let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "prepare").entered();
 
                     // prepare
@@ -267,7 +243,7 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _stage_span =
+                        let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "queue").entered();
 
                     // queue
@@ -280,7 +256,7 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _stage_span =
+                        let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "sort").entered();
 
                     // phase sort
@@ -293,7 +269,7 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _stage_span =
+                        let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "render").entered();
 
                     // render
@@ -306,7 +282,7 @@ impl Plugin for RenderPlugin {
 
                 {
                     #[cfg(feature = "trace")]
-                    let _stage_span =
+                        let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "cleanup").entered();
 
                     // cleanup
@@ -318,7 +294,7 @@ impl Plugin for RenderPlugin {
                 }
                 {
                     #[cfg(feature = "trace")]
-                    let _stage_span =
+                        let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "clear_entities").entered();
 
                     render_app.world.clear_entities();
@@ -369,4 +345,22 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     // so that in future, pipelining will be able to do this too without any code relying on it.
     // see <https://github.com/bevyengine/bevy/issues/5082>
     extract.apply_buffers(running_world);
+}
+
+// Todo: move this
+pub(crate) fn extract_shaders(
+    mut cache: ResMut<PipelineCache>,
+    shaders: Extract<Res<Assets<Shader>>>,
+    mut events: Extract<EventReader<AssetEvent<Shader>>>,
+) {
+    for event in events.iter() {
+        match event {
+            AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
+                if let Some(shader) = shaders.get(handle) {
+                    cache.set_shader(handle, shader);
+                }
+            }
+            AssetEvent::Removed { handle } => cache.remove_shader(handle),
+        }
+    }
 }

@@ -23,6 +23,13 @@ pub use main_pass_3d_node::*;
 
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
+use bevy_gpu::{
+    gpu_resource::{
+        CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages,
+    },
+    GpuDevice,
+};
 use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
@@ -32,11 +39,6 @@ use bevy_render::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
         EntityPhaseItem, PhaseItem, RenderPhase,
     },
-    render_resource::{
-        CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
-        TextureUsages,
-    },
-    renderer::GpuDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
     Extract, RenderApp, RenderStage,

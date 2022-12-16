@@ -1,8 +1,4 @@
-use super::ShaderDefVal;
-use crate::{
-    define_atomic_id,
-    render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
-};
+use crate::{define_atomic_id, gpu_resource::{resource_macros::*, BindGroupLayout, Shader, ShaderDefVal}};
 use bevy_asset::Handle;
 use std::{borrow::Cow, ops::Deref};
 use wgpu::{
@@ -16,7 +12,7 @@ render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
 /// May be converted from and dereferences to a wgpu [`RenderPipeline`](wgpu::RenderPipeline).
-/// Can be created via [`GpuDevice::create_render_pipeline`](crate::renderer::GpuDevice::create_render_pipeline).
+/// Can be created via [`GpuDevice::create_render_pipeline`](crate::GpuDevice::create_render_pipeline).
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
@@ -49,12 +45,12 @@ impl Deref for RenderPipeline {
 }
 
 define_atomic_id!(ComputePipelineId);
-render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
+gpu_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
-/// Can be created via [`GpuDevice::create_compute_pipeline`](crate::renderer::GpuDevice::create_compute_pipeline).
+/// Can be created via [`GpuDevice::create_compute_pipeline`](crate::GpuDevice::create_compute_pipeline).
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,

@@ -1,15 +1,11 @@
 //! A shader that uses the GLSL shading language.
 
 use bevy::{
+    gpu::gpu_resource::*,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypeUuid,
-    render::{
-        mesh::MeshVertexBufferLayout,
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-        },
-    },
+    render::mesh::{MeshVertexBufferLayout, SpecializedMeshPipelineError},
 };
 
 fn main() {

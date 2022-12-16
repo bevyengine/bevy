@@ -1,16 +1,12 @@
-use crate::{
-    render_resource::TextureView,
-    renderer::{GpuAdapter, GpuDevice, GpuInstance},
-    Extract, RenderApp, RenderStage,
-};
+use crate::{Extract, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
+use bevy_gpu::{gpu_resource::*, GpuAdapter, GpuDevice, GpuInstance};
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
 };
 use std::ops::{Deref, DerefMut};
-use wgpu::TextureFormat;
 
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
@@ -131,7 +127,7 @@ fn extract_windows(
 }
 
 struct SurfaceData {
-    surface: wgpu::Surface,
+    surface: Surface,
     format: TextureFormat,
 }
 
@@ -154,14 +150,14 @@ pub struct WindowSurfaces {
 /// - GPU workload is more than your current GPU can manage
 /// - Error / performance bug in your custom shaders
 /// - wgpu was unable to detect a proper GPU hardware-accelerated device given the chosen
-///   [`Backends`](crate::settings::Backends), [`WgpuLimits`](crate::settings::WgpuLimits),
-///   and/or [`WgpuFeatures`](crate::settings::WgpuFeatures). For example, on Windows currently
+///   [`Backends`](bevy_gpu::settings::Backends), [`WgpuLimits`](bevy_gpu::settings::WgpuLimits),
+///   and/or [`WgpuFeatures`](bevy_gpu::settings::WgpuFeatures). For example, on Windows currently
 ///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
 ///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
 ///   will be chosen and performance will be very poor. This is visible in a log message that is
 ///   output during renderer initialization. Future versions of wgpu will support `DirectX 11`, but
 ///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
-///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
+///   [`Backends::GL`](bevy_gpu::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
 ///   later.
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
@@ -199,24 +195,24 @@ pub fn prepare_windows(
                 SurfaceData { surface, format }
             });
 
-        let surface_configuration = wgpu::SurfaceConfiguration {
+        let surface_configuration = SurfaceConfiguration {
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
-                PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+                PresentMode::Fifo => WgpuPresentMode::Fifo,
+                PresentMode::Mailbox => WgpuPresentMode::Mailbox,
+                PresentMode::Immediate => WgpuPresentMode::Immediate,
+                PresentMode::AutoVsync => WgpuPresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => WgpuPresentMode::AutoNoVsync,
             },
             alpha_mode: match window.alpha_mode {
-                CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
-                CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
-                CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
-                CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
-                CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+                CompositeAlphaMode::Auto => WgpuCompositeAlphaMode::Auto,
+                CompositeAlphaMode::Opaque => WgpuCompositeAlphaMode::Opaque,
+                CompositeAlphaMode::PreMultiplied => WgpuCompositeAlphaMode::PreMultiplied,
+                CompositeAlphaMode::PostMultiplied => WgpuCompositeAlphaMode::PostMultiplied,
+                CompositeAlphaMode::Inherit => WgpuCompositeAlphaMode::Inherit,
             },
         };
 
@@ -230,7 +226,7 @@ pub fn prepare_windows(
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
             gpu_instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
+                .enumerate_adapters(bevy_gpu::settings::Backends::VULKAN)
                 .any(|adapter| {
                     let name = adapter.get_info().name;
                     name.starts_with("AMD") || name.starts_with("Intel")
@@ -251,7 +247,7 @@ pub fn prepare_windows(
                 Ok(frame) => {
                     window.swap_chain_texture = Some(TextureView::from(frame));
                 }
-                Err(wgpu::SurfaceError::Outdated) => {
+                Err(SurfaceError::Outdated) => {
                     gpu_device.configure_surface(surface, &surface_configuration);
                     let frame = surface
                         .get_current_texture()
@@ -259,7 +255,7 @@ pub fn prepare_windows(
                     window.swap_chain_texture = Some(TextureView::from(frame));
                 }
                 #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+                Err(SurfaceError::Timeout) if may_erroneously_timeout() => {
                     bevy_utils::tracing::trace!(
                         "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."

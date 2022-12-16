@@ -1,9 +1,8 @@
+use super::{CompressedImageFormats, Image, TextureError};
 use basis_universal::{
     BasisTextureType, DecodeFlags, TranscodeParameters, Transcoder, TranscoderTextureFormat,
 };
-use wgpu::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
-
-use super::{CompressedImageFormats, Image, TextureError};
+use bevy_gpu::gpu_resource::*;
 
 pub fn basis_buffer_to_image(
     buffer: &[u8],

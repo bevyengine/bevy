@@ -7,6 +7,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_gpu::{gpu_resource::*, GpuContext, GpuDevice};
 use bevy_math::UVec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
@@ -18,8 +19,6 @@ use bevy_render::{
     prelude::Camera,
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
-    render_resource::*,
-    renderer::{GpuContext, GpuDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     RenderApp, RenderStage,

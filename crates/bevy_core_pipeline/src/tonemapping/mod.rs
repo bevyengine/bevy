@@ -1,14 +1,15 @@
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
-use bevy_ecs::prelude::*;
-use bevy_ecs::query::QueryItem;
+use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_gpu::{gpu_resource::*, GpuDevice};
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::camera::Camera;
-use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
-use bevy_render::renderer::GpuDevice;
-use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, RenderApp, RenderStage};
+use bevy_render::{
+    camera::Camera,
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    view::ViewTarget,
+    RenderApp, RenderStage,
+};
 
 mod node;
 

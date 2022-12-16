@@ -1,7 +1,4 @@
-use crate::{
-    render_phase::TrackedRenderPass,
-    render_resource::{CachedRenderPipelineId, PipelineCache},
-};
+use crate::render_phase::TrackedRenderPass;
 use bevy_app::App;
 use bevy_ecs::{
     all_tuples,
@@ -12,6 +9,7 @@ use bevy_ecs::{
     },
     world::World,
 };
+use bevy_gpu::gpu_resource::{CachedRenderPipelineId, PipelineCache};
 use bevy_utils::HashMap;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};

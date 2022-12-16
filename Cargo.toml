@@ -35,6 +35,7 @@ default = [
   "bevy_core_pipeline",
   "bevy_pbr",
   "bevy_gltf",
+  "bevy_gpu",
   "bevy_render",
   "bevy_sprite",
   "bevy_text",
@@ -57,6 +58,7 @@ bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 bevy_gltf = ["bevy_internal/bevy_gltf"]
+bevy_gpu = ["bevy_internal/bevy_gpu"]
 bevy_pbr = ["bevy_internal/bevy_pbr"]
 bevy_render = ["bevy_internal/bevy_render"]
 bevy_scene = ["bevy_internal/bevy_scene"]

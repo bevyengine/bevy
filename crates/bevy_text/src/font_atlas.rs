@@ -1,10 +1,8 @@
 use ab_glyph::{GlyphId, Point};
 use bevy_asset::{Assets, Handle};
+use bevy_gpu::gpu_resource::*;
 use bevy_math::Vec2;
-use bevy_render::{
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::Image,
-};
+use bevy_render::texture::Image;
 use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlas};
 use bevy_utils::HashMap;
 

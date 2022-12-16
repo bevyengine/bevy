@@ -40,14 +40,15 @@ pub mod draw_3d_graph {
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
+use bevy_gpu::gpu_resource::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::CameraUpdateSystem,
     extract_resource::ExtractResourcePlugin,
+    mesh::pipeline::*,
     prelude::Color,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
-    render_resource::{Shader, SpecializedMeshPipelines},
     view::VisibilitySystems,
     RenderApp, RenderStage,
 };

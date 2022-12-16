@@ -127,6 +127,16 @@ pub mod gltf {
     pub use bevy_gltf::*;
 }
 
+#[cfg(feature = "bevy_gpu")]
+pub mod gpu {
+    //! The wgpu backend of Bevy.
+    //! Use [`GpuDevice::features`](crate::gpu::GpuDevice::features),
+    //! [`GpuDevice::limits`](crate::gpu::GpuDevice::limits), and the
+    //! [`WgpuAdapterInfo`](crate::gpu::gpu_resource::WgpuAdapterInfo) resource to
+    //! get runtime information about the actual adapter, backend, features, and limits.
+    pub use bevy_gpu::*;
+}
+
 #[cfg(feature = "bevy_pbr")]
 pub mod pbr {
     //! Physically based rendering.
@@ -135,11 +145,7 @@ pub mod pbr {
 
 #[cfg(feature = "bevy_render")]
 pub mod render {
-    //! Cameras, meshes, textures, shaders, and pipelines.
-    //! Use [`GpuDevice::features`](crate::render::renderer::GpuDevice::features),
-    //! [`GpuDevice::limits`](crate::render::renderer::GpuDevice::limits), and the
-    //! [`GpuAdapterInfo`](crate::render::renderer::GpuAdapterInfo) resource to
-    //! get runtime information about the actual adapter, backend, features, and limits.
+    //! Cameras, meshes, textures.
     pub use bevy_render::*;
 }
 

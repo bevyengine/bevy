@@ -1,25 +1,25 @@
 mod conversions;
+pub mod pipeline;
 pub mod skinning;
-pub use wgpu::PrimitiveTopology;
+
+pub use bevy_gpu::gpu_resource::PrimitiveTopology;
+pub use pipeline::{
+    SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+};
 
 use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{Buffer, VertexBufferLayout},
-    renderer::GpuDevice,
 };
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
+use bevy_gpu::{gpu_resource::*, GpuDevice};
 use bevy_math::*;
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, Hashed};
 use std::{collections::BTreeMap, hash::Hash, iter::FusedIterator};
 use thiserror::Error;
-use wgpu::{
-    util::BufferInitDescriptor, BufferUsages, IndexFormat, VertexAttribute, VertexFormat,
-    VertexStepMode,
-};
 
 pub const INDEX_BUFFER_ASSET_INDEX: u64 = 0;
 pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
@@ -45,8 +45,7 @@ pub struct Mesh {
 ///
 /// Example of constructing a mesh:
 /// ```
-/// # use bevy_render::mesh::{Mesh, Indices};
-/// # use bevy_render::render_resource::PrimitiveTopology;
+/// # use bevy_render::mesh::{Mesh, Indices, PrimitiveTopology};
 /// fn create_triangle() -> Mesh {
 ///     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
 ///     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, vec![[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]);
@@ -534,7 +533,7 @@ pub trait VertexFormatSize {
     fn get_size(self) -> u64;
 }
 
-impl VertexFormatSize for wgpu::VertexFormat {
+impl VertexFormatSize for VertexFormat {
     #[allow(clippy::match_same_arms)]
     fn get_size(self) -> u64 {
         match self {
@@ -1005,7 +1004,7 @@ fn generate_tangents_for_mesh(mesh: &Mesh) -> Result<Vec<[f32; 4]>, GenerateTang
 #[cfg(test)]
 mod tests {
     use super::Mesh;
-    use wgpu::PrimitiveTopology;
+    use bevy_gpu::gpu_resource::PrimitiveTopology;
 
     #[test]
     #[should_panic]

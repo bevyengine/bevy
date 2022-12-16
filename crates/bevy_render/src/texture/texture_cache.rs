@@ -1,10 +1,6 @@
-use crate::{
-    render_resource::{Texture, TextureView},
-    renderer::GpuDevice,
-};
 use bevy_ecs::{prelude::ResMut, system::Resource};
+use bevy_gpu::{gpu_resource::*, GpuDevice};
 use bevy_utils::{Entry, HashMap};
-use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
 /// The internal representation of a [`CachedTexture`] used to track whether it was recently used
 /// and is currently taken.
@@ -28,7 +24,7 @@ pub struct CachedTexture {
 /// are only required for one frame.
 #[derive(Resource, Default)]
 pub struct TextureCache {
-    textures: HashMap<wgpu::TextureDescriptor<'static>, Vec<CachedTextureMeta>>,
+    textures: HashMap<TextureDescriptor<'static>, Vec<CachedTextureMeta>>,
 }
 
 impl TextureCache {

@@ -1,5 +1,5 @@
 use crate::mesh::{Indices, Mesh};
-use wgpu::PrimitiveTopology;
+use bevy_gpu::gpu_resource::PrimitiveTopology;
 
 /// A cylinder which stands on the XZ plane
 pub struct Cylinder {

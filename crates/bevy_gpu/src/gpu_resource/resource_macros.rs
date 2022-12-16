@@ -6,7 +6,7 @@
 // https://github.com/rust-lang/rust/issues/99188 (and after other `evaluate_obligations`-related changes).
 #[cfg(debug_assertions)]
 #[macro_export]
-macro_rules! render_resource_wrapper {
+macro_rules! gpu_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
         #[derive(Clone, Debug)]
         pub struct $wrapper_type(Option<std::sync::Arc<Box<()>>>);
@@ -90,7 +90,7 @@ macro_rules! render_resource_wrapper {
 
 #[cfg(not(debug_assertions))]
 #[macro_export]
-macro_rules! render_resource_wrapper {
+macro_rules! gpu_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
         #[derive(Clone, Debug)]
         pub struct $wrapper_type(std::sync::Arc<$wgpu_type>);
@@ -148,4 +148,5 @@ macro_rules! define_atomic_id {
     };
 }
 
-pub use render_resource_wrapper;
+
+pub use gpu_resource_wrapper;

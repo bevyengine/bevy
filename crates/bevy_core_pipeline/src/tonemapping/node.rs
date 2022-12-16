@@ -3,14 +3,9 @@ use std::sync::Mutex;
 use crate::tonemapping::{TonemappingPipeline, ViewTonemappingPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
+use bevy_gpu::{gpu_resource::*, GpuContext};
 use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
-        PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
-        TextureViewId,
-    },
-    renderer::GpuContext,
     view::{ExtractedView, ViewTarget},
 };
 
@@ -111,7 +106,7 @@ impl Node for TonemappingNode {
         };
 
         let mut render_pass = gpu_context
-            .gpu_command_encoder
+            .command_encoder
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);

@@ -1,9 +1,4 @@
-use crate::{
-    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
-    renderer::{GpuDevice, GpuQueue},
-    view::ComputedVisibility,
-    Extract, RenderApp, RenderStage,
-};
+use crate::{view::ComputedVisibility, Extract, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
@@ -11,6 +6,10 @@ use bevy_ecs::{
     prelude::*,
     query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     system::lifetimeless::Read,
+};
+use bevy_gpu::{
+    gpu_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
+    GpuDevice, GpuQueue,
 };
 use std::{marker::PhantomData, ops::Deref};
 

@@ -3,14 +3,16 @@ use std::sync::Mutex;
 use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
-use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_resource::{
+use bevy_gpu::{
+    gpu_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
-    renderer::GpuContext,
+    GpuContext,
+};
+use bevy_render::{
+    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     view::{ExtractedView, ViewTarget},
 };
 use bevy_utils::default;

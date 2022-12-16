@@ -1,7 +1,6 @@
 use bevy_ecs::prelude::*;
+use bevy_gpu::{gpu_resource::*, GpuDevice};
 use bevy_render::{
-    render_resource::*,
-    renderer::GpuDevice,
     texture::BevyDefault,
     view::{ViewTarget, ViewUniform},
 };

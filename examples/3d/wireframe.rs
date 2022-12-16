@@ -1,14 +1,14 @@
 //! Showcases wireframe rendering.
 
 use bevy::{
+    gpu::{gpu_resource::*, settings::WgpuSettings, GpuPlugin},
     pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
-    render::{render_resource::WgpuFeatures, settings::WgpuSettings, RenderPlugin},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(RenderPlugin {
+        .add_plugins(DefaultPlugins.set(GpuPlugin {
             wgpu_settings: WgpuSettings {
                 features: WgpuFeatures::POLYGON_MODE_LINE,
                 ..default()

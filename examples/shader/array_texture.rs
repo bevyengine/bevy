@@ -1,9 +1,4 @@
-use bevy::{
-    asset::LoadState,
-    prelude::*,
-    reflect::TypeUuid,
-    render::render_resource::{AsBindGroup, ShaderRef},
-};
+use bevy::{asset::LoadState, gpu::gpu_resource::*, prelude::*, reflect::TypeUuid};
 
 /// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader
 /// uniform variable.

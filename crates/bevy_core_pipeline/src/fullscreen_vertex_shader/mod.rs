@@ -1,6 +1,6 @@
 use bevy_asset::HandleUntyped;
+use bevy_gpu::{gpu_resource::VertexState, prelude::Shader};
 use bevy_reflect::TypeUuid;
-use bevy_render::{prelude::Shader, render_resource::VertexState};
 
 pub const FULLSCREEN_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7837534426033940724);

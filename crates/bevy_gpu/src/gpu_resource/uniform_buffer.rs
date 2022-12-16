@@ -1,7 +1,4 @@
-use crate::{
-    render_resource::Buffer,
-    renderer::{GpuDevice, GpuQueue},
-};
+use crate::{gpu_resource::Buffer, GpuDevice, GpuQueue};
 use encase::{
     internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,
@@ -14,17 +11,17 @@ use wgpu::{util::BufferInitDescriptor, BindingResource, BufferBinding, BufferUsa
 /// parameters that are constant during shader execution, and are best used for data that is relatively small in size as they are
 /// only guaranteed to support up to 16kB per binding.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::UniformBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](crate::gpu_resource::UniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
 /// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
-/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`BufferVec`](crate::render_resource::BufferVec)
-/// * [`Texture`](crate::render_resource::Texture)
+/// * [`DynamicUniformBuffer`](crate::gpu_resource::DynamicUniformBuffer)
+/// * [`StorageBuffer`](crate::gpu_resource::StorageBuffer)
+/// * [`DynamicStorageBuffer`](crate::gpu_resource::DynamicStorageBuffer)
+/// * [`BufferVec`](crate::gpu_resource::BufferVec)
+/// * [`Texture`](crate::gpu_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct UniformBuffer<T: ShaderType> {
@@ -99,8 +96,8 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GpuDevice)
-    /// and the provided [`GPUQueue`](crate::renderer::GpuQueue), if a GPU-side backing buffer already exists.
+    /// Queues writing of data from system RAM to VRAM using the [`GpuDevice`]
+    /// and the provided [`GpuQueue`], if a GPU-side backing buffer already exists.
     ///
     /// If a GPU-side buffer does not already exist for this data, such a buffer is initialized with currently
     /// available data.
@@ -126,17 +123,17 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
 /// available to shaders runtime-sized arrays of parameters that are otherwise constant during shader execution, and are best
 /// suited to data that is relatively small in size as they are only guaranteed to support up to 16kB per binding.
 ///
-/// The contained data is stored in system RAM. [`write_buffer`](crate::render_resource::DynamicUniformBuffer::write_buffer) queues
+/// The contained data is stored in system RAM. [`write_buffer`](crate::gpu_resource::DynamicUniformBuffer::write_buffer) queues
 /// copying of the data from system RAM to VRAM. Data in uniform buffers must follow [std140 alignment/padding requirements],
 /// which is automatically enforced by this structure. Per the WGPU spec, uniform buffers cannot store runtime-sized array
 /// (vectors), or structures with fields that are vectors.
 ///
 /// Other options for storing GPU-accessible data are:
-/// * [`StorageBuffer`](crate::render_resource::StorageBuffer)
-/// * [`DynamicStorageBuffer`](crate::render_resource::DynamicStorageBuffer)
-/// * [`UniformBuffer`](crate::render_resource::UniformBuffer)
-/// * [`DynamicUniformBuffer`](crate::render_resource::DynamicUniformBuffer)
-/// * [`Texture`](crate::render_resource::Texture)
+/// * [`StorageBuffer`](crate::gpu_resource::StorageBuffer)
+/// * [`DynamicStorageBuffer`](crate::gpu_resource::DynamicStorageBuffer)
+/// * [`UniformBuffer`](crate::gpu_resource::UniformBuffer)
+/// * [`DynamicUniformBuffer`](crate::gpu_resource::DynamicUniformBuffer)
+/// * [`Texture`](crate::gpu_resource::Texture)
 ///
 /// [std140 alignment/padding requirements]: https://www.w3.org/TR/WGSL/#address-spaces-uniform
 pub struct DynamicUniformBuffer<T: ShaderType> {
@@ -208,8 +205,8 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GpuDevice)
-    /// and the provided [`GPUQueue`](crate::renderer::GpuQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`GpuDevice`]
+    /// and the provided [`GpuQueue`].
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.

@@ -1,8 +1,8 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
+use bevy_gpu::gpu_resource::*;
 use bevy_utils::BoxedFuture;
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 /// Loads HDR textures as Texture assets
 #[derive(Clone, Default)]

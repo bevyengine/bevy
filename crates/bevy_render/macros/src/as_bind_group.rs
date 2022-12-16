@@ -35,6 +35,7 @@ enum BindingState<'a> {
 
 pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     let manifest = BevyManifest::default();
+    let gpu_path = manifest.get_path("bevy_gpu");
     let render_path = manifest.get_path("bevy_render");
     let asset_path = manifest.get_path("bevy_asset");
 
@@ -57,27 +58,27 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 let (binding_index, converted_shader_type) = get_uniform_binding_attr(attr)?;
 
                 binding_impls.push(quote! {{
-                    use #render_path::render_resource::AsBindGroupShaderType;
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
+                    use #render_path::as_bind_group::AsBindGroupShaderType;
+                    let mut buffer = #gpu_path::gpu_resource::encase::UniformBuffer::new(Vec::new());
                     let converted: #converted_shader_type = self.as_bind_group_shader_type(images);
                     buffer.write(&converted).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
-                        &#render_path::render_resource::BufferInitDescriptor {
+                    #render_path::as_bind_group::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
+                        &#gpu_path::gpu_resource::BufferInitDescriptor {
                             label: None,
-                            usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
+                            usage: #gpu_path::gpu_resource::BufferUsages::COPY_DST | #gpu_path::gpu_resource::BufferUsages::UNIFORM,
                             contents: buffer.as_ref(),
                         },
                     ))
                 }});
 
                 binding_layouts.push(quote!{
-                    #render_path::render_resource::BindGroupLayoutEntry {
+                    #gpu_path::gpu_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::all(),
-                        ty: #render_path::render_resource::BindingType::Buffer {
-                            ty: #render_path::render_resource::BufferBindingType::Uniform,
+                        visibility: #gpu_path::gpu_resource::ShaderStages::all(),
+                        ty: #gpu_path::gpu_resource::BindingType::Buffer {
+                            ty: #gpu_path::gpu_resource::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
-                            min_binding_size: Some(<#converted_shader_type as #render_path::render_resource::ShaderType>::min_size()),
+                            min_binding_size: Some(<#converted_shader_type as #gpu_path::gpu_resource::ShaderType>::min_size()),
                         },
                         count: None,
                     }
@@ -85,7 +86,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                 let binding_vec_index = bind_group_entries.len();
                 bind_group_entries.push(quote! {
-                    #render_path::render_resource::BindGroupEntry {
+                    #gpu_path::gpu_resource::BindGroupEntry {
                         binding: #binding_index,
                         resource: bindings[#binding_vec_index].get_binding(),
                     }
@@ -149,7 +150,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                             // uniform entries are deferred until the end
                             let binding_vec_index = bind_group_entries.len();
                             bind_group_entries.push(quote! {
-                                #render_path::render_resource::BindGroupEntry {
+                                #gpu_path::gpu_resource::BindGroupEntry {
                                     binding: #binding_index,
                                     resource: bindings[#binding_vec_index].get_binding(),
                                 }
@@ -200,14 +201,13 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         visibility,
                     } = get_texture_attrs(nested_meta_items)?;
 
-                    let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                    let visibility = visibility.hygenic_quote(&quote! { #gpu_path::gpu_resource });
 
                     binding_impls.push(quote! {
-                        #render_path::render_resource::OwnedBindingResource::TextureView({
+                        #render_path::as_bind_group::OwnedBindingResource::TextureView({
                             let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
                             if let Some(handle) = handle {
-                                images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
+                                images.get(handle).ok_or_else(|| #render_path::as_bind_group::AsBindGroupError::RetryNextUpdate)?.texture_view.clone()
                             } else {
                                 fallback_image.texture_view.clone()
                             }
@@ -215,13 +215,13 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     });
 
                     binding_layouts.push(quote! {
-                        #render_path::render_resource::BindGroupLayoutEntry {
+                        #gpu_path::gpu_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
                             visibility: #visibility,
-                            ty: #render_path::render_resource::BindingType::Texture {
+                            ty: #gpu_path::gpu_resource::BindingType::Texture {
                                 multisampled: #multisampled,
-                                sample_type: #render_path::render_resource::#sample_type,
-                                view_dimension: #render_path::render_resource::#dimension,
+                                sample_type: #gpu_path::gpu_resource::#sample_type,
+                                view_dimension: #gpu_path::gpu_resource::#dimension,
                             },
                             count: None,
                         }
@@ -233,14 +233,13 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         visibility,
                     } = get_sampler_attrs(nested_meta_items)?;
 
-                    let visibility =
-                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+                    let visibility = visibility.hygenic_quote(&quote! { #gpu_path::gpu_resource });
 
                     binding_impls.push(quote! {
-                        #render_path::render_resource::OwnedBindingResource::Sampler({
+                        #render_path::as_bind_group::OwnedBindingResource::Sampler({
                             let handle: Option<&#asset_path::Handle<#render_path::texture::Image>> = (&self.#field_name).into();
                             if let Some(handle) = handle {
-                                images.get(handle).ok_or_else(|| #render_path::render_resource::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
+                                images.get(handle).ok_or_else(|| #render_path::as_bind_group::AsBindGroupError::RetryNextUpdate)?.sampler.clone()
                             } else {
                                 fallback_image.sampler.clone()
                             }
@@ -248,10 +247,10 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     });
 
                     binding_layouts.push(quote!{
-                        #render_path::render_resource::BindGroupLayoutEntry {
+                        #gpu_path::gpu_resource::BindGroupLayoutEntry {
                             binding: #binding_index,
                             visibility: #visibility,
-                            ty: #render_path::render_resource::BindingType::Sampler(#render_path::render_resource::#sampler_binding_type),
+                            ty: #gpu_path::gpu_resource::BindingType::Sampler(#gpu_path::gpu_resource::#sampler_binding_type),
                             count: None,
                         }
                     });
@@ -268,7 +267,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
         if let BindingState::OccupiedMergableUniform { uniform_fields } = binding_state {
             let binding_vec_index = bind_group_entries.len();
             bind_group_entries.push(quote! {
-                #render_path::render_resource::BindGroupEntry {
+                #gpu_path::gpu_resource::BindGroupEntry {
                     binding: #binding_index,
                     resource: bindings[#binding_vec_index].get_binding(),
                 }
@@ -279,25 +278,25 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 let field_name = field.ident.as_ref().unwrap();
                 let field_ty = &field.ty;
                 binding_impls.push(quote! {{
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
+                    let mut buffer = #gpu_path::gpu_resource::encase::UniformBuffer::new(Vec::new());
                     buffer.write(&self.#field_name).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
-                        &#render_path::render_resource::BufferInitDescriptor {
+                    #render_path::as_bind_group::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
+                        &#gpu_path::gpu_resource::BufferInitDescriptor {
                             label: None,
-                            usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
+                            usage: #gpu_path::gpu_resource::BufferUsages::COPY_DST | #gpu_path::gpu_resource::BufferUsages::UNIFORM,
                             contents: buffer.as_ref(),
                         },
                     ))
                 }});
 
                 binding_layouts.push(quote!{
-                    #render_path::render_resource::BindGroupLayoutEntry {
+                    #gpu_path::gpu_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::all(),
-                        ty: #render_path::render_resource::BindingType::Buffer {
-                            ty: #render_path::render_resource::BufferBindingType::Uniform,
+                        visibility: #gpu_path::gpu_resource::ShaderStages::all(),
+                        ty: #gpu_path::gpu_resource::BindingType::Buffer {
+                            ty: #gpu_path::gpu_resource::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
-                            min_binding_size: Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size()),
+                            min_binding_size: Some(<#field_ty as #gpu_path::gpu_resource::ShaderType>::min_size()),
                         },
                         count: None,
                     }
@@ -312,7 +311,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
                 let field_type = uniform_fields.iter().map(|f| &f.ty);
                 field_struct_impls.push(quote! {
-                    #[derive(#render_path::render_resource::ShaderType)]
+                    #[derive(#gpu_path::gpu_resource::ShaderType)]
                     struct #uniform_struct_name<'a> {
                         #(#field_name: &'a #field_type,)*
                     }
@@ -320,27 +319,27 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
                 let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
                 binding_impls.push(quote! {{
-                    let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
+                    let mut buffer = #gpu_path::gpu_resource::encase::UniformBuffer::new(Vec::new());
                     buffer.write(&#uniform_struct_name {
                         #(#field_name: &self.#field_name,)*
                     }).unwrap();
-                    #render_path::render_resource::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
-                        &#render_path::render_resource::BufferInitDescriptor {
+                    #render_path::as_bind_group::OwnedBindingResource::Buffer(gpu_device.create_buffer_with_data(
+                        &#gpu_path::gpu_resource::BufferInitDescriptor {
                             label: None,
-                            usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::UNIFORM,
+                            usage: #gpu_path::gpu_resource::BufferUsages::COPY_DST | #gpu_path::gpu_resource::BufferUsages::UNIFORM,
                             contents: buffer.as_ref(),
                         },
                     ))
                 }});
 
                 binding_layouts.push(quote!{
-                    #render_path::render_resource::BindGroupLayoutEntry {
+                    #gpu_path::gpu_resource::BindGroupLayoutEntry {
                         binding: #binding_index,
-                        visibility: #render_path::render_resource::ShaderStages::all(),
-                        ty: #render_path::render_resource::BindingType::Buffer {
-                            ty: #render_path::render_resource::BufferBindingType::Uniform,
+                        visibility: #gpu_path::gpu_resource::ShaderStages::all(),
+                        ty: #gpu_path::gpu_resource::BindingType::Buffer {
+                            ty: #gpu_path::gpu_resource::BufferBindingType::Uniform,
                             has_dynamic_offset: false,
-                            min_binding_size: Some(<#uniform_struct_name as #render_path::render_resource::ShaderType>::min_size()),
+                            min_binding_size: Some(<#uniform_struct_name as #gpu_path::gpu_resource::ShaderType>::min_size()),
                         },
                         count: None,
                     }
@@ -363,19 +362,19 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     Ok(TokenStream::from(quote! {
         #(#field_struct_impls)*
 
-        impl #impl_generics #render_path::render_resource::AsBindGroup for #struct_name #ty_generics #where_clause {
+        impl #impl_generics #render_path::as_bind_group::AsBindGroup for #struct_name #ty_generics #where_clause {
             type Data = #prepared_data;
             fn as_bind_group(
                 &self,
-                layout: &#render_path::render_resource::BindGroupLayout,
-                gpu_device: &#render_path::renderer::GpuDevice,
+                layout: &#gpu_path::gpu_resource::BindGroupLayout,
+                gpu_device: &#gpu_path::GpuDevice,
                 images: &#render_path::render_asset::RenderAssets<#render_path::texture::Image>,
                 fallback_image: &#render_path::texture::FallbackImage,
-            ) -> Result<#render_path::render_resource::PreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
+            ) -> Result<#render_path::as_bind_group::PreparedBindGroup<Self::Data>, #render_path::as_bind_group::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 
                 let bind_group = {
-                    let descriptor = #render_path::render_resource::BindGroupDescriptor {
+                    let descriptor = #gpu_path::gpu_resource::BindGroupDescriptor {
                         entries: &[#(#bind_group_entries,)*],
                         label: None,
                         layout: &layout,
@@ -383,15 +382,15 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     gpu_device.create_bind_group(&descriptor)
                 };
 
-                Ok(#render_path::render_resource::PreparedBindGroup {
+                Ok(#render_path::as_bind_group::PreparedBindGroup {
                     bindings,
                     bind_group,
                     data: #get_prepared_data,
                 })
             }
 
-            fn bind_group_layout(gpu_device: &#render_path::renderer::GpuDevice) -> #render_path::render_resource::BindGroupLayout {
-                gpu_device.create_bind_group_layout(&#render_path::render_resource::BindGroupLayoutDescriptor {
+            fn bind_group_layout(gpu_device: &#gpu_path::GpuDevice) -> #gpu_path::gpu_resource::BindGroupLayout {
+                gpu_device.create_bind_group_layout(&#gpu_path::gpu_resource::BindGroupLayoutDescriptor {
                     entries: &[#(#binding_layouts,)*],
                     label: None,
                 })

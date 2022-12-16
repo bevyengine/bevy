@@ -3,6 +3,7 @@ mod colorspace;
 pub use colorspace::*;
 
 use crate::color::{HslRepresentation, SrgbColorSpace};
+use bevy_gpu::gpu_resource::*;
 use bevy_math::{Vec3, Vec4};
 use bevy_reflect::{FromReflect, Reflect, ReflectDeserialize, ReflectSerialize};
 use serde::{Deserialize, Serialize};
@@ -881,7 +882,7 @@ impl From<Vec4> for Color {
     }
 }
 
-impl From<Color> for wgpu::Color {
+impl From<Color> for WgpuColor {
     fn from(color: Color) -> Self {
         if let Color::RgbaLinear {
             red,
@@ -890,7 +891,7 @@ impl From<Color> for wgpu::Color {
             alpha,
         } = color.as_rgba_linear()
         {
-            wgpu::Color {
+            WgpuColor {
                 r: red as f64,
                 g: green as f64,
                 b: blue as f64,

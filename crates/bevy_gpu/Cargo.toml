@@ -1,0 +1,48 @@
+[package]
+name = "bevy_gpu"
+version = "0.9.0"
+edition = "2021"
+description = "Provides the wgpu backend and gpu resources for the Bevy Engine"
+homepage = "https://bevyengine.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[features]
+trace = ["profiling"]
+tracing-tracy = []
+wgpu_trace = ["wgpu/trace"]
+ci_limits = []
+webgl = ["wgpu/webgl"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.9.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.9.0" }
+bevy_core = { path = "../bevy_core", version = "0.9.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.9.0" }
+bevy_log = { path = "../bevy_log", version = "0.9.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
+bevy_window = { path = "../bevy_window", version = "0.9.0" }
+
+# misc
+wgpu = { version = "0.14.0", features = ["spirv"] }
+naga = { version = "0.10.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
+encase = { version = "0.4", features = ["glam"] }
+serde = { version = "1", features = ["derive"] }
+smallvec = { version = "1.6", features = ["union", "const_generics"] }
+# For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
+profiling = { version = "1", features = ["profile-with-tracing"], optional = true }
+bitflags = "1.2.1"
+codespan-reporting = "0.11.0"
+once_cell = "1.4.1" # TODO: replace once_cell with std equivalent if/when this lands: https://github.com/rust-lang/rfcs/pull/2788
+downcast-rs = "1.2.0"
+thread_local = "1.1"
+thiserror = "1.0"
+futures-lite = "1.4.0"
+anyhow = "1.0"
+parking_lot = "0.12.1"
+regex = "1.5"

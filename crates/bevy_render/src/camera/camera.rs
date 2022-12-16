@@ -2,7 +2,6 @@ use crate::{
     camera::CameraProjection,
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::TextureView,
     view::{ExtractedView, ExtractedWindows, VisibleEntities},
     Extract,
 };
@@ -16,6 +15,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res},
 };
+use bevy_gpu::gpu_resource::*;
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
@@ -23,7 +23,6 @@ use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
 use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
 use std::{borrow::Cow, ops::Range};
-use wgpu::{Extent3d, TextureFormat};
 
 /// Render viewport configuration for the [`Camera`] component.
 ///

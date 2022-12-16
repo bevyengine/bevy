@@ -10,22 +10,17 @@ use crate::{
     prelude::Image,
     rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
-    render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{GpuDevice, GpuQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
+use bevy_gpu::{gpu_resource::*, GpuDevice, GpuQueue};
 use bevy_math::{Mat4, UVec4, Vec3, Vec4};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use wgpu::{
-    Color, Extent3d, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
-    TextureFormat, TextureUsages,
-};
 
 pub struct ViewPlugin;
 
@@ -142,7 +137,7 @@ impl ViewTarget {
 
     /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture`] and resolve to [`Self::main_texture`] if
     /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
-    pub fn get_color_attachment(&self, ops: Operations<Color>) -> RenderPassColorAttachment {
+    pub fn get_color_attachment(&self, ops: Operations<WgpuColor>) -> RenderPassColorAttachment {
         match &self.main_textures.sampled {
             Some(sampled_texture) => RenderPassColorAttachment {
                 view: sampled_texture,
@@ -156,7 +151,7 @@ impl ViewTarget {
     /// Retrieve an "unsampled" color attachment using [`Self::main_texture`].
     pub fn get_unsampled_color_attachment(
         &self,
-        ops: Operations<Color>,
+        ops: Operations<WgpuColor>,
     ) -> RenderPassColorAttachment {
         RenderPassColorAttachment {
             view: self.main_texture(),

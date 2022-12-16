@@ -1,13 +1,10 @@
+use crate::texture::{Image, ImageType, TextureError};
 use anyhow::Result;
 use bevy_asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy_ecs::prelude::{FromWorld, World};
+use bevy_gpu::GpuDevice;
 use bevy_utils::BoxedFuture;
 use thiserror::Error;
-
-use crate::{
-    renderer::GpuDevice,
-    texture::{Image, ImageType, TextureError},
-};
 
 use super::CompressedImageFormats;
 

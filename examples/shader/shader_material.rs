@@ -1,10 +1,6 @@
 //! A shader and a material that uses it.
 
-use bevy::{
-    prelude::*,
-    reflect::TypeUuid,
-    render::render_resource::{AsBindGroup, ShaderRef},
-};
+use bevy::{gpu::gpu_resource::*, prelude::*, reflect::TypeUuid};
 
 fn main() {
     App::new()

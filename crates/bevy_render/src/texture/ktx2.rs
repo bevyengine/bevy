@@ -1,10 +1,12 @@
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use std::io::Read;
 
+use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 #[cfg(feature = "basis-universal")]
 use basis_universal::{
     DecodeFlags, LowLevelUastcTranscoder, SliceParametersUastc, TranscoderBlockFormat,
 };
+use bevy_gpu::gpu_resource::*;
 use bevy_utils::default;
 #[cfg(any(feature = "flate2", feature = "ruzstd"))]
 use ktx2::SupercompressionScheme;
@@ -12,12 +14,6 @@ use ktx2::{
     BasicDataFormatDescriptor, ChannelTypeQualifiers, ColorModel, DataFormatDescriptorHeader,
     Header, SampleInformation,
 };
-use wgpu::{
-    AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor,
-    TextureViewDimension,
-};
-
-use super::{CompressedImageFormats, DataFormat, Image, TextureError, TranscodeFormat};
 
 pub fn ktx2_buffer_to_image(
     buffer: &[u8],

@@ -20,22 +20,18 @@ use bevy_ecs::{
     },
     world::FromWorld,
 };
+use bevy_gpu::{gpu_resource::*, GpuDevice};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
+    as_bind_group::*,
     extract_component::ExtractComponentPlugin,
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{pipeline::*, Mesh, MeshVertexBufferLayout},
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
         AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
         SetItemPipeline, TrackedRenderPass,
     },
-    render_resource::{
-        AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
-        SpecializedMeshPipelineError, SpecializedMeshPipelines,
-    },
-    renderer::GpuDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract, RenderApp, RenderStage,
@@ -61,7 +57,8 @@ use std::marker::PhantomData;
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_reflect::TypeUuid;
-/// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
+/// # use bevy_render::{texture::Image, color::Color, as_bind_group::AsBindGroup};
+/// # use bevy_gpu::gpu_resource::*;
 /// # use bevy_asset::{Handle, AssetServer, Assets};
 ///
 /// #[derive(AsBindGroup, TypeUuid, Debug, Clone)]

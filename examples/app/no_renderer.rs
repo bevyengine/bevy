@@ -5,13 +5,13 @@
 //! See also the `headless` example which does not display a window.
 
 use bevy::{
+    gpu::{settings::WgpuSettings, GpuPlugin},
     prelude::*,
-    render::{settings::WgpuSettings, RenderPlugin},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(RenderPlugin {
+        .add_plugins(DefaultPlugins.set(GpuPlugin {
             wgpu_settings: WgpuSettings {
                 backends: None,
                 ..default()

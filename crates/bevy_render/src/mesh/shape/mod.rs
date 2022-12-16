@@ -1,4 +1,19 @@
+mod capsule;
+mod cylinder;
+mod icosphere;
+mod regular_polygon;
+mod torus;
+mod uvsphere;
+
+pub use capsule::{Capsule, CapsuleUvProfile};
+pub use cylinder::Cylinder;
+pub use icosphere::Icosphere;
+pub use regular_polygon::{Circle, RegularPolygon};
+pub use torus::Torus;
+pub use uvsphere::UVSphere;
+
 use super::{Indices, Mesh};
+use bevy_gpu::gpu_resource::PrimitiveTopology;
 use bevy_math::*;
 
 #[derive(Debug, Copy, Clone)]
@@ -219,18 +234,3 @@ impl From<Plane> for Mesh {
         mesh
     }
 }
-
-mod capsule;
-mod cylinder;
-mod icosphere;
-mod regular_polygon;
-mod torus;
-mod uvsphere;
-
-pub use capsule::{Capsule, CapsuleUvProfile};
-pub use cylinder::Cylinder;
-pub use icosphere::Icosphere;
-pub use regular_polygon::{Circle, RegularPolygon};
-pub use torus::Torus;
-pub use uvsphere::UVSphere;
-use wgpu::PrimitiveTopology;

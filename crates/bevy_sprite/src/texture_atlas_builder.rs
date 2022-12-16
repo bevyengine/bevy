@@ -1,10 +1,8 @@
 use bevy_asset::{Assets, Handle};
+use bevy_gpu::gpu_resource::*;
 use bevy_log::{debug, error, warn};
 use bevy_math::{Rect, Vec2};
-use bevy_render::{
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::{Image, TextureFormatPixelInfo},
-};
+use bevy_render::texture::{Image, TextureFormatPixelInfo};
 use bevy_utils::HashMap;
 use rectangle_pack::{
     contains_smallest_box, pack_rects, volume_heuristic, GroupedRectsToPlace, PackedLocation,

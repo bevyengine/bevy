@@ -21,7 +21,7 @@ trace = [
 ]
 trace_chrome = [ "bevy_log/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
-wgpu_trace = ["bevy_render/wgpu_trace"]
+wgpu_trace = ["bevy_gpu/wgpu_trace"]
 debug_asset_server = ["bevy_asset/debug_asset_server"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
@@ -56,7 +56,7 @@ x11 = ["bevy_winit/x11"]
 subpixel_glyph_atlas = ["bevy_text/subpixel_glyph_atlas"]
 
 # Optimise for WebGL2
-webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_render?/webgl"]
+webgl = ["bevy_core_pipeline?/webgl", "bevy_pbr?/webgl", "bevy_gpu?/webgl"]
 
 # enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_app/bevy_ci_testing", "bevy_render/ci_limits"]
@@ -88,6 +88,7 @@ bevy_asset = { path = "../bevy_asset", optional = true, version = "0.9.0" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.9.0" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.9.0" }
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.9.0" }
+bevy_gpu = { path = "../bevy_gpu", optional = true, version = "0.9.0" }
 bevy_pbr = { path = "../bevy_pbr", optional = true, version = "0.9.0" }
 bevy_render = { path = "../bevy_render", optional = true, version = "0.9.0" }
 bevy_dynamic_plugin = { path = "../bevy_dynamic_plugin", optional = true, version = "0.9.0" }

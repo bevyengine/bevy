@@ -7,18 +7,13 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
+    gpu::gpu_resource::*,
     prelude::*,
     reflect::TypeUuid,
     render::{
         mesh::{Indices, MeshVertexAttribute},
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-        render_resource::{
-            BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
-            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
-            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
-        },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
         Extract, RenderApp, RenderStage,
