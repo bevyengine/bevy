@@ -124,7 +124,7 @@ use std::{
 ///
 /// # Safety
 ///
-/// The implementor must ensure that [`SystemParam::init`] correctly registers all
+/// The implementor must ensure that [`SystemParam::init_state`] correctly registers all
 /// [`World`] accesses used by this [`SystemParam`] with the provided [`system_meta`](SystemMeta).
 pub unsafe trait SystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
@@ -157,7 +157,7 @@ pub unsafe trait SystemParam: Sized {
 
     /// # Safety
     ///
-    /// This call might use any of the [`World`] accesses that were registered in [`Self::init`].
+    /// This call might use any of the [`World`] accesses that were registered in [`Self::init_init`].
     /// You must ensure that none of those accesses conflict with any other [`SystemParam`]s running in parallel with this one.
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
