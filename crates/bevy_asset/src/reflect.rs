@@ -71,11 +71,12 @@ impl ReflectAsset {
     /// # use bevy_asset::{ReflectAsset, HandleUntyped};
     /// # use bevy_ecs::prelude::World;
     /// # let reflect_asset: ReflectAsset = unimplemented!();
-    /// # let world: World = unimplemented!();
+    /// # let mut world: World = unimplemented!();
     /// # let handle_1: HandleUntyped = unimplemented!();
     /// # let handle_2: HandleUntyped = unimplemented!();
-    /// let a = unsafe { reflect_asset.get_unchecked_mut(&world, handle_1).unwrap() };
-    /// let b = unsafe { reflect_asset.get_unchecked_mut(&world, handle_2).unwrap() };
+    /// let interior_mutable_world = world.as_interior_mutable();
+    /// let a = unsafe { reflect_asset.get_unchecked_mut(interior_mutable_world, handle_1).unwrap() };
+    /// let b = unsafe { reflect_asset.get_unchecked_mut(interior_mutable_world, handle_2).unwrap() };
     /// // ^ not allowed, two mutable references through the same asset resource, even though the
     /// // handles are distinct
     ///
