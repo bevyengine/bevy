@@ -82,7 +82,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// **Note**: You *must not* hand out a `&World` reference to arbitrary safe code when the [`InteriorMutableWorld`] is currently
     /// being used for mutable accesses.
     ///
-    /// SAFETY:
+    /// # Safety:
     /// - the world must not be used to access any resources or components. You can use it to safely access metadata.
     pub unsafe fn world(&self) -> &'w World {
         self.0
@@ -409,7 +409,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Option<Mut<'w, T>> {
-        // # Safety
+        // SAFETY:
         // - `storage_type` is correct
         // - `location` is valid
         // - aliasing rules are ensured by caller

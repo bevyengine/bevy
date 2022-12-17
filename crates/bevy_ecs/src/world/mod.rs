@@ -118,7 +118,7 @@ impl World {
     }
 
     /// Creates a new [`InteriorMutableWorld`] with read+write access from a [&World](World).
-    /// This is only a temporary measure until every `&World` that is semantically a [InteriorMutableWorld]
+    /// This is only a temporary measure until every `&World` that is semantically a [`InteriorMutableWorld`]
     /// has been replaced.
     pub(crate) fn as_interior_mutable_migration_internal(&self) -> InteriorMutableWorld<'_> {
         InteriorMutableWorld::new(self)
