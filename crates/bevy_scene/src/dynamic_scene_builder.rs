@@ -302,6 +302,6 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity_a.id());
+        assert_eq!(scene.entities[0].entity, entity_a.index());
     }
 }
