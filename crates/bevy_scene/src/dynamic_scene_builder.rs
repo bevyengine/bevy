@@ -78,10 +78,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     ///
     /// These were likely created because none of their components were present in the provided type registry upon extraction.
     pub fn remove_empty_entities(&mut self) -> &mut Self {
-        self.extracted_scene = self
-            .extracted_scene
-            .drain_filter(|_, entity| !entity.components.is_empty())
-            .collect();
+        self.extracted_scene
+            .retain(|_, entity| !entity.components.is_empty());
 
         self
     }
