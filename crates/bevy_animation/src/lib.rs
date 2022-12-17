@@ -334,8 +334,8 @@ pub fn animation_player(
     mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
     animation_players.par_for_each_mut(10, |(root, maybe_parent, mut player)| {
-        _update_transitions(&mut player, &time);
-        _run_animation_player(
+        update_transitions(&mut player, &time);
+        run_animation_player(
             root,
             player,
             &time,
@@ -349,7 +349,7 @@ pub fn animation_player(
     });
 }
 
-fn _run_animation_player(
+fn run_animation_player(
     root: Entity,
     mut player: Mut<AnimationPlayer>,
     time: &Time,
@@ -368,7 +368,7 @@ fn _run_animation_player(
     }
 
     // Apply the main animation
-    _apply_animation(
+    apply_animation(
         1.0,
         &mut player.animation,
         paused,
@@ -389,7 +389,7 @@ fn _run_animation_player(
         ..
     } in &mut player.transitions
     {
-        _apply_animation(
+        apply_animation(
             *current_weight,
             animation,
             paused,
@@ -406,7 +406,7 @@ fn _run_animation_player(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn _apply_animation(
+fn apply_animation(
     weight: f32,
     animation: &mut PlayingAnimation,
     paused: bool,
@@ -520,7 +520,7 @@ fn _apply_animation(
     }
 }
 
-fn _update_transitions(player: &mut AnimationPlayer, time: &Time) {
+fn update_transitions(player: &mut AnimationPlayer, time: &Time) {
     player.transitions.retain_mut(|animation| {
         animation.current_weight -= animation.weight_decline_per_sec * time.delta_seconds();
         animation.current_weight > 0.0
