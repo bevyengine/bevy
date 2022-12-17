@@ -26,6 +26,7 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::warn;
 use std::{
     any::TypeId,
+    cell::UnsafeCell,
     fmt,
     sync::atomic::{AtomicU32, Ordering},
 };
@@ -62,8 +63,8 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) removed_components: SparseSet<ComponentId, Vec<Entity>>,
-    /// Access cache used by [WorldCell].
-    pub(crate) archetype_component_access: ArchetypeComponentAccess,
+    /// Access cache used by [WorldCell]. Is only accessed in the `Drop` impl of `WorldCell`.
+    pub(crate) archetype_component_access: UnsafeCell<ArchetypeComponentAccess>,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
     pub(crate) last_check_tick: u32,
@@ -1106,11 +1107,7 @@ impl World {
     #[inline]
     pub fn get_non_send_resource_mut<R: 'static>(&mut self) -> Option<Mut<'_, R>> {
         // SAFETY: unique world access
-        let component_id = self.components.get_resource_id(TypeId::of::<R>())?;
-        unsafe {
-            self.as_interior_mutable()
-                .get_non_send_mut_with_id::<R>(component_id)
-        }
+        unsafe { self.as_interior_mutable().get_non_send_resource_mut() }
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
