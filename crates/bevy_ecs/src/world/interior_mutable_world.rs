@@ -2,12 +2,15 @@
 
 use super::{Mut, World};
 use crate::{
+    archetype::Archetypes,
+    bundle::Bundles,
     change_detection::{MutUntyped, Ticks},
-    component::ComponentId,
+    component::{ComponentId, Components},
+    entity::Entities,
+    storage::Storages,
     system::Resource,
 };
 use bevy_ptr::Ptr;
-use bevy_ptr::UnsafeCellDeref;
 use std::any::TypeId;
 
 /// Variant of the [`World`] where resource and component accesses takes a `&World`, and the responsibility to avoid
@@ -84,6 +87,35 @@ impl<'w> InteriorMutableWorld<'w> {
         self.0
     }
 
+    /// Retrieves this world's [Entities] collection
+    #[inline]
+    pub fn entities(&self) -> &'w Entities {
+        &self.0.entities
+    }
+
+    /// Retrieves this world's [Archetypes] collection
+    #[inline]
+    pub fn archetypes(&self) -> &'w Archetypes {
+        &self.0.archetypes
+    }
+
+    /// Retrieves this world's [Components] collection
+    #[inline]
+    pub fn components(&self) -> &'w Components {
+        &self.0.components
+    }
+
+    /// Retrieves this world's [Storages] collection
+    #[inline]
+    pub fn storages(&self) -> &'w Storages {
+        &self.0.storages
+    }
+
+    /// Retrieves this world's [Bundles] collection
+    #[inline]
+    pub fn bundles(&self) -> &'w Bundles {
+        &self.0.bundles
+    }
     /// Gets a reference to the resource of the given type if it exists
     ///
     /// # Safety
