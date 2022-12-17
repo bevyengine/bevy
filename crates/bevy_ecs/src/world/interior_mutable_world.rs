@@ -143,6 +143,17 @@ impl<'w> InteriorMutableWorld<'w> {
         self.0.get_resource_by_id(component_id)
     }
 
+    /// Gets a reference to the non-send resource of the given type if it exists
+    ///
+    /// # Safety
+    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    #[inline]
+    pub unsafe fn get_non_send_resource<R: 'static>(&self) -> Option<&'w R> {
+        self.0.get_non_send_resource()
+    }
+
     /// Gets a mutable reference to the resource of the given type if it exists
     ///
     /// # Safety
@@ -189,6 +200,19 @@ impl<'w> InteriorMutableWorld<'w> {
             value: unsafe { ptr.assert_unique() },
             ticks,
         })
+    }
+
+    /// Gets a mutable reference to the non-send resource of the given type if it exists
+    ///
+    /// # Safety
+    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
+    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
+    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    #[inline]
+    pub unsafe fn get_non_send_resource_mut<R: 'static>(&self) -> Option<Mut<'w, R>> {
+        let component_id = self.0.components.get_resource_id(TypeId::of::<R>())?;
+        // SAFETY: component_id matches `R`, rest is promised by caller
+        unsafe { self.get_non_send_mut_with_id(component_id) }
     }
 }
 
