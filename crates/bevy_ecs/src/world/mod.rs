@@ -107,7 +107,19 @@ impl World {
         self.id
     }
 
-    pub fn as_interior_mutable(&self) -> InteriorMutableWorld<'_> {
+    /// Creates a new [`InteriorMutableWorld`] view with complete read+write access
+    pub fn as_interior_mutable(&mut self) -> InteriorMutableWorld<'_> {
+        InteriorMutableWorld::new(self)
+    }
+    /// Creates a new [`InteriorMutableWorld`] view only read access to everything
+    pub fn as_interior_mutable_readonly(&self) -> InteriorMutableWorld<'_> {
+        InteriorMutableWorld::new(self)
+    }
+
+    /// Creates a new [`InteriorMutableWorld`] with read+write access from a [&World](World).
+    /// This is only a temporary measure until every `&World` that is semantically a [InteriorMutableWorld]
+    /// has been replaced.
+    pub(crate) fn as_interior_mutable_migration_internal(&self) -> InteriorMutableWorld<'_> {
         InteriorMutableWorld::new(self)
     }
 

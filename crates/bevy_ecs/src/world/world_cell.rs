@@ -228,7 +228,7 @@ impl<'w> WorldCell<'w> {
             // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
             || unsafe {
                 self.world
-                    .as_interior_mutable()
+                    .as_interior_mutable_migration_internal()
                     .get_resource_mut_with_id(component_id)
             },
             archetype_component_id,
@@ -298,7 +298,7 @@ impl<'w> WorldCell<'w> {
             // SAFETY: access is checked by WorldBorrowMut
             || unsafe {
                 self.world
-                    .as_interior_mutable()
+                    .as_interior_mutable_migration_internal()
                     .get_non_send_resource_mut::<T>()
             },
             archetype_component_id,
