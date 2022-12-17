@@ -83,7 +83,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// **Note**: You *must not* hand out a `&World` reference to arbitrary safe code when the [`InteriorMutableWorld`] is currently
     /// being used for mutable accesses.
     ///
-    /// # Safety:
+    /// # Safety
     /// - the world must not be used to access any resources or components. You can use it to safely access metadata.
     pub unsafe fn world(&self) -> &'w World {
         self.0
