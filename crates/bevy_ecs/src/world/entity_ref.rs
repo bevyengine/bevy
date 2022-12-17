@@ -664,7 +664,6 @@ impl<'w> EntityMut<'w> {
     #[inline]
     pub fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
         let info = self.world.components().get_info(component_id)?;
-        self.world.components().get_info(component_id)?;
         // SAFETY:
         // - entity_location is valid
         // - component_id is valid as checked by the line above
