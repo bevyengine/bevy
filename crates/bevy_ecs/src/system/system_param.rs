@@ -778,7 +778,7 @@ unsafe impl<T: FromWorld + Send + 'static> SystemParamState for LocalState<T> {
 
 /// Types that can be used with [`Buffer<T>`] in systems.
 pub trait SystemBuffer: FromWorld + Send + 'static {
-    fn apply(&mut self, world: &mut World);
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 }
 
 /// A [`SystemParam`] that stores a buffer which gets applied at the end of a stage.
@@ -819,8 +819,8 @@ unsafe impl<T: SystemBuffer> SystemParamState for BufState<T> {
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
         Self(SyncCell::new(T::from_world(world)))
     }
-    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
-        self.0.get().apply(world);
+    fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+        self.0.get().apply(system_meta, world);
     }
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self,

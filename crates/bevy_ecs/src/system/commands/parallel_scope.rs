@@ -6,7 +6,7 @@ use crate::{
     self as bevy_ecs,
     entity::Entities,
     prelude::World,
-    system::{Buffer, SystemBuffer, SystemParam},
+    system::{Buffer, SystemBuffer, SystemMeta, SystemParam},
 };
 
 use super::{CommandQueue, Commands};
@@ -52,7 +52,11 @@ pub struct ParallelCommands<'w, 's> {
 
 impl SystemBuffer for ParallelCommandQueue {
     #[inline]
-    fn apply(&mut self, world: &mut World) {
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span =
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+                .entered();
         for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
         }
