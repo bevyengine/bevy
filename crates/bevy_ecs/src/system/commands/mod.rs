@@ -253,16 +253,6 @@ impl<'w, 's> Commands<'w, 's> {
         e
     }
 
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `spawn` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn spawn_bundle<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
-        let mut e = self.spawn_empty();
-        e.insert(bundle);
-        e
-    }
-
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
     ///
     /// # Panics
@@ -407,7 +397,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This method is equivalent to iterating `bundles_iter`,
     /// calling [`get_or_spawn`](Self::get_or_spawn) for each bundle,
-    /// and passing it to [`insert_bundle`](EntityCommands::insert_bundle),
+    /// and passing it to [`insert`](EntityCommands::insert),
     /// but it is faster due to memory pre-allocation.
     ///
     /// # Note
@@ -630,14 +620,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self
     }
 
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `insert` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.insert(bundle)
-    }
-
     /// Removes a [`Bundle`] of components from the entity.
     ///
     /// See [`EntityMut::remove`](crate::world::EntityMut::remove) for more
@@ -685,17 +667,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
             phantom: PhantomData,
         });
         self
-    }
-
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `remove` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn remove_bundle<T>(&mut self) -> &mut Self
-    where
-        T: Bundle,
-    {
-        self.remove::<T>()
     }
 
     /// Despawns the entity.
