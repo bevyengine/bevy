@@ -63,8 +63,9 @@ use std::any::TypeId;
 ///
 /// // the two interior mutable worlds borrow from the `&mut World`, so it cannot be accessed while they are live
 /// fn split_world_access(world: &mut World) -> (OnlyResourceAccessWorld<'_>, OnlyComponentAccessWorld<'_>) {
-///     let resource_access = OnlyResourceAccessWorld(unsafe { world.as_interior_mutable() });
-///     let component_access = OnlyComponentAccessWorld(unsafe { world.as_interior_mutable() });
+///     let interior_mutable_world = world.as_interior_mutable();
+///     let resource_access = OnlyResourceAccessWorld(interior_mutable_world);
+///     let component_access = OnlyComponentAccessWorld(interior_mutable_world);
 ///     (resource_access, component_access)
 /// }
 /// ```
