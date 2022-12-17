@@ -165,45 +165,64 @@ pub struct AnimationPlayer {
 
 impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player
-    /// If `transition_duration` is set, this will use a linear blending
-    /// between the previous and the new animation to make a smooth transition
-    pub fn start(
+    /// This will use a linear blending between the previous and the new animation to make a smooth transition
+    pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+        self.animation = PlayingAnimation {
+            animation_clip: handle,
+            ..Default::default()
+        };
+
+        // We want a hard transition.
+        // In case any previous transitions are still playing, stop them
+        self.transitions.clear();
+
+        self
+    }
+
+    /// Start playing an animation, resetting state of the player
+    /// This will use a linear blending between the previous and the new animation to make a smooth transition
+    pub fn start_with_transition(
         &mut self,
         handle: Handle<AnimationClip>,
-        transition_duration: Option<Duration>,
+        transition_duration: Duration,
     ) -> &mut Self {
         let mut animation = PlayingAnimation {
             animation_clip: handle,
             ..Default::default()
         };
         std::mem::swap(&mut animation, &mut self.animation);
-        if let Some(transition_duration) = transition_duration {
-            // Add the current transition. If other transitions are still ongoing,
-            // this will keep those transitions running and cause a transition between
-            // the output of that previous transition to the new animation.
-            self.transitions.push(AnimationTransition {
-                current_weight: 1.0,
-                weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
-                animation,
-            });
-        } else {
-            // We want a hard transition.
-            // In case any previous transitions are still playing, stop them
-            self.transitions.clear();
-        }
+
+        // Add the current transition. If other transitions are still ongoing,
+        // this will keep those transitions running and cause a transition between
+        // the output of that previous transition to the new animation.
+        self.transitions.push(AnimationTransition {
+            current_weight: 1.0,
+            weight_decline_per_sec: 1.0 / transition_duration.as_secs_f32(),
+            animation,
+        });
+
         self
     }
 
     /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
     /// If `transition_duration` is set, this will use a linear blending
     /// between the previous and the new animation to make a smooth transition
-    pub fn play(
+    pub fn play(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+        if self.animation.animation_clip != handle || self.is_paused() {
+            self.start(handle);
+        }
+        self
+    }
+
+    /// Start playing an animation, resetting state of the player, unless the requested animation is already playing.
+    /// This will use a linear blending between the previous and the new animation to make a smooth transition
+    pub fn play_with_transition(
         &mut self,
         handle: Handle<AnimationClip>,
-        transition_duration: Option<Duration>,
+        transition_duration: Duration,
     ) -> &mut Self {
         if self.animation.animation_clip != handle || self.is_paused() {
-            self.start(handle, transition_duration);
+            self.start_with_transition(handle, transition_duration);
         }
         self
     }
