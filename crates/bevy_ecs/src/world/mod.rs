@@ -1800,7 +1800,7 @@ impl World {
     ) -> Option<(Ptr<'_>, TickCells<'_>)> {
         match storage_type {
             StorageType::Table => {
-                let (components, table_row) = fetch_table(self, location, component_id)?;
+                let (components, table_row) = self.fetch_table(location, component_id)?;
 
                 // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
                 Some((
@@ -1811,7 +1811,7 @@ impl World {
                     },
                 ))
             }
-            StorageType::SparseSet => fetch_sparse_set(self, component_id)?.get_with_ticks(entity),
+            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get_with_ticks(entity),
         }
     }
 
@@ -1854,11 +1854,11 @@ impl World {
         // SAFETY: component_id exists and is therefore valid
         match storage_type {
             StorageType::Table => {
-                let (components, table_row) = fetch_table(self, location, component_id)?;
+                let (components, table_row) = self.fetch_table(location, component_id)?;
                 // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
                 Some(components.get_data_unchecked(table_row))
             }
-            StorageType::SparseSet => fetch_sparse_set(self, component_id)?.get(entity),
+            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get(entity),
         }
     }
 
@@ -1900,31 +1900,31 @@ impl World {
     ) -> Option<ComponentTicks> {
         match storage_type {
             StorageType::Table => {
-                let (components, table_row) = fetch_table(self, location, component_id)?;
+                let (components, table_row) = self.fetch_table(location, component_id)?;
                 // SAFETY: archetypes only store valid table_rows and caller ensure aliasing rules
                 Some(components.get_ticks_unchecked(table_row))
             }
-            StorageType::SparseSet => fetch_sparse_set(self, component_id)?.get_ticks(entity),
+            StorageType::SparseSet => self.fetch_sparse_set(component_id)?.get_ticks(entity),
         }
     }
-}
 
-#[inline]
-unsafe fn fetch_table(
-    world: &World,
-    location: EntityLocation,
-    component_id: ComponentId,
-) -> Option<(&Column, TableRow)> {
-    let archetype = &world.archetypes[location.archetype_id];
-    let table = &world.storages.tables[archetype.table_id()];
-    let components = table.get_column(component_id)?;
-    let table_row = archetype.entity_table_row(location.archetype_row);
-    Some((components, table_row))
-}
+    #[inline]
+    unsafe fn fetch_table(
+        &self,
+        location: EntityLocation,
+        component_id: ComponentId,
+    ) -> Option<(&Column, TableRow)> {
+        let archetype = &self.archetypes[location.archetype_id];
+        let table = &self.storages.tables[archetype.table_id()];
+        let components = table.get_column(component_id)?;
+        let table_row = archetype.entity_table_row(location.archetype_row);
+        Some((components, table_row))
+    }
 
-#[inline]
-fn fetch_sparse_set(world: &World, component_id: ComponentId) -> Option<&ComponentSparseSet> {
-    world.storages.sparse_sets.get(component_id)
+    #[inline]
+    fn fetch_sparse_set(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
+        self.storages.sparse_sets.get(component_id)
+    }
 }
 
 impl fmt::Debug for World {
