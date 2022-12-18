@@ -1,8 +1,8 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*,
-    log::prelude::*, reflect::prelude::*, time::prelude::*, utils::prelude::*,
-    window::prelude::*, DefaultPlugins, MinimalPlugins,
+    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, log::prelude::*,
+    reflect::prelude::*, time::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins,
+    MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
