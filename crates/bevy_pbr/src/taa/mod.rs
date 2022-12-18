@@ -97,7 +97,7 @@ pub struct TemporalAntialiasBundle {
 
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntialiasSettings {
-    depth_rejection_enabled: bool,
+    pub depth_rejection_enabled: bool,
 }
 
 impl Default for TemporalAntialiasSettings {
