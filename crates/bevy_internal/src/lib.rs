@@ -43,6 +43,7 @@ pub mod log {
     pub use bevy_log::*;
 }
 
+#[cfg(feature = "bevy_math")]
 pub mod math {
     //! Math types (Vec3, Mat4, Quat, etc) and helpers.
     pub use bevy_math::*;

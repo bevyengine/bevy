@@ -52,6 +52,8 @@ impl Plugin for CorePlugin {
         app.register_type::<Entity>().register_type::<Name>();
 
         register_rust_types(app);
+
+        #[cfg(feature = "bevy_math")]
         register_math_types(app);
 
         app.init_resource::<FrameCount>();
@@ -73,6 +75,7 @@ fn register_rust_types(app: &mut App) {
         .register_type::<Instant>();
 }
 
+#[cfg(feature = "bevy_math")]
 fn register_math_types(app: &mut App) {
     app.register_type::<bevy_math::IVec2>()
         .register_type::<bevy_math::IVec3>()

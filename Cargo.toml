@@ -29,6 +29,7 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_math",
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
@@ -53,6 +54,7 @@ dynamic = ["bevy_dylib"]
 bevy_animation = ["bevy_internal/bevy_animation"]
 bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
+bevy_math = ["bevy_internal/bevy_math"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
