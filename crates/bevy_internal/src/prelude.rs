@@ -1,6 +1,6 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
+    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*,
     log::prelude::*, reflect::prelude::*, time::prelude::*, utils::prelude::*,
     window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
@@ -56,9 +56,13 @@ pub use crate::text::prelude::*;
 pub use crate::ui::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_dynamic_plugin")]
-pub use crate::dynamic_plugin::*;
+#[cfg(feature = "bevy_input")]
+pub use crate::input::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_gilrs")]
 pub use crate::gilrs::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_dynamic_plugin")]
+pub use crate::dynamic_plugin::*;

@@ -33,6 +33,7 @@ pub mod ecs {
     pub use bevy_ecs::*;
 }
 
+#[cfg(feature = "bevy_input")]
 pub mod input {
     //! Resources and events for inputs, e.g. mouse/keyboard, touch, gamepads, etc.
     pub use bevy_input::*;
