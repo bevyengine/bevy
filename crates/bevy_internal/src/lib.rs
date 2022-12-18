@@ -83,6 +83,7 @@ pub mod hierarchy {
     pub use bevy_hierarchy::*;
 }
 
+#[cfg(feature = "bevy_transform")]
 pub mod transform {
     //! Local and global transforms (e.g. translation, scale, rotation).
     pub use bevy_transform::*;

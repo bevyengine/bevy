@@ -31,7 +31,6 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_log::LogPlugin::default())
             .add(bevy_core::CorePlugin::default())
             .add(bevy_time::TimePlugin::default())
-            .add(bevy_transform::TransformPlugin::default())
             .add(bevy_hierarchy::HierarchyPlugin::default())
             .add(bevy_diagnostic::DiagnosticsPlugin::default())
             .add(bevy_input::InputPlugin::default())
@@ -45,6 +44,11 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "debug_asset_server")]
         {
             group = group.add(bevy_asset::debug_asset_server::DebugAssetServerPlugin::default());
+        }
+
+        #[cfg(feature = "bevy_transform")]
+        {
+            group = group.add(bevy_transform::TransformPlugin::default());
         }
 
         #[cfg(feature = "bevy_scene")]
