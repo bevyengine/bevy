@@ -98,6 +98,8 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
     // https://gist.github.com/TheRealMJP/c83b8c0f46b63f3a88a5986f4fa982b1
+    // https://vec3.ca/bicubic-filtering-in-fewer-taps
+    // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
     let sample_position = (uv + current_velocity) * texture_size;
     let texel_center = floor(sample_position - 0.5) + 0.5;
