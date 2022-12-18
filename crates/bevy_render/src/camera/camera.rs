@@ -1,5 +1,6 @@
 use crate::{
     camera::CameraProjection,
+    mesh::Mesh,
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::TextureView,
@@ -16,6 +17,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res},
 };
+use bevy_log::warn;
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
@@ -527,5 +529,16 @@ pub fn extract_cameras(
                 visible_entities.clone(),
             ));
         }
+    }
+}
+
+pub fn check_has_camera(
+    mesh_query: Extract<Query<&Handle<Mesh>>>,
+    camera_query: Extract<Query<&Camera>>,
+) {
+    let has_meshes = !mesh_query.is_empty();
+    let has_cameras = !camera_query.is_empty();
+    if has_meshes && !has_cameras {
+        warn!("Trying to render meshes without a camera will not show anything!");
     }
 }
