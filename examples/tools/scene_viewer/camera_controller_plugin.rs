@@ -1,7 +1,7 @@
 //! A freecam-style camera controller plugin.
 //! To use:
-//! - Load CameraControllerPlugin into your App
-//! - Attach the CameraController component to an entity with a Camera3dBundle.
+//! - Load `CameraControllerPlugin` into your App
+//! - Attach the `CameraController` component to an entity with a `Camera3dBundle`.
 
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
