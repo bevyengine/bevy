@@ -172,24 +172,9 @@ impl<'a> From<&'a String> for AssetPath<'a> {
 
 impl<'a> From<&'a Path> for AssetPath<'a> {
     fn from(path: &'a Path) -> Self {
-        match path.file_name() {
-            Some(os_str) => {
-                let mut parts = os_str
-                    .to_str()
-                    .expect("File name format is not valid unicode")
-                    .splitn(2, '#');
-                path.pop();
-                path = path.join(parts.next().expect("Path must be set."));
-                let label = parts.next();
-                AssetPath {
-                    path: Cow::Borrowed(path),
-                    label: label.map(Cow::Borrowed),
-                }
-            }
-            None => AssetPath {
-                path: Cow::Borrowed(path),
-                label: None,
-            },
+        AssetPath {
+            path: Cow::Borrowed(path),
+            label: None,
         }
     }
 }
