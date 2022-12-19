@@ -253,7 +253,7 @@ impl Deref for BindGroup {
 ///     }
 /// }
 /// ```
-pub trait AsBindGroup: Sized {
+pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
     type Data: Send + Sync;
 
@@ -264,10 +264,12 @@ pub trait AsBindGroup: Sized {
         render_device: &RenderDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError>;
+    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    where
+        Self: Sized;
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
@@ -277,10 +279,10 @@ pub enum AsBindGroupError {
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
-pub struct PreparedBindGroup<T: AsBindGroup> {
+pub struct PreparedBindGroup<T> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
-    pub data: T::Data,
+    pub data: T,
 }
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
