@@ -1,10 +1,14 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, reflect::prelude::*,
-    utils::prelude::*, DefaultPlugins, MinimalPlugins,
+    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, utils::prelude::*,
+    DefaultPlugins, MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_reflect")]
+pub use crate::reflect::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_asset")]

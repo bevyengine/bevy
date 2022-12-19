@@ -27,6 +27,7 @@ members = [
 [features]
 default = [
   "animation",
+  "bevy_reflect",
   "bevy_asset",
   "bevy_audio",
   "bevy_log",
@@ -57,6 +58,7 @@ default = [
 dynamic = ["bevy_dylib"]
 
 # Optional bevy crates
+bevy_reflect= ["bevy_internal/bevy_reflect"]
 bevy_animation = ["bevy_internal/bevy_animation"]
 bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]

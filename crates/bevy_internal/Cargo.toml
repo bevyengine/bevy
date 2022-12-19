@@ -72,11 +72,11 @@ bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.9.0" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
 
 # bevy (optional)
+bevy_reflect = { path = "../bevy_reflect", features = ["bevy"], optional = true, version = "0.9.0" }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.9.0" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.9.0" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.9.0" }
