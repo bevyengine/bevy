@@ -7,11 +7,18 @@
 |animation|Animation support and glTF animation loading.|
 |bevy_asset|Provides asset functionality for Bevy Engine.|
 |bevy_audio|Audio support. Support for all audio formats depends on this.|
-|bevy_gilrs|Adds gamepad support.|
+|bevy_diagnostic|Provides diagnostic functionality for Bevy Engine.|
+|bevy_gilrs|Gamepad system made using Gilrs for Bevy Engine.|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support.|
+|bevy_input|Provides input functionality for Bevy Engine.|
+|bevy_log|Provides logging for Bevy Engine.|
+[bevy_math|[glam](https://github.com/bitshifter/glam-rs) Provides math functionality for Bevy Engine.|
+|bevy_reflect|Provides reflection functionality for the Bevy Engine.|
 |bevy_scene|Provides scene functionality for Bevy Engine.|
+|bevy_time|Provides time functionality for Bevy Engine.|
+|bevy_transform|Provides transform functionality for Bevy Engine.|
+|bevy_window|Provides windowing functionality for Bevy Engine.|
 |bevy_winit|GUI support.|
-|render|The render pipeline and all render related plugins.|
 |png|PNG picture format support.|
 |hdr|[HDR](https://en.wikipedia.org/wiki/High_dynamic_range) support.|
 |vorbis|Ogg Vorbis audio format support.|
