@@ -34,6 +34,7 @@ default = [
   "bevy_gilrs",
   "bevy_scene",
   "bevy_input",
+  "bevy_window",
   "bevy_winit",
   "bevy_core_pipeline",
   "bevy_pbr",
@@ -69,6 +70,7 @@ bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
 bevy_input = ["bevy_internal/bevy_input"]
+bevy_window = ["bevy_internal/bevy_window"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Tracing features

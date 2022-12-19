@@ -1,8 +1,7 @@
 #[doc(hidden)]
 pub use crate::{
     app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, log::prelude::*,
-    reflect::prelude::*, time::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins,
-    MinimalPlugins,
+    reflect::prelude::*, time::prelude::*, utils::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
@@ -58,6 +57,10 @@ pub use crate::ui::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_input")]
 pub use crate::input::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_window")]
+pub use crate::window::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_gilrs")]

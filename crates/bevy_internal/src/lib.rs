@@ -95,6 +95,7 @@ pub mod utils {
     pub use bevy_utils::*;
 }
 
+#[cfg(feature = "bevy_window")]
 pub mod window {
     //! Configuration, creation, and management of one or more windows.
     pub use bevy_window::*;

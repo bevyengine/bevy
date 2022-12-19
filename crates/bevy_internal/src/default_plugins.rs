@@ -32,8 +32,7 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_core::CorePlugin::default())
             .add(bevy_time::TimePlugin::default())
             .add(bevy_hierarchy::HierarchyPlugin::default())
-            .add(bevy_diagnostic::DiagnosticsPlugin::default())
-            .add(bevy_window::WindowPlugin::default());
+            .add(bevy_diagnostic::DiagnosticsPlugin::default());
 
         #[cfg(feature = "bevy_asset")]
         {
@@ -53,6 +52,11 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_scene")]
         {
             group = group.add(bevy_scene::ScenePlugin::default());
+        }
+
+        #[cfg(feature = "bevy_window")]
+        {
+            group = group.add(bevy_window::WindowPlugin::default());
         }
 
         #[cfg(feature = "bevy_winit")]
