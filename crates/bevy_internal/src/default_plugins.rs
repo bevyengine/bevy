@@ -31,8 +31,12 @@ impl PluginGroup for DefaultPlugins {
             .add(bevy_log::LogPlugin::default())
             .add(bevy_core::CorePlugin::default())
             .add(bevy_time::TimePlugin::default())
-            .add(bevy_hierarchy::HierarchyPlugin::default())
-            .add(bevy_diagnostic::DiagnosticsPlugin::default());
+            .add(bevy_hierarchy::HierarchyPlugin::default());
+
+        #[cfg(feature = "bevy_diagnostic")]
+        {
+            group = group.add(bevy_diagnostic::DiagnosticsPlugin::default());
+        }
 
         #[cfg(feature = "bevy_asset")]
         {

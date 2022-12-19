@@ -23,6 +23,7 @@ pub mod core {
     pub use bevy_core::*;
 }
 
+#[cfg(feature = "bevy_diagnostic")]
 pub mod diagnostic {
     //! Useful diagnostic plugins and types for bevy apps.
     pub use bevy_diagnostic::*;
