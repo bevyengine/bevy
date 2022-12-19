@@ -19,8 +19,11 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::entity::Entity;
+#[cfg(feature = "bevy_math")]
+use bevy_math::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
+
 use std::borrow::Cow;
 use std::ffi::OsString;
 use std::ops::Range;
@@ -77,37 +80,37 @@ fn register_rust_types(app: &mut App) {
 
 #[cfg(feature = "bevy_math")]
 fn register_math_types(app: &mut App) {
-    app.register_type::<bevy_math::IVec2>()
-        .register_type::<bevy_math::IVec3>()
-        .register_type::<bevy_math::IVec4>()
-        .register_type::<bevy_math::UVec2>()
-        .register_type::<bevy_math::UVec3>()
-        .register_type::<bevy_math::UVec4>()
-        .register_type::<bevy_math::DVec2>()
-        .register_type::<bevy_math::DVec3>()
-        .register_type::<bevy_math::DVec4>()
-        .register_type::<bevy_math::BVec2>()
-        .register_type::<bevy_math::BVec3>()
-        .register_type::<bevy_math::BVec3A>()
-        .register_type::<bevy_math::BVec4>()
-        .register_type::<bevy_math::BVec4A>()
-        .register_type::<bevy_math::Vec2>()
-        .register_type::<bevy_math::Vec3>()
-        .register_type::<bevy_math::Vec3A>()
-        .register_type::<bevy_math::Vec4>()
-        .register_type::<bevy_math::DAffine2>()
-        .register_type::<bevy_math::DAffine3>()
-        .register_type::<bevy_math::Affine2>()
-        .register_type::<bevy_math::Affine3A>()
-        .register_type::<bevy_math::DMat2>()
-        .register_type::<bevy_math::DMat3>()
-        .register_type::<bevy_math::DMat4>()
-        .register_type::<bevy_math::Mat2>()
-        .register_type::<bevy_math::Mat3>()
-        .register_type::<bevy_math::Mat3A>()
-        .register_type::<bevy_math::Mat4>()
-        .register_type::<bevy_math::DQuat>()
-        .register_type::<bevy_math::Quat>();
+    app.register_type::<IVec2>()
+        .register_type::<IVec3>()
+        .register_type::<IVec4>()
+        .register_type::<UVec2>()
+        .register_type::<UVec3>()
+        .register_type::<UVec4>()
+        .register_type::<DVec2>()
+        .register_type::<DVec3>()
+        .register_type::<DVec4>()
+        .register_type::<BVec2>()
+        .register_type::<BVec3>()
+        .register_type::<BVec3A>()
+        .register_type::<BVec4>()
+        .register_type::<BVec4A>()
+        .register_type::<Vec2>()
+        .register_type::<Vec3>()
+        .register_type::<Vec3A>()
+        .register_type::<Vec4>()
+        .register_type::<DAffine2>()
+        .register_type::<DAffine3>()
+        .register_type::<Affine2>()
+        .register_type::<Affine3A>()
+        .register_type::<DMat2>()
+        .register_type::<DMat3>()
+        .register_type::<DMat4>()
+        .register_type::<Mat2>()
+        .register_type::<Mat3>()
+        .register_type::<Mat3A>()
+        .register_type::<Mat4>()
+        .register_type::<DQuat>()
+        .register_type::<Quat>();
 }
 
 /// Keeps a count of rendered frames since the start of the app
