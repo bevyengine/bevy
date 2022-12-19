@@ -117,18 +117,6 @@ impl Column {
             .set_changed(change_tick);
     }
 
-    /// Writes component data to the column at given row.
-    /// Assumes the slot is initialized, calls drop.
-    /// Does not update the Component's ticks.
-    ///
-    /// # Safety
-    /// Assumes data has already been allocated for the given row.
-    #[inline]
-    pub(crate) unsafe fn replace_untracked(&mut self, row: TableRow, data: OwningPtr<'_>) {
-        debug_assert!(row.index() < self.len());
-        self.data.replace_unchecked(row.index(), data);
-    }
-
     #[inline]
     pub fn len(&self) -> usize {
         self.data.len()
@@ -146,21 +134,6 @@ impl Column {
         self.data.swap_remove_and_drop_unchecked(row.index());
         self.added_ticks.swap_remove(row.index());
         self.changed_ticks.swap_remove(row.index());
-    }
-
-    #[inline]
-    #[must_use = "The returned pointer should be used to drop the removed component"]
-    pub(crate) fn swap_remove_and_forget(
-        &mut self,
-        row: TableRow,
-    ) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        (row.index() < self.data.len()).then(|| {
-            // SAFETY: The row was length checked before this.
-            let data = unsafe { self.data.swap_remove_and_forget_unchecked(row.index()) };
-            let added = self.added_ticks.swap_remove(row.index()).into_inner();
-            let changed = self.changed_ticks.swap_remove(row.index()).into_inner();
-            (data, ComponentTicks { added, changed })
-        })
     }
 
     /// # Safety

@@ -170,9 +170,7 @@ impl BlobVec {
             }
             let value = value.as_ptr();
             let on_unwind = OnDrop(|| (drop)(OwningPtr::new(NonNull::new_unchecked(value))));
-
             (drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
-
             core::mem::forget(on_unwind);
         }
         std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
@@ -327,6 +325,157 @@ impl Drop for BlobVec {
             // SAFETY: data ptr layout is correct, swap_scratch ptr layout is correct
             unsafe {
                 std::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
+            }
+        }
+    }
+}
+
+pub(super) struct BlobBox {
+    item_layout: Layout,
+    is_present: bool,
+    // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
+    data: NonNull<u8>,
+    // None if the underlying type doesn't need to be dropped
+    drop: Option<unsafe fn(OwningPtr<'_>)>,
+}
+
+// We want to ignore the `drop` field in our `Debug` impl
+impl std::fmt::Debug for BlobBox {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BlobBox")
+            .field("item_layout", &self.item_layout)
+            .field("is_present", &self.is_present)
+            .field("data", &self.data)
+            .finish()
+    }
+}
+
+impl BlobBox {
+    /// # Safety
+    ///
+    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobVec`].
+    ///
+    /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
+    ///
+    /// [`needs_drop`]: core::mem::needs_drop
+    pub unsafe fn new(item_layout: Layout, drop: Option<unsafe fn(OwningPtr<'_>)>) -> BlobBox {
+        if item_layout.size() == 0 {
+            let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
+            BlobBox {
+                data: bevy_ptr::dangling_with_align(align),
+                is_present: false,
+                item_layout,
+                drop,
+            }
+        } else {
+            let data = std::alloc::alloc(item_layout);
+            BlobBox {
+                data: NonNull::new(data).unwrap_or_else(|| handle_alloc_error(item_layout)),
+                is_present: false,
+                item_layout,
+                drop,
+            }
+        }
+    }
+
+    #[inline]
+    pub fn is_present(&self) -> bool {
+        self.is_present
+    }
+
+    /// # Safety
+    /// - index must be in bounds
+    /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
+    /// `item_layout`, must have been previously allocated.
+    #[inline]
+    pub unsafe fn initialize(&mut self, value: OwningPtr<'_>) {
+        debug_assert!(!self.is_present());
+        std::ptr::copy_nonoverlapping::<u8>(
+            value.as_ptr(),
+            self.data.as_ptr(),
+            self.item_layout.size(),
+        );
+        self.is_present = true;
+    }
+
+    /// # Safety
+    /// - index must be in-bounds
+    /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this
+    /// [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
+    /// this [`BlobVec`]'s `item_layout`
+    /// - the memory at `*value` must also be previously initialized with an item matching this
+    /// [`BlobVec`]'s `item_layout`
+    pub unsafe fn replace(&mut self, value: OwningPtr<'_>) {
+        let ptr = self.data.as_ptr();
+        self.is_present = false;
+        // Drop the old value, then write back, justifying the promotion
+        // If the drop impl for the old value panics then we run the drop impl for `value` too.
+        if let Some(drop) = self.drop {
+            struct OnDrop<F: FnMut()>(F);
+            impl<F: FnMut()> Drop for OnDrop<F> {
+                fn drop(&mut self) {
+                    (self.0)();
+                }
+            }
+            let value = value.as_ptr();
+            let on_unwind = OnDrop(|| (drop)(OwningPtr::new(NonNull::new_unchecked(value))));
+
+            (drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
+
+            core::mem::forget(on_unwind);
+        }
+        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
+        self.is_present = true;
+    }
+
+    /// Performs a "swap remove" at the given `index`, which removes the item at `index` and moves
+    /// the last item in the [`BlobVec`] to `index` (if `index` is not the last item). It is the
+    /// caller's responsibility to drop the returned pointer, if that is desirable.
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that `index` is less than `self.len()`.
+    #[inline]
+    #[must_use = "The returned pointer should be used to dropped the removed element"]
+    pub unsafe fn swap_remove_and_forget_unchecked(&mut self) -> OwningPtr<'_> {
+        debug_assert!(self.is_present);
+        self.is_present = false;
+        // Cannot use get_unchecked here as this is technically out of bounds after changing len.
+        OwningPtr::new(self.data)
+    }
+
+    /// Gets a [`Ptr`] to the start of the vec
+    #[inline]
+    pub fn get_ptr(&self) -> Option<Ptr<'_>> {
+        (self.is_present())
+            // SAFETY: the inner data will remain valid for as long as 'self.
+            .then(|| unsafe { Ptr::new(self.data) })
+    }
+
+    pub fn clear(&mut self) {
+        if !self.is_present {
+            return;
+        }
+        // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
+        // accidentally drop elements twice in the event of a drop impl panicking.
+        self.is_present = false;
+        if let Some(drop) = self.drop {
+            // SAFETY: `i * layout_size` is inbounds for the allocation, and the item is left unreachable so it can be safely promoted to an `OwningPtr`
+            unsafe {
+                // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
+                // will panic here due to self.len being set to 0
+                (drop)(OwningPtr::new(self.data));
+            }
+        }
+    }
+}
+
+impl Drop for BlobBox {
+    fn drop(&mut self) {
+        self.clear();
+        if self.item_layout.size() > 0 {
+            // SAFETY: data ptr layout is correct, swap_scratch ptr layout is correct
+            unsafe {
+                std::alloc::dealloc(self.data.as_ptr(), self.item_layout);
             }
         }
     }
