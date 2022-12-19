@@ -40,6 +40,7 @@ pub mod input {
     pub use bevy_input::*;
 }
 
+#[cfg(any(feature = "bevy_log", feature = "bevy_diagnostic"))]
 pub mod log {
     //! Logging capabilities
     pub use bevy_log::*;
@@ -75,6 +76,7 @@ pub mod tasks {
     pub use bevy_tasks::*;
 }
 
+#[cfg(any(feature = "bevy_time", feature = "bevy_diagnostic"))]
 pub mod time {
     //! Contains time utilities.
     pub use bevy_time::*;

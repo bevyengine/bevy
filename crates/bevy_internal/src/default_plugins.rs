@@ -28,10 +28,18 @@ impl PluginGroup for DefaultPlugins {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>();
         group = group
-            .add(bevy_log::LogPlugin::default())
             .add(bevy_core::CorePlugin::default())
-            .add(bevy_time::TimePlugin::default())
             .add(bevy_hierarchy::HierarchyPlugin::default());
+
+        #[cfg(feature = "bevy_log")]
+        {
+            group = group.add(bevy_log::LogPlugin::default());
+        }
+
+        #[cfg(feature = "bevy_time")]
+        {
+            group = group.add(bevy_time::TimePlugin::default());
+        }
 
         #[cfg(feature = "bevy_diagnostic")]
         {

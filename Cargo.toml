@@ -29,6 +29,8 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_log",
+  "bevy_time",
   "bevy_diagnostic",
   "bevy_math",
   "bevy_transform",
@@ -58,6 +60,8 @@ dynamic = ["bevy_dylib"]
 bevy_animation = ["bevy_internal/bevy_animation"]
 bevy_asset = ["bevy_internal/bevy_asset"]
 bevy_audio = ["bevy_internal/bevy_audio"]
+bevy_log = ["bevy_internal/bevy_log"]
+bevy_time = ["bevy_internal/bevy_time"]
 bevy_diagnostic = ["bevy_internal/bevy_diagnostic"]
 bevy_math = ["bevy_internal/bevy_math"]
 bevy_transform = ["bevy_internal/bevy_transform"]

@@ -14,14 +14,14 @@ trace = [
     "bevy_app/trace",
     "bevy_core_pipeline?/trace",
     "bevy_ecs/trace",
-    "bevy_log/trace",
+    "bevy_log?/trace",
     "bevy_render?/trace",
     "bevy_hierarchy/trace",
-    "bevy_winit/trace"
+    "bevy_winit?/trace"
 ]
-trace_chrome = [ "bevy_log/tracing-chrome" ]
+trace_chrome = [ "bevy_log?/tracing-chrome" ]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy" ]
-wgpu_trace = ["bevy_render/wgpu_trace"]
+wgpu_trace = ["bevy_render?/wgpu_trace"]
 debug_asset_server = ["bevy_asset/debug_asset_server"]
 
 # Image format support for texture loading (PNG and HDR are enabled by default)
@@ -46,7 +46,7 @@ wav = ["bevy_audio/wav"]
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_asset/filesystem_watcher"]
 
-serialize = ["bevy_core/serialize", "bevy_input?/serialize", "bevy_time/serialize", "bevy_window/serialize", "bevy_transform?/serialize", "bevy_math?/serialize", "bevy_scene/serialize"]
+serialize = ["bevy_core/serialize", "bevy_input?/serialize", "bevy_time?/serialize", "bevy_window?/serialize", "bevy_transform?/serialize", "bevy_math?/serialize", "bevy_scene/serialize"]
 
 # Display server protocol support (X11 is enabled by default)
 wayland = ["bevy_winit/wayland"]
@@ -71,10 +71,8 @@ bevy_core = { path = "../bevy_core", version = "0.9.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
 bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0" }
-bevy_log = { path = "../bevy_log", version = "0.9.0" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.9.0" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
-bevy_time = { path = "../bevy_time", version = "0.9.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
 
@@ -82,6 +80,8 @@ bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
 bevy_animation = { path = "../bevy_animation", optional = true, version = "0.9.0" }
 bevy_asset = { path = "../bevy_asset", optional = true, version = "0.9.0" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.9.0" }
+bevy_log = { path = "../bevy_log", optional = true, version = "0.9.0" }
+bevy_time = { path = "../bevy_time", optional = true, version = "0.9.0" }
 bevy_diagnostic = { path = "../bevy_diagnostic", optional = true, version = "0.9.0" }
 bevy_math = { path = "../bevy_math", optional = true, version = "0.9.0" }
 bevy_transform = { path = "../bevy_transform", optional = true, version = "0.9.0" }
