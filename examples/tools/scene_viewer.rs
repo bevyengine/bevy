@@ -109,7 +109,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     info!("Loading {}", scene_path);
     let (file_path, scene_index) = parse_scene(scene_path);
     commands.insert_resource(SceneHandle {
-        gltf_handle: asset_server.load(&file_path),
+        gltf_handle: asset_server.load(file_path),
         scene_index,
         #[cfg(feature = "animation")]
         animations: Vec::new(),
