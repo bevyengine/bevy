@@ -181,7 +181,7 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
 
 impl<'a> From<PathBuf> for AssetPath<'a> {
     fn from(mut path: PathBuf) -> Self {
-        match path.file_name() {
+        match path.file_name().map(ToOwned::to_owned) {
             Some(os_str) => {
                 let mut parts = os_str
                     .to_str()
