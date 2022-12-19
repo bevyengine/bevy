@@ -172,18 +172,48 @@ impl<'a> From<&'a String> for AssetPath<'a> {
 
 impl<'a> From<&'a Path> for AssetPath<'a> {
     fn from(path: &'a Path) -> Self {
-        AssetPath {
-            path: Cow::Borrowed(path),
-            label: None,
+        match path.file_name() {
+            Some(os_str) => {
+                let mut parts = os_str
+                    .to_str()
+                    .expect("File name format is not valid unicode")
+                    .splitn(2, '#');
+                path.pop();
+                path = path.join(parts.next().expect("Path must be set."));
+                let label = parts.next();
+                AssetPath {
+                    path: Cow::Borrowed(path),
+                    label: label.map(Cow::Borrowed),
+                }
+            }
+            None => AssetPath {
+                path: Cow::Borrowed(path),
+                label: None,
+            },
         }
     }
 }
 
 impl<'a> From<PathBuf> for AssetPath<'a> {
-    fn from(path: PathBuf) -> Self {
-        AssetPath {
-            path: Cow::Owned(path),
-            label: None,
+    fn from(mut path: PathBuf) -> Self {
+        match path.file_name() {
+            Some(os_str) => {
+                let mut parts = os_str
+                    .to_str()
+                    .expect("File name format is not valid unicode")
+                    .splitn(2, '#');
+                path.pop();
+                path = path.join(parts.next().expect("Path must be set."));
+                let label = parts.next().map(String::from);
+                AssetPath {
+                    path: Cow::Owned(path),
+                    label: label.map(Cow::Owned),
+                }
+            }
+            None => AssetPath {
+                path: Cow::Owned(path),
+                label: None,
+            },
         }
     }
 }
