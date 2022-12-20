@@ -298,21 +298,18 @@ fn assert_component_access_compatibility(
 ///     mut set: ParamSet<(
 ///         Query<&mut Health, With<Enemy>>,
 ///         Query<&mut Health, With<Ally>>,
-///         &World,
 ///     )>
 /// ) {
 ///     // This will access the first `SystemParam`.
-///     // Likewise, the second, third, and subsequent SystemParams can be accessed in a similar manner.
 ///     for mut health in set.p0().iter_mut() {
 ///         // Do your fancy stuff here...
 ///     }
 ///
-///     // Note that you can only access one parameter of the `ParamSet` at a time due to Rust's borrowing rules.
+///     // The second `SystemParam`.
+///     // This would fail to compile if the previous parameter was still borrowed.
 ///     for mut health in set.p1().iter_mut() {
 ///         // Do even fancier stuff here...
 ///     }
-///
-///     let entities = set.p2().entities();
 /// }
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
