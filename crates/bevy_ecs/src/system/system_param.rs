@@ -247,7 +247,7 @@ fn assert_component_access_compatibility(
 /// Each individual [`SystemParam`] can be accessed by using the functions `p0()`, `p1()`, ..., `p7()`, according to the order they are defined in the `ParamSet`. This ensures that
 /// there's either only one mutable reference to a parameter at a time or any number of immutable references.
 ///
-/// # Example
+/// # Examples
 /// 
 /// The following system mutably accesses the same component two times,
 /// which is not allowed due to rust's mutability rules.
