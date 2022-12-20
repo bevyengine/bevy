@@ -323,7 +323,7 @@ fn assert_component_access_compatibility(
 /// #   pub fn new() -> Self { Self }
 /// # }
 /// fn event_system(
-///     set: ParamSet<(
+///     mut set: ParamSet<(
 ///         // `EventReader`s and `EventWriter`s conflict with each other,
 ///         // since they both access the event queue resource for `MyEvent`.
 ///         EventReader<MyEvent>,
