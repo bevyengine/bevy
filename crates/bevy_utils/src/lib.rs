@@ -1,3 +1,11 @@
+//! General utilities for first-party [Bevy] engine crates.
+//!
+//! [Bevy]: https://bevyengine.org/
+
+#![warn(missing_docs)]
+#![warn(clippy::undocumented_unsafe_blocks)]
+
+#[allow(missing_docs)]
 pub mod prelude {
     pub use crate::default;
 }
@@ -30,12 +38,14 @@ use std::{
     pin::Pin,
 };
 
+/// An owned and dynamically typed Future used when you can’t statically type your result or need to add some indirection.
 #[cfg(not(target_arch = "wasm32"))]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 
 #[cfg(target_arch = "wasm32")]
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
+/// A shortcut alias for [`hashbrown::hash_map::Entry`].
 pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
 
 /// A hasher builder that will create a fixed hasher.
@@ -174,6 +184,8 @@ impl BuildHasher for PassHash {
     }
 }
 
+/// A no-op hash that only works on `u64`s. Will panic if attempting to
+/// hash a type containing non-u64 fields.
 #[derive(Debug, Default)]
 pub struct PassHasher {
     hash: u64,

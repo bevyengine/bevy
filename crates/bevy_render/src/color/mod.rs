@@ -358,6 +358,13 @@ impl Color {
         self
     }
 
+    /// Returns this color with red set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_r(mut self, r: f32) -> Self {
+        self.set_r(r);
+        self
+    }
+
     /// Set green in sRGB colorspace.
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba();
@@ -368,6 +375,13 @@ impl Color {
         self
     }
 
+    /// Returns this color with green set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_g(mut self, g: f32) -> Self {
+        self.set_g(g);
+        self
+    }
+
     /// Set blue in sRGB colorspace.
     pub fn set_b(&mut self, b: f32) -> &mut Self {
         *self = self.as_rgba();
@@ -375,6 +389,13 @@ impl Color {
             Color::Rgba { blue, .. } => *blue = b,
             _ => unreachable!(),
         }
+        self
+    }
+
+    /// Returns this color with blue set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_b(mut self, b: f32) -> Self {
+        self.set_b(b);
         self
     }
 
@@ -397,6 +418,13 @@ impl Color {
                 *alpha = a;
             }
         }
+        self
+    }
+
+    /// Returns this color with a new alpha value.
+    #[must_use]
+    pub fn with_a(mut self, a: f32) -> Self {
+        self.set_a(a);
         self
     }
 

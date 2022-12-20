@@ -31,6 +31,13 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// Normally change detecting is triggered by either [`DerefMut`] or [`AsMut`], however
 /// it can be manually triggered via [`DetectChanges::set_changed`].
 ///
+/// To ensure that changes are only triggered when the value actually differs,
+/// check if the value would change before assignment, such as by checking that `new != old`.
+/// You must be *sure* that you are not mutably derefencing in this process.
+///
+/// [`set_if_neq`](DetectChanges::set_if_neq) is a helper
+/// method for this common functionality.
+///
 /// ```
 /// use bevy_ecs::prelude::*;
 ///
@@ -90,6 +97,17 @@ pub trait DetectChanges {
     /// However, it can be an essential escape hatch when, for example,
     /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
     fn bypass_change_detection(&mut self) -> &mut Self::Inner;
+
+    /// Sets `self` to `value`, if and only if `*self != *value`
+    ///
+    /// `T` is the type stored within the smart pointer (e.g. [`Mut`] or [`ResMut`]).
+    ///
+    /// This is useful to ensure change detection is only triggered when the underlying value
+    /// changes, instead of every time [`DerefMut`] is used.
+    fn set_if_neq<Target>(&mut self, value: Target)
+    where
+        Self: Deref<Target = Target> + DerefMut<Target = Target>,
+        Target: PartialEq;
 }
 
 macro_rules! change_detection_impl {
@@ -131,6 +149,19 @@ macro_rules! change_detection_impl {
             #[inline]
             fn bypass_change_detection(&mut self) -> &mut Self::Inner {
                 self.value
+            }
+
+            #[inline]
+            fn set_if_neq<Target>(&mut self, value: Target)
+            where
+                Self: Deref<Target = Target> + DerefMut<Target = Target>,
+                Target: PartialEq,
+            {
+                // This dereference is immutable, so does not trigger change detection
+                if *<Self as Deref>::deref(self) != value {
+                    // `DerefMut` usage triggers change detection
+                    *<Self as DerefMut>::deref_mut(self) = value;
+                }
             }
         }
 
@@ -435,6 +466,19 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     fn bypass_change_detection(&mut self) -> &mut Self::Inner {
         &mut self.value
     }
+
+    #[inline]
+    fn set_if_neq<Target>(&mut self, value: Target)
+    where
+        Self: Deref<Target = Target> + DerefMut<Target = Target>,
+        Target: PartialEq,
+    {
+        // This dereference is immutable, so does not trigger change detection
+        if *<Self as Deref>::deref(self) != value {
+            // `DerefMut` usage triggers change detection
+            *<Self as DerefMut>::deref_mut(self) = value;
+        }
+    }
 }
 
 impl std::fmt::Debug for MutUntyped<'_> {
@@ -458,11 +502,16 @@ mod tests {
         world::World,
     };
 
-    #[derive(Component)]
+    use super::DetectChanges;
+
+    #[derive(Component, PartialEq)]
     struct C;
 
     #[derive(Resource)]
     struct R;
+
+    #[derive(Resource, PartialEq)]
+    struct R2(u8);
 
     #[test]
     fn change_expiration() {
@@ -634,5 +683,31 @@ mod tests {
         assert!(inner.is_changed());
         // Modifying one field of a component should flag a change for the entire component.
         assert!(component_ticks.is_changed(last_change_tick, change_tick));
+    }
+
+    #[test]
+    fn set_if_neq() {
+        let mut world = World::new();
+
+        world.insert_resource(R2(0));
+        // Resources are Changed when first added
+        world.increment_change_tick();
+        // This is required to update world::last_change_tick
+        world.clear_trackers();
+
+        let mut r = world.resource_mut::<R2>();
+        assert!(!r.is_changed(), "Resource must begin unchanged.");
+
+        r.set_if_neq(R2(0));
+        assert!(
+            !r.is_changed(),
+            "Resource must not be changed after setting to the same value."
+        );
+
+        r.set_if_neq(R2(3));
+        assert!(
+            r.is_changed(),
+            "Resource must be changed after setting to a different value."
+        );
     }
 }
