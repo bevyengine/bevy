@@ -343,7 +343,7 @@ fn assert_component_access_compatibility(
 ///     // ...
 ///     # let _entities = entities;
 /// }
-/// # crate::system::assert_is_system(event_system);
+/// # bevy_ecs::system::assert_is_system(event_system);
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
