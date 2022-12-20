@@ -2,6 +2,7 @@
 #![no_std]
 #![warn(missing_docs)]
 
+use core::fmt::{self, Formatter, Pointer};
 use core::{
     cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
 };
@@ -92,6 +93,13 @@ macro_rules! impl_ptr {
             #[inline]
             pub unsafe fn new(inner: NonNull<u8>) -> Self {
                 Self(inner, PhantomData)
+            }
+        }
+
+        impl Pointer for $ptr<'_> {
+            #[inline]
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                Pointer::fmt(&self.0, f)
             }
         }
     };
