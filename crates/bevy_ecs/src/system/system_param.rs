@@ -248,7 +248,7 @@ fn assert_component_access_compatibility(
 /// there's either only one mutable reference to a parameter at a time or any number of immutable references.
 ///
 /// # Examples
-/// 
+///
 /// The following system mutably accesses the same component two times,
 /// which is not allowed due to rust's mutability rules.
 ///
@@ -277,10 +277,10 @@ fn assert_component_access_compatibility(
 /// # bad_system_system.initialize(&mut world);
 /// # bad_system_system.run((), &mut world);
 /// ```
-/// 
+///
 /// Conflicing `SystemParam`s like these can be placed in a `ParamSet`,
 /// which leverages the borrow checker to ensure that only one of the contained parameters are accessed at a given time.
-/// 
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
@@ -312,9 +312,9 @@ fn assert_component_access_compatibility(
 ///     }
 /// }
 /// ```
-/// 
+///
 /// Of course, `ParamSet`s can be used with any kind of `SystemParam`, not just [queries](Query).
-/// 
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
