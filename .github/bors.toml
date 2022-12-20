@@ -21,3 +21,5 @@ status = [
 
 use_squash_merge = true
 block_labels = ["S-Pre-Relicense"]
+required_approvals = 1
+up_to_date_approvals = 1
