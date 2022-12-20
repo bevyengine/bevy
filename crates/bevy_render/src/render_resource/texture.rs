@@ -1,9 +1,10 @@
-use bevy_render_macros::define_atomic_id;
+use crate::define_atomic_id;
+use bevy_utils::default;
 use std::ops::Deref;
 
 use crate::render_resource::resource_macros::*;
 
-define_atomic_id!(pub TextureId);
+define_atomic_id!(TextureId);
 render_resource_wrapper!(ErasedTexture, wgpu::Texture);
 
 /// A GPU-accessible texture.
@@ -32,7 +33,7 @@ impl Texture {
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
-            id: TextureId::new(),
+            id: default(),
             value: ErasedTexture::new(value),
         }
     }
@@ -47,7 +48,7 @@ impl Deref for Texture {
     }
 }
 
-define_atomic_id!(pub TextureViewId);
+define_atomic_id!(TextureViewId);
 render_resource_wrapper!(ErasedTextureView, wgpu::TextureView);
 render_resource_wrapper!(ErasedSurfaceTexture, wgpu::SurfaceTexture);
 
@@ -98,7 +99,7 @@ impl TextureView {
 impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
-            id: TextureViewId::new(),
+            id: default(),
             value: TextureViewValue::TextureView(ErasedTextureView::new(value)),
         }
     }
@@ -110,7 +111,7 @@ impl From<wgpu::SurfaceTexture> for TextureView {
         let texture = ErasedSurfaceTexture::new(value);
 
         TextureView {
-            id: TextureViewId::new(),
+            id: default(),
             value: TextureViewValue::SurfaceTexture { texture, view },
         }
     }
@@ -128,7 +129,7 @@ impl Deref for TextureView {
     }
 }
 
-define_atomic_id!(pub SamplerId);
+define_atomic_id!(SamplerId);
 render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
@@ -153,7 +154,7 @@ impl Sampler {
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
-            id: SamplerId::new(),
+            id: default(),
             value: ErasedSampler::new(value),
         }
     }

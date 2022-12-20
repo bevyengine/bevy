@@ -1,12 +1,3 @@
-#[cfg(target_has_atomic = "64")]
-pub type AtomicIdCounter = std::sync::atomic::AtomicU64;
-#[cfg(target_has_atomic = "64")]
-pub type AtomicIdType = u64;
-#[cfg(not(target_has_atomic = "64"))]
-pub type AtomicIdCounter = std::sync::atomic::AtomicUsize;
-#[cfg(not(target_has_atomic = "64"))]
-pub type AtomicIdType = usize;
-
 // structs containing wgpu types take a long time to compile. this is particularly bad for generic
 // structs containing wgpu structs. we avoid that in debug builds (and for cargo check and rust analyzer)
 // by boxing and type-erasing with the `render_resource_wrapper` macro.
@@ -126,6 +117,31 @@ macro_rules! render_resource_wrapper {
             trait AssertSendSyncBound: Send + Sync {}
             impl AssertSendSyncBound for $wgpu_type {}
         };
+    };
+}
+
+#[macro_export]
+macro_rules! define_atomic_id {
+    ($atomic_id_type:ident) => {
+        #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+        pub struct $atomic_id_type(u32);
+
+        impl Default for $atomic_id_type {
+            fn default() -> Self {
+                use std::sync::atomic::{AtomicU32, Ordering};
+
+                static COUNTER: AtomicU32 = AtomicU32::new(0);
+                COUNTER
+                    .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
+                        val.checked_add(1)
+                    })
+                    .map(Self)
+                    .expect(&format!(
+                        "The system ran out of unique `{}`s.",
+                        stringify!($atomic_id_type)
+                    ))
+            }
+        }
     };
 }
 

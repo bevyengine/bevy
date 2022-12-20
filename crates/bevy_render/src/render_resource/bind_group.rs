@@ -1,16 +1,18 @@
 use crate::{
+    define_atomic_id,
     prelude::Image,
     render_asset::RenderAssets,
     render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
     texture::FallbackImage,
 };
-pub use bevy_render_macros::{define_atomic_id, AsBindGroup};
+pub use bevy_render_macros::AsBindGroup;
+use bevy_utils::default;
 use encase::ShaderType;
 use std::ops::Deref;
 use wgpu::BindingResource;
 
-define_atomic_id!(pub BindGroupId);
+define_atomic_id!(BindGroupId);
 render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
 
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
@@ -36,7 +38,7 @@ impl BindGroup {
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
-            id: BindGroupId::new(),
+            id: default(),
             value: ErasedBindGroup::new(value),
         }
     }

@@ -1,16 +1,17 @@
-use crate::render_resource::{BindGroupLayout, Shader};
+use super::ShaderDefVal;
+use crate::{
+    define_atomic_id,
+    render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
+};
 use bevy_asset::Handle;
-use bevy_render_macros::define_atomic_id;
+use bevy_utils::default;
 use std::{borrow::Cow, ops::Deref};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
     VertexAttribute, VertexFormat, VertexStepMode,
 };
 
-use super::ShaderDefVal;
-use crate::render_resource::resource_macros::*;
-
-define_atomic_id!(pub RenderPipelineId);
+define_atomic_id!(RenderPipelineId);
 render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
@@ -33,7 +34,7 @@ impl RenderPipeline {
 impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
-            id: RenderPipelineId::new(),
+            id: default(),
             value: ErasedRenderPipeline::new(value),
         }
     }
@@ -48,7 +49,7 @@ impl Deref for RenderPipeline {
     }
 }
 
-define_atomic_id!(pub ComputePipelineId);
+define_atomic_id!(ComputePipelineId);
 render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
@@ -72,7 +73,7 @@ impl ComputePipeline {
 impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
-            id: ComputePipelineId::new(),
+            id: default(),
             value: ErasedComputePipeline::new(value),
         }
     }

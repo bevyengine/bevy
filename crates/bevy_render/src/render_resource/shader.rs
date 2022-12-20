@@ -1,7 +1,7 @@
 use super::ShaderDefVal;
+use crate::define_atomic_id;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::TypeUuid;
-use bevy_render_macros::define_atomic_id;
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 use naga::{back::wgsl::WriterFlags, valid::Capabilities, valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
@@ -10,7 +10,7 @@ use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
 use wgpu::{util::make_spirv, Features, ShaderModuleDescriptor, ShaderSource};
 
-define_atomic_id!(pub ShaderId);
+define_atomic_id!(ShaderId);
 
 #[derive(Error, Debug)]
 pub enum ShaderReflectError {
