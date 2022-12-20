@@ -283,8 +283,6 @@ fn assert_component_access_compatibility(
 /// }
 /// ```
 ///
-/// # Panics
-///
 /// ```should_panic
 /// # use bevy_ecs::prelude::*;
 /// #
