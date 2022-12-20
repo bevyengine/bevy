@@ -312,6 +312,39 @@ fn assert_component_access_compatibility(
 ///     }
 /// }
 /// ```
+/// 
+/// Of course, `ParamSet`s can be used with any kind of `SystemParam`, not just [queries](Query).
+/// 
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # struct MyEvent;
+/// # impl MyEvent {
+/// #   pub fn new() -> Self { Self }
+/// # }
+/// fn event_system(
+///     set: ParamSet<(
+///         // `EventReader`s and `EventWriter`s conflict with each other,
+///         // since they both access the event queue resource for `MyEvent`.
+///         EventReader<MyEvent>,
+///         EventWriter<MyEvent>,
+///         // `&World` reads the entire world, so a `ParamSet` is the only way
+///         // that it can be used in the same system as any mutable accesses.
+///         &World,
+///     )>,
+/// ) {
+///     for event in set.p0().iter() {
+///         // ...
+///         # let _event = event;
+///     }
+///     set.p1().send(MyEvent::new());
+///     
+///     let entities = set.p2().entities();
+///     // ...
+///     # let _entities = entities;
+/// }
+/// # crate::system::assert_is_system(event_system);
+/// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
     world: &'w World,
