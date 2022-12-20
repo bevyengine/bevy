@@ -200,6 +200,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
             VertexFormat::Float32x3,
             // uv
             VertexFormat::Float32x2,
+            // entity index
+            VertexFormat::Uint32,
         ];
 
         if key.contains(SpritePipelineKey::COLORED) {
@@ -240,11 +242,18 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
-                    write_mask: ColorWrites::ALL,
-                })],
+                targets: vec![
+                    Some(ColorTargetState {
+                        format,
+                        blend: Some(BlendState::ALPHA_BLENDING),
+                        write_mask: ColorWrites::ALL,
+                    }),
+                    Some(ColorTargetState {
+                        format: TextureFormat::R32Uint,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    }),
+                ],
             }),
             layout: Some(vec![self.view_layout.clone(), self.material_layout.clone()]),
             primitive: PrimitiveState {
@@ -386,6 +395,7 @@ pub fn extract_sprites(
 struct SpriteVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
+    pub entity_index: u32,
 }
 
 #[repr(C)]
@@ -393,6 +403,7 @@ struct SpriteVertex {
 struct ColoredSpriteVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
+    pub entity_index: u32,
     pub color: [f32; 4],
 }
 
@@ -645,6 +656,7 @@ pub fn queue_sprites(
                             position: positions[i],
                             uv: uvs[i].into(),
                             color: extracted_sprite.color.as_linear_rgba_f32(),
+                            entity_index: extracted_sprite.entity.index(),
                         });
                     }
                     let item_start = colored_index;
@@ -663,6 +675,7 @@ pub fn queue_sprites(
                         sprite_meta.vertices.push(SpriteVertex {
                             position: positions[i],
                             uv: uvs[i].into(),
+                            entity_index: extracted_sprite.entity.index(),
                         });
                     }
                     let item_start = index;

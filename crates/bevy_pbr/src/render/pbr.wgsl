@@ -14,8 +14,13 @@ struct FragmentInput {
     #import bevy_pbr::mesh_vertex_output
 };
 
+struct FragmentOutput {
+   @location(0) color: vec4<f32>,
+   @location(1) picking: u32,
+ }
+
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+fn fragment(in: FragmentInput) -> FragmentOutput {
     var output_color: vec4<f32> = material.base_color;
 #ifdef VERTEX_COLORS
     output_color = output_color * in.color;
@@ -107,5 +112,13 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     output_rgb = pow(output_rgb, vec3<f32>(2.2));
     output_color = vec4(output_rgb, output_color.a);
 #endif
-    return output_color;
+
+    let location = vec2<i32>(i32(in.frag_coord.x), i32(in.frag_coord.y));
+
+    var out: FragmentOutput;
+
+    out.color = output_color;
+    out.picking = mesh.entity_index;
+
+    return out;
 }

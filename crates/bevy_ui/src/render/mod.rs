@@ -102,15 +102,15 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
             RunGraphOnViewNode::new(draw_ui_graph::NAME),
         );
-        graph_2d.add_node_edge(
-            bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
-            draw_ui_graph::node::UI_PASS,
-        );
         graph_2d.add_slot_edge(
             graph_2d.input_node().id,
             bevy_core_pipeline::core_2d::graph::input::VIEW_ENTITY,
             draw_ui_graph::node::UI_PASS,
             RunGraphOnViewNode::IN_VIEW,
+        );
+        graph_2d.add_node_edge(
+            bevy_core_pipeline::core_2d::graph::node::MAIN_PASS,
+            draw_ui_graph::node::UI_PASS,
         );
         graph_2d.add_node_edge(
             bevy_core_pipeline::core_2d::graph::node::END_MAIN_PASS_POST_PROCESSING,
@@ -120,6 +120,10 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
             bevy_core_pipeline::core_2d::graph::node::UPSCALING,
         );
+        graph_2d.add_node_edge(
+            draw_ui_graph::node::UI_PASS,
+            bevy_core_pipeline::core_2d::graph::node::PICKING,
+        );
     }
 
     if let Some(graph_3d) = graph.get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME) {
@@ -127,6 +131,12 @@ pub fn build_ui_render(app: &mut App) {
         graph_3d.add_node(
             draw_ui_graph::node::UI_PASS,
             RunGraphOnViewNode::new(draw_ui_graph::NAME),
+        );
+        graph_3d.add_slot_edge(
+            graph_3d.input_node().id,
+            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+            draw_ui_graph::node::UI_PASS,
+            RunGraphOnViewNode::IN_VIEW,
         );
         graph_3d.add_node_edge(
             bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
@@ -140,11 +150,9 @@ pub fn build_ui_render(app: &mut App) {
             draw_ui_graph::node::UI_PASS,
             bevy_core_pipeline::core_3d::graph::node::UPSCALING,
         );
-        graph_3d.add_slot_edge(
-            graph_3d.input_node().id,
-            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+        graph_3d.add_node_edge(
             draw_ui_graph::node::UI_PASS,
-            RunGraphOnViewNode::IN_VIEW,
+            bevy_core_pipeline::core_3d::graph::node::PICKING,
         );
     }
 }
@@ -167,6 +175,7 @@ fn get_ui_graph(render_app: &mut App) -> RenderGraph {
 }
 
 pub struct ExtractedUiNode {
+    pub entity: Entity,
     pub stack_index: usize,
     pub transform: Mat4,
     pub background_color: Color,
@@ -233,6 +242,7 @@ pub fn extract_uinodes(
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
+                entity: *entity,
             });
         }
     }
@@ -360,6 +370,7 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
+                    entity: *entity,
                 });
             }
         }
@@ -371,6 +382,7 @@ pub fn extract_text_uinodes(
 struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
+    pub entity_index: u32,
     pub color: [f32; 4],
 }
 
@@ -525,6 +537,7 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color: extracted_uinode.background_color.as_linear_rgba_f32(),
+                entity_index: extracted_uinode.entity.index(),
             });
         }
 

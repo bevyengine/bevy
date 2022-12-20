@@ -5,6 +5,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
+    picking::PickingTextures,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDescriptor},
@@ -21,6 +22,7 @@ pub struct MainPass2dNode {
             &'static RenderPhase<Transparent2d>,
             &'static ViewTarget,
             &'static Camera2d,
+            &'static PickingTextures,
         ),
         With<ExtractedView>,
     >,
@@ -52,7 +54,7 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, transparent_phase, target, camera_2d) =
+        let (camera, transparent_phase, target, camera_2d, picking_textures) =
             if let Ok(result) = self.query.get_manual(world, view_entity) {
                 result
             } else {
@@ -65,16 +67,22 @@ impl Node for MainPass2dNode {
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_pass_2d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_2d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
-                    store: true,
-                }))],
+                color_attachments: &[
+                    Some(target.get_color_attachment(Operations {
+                        load: match camera_2d.clear_color {
+                            ClearColorConfig::Default => {
+                                LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                            }
+                            ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                            ClearColorConfig::None => LoadOp::Load,
+                        },
+                        store: true,
+                    })),
+                    Some(picking_textures.get_color_attachment(Operations {
+                        load: LoadOp::Clear(PickingTextures::clear_color()),
+                        store: true,
+                    })),
+                ],
                 depth_stencil_attachment: None,
             });
 

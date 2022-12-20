@@ -111,6 +111,7 @@ impl Plugin for MeshRenderPlugin {
 pub struct MeshUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
+    pub entity_index: u32,
     pub flags: u32,
 }
 
@@ -160,6 +161,7 @@ pub fn extract_meshes(
             flags: flags.bits,
             transform,
             inverse_transpose_model: transform.inverse().transpose(),
+            entity_index: entity.index(),
         };
         if not_caster.is_some() {
             not_caster_commands.push((entity, (handle.clone_weak(), uniform, NotShadowCaster)));
@@ -662,11 +664,18 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend,
-                    write_mask: ColorWrites::ALL,
-                })],
+                targets: vec![
+                    Some(ColorTargetState {
+                        format,
+                        blend,
+                        write_mask: ColorWrites::ALL,
+                    }),
+                    Some(ColorTargetState {
+                        format: TextureFormat::R32Uint,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    }),
+                ],
             }),
             layout: Some(bind_group_layout),
             primitive: PrimitiveState {

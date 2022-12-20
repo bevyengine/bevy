@@ -671,6 +671,17 @@ category = "Application"
 wasm = false
 
 [[example]]
+name = "picking"
+path = "examples/app/picking.rs"
+
+[package.metadata.example.picking]
+name = "Picking"
+description = "An application that show how to pick/select objects and UI elements"
+category = "Application"
+# TODO, are we wasm compatible?
+wasm = false
+
+[[example]]
 name = "without_winit"
 path = "examples/app/without_winit.rs"
 

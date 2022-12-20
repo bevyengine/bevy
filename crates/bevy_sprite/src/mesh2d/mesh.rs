@@ -113,6 +113,7 @@ impl Plugin for Mesh2dRenderPlugin {
 pub struct Mesh2dUniform {
     pub transform: Mat4,
     pub inverse_transpose_model: Mat4,
+    pub entity_index: u32,
     pub flags: u32,
 }
 
@@ -144,6 +145,7 @@ pub fn extract_mesh2d(
                     flags: MeshFlags::empty().bits,
                     transform,
                     inverse_transpose_model: transform.inverse().transpose(),
+                    entity_index: entity.index(),
                 },
             ),
         ));
@@ -403,11 +405,18 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 shader: MESH2D_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
-                    write_mask: ColorWrites::ALL,
-                })],
+                targets: vec![
+                    Some(ColorTargetState {
+                        format,
+                        blend: Some(BlendState::ALPHA_BLENDING),
+                        write_mask: ColorWrites::ALL,
+                    }),
+                    Some(ColorTargetState {
+                        format: TextureFormat::R32Uint,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    }),
+                ],
             }),
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
             primitive: PrimitiveState {

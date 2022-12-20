@@ -10,6 +10,7 @@ mod extract_param;
 pub mod extract_resource;
 pub mod globals;
 pub mod mesh;
+pub mod picking;
 pub mod primitives;
 pub mod render_asset;
 pub mod render_graph;

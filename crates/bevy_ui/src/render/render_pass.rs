@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_render::{
+    picking::PickingTextures,
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
@@ -18,6 +19,7 @@ pub struct UiPassNode {
         (
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
+            &'static PickingTextures,
             Option<&'static UiCameraConfig>,
         ),
         With<ExtractedView>,
@@ -54,7 +56,7 @@ impl Node for UiPassNode {
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
 
-        let Ok((transparent_phase, target, camera_ui)) =
+        let Ok((transparent_phase, target, picking_textures, camera_ui)) =
                 self.ui_view_query.get_manual(world, input_view_entity)
              else {
                 return Ok(());
@@ -76,12 +78,18 @@ impl Node for UiPassNode {
         } else {
             input_view_entity
         };
+
+        let ops = Operations {
+            load: LoadOp::Load,
+            store: true,
+        };
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
-                load: LoadOp::Load,
-                store: true,
-            }))],
+            color_attachments: &[
+                Some(target.get_unsampled_color_attachment(ops)),
+                Some(picking_textures.get_unsampled_color_attachment(ops)),
+            ],
             depth_stencil_attachment: None,
         });
 

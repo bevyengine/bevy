@@ -5,6 +5,7 @@ use crate::{
 use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
+    picking::PickingTextures,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
@@ -24,6 +25,7 @@ pub struct MainPass3dNode {
             &'static Camera3d,
             &'static ViewTarget,
             &'static ViewDepthTexture,
+            &'static PickingTextures,
         ),
         With<ExtractedView>,
     >,
@@ -55,13 +57,21 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, opaque_phase, alpha_mask_phase, transparent_phase, camera_3d, target, depth) =
-            match self.query.get_manual(world, view_entity) {
-                Ok(query) => query,
-                Err(_) => {
-                    return Ok(());
-                } // No window
-            };
+        let (
+            camera,
+            opaque_phase,
+            alpha_mask_phase,
+            transparent_phase,
+            camera_3d,
+            target,
+            depth,
+            picking_textures,
+        ) = match self.query.get_manual(world, view_entity) {
+            Ok(query) => query,
+            Err(_) => {
+                return Ok(());
+            } // No window
+        };
 
         // Always run opaque pass to ensure screen is cleared
         {
@@ -74,16 +84,23 @@ impl Node for MainPass3dNode {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_3d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
-                    store: true,
-                }))],
+                color_attachments: &[
+                    Some(target.get_color_attachment(Operations {
+                        load: match camera_3d.clear_color {
+                            ClearColorConfig::Default => {
+                                LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                            }
+                            ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                            ClearColorConfig::None => LoadOp::Load,
+                        },
+                        store: true,
+                    })),
+                    // TODO: Should be based on if picking or not
+                    Some(picking_textures.get_color_attachment(Operations {
+                        load: LoadOp::Clear(PickingTextures::clear_color()),
+                        store: true,
+                    })),
+                ],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it

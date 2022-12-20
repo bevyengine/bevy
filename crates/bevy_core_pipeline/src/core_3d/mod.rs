@@ -11,6 +11,7 @@ pub mod graph {
         pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const FXAA: &str = "fxaa";
+        pub const PICKING: &str = "picking";
         pub const UPSCALING: &str = "upscaling";
         pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
     }
@@ -43,7 +44,7 @@ use bevy_render::{
 };
 use bevy_utils::{FloatOrd, HashMap};
 
-use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
+use crate::{picking::node::PickingNode, tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
 pub struct Core3dPlugin;
 
@@ -71,6 +72,8 @@ impl Plugin for Core3dPlugin {
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
         let tonemapping = TonemappingNode::new(&mut render_app.world);
         let upscaling = UpscalingNode::new(&mut render_app.world);
+        let picking = PickingNode::new(&mut render_app.world);
+
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
         let mut draw_3d_graph = RenderGraph::default();
@@ -78,6 +81,7 @@ impl Plugin for Core3dPlugin {
         draw_3d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
         draw_3d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
         draw_3d_graph.add_node(graph::node::UPSCALING, upscaling);
+        draw_3d_graph.add_node(graph::node::PICKING, picking);
         let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
             graph::input::VIEW_ENTITY,
             SlotType::Entity,
@@ -100,6 +104,12 @@ impl Plugin for Core3dPlugin {
             graph::node::UPSCALING,
             UpscalingNode::IN_VIEW,
         );
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::PICKING,
+            PickingNode::IN_VIEW,
+        );
         draw_3d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
         draw_3d_graph.add_node_edge(
             graph::node::TONEMAPPING,
@@ -109,6 +119,7 @@ impl Plugin for Core3dPlugin {
             graph::node::END_MAIN_PASS_POST_PROCESSING,
             graph::node::UPSCALING,
         );
+        draw_3d_graph.add_node_edge(graph::node::UPSCALING, graph::node::PICKING);
         graph.add_sub_graph(graph::NAME, draw_3d_graph);
     }
 }

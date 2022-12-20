@@ -4,6 +4,7 @@ pub mod core_2d;
 pub mod core_3d;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
+pub mod picking;
 pub mod tonemapping;
 pub mod upscaling;
 
@@ -23,6 +24,7 @@ use crate::{
     core_3d::Core3dPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
+    picking::PickingPlugin,
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
@@ -51,6 +53,7 @@ impl Plugin for CorePipelinePlugin {
             .add_plugin(TonemappingPlugin)
             .add_plugin(UpscalingPlugin)
             .add_plugin(BloomPlugin)
-            .add_plugin(FxaaPlugin);
+            .add_plugin(FxaaPlugin)
+            .add_plugin(PickingPlugin);
     }
 }

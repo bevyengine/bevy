@@ -22,8 +22,13 @@ struct FragmentInput {
     #import bevy_sprite::mesh2d_vertex_output
 };
 
+struct FragmentOutput {
+   @location(0) color: vec4<f32>,
+   @location(1) picking: u32,
+ }
+
 @fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+fn fragment(in: FragmentInput) -> FragmentOutput {
     var output_color: vec4<f32> = material.color;
 #ifdef VERTEX_COLORS
     output_color = output_color * in.color;
@@ -31,5 +36,11 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(texture, texture_sampler, in.uv);
     }
-    return output_color;
+
+    var out: FragmentOutput;
+
+    out.color = output_color;
+    out.picking = mesh.entity_index;
+
+    return out;
 }

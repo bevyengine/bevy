@@ -75,6 +75,8 @@ impl SpecializedRenderPipeline for UiPipeline {
                 VertexFormat::Float32x3,
                 // uv
                 VertexFormat::Float32x2,
+                // entity index
+                VertexFormat::Uint32,
                 // color
                 VertexFormat::Float32x4,
             ],
@@ -92,15 +94,22 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: if key.hdr {
-                        ViewTarget::TEXTURE_FORMAT_HDR
-                    } else {
-                        TextureFormat::bevy_default()
-                    },
-                    blend: Some(BlendState::ALPHA_BLENDING),
-                    write_mask: ColorWrites::ALL,
-                })],
+                targets: vec![
+                    Some(ColorTargetState {
+                        format: if key.hdr {
+                            ViewTarget::TEXTURE_FORMAT_HDR
+                        } else {
+                            TextureFormat::bevy_default()
+                        },
+                        blend: Some(BlendState::ALPHA_BLENDING),
+                        write_mask: ColorWrites::ALL,
+                    }),
+                    Some(ColorTargetState {
+                        format: TextureFormat::R32Uint,
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    }),
+                ],
             }),
             layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
             primitive: PrimitiveState {
