@@ -1,7 +1,8 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::Duration;
 
 /// A resource for configuring usage of the `rust_winit` library.
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct WinitSettings {
     /// Configures the winit library to return control to the main thread after the
     /// [run](bevy_app::App::run) loop is exited. Winit strongly recommends avoiding this when
@@ -68,7 +69,12 @@ pub enum UpdateMode {
     /// Once the app has executed all bevy systems and reaches the end of the event loop, there is
     /// no way to force the app to wake and update again, unless a `winit` event (such as user
     /// input, or the window being resized) is received or the time limit is reached.
-    Reactive { max_wait: Duration },
+    Reactive {
+        /// The maximum time to wait before the event loop runs again.
+        ///
+        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
+        max_wait: Duration,
+    },
     /// The event loop will only update if there is a winit event from direct interaction with the
     /// window (e.g. mouseover), a redraw is requested, or the maximum wait time has elapsed.
     ///
@@ -85,5 +91,10 @@ pub enum UpdateMode {
     /// window is not focused, to only re-draw your bevy app when the cursor is over the window, but
     /// not when the mouse moves somewhere else on the screen. This helps to significantly reduce
     /// power consumption by only updated the app when absolutely necessary.
-    ReactiveLowPower { max_wait: Duration },
+    ReactiveLowPower {
+        /// The maximum time to wait before the event loop runs again.
+        ///
+        /// Note that Bevy will wait indefinitely if the duration is too high (such as [`Duration::MAX`]).
+        max_wait: Duration,
+    },
 }

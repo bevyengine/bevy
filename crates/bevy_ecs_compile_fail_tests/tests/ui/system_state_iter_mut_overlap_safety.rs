@@ -6,8 +6,8 @@ struct A(usize);
 
 fn main() {
     let mut world = World::default();
-    world.spawn().insert(A(1));
-    world.spawn().insert(A(2));
+    world.spawn(A(1));
+    world.spawn(A(2));
 
     let mut system_state = SystemState::<Query<&mut A>>::new(&mut world);
     {

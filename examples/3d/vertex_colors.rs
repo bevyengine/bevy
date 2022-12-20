@@ -4,7 +4,6 @@ use bevy::{prelude::*, render::mesh::VertexAttributeValues};
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .run();
@@ -17,7 +16,7 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // plane
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
@@ -34,7 +33,7 @@ fn setup(
             .collect();
         colorful_cube.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     }
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(colorful_cube),
         // This is the default color, but note that vertex colors are
         // multiplied by the base color, so you'll likely want this to be
@@ -44,7 +43,7 @@ fn setup(
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         point_light: PointLight {
             intensity: 1500.0,
             shadows_enabled: true,
@@ -54,7 +53,7 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });

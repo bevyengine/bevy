@@ -1,10 +1,11 @@
+use bevy_ecs::system::Resource;
 use bevy_utils::HashMap;
 use std::hash::Hash;
 
 /// Stores the position data of the input devices of type `T`.
 ///
 /// The values are stored as `f32`s, which range from [`Axis::MIN`] to [`Axis::MAX`], inclusive.
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct Axis<T> {
     /// The position data of the input devices.
     axis_data: HashMap<T, f32>,

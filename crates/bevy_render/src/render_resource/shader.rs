@@ -1,15 +1,17 @@
-use bevy_asset::{AssetLoader, Handle, LoadContext, LoadedAsset};
+use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::{TypeUuid, Uuid};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 use naga::back::wgsl::WriterFlags;
+use naga::valid::Capabilities;
 use naga::{valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;
 use regex::Regex;
-use std::{
-    borrow::Cow, collections::HashSet, marker::Copy, ops::Deref, path::PathBuf, str::FromStr,
-};
+use std::{borrow::Cow, marker::Copy, ops::Deref, path::PathBuf, str::FromStr};
 use thiserror::Error;
+use wgpu::Features;
 use wgpu::{util::make_spirv, ShaderModuleDescriptor, ShaderSource};
+
+use super::ShaderDefVal;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ShaderId(Uuid);
@@ -125,7 +127,7 @@ impl ProcessedShader {
         }
     }
 
-    pub fn reflect(&self) -> Result<ShaderReflection, ShaderReflectError> {
+    pub fn reflect(&self, features: Features) -> Result<ShaderReflection, ShaderReflectError> {
         let module = match &self {
             // TODO: process macros here
             ProcessedShader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
@@ -143,11 +145,23 @@ impl ProcessedShader {
                 },
             )?,
         };
-        let module_info = naga::valid::Validator::new(
-            naga::valid::ValidationFlags::default(),
-            naga::valid::Capabilities::default(),
-        )
-        .validate(&module)?;
+        const CAPABILITIES: &[(Features, Capabilities)] = &[
+            (Features::PUSH_CONSTANTS, Capabilities::PUSH_CONSTANT),
+            (Features::SHADER_FLOAT64, Capabilities::FLOAT64),
+            (
+                Features::SHADER_PRIMITIVE_INDEX,
+                Capabilities::PRIMITIVE_INDEX,
+            ),
+        ];
+        let mut capabilities = Capabilities::empty();
+        for (feature, capability) in CAPABILITIES {
+            if features.contains(*feature) {
+                capabilities |= *capability;
+            }
+        }
+        let module_info =
+            naga::valid::Validator::new(naga::valid::ValidationFlags::default(), capabilities)
+                .validate(&module)?;
 
         Ok(ShaderReflection {
             module,
@@ -155,7 +169,10 @@ impl ProcessedShader {
         })
     }
 
-    pub fn get_module_descriptor(&self) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
+    pub fn get_module_descriptor(
+        &self,
+        features: Features,
+    ) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
         Ok(ShaderModuleDescriptor {
             label: None,
             source: match self {
@@ -164,12 +181,12 @@ impl ProcessedShader {
                     // Parse and validate the shader early, so that (e.g. while hot reloading) we can
                     // display nicely formatted error messages instead of relying on just displaying the error string
                     // returned by wgpu upon creating the shader module.
-                    let _ = self.reflect()?;
+                    let _ = self.reflect(features)?;
 
                     ShaderSource::Wgsl(source.clone())
                 }
                 ProcessedShader::Glsl(_source, _stage) => {
-                    let reflection = self.reflect()?;
+                    let reflection = self.reflect(features)?;
                     // TODO: it probably makes more sense to convert this to spirv, but as of writing
                     // this comment, naga's spirv conversion is broken
                     let wgsl = reflection.get_wgsl()?;
@@ -237,7 +254,11 @@ impl AssetLoader for ShaderLoader {
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Fragment,
                 ),
-                _ => panic!("unhandled extension: {}", ext),
+                "comp" => Shader::from_glsl(
+                    String::from_utf8(Vec::from(bytes))?,
+                    naga::ShaderStage::Compute,
+                ),
+                _ => panic!("unhandled extension: {ext}"),
             };
 
             let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports(&shader);
@@ -262,7 +283,7 @@ impl AssetLoader for ShaderLoader {
     }
 
     fn extensions(&self) -> &[&str] {
-        &["spv", "wgsl", "vert", "frag"]
+        &["spv", "wgsl", "vert", "frag", "comp"]
     }
 }
 
@@ -276,12 +297,24 @@ pub enum ProcessShaderError {
     NotEnoughEndIfs,
     #[error("This Shader's format does not support processing shader defs.")]
     ShaderFormatDoesNotSupportShaderDefs,
-    #[error("This Shader's formatdoes not support imports.")]
+    #[error("This Shader's format does not support imports.")]
     ShaderFormatDoesNotSupportImports,
     #[error("Unresolved import: {0:?}.")]
     UnresolvedImport(ShaderImport),
     #[error("The shader import {0:?} does not match the source file type. Support for this might be added in the future.")]
     MismatchedImportFormat(ShaderImport),
+    #[error("Unknown shader def operator: '{operator}'")]
+    UnknownShaderDefOperator { operator: String },
+    #[error("Unknown shader def: '{shader_def_name}'")]
+    UnknownShaderDef { shader_def_name: String },
+    #[error(
+        "Invalid shader def comparison for '{shader_def_name}': expected {expected}, got {value}"
+    )]
+    InvalidShaderDefComparisonValue {
+        shader_def_name: String,
+        expected: String,
+        value: String,
+    },
 }
 
 pub struct ShaderImportProcessor {
@@ -350,8 +383,11 @@ pub static SHADER_IMPORT_PROCESSOR: Lazy<ShaderImportProcessor> =
 pub struct ShaderProcessor {
     ifdef_regex: Regex,
     ifndef_regex: Regex,
+    ifop_regex: Regex,
     else_regex: Regex,
     endif_regex: Regex,
+    def_regex: Regex,
+    def_regex_delimited: Regex,
 }
 
 impl Default for ShaderProcessor {
@@ -359,8 +395,11 @@ impl Default for ShaderProcessor {
         Self {
             ifdef_regex: Regex::new(r"^\s*#\s*ifdef\s*([\w|\d|_]+)").unwrap(),
             ifndef_regex: Regex::new(r"^\s*#\s*ifndef\s*([\w|\d|_]+)").unwrap(),
+            ifop_regex: Regex::new(r"^\s*#\s*if\s*([\w|\d|_]+)\s*([^\s]*)\s*([\w|\d]+)").unwrap(),
             else_regex: Regex::new(r"^\s*#\s*else").unwrap(),
             endif_regex: Regex::new(r"^\s*#\s*endif").unwrap(),
+            def_regex: Regex::new(r"#\s*([\w|\d|_]+)").unwrap(),
+            def_regex_delimited: Regex::new(r"#\s*\{([\w|\d|_]+)\}").unwrap(),
         }
     }
 }
@@ -369,7 +408,7 @@ impl ShaderProcessor {
     pub fn process(
         &self,
         shader: &Shader,
-        shader_defs: &[String],
+        shader_defs: &[ShaderDefVal],
         shaders: &HashMap<Handle<Shader>, Shader>,
         import_handles: &HashMap<ShaderImport, Handle<Shader>>,
     ) -> Result<ProcessedShader, ProcessShaderError> {
@@ -379,22 +418,86 @@ impl ShaderProcessor {
             Source::SpirV(source) => {
                 if shader_defs.is_empty() {
                     return Ok(ProcessedShader::SpirV(source.clone()));
-                } else {
-                    return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
                 }
+                return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
             }
         };
 
-        let shader_defs_unique = HashSet::<String>::from_iter(shader_defs.iter().cloned());
+        let shader_defs_unique =
+            HashMap::<String, ShaderDefVal>::from_iter(shader_defs.iter().map(|v| match v {
+                ShaderDefVal::Bool(k, _) | ShaderDefVal::Int(k, _) | ShaderDefVal::UInt(k, _) => {
+                    (k.clone(), v.clone())
+                }
+            }));
         let mut scopes = vec![true];
         let mut final_string = String::new();
         for line in shader_str.lines() {
             if let Some(cap) = self.ifdef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                scopes.push(*scopes.last().unwrap() && shader_defs_unique.contains(def.as_str()));
+                scopes
+                    .push(*scopes.last().unwrap() && shader_defs_unique.contains_key(def.as_str()));
             } else if let Some(cap) = self.ifndef_regex.captures(line) {
                 let def = cap.get(1).unwrap();
-                scopes.push(*scopes.last().unwrap() && !shader_defs_unique.contains(def.as_str()));
+                scopes.push(
+                    *scopes.last().unwrap() && !shader_defs_unique.contains_key(def.as_str()),
+                );
+            } else if let Some(cap) = self.ifop_regex.captures(line) {
+                let def = cap.get(1).unwrap();
+                let op = cap.get(2).unwrap();
+                let val = cap.get(3).unwrap();
+
+                fn act_on<T: Eq + Ord>(a: T, b: T, op: &str) -> Result<bool, ProcessShaderError> {
+                    match op {
+                        "==" => Ok(a == b),
+                        "!=" => Ok(a != b),
+                        ">" => Ok(a > b),
+                        ">=" => Ok(a >= b),
+                        "<" => Ok(a < b),
+                        "<=" => Ok(a <= b),
+                        _ => Err(ProcessShaderError::UnknownShaderDefOperator {
+                            operator: op.to_string(),
+                        }),
+                    }
+                }
+
+                let def = shader_defs_unique.get(def.as_str()).ok_or(
+                    ProcessShaderError::UnknownShaderDef {
+                        shader_def_name: def.as_str().to_string(),
+                    },
+                )?;
+                let new_scope = match def {
+                    ShaderDefVal::Bool(name, def) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ProcessShaderError::InvalidShaderDefComparisonValue {
+                                shader_def_name: name.clone(),
+                                value: val.as_str().to_string(),
+                                expected: "bool".to_string(),
+                            }
+                        })?;
+                        act_on(*def, val, op.as_str())?
+                    }
+                    ShaderDefVal::Int(name, def) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ProcessShaderError::InvalidShaderDefComparisonValue {
+                                shader_def_name: name.clone(),
+                                value: val.as_str().to_string(),
+                                expected: "int".to_string(),
+                            }
+                        })?;
+                        act_on(*def, val, op.as_str())?
+                    }
+                    ShaderDefVal::UInt(name, def) => {
+                        let val = val.as_str().parse().map_err(|_| {
+                            ProcessShaderError::InvalidShaderDefComparisonValue {
+                                shader_def_name: name.clone(),
+                                value: val.as_str().to_string(),
+                                expected: "uint".to_string(),
+                            }
+                        })?;
+                        act_on(*def, val, op.as_str())?
+                    }
+                };
+                scopes.push(*scopes.last().unwrap() && new_scope);
             } else if self.else_regex.is_match(line) {
                 let mut is_parent_scope_truthy = true;
                 if scopes.len() > 1 {
@@ -441,7 +544,26 @@ impl ShaderProcessor {
                 {
                     // ignore import path lines
                 } else {
-                    final_string.push_str(line);
+                    let mut line_with_defs = line.to_string();
+                    for capture in self.def_regex.captures_iter(line) {
+                        let def = capture.get(1).unwrap();
+                        if let Some(def) = shader_defs_unique.get(def.as_str()) {
+                            line_with_defs = self
+                                .def_regex
+                                .replace(&line_with_defs, def.value_as_string())
+                                .to_string();
+                        }
+                    }
+                    for capture in self.def_regex_delimited.captures_iter(line) {
+                        let def = capture.get(1).unwrap();
+                        if let Some(def) = shader_defs_unique.get(def.as_str()) {
+                            line_with_defs = self
+                                .def_regex_delimited
+                                .replace(&line_with_defs, def.value_as_string())
+                                .to_string();
+                        }
+                    }
+                    final_string.push_str(&line_with_defs);
                     final_string.push('\n');
                 }
             }
@@ -468,7 +590,7 @@ impl ShaderProcessor {
         shaders: &HashMap<Handle<Shader>, Shader>,
         import: &ShaderImport,
         shader: &Shader,
-        shader_defs: &[String],
+        shader_defs: &[ShaderDefVal],
         final_string: &mut String,
     ) -> Result<(), ProcessShaderError> {
         let imported_shader = import_handles
@@ -502,6 +624,34 @@ impl ShaderProcessor {
     }
 }
 
+/// A reference to a shader asset.
+pub enum ShaderRef {
+    /// Use the "default" shader for the current context.
+    Default,
+    /// A handle to a shader stored in the [`Assets<Shader>`](bevy_asset::Assets) resource
+    Handle(Handle<Shader>),
+    /// An asset path leading to a shader
+    Path(AssetPath<'static>),
+}
+
+impl From<Handle<Shader>> for ShaderRef {
+    fn from(handle: Handle<Shader>) -> Self {
+        Self::Handle(handle)
+    }
+}
+
+impl From<AssetPath<'static>> for ShaderRef {
+    fn from(path: AssetPath<'static>) -> Self {
+        Self::Path(path)
+    }
+}
+
+impl From<&'static str> for ShaderRef {
+    fn from(path: &'static str) -> Self {
+        Self::Path(AssetPath::from(path))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use bevy_asset::{Handle, HandleUntyped};
@@ -509,30 +659,32 @@ mod tests {
     use bevy_utils::HashMap;
     use naga::ShaderStage;
 
-    use crate::render_resource::{ProcessShaderError, Shader, ShaderImport, ShaderProcessor};
+    use crate::render_resource::{
+        ProcessShaderError, Shader, ShaderDefVal, ShaderImport, ShaderProcessor,
+    };
     #[rustfmt::skip]
 const WGSL: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 #ifdef TEXTURE
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 #endif
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -543,29 +695,29 @@ fn vertex(
 
     const WGSL_ELSE: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 #ifdef TEXTURE
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 #else
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d_array<f32>;
 #endif
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -576,28 +728,28 @@ fn vertex(
 
     const WGSL_NESTED_IFDEF: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 # ifdef TEXTURE
 # ifdef ATTRIBUTE
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 # endif
 # endif
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -608,31 +760,31 @@ fn vertex(
 
     const WGSL_NESTED_IFDEF_ELSE: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 # ifdef TEXTURE
 # ifdef ATTRIBUTE
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 #else
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d_array<f32>;
 # endif
 # endif
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -646,24 +798,24 @@ fn vertex(
         #[rustfmt::skip]
     const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -675,7 +827,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL),
-                &["TEXTURE".to_string()],
+                &["TEXTURE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -688,22 +840,22 @@ fn vertex(
         #[rustfmt::skip]
         const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -728,24 +880,24 @@ fn vertex(
         #[rustfmt::skip]
     const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d_array<f32>;
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -893,22 +1045,22 @@ void bar() { }
         #[rustfmt::skip]
     const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -920,7 +1072,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL_NESTED_IFDEF),
-                &["TEXTURE".to_string()],
+                &["TEXTURE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -933,24 +1085,24 @@ fn vertex(
         #[rustfmt::skip]
     const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d_array<f32>;
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -962,7 +1114,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL_NESTED_IFDEF_ELSE),
-                &["TEXTURE".to_string()],
+                &["TEXTURE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -975,22 +1127,22 @@ fn vertex(
         #[rustfmt::skip]
     const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -1015,22 +1167,22 @@ fn vertex(
         #[rustfmt::skip]
     const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -1055,22 +1207,22 @@ fn vertex(
         #[rustfmt::skip]
     const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -1082,7 +1234,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL_NESTED_IFDEF),
-                &["ATTRIBUTE".to_string()],
+                &["ATTRIBUTE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -1095,24 +1247,24 @@ fn vertex(
         #[rustfmt::skip]
     const EXPECTED: &str = r"
 struct View {
-    view_proj: mat4x4<f32>;
-    world_position: vec3<f32>;
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
 };
-[[group(0), binding(0)]]
+@group(0) @binding(0)
 var<uniform> view: View;
 
-[[group(1), binding(0)]]
+@group(1) @binding(0)
 var sprite_texture: texture_2d<f32>;
 
 struct VertexOutput {
-    [[location(0)]] uv: vec2<f32>;
-    [[builtin(position)]] position: vec4<f32>;
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
 };
 
-[[stage(vertex)]]
+@vertex
 fn vertex(
-    [[location(0)]] vertex_position: vec3<f32>,
-    [[location(1)]] vertex_uv: vec2<f32>
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
@@ -1124,7 +1276,7 @@ fn vertex(
         let result = processor
             .process(
                 &Shader::from_wgsl(WGSL_NESTED_IFDEF),
-                &["TEXTURE".to_string(), "ATTRIBUTE".to_string()],
+                &["TEXTURE".into(), "ATTRIBUTE".into()],
                 &HashMap::default(),
                 &HashMap::default(),
             )
@@ -1171,7 +1323,7 @@ fn in_main_present() { }
         let result = processor
             .process(
                 &Shader::from_wgsl(INPUT),
-                &["MAIN_PRESENT".to_string(), "IMPORT_PRESENT".to_string()],
+                &["MAIN_PRESENT".into(), "IMPORT_PRESENT".into()],
                 &shaders,
                 &import_handles,
             )
@@ -1226,7 +1378,7 @@ fn in_main() { }
         let result = processor
             .process(
                 &Shader::from_wgsl(INPUT),
-                &["DEEP".to_string()],
+                &["DEEP".into()],
                 &shaders,
                 &import_handles,
             )
@@ -1284,7 +1436,7 @@ fn baz() { }
         let result = processor
             .process(
                 &Shader::from_wgsl(INPUT),
-                &["FOO".to_string()],
+                &["FOO".into()],
                 &shaders,
                 &import_handles,
             )
@@ -1295,5 +1447,516 @@ fn baz() { }
             .process(&Shader::from_wgsl(INPUT), &[], &shaders, &import_handles)
             .unwrap();
         assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED);
+    }
+
+    #[test]
+    fn process_shader_def_unknown_operator() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+#if TEXTURE !! true
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        let processor = ShaderProcessor::default();
+
+        let result_missing = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &["TEXTURE".into()],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_missing,
+            Err(ProcessShaderError::UnknownShaderDefOperator {
+                operator: "!!".to_string()
+            })
+        );
+    }
+    #[test]
+    fn process_shader_def_equal_int() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+#if TEXTURE == 3
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_EQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_NEQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = ShaderProcessor::default();
+        let result_eq = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[ShaderDefVal::Int("TEXTURE".to_string(), 3)],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result_eq.get_wgsl_source().unwrap(), EXPECTED_EQ);
+
+        let result_neq = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[ShaderDefVal::Int("TEXTURE".to_string(), 7)],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result_neq.get_wgsl_source().unwrap(), EXPECTED_NEQ);
+
+        let result_missing = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &[],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_missing,
+            Err(ProcessShaderError::UnknownShaderDef {
+                shader_def_name: "TEXTURE".to_string()
+            })
+        );
+
+        let result_wrong_type = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &[ShaderDefVal::Bool("TEXTURE".to_string(), true)],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_wrong_type,
+            Err(ProcessShaderError::InvalidShaderDefComparisonValue {
+                shader_def_name: "TEXTURE".to_string(),
+                expected: "bool".to_string(),
+                value: "3".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn process_shader_def_equal_bool() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+#if TEXTURE == true
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_EQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_NEQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = ShaderProcessor::default();
+        let result_eq = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[ShaderDefVal::Bool("TEXTURE".to_string(), true)],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result_eq.get_wgsl_source().unwrap(), EXPECTED_EQ);
+
+        let result_neq = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[ShaderDefVal::Bool("TEXTURE".to_string(), false)],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result_neq.get_wgsl_source().unwrap(), EXPECTED_NEQ);
+    }
+
+    #[test]
+    fn process_shader_def_not_equal_bool() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+#if TEXTURE != false
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+#endif
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_EQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_NEQ: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = ShaderProcessor::default();
+        let result_eq = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[ShaderDefVal::Bool("TEXTURE".to_string(), true)],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result_eq.get_wgsl_source().unwrap(), EXPECTED_EQ);
+
+        let result_neq = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[ShaderDefVal::Bool("TEXTURE".to_string(), false)],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result_neq.get_wgsl_source().unwrap(), EXPECTED_NEQ);
+
+        let result_missing = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &[],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_missing,
+            Err(ProcessShaderError::UnknownShaderDef {
+                shader_def_name: "TEXTURE".to_string()
+            })
+        );
+
+        let result_wrong_type = processor.process(
+            &Shader::from_wgsl(WGSL),
+            &[ShaderDefVal::Int("TEXTURE".to_string(), 7)],
+            &HashMap::default(),
+            &HashMap::default(),
+        );
+        assert_eq!(
+            result_wrong_type,
+            Err(ProcessShaderError::InvalidShaderDefComparisonValue {
+                shader_def_name: "TEXTURE".to_string(),
+                expected: "int".to_string(),
+                value: "false".to_string()
+            })
+        );
+    }
+
+    #[test]
+    fn process_shader_def_replace() {
+        #[rustfmt::skip]
+        const WGSL: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    var a: i32 = #FIRST_VALUE;
+    var b: i32 = #FIRST_VALUE * #SECOND_VALUE;
+    var c: i32 = #MISSING_VALUE;
+    var d: bool = #BOOL_VALUE;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+
+        #[rustfmt::skip]
+        const EXPECTED_REPLACED: &str = r"
+struct View {
+    view_proj: mat4x4<f32>,
+    world_position: vec3<f32>,
+};
+@group(0) @binding(0)
+var<uniform> view: View;
+
+struct VertexOutput {
+    @location(0) uv: vec2<f32>,
+    @builtin(position) position: vec4<f32>,
+};
+
+@vertex
+fn vertex(
+    @location(0) vertex_position: vec3<f32>,
+    @location(1) vertex_uv: vec2<f32>
+) -> VertexOutput {
+    var out: VertexOutput;
+    out.uv = vertex_uv;
+    var a: i32 = 5;
+    var b: i32 = 5 * 3;
+    var c: i32 = #MISSING_VALUE;
+    var d: bool = true;
+    out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    return out;
+}
+";
+        let processor = ShaderProcessor::default();
+        let result = processor
+            .process(
+                &Shader::from_wgsl(WGSL),
+                &[
+                    ShaderDefVal::Bool("BOOL_VALUE".to_string(), true),
+                    ShaderDefVal::Int("FIRST_VALUE".to_string(), 5),
+                    ShaderDefVal::Int("SECOND_VALUE".to_string(), 3),
+                ],
+                &HashMap::default(),
+                &HashMap::default(),
+            )
+            .unwrap();
+        assert_eq!(result.get_wgsl_source().unwrap(), EXPECTED_REPLACED);
     }
 }

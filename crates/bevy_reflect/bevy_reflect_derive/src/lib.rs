@@ -16,7 +16,11 @@ extern crate proc_macro;
 
 mod container_attributes;
 mod derive_data;
+#[cfg(feature = "documentation")]
+mod documentation;
+mod enum_utility;
 mod field_attributes;
+mod fq_std;
 mod from_reflect;
 mod impls;
 mod reflect_value;
@@ -25,11 +29,11 @@ mod trait_reflection;
 mod type_uuid;
 mod utility;
 
-use crate::derive_data::ReflectDeriveData;
-use derive_data::DeriveType;
+use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
+use syn::spanned::Spanned;
 use syn::{parse_macro_input, DeriveInput};
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
@@ -39,21 +43,18 @@ pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDeriveData::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
 
-    match derive_data.derive_type() {
-        DeriveType::Struct | DeriveType::UnitStruct => impls::impl_struct(&derive_data),
-        DeriveType::TupleStruct => impls::impl_tuple_struct(&derive_data),
-        DeriveType::Value => impls::impl_value(
-            derive_data.type_name(),
-            derive_data.generics(),
-            derive_data.get_type_registration(),
-            derive_data.bevy_reflect_path(),
-            derive_data.traits(),
-        ),
+    match derive_data {
+        ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => {
+            impls::impl_struct(&struct_data)
+        }
+        ReflectDerive::TupleStruct(struct_data) => impls::impl_tuple_struct(&struct_data),
+        ReflectDerive::Enum(meta) => impls::impl_enum(&meta),
+        ReflectDerive::Value(meta) => impls::impl_value(&meta),
     }
 }
 
@@ -61,24 +62,25 @@ pub fn derive_reflect(input: TokenStream) -> TokenStream {
 ///
 /// This macro supports the following field attributes:
 /// * `#[reflect(ignore)]`: Ignores the field. This requires the field to implement [`Default`].
+/// * `#[reflect(default)]`: If the field's value cannot be read, uses its [`Default`] implementation.
+/// * `#[reflect(default = "some_func")]`: If the field's value cannot be read, uses the function with the given name.
 ///
 #[proc_macro_derive(FromReflect, attributes(reflect))]
 pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
-    let derive_data = match ReflectDeriveData::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
 
-    match derive_data.derive_type() {
-        DeriveType::Struct | DeriveType::UnitStruct => from_reflect::impl_struct(&derive_data),
-        DeriveType::TupleStruct => from_reflect::impl_tuple_struct(&derive_data),
-        DeriveType::Value => from_reflect::impl_value(
-            derive_data.type_name(),
-            &ast.generics,
-            derive_data.bevy_reflect_path(),
-        ),
+    match derive_data {
+        ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => {
+            from_reflect::impl_struct(&struct_data)
+        }
+        ReflectDerive::TupleStruct(struct_data) => from_reflect::impl_tuple_struct(&struct_data),
+        ReflectDerive::Enum(meta) => from_reflect::impl_enum(&meta),
+        ReflectDerive::Value(meta) => from_reflect::impl_value(&meta),
     }
 }
 
@@ -95,25 +97,17 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 
 #[proc_macro]
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
-    let reflect_value_def = parse_macro_input!(input as ReflectValueDef);
-
-    let bevy_reflect_path = utility::get_bevy_reflect_path();
-    let ty = &reflect_value_def.type_name;
-    let reflect_traits = reflect_value_def.traits.unwrap_or_default();
-    let registration_data = &reflect_traits.idents();
-    let get_type_registration_impl = registration::impl_get_type_registration(
-        ty,
-        &bevy_reflect_path,
-        registration_data,
-        &reflect_value_def.generics,
+    let def = parse_macro_input!(input as ReflectValueDef);
+    let meta = ReflectMeta::new(
+        &def.type_name,
+        &def.generics,
+        def.traits.unwrap_or_default(),
     );
-    impls::impl_value(
-        ty,
-        &reflect_value_def.generics,
-        get_type_registration_impl,
-        &bevy_reflect_path,
-        &reflect_traits,
-    )
+
+    #[cfg(feature = "documentation")]
+    let meta = meta.with_docs(documentation::Documentation::from_attributes(&def.attrs));
+
+    impls::impl_value(&meta)
 }
 
 /// A replacement for `#[derive(Reflect)]` to be used with foreign types which
@@ -147,26 +141,47 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let derive_data = match ReflectDeriveData::from_input(&ast) {
+    let derive_data = match ReflectDerive::from_input(&ast) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
 
-    let impl_struct: proc_macro2::TokenStream = impls::impl_struct(&derive_data).into();
-    let impl_from_struct: proc_macro2::TokenStream = from_reflect::impl_struct(&derive_data).into();
+    match derive_data {
+        ReflectDerive::Struct(struct_data) => {
+            let impl_struct: proc_macro2::TokenStream = impls::impl_struct(&struct_data).into();
+            let impl_from_struct: proc_macro2::TokenStream =
+                from_reflect::impl_struct(&struct_data).into();
 
-    TokenStream::from(quote! {
-        #impl_struct
+            TokenStream::from(quote! {
+                #impl_struct
 
-        #impl_from_struct
-    })
+                #impl_from_struct
+            })
+        }
+        ReflectDerive::TupleStruct(..) => syn::Error::new(
+            ast.span(),
+            "impl_reflect_struct does not support tuple structs",
+        )
+        .into_compile_error()
+        .into(),
+        ReflectDerive::UnitStruct(..) => syn::Error::new(
+            ast.span(),
+            "impl_reflect_struct does not support unit structs",
+        )
+        .into_compile_error()
+        .into(),
+        _ => syn::Error::new(ast.span(), "impl_reflect_struct only supports structs")
+            .into_compile_error()
+            .into(),
+    }
 }
 
 #[proc_macro]
 pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
-    let reflect_value_def = parse_macro_input!(input as ReflectValueDef);
-
-    let bevy_reflect_path = utility::get_bevy_reflect_path();
-    let ty = &reflect_value_def.type_name;
-    from_reflect::impl_value(ty, &reflect_value_def.generics, &bevy_reflect_path)
+    let def = parse_macro_input!(input as ReflectValueDef);
+    from_reflect::impl_value(&ReflectMeta::new(
+        &def.type_name,
+        &def.generics,
+        def.traits.unwrap_or_default(),
+    ))
 }

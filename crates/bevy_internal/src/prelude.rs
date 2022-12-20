@@ -1,12 +1,15 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, asset::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*,
-    input::prelude::*, log::prelude::*, math::prelude::*, reflect::prelude::*, scene::prelude::*,
-    time::prelude::*, transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins,
-    MinimalPlugins,
+    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, input::prelude::*,
+    log::prelude::*, math::prelude::*, reflect::prelude::*, time::prelude::*,
+    transform::prelude::*, utils::prelude::*, window::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_asset")]
+pub use crate::asset::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_audio")]
@@ -27,6 +30,10 @@ pub use crate::pbr::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_render")]
 pub use crate::render::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_scene")]
+pub use crate::scene::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_sprite")]

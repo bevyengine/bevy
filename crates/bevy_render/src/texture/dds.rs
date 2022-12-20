@@ -27,7 +27,8 @@ pub fn dds_buffer_to_image(
         } else {
             dds.get_depth()
         },
-    };
+    }
+    .physical_size(texture_format);
     image.texture_descriptor.mip_level_count = dds.get_num_mipmap_levels();
     image.texture_descriptor.format = texture_format;
     image.texture_descriptor.dimension = if dds.get_depth() > 1 {
@@ -74,14 +75,14 @@ pub fn dds_format_to_texture_format(
                     TextureFormat::Bc1RgbaUnorm
                 }
             }
-            D3DFormat::DXT3 => {
+            D3DFormat::DXT3 | D3DFormat::DXT2 => {
                 if is_srgb {
                     TextureFormat::Bc2RgbaUnormSrgb
                 } else {
                     TextureFormat::Bc2RgbaUnorm
                 }
             }
-            D3DFormat::DXT5 => {
+            D3DFormat::DXT5 | D3DFormat::DXT4 => {
                 if is_srgb {
                     TextureFormat::Bc3RgbaUnormSrgb
                 } else {
@@ -96,20 +97,6 @@ pub fn dds_format_to_texture_format(
             D3DFormat::R32F => TextureFormat::R32Float,
             D3DFormat::G32R32F => TextureFormat::Rg32Float,
             D3DFormat::A32B32G32R32F => TextureFormat::Rgba32Float,
-            D3DFormat::DXT2 => {
-                if is_srgb {
-                    TextureFormat::Bc2RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc2RgbaUnorm
-                }
-            }
-            D3DFormat::DXT4 => {
-                if is_srgb {
-                    TextureFormat::Bc3RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc3RgbaUnorm
-                }
-            }
             D3DFormat::A1R5G5B5
             | D3DFormat::R5G6B5
             // FIXME: Map to argb format and user has to know to ignore the alpha channel?
@@ -136,38 +123,28 @@ pub fn dds_format_to_texture_format(
         }
     } else if let Some(dxgi_format) = dds.get_dxgi_format() {
         match dxgi_format {
-            DxgiFormat::R32G32B32A32_Typeless => TextureFormat::Rgba32Float,
-            DxgiFormat::R32G32B32A32_Float => TextureFormat::Rgba32Float,
+            DxgiFormat::R32G32B32A32_Typeless | DxgiFormat::R32G32B32A32_Float => {
+                TextureFormat::Rgba32Float
+            }
             DxgiFormat::R32G32B32A32_UInt => TextureFormat::Rgba32Uint,
             DxgiFormat::R32G32B32A32_SInt => TextureFormat::Rgba32Sint,
-            DxgiFormat::R16G16B16A16_Typeless => TextureFormat::Rgba16Float,
-            DxgiFormat::R16G16B16A16_Float => TextureFormat::Rgba16Float,
+            DxgiFormat::R16G16B16A16_Typeless | DxgiFormat::R16G16B16A16_Float => {
+                TextureFormat::Rgba16Float
+            }
             DxgiFormat::R16G16B16A16_UNorm => TextureFormat::Rgba16Unorm,
             DxgiFormat::R16G16B16A16_UInt => TextureFormat::Rgba16Uint,
             DxgiFormat::R16G16B16A16_SNorm => TextureFormat::Rgba16Snorm,
             DxgiFormat::R16G16B16A16_SInt => TextureFormat::Rgba16Sint,
-            DxgiFormat::R32G32_Typeless => TextureFormat::Rg32Float,
-            DxgiFormat::R32G32_Float => TextureFormat::Rg32Float,
+            DxgiFormat::R32G32_Typeless | DxgiFormat::R32G32_Float => TextureFormat::Rg32Float,
             DxgiFormat::R32G32_UInt => TextureFormat::Rg32Uint,
             DxgiFormat::R32G32_SInt => TextureFormat::Rg32Sint,
-            DxgiFormat::R10G10B10A2_Typeless => TextureFormat::Rgb10a2Unorm,
-            DxgiFormat::R10G10B10A2_UNorm => TextureFormat::Rgb10a2Unorm,
+            DxgiFormat::R10G10B10A2_Typeless | DxgiFormat::R10G10B10A2_UNorm => {
+                TextureFormat::Rgb10a2Unorm
+            }
             DxgiFormat::R11G11B10_Float => TextureFormat::Rg11b10Float,
-            DxgiFormat::R8G8B8A8_Typeless => {
-                if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
-                } else {
-                    TextureFormat::Rgba8Unorm
-                }
-            }
-            DxgiFormat::R8G8B8A8_UNorm => {
-                if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
-                } else {
-                    TextureFormat::Rgba8Unorm
-                }
-            }
-            DxgiFormat::R8G8B8A8_UNorm_sRGB => {
+            DxgiFormat::R8G8B8A8_Typeless
+            | DxgiFormat::R8G8B8A8_UNorm
+            | DxgiFormat::R8G8B8A8_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Rgba8UnormSrgb
                 } else {
@@ -177,121 +154,61 @@ pub fn dds_format_to_texture_format(
             DxgiFormat::R8G8B8A8_UInt => TextureFormat::Rgba8Uint,
             DxgiFormat::R8G8B8A8_SNorm => TextureFormat::Rgba8Snorm,
             DxgiFormat::R8G8B8A8_SInt => TextureFormat::Rgba8Sint,
-            DxgiFormat::R16G16_Typeless => TextureFormat::Rg16Float,
-            DxgiFormat::R16G16_Float => TextureFormat::Rg16Float,
+            DxgiFormat::R16G16_Typeless | DxgiFormat::R16G16_Float => TextureFormat::Rg16Float,
             DxgiFormat::R16G16_UNorm => TextureFormat::Rg16Unorm,
             DxgiFormat::R16G16_UInt => TextureFormat::Rg16Uint,
             DxgiFormat::R16G16_SNorm => TextureFormat::Rg16Snorm,
             DxgiFormat::R16G16_SInt => TextureFormat::Rg16Sint,
-            DxgiFormat::R32_Typeless => TextureFormat::R32Float,
+            DxgiFormat::R32_Typeless | DxgiFormat::R32_Float => TextureFormat::R32Float,
             DxgiFormat::D32_Float => TextureFormat::Depth32Float,
-            DxgiFormat::R32_Float => TextureFormat::R32Float,
             DxgiFormat::R32_UInt => TextureFormat::R32Uint,
             DxgiFormat::R32_SInt => TextureFormat::R32Sint,
-            DxgiFormat::R24G8_Typeless => TextureFormat::Depth24PlusStencil8,
-            DxgiFormat::D24_UNorm_S8_UInt => TextureFormat::Depth24PlusStencil8,
+            DxgiFormat::R24G8_Typeless | DxgiFormat::D24_UNorm_S8_UInt => {
+                TextureFormat::Depth24PlusStencil8
+            }
             DxgiFormat::R24_UNorm_X8_Typeless => TextureFormat::Depth24Plus,
-            DxgiFormat::R8G8_Typeless => TextureFormat::Rg8Unorm,
-            DxgiFormat::R8G8_UNorm => TextureFormat::Rg8Unorm,
+            DxgiFormat::R8G8_Typeless | DxgiFormat::R8G8_UNorm => TextureFormat::Rg8Unorm,
             DxgiFormat::R8G8_UInt => TextureFormat::Rg8Uint,
             DxgiFormat::R8G8_SNorm => TextureFormat::Rg8Snorm,
             DxgiFormat::R8G8_SInt => TextureFormat::Rg8Sint,
-            DxgiFormat::R16_Typeless => TextureFormat::R16Float,
-            DxgiFormat::R16_Float => TextureFormat::R16Float,
+            DxgiFormat::R16_Typeless | DxgiFormat::R16_Float => TextureFormat::R16Float,
             DxgiFormat::R16_UNorm => TextureFormat::R16Unorm,
             DxgiFormat::R16_UInt => TextureFormat::R16Uint,
             DxgiFormat::R16_SNorm => TextureFormat::R16Snorm,
             DxgiFormat::R16_SInt => TextureFormat::R16Sint,
-            DxgiFormat::R8_Typeless => TextureFormat::R8Unorm,
-            DxgiFormat::R8_UNorm => TextureFormat::R8Unorm,
+            DxgiFormat::R8_Typeless | DxgiFormat::R8_UNorm => TextureFormat::R8Unorm,
             DxgiFormat::R8_UInt => TextureFormat::R8Uint,
             DxgiFormat::R8_SNorm => TextureFormat::R8Snorm,
             DxgiFormat::R8_SInt => TextureFormat::R8Sint,
             DxgiFormat::R9G9B9E5_SharedExp => TextureFormat::Rgb9e5Ufloat,
-            DxgiFormat::BC1_Typeless => {
+            DxgiFormat::BC1_Typeless | DxgiFormat::BC1_UNorm | DxgiFormat::BC1_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Bc1RgbaUnormSrgb
                 } else {
                     TextureFormat::Bc1RgbaUnorm
                 }
             }
-            DxgiFormat::BC1_UNorm => {
-                if is_srgb {
-                    TextureFormat::Bc1RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc1RgbaUnorm
-                }
-            }
-            DxgiFormat::BC1_UNorm_sRGB => {
-                if is_srgb {
-                    TextureFormat::Bc1RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc1RgbaUnorm
-                }
-            }
-            DxgiFormat::BC2_Typeless => {
+            DxgiFormat::BC2_Typeless | DxgiFormat::BC2_UNorm | DxgiFormat::BC2_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Bc2RgbaUnormSrgb
                 } else {
                     TextureFormat::Bc2RgbaUnorm
                 }
             }
-            DxgiFormat::BC2_UNorm => {
-                if is_srgb {
-                    TextureFormat::Bc2RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc2RgbaUnorm
-                }
-            }
-            DxgiFormat::BC2_UNorm_sRGB => {
-                if is_srgb {
-                    TextureFormat::Bc2RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc2RgbaUnorm
-                }
-            }
-            DxgiFormat::BC3_Typeless => {
+            DxgiFormat::BC3_Typeless | DxgiFormat::BC3_UNorm | DxgiFormat::BC3_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Bc3RgbaUnormSrgb
                 } else {
                     TextureFormat::Bc3RgbaUnorm
                 }
             }
-            DxgiFormat::BC3_UNorm => {
-                if is_srgb {
-                    TextureFormat::Bc3RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc3RgbaUnorm
-                }
-            }
-            DxgiFormat::BC3_UNorm_sRGB => {
-                if is_srgb {
-                    TextureFormat::Bc3RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc3RgbaUnorm
-                }
-            }
-            DxgiFormat::BC4_Typeless => TextureFormat::Bc4RUnorm,
-            DxgiFormat::BC4_UNorm => TextureFormat::Bc4RUnorm,
+            DxgiFormat::BC4_Typeless | DxgiFormat::BC4_UNorm => TextureFormat::Bc4RUnorm,
             DxgiFormat::BC4_SNorm => TextureFormat::Bc4RSnorm,
-            DxgiFormat::BC5_Typeless => TextureFormat::Bc5RgUnorm,
-            DxgiFormat::BC5_UNorm => TextureFormat::Bc5RgUnorm,
+            DxgiFormat::BC5_Typeless | DxgiFormat::BC5_UNorm => TextureFormat::Bc5RgUnorm,
             DxgiFormat::BC5_SNorm => TextureFormat::Bc5RgSnorm,
-            DxgiFormat::B8G8R8A8_UNorm => {
-                if is_srgb {
-                    TextureFormat::Bgra8UnormSrgb
-                } else {
-                    TextureFormat::Bgra8Unorm
-                }
-            }
-            DxgiFormat::B8G8R8A8_Typeless => {
-                if is_srgb {
-                    TextureFormat::Bgra8UnormSrgb
-                } else {
-                    TextureFormat::Bgra8Unorm
-                }
-            }
-            DxgiFormat::B8G8R8A8_UNorm_sRGB => {
+            DxgiFormat::B8G8R8A8_UNorm
+            | DxgiFormat::B8G8R8A8_Typeless
+            | DxgiFormat::B8G8R8A8_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Bgra8UnormSrgb
                 } else {
@@ -299,24 +216,9 @@ pub fn dds_format_to_texture_format(
                 }
             }
 
-            DxgiFormat::BC6H_Typeless => TextureFormat::Bc6hRgbUfloat,
-            DxgiFormat::BC6H_UF16 => TextureFormat::Bc6hRgbUfloat,
+            DxgiFormat::BC6H_Typeless | DxgiFormat::BC6H_UF16 => TextureFormat::Bc6hRgbUfloat,
             DxgiFormat::BC6H_SF16 => TextureFormat::Bc6hRgbSfloat,
-            DxgiFormat::BC7_Typeless => {
-                if is_srgb {
-                    TextureFormat::Bc7RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc7RgbaUnorm
-                }
-            }
-            DxgiFormat::BC7_UNorm => {
-                if is_srgb {
-                    TextureFormat::Bc7RgbaUnormSrgb
-                } else {
-                    TextureFormat::Bc7RgbaUnorm
-                }
-            }
-            DxgiFormat::BC7_UNorm_sRGB => {
+            DxgiFormat::BC7_Typeless | DxgiFormat::BC7_UNorm | DxgiFormat::BC7_UNorm_sRGB => {
                 if is_srgb {
                     TextureFormat::Bc7RgbaUnormSrgb
                 } else {

@@ -20,13 +20,14 @@ struct ResizeEvent {
     window_id: WindowId,
 }
 
+#[derive(Resource)]
 pub(crate) struct CanvasParentResizeEventChannel {
     sender: Sender<ResizeEvent>,
     receiver: Receiver<ResizeEvent>,
 }
 
 fn canvas_parent_resize_event_handler(
-    winit_windows: Res<WinitWindows>,
+    winit_windows: NonSend<WinitWindows>,
     resize_events: Res<CanvasParentResizeEventChannel>,
 ) {
     for event in resize_events.receiver.try_iter() {

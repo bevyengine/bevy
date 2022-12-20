@@ -3,6 +3,7 @@ use crate::{
     entity::Entity,
     world::World,
 };
+use std::iter::FusedIterator;
 
 pub struct SpawnBatchIter<'w, I>
 where
@@ -66,7 +67,7 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        // SAFE: bundle matches spawner type
+        // SAFETY: bundle matches spawner type
         unsafe { Some(self.spawner.spawn(bundle)) }
     }
 
@@ -83,4 +84,11 @@ where
     fn len(&self) -> usize {
         self.inner.len()
     }
+}
+
+impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
+where
+    I: FusedIterator<Item = T>,
+    T: Bundle,
+{
 }

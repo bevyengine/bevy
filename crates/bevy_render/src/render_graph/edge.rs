@@ -35,16 +35,14 @@ impl Edge {
     /// Returns the id of the `input_node`.
     pub fn get_input_node(&self) -> NodeId {
         match self {
-            Edge::SlotEdge { input_node, .. } => *input_node,
-            Edge::NodeEdge { input_node, .. } => *input_node,
+            Edge::SlotEdge { input_node, .. } | Edge::NodeEdge { input_node, .. } => *input_node,
         }
     }
 
     /// Returns the id of the `output_node`.
     pub fn get_output_node(&self) -> NodeId {
         match self {
-            Edge::SlotEdge { output_node, .. } => *output_node,
-            Edge::NodeEdge { output_node, .. } => *output_node,
+            Edge::SlotEdge { output_node, .. } | Edge::NodeEdge { output_node, .. } => *output_node,
         }
     }
 }

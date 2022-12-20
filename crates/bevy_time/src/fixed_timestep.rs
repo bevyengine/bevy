@@ -4,7 +4,7 @@ use bevy_ecs::{
     component::ComponentId,
     query::Access,
     schedule::ShouldRun,
-    system::{IntoSystem, Res, ResMut, System},
+    system::{IntoSystem, Res, ResMut, Resource, System},
     world::World,
 };
 use bevy_utils::HashMap;
@@ -41,7 +41,7 @@ impl FixedTimestepState {
 
 /// A global resource that tracks the individual [`FixedTimestepState`]s
 /// for every labeled [`FixedTimestep`].
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct FixedTimesteps {
     fixed_timesteps: HashMap<String, FixedTimestepState>,
 }
@@ -55,8 +55,8 @@ impl FixedTimesteps {
 
 /// A system run criteria that enables systems or stages to run at a fixed timestep between executions.
 ///
-/// This does not guarentee that the time elapsed between executions is exactly the provided
-/// fixed timestep, but will guarentee that the execution will run multiple times per game tick
+/// This does not guarantee that the time elapsed between executions is exactly the provided
+/// fixed timestep, but will guarantee that the execution will run multiple times per game tick
 /// until the number of repetitions is as expected.
 ///
 /// For example, a system with a fixed timestep run criteria of 120 times per second will run
@@ -189,8 +189,12 @@ impl System for FixedTimestep {
         self.internal_system.is_send()
     }
 
+    fn is_exclusive(&self) -> bool {
+        false
+    }
+
     unsafe fn run_unsafe(&mut self, _input: (), world: &World) -> ShouldRun {
-        // SAFE: this system inherits the internal system's component access and archetype component
+        // SAFETY: this system inherits the internal system's component access and archetype component
         // access, which means the caller has ensured running the internal system is safe
         self.internal_system.run_unsafe((), world)
     }
@@ -224,6 +228,14 @@ impl System for FixedTimestep {
     fn check_change_tick(&mut self, change_tick: u32) {
         self.internal_system.check_change_tick(change_tick);
     }
+
+    fn get_last_change_tick(&self) -> u32 {
+        self.internal_system.get_last_change_tick()
+    }
+
+    fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.internal_system.set_last_change_tick(last_change_tick);
+    }
 }
 
 #[cfg(test)]
@@ -234,7 +246,8 @@ mod test {
     use std::ops::{Add, Mul};
     use std::time::Duration;
 
-    type Count = usize;
+    #[derive(Resource)]
+    struct Count(usize);
     const LABEL: &str = "test_step";
 
     #[test]
@@ -245,11 +258,13 @@ mod test {
         time.update_with_instant(instance);
         world.insert_resource(time);
         world.insert_resource(FixedTimesteps::default());
-        world.insert_resource::<Count>(0);
+        world.insert_resource(Count(0));
         let mut schedule = Schedule::default();
 
+        #[derive(StageLabel)]
+        struct Update;
         schedule.add_stage(
-            "update",
+            Update,
             SystemStage::parallel()
                 .with_run_criteria(FixedTimestep::step(0.5).with_label(LABEL))
                 .with_system(fixed_update),
@@ -258,30 +273,30 @@ mod test {
         // if time does not progress, the step does not run
         schedule.run(&mut world);
         schedule.run(&mut world);
-        assert_eq!(0, *world.resource::<Count>());
+        assert_eq!(0, world.resource::<Count>().0);
         assert_eq!(0., get_accumulator_deciseconds(&world));
 
         // let's progress less than one step
         advance_time(&mut world, instance, 0.4);
         schedule.run(&mut world);
-        assert_eq!(0, *world.resource::<Count>());
+        assert_eq!(0, world.resource::<Count>().0);
         assert_eq!(4., get_accumulator_deciseconds(&world));
 
         // finish the first step with 0.1s above the step length
         advance_time(&mut world, instance, 0.6);
         schedule.run(&mut world);
-        assert_eq!(1, *world.resource::<Count>());
+        assert_eq!(1, world.resource::<Count>().0);
         assert_eq!(1., get_accumulator_deciseconds(&world));
 
         // runs multiple times if the delta is multiple step lengths
         advance_time(&mut world, instance, 1.7);
         schedule.run(&mut world);
-        assert_eq!(3, *world.resource::<Count>());
+        assert_eq!(3, world.resource::<Count>().0);
         assert_eq!(2., get_accumulator_deciseconds(&world));
     }
 
     fn fixed_update(mut count: ResMut<Count>) {
-        *count += 1;
+        count.0 += 1;
     }
 
     fn advance_time(world: &mut World, instance: Instant, seconds: f32) {

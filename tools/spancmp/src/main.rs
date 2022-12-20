@@ -15,15 +15,15 @@ mod pretty;
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[clap(short, long, default_value_t = 0.0)]
+    #[arg(short, long, default_value_t = 0.0)]
     /// Filter spans that have an average shorther than the threshold
     threshold: f32,
 
-    #[clap(short, long)]
+    #[arg(short, long)]
     /// Filter spans by name matching the pattern
     pattern: Option<Regex>,
 
-    #[clap(short, long)]
+    #[arg(short, long)]
     /// Simplify system names
     short: bool,
 
@@ -54,7 +54,7 @@ fn main() {
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
-                    println!("{}", span);
+                    println!("{span}");
                 }
                 set_bold(&mut stdout, false);
                 print!("  ");
@@ -71,7 +71,7 @@ fn main() {
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
-                    println!("{}", span);
+                    println!("{span}");
                 }
                 set_bold(&mut stdout, false);
                 print!("  ");
@@ -88,7 +88,7 @@ fn main() {
                 if cli.short {
                     println!("{}", simplify_name(span));
                 } else {
-                    println!("{}", span);
+                    println!("{span}");
                 }
                 set_bold(&mut stdout, false);
                 print!("  ");

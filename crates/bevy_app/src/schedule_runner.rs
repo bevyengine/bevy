@@ -3,6 +3,7 @@ use crate::{
     plugin::Plugin,
 };
 use bevy_ecs::event::{Events, ManualEventReader};
+use bevy_ecs::prelude::Resource;
 use bevy_utils::{Duration, Instant};
 
 #[cfg(target_arch = "wasm32")]
@@ -34,7 +35,7 @@ impl Default for RunMode {
 /// The configuration information for the [`ScheduleRunnerPlugin`].
 ///
 /// It gets added as a [`Resource`](bevy_ecs::system::Resource) inside of the [`ScheduleRunnerPlugin`].
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Resource)]
 pub struct ScheduleRunnerSettings {
     /// Determines whether the [`Schedule`](bevy_ecs::schedule::Schedule) is run once or repeatedly.
     pub run_mode: RunMode,

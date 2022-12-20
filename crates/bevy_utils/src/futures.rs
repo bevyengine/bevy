@@ -1,14 +1,21 @@
+//! Utilities for working with [`Future`]s.
+//!
+//! [`Future`]: std::future::Future
 use std::{
     future::Future,
     pin::Pin,
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
+/// Consumes the future, polls it once, and immediately returns the output
+/// or returns `None` if it wasn't ready yet.
+///
+/// This will cancel the future if it's not ready.
 pub fn now_or_never<F: Future>(mut future: F) -> Option<F::Output> {
     let noop_waker = noop_waker();
     let mut cx = Context::from_waker(&noop_waker);
 
-    // Safety: `future` is not moved and the original value is shadowed
+    // SAFETY: `future` is not moved and the original value is shadowed
     let future = unsafe { Pin::new_unchecked(&mut future) };
 
     match future.poll(&mut cx) {
@@ -29,5 +36,7 @@ fn noop_raw_waker() -> RawWaker {
 }
 
 fn noop_waker() -> Waker {
+    // SAFETY: the `RawWakerVTable` is just a big noop and doesn't violate any of the rules in `RawWakerVTable`s documentation
+    // (which talks about retaining and releasing any "resources", of which there are none in this case)
     unsafe { Waker::from_raw(noop_raw_waker()) }
 }

@@ -1,8 +1,9 @@
 //! Illustrates how to scale an object in each direction.
 
+use std::f32::consts::PI;
+
 use bevy::math::Vec3Swizzles;
 use bevy::prelude::*;
-use std::f32::consts::PI;
 
 // Define a component to keep information for the scaled object.
 #[derive(Component)]
@@ -13,7 +14,7 @@ struct Scaling {
     min_element_size: f32,
 }
 
-// Implement a simple initialisation.
+// Implement a simple initialization.
 impl Scaling {
     fn new() -> Self {
         Scaling {
@@ -41,32 +42,33 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Spawn a cube to scale.
-    commands
-        .spawn_bundle(PbrBundle {
+    commands.spawn((
+        PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
             material: materials.add(Color::WHITE.into()),
             transform: Transform::from_rotation(Quat::from_rotation_y(PI / 4.0)),
-            ..Default::default()
-        })
-        .insert(Scaling::new());
+            ..default()
+        },
+        Scaling::new(),
+    ));
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(PerspectiveCameraBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..Default::default()
+        ..default()
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_translation(Vec3::ONE * 3.0),
-        ..Default::default()
+        ..default()
     });
 }
 
 // This system will check if a scaled entity went above or below the entities scaling bounds
 // and change the direction of the scaling vector.
 fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
-    for (mut transform, mut cube) in cubes.iter_mut() {
+    for (mut transform, mut cube) in &mut cubes {
         // If an entity scaled beyond the maximum of its size in any dimension
         // the scaling vector is flipped so the scaling is gradually reverted.
         // Additionally, to ensure the condition does not trigger again we floor the elements to
@@ -92,7 +94,7 @@ fn change_scale_direction(mut cubes: Query<(&mut Transform, &mut Scaling)>) {
 // This system will scale any entity with assigned Scaling in each direction
 // by cycling through the directions to scale.
 fn scale_cube(mut cubes: Query<(&mut Transform, &Scaling)>, timer: Res<Time>) {
-    for (mut transform, cube) in cubes.iter_mut() {
+    for (mut transform, cube) in &mut cubes {
         transform.scale += cube.scale_direction * cube.scale_speed * timer.delta_seconds();
     }
 }

@@ -1,7 +1,10 @@
-use crate::{serde::Serializable, Reflect, ReflectMut, ReflectRef};
-use serde::ser::SerializeSeq;
+use crate::{
+    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, Typed,
+};
 use std::{
-    any::Any,
+    any::{Any, TypeId},
+    fmt::Debug,
     hash::{Hash, Hasher},
 };
 
@@ -28,12 +31,97 @@ pub trait Array: Reflect {
     }
     /// Returns an iterator over the collection.
     fn iter(&self) -> ArrayIter;
+    /// Drain the elements of this array to get a vector of owned values.
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>>;
 
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.type_name().to_string(),
             values: self.iter().map(|value| value.clone_value()).collect(),
         }
+    }
+}
+
+/// A container for compile-time array info.
+#[derive(Clone, Debug)]
+pub struct ArrayInfo {
+    type_name: &'static str,
+    type_id: TypeId,
+    item_type_name: &'static str,
+    item_type_id: TypeId,
+    capacity: usize,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
+}
+
+impl ArrayInfo {
+    /// Create a new [`ArrayInfo`].
+    ///
+    /// # Arguments
+    ///
+    /// * `capacity`: The maximum capacity of the underlying array.
+    ///
+    pub fn new<TArray: Array, TItem: Reflect>(capacity: usize) -> Self {
+        Self {
+            type_name: std::any::type_name::<TArray>(),
+            type_id: TypeId::of::<TArray>(),
+            item_type_name: std::any::type_name::<TItem>(),
+            item_type_id: TypeId::of::<TItem>(),
+            capacity,
+            #[cfg(feature = "documentation")]
+            docs: None,
+        }
+    }
+
+    /// Sets the docstring for this array.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
+    }
+
+    /// The compile-time capacity of the array.
+    pub fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    /// The [type name] of the array.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn type_name(&self) -> &'static str {
+        self.type_name
+    }
+
+    /// The [`TypeId`] of the array.
+    pub fn type_id(&self) -> TypeId {
+        self.type_id
+    }
+
+    /// Check if the given type matches the array type.
+    pub fn is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.type_id
+    }
+
+    /// The [type name] of the array item.
+    ///
+    /// [type name]: std::any::type_name
+    pub fn item_type_name(&self) -> &'static str {
+        self.item_type_name
+    }
+
+    /// The [`TypeId`] of the array item.
+    pub fn item_type_id(&self) -> TypeId {
+        self.item_type_id
+    }
+
+    /// Check if the given type matches the array item type.
+    pub fn item_is<T: Any>(&self) -> bool {
+        TypeId::of::<T>() == self.item_type_id
+    }
+
+    /// The docstring of this array, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }
 
@@ -46,6 +134,7 @@ pub trait Array: Reflect {
 /// can be mutated— just that the _number_ of items cannot change.
 ///
 /// [`DynamicList`]: crate::DynamicList
+#[derive(Debug)]
 pub struct DynamicArray {
     pub(crate) name: String,
     pub(crate) values: Box<[Box<dyn Reflect>]>,
@@ -82,20 +171,34 @@ impl DynamicArray {
     }
 }
 
-// SAFE: any and any_mut both return self
-unsafe impl Reflect for DynamicArray {
+impl Reflect for DynamicArray {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
     }
 
     #[inline]
-    fn any(&self) -> &dyn Any {
+    fn get_type_info(&self) -> &'static TypeInfo {
+        <Self as Typed>::type_info()
+    }
+
+    #[inline]
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
         self
     }
 
     #[inline]
-    fn any_mut(&mut self) -> &mut dyn Any {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    #[inline]
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
         self
     }
 
@@ -130,6 +233,11 @@ unsafe impl Reflect for DynamicArray {
     }
 
     #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Array(self)
+    }
+
+    #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
     }
@@ -141,10 +249,6 @@ unsafe impl Reflect for DynamicArray {
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         array_partial_eq(self, value)
-    }
-
-    fn serializable(&self) -> Option<Serializable> {
-        Some(Serializable::Borrowed(self))
     }
 }
 
@@ -173,6 +277,11 @@ impl Array for DynamicArray {
     }
 
     #[inline]
+    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+        self.values.into_vec()
+    }
+
+    #[inline]
     fn clone_dynamic(&self) -> DynamicArray {
         DynamicArray {
             name: self.name.clone(),
@@ -182,6 +291,13 @@ impl Array for DynamicArray {
                 .map(|value| value.clone_value())
                 .collect(),
         }
+    }
+}
+
+impl Typed for DynamicArray {
+    fn type_info() -> &'static TypeInfo {
+        static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
+        CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
 
@@ -210,43 +326,6 @@ impl<'a> Iterator for ArrayIter<'a> {
 
 impl<'a> ExactSizeIterator for ArrayIter<'a> {}
 
-impl serde::Serialize for dyn Array {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        array_serialize(self, serializer)
-    }
-}
-
-impl serde::Serialize for DynamicArray {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        array_serialize(self, serializer)
-    }
-}
-
-/// Serializes the given [array](Array).
-#[inline]
-pub fn array_serialize<A: Array + ?Sized, S>(array: &A, serializer: S) -> Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    let mut seq = serializer.serialize_seq(Some(array.len()))?;
-    for element in array.iter() {
-        let serializable = element.serializable().ok_or_else(|| {
-            serde::ser::Error::custom(format!(
-                "Type '{}' does not support `Reflect` serialization",
-                element.type_name()
-            ))
-        })?;
-        seq.serialize_element(serializable.borrow())?;
-    }
-    seq.end()
-}
-
 /// Returns the `u64` hash of the given [array](Array).
 #[inline]
 pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
@@ -254,7 +333,7 @@ pub fn array_hash<A: Array>(array: &A) -> Option<u64> {
     std::any::Any::type_id(array).hash(&mut hasher);
     array.len().hash(&mut hasher);
     for value in array.iter() {
-        hasher.write_u64(value.reflect_hash()?)
+        hasher.write_u64(value.reflect_hash()?);
     }
     Some(hasher.finish())
 }
@@ -283,13 +362,16 @@ pub fn array_apply<A: Array>(array: &mut A, reflect: &dyn Reflect) {
 
 /// Compares two [arrays](Array) (one concrete and one reflected) to see if they
 /// are equal.
+///
+/// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bool> {
     match reflect.reflect_ref() {
         ReflectRef::Array(reflect_array) if reflect_array.len() == array.len() => {
             for (a, b) in array.iter().zip(reflect_array.iter()) {
-                if let Some(false) | None = a.reflect_partial_eq(b) {
-                    return Some(false);
+                let eq_result = a.reflect_partial_eq(b);
+                if let failed @ (Some(false) | None) = eq_result {
+                    return failed;
                 }
             }
         }
@@ -297,4 +379,30 @@ pub fn array_partial_eq<A: Array>(array: &A, reflect: &dyn Reflect) -> Option<bo
     }
 
     Some(true)
+}
+
+/// The default debug formatter for [`Array`] types.
+///
+/// # Example
+/// ```
+/// use bevy_reflect::Reflect;
+///
+/// let my_array: &dyn Reflect = &[1, 2, 3];
+/// println!("{:#?}", my_array);
+///
+/// // Output:
+///
+/// // [
+/// //   1,
+/// //   2,
+/// //   3,
+/// // ]
+/// ```
+#[inline]
+pub fn array_debug(dyn_array: &dyn Array, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    let mut debug = f.debug_list();
+    for item in dyn_array.iter() {
+        debug.entry(&item as &dyn Debug);
+    }
+    debug.finish()
 }

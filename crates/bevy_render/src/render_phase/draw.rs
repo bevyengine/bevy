@@ -7,7 +7,8 @@ use bevy_ecs::{
     all_tuples,
     entity::Entity,
     system::{
-        lifetimeless::SRes, ReadOnlySystemParamFetch, SystemParam, SystemParamItem, SystemState,
+        lifetimeless::SRes, ReadOnlySystemParam, Resource, SystemParam, SystemParamItem,
+        SystemState,
     },
     world::World,
 };
@@ -17,7 +18,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 
 /// A draw function which is used to draw a specific [`PhaseItem`].
 ///
-/// They are the the general form of drawing items, whereas [`RenderCommands`](RenderCommand)
+/// They are the general form of drawing items, whereas [`RenderCommands`](RenderCommand)
 /// are more modular.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
@@ -35,19 +36,36 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
 /// Afterwards it will be sorted and rendered automatically  in the
 /// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) stage and
 /// [`RenderStage::Render`](crate::RenderStage::Render) stage, respectively.
-pub trait PhaseItem: Send + Sync + 'static {
+pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The type used for ordering the items. The smallest values are drawn first.
     type SortKey: Ord;
     /// Determines the order in which the items are drawn during the corresponding [`RenderPhase`](super::RenderPhase).
     fn sort_key(&self) -> Self::SortKey;
     /// Specifies the [`Draw`] function used to render the item.
     fn draw_function(&self) -> DrawFunctionId;
+
+    /// Sorts a slice of phase items into render order.  Generally if the same type
+    /// implements [`BatchedPhaseItem`], this should use a stable sort like [`slice::sort_by_key`].
+    /// In almost all other cases, this should not be altered from the default,
+    /// which uses a unstable sort, as this provides the best balance of CPU and GPU
+    /// performance.
+    ///
+    /// Implementers can optionally not sort the list at all. This is generally advisable if and
+    /// only if the renderer supports a depth prepass, which is by default not supported by
+    /// the rest of Bevy's first party rendering crates. Even then, this may have a negative
+    /// impact on GPU-side performance due to overdraw.
+    ///
+    /// It's advised to always profile for performance changes when changing this implementation.
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        items.sort_unstable_by_key(|item| item.sort_key());
+    }
 }
 
 // TODO: make this generic?
-/// /// A [`Draw`] function identifier.
+/// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct DrawFunctionId(usize);
+pub struct DrawFunctionId(u32);
 
 /// Stores all draw functions for the [`PhaseItem`] type.
 /// For retrieval they are associated with their [`TypeId`].
@@ -64,25 +82,42 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
 
     /// Adds the [`Draw`] function and associates it to the type `T`
     pub fn add_with<T: 'static, D: Draw<P>>(&mut self, draw_function: D) -> DrawFunctionId {
+        let id = DrawFunctionId(self.draw_functions.len().try_into().unwrap());
         self.draw_functions.push(Box::new(draw_function));
-        let id = DrawFunctionId(self.draw_functions.len() - 1);
         self.indices.insert(TypeId::of::<T>(), id);
         id
     }
 
     /// Retrieves the [`Draw`] function corresponding to the `id` mutably.
     pub fn get_mut(&mut self, id: DrawFunctionId) -> Option<&mut dyn Draw<P>> {
-        self.draw_functions.get_mut(id.0).map(|f| &mut **f)
+        self.draw_functions.get_mut(id.0 as usize).map(|f| &mut **f)
     }
 
     /// Retrieves the id of the [`Draw`] function corresponding to their associated type `T`.
     pub fn get_id<T: 'static>(&self) -> Option<DrawFunctionId> {
         self.indices.get(&TypeId::of::<T>()).copied()
     }
+
+    /// Retrieves the id of the [`Draw`] function corresponding to their associated type `T`.
+    ///
+    /// Fallible wrapper for [`Self::get_id()`]
+    ///
+    /// ## Panics
+    /// If the id doesn't exist it will panic
+    pub fn id<T: 'static>(&self) -> DrawFunctionId {
+        self.get_id::<T>().unwrap_or_else(|| {
+            panic!(
+                "Draw function {} not found for {}",
+                std::any::type_name::<T>(),
+                std::any::type_name::<P>()
+            )
+        })
+    }
 }
 
 /// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
 /// To access them the [`DrawFunctions::read`] and [`DrawFunctions::write`] methods are used.
+#[derive(Resource)]
 pub struct DrawFunctions<P: PhaseItem> {
     internal: RwLock<DrawFunctionsInternal<P>>,
 }
@@ -132,7 +167,7 @@ impl<P: PhaseItem> DrawFunctions<P> {
 pub trait RenderCommand<P: PhaseItem> {
     /// Specifies all ECS data required by [`RenderCommand::render`].
     /// All parameters have to be read only.
-    type Param: SystemParam;
+    type Param: SystemParam + 'static;
 
     /// Renders the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn render<'w>(
@@ -149,7 +184,7 @@ pub enum RenderCommandResult {
 }
 
 pub trait EntityRenderCommand {
-    type Param: SystemParam;
+    type Param: SystemParam + 'static;
     fn render<'w>(
         view: Entity,
         item: Entity,
@@ -170,6 +205,9 @@ pub trait CachedRenderPipelinePhaseItem: PhaseItem {
 ///
 /// Batching is an optimization that regroups multiple items in the same vertex buffer
 /// to render them in a single draw call.
+///
+/// If this is implemented on a type, the implementation of [`PhaseItem::sort`] should
+/// be changed to implement a stable sort, or incorrect/suboptimal batching may result.
 pub trait BatchedPhaseItem: EntityPhaseItem {
     /// Range in the vertex buffer of this item
     fn batch_range(&self) -> &Option<Range<u32>>;
@@ -209,7 +247,10 @@ pub enum BatchResult {
     IncompatibleItems,
 }
 
-impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E {
+impl<P: EntityPhaseItem, E: EntityRenderCommand> RenderCommand<P> for E
+where
+    E::Param: 'static,
+{
     type Param = E::Param;
 
     #[inline]
@@ -270,7 +311,7 @@ all_tuples!(render_command_tuple_impl, 0, 15, C);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
 /// Therefore the [`RenderCommand::Param`] is queried from the ECS and passed to the command.
-pub struct RenderCommandState<P: PhaseItem, C: RenderCommand<P>> {
+pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
     state: SystemState<C::Param>,
 }
 
@@ -284,7 +325,7 @@ impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
 
 impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for RenderCommandState<P, C>
 where
-    <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+    C::Param: ReadOnlySystemParam,
 {
     /// Prepares the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
     fn draw<'w>(
@@ -307,7 +348,7 @@ pub trait AddRenderCommand {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch;
+        C::Param: ReadOnlySystemParam;
 }
 
 impl AddRenderCommand for App {
@@ -315,7 +356,7 @@ impl AddRenderCommand for App {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+        C::Param: ReadOnlySystemParam,
     {
         let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
         let draw_functions = self

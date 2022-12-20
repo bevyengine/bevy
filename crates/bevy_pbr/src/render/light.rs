@@ -1,15 +1,16 @@
 use crate::{
-    point_light_order, AmbientLight, Clusters, CubemapVisibleEntities, DirectionalLight,
-    DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline, NotShadowCaster,
-    PointLight, PointLightShadowMap, SetMeshBindGroup, VisiblePointLights, SHADOW_SHADER_HANDLE,
+    directional_light_order, point_light_order, AmbientLight, Clusters, CubemapVisibleEntities,
+    DirectionalLight, DirectionalLightShadowMap, DrawMesh, GlobalVisiblePointLights, MeshPipeline,
+    NotShadowCaster, PointLight, PointLightShadowMap, SetMeshBindGroup, SpotLight,
+    VisiblePointLights, SHADOW_SHADER_HANDLE,
 };
 use bevy_asset::Handle;
-use bevy_core_pipeline::Transparent3d;
+use bevy_core_pipeline::core_3d::Transparent3d;
 use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
-use bevy_math::{const_vec3, Mat4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
@@ -25,10 +26,12 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
     view::{
-        ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms, Visibility, VisibleEntities,
+        ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,
+        VisibleEntities,
     },
+    Extract,
 };
-use bevy_transform::components::GlobalTransform;
+use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::FloatOrd;
 use bevy_utils::{
     tracing::{error, warn},
@@ -45,11 +48,6 @@ pub enum RenderLightSystems {
     QueueShadows,
 }
 
-pub struct ExtractedAmbientLight {
-    color: Color,
-    brightness: f32,
-}
-
 #[derive(Component)]
 pub struct ExtractedPointLight {
     color: Color,
@@ -61,32 +59,31 @@ pub struct ExtractedPointLight {
     shadows_enabled: bool,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    spot_light_angles: Option<(f32, f32)>,
 }
-
-pub type ExtractedPointLightShadowMap = PointLightShadowMap;
 
 #[derive(Component)]
 pub struct ExtractedDirectionalLight {
     color: Color,
     illuminance: f32,
-    direction: Vec3,
+    transform: GlobalTransform,
     projection: Mat4,
     shadows_enabled: bool,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
 }
 
-pub type ExtractedDirectionalLightShadowMap = DirectionalLightShadowMap;
-
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuPointLight {
-    // The lower-right 2x2 values of the projection matrix 22 23 32 33
-    projection_lr: Vec4,
+    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
+    // For spot lights: 2 components of the direction (x,z), spot_scale and spot_offset
+    light_custom_data: Vec4,
     color_inverse_square_range: Vec4,
     position_radius: Vec4,
     flags: u32,
     shadow_depth_bias: f32,
     shadow_normal_bias: f32,
+    spot_light_tan_angle: f32,
 }
 
 #[derive(ShaderType)]
@@ -166,11 +163,12 @@ impl GpuPointLights {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.frag!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct PointLightFlags: u32 {
         const SHADOWS_ENABLED            = (1 << 0);
+        const SPOT_LIGHT_Y_NEGATIVE      = (1 << 1);
         const NONE                       = 0;
         const UNINITIALIZED              = 0xFFFF;
     }
@@ -186,7 +184,7 @@ pub struct GpuDirectionalLight {
     shadow_normal_bias: f32,
 }
 
-// NOTE: These must match the bit flags in bevy_pbr2/src/render/pbr.frag!
+// NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     struct DirectionalLightFlags: u32 {
@@ -207,14 +205,16 @@ pub struct GpuLights {
     // w is cluster_dimensions.z * log(near) / log(far / near)
     cluster_factors: Vec4,
     n_directional_lights: u32,
+    // offset from spot light's light index to spot light's shadow map index
+    spot_light_shadowmap_offset: i32,
 }
 
 // NOTE: this must be kept in sync with the same constants in pbr.frag
 pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
-pub const MAX_DIRECTIONAL_LIGHTS: usize = 1;
-pub const DIRECTIONAL_SHADOW_LAYERS: u32 = MAX_DIRECTIONAL_LIGHTS as u32;
+pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
+#[derive(Resource)]
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -226,7 +226,6 @@ pub struct ShadowPipeline {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -322,11 +321,15 @@ impl SpecializedMeshPipeline for ShadowPipeline {
 
         let mut bind_group_layout = vec![self.view_layout.clone()];
         let mut shader_defs = Vec::new();
+        shader_defs.push(ShaderDefVal::UInt(
+            "MAX_DIRECTIONAL_LIGHTS".to_string(),
+            MAX_DIRECTIONAL_LIGHTS as u32,
+        ));
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
-            shader_defs.push(String::from("SKINNED"));
+            shader_defs.push("SKINNED".into());
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_INDEX.at_shader_location(4));
             vertex_attributes.push(Mesh::ATTRIBUTE_JOINT_WEIGHT.at_shader_location(5));
             bind_group_layout.push(self.skinned_mesh_layout.clone());
@@ -381,7 +384,7 @@ pub struct ExtractedClusterConfig {
     /// Special near value for cluster calculations
     near: f32,
     far: f32,
-    /// Number of clusters in x / y / z in the view frustum
+    /// Number of clusters in `X` / `Y` / `Z` in the view frustum
     dimensions: UVec3,
 }
 
@@ -390,9 +393,12 @@ pub struct ExtractedClustersPointLights {
     data: Vec<VisiblePointLights>,
 }
 
-pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters), With<Camera>>) {
-    for (entity, clusters) in views.iter() {
-        commands.get_or_spawn(entity).insert_bundle((
+pub fn extract_clusters(
+    mut commands: Commands,
+    views: Extract<Query<(Entity, &Clusters), With<Camera>>>,
+) {
+    for (entity, clusters) in &views {
+        commands.get_or_spawn(entity).insert((
             ExtractedClustersPointLights {
                 data: clusters.lights.clone(),
             },
@@ -408,28 +414,48 @@ pub fn extract_clusters(mut commands: Commands, views: Query<(Entity, &Clusters)
 #[allow(clippy::too_many_arguments)]
 pub fn extract_lights(
     mut commands: Commands,
-    ambient_light: Res<AmbientLight>,
-    point_light_shadow_map: Res<PointLightShadowMap>,
-    directional_light_shadow_map: Res<DirectionalLightShadowMap>,
-    global_point_lights: Res<GlobalVisiblePointLights>,
-    mut point_lights: Query<(&PointLight, &mut CubemapVisibleEntities, &GlobalTransform)>,
-    mut directional_lights: Query<(
-        Entity,
-        &DirectionalLight,
-        &mut VisibleEntities,
-        &GlobalTransform,
-        &Visibility,
-    )>,
+    point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
+    directional_light_shadow_map: Extract<Res<DirectionalLightShadowMap>>,
+    global_point_lights: Extract<Res<GlobalVisiblePointLights>>,
+    point_lights: Extract<
+        Query<(
+            &PointLight,
+            &CubemapVisibleEntities,
+            &GlobalTransform,
+            &ComputedVisibility,
+        )>,
+    >,
+    spot_lights: Extract<
+        Query<(
+            &SpotLight,
+            &VisibleEntities,
+            &GlobalTransform,
+            &ComputedVisibility,
+        )>,
+    >,
+    directional_lights: Extract<
+        Query<
+            (
+                Entity,
+                &DirectionalLight,
+                &VisibleEntities,
+                &GlobalTransform,
+                &ComputedVisibility,
+            ),
+            Without<SpotLight>,
+        >,
+    >,
     mut previous_point_lights_len: Local<usize>,
+    mut previous_spot_lights_len: Local<usize>,
 ) {
-    commands.insert_resource(ExtractedAmbientLight {
-        color: ambient_light.color,
-        brightness: ambient_light.brightness,
-    });
-    commands.insert_resource::<ExtractedPointLightShadowMap>(point_light_shadow_map.clone());
-    commands.insert_resource::<ExtractedDirectionalLightShadowMap>(
-        directional_light_shadow_map.clone(),
-    );
+    // NOTE: These shadow map resources are extracted here as they are used here too so this avoids
+    // races between scheduling of ExtractResourceSystems and this system.
+    if point_light_shadow_map.is_changed() {
+        commands.insert_resource(point_light_shadow_map.clone());
+    }
+    if directional_light_shadow_map.is_changed() {
+        commands.insert_resource(directional_light_shadow_map.clone());
+    }
     // This is the point light shadow map texel size for one face of the cube as a distance of 1.0
     // world unit from the light.
     // point_light_texel_size = 2.0 * 1.0 * tan(PI / 4.0) / cube face width in texels
@@ -441,10 +467,15 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform)) = point_lights.get_mut(entity)
+        if let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
+            point_lights.get(entity)
         {
-            let render_cubemap_visible_entities =
-                std::mem::take(cubemap_visible_entities.into_inner());
+            if !visibility.is_visible() {
+                continue;
+            }
+            // TODO: This is very much not ideal. We should be able to re-use the vector memory.
+            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+            let render_cubemap_visible_entities = cubemap_visible_entities.clone();
             point_lights_values.push((
                 entity,
                 (
@@ -463,6 +494,7 @@ pub fn extract_lights(
                         shadow_normal_bias: point_light.shadow_normal_bias
                             * point_light_texel_size
                             * std::f32::consts::SQRT_2,
+                        spot_light_angles: None,
                     },
                     render_cubemap_visible_entities,
                 ),
@@ -472,38 +504,77 @@ pub fn extract_lights(
     *previous_point_lights_len = point_lights_values.len();
     commands.insert_or_spawn_batch(point_lights_values);
 
+    let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
+    for entity in global_point_lights.iter().copied() {
+        if let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) {
+            if !visibility.is_visible() {
+                continue;
+            }
+            // TODO: This is very much not ideal. We should be able to re-use the vector memory.
+            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+            let render_visible_entities = visible_entities.clone();
+            let texel_size =
+                2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
+
+            spot_lights_values.push((
+                entity,
+                (
+                    ExtractedPointLight {
+                        color: spot_light.color,
+                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                        // for details.
+                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+                        // which seems least surprising for users
+                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                        range: spot_light.range,
+                        radius: spot_light.radius,
+                        transform: *transform,
+                        shadows_enabled: spot_light.shadows_enabled,
+                        shadow_depth_bias: spot_light.shadow_depth_bias,
+                        // The factor of SQRT_2 is for the worst-case diagonal offset
+                        shadow_normal_bias: spot_light.shadow_normal_bias
+                            * texel_size
+                            * std::f32::consts::SQRT_2,
+                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                    },
+                    render_visible_entities,
+                ),
+            ));
+        }
+    }
+    *previous_spot_lights_len = spot_lights_values.len();
+    commands.insert_or_spawn_batch(spot_lights_values);
+
     for (entity, directional_light, visible_entities, transform, visibility) in
-        directional_lights.iter_mut()
+        directional_lights.iter()
     {
-        if !visibility.is_visible {
+        if !visibility.is_visible() {
             continue;
         }
 
-        // Calulate the directional light shadow map texel size using the largest x,y dimension of
+        // Calculate the directional light shadow map texel size using the scaled x,y length of
         // the orthographic projection divided by the shadow map resolution
         // NOTE: When using various PCF kernel sizes, this will need to be adjusted, according to:
         // https://catlikecoding.com/unity/tutorials/custom-srp/directional-shadows/
-        let largest_dimension = (directional_light.shadow_projection.right
-            - directional_light.shadow_projection.left)
-            .max(
-                directional_light.shadow_projection.top
-                    - directional_light.shadow_projection.bottom,
-            );
-        let directional_light_texel_size =
-            largest_dimension / directional_light_shadow_map.size as f32;
-        let render_visible_entities = std::mem::take(visible_entities.into_inner());
-        commands.get_or_spawn(entity).insert_bundle((
+        let directional_light_texel_size = transform.radius_vec3a(Vec3A::new(
+            directional_light.shadow_projection.right - directional_light.shadow_projection.left,
+            directional_light.shadow_projection.top - directional_light.shadow_projection.bottom,
+            0.,
+        )) / directional_light_shadow_map.size as f32;
+        // TODO: As above
+        let render_visible_entities = visible_entities.clone();
+        commands.get_or_spawn(entity).insert((
             ExtractedDirectionalLight {
                 color: directional_light.color,
                 illuminance: directional_light.illuminance,
-                direction: transform.forward(),
+                transform: *transform,
                 projection: directional_light.shadow_projection.get_projection_matrix(),
                 shadows_enabled: directional_light.shadows_enabled,
                 shadow_depth_bias: directional_light.shadow_depth_bias,
-                // The factor of SQRT_2 is for the worst-case diagonal offset
                 shadow_normal_bias: directional_light.shadow_normal_bias
-                    * directional_light_texel_size
-                    * std::f32::consts::SQRT_2,
+                    * directional_light_texel_size,
             },
             render_visible_entities,
         ));
@@ -511,11 +582,6 @@ pub fn extract_lights(
 }
 
 pub(crate) const POINT_LIGHT_NEAR_Z: f32 = 0.1f32;
-
-// Can't do `Vec3::Y * -1.0` because mul isn't const
-const NEGATIVE_X: Vec3 = const_vec3!([-1.0, 0.0, 0.0]);
-const NEGATIVE_Y: Vec3 = const_vec3!([0.0, -1.0, 0.0]);
-const NEGATIVE_Z: Vec3 = const_vec3!([0.0, 0.0, -1.0]);
 
 pub(crate) struct CubeMapFace {
     pub(crate) target: Vec3,
@@ -526,33 +592,33 @@ pub(crate) struct CubeMapFace {
 pub(crate) const CUBE_MAP_FACES: [CubeMapFace; 6] = [
     // 0 	GL_TEXTURE_CUBE_MAP_POSITIVE_X
     CubeMapFace {
-        target: NEGATIVE_X,
-        up: NEGATIVE_Y,
+        target: Vec3::NEG_X,
+        up: Vec3::NEG_Y,
     },
     // 1 	GL_TEXTURE_CUBE_MAP_NEGATIVE_X
     CubeMapFace {
         target: Vec3::X,
-        up: NEGATIVE_Y,
+        up: Vec3::NEG_Y,
     },
     // 2 	GL_TEXTURE_CUBE_MAP_POSITIVE_Y
     CubeMapFace {
-        target: NEGATIVE_Y,
+        target: Vec3::NEG_Y,
         up: Vec3::Z,
     },
     // 3 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Y
     CubeMapFace {
         target: Vec3::Y,
-        up: NEGATIVE_Z,
+        up: Vec3::NEG_Z,
     },
     // 4 	GL_TEXTURE_CUBE_MAP_POSITIVE_Z
     CubeMapFace {
-        target: NEGATIVE_Z,
-        up: NEGATIVE_Y,
+        target: Vec3::NEG_Z,
+        up: Vec3::NEG_Y,
     },
     // 5 	GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
     CubeMapFace {
         target: Vec3::Z,
-        up: NEGATIVE_Y,
+        up: Vec3::NEG_Y,
     },
 ];
 
@@ -596,6 +662,7 @@ pub struct ViewLightsUniformOffset {
 // at least that many are supported using this constant and SupportedBindingType::from_device()
 pub const CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT: u32 = 3;
 
+#[derive(Resource)]
 pub struct GlobalLightMeta {
     pub gpu_point_lights: GpuPointLights,
     pub entity_to_index: HashMap<Entity, usize>,
@@ -620,7 +687,7 @@ impl GlobalLightMeta {
     }
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 pub struct LightMeta {
     pub view_gpu_lights: DynamicUniformBuffer<GpuLights>,
     pub shadow_view_bind_group: Option<BindGroup>,
@@ -634,6 +701,9 @@ pub enum LightEntity {
     Point {
         light_entity: Entity,
         face_index: usize,
+    },
+    Spot {
+        light_entity: Entity,
     },
 }
 pub fn calculate_cluster_factors(
@@ -653,6 +723,38 @@ pub fn calculate_cluster_factors(
     }
 }
 
+// this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
+// we will also construct it in the fragment shader and need our implementations to match,
+// so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
+// could move this onto transform but it's pretty niche
+pub(crate) fn spot_light_view_matrix(transform: &GlobalTransform) -> Mat4 {
+    // the matrix z_local (opposite of transform.forward())
+    let fwd_dir = transform.back().extend(0.0);
+
+    let sign = 1f32.copysign(fwd_dir.z);
+    let a = -1.0 / (fwd_dir.z + sign);
+    let b = fwd_dir.x * fwd_dir.y * a;
+    let up_dir = Vec4::new(
+        1.0 + sign * fwd_dir.x * fwd_dir.x * a,
+        sign * b,
+        -sign * fwd_dir.x,
+        0.0,
+    );
+    let right_dir = Vec4::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y, 0.0);
+
+    Mat4::from_cols(
+        right_dir,
+        up_dir,
+        fwd_dir,
+        transform.translation().extend(1.0),
+    )
+}
+
+pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
+    // spot light projection FOV is 2x the angle from spot light centre to outer edge
+    Mat4::perspective_infinite_reverse_rh(angle * 2.0, 1.0, POINT_LIGHT_NEAR_Z)
+}
+
 #[allow(clippy::too_many_arguments)]
 pub fn prepare_lights(
     mut commands: Commands,
@@ -665,9 +767,10 @@ pub fn prepare_lights(
         (Entity, &ExtractedView, &ExtractedClusterConfig),
         With<RenderPhase<Transparent3d>>,
     >,
-    ambient_light: Res<ExtractedAmbientLight>,
-    point_light_shadow_map: Res<ExtractedPointLightShadowMap>,
-    directional_light_shadow_map: Res<ExtractedDirectionalLightShadowMap>,
+    ambient_light: Res<AmbientLight>,
+    point_light_shadow_map: Res<PointLightShadowMap>,
+    directional_light_shadow_map: Res<DirectionalLightShadowMap>,
+    mut max_directional_lights_warning_emitted: Local<bool>,
     point_lights: Query<(Entity, &ExtractedPointLight)>,
     directional_lights: Query<(Entity, &ExtractedDirectionalLight)>,
 ) {
@@ -678,26 +781,83 @@ pub fn prepare_lights(
         Mat4::perspective_infinite_reverse_rh(std::f32::consts::FRAC_PI_2, 1.0, POINT_LIGHT_NEAR_Z);
     let cube_face_rotations = CUBE_MAP_FACES
         .iter()
-        .map(|CubeMapFace { target, up }| GlobalTransform::identity().looking_at(*target, *up))
+        .map(|CubeMapFace { target, up }| Transform::IDENTITY.looking_at(*target, *up))
         .collect::<Vec<_>>();
 
     global_light_meta.entity_to_index.clear();
 
     let mut point_lights: Vec<_> = point_lights.iter().collect::<Vec<_>>();
+    let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
 
     #[cfg(not(feature = "webgl"))]
-    let max_point_light_shadow_maps = point_lights
-        .iter()
-        .filter(|light| light.1.shadows_enabled)
-        .count()
-        .min((render_device.limits().max_texture_array_layers / 6) as usize);
+    let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
+    #[cfg(not(feature = "webgl"))]
+    let max_texture_cubes = max_texture_array_layers / 6;
     #[cfg(feature = "webgl")]
-    let max_point_light_shadow_maps = 1;
+    let max_texture_array_layers = 1;
+    #[cfg(feature = "webgl")]
+    let max_texture_cubes = 1;
 
-    // Sort point lights with shadows enabled first, then by a stable key so that the index can be used
-    // to render at most `max_point_light_shadow_maps` point light shadows.
+    if !*max_directional_lights_warning_emitted && directional_lights.len() > MAX_DIRECTIONAL_LIGHTS
+    {
+        warn!(
+            "The amount of directional lights of {} is exceeding the supported limit of {}.",
+            directional_lights.len(),
+            MAX_DIRECTIONAL_LIGHTS
+        );
+        *max_directional_lights_warning_emitted = true;
+    }
+
+    let point_light_count = point_lights
+        .iter()
+        .filter(|light| light.1.spot_light_angles.is_none())
+        .count();
+
+    let point_light_shadow_maps_count = point_lights
+        .iter()
+        .filter(|light| light.1.shadows_enabled && light.1.spot_light_angles.is_none())
+        .count()
+        .min(max_texture_cubes);
+
+    let directional_shadow_maps_count = directional_lights
+        .iter()
+        .take(MAX_DIRECTIONAL_LIGHTS)
+        .filter(|(_, light)| light.shadows_enabled)
+        .count()
+        .min(max_texture_array_layers);
+
+    let spot_light_shadow_maps_count = point_lights
+        .iter()
+        .filter(|(_, light)| light.shadows_enabled && light.spot_light_angles.is_some())
+        .count()
+        .min(max_texture_array_layers - directional_shadow_maps_count);
+
+    // Sort lights by
+    // - point-light vs spot-light, so that we can iterate point lights and spot lights in contiguous blocks in the fragment shader,
+    // - then those with shadows enabled first, so that the index can be used to render at most `point_light_shadow_maps_count`
+    //   point light shadows and `spot_light_shadow_maps_count` spot light shadow maps,
+    // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
         point_light_order(
+            (
+                entity_1,
+                &light_1.shadows_enabled,
+                &light_1.spot_light_angles.is_some(),
+            ),
+            (
+                entity_2,
+                &light_2.shadows_enabled,
+                &light_2.spot_light_angles.is_some(),
+            ),
+        )
+    });
+
+    // Sort lights by
+    // - those with shadows enabled first, so that the index can be used to render at most `directional_light_shadow_maps_count`
+    //   directional light shadows
+    // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
+    directional_lights.sort_by(|(entity_1, light_1), (entity_2, light_2)| {
+        directional_light_order(
             (entity_1, &light_1.shadows_enabled),
             (entity_2, &light_2.shadows_enabled),
         )
@@ -712,29 +872,110 @@ pub fn prepare_lights(
     let mut gpu_point_lights = Vec::new();
     for (index, &(entity, light)) in point_lights.iter().enumerate() {
         let mut flags = PointLightFlags::NONE;
+
         // Lights are sorted, shadow enabled lights are first
-        if light.shadows_enabled && index < max_point_light_shadow_maps {
+        if light.shadows_enabled
+            && (index < point_light_shadow_maps_count
+                || (light.spot_light_angles.is_some()
+                    && index - point_light_count < spot_light_shadow_maps_count))
+        {
             flags |= PointLightFlags::SHADOWS_ENABLED;
         }
+
+        let (light_custom_data, spot_light_tan_angle) = match light.spot_light_angles {
+            Some((inner, outer)) => {
+                let light_direction = light.transform.forward();
+                if light_direction.y.is_sign_negative() {
+                    flags |= PointLightFlags::SPOT_LIGHT_Y_NEGATIVE;
+                }
+
+                let cos_outer = outer.cos();
+                let spot_scale = 1.0 / f32::max(inner.cos() - cos_outer, 1e-4);
+                let spot_offset = -cos_outer * spot_scale;
+
+                (
+                    // For spot lights: the direction (x,z), spot_scale and spot_offset
+                    light_direction.xz().extend(spot_scale).extend(spot_offset),
+                    outer.tan(),
+                )
+            }
+            None => {
+                (
+                    // For point lights: the lower-right 2x2 values of the projection matrix [2][2] [2][3] [3][2] [3][3]
+                    Vec4::new(
+                        cube_face_projection.z_axis.z,
+                        cube_face_projection.z_axis.w,
+                        cube_face_projection.w_axis.z,
+                        cube_face_projection.w_axis.w,
+                    ),
+                    // unused
+                    0.0,
+                )
+            }
+        };
+
         gpu_point_lights.push(GpuPointLight {
-            projection_lr: Vec4::new(
-                cube_face_projection.z_axis.z,
-                cube_face_projection.z_axis.w,
-                cube_face_projection.w_axis.z,
-                cube_face_projection.w_axis.w,
-            ),
+            light_custom_data,
             // premultiply color by intensity
             // we don't use the alpha at all, so no reason to multiply only [0..3]
             color_inverse_square_range: (Vec4::from_slice(&light.color.as_linear_rgba_f32())
                 * light.intensity)
                 .xyz()
                 .extend(1.0 / (light.range * light.range)),
-            position_radius: light.transform.translation.extend(light.radius),
+            position_radius: light.transform.translation().extend(light.radius),
             flags: flags.bits,
             shadow_depth_bias: light.shadow_depth_bias,
             shadow_normal_bias: light.shadow_normal_bias,
+            spot_light_tan_angle,
         });
         global_light_meta.entity_to_index.insert(entity, index);
+    }
+
+    let mut gpu_directional_lights = [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS];
+
+    for (index, (_light_entity, light)) in directional_lights
+        .iter()
+        .enumerate()
+        .take(MAX_DIRECTIONAL_LIGHTS)
+    {
+        let mut flags = DirectionalLightFlags::NONE;
+
+        // Lights are sorted, shadow enabled lights are first
+        if light.shadows_enabled && (index < directional_shadow_maps_count) {
+            flags |= DirectionalLightFlags::SHADOWS_ENABLED;
+        }
+
+        // direction is negated to be ready for N.L
+        let dir_to_light = light.transform.back();
+
+        // convert from illuminance (lux) to candelas
+        //
+        // exposure is hard coded at the moment but should be replaced
+        // by values coming from the camera
+        // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
+        const APERTURE: f32 = 4.0;
+        const SHUTTER_SPEED: f32 = 1.0 / 250.0;
+        const SENSITIVITY: f32 = 100.0;
+        let ev100 = f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
+        let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
+        let intensity = light.illuminance * exposure;
+
+        // NOTE: For the purpose of rendering shadow maps, we apply the directional light's transform to an orthographic camera
+        let view = light.transform.compute_matrix().inverse();
+        // NOTE: This orthographic projection defines the volume within which shadows from a directional light can be cast
+        let projection = light.projection;
+
+        gpu_directional_lights[index] = GpuDirectionalLight {
+            // premultiply color by intensity
+            // we don't use the alpha at all, so no reason to multiply only [0..3]
+            color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
+            dir_to_light,
+            // NOTE: * view is correct, it should not be view.inverse() here
+            view_projection: projection * view,
+            flags: flags.bits,
+            shadow_depth_bias: light.shadow_depth_bias,
+            shadow_normal_bias: light.shadow_normal_bias,
+        };
     }
 
     global_light_meta.gpu_point_lights.set(gpu_point_lights);
@@ -743,14 +984,14 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters) in views.iter() {
+    for (entity, extracted_view, clusters) in &views {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
                 size: Extent3d {
                     width: point_light_shadow_map.size as u32,
                     height: point_light_shadow_map.size as u32,
-                    depth_or_array_layers: max_point_light_shadow_maps.max(1) as u32 * 6,
+                    depth_or_array_layers: point_light_shadow_maps_count.max(1) as u32 * 6,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -768,7 +1009,9 @@ pub fn prepare_lights(
                         .min(render_device.limits().max_texture_dimension_2d),
                     height: (directional_light_shadow_map.size as u32)
                         .min(render_device.limits().max_texture_dimension_2d),
-                    depth_or_array_layers: DIRECTIONAL_SHADOW_LAYERS,
+                    depth_or_array_layers: (directional_shadow_maps_count
+                        + spot_light_shadow_maps_count)
+                        .max(1) as u32,
                 },
                 mip_level_count: 1,
                 sample_count: 1,
@@ -789,25 +1032,30 @@ pub fn prepare_lights(
         );
 
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
-        let mut gpu_lights = GpuLights {
-            directional_lights: [GpuDirectionalLight::default(); MAX_DIRECTIONAL_LIGHTS],
+        let gpu_lights = GpuLights {
+            directional_lights: gpu_directional_lights,
             ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
                 * ambient_light.brightness,
             cluster_factors: Vec4::new(
-                clusters.dimensions.x as f32 / extracted_view.width as f32,
-                clusters.dimensions.y as f32 / extracted_view.height as f32,
+                clusters.dimensions.x as f32 / extracted_view.viewport.z as f32,
+                clusters.dimensions.y as f32 / extracted_view.viewport.w as f32,
                 cluster_factors_zw.x,
                 cluster_factors_zw.y,
             ),
             cluster_dimensions: clusters.dimensions.extend(n_clusters),
             n_directional_lights: directional_lights.iter().len() as u32,
+            // spotlight shadow maps are stored in the directional light array, starting at directional_shadow_maps_count.
+            // the spot lights themselves start in the light array at point_light_count. so to go from light
+            // index to shadow map index, we need to subtract point light count and add directional shadowmap count.
+            spot_light_shadowmap_offset: directional_shadow_maps_count as i32
+                - point_light_count as i32,
         };
 
         // TODO: this should select lights based on relevance to the view instead of the first ones that show up in a query
         for &(light_entity, light) in point_lights
             .iter()
             // Lights are sorted, shadow enabled lights are first
-            .take(max_point_light_shadow_maps)
+            .take(point_light_shadow_maps_count)
             .filter(|(_, light)| light.shadows_enabled)
         {
             let light_index = *global_light_meta
@@ -817,7 +1065,7 @@ pub fn prepare_lights(
             // ignore scale because we don't want to effectively scale light radius and range
             // by applying those as a view transform to shadow map rendering of objects
             // and ignore rotation because we want the shadow map projections to align with the axes
-            let view_translation = GlobalTransform::from_translation(light.transform.translation);
+            let view_translation = GlobalTransform::from_translation(light.transform.translation());
 
             for (face_index, view_rotation) in cube_face_rotations.iter().enumerate() {
                 let depth_texture_view =
@@ -835,8 +1083,7 @@ pub fn prepare_lights(
                         });
 
                 let view_light_entity = commands
-                    .spawn()
-                    .insert_bundle((
+                    .spawn((
                         ShadowView {
                             depth_texture_view,
                             pass_name: format!(
@@ -846,10 +1093,15 @@ pub fn prepare_lights(
                             ),
                         },
                         ExtractedView {
-                            width: point_light_shadow_map.size as u32,
-                            height: point_light_shadow_map.size as u32,
+                            viewport: UVec4::new(
+                                0,
+                                0,
+                                point_light_shadow_map.size as u32,
+                                point_light_shadow_map.size as u32,
+                            ),
                             transform: view_translation * *view_rotation,
                             projection: cube_face_projection,
+                            hdr: false,
                         },
                         RenderPhase::<Shadow>::default(),
                         LightEntity::Point {
@@ -862,85 +1114,103 @@ pub fn prepare_lights(
             }
         }
 
-        for (i, (light_entity, light)) in directional_lights
+        // spot lights
+        for (light_index, &(light_entity, light)) in point_lights
+            .iter()
+            .skip(point_light_count)
+            .take(spot_light_shadow_maps_count)
+            .enumerate()
+        {
+            let spot_view_matrix = spot_light_view_matrix(&light.transform);
+            let spot_view_transform = spot_view_matrix.into();
+
+            let angle = light.spot_light_angles.expect("lights should be sorted so that \
+                [point_light_count..point_light_count + spot_light_shadow_maps_count] are spot lights").1;
+            let spot_projection = spot_light_projection_matrix(angle);
+
+            let depth_texture_view =
+                directional_light_depth_texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: Some("spot_light_shadow_map_texture_view"),
+                        format: None,
+                        dimension: Some(TextureViewDimension::D2),
+                        aspect: TextureAspect::All,
+                        base_mip_level: 0,
+                        mip_level_count: None,
+                        base_array_layer: (directional_shadow_maps_count + light_index) as u32,
+                        array_layer_count: NonZeroU32::new(1),
+                    });
+
+            let view_light_entity = commands
+                .spawn((
+                    ShadowView {
+                        depth_texture_view,
+                        pass_name: format!("shadow pass spot light {light_index}",),
+                    },
+                    ExtractedView {
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            directional_light_shadow_map.size as u32,
+                            directional_light_shadow_map.size as u32,
+                        ),
+                        transform: spot_view_transform,
+                        projection: spot_projection,
+                        hdr: false,
+                    },
+                    RenderPhase::<Shadow>::default(),
+                    LightEntity::Spot { light_entity },
+                ))
+                .id();
+
+            view_lights.push(view_light_entity);
+        }
+
+        // directional lights
+        for (light_index, &(light_entity, light)) in directional_lights
             .iter()
             .enumerate()
-            .take(MAX_DIRECTIONAL_LIGHTS)
+            .take(directional_shadow_maps_count)
         {
-            // direction is negated to be ready for N.L
-            let dir_to_light = -light.direction;
+            let depth_texture_view =
+                directional_light_depth_texture
+                    .texture
+                    .create_view(&TextureViewDescriptor {
+                        label: Some("directional_light_shadow_map_texture_view"),
+                        format: None,
+                        dimension: Some(TextureViewDimension::D2),
+                        aspect: TextureAspect::All,
+                        base_mip_level: 0,
+                        mip_level_count: None,
+                        base_array_layer: light_index as u32,
+                        array_layer_count: NonZeroU32::new(1),
+                    });
 
-            // convert from illuminance (lux) to candelas
-            //
-            // exposure is hard coded at the moment but should be replaced
-            // by values coming from the camera
-            // see: https://google.github.io/filament/Filament.html#imagingpipeline/physicallybasedcamera/exposuresettings
-            const APERTURE: f32 = 4.0;
-            const SHUTTER_SPEED: f32 = 1.0 / 250.0;
-            const SENSITIVITY: f32 = 100.0;
-            let ev100 =
-                f32::log2(APERTURE * APERTURE / SHUTTER_SPEED) - f32::log2(SENSITIVITY / 100.0);
-            let exposure = 1.0 / (f32::powf(2.0, ev100) * 1.2);
-            let intensity = light.illuminance * exposure;
-
-            // NOTE: A directional light seems to have to have an eye position on the line along the direction of the light
-            // through the world origin. I (Rob Swain) do not yet understand why it cannot be translated away from this.
-            let view = Mat4::look_at_rh(Vec3::ZERO, light.direction, Vec3::Y);
-            // NOTE: This orthographic projection defines the volume within which shadows from a directional light can be cast
-            let projection = light.projection;
-
-            let mut flags = DirectionalLightFlags::NONE;
-            if light.shadows_enabled {
-                flags |= DirectionalLightFlags::SHADOWS_ENABLED;
-            }
-
-            gpu_lights.directional_lights[i] = GpuDirectionalLight {
-                // premultiply color by intensity
-                // we don't use the alpha at all, so no reason to multiply only [0..3]
-                color: Vec4::from_slice(&light.color.as_linear_rgba_f32()) * intensity,
-                dir_to_light,
-                // NOTE: * view is correct, it should not be view.inverse() here
-                view_projection: projection * view,
-                flags: flags.bits,
-                shadow_depth_bias: light.shadow_depth_bias,
-                shadow_normal_bias: light.shadow_normal_bias,
-            };
-
-            if light.shadows_enabled {
-                let depth_texture_view =
-                    directional_light_depth_texture
-                        .texture
-                        .create_view(&TextureViewDescriptor {
-                            label: Some("directional_light_shadow_map_texture_view"),
-                            format: None,
-                            dimension: Some(TextureViewDimension::D2),
-                            aspect: TextureAspect::All,
-                            base_mip_level: 0,
-                            mip_level_count: None,
-                            base_array_layer: i as u32,
-                            array_layer_count: NonZeroU32::new(1),
-                        });
-
-                let view_light_entity = commands
-                    .spawn()
-                    .insert_bundle((
-                        ShadowView {
-                            depth_texture_view,
-                            pass_name: format!("shadow pass directional light {}", i),
-                        },
-                        ExtractedView {
-                            width: directional_light_shadow_map.size as u32,
-                            height: directional_light_shadow_map.size as u32,
-                            transform: GlobalTransform::from_matrix(view.inverse()),
-                            projection,
-                        },
-                        RenderPhase::<Shadow>::default(),
-                        LightEntity::Directional { light_entity },
-                    ))
-                    .id();
-                view_lights.push(view_light_entity);
-            }
+            let view_light_entity = commands
+                .spawn((
+                    ShadowView {
+                        depth_texture_view,
+                        pass_name: format!("shadow pass directional light {}", light_index),
+                    },
+                    ExtractedView {
+                        viewport: UVec4::new(
+                            0,
+                            0,
+                            directional_light_shadow_map.size as u32,
+                            directional_light_shadow_map.size as u32,
+                        ),
+                        transform: light.transform,
+                        projection: light.projection,
+                        hdr: false,
+                    },
+                    RenderPhase::<Shadow>::default(),
+                    LightEntity::Directional { light_entity },
+                ))
+                .id();
+            view_lights.push(view_light_entity);
         }
+
         let point_light_depth_texture_view =
             point_light_depth_texture
                 .texture
@@ -973,7 +1243,7 @@ pub fn prepare_lights(
                 array_layer_count: None,
             });
 
-        commands.entity(entity).insert_bundle((
+        commands.entity(entity).insert((
             ViewShadowBindings {
                 point_light_depth_texture: point_light_depth_texture.texture,
                 point_light_depth_texture_view,
@@ -996,28 +1266,29 @@ pub fn prepare_lights(
 
 // this must match CLUSTER_COUNT_SIZE in pbr.wgsl
 // and must be large enough to contain MAX_UNIFORM_BUFFER_POINT_LIGHTS
-const CLUSTER_COUNT_SIZE: u32 = 13;
+const CLUSTER_COUNT_SIZE: u32 = 9;
 
-const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - CLUSTER_COUNT_SIZE)) - 1;
+const CLUSTER_OFFSET_MASK: u32 = (1 << (32 - (CLUSTER_COUNT_SIZE * 2))) - 1;
 const CLUSTER_COUNT_MASK: u32 = (1 << CLUSTER_COUNT_SIZE) - 1;
-const POINT_LIGHT_INDEX_MASK: u32 = (1 << 8) - 1;
 
 // NOTE: With uniform buffer max binding size as 16384 bytes
-// that means we can fit say 256 point lights in one uniform
+// that means we can fit 256 point lights in one uniform
 // buffer, which means the count can be at most 256 so it
 // needs 9 bits.
 // The array of indices can also use u8 and that means the
 // offset in to the array of indices needs to be able to address
 // 16384 values. log2(16384) = 14 bits.
-// We use 32 bits to store the pair, so we choose to divide the
-// remaining 9 bits proportionally to give some future room.
-// This means we can pack the offset into the upper 19 bits of a u32
-// and the count into the lower 13 bits.
+// We use 32 bits to store the offset and counts so
+// we pack the offset into the upper 14 bits of a u32,
+// the point light count into bits 9-17, and the spot light count into bits 0-8.
+//  [ 31     ..     18 | 17      ..      9 | 8       ..     0 ]
+//  [      offset      | point light count | spot light count ]
 // NOTE: This assumes CPU and GPU endianness are the same which is true
 // for all common and tested x86/ARM CPUs and AMD/NVIDIA/Intel/Apple/etc GPUs
-fn pack_offset_and_count(offset: usize, count: usize) -> u32 {
-    ((offset as u32 & CLUSTER_OFFSET_MASK) << CLUSTER_COUNT_SIZE)
-        | (count as u32 & CLUSTER_COUNT_MASK)
+fn pack_offset_and_counts(offset: usize, point_count: usize, spot_count: usize) -> u32 {
+    ((offset as u32 & CLUSTER_OFFSET_MASK) << (CLUSTER_COUNT_SIZE * 2))
+        | (point_count as u32 & CLUSTER_COUNT_MASK) << CLUSTER_COUNT_SIZE
+        | (spot_count as u32 & CLUSTER_COUNT_MASK)
 }
 
 #[derive(ShaderType)]
@@ -1027,7 +1298,7 @@ struct GpuClusterLightIndexListsUniform {
 
 // NOTE: Assert at compile time that GpuClusterLightIndexListsUniform
 // fits within the maximum uniform buffer binding size
-const _: () = assert!(GpuClusterLightIndexListsUniform::SIZE.get() <= 16384);
+const _: () = assert!(GpuClusterLightIndexListsUniform::SHADER_SIZE.get() <= 16384);
 
 impl Default for GpuClusterLightIndexListsUniform {
     fn default() -> Self {
@@ -1059,7 +1330,7 @@ struct GpuClusterLightIndexListsStorage {
 #[derive(ShaderType, Default)]
 struct GpuClusterOffsetsAndCountsStorage {
     #[size(runtime)]
-    data: Vec<UVec2>,
+    data: Vec<UVec4>,
 }
 
 enum ViewClusterBuffers {
@@ -1138,7 +1409,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn push_offset_and_count(&mut self, offset: usize, count: usize) {
+    pub fn push_offset_and_counts(&mut self, offset: usize, point_count: usize, spot_count: usize) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_offsets_and_counts,
@@ -1150,7 +1421,7 @@ impl ViewClusterBindings {
                     return;
                 }
                 let component = self.n_offsets & ((1 << 2) - 1);
-                let packed = pack_offset_and_count(offset, count);
+                let packed = pack_offset_and_counts(offset, point_count, spot_count);
 
                 cluster_offsets_and_counts.get_mut().data[array_index][component] = packed;
             }
@@ -1158,10 +1429,12 @@ impl ViewClusterBindings {
                 cluster_offsets_and_counts,
                 ..
             } => {
-                cluster_offsets_and_counts
-                    .get_mut()
-                    .data
-                    .push(UVec2::new(offset as u32, count as u32));
+                cluster_offsets_and_counts.get_mut().data.push(UVec4::new(
+                    offset as u32,
+                    point_count as u32,
+                    spot_count as u32,
+                    0,
+                ));
             }
         }
 
@@ -1181,7 +1454,7 @@ impl ViewClusterBindings {
                 let array_index = self.n_indices >> 4; // >> 4 is equivalent to / 16
                 let component = (self.n_indices >> 2) & ((1 << 2) - 1);
                 let sub_index = self.n_indices & ((1 << 2) - 1);
-                let index = index as u32 & POINT_LIGHT_INDEX_MASK;
+                let index = index as u32;
 
                 cluster_light_index_lists.get_mut().data[array_index][component] |=
                     index << (8 * sub_index);
@@ -1281,7 +1554,7 @@ pub fn prepare_clusters(
         mesh_pipeline.clustered_forward_buffer_binding_type,
         BufferBindingType::Storage { .. }
     );
-    for (entity, cluster_config, extracted_clusters) in views.iter() {
+    for (entity, cluster_config, extracted_clusters) in &views {
         let mut view_clusters_bindings =
             ViewClusterBindings::new(mesh_pipeline.clustered_forward_buffer_binding_type);
         view_clusters_bindings.clear();
@@ -1294,8 +1567,11 @@ pub fn prepare_clusters(
                 for _z in 0..cluster_config.dimensions.z {
                     let offset = view_clusters_bindings.n_indices();
                     let cluster_lights = &extracted_clusters.data[cluster_index];
-                    let count = cluster_lights.len();
-                    view_clusters_bindings.push_offset_and_count(offset, count);
+                    view_clusters_bindings.push_offset_and_counts(
+                        offset,
+                        cluster_lights.point_light_count,
+                        cluster_lights.spot_light_count,
+                    );
 
                     if !indices_full {
                         for entity in cluster_lights.iter() {
@@ -1356,12 +1632,10 @@ pub fn queue_shadows(
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<&VisibleEntities, With<ExtractedDirectionalLight>>,
+    spot_light_entities: Query<&VisibleEntities, With<ExtractedPointLight>>,
 ) {
-    for view_lights in view_lights.iter() {
-        let draw_shadow_mesh = shadow_draw_functions
-            .read()
-            .get_id::<DrawShadowMesh>()
-            .unwrap();
+    for view_lights in &view_lights {
+        let draw_shadow_mesh = shadow_draw_functions.read().id::<DrawShadowMesh>();
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, mut shadow_phase) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();
@@ -1376,6 +1650,9 @@ pub fn queue_shadows(
                     .get(*light_entity)
                     .expect("Failed to get point light visible entities")
                     .get(*face_index),
+                LightEntity::Spot { light_entity } => spot_light_entities
+                    .get(*light_entity)
+                    .expect("Failed to get spot light visible entities"),
             };
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
@@ -1430,6 +1707,11 @@ impl PhaseItem for Shadow {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
+    }
+
+    #[inline]
+    fn sort(items: &mut [Self]) {
+        radsort::sort_by_key(items, |item| item.distance);
     }
 }
 

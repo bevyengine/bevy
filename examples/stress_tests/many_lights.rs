@@ -1,25 +1,30 @@
 //! Simple benchmark to test rendering many point lights.
 //! Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights.
 
+use std::f64::consts::PI;
+
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
-    render::{camera::CameraProjection, primitives::Frustum, RenderApp, RenderStage},
+    render::{camera::ScalingMode, Extract, RenderApp, RenderStage},
+    window::PresentMode,
 };
 use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            width: 1024.0,
-            height: 768.0,
-            title: "many_lights".to_string(),
-            present_mode: bevy::window::PresentMode::Immediate,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                width: 1024.0,
+                height: 768.0,
+                title: "many_lights".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .add_startup_system(setup)
@@ -34,18 +39,23 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    warn!(include_str!("warning_string.txt"));
+
     const LIGHT_RADIUS: f32 = 0.3;
     const LIGHT_INTENSITY: f32 = 5.0;
     const RADIUS: f32 = 50.0;
     const N_LIGHTS: usize = 100_000;
 
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: RADIUS,
-            subdivisions: 9,
-        })),
+    commands.spawn(PbrBundle {
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: RADIUS,
+                subdivisions: 9,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
-        transform: Transform::from_scale(Vec3::splat(-1.0)),
+        transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
     });
 
@@ -63,7 +73,7 @@ fn setup(
     for i in 0..N_LIGHTS {
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
-        commands.spawn_bundle(PointLightBundle {
+        commands.spawn(PointLightBundle {
             point_light: PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
@@ -77,30 +87,25 @@ fn setup(
 
     // camera
     match std::env::args().nth(1).as_deref() {
-        Some("orthographic") => {
-            let mut orthographic_camera_bundle = OrthographicCameraBundle::new_3d();
-            orthographic_camera_bundle.orthographic_projection.scale = 20.0;
-            let view_projection = orthographic_camera_bundle
-                .orthographic_projection
-                .get_projection_matrix();
-            orthographic_camera_bundle.frustum = Frustum::from_view_projection(
-                &view_projection,
-                &Vec3::ZERO,
-                &Vec3::Z,
-                orthographic_camera_bundle.orthographic_projection.far(),
-            );
-            commands.spawn_bundle(orthographic_camera_bundle)
-        }
-        _ => commands.spawn_bundle(PerspectiveCameraBundle::default()),
+        Some("orthographic") => commands.spawn(Camera3dBundle {
+            projection: OrthographicProjection {
+                scale: 20.0,
+                scaling_mode: ScalingMode::FixedHorizontal(1.0),
+                ..default()
+            }
+            .into(),
+            ..default()
+        }),
+        _ => commands.spawn(Camera3dBundle::default()),
     };
 
     // add one cube, the only one with strong handles
     // also serves as a reference point during rotation
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh,
         material,
         transform: Transform {
-            translation: Vec3::new(0.0, RADIUS as f32, 0.0),
+            translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },
@@ -115,7 +120,7 @@ fn setup(
 const EPSILON: f64 = 0.36;
 fn fibonacci_spiral_on_sphere(golden_ratio: f64, i: usize, n: usize) -> DVec2 {
     DVec2::new(
-        2.0 * std::f64::consts::PI * (i as f64 / golden_ratio),
+        PI * 2. * (i as f64 / golden_ratio),
         (1.0 - 2.0 * (i as f64 + EPSILON) / (n as f64 - 1.0 + 2.0 * EPSILON)).acos(),
     )
 }
@@ -129,8 +134,9 @@ fn spherical_polar_to_cartesian(p: DVec2) -> DVec3 {
 // System for rotating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.15));
-    camera_transform.rotate(Quat::from_rotation_x(time.delta_seconds() * 0.15));
+    let delta = time.delta_seconds() * 0.15;
+    camera_transform.rotate_z(delta);
+    camera_transform.rotate_x(delta);
 }
 
 // System for printing the number of meshes on every tick of the timer
@@ -159,7 +165,7 @@ impl Plugin for LogVisibleLights {
 
 // System for printing the number of meshes on every tick of the timer
 fn print_visible_light_count(
-    time: Res<Time>,
+    time: Res<ExtractedTime>,
     mut timer: Local<PrintingTimer>,
     visible: Query<&ExtractedPointLight>,
     global_light_meta: Res<GlobalLightMeta>,
@@ -175,14 +181,17 @@ fn print_visible_light_count(
     }
 }
 
-fn extract_time(mut commands: Commands, time: Res<Time>) {
-    commands.insert_resource(time.into_inner().clone());
+#[derive(Resource, Deref, DerefMut)]
+pub struct ExtractedTime(Time);
+
+fn extract_time(mut commands: Commands, time: Extract<Res<Time>>) {
+    commands.insert_resource(ExtractedTime(time.clone()));
 }
 
 struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }

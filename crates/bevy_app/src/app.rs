@@ -1,8 +1,8 @@
-use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
+use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},
-    prelude::{FromWorld, IntoExclusiveSystem},
+    prelude::FromWorld,
     schedule::{
         IntoSystemDescriptor, Schedule, ShouldRun, Stage, StageLabel, State, StateData, SystemSet,
         SystemStage,
@@ -10,12 +10,26 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
-bevy_utils::define_label!(AppLabel);
+bevy_utils::define_label!(
+    /// A strongly-typed class of labels used to identify an [`App`].
+    AppLabel,
+    /// A strongly-typed identifier for an [`AppLabel`].
+    AppLabelId,
+);
+
+/// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
+#[cfg(feature = "bevy_reflect")]
+#[derive(Resource, Clone, bevy_derive::Deref, bevy_derive::DerefMut, Default)]
+pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
+
+pub(crate) enum AppError {
+    DuplicatePlugin { plugin_name: String },
+}
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -56,7 +70,19 @@ pub struct App {
     pub runner: Box<dyn Fn(App)>,
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
-    sub_apps: HashMap<Box<dyn AppLabel>, SubApp>,
+    sub_apps: HashMap<AppLabelId, SubApp>,
+    plugin_registry: Vec<Box<dyn Plugin>>,
+    plugin_name_added: HashSet<String>,
+}
+
+impl Debug for App {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "App {{ sub_apps: ")?;
+        f.debug_map()
+            .entries(self.sub_apps.iter().map(|(k, v)| (k, v)))
+            .finish()?;
+        write!(f, "}}")
+    }
 }
 
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
@@ -65,15 +91,23 @@ struct SubApp {
     runner: Box<dyn Fn(&mut World, &mut App)>,
 }
 
+impl Debug for SubApp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SubApp {{ app: ")?;
+        f.debug_map()
+            .entries(self.app.sub_apps.iter().map(|(k, v)| (k, v)))
+            .finish()?;
+        write!(f, "}}")
+    }
+}
+
 impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
-        app.init_resource::<bevy_reflect::TypeRegistryArc>();
+        app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_stages()
-            .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers.exclusive_system());
+        app.add_default_stages().add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -100,6 +134,8 @@ impl App {
             schedule: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
+            plugin_registry: Vec::default(),
+            plugin_name_added: Default::default(),
         }
     }
 
@@ -112,9 +148,13 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
         self.schedule.run(&mut self.world);
+
         for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
+            sub_app.app.world.clear_trackers();
         }
+
+        self.world.clear_trackers();
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
@@ -140,7 +180,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage("my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage(MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.schedule.add_stage(label, stage);
@@ -157,7 +199,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage_after(CoreStage::Update, "my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage_after(CoreStage::Update, MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage_after<S: Stage>(
         &mut self,
@@ -179,7 +223,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_stage_before(CoreStage::Update, "my_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStage;
+    /// app.add_stage_before(CoreStage::Update, MyStage, SystemStage::parallel());
     /// ```
     pub fn add_stage_before<S: Stage>(
         &mut self,
@@ -201,7 +247,9 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
-    /// app.add_startup_stage("my_startup_stage", SystemStage::parallel());
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
+    /// app.add_startup_stage(MyStartupStage, SystemStage::parallel());
     /// ```
     pub fn add_startup_stage<S: Stage>(&mut self, label: impl StageLabel, stage: S) -> &mut Self {
         self.schedule
@@ -223,9 +271,11 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
     /// app.add_startup_stage_after(
     ///     StartupStage::Startup,
-    ///     "my_startup_stage",
+    ///     MyStartupStage,
     ///     SystemStage::parallel()
     /// );
     /// ```
@@ -254,9 +304,11 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # let mut app = App::new();
     /// #
+    /// #[derive(StageLabel)]
+    /// struct MyStartupStage;
     /// app.add_startup_stage_before(
     ///     StartupStage::Startup,
-    ///     "my_startup_stage",
+    ///     MyStartupStage,
     ///     SystemStage::parallel()
     /// );
     /// ```
@@ -371,7 +423,7 @@ impl App {
         use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "add systems to a startup stage using App::add_startup_system_to_stage"
+            "use `add_startup_system_to_stage` instead of `add_system_to_stage` to add a system to a StartupStage"
         );
         self.schedule.add_system_to_stage(stage_label, system);
         self
@@ -406,7 +458,7 @@ impl App {
         use std::any::TypeId;
         assert!(
             stage_label.type_id() != TypeId::of::<StartupStage>(),
-            "add system sets to a startup stage using App::add_startup_system_set_to_stage"
+            "use `add_startup_system_set_to_stage` instead of `add_system_set_to_stage` to add system sets to a StartupStage"
         );
         self.schedule
             .add_system_set_to_stage(stage_label, system_set);
@@ -642,7 +694,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -655,15 +709,16 @@ impl App {
         self
     }
 
-    /// Inserts a non-send [`Resource`] to the app.
+    /// Inserts a non-send resource to the app.
     ///
     /// You usually want to use [`insert_resource`](Self::insert_resource),
-    /// but there are some special cases when a [`Resource`] cannot be sent across threads.
+    /// but there are some special cases when a resource cannot be sent across threads.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
     /// struct MyCounter {
     ///     counter: usize,
@@ -689,7 +744,9 @@ impl App {
     ///
     /// ```
     /// # use bevy_app::prelude::*;
+    /// # use bevy_ecs::prelude::*;
     /// #
+    /// #[derive(Resource)]
     /// struct MyCounter {
     ///     counter: usize,
     /// }
@@ -761,15 +818,91 @@ impl App {
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
+    /// # // Dummies created to avoid using `bevy_log`,
+    /// # // which pulls in too many dependencies and breaks rust-analyzer
+    /// # pub mod bevy_log {
+    /// #     use bevy_app::prelude::*;
+    /// #     #[derive(Default)]
+    /// #     pub struct LogPlugin;
+    /// #     impl Plugin for LogPlugin{
+    /// #        fn build(&self, app: &mut App) {}
+    /// #     }
+    /// # }
     /// App::new().add_plugin(bevy_log::LogPlugin::default());
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the plugin was already added to the application.
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
     where
         T: Plugin,
     {
+        match self.add_boxed_plugin(Box::new(plugin)) {
+            Ok(app) => app,
+            Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
+                "Error adding plugin {}: : plugin was already added in application",
+                plugin_name
+            ),
+        }
+    }
+
+    /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
+    pub(crate) fn add_boxed_plugin(
+        &mut self,
+        plugin: Box<dyn Plugin>,
+    ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+            Err(AppError::DuplicatePlugin {
+                plugin_name: plugin.name().to_string(),
+            })?;
+        }
         plugin.build(self);
-        self
+        self.plugin_registry.push(plugin);
+        Ok(self)
+    }
+
+    /// Checks if a [`Plugin`] has already been added.
+    ///
+    /// This can be used by plugins to check if a plugin they depend upon has already been
+    /// added.
+    pub fn is_plugin_added<T>(&self) -> bool
+    where
+        T: Plugin,
+    {
+        self.plugin_registry
+            .iter()
+            .any(|p| p.downcast_ref::<T>().is_some())
+    }
+
+    /// Returns a vector of references to any plugins of type `T` that have been added.
+    ///
+    /// This can be used to read the settings of any already added plugins.
+    /// This vector will be length zero if no plugins of that type have been added.
+    /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # #[derive(Default)]
+    /// # struct ImagePlugin {
+    /// #    default_sampler: bool,
+    /// # }
+    /// # impl Plugin for ImagePlugin {
+    /// #    fn build(&self, app: &mut App) {}
+    /// # }
+    /// # let mut app = App::new();
+    /// # app.add_plugin(ImagePlugin::default());
+    /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
+    /// ```
+    pub fn get_added_plugins<T>(&self) -> Vec<&T>
+    where
+        T: Plugin,
+    {
+        self.plugin_registry
+            .iter()
+            .filter_map(|p| p.downcast_ref())
+            .collect()
     }
 
     /// Adds a group of [`Plugin`]s.
@@ -780,76 +913,72 @@ impl App {
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
     /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
-    /// before / after another plugin), see [`add_plugins_with`](Self::add_plugins_with).
+    /// before / after another plugin), call [`build()`](PluginGroup::build) on the group,
+    /// which will convert it to a [`PluginGroupBuilder`](crate::PluginGroupBuilder).
     ///
     /// ## Examples
     /// ```
-    /// # use bevy_app::{prelude::*, PluginGroupBuilder};
-    /// #
-    /// # // Dummy created to avoid using bevy_internal, which pulls in to many dependencies.
-    /// # struct MinimalPlugins;
-    /// # impl PluginGroup for MinimalPlugins {
-    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){;}
-    /// # }
+    /// # use bevy_app::{prelude::*, PluginGroupBuilder, NoopPluginGroup as MinimalPlugins};
     /// #
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
     /// ```
-    pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
-        let mut plugin_group_builder = PluginGroupBuilder::default();
-        group.build(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the plugin in the group was already added to the application.
+    pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
+        let builder = group.build();
+        builder.finish(self);
         self
     }
 
-    /// Adds a group of [`Plugin`]s with an initializer method.
-    ///
-    /// Can be used to add a group of [`Plugin`]s, where the group is modified
-    /// before insertion into a Bevy application. For example, you can add
-    /// additional [`Plugin`]s at a specific place in the [`PluginGroup`], or deactivate
-    /// specific [`Plugin`]s while keeping the rest using a [`PluginGroupBuilder`].
-    ///
-    /// # Examples
-    ///
+    /// Registers the type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource,
+    /// adding reflect data as specified in the [`Reflect`](bevy_reflect::Reflect) derive:
+    /// ```rust,ignore
+    /// #[derive(Reflect)]
+    /// #[reflect(Component, Serialize, Deserialize)] // will register ReflectComponent, ReflectSerialize, ReflectDeserialize
     /// ```
-    /// # use bevy_app::{prelude::*, PluginGroupBuilder};
-    /// #
-    /// # // Dummies created to avoid using bevy_internal which pulls in too many dependencies.
-    /// # struct DefaultPlugins;
-    /// # impl PluginGroup for DefaultPlugins {
-    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){
-    /// #         group.add(bevy_log::LogPlugin::default());
-    /// #     }
-    /// # }
-    /// #
-    /// # struct MyOwnPlugin;
-    /// # impl Plugin for MyOwnPlugin {
-    /// #     fn build(&self, app: &mut App){;}
-    /// # }
-    /// #
-    /// App::new()
-    ///      .add_plugins_with(DefaultPlugins, |group| {
-    ///             group.add_before::<bevy_log::LogPlugin, _>(MyOwnPlugin)
-    ///         });
-    /// ```
-    pub fn add_plugins_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
-    where
-        T: PluginGroup,
-        F: FnOnce(&mut PluginGroupBuilder) -> &mut PluginGroupBuilder,
-    {
-        let mut plugin_group_builder = PluginGroupBuilder::default();
-        group.build(&mut plugin_group_builder);
-        func(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
-        self
-    }
-
-    /// Adds the type `T` to the type registry [`Resource`].
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register`].
     #[cfg(feature = "bevy_reflect")]
     pub fn register_type<T: bevy_reflect::GetTypeRegistration>(&mut self) -> &mut Self {
         {
-            let registry = self.world.resource_mut::<bevy_reflect::TypeRegistryArc>();
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
             registry.write().register::<T>();
+        }
+        self
+    }
+
+    /// Adds the type data `D` to type `T` in the [`TypeRegistry`](bevy_reflect::TypeRegistry) resource.
+    ///
+    /// Most of the time [`App::register_type`] can be used instead to register a type you derived [`Reflect`](bevy_reflect::Reflect) for.
+    /// However, in cases where you want to add a piece of type data that was not included in the list of `#[reflect(...)]` type data in the derive,
+    /// or where the type is generic and cannot register e.g. `ReflectSerialize` unconditionally without knowing the specific type parameters,
+    /// this method can be used to insert additional type data.
+    ///
+    /// # Example
+    /// ```rust
+    /// use bevy_app::App;
+    /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
+    ///
+    /// App::new()
+    ///     .register_type::<Option<String>>()
+    ///     .register_type_data::<Option<String>, ReflectSerialize>()
+    ///     .register_type_data::<Option<String>, ReflectDeserialize>();
+    /// ```
+    ///
+    /// See [`bevy_reflect::TypeRegistry::register_type_data`].
+    #[cfg(feature = "bevy_reflect")]
+    pub fn register_type_data<
+        T: bevy_reflect::Reflect + 'static,
+        D: bevy_reflect::TypeData + bevy_reflect::FromType<T>,
+    >(
+        &mut self,
+    ) -> &mut Self {
+        {
+            let registry = self.world.resource_mut::<AppTypeRegistry>();
+            registry.write().register_type_data::<T, D>();
         }
         self
     }
@@ -866,7 +995,7 @@ impl App {
         sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
-            Box::new(label),
+            label.as_label(),
             SubApp {
                 app,
                 runner: Box::new(sub_app_runner),
@@ -883,15 +1012,16 @@ impl App {
     pub fn sub_app_mut(&mut self, label: impl AppLabel) -> &mut App {
         match self.get_sub_app_mut(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
     }
 
     /// Retrieves a `SubApp` inside this [`App`] with the given label, if it exists. Otherwise returns
     /// an [`Err`] containing the given label.
-    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, impl AppLabel> {
+    pub fn get_sub_app_mut(&mut self, label: impl AppLabel) -> Result<&mut App, AppLabelId> {
+        let label = label.as_label();
         self.sub_apps
-            .get_mut((&label) as &dyn AppLabel)
+            .get_mut(&label)
             .map(|sub_app| &mut sub_app.app)
             .ok_or(label)
     }
@@ -904,7 +1034,7 @@ impl App {
     pub fn sub_app(&self, label: impl AppLabel) -> &App {
         match self.get_sub_app(label) {
             Ok(app) => app,
-            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label),
+            Err(label) => panic!("Sub-App with label '{:?}' does not exist", label.as_str()),
         }
     }
 
@@ -912,7 +1042,7 @@ impl App {
     /// an [`Err`] containing the given label.
     pub fn get_sub_app(&self, label: impl AppLabel) -> Result<&App, impl AppLabel> {
         self.sub_apps
-            .get((&label) as &dyn AppLabel)
+            .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
     }
@@ -930,3 +1060,49 @@ fn run_once(mut app: App) {
 /// frame is over.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;
+
+#[cfg(test)]
+mod tests {
+    use crate::{App, Plugin};
+
+    struct PluginA;
+    impl Plugin for PluginA {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginB;
+    impl Plugin for PluginB {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginC<T>(T);
+    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginD;
+    impl Plugin for PluginD {
+        fn build(&self, _app: &mut crate::App) {}
+        fn is_unique(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn can_add_two_plugins() {
+        App::new().add_plugin(PluginA).add_plugin(PluginB);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_add_twice_the_same_plugin() {
+        App::new().add_plugin(PluginA).add_plugin(PluginA);
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_with_different_type_param() {
+        App::new().add_plugin(PluginC(0)).add_plugin(PluginC(true));
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_not_unique() {
+        App::new().add_plugin(PluginD).add_plugin(PluginD);
+    }
+}

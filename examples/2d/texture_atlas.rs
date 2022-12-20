@@ -6,7 +6,7 @@ use bevy::{asset::LoadState, prelude::*};
 fn main() {
     App::new()
         .init_resource::<RpgSpriteHandles>()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
         .add_state(AppState::Setup)
         .add_system_set(SystemSet::on_enter(AppState::Setup).with_system(load_textures))
         .add_system_set(SystemSet::on_update(AppState::Setup).with_system(check_textures))
@@ -20,7 +20,7 @@ enum AppState {
     Finished,
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct RpgSpriteHandles {
     handles: Vec<HandleUntyped>,
 }
@@ -50,8 +50,13 @@ fn setup(
 ) {
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     for handle in &rpg_sprite_handles.handles {
-        let texture = textures.get(handle).unwrap();
-        texture_atlas_builder.add_texture(handle.clone_weak().typed::<Image>(), texture);
+        let handle = handle.typed_weak();
+        let Some(texture) = textures.get(&handle) else {
+            warn!("{:?} did not resolve to an `Image` asset.", asset_server.get_handle_path(handle));
+            continue;
+        };
+
+        texture_atlas_builder.add_texture(handle, texture);
     }
 
     let texture_atlas = texture_atlas_builder.finish(&mut textures).unwrap();
@@ -61,9 +66,9 @@ fn setup(
     let atlas_handle = texture_atlases.add(texture_atlas);
 
     // set up a scene to display our texture atlas
-    commands.spawn_bundle(OrthographicCameraBundle::new_2d());
+    commands.spawn(Camera2dBundle::default());
     // draw a sprite from the atlas
-    commands.spawn_bundle(SpriteSheetBundle {
+    commands.spawn(SpriteSheetBundle {
         transform: Transform {
             translation: Vec3::new(150.0, 0.0, 0.0),
             scale: Vec3::splat(4.0),
@@ -74,7 +79,7 @@ fn setup(
         ..default()
     });
     // draw the atlas itself
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(SpriteBundle {
         texture: texture_atlas_texture,
         transform: Transform::from_xyz(-300.0, 0.0, 0.0),
         ..default()

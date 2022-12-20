@@ -1,3 +1,5 @@
+use bevy_ecs::system::Resource;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
@@ -32,8 +34,16 @@ use bevy_ecs::schedule::State;
 /// * Call the [`Input::press`] method for each press event.
 /// * Call the [`Input::release`] method for each release event.
 /// * Call the [`Input::clear`] method at each frame start, before processing events.
-#[derive(Debug, Clone)]
-pub struct Input<T: Eq + Hash> {
+///
+/// Note: Calling `clear` from a [`ResMut`] will trigger change detection.
+/// It may be preferable to use [`DetectChanges::bypass_change_detection`]
+/// to avoid causing the resource to always be marked as changed.
+///
+///[`ResMut`]: bevy_ecs::system::ResMut
+///[`DetectChanges::bypass_change_detection`]: bevy_ecs::change_detection::DetectChanges::bypass_change_detection
+#[derive(Debug, Clone, Resource, Reflect)]
+#[reflect(Default)]
+pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that has just been pressed.
@@ -42,7 +52,7 @@ pub struct Input<T: Eq + Hash> {
     just_released: HashSet<T>,
 }
 
-impl<T: Eq + Hash> Default for Input<T> {
+impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -54,7 +64,7 @@ impl<T: Eq + Hash> Default for Input<T> {
 
 impl<T> Input<T>
 where
-    T: Copy + Eq + Hash,
+    T: Copy + Eq + Hash + Send + Sync + 'static,
 {
     /// Registers a press for the given `input`.
     pub fn press(&mut self, input: T) {
@@ -80,6 +90,12 @@ where
         if self.pressed.remove(&input) {
             self.just_released.insert(input);
         }
+    }
+
+    /// Registers a release for all currently pressed inputs.
+    pub fn release_all(&mut self) {
+        // Move all items from pressed into just_released
+        self.just_released.extend(self.pressed.drain());
     }
 
     /// Returns `true` if the `input` has just been pressed.
@@ -123,7 +139,18 @@ where
         self.just_released.remove(&input);
     }
 
+    /// Clears the `pressed`, `just_pressed`, and `just_released` data for every input.
+    ///
+    /// See also [`Input::clear`] for simulating elapsed time steps.
+    pub fn reset_all(&mut self) {
+        self.pressed.clear();
+        self.just_pressed.clear();
+        self.just_released.clear();
+    }
+
     /// Clears the `just pressed` and `just released` data for every input.
+    ///
+    /// See also [`Input::reset_all`] for a full reset.
     pub fn clear(&mut self) {
         self.just_pressed.clear();
         self.just_released.clear();
@@ -195,6 +222,17 @@ mod test {
         input.release(DummyInput::Input1);
         assert!(!input.pressed.contains(&DummyInput::Input1));
         assert!(input.just_released.contains(&DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_release_all() {
+        let mut input = Input::default();
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        input.release_all();
+        assert!(input.pressed.is_empty());
+        assert!(input.just_released.contains(&DummyInput::Input1));
+        assert!(input.just_released.contains(&DummyInput::Input2));
     }
 
     #[test]
@@ -282,6 +320,22 @@ mod test {
         assert!(!input.pressed(DummyInput::Input1));
         assert!(!input.just_pressed(DummyInput::Input1));
         assert!(!input.just_released(DummyInput::Input1));
+    }
+
+    #[test]
+    fn test_reset_all() {
+        let mut input = Input::default();
+
+        input.press(DummyInput::Input1);
+        input.press(DummyInput::Input2);
+        input.release(DummyInput::Input2);
+        assert!(input.pressed.contains(&DummyInput::Input1));
+        assert!(input.just_pressed.contains(&DummyInput::Input1));
+        assert!(input.just_released.contains(&DummyInput::Input2));
+        input.reset_all();
+        assert!(input.pressed.is_empty());
+        assert!(input.just_pressed.is_empty());
+        assert!(input.just_released.is_empty());
     }
 
     #[test]

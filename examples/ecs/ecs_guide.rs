@@ -52,7 +52,7 @@ struct Score {
 //
 
 // This resource holds information about the game:
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct GameState {
     current_round: usize,
     total_players: usize,
@@ -60,6 +60,7 @@ struct GameState {
 }
 
 // This resource provides rules for our "game".
+#[derive(Resource)]
 struct GameRules {
     winning_score: usize,
     max_rounds: usize,
@@ -88,7 +89,7 @@ fn new_round_system(game_rules: Res<GameRules>, mut game_state: ResMut<GameState
 
 // This system updates the score for each entity with the "Player" and "Score" component.
 fn score_system(mut query: Query<(&Player, &mut Score)>) {
-    for (player, mut score) in query.iter_mut() {
+    for (player, mut score) in &mut query {
         let scored_a_point = random::<bool>();
         if scored_a_point {
             score.value += 1;
@@ -114,7 +115,7 @@ fn score_check_system(
     mut game_state: ResMut<GameState>,
     query: Query<(&Player, &Score)>,
 ) {
-    for (player, score) in query.iter() {
+    for (player, score) in &query {
         if score.value == game_rules.winning_score {
             game_state.winning_player = Some(player.name.clone());
         }
@@ -130,7 +131,7 @@ fn game_over_system(
     mut app_exit_events: EventWriter<AppExit>,
 ) {
     if let Some(ref player) = game_state.winning_player {
-        println!("{} won the game!", player);
+        println!("{player} won the game!");
         app_exit_events.send(AppExit);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");
@@ -185,7 +186,7 @@ fn new_player_system(
     let add_new_player = random::<bool>();
     if add_new_player && game_state.total_players < game_rules.max_players {
         game_state.total_players += 1;
-        commands.spawn_bundle((
+        commands.spawn((
             Player {
                 name: format!("Player {}", game_state.total_players),
             },
@@ -211,9 +212,10 @@ fn exclusive_player_system(world: &mut World) {
     };
     // Randomly add a new player
     if should_add_player {
-        world.spawn().insert_bundle((
+        println!("Player {} has joined the game!", total_players + 1);
+        world.spawn((
             Player {
-                name: format!("Player {}", total_players),
+                name: format!("Player {}", total_players + 1),
             },
             Score { value: 0 },
         ));
@@ -314,13 +316,7 @@ fn main() {
             MyStage::BeforeRound,
             new_player_system.after(new_round_system),
         )
-        .add_system_to_stage(
-            MyStage::BeforeRound,
-            // Systems which take `&mut World` as an argument must call `.exclusive_system()`.
-            // The following will not compile.
-            //.add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
-            exclusive_player_system.exclusive_system(),
-        )
+        .add_system_to_stage(MyStage::BeforeRound, exclusive_player_system)
         .add_system_to_stage(MyStage::AfterRound, score_check_system)
         .add_system_to_stage(
             // We can ensure that `game_over_system` runs after `score_check_system` using explicit ordering
@@ -334,7 +330,7 @@ fn main() {
         // Be aware that not everything reported by this checker is a potential problem, you'll have
         // to make that judgement yourself.
         .add_plugin(LogPlugin::default())
-        .insert_resource(ReportExecutionOrderAmbiguities)
+        .init_resource::<ReportExecutionOrderAmbiguities>()
         // This call to run() starts the app we just built!
         .run();
 }
