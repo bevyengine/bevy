@@ -248,7 +248,39 @@ fn assert_component_access_compatibility(
 /// there's either only one mutable reference to a parameter at a time or any number of immutable references.
 ///
 /// # Example
+/// 
+/// The following system mutably accesses the same component two times,
+/// which is not allowed due to rust's mutability rules.
 ///
+/// ```should_panic
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct Ally;
+/// #
+/// // This will panic at runtime when the system gets initialized.
+/// fn bad_system(
+///     mut enemies: Query<&mut Health, With<Enemy>>,
+///     mut allies: Query<&mut Health, With<Ally>>,
+/// ) {
+///     // ...
+/// }
+/// #
+/// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
+/// # let mut world = World::new();
+/// # bad_system_system.initialize(&mut world);
+/// # bad_system_system.run((), &mut world);
+/// ```
+/// 
+/// Conflicing `SystemParam`s such as the ones shown above can be placed in a `ParamSet`,
+/// which leverages the borrow checker to ensure that only one of the contained parameters are accessed at a given time.
+/// 
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
@@ -275,7 +307,6 @@ fn assert_component_access_compatibility(
 ///         // Do your fancy stuff here...
 ///     }
 ///
-///     // The second, third, and subsequen
 ///     // Note that you can only access one parameter of the `ParamSet` at a time due to Rust's borrowing rules.
 ///     for mut health in set.p1().iter_mut() {
 ///         // Do even fancier stuff here...
@@ -283,33 +314,6 @@ fn assert_component_access_compatibility(
 ///
 ///     let entities = set.p2().entities();
 /// }
-/// ```
-///
-/// ```should_panic
-/// # use bevy_ecs::prelude::*;
-/// #
-/// # #[derive(Component)]
-/// # struct Health;
-/// #
-/// # #[derive(Component)]
-/// # struct Enemy;
-/// #
-/// # #[derive(Component)]
-/// # struct Ally;
-/// #
-/// // This is an example of a system that panics because of the existence of the mutually exclusive system params.
-/// // An entity may have both the Enemy and Ally components, causing two mutable references to the same Health component to be active at once.
-/// fn bad_system(
-///     mut enemies: Query<&mut Health, With<Enemy>>,
-///     mut allies: Query<&mut Health, With<Ally>>,
-/// ) {
-///     // Do your weird stuff here.
-/// }
-/// #
-/// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
-/// # let mut world = World::new();
-/// # bad_system_system.initialize(&mut world);
-/// # bad_system_system.run((), &mut world);
 /// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
