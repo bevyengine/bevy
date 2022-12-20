@@ -1,4 +1,5 @@
 mod as_bind_group;
+mod atomic_id;
 mod extract_resource;
 
 use bevy_macro_utils::BevyManifest;
@@ -22,4 +23,9 @@ pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
     as_bind_group::derive_as_bind_group(input).unwrap_or_else(|err| err.to_compile_error().into())
+}
+
+#[proc_macro]
+pub fn define_atomic_id(input: TokenStream) -> TokenStream {
+    atomic_id::define_atomic_id(input)
 }

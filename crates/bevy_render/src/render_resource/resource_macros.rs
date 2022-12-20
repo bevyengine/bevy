@@ -1,3 +1,12 @@
+#[cfg(target_has_atomic = "64")]
+pub type AtomicIdCounter = std::sync::atomic::AtomicU64;
+#[cfg(target_has_atomic = "64")]
+pub type AtomicIdType = u64;
+#[cfg(not(target_has_atomic = "64"))]
+pub type AtomicIdCounter = std::sync::atomic::AtomicUsize;
+#[cfg(not(target_has_atomic = "64"))]
+pub type AtomicIdType = usize;
+
 // structs containing wgpu types take a long time to compile. this is particularly bad for generic
 // structs containing wgpu structs. we avoid that in debug builds (and for cargo check and rust analyzer)
 // by boxing and type-erasing with the `render_resource_wrapper` macro.

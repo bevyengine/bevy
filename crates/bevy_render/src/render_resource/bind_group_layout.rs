@@ -1,10 +1,8 @@
 use crate::render_resource::resource_macros::*;
-use bevy_reflect::Uuid;
+use bevy_render_macros::define_atomic_id;
 use std::ops::Deref;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BindGroupLayoutId(Uuid);
-
+define_atomic_id!(pub BindGroupLayoutId);
 render_resource_wrapper!(ErasedBindGroupLayout, wgpu::BindGroupLayout);
 
 #[derive(Clone, Debug)]
@@ -34,7 +32,7 @@ impl BindGroupLayout {
 impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
-            id: BindGroupLayoutId(Uuid::new_v4()),
+            id: BindGroupLayoutId::new(),
             value: ErasedBindGroupLayout::new(value),
         }
     }

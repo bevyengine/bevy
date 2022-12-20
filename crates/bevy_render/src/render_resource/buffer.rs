@@ -1,11 +1,9 @@
-use bevy_utils::Uuid;
+use bevy_render_macros::define_atomic_id;
 use std::ops::{Bound, Deref, RangeBounds};
 
 use crate::render_resource::resource_macros::*;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BufferId(Uuid);
-
+define_atomic_id!(pub BufferId);
 render_resource_wrapper!(ErasedBuffer, wgpu::Buffer);
 
 #[derive(Clone, Debug)]
@@ -42,7 +40,7 @@ impl Buffer {
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
-            id: BufferId(Uuid::new_v4()),
+            id: BufferId::new(),
             value: ErasedBuffer::new(value),
         }
     }
