@@ -269,17 +269,19 @@ fn assert_component_access_compatibility(
 ///         &World,
 ///     )>
 /// ) {
-///     // This will access the first [`SystemParam`], likewise, the second, third and all other SystemParams can be accessed in a similar manner.
+///     // This will access the first `SystemParam`.
+///     // Likewise, the second, third, and subsequent SystemParams can be accessed in a similar manner.
 ///     for mut health in set.p0().iter_mut() {
 ///         // Do your fancy stuff here...
 ///     }
 ///
+///     // The second, third, and subsequen
+///     // Note that you can only access one parameter of the `ParamSet` at a time due to Rust's borrowing rules.
 ///     for mut health in set.p1().iter_mut() {
 ///         // Do even fancier stuff here...
 ///     }
 ///
 ///     let entities = set.p2().entities();
-///     // Note that you can only mutably access one parameter of the [`ParamSet`] at a time due to Rust's borrowing rules.
 /// }
 /// ```
 ///
