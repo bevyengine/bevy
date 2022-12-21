@@ -67,7 +67,7 @@ pub fn propagate_transforms(
 }
 
 /// # Safety
-/// `unsafe_transform_query` must not be borrowed for `entity`, nor any of its children.
+/// `unsafe_transform_query` must not be borrowed for `entity`, nor any of its descendants.
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     unsafe_transform_query: &Query<
