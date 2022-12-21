@@ -1117,4 +1117,16 @@ mod tests {
     fn can_add_twice_the_same_plugin_not_unique() {
         App::new().add_plugin(PluginD).add_plugin(PluginD);
     }
+
+    #[test]
+    #[should_panic]
+    fn cant_call_app_run_from_plugin_build() {
+        struct PluginRun;
+        impl Plugin for PluginRun {
+            fn build(&self, app: &mut crate::App) {
+                app.run();
+            }
+        }
+        App::new().add_plugin(PluginRun);
+    }
 }
