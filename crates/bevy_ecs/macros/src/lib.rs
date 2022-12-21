@@ -222,7 +222,17 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     for (i, param) in params.iter().enumerate() {
         let fn_name = Ident::new(&format!("p{i}"), Span::call_site());
         let index = Index::from(i);
+        let ordinal = match i {
+            1 => "1st".to_owned(),
+            2 => "2nd".to_owned(),
+            3 => "3rd".to_owned(),
+            x => format!("{x}th"),
+        };
+        let comment =
+            format!("Gets exclusive access to the {ordinal} parameter in this [`ParamSet`].");
         param_fn_muts.push(quote! {
+            #[doc = #comment]
+            /// No other parameters may be accessed while this one is active.
             pub fn #fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, #param> {
                 // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
