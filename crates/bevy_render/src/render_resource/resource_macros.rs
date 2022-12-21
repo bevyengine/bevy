@@ -130,16 +130,17 @@ macro_rules! define_atomic_id {
             fn default() -> Self {
                 use std::sync::atomic::{AtomicU32, Ordering};
 
-                static COUNTER: AtomicU32 = AtomicU32::new(0);
-                COUNTER
-                    .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |val| {
-                        val.checked_add(1)
-                    })
-                    .map(Self)
-                    .expect(&format!(
-                        "The system ran out of unique `{}`s.",
-                        stringify!($atomic_id_type)
-                    ))
+                static COUNTER: AtomicU32 = AtomicU32::new(1);
+
+                match COUNTER.fetch_add(1, Ordering::Relaxed) {
+                    0 => {
+                        panic!(
+                            "The system ran out of unique `{}`s.",
+                            stringify!($atomic_id_type)
+                        );
+                    }
+                    id => Self(id),
+                }
             }
         }
     };
