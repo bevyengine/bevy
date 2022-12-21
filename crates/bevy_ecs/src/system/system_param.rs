@@ -1689,7 +1689,7 @@ mod tests {
     fn long_system(_param: LongParam) {
         crate::system::assert_is_system(long_system);
     }
-    
+
     #[derive(SystemParam)]
     pub struct UnitParam;
 
