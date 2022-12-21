@@ -86,8 +86,8 @@ pub struct ComputedCameraValues {
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
-    /// Cameras with a lower priority will be rendered before cameras with a higher priority.
-    pub priority: isize,
+    /// Cameras with a lower ordering will be rendered before cameras with a higher ordering.
+    pub ordering: isize,
     /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`]. If `false`, this
     /// camera will not be rendered.
     pub is_active: bool,
@@ -109,7 +109,7 @@ impl Default for Camera {
     fn default() -> Self {
         Self {
             is_active: true,
-            priority: 0,
+            ordering: 0,
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
@@ -477,7 +477,7 @@ pub struct ExtractedCamera {
     pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
-    pub priority: isize,
+    pub ordering: isize,
 }
 
 pub fn extract_cameras(
@@ -511,7 +511,7 @@ pub fn extract_cameras(
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
                     render_graph: camera_render_graph.0.clone(),
-                    priority: camera.priority,
+                    ordering: camera.ordering,
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),
