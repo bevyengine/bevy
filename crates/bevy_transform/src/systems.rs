@@ -78,7 +78,6 @@ unsafe fn propagate_recursive(
     expected_parent: Entity,
     entity: Entity,
     mut changed: bool,
-    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) {
     let Ok(actual_parent) = parent_query.get(entity) else {
         panic!("Propagated child for {:?} has no Parent component!", entity);
