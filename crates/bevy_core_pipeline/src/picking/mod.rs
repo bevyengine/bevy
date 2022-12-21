@@ -13,14 +13,15 @@ pub struct PickingPlugin;
 
 impl Plugin for PickingPlugin {
     fn build(&self, app: &mut bevy_app::App) {
+        // Return early if no render app, this can happen in headless situations.
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app.add_system_to_stage(RenderStage::Prepare, picking::prepare_picking_targets);
+
         // TODO: Also register type?
         app.add_event::<PickedEvent>()
             .add_plugin(ExtractComponentPlugin::<Picking>::default())
             // In PreUpdate such that written events are ensure not to have a frame delay
             // for default user systems
             .add_system_to_stage(CoreStage::PreUpdate, picking::picking_events);
-
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-        render_app.add_system_to_stage(RenderStage::Prepare, picking::prepare_picking_targets);
     }
 }
