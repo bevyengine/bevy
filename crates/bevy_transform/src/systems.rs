@@ -132,15 +132,19 @@ unsafe fn propagate_recursive(
     // If our `Children` has changed, we need to recalculate everything below us
     changed |= changed_children;
     for child in children {
-        propagate_recursive(
-            &global_matrix,
-            unsafe_transform_query,
-            parent_query,
-            children_query,
-            entity,
-            *child,
-            changed,
-        );
+        // SAFETY: The caller guarantees that `unsafe_transform_query` will not be borrowed
+        // for any children of `entity`, so it is safe to call `propagate_recursive` for each child.
+        unsafe {
+            propagate_recursive(
+                &global_matrix,
+                unsafe_transform_query,
+                parent_query,
+                children_query,
+                entity,
+                *child,
+                changed,
+            )
+        };
     }
 }
 
