@@ -399,8 +399,6 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIterator<'a, E> {
 pub struct ManualEventIteratorWithId<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
-    oldest_id: usize,
-    marker: PhantomData<E>,
 }
 
 impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
@@ -420,6 +418,7 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
         let unread_count = a.len() + b.len();
         // Ensure `len` is implemented correctly
         debug_assert_eq!(unread_count, reader.len(events));
+
         //self.last_event_count = events.event_count - unread_count;
         // Iterate the oldest first, then the newer events
         let chain = a.iter().chain(b.iter());
@@ -427,8 +426,6 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
         Self {
             reader,
             chain,
-            oldest_id: events.oldest_id(),
-            marker: PhantomData,
         }
     }
 
@@ -469,7 +466,12 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
 
 impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
-        self.oldest_id.saturating_sub(self.reader.last_event_count)
+        // Chain doesn't implement `ExactSizeIterator` unfortunately, we can co-opt
+        // size_hint in our case since it should always return the correct info here.
+        let hint = self.chain.size_hint();
+        let lower_bound = hint.0;
+        let upper_bound = hint.1.unwrap_or(0);
+        upper_bound.saturating_sub(lower_bound)
     }
 }
 
