@@ -23,6 +23,9 @@ use crate::{
     view::Msaa,
 };
 
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
+
 pub fn copy_to_buffer(
     camera_size: UVec2,
     picking: &Picking,
@@ -59,8 +62,8 @@ pub fn copy_to_buffer(
     );
 }
 
-/// Add this to a camera in order for the camera
-/// to generate [`PickedEntityIndex`] events when the cursor hovers over entities.
+/// Add this to a camera in order for the camera to also render to a buffer
+/// with entity indices instead of colors.
 #[derive(Component, Debug, Clone, Default)]
 pub struct Picking {
     pub buffer: Arc<Mutex<Option<(Buffer, PickingBufferSize)>>>,
@@ -140,8 +143,8 @@ impl PickingTextures {
         .into()
     }
 
-    /// Retrieve this target's color attachment. This will use [`Self::sampled_main_texture`] and resolve to [`Self::main_texture`] if
-    /// the target has sampling enabled. Otherwise it will use [`Self::main_texture`] directly.
+    /// Retrieve this target's color attachment. This will use [`Self::sampled`] and resolve to [`Self::main`] if
+    /// the target has sampling enabled. Otherwise it will use [`Self::main`] directly.
     pub fn get_color_attachment(&self, ops: Operations<wgpu::Color>) -> RenderPassColorAttachment {
         match &self.sampled {
             Some(sampled_texture) => RenderPassColorAttachment {
