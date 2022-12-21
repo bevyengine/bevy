@@ -1304,14 +1304,14 @@ macro_rules! impl_system_param_tuple {
             #[inline]
             fn new_archetype(($($param,)*): &mut Self::State, _archetype: &Archetype, _system_meta: &mut SystemMeta) {
                 $(
-                    <$param as SystemParam>::new_archetype($param, _archetype, _system_meta);
+                    $param::new_archetype($param, _archetype, _system_meta);
                 )*
             }
 
             #[inline]
             fn apply(($($param,)*): &mut Self::State, _system_meta: &SystemMeta, _world: &mut World) {
                 $(
-                    <$param as SystemParam>::apply($param, _system_meta, _world);
+                    $param::apply($param, _system_meta, _world);
                 )*
             }
 

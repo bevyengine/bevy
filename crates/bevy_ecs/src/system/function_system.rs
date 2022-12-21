@@ -138,7 +138,7 @@ impl SystemMeta {
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
-    param_state: <Param as SystemParam>::State,
+    param_state: Param::State,
     world_id: WorldId,
     archetype_generation: ArchetypeGeneration,
 }

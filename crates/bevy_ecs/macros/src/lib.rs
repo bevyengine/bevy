@@ -227,7 +227,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    <#param as SystemParam>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
+                    #param::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
         });
@@ -273,7 +273,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
                     let (#(#param,)*) = state;
                     #(
-                        <#param as SystemParam>::new_archetype(#param, archetype, system_meta);
+                        #param::new_archetype(#param, archetype, system_meta);
                     )*
                 }
 
