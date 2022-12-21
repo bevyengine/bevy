@@ -49,6 +49,7 @@ pub fn propagate_transforms(
                 // SAFETY: Assuming the hierarchy is consistent, we can be sure that each `child` entity
                 // will be unique across each invocation of this loop body.
                 // Since this is the only place where `transform_query` gets used, `child` will not be borrowed anywhere else.
+                // Also, since `child` only has one ancestor, none of its children will be borrowed by other invocations of the loop.
                 unsafe {
                     propagate_recursive(
                         &global_transform,
