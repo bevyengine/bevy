@@ -10,7 +10,7 @@ use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input,
+    parse_macro_input, parse_quote,
     punctuated::Punctuated,
     spanned::Spanned,
     token::Comma,
@@ -359,8 +359,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             )
         })
         .collect::<Vec<(&Field, SystemParamFieldAttributes)>>();
+    let mut field_locals = Vec::new();
     let mut fields = Vec::new();
-    let mut field_indices = Vec::new();
     let mut field_types = Vec::new();
     let mut ignored_fields = Vec::new();
     let mut ignored_field_types = Vec::new();
@@ -369,6 +369,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             ignored_fields.push(field.ident.as_ref().unwrap());
             ignored_field_types.push(&field.ty);
         } else {
+            field_locals.push(format_ident!("f{i}"));
             let i = Index::from(i);
             fields.push(
                 field
@@ -378,7 +379,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     .unwrap_or_else(|| quote! { #i }),
             );
             field_types.push(&field.ty);
-            field_indices.push(i);
         }
     }
 
@@ -424,6 +424,19 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
+    let mut tuple_types: Vec<_> = field_types.iter().map(|x| quote! { #x }).collect();
+    let mut tuple_patterns: Vec<_> = field_locals.iter().map(|x| quote! { #x }).collect();
+
+    // If the number of fields exceeds the 16-parameter limit,
+    // fold the fields into tuples of tuples until we are below the limit.
+    const LIMIT: usize = 16;
+    while tuple_types.len() > LIMIT {
+        let end = Vec::from_iter(tuple_types.drain(..LIMIT));
+        tuple_types.push(parse_quote!( (#(#end,)*) ));
+
+        let end = Vec::from_iter(tuple_patterns.drain(..LIMIT));
+        tuple_patterns.push(parse_quote!( (#(#end,)*) ));
+    }
     // Create a where clause for the `ReadOnlySystemParam` impl.
     // Ensure that each field implements `ReadOnlySystemParam`.
     let mut read_only_generics = generics.clone();
@@ -448,7 +461,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
             #[doc(hidden)]
             type State<'w, 's, #punctuated_generic_idents> = FetchState<
-                (#(<#field_types as #path::system::SystemParam>::State,)*),
+                (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 #punctuated_generic_idents
             >;
 
@@ -484,8 +497,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     world: &'w #path::world::World,
                     change_tick: u32,
                 ) -> Self::Item<'w, 's> {
+                    let (#(#tuple_patterns,)*) = <
+                        <(#(#tuple_types,)*) as #path::system::SystemParam>::State as #path::system::SystemParamState
+                    >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::State as #path::system::SystemParamState>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#fields: #field_locals,)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }

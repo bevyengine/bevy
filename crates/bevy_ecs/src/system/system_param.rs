@@ -1661,6 +1661,35 @@ mod tests {
         _local: Local<'s, T>,
     }
 
+    #[derive(Resource)]
+    pub struct R<const I: usize>;
+
+    #[derive(SystemParam)]
+    pub struct LongParam<'w> {
+        _r0: Res<'w, R<0>>,
+        _r1: Res<'w, R<1>>,
+        _r2: Res<'w, R<2>>,
+        _r3: Res<'w, R<3>>,
+        _r4: Res<'w, R<4>>,
+        _r5: Res<'w, R<5>>,
+        _r6: Res<'w, R<6>>,
+        _r7: Res<'w, R<7>>,
+        _r8: Res<'w, R<8>>,
+        _r9: Res<'w, R<9>>,
+        _r10: Res<'w, R<10>>,
+        _r11: Res<'w, R<11>>,
+        _r12: Res<'w, R<12>>,
+        _r13: Res<'w, R<13>>,
+        _r14: Res<'w, R<14>>,
+        _r15: Res<'w, R<15>>,
+        _r16: Res<'w, R<16>>,
+    }
+
+    #[allow(dead_code)]
+    fn long_system(_param: LongParam) {
+        crate::system::assert_is_system(long_system);
+    }
+
     #[derive(SystemParam)]
     pub struct UnitParam;
 
