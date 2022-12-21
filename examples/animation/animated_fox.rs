@@ -3,7 +3,18 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::picking::{PickedEvent, PickedEventVariant, Picking},
+    scene::SceneInstance,
+    utils::HashSet,
+};
+
+#[derive(Debug, Default, Deref, DerefMut, Resource)]
+struct FoxEntities(HashSet<Entity>);
+
+const LIGHT_FOX_PICKED: Color = Color::WHITE;
+const LIGHT_FOX_UNPICKED: Color = Color::CRIMSON;
 
 fn main() {
     App::new()
@@ -12,14 +23,20 @@ fn main() {
             color: Color::WHITE,
             brightness: 1.0,
         })
+        .init_resource::<FoxEntities>()
         .add_startup_system(setup)
         .add_system(setup_scene_once_loaded)
         .add_system(keyboard_animation_control)
+        .add_system(store_fox_entites)
+        .add_system(picking)
         .run();
 }
 
 #[derive(Resource)]
 struct Animations(Vec<Handle<AnimationClip>>);
+
+#[derive(Component)]
+struct Fox;
 
 fn setup(
     mut commands: Commands,
@@ -35,11 +52,14 @@ fn setup(
     ]));
 
     // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(100.0, 100.0, 150.0)
-            .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(100.0, 100.0, 150.0)
+                .looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+            ..default()
+        },
+        Picking::default(),
+    ));
 
     // Plane
     commands.spawn(PbrBundle {
@@ -53,16 +73,19 @@ fn setup(
         transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
         directional_light: DirectionalLight {
             shadows_enabled: true,
+            color: LIGHT_FOX_UNPICKED,
             ..default()
         },
         ..default()
     });
 
-    // Fox
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/animated/Fox.glb#Scene0"),
-        ..default()
-    });
+    commands.spawn((
+        SceneBundle {
+            scene: asset_server.load("models/animated/Fox.glb#Scene0"),
+            ..default()
+        },
+        Fox,
+    ));
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");
@@ -128,6 +151,57 @@ fn keyboard_animation_control(
                     Duration::from_millis(250),
                 )
                 .repeat();
+        }
+    }
+}
+
+#[derive(Default, Deref, DerefMut)]
+struct Done(bool);
+
+// In order to know when the fox is picked, we need to store which entites
+// belong to it.
+fn store_fox_entites(
+    mut done: Local<Done>,
+    mut fox_entities: ResMut<FoxEntities>,
+    scene_spawner: Res<SceneSpawner>,
+    fox_scene: Query<&SceneInstance, With<Fox>>,
+) {
+    if let Some(id) = fox_scene.get_single().ok() {
+        if !**done {
+            if scene_spawner.instance_is_ready(**id) {
+                **fox_entities = HashSet::from_iter(scene_spawner.iter_instance_entities(**id));
+                **done = true;
+            }
+        }
+    }
+}
+
+fn picking(
+    fox_entities: Res<FoxEntities>,
+    mut pick_events: EventReader<PickedEvent>,
+    mut light: Query<&mut DirectionalLight>,
+) {
+    if fox_entities.is_empty() {
+        // Not ready
+        return;
+    }
+
+    for pick_event in pick_events.iter() {
+        let PickedEvent { entity, event } = pick_event;
+
+        if !fox_entities.contains(entity) {
+            return;
+        }
+
+        match event {
+            PickedEventVariant::Picked => {
+                let mut light = light.single_mut();
+                light.color = LIGHT_FOX_PICKED
+            }
+            PickedEventVariant::Unpicked => {
+                let mut light = light.single_mut();
+                light.color = LIGHT_FOX_UNPICKED
+            }
         }
     }
 }
