@@ -7,6 +7,7 @@ use crate::utility::{StringExpr, WhereClauseOptions};
 use quote::{quote, ToTokens};
 use syn::token::Comma;
 
+use crate::remote::RemoteType;
 use crate::serialization::SerializationDataDef;
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
@@ -16,7 +17,7 @@ use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
     parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, LitStr, Meta, Path,
-    PathSegment, Type, TypeParam, TypePath, Variant,
+    PathSegment, Type, TypeParam, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -69,7 +70,7 @@ pub(crate) struct ReflectStruct<'a> {
     meta: ReflectMeta<'a>,
     serialization_data: Option<SerializationDataDef>,
     fields: Vec<StructField<'a>>,
-    remote_ty: Option<&'a TypePath>,
+    remote_ty: Option<RemoteType<'a>>,
 }
 
 /// Enum data used by derive macros for `Reflect` and `FromReflect`.
@@ -88,7 +89,7 @@ pub(crate) struct ReflectStruct<'a> {
 pub(crate) struct ReflectEnum<'a> {
     meta: ReflectMeta<'a>,
     variants: Vec<EnumVariant<'a>>,
-    remote_ty: Option<&'a TypePath>,
+    remote_ty: Option<RemoteType<'a>>,
 }
 
 /// Represents a field on a struct or tuple struct.
@@ -364,7 +365,7 @@ impl<'a> ReflectDerive<'a> {
     /// # Panics
     ///
     /// Panics when called on [`ReflectDerive::Value`].
-    pub fn set_remote(&mut self, remote_ty: Option<&'a TypePath>) {
+    pub fn set_remote(&mut self, remote_ty: Option<RemoteType<'a>>) {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
                 data.remote_ty = remote_ty;
@@ -548,7 +549,7 @@ impl<'a> ReflectStruct<'a> {
 
     #[allow(dead_code)]
     /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<&'a TypePath> {
+    pub fn remote_ty(&self) -> Option<RemoteType<'a>> {
         self.remote_ty
     }
 
@@ -611,7 +612,7 @@ impl<'a> ReflectEnum<'a> {
 
     #[allow(dead_code)]
     /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<&'a TypePath> {
+    pub fn remote_ty(&self) -> Option<RemoteType<'a>> {
         self.remote_ty
     }
 
@@ -621,7 +622,10 @@ impl<'a> ReflectEnum<'a> {
     pub fn get_unit(&self, variant: &Ident) -> proc_macro2::TokenStream {
         let name = self
             .remote_ty
-            .map(|path| path.to_token_stream())
+            .map(|path| match path.as_expr_path() {
+                Ok(path) => path.to_token_stream(),
+                Err(err) => err.into_compile_error(),
+            })
             .unwrap_or_else(|| self.meta.type_path().to_token_stream());
 
         quote! {

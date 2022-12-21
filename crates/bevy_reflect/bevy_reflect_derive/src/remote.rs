@@ -4,7 +4,8 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, DeriveInput, TypePath};
+use syn::token::PathSep;
+use syn::{parse_macro_input, DeriveInput, ExprPath, PathArguments, TypePath};
 
 /// Generates the remote wrapper type and implements all the necessary traits.
 pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStream {
@@ -29,7 +30,7 @@ pub(crate) fn reflect_remote(args: TokenStream, input: TokenStream) -> TokenStre
         Err(err) => return err.into_compile_error().into(),
     };
 
-    derive_data.set_remote(Some(&remote_ty));
+    derive_data.set_remote(Some(RemoteType::new(&remote_ty)));
 
     let (reflect_impls, from_reflect_impl) = match derive_data {
         ReflectDerive::Struct(struct_data) | ReflectDerive::UnitStruct(struct_data) => (
@@ -98,6 +99,54 @@ fn generate_remote_wrapper(input: &DeriveInput, remote_ty: &TypePath) -> proc_ma
         #(#attrs)*
         #[repr(transparent)]
         #vis struct #ident #ty_generics (pub #remote_ty) #where_clause;
+    }
+}
+
+/// A reflected type's remote type.
+///
+/// This is a wrapper around [`TypePath`] that allows it to be paired with other remote-specific logic.
+#[derive(Copy, Clone)]
+pub(crate) struct RemoteType<'a> {
+    path: &'a TypePath,
+}
+
+impl<'a> RemoteType<'a> {
+    pub fn new(path: &'a TypePath) -> Self {
+        Self { path }
+    }
+
+    /// Returns the [type path](TypePath) of this remote type.
+    pub fn type_path(&self) -> &'a TypePath {
+        self.path
+    }
+
+    /// Attempts to convert the [type path](TypePath) of this remote type into an [expression path](ExprPath).
+    ///
+    /// For example, this would convert `foo::Bar<T>` into `foo::Bar::<T>` to be used as part of an expression.
+    ///
+    /// This will return an error for types that are parenthesized, such as in `Fn() -> Foo`.
+    pub fn as_expr_path(&self) -> Result<ExprPath, syn::Error> {
+        let mut expr_path = self.path.clone();
+        if let Some(segment) = expr_path.path.segments.last_mut() {
+            match &mut segment.arguments {
+                PathArguments::None => {}
+                PathArguments::AngleBracketed(arg) => {
+                    arg.colon2_token = Some(PathSep::default());
+                }
+                PathArguments::Parenthesized(arg) => {
+                    return Err(syn::Error::new(
+                        arg.span(),
+                        "cannot use parenthesized type as remote type",
+                    ))
+                }
+            }
+        }
+
+        Ok(ExprPath {
+            path: expr_path.path,
+            qself: expr_path.qself,
+            attrs: Vec::new(),
+        })
     }
 }
 
