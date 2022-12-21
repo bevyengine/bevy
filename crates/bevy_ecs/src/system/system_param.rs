@@ -312,6 +312,7 @@ fn assert_component_access_compatibility(
 ///         // Do even fancier stuff here...
 ///     }
 /// }
+/// # bevy_ecs::system::assert_is_system(fancy_system);
 /// ```
 ///
 /// Of course, `ParamSet`s can be used with any kind of `SystemParam`, not just [queries](Query).
