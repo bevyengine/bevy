@@ -241,11 +241,12 @@ fn assert_component_access_compatibility(
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
 ///
-/// Allows systems to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s such as
+/// Allows systems to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s, such as
 /// two queries that reference the same mutable data or an event reader and writer of the same type.
 ///
-/// Each individual [`SystemParam`] can be accessed by using the functions `p0()`, `p1()`, ..., `p7()`, according to the order they are defined in the `ParamSet`. This ensures that
-/// there's either only one mutable reference to a parameter at a time or any number of immutable references.
+/// Each individual [`SystemParam`] can be accessed by using the functions `p0()`, `p1()`, ..., `p7()`,
+/// according to the order they are defined in the `ParamSet`. This ensures that there's either
+/// only one mutable reference to a parameter at a time or any number of immutable references.
 ///
 /// # Examples
 ///
