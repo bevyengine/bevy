@@ -46,21 +46,28 @@ pub fn propagate_transforms(
             changed |= children_changed;
 
             for child in children.iter() {
-                propagate_recursive(
-                    &global_transform,
-                    &transform_query,
-                    &parent_query,
-                    &children_query,
-                    entity,
-                    *child,
-                    changed,
-                );
+                // SAFETY: Assuming the hierarchy is consistent, we can be sure that each `child`
+                // will be unique across each invocation of this loop body.
+                // Since this is the only place where `transform_query` gets used, `child` will not be borrowed anywhere else.
+                unsafe {
+                    propagate_recursive(
+                        &global_transform,
+                        &transform_query,
+                        &parent_query,
+                        &children_query,
+                        entity,
+                        *child,
+                        changed,
+                    )
+                };
             }
         },
     );
 }
 
-fn propagate_recursive(
+/// # Safety
+/// `unsafe_transform_query` must not be borrowed for `entity`, nor any of its children.
+unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     unsafe_transform_query: &Query<
         (&Transform, Changed<Transform>, &mut GlobalTransform),
