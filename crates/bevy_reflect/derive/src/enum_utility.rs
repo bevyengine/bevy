@@ -112,10 +112,19 @@ pub(crate) trait VariantBuilder: Sized {
         };
 
         if field.field.attrs().remote.is_some() {
-            quote! {
-                // SAFE: The wrapper type should be repr(transparent) over the remote type
-                unsafe {
-                    ::core::mem::transmute(#construction)
+            if field.field.attrs().is_remote_generic().unwrap_or_default() {
+                quote! {
+                    // SAFE: The wrapper type should be repr(transparent) over the remote type
+                    unsafe {
+                        ::core::mem::transmute_copy(&#construction)
+                    }
+                }
+            } else {
+                quote! {
+                    // SAFE: The wrapper type should be repr(transparent) over the remote type
+                    unsafe {
+                        ::core::mem::transmute(#construction)
+                    }
                 }
             }
         } else {

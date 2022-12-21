@@ -122,10 +122,20 @@ fn impl_struct_internal(
     let __this = Ident::new("__this", Span::call_site());
 
     // The reflected type: either `Self` or a remote type
-    let (reflect_ty, retval) = if let Some(remote_ty) = reflect_struct.remote_ty() {
-        (quote!(#remote_ty), quote!(Self(#__this)))
+    let (reflect_ty, constructor, retval) = if let Some(remote_ty) = reflect_struct.remote_ty() {
+        let constructor = match remote_ty.as_expr_path() {
+            Ok(path) => path,
+            Err(err) => return err.into_compile_error(),
+        };
+        let remote_ty = remote_ty.type_path();
+
+        (
+            quote!(#remote_ty),
+            quote!(#constructor),
+            quote!(Self(#__this)),
+        )
     } else {
-        (quote!(Self), quote!(#__this))
+        (quote!(Self), quote!(Self), quote!(#__this))
     };
 
     let constructor = if is_defaultable {
@@ -143,7 +153,7 @@ fn impl_struct_internal(
         let MemberValuePair(ignored_members, ignored_values) = get_ignored_fields(reflect_struct);
 
         quote! {
-            let #__this = #reflect_ty {
+            let #__this = #constructor {
                 #(#active_members: #active_values()?,)*
                 #(#ignored_members: #ignored_values,)*
             };
@@ -222,19 +232,30 @@ fn get_active_fields(
                     is_tuple,
                 );
                 let ty = field.reflected_type().clone();
-                let remote_ty = &field.data.ty;
+                let real_ty = &field.data.ty;
 
                 let get_field = quote! {
                     #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)
                 };
 
                 let into_remote = |value: proc_macro2::TokenStream| {
-                    if field.attrs().remote.is_some() {
+                    if field.attrs.is_remote_generic().unwrap_or_default() {
                         quote! {
                             #FQOption::Some(
                                 // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
                                 unsafe {
-                                    ::core::mem::transmute::<#ty, #remote_ty>(#value?)
+                                    ::core::mem::transmute_copy::<#ty, #real_ty>(
+                                        &::core::mem::ManuallyDrop::new(#value?)
+                                    )
+                                }
+                            )
+                        }
+                    } else if field.attrs().remote.is_some() {
+                        quote! {
+                            #FQOption::Some(
+                                // SAFETY: The remote type should always be a `#[repr(transparent)]` for the actual field type
+                                unsafe {
+                                    ::core::mem::transmute::<#ty, #real_ty>(#value?)
                                 }
                             )
                         }

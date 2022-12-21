@@ -217,4 +217,21 @@ impl FieldAttributes {
 
         Ok(())
     }
+
+    /// Returns `Some(true)` if the field has a generic remote type.
+    ///
+    /// If the remote type is not generic, returns `Some(false)`.
+    ///
+    /// If the field does not have a remote type, returns `None`.
+    pub fn is_remote_generic(&self) -> Option<bool> {
+        if let Type::Path(type_path) = self.remote.as_ref()? {
+            type_path
+                .path
+                .segments
+                .last()
+                .map(|segment| !segment.arguments.is_empty())
+        } else {
+            Some(false)
+        }
+    }
 }
