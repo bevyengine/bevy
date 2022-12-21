@@ -18,12 +18,14 @@ struct Foxes {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
-            present_mode: PresentMode::AutoNoVsync,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
+                present_mode: PresentMode::AutoNoVsync,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(Foxes {
@@ -129,7 +131,7 @@ fn setup(
             commands.entity(ring_parent).with_children(|builder| {
                 builder.spawn(SceneBundle {
                     scene: fox_handle.clone(),
-                    transform: Transform::from_xyz(x as f32, 0.0, z as f32)
+                    transform: Transform::from_xyz(x, 0.0, z)
                         .with_scale(Vec3::splat(0.01))
                         .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
                     ..default()

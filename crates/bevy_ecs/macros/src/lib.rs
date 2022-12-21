@@ -12,8 +12,10 @@ use syn::{
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
+    spanned::Spanned,
     token::Comma,
-    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Result, Token, TypeParam,
+    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta, Result,
+    Token, TypeParam,
 };
 
 struct AllTuples {
@@ -80,7 +82,15 @@ pub fn all_tuples(input: TokenStream) -> TokenStream {
     })
 }
 
-#[proc_macro_derive(Bundle)]
+enum BundleFieldKind {
+    Component,
+    Ignore,
+}
+
+const BUNDLE_ATTRIBUTE_NAME: &str = "bundle";
+const BUNDLE_ATTRIBUTE_IGNORE_NAME: &str = "ignore";
+
+#[proc_macro_derive(Bundle, attributes(bundle))]
 pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let ecs_path = bevy_ecs_path();
@@ -89,6 +99,36 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         Ok(fields) => &fields.named,
         Err(e) => return e.into_compile_error().into(),
     };
+
+    let mut field_kind = Vec::with_capacity(named_fields.len());
+
+    'field_loop: for field in named_fields.iter() {
+        for attr in &field.attrs {
+            if attr.path.is_ident(BUNDLE_ATTRIBUTE_NAME) {
+                if let Ok(Meta::List(MetaList { nested, .. })) = attr.parse_meta() {
+                    if let Some(&NestedMeta::Meta(Meta::Path(ref path))) = nested.first() {
+                        if path.is_ident(BUNDLE_ATTRIBUTE_IGNORE_NAME) {
+                            field_kind.push(BundleFieldKind::Ignore);
+                            continue 'field_loop;
+                        }
+
+                        return syn::Error::new(
+                            path.span(),
+                            format!(
+                                "Invalid bundle attribute. Use `{BUNDLE_ATTRIBUTE_IGNORE_NAME}`"
+                            ),
+                        )
+                        .into_compile_error()
+                        .into();
+                    }
+
+                    return syn::Error::new(attr.span(), format!("Invalid bundle attribute. Use `#[{BUNDLE_ATTRIBUTE_NAME}({BUNDLE_ATTRIBUTE_IGNORE_NAME})]`")).into_compile_error().into();
+                }
+            }
+        }
+
+        field_kind.push(BundleFieldKind::Component);
+    }
 
     let field = named_fields
         .iter()
@@ -102,23 +142,38 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     let mut field_component_ids = Vec::new();
     let mut field_get_components = Vec::new();
     let mut field_from_components = Vec::new();
-    for (field_type, field) in field_type.iter().zip(field.iter()) {
-        field_component_ids.push(quote! {
-        <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
-        });
-        field_get_components.push(quote! {
-            self.#field.get_components(&mut *func);
-        });
-        field_from_components.push(quote! {
-            #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
-        });
+    for ((field_type, field_kind), field) in
+        field_type.iter().zip(field_kind.iter()).zip(field.iter())
+    {
+        match field_kind {
+            BundleFieldKind::Component => {
+                field_component_ids.push(quote! {
+                <#field_type as #ecs_path::bundle::Bundle>::component_ids(components, storages, &mut *ids);
+                });
+                field_get_components.push(quote! {
+                    self.#field.get_components(&mut *func);
+                });
+                field_from_components.push(quote! {
+                    #field: <#field_type as #ecs_path::bundle::Bundle>::from_components(ctx, &mut *func),
+                });
+            }
+
+            BundleFieldKind::Ignore => {
+                field_from_components.push(quote! {
+                    #field: ::std::default::Default::default(),
+                });
+            }
+        }
     }
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let struct_name = &ast.ident;
 
     TokenStream::from(quote! {
-        /// SAFETY: ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        // SAFETY:
+        // - ComponentId is returned in field-definition-order. [from_components] and [get_components] use field-definition-order
+        // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
+        //   the correct `StorageType` into the callback.
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
             fn component_ids(
                 components: &mut #ecs_path::component::Components,
@@ -139,7 +194,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             }
 
             #[allow(unused_variables)]
-            fn get_components(self, func: &mut impl FnMut(#ecs_path::ptr::OwningPtr<'_>)) {
+            #[inline]
+            fn get_components(
+                self,
+                func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
+            ) {
                 #(#field_get_components)*
             }
         }
@@ -156,20 +215,20 @@ fn get_idents(fmt_string: fn(usize) -> String, count: usize) -> Vec<Ident> {
 pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     let mut tokens = TokenStream::new();
     let max_params = 8;
-    let params = get_idents(|i| format!("P{}", i), max_params);
-    let params_fetch = get_idents(|i| format!("PF{}", i), max_params);
-    let metas = get_idents(|i| format!("m{}", i), max_params);
+    let params = get_idents(|i| format!("P{i}"), max_params);
+    let params_state = get_idents(|i| format!("PF{i}"), max_params);
+    let metas = get_idents(|i| format!("m{i}"), max_params);
     let mut param_fn_muts = Vec::new();
     for (i, param) in params.iter().enumerate() {
-        let fn_name = Ident::new(&format!("p{}", i), Span::call_site());
+        let fn_name = Ident::new(&format!("p{i}"), Span::call_site());
         let index = Index::from(i);
         param_fn_muts.push(quote! {
-            pub fn #fn_name<'a>(&'a mut self) -> <#param::Fetch as SystemParamFetch<'a, 'a>>::Item {
+            pub fn #fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, #param> {
                 // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
                 // ParamSets are guaranteed to not conflict with other SystemParams
                 unsafe {
-                    <#param::Fetch as SystemParamFetch<'a, 'a>>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
+                    <#param::State as SystemParamState>::get_param(&mut self.param_states.#index, &self.system_meta, self.world, self.change_tick)
                 }
             }
         });
@@ -177,34 +236,36 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
 
     for param_count in 1..=max_params {
         let param = &params[0..param_count];
-        let param_fetch = &params_fetch[0..param_count];
+        let param_state = &params_state[0..param_count];
         let meta = &metas[0..param_count];
         let param_fn_mut = &param_fn_muts[0..param_count];
         tokens.extend(TokenStream::from(quote! {
             impl<'w, 's, #(#param: SystemParam,)*> SystemParam for ParamSet<'w, 's, (#(#param,)*)>
             {
-                type Fetch = ParamSetState<(#(#param::Fetch,)*)>;
+                type State = ParamSetState<(#(#param::State,)*)>;
             }
 
-            // SAFETY: All parameters are constrained to ReadOnlyFetch, so World is only read
+            // SAFETY: All parameters are constrained to ReadOnlyState, so World is only read
 
-            unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> ReadOnlySystemParamFetch for ParamSetState<(#(#param_fetch,)*)>
-            where #(#param_fetch: ReadOnlySystemParamFetch,)*
+            unsafe impl<'w, 's, #(#param,)*> ReadOnlySystemParam for ParamSet<'w, 's, (#(#param,)*)>
+            where #(#param: ReadOnlySystemParam,)*
             { }
 
             // SAFETY: Relevant parameter ComponentId and ArchetypeComponentId access is applied to SystemMeta. If any ParamState conflicts
             // with any prior access, a panic will occur.
 
-            unsafe impl<#(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamState for ParamSetState<(#(#param_fetch,)*)>
+            unsafe impl<#(#param_state: SystemParamState,)*> SystemParamState for ParamSetState<(#(#param_state,)*)>
             {
+                type Item<'w, 's> = ParamSet<'w, 's, (#(<#param_state as SystemParamState>::Item::<'w, 's>,)*)>;
+
                 fn init(world: &mut World, system_meta: &mut SystemMeta) -> Self {
                     #(
                         // Pretend to add each param to the system alone, see if it conflicts
                         let mut #meta = system_meta.clone();
                         #meta.component_access_set.clear();
                         #meta.archetype_component_access.clear();
-                        #param_fetch::init(world, &mut #meta);
-                        let #param = #param_fetch::init(world, &mut system_meta.clone());
+                        #param_state::init(world, &mut #meta);
+                        let #param = #param_state::init(world, &mut system_meta.clone());
                     )*
                     #(
                         system_meta
@@ -224,24 +285,17 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                     )*
                 }
 
-                fn apply(&mut self, world: &mut World) {
-                    self.0.apply(world)
+                fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+                    self.0.apply(system_meta, world)
                 }
-            }
-
-
-
-            impl<'w, 's, #(#param_fetch: for<'w1, 's1> SystemParamFetch<'w1, 's1>,)*> SystemParamFetch<'w, 's> for ParamSetState<(#(#param_fetch,)*)>
-            {
-                type Item = ParamSet<'w, 's, (#(<#param_fetch as SystemParamFetch<'w, 's>>::Item,)*)>;
 
                 #[inline]
-                unsafe fn get_param(
+                unsafe fn get_param<'w, 's>(
                     state: &'s mut Self,
                     system_meta: &SystemMeta,
                     world: &'w World,
                     change_tick: u32,
-                ) -> Self::Item {
+                ) -> Self::Item<'w, 's> {
                     ParamSet {
                         param_states: &mut state.0,
                         system_meta: system_meta.clone(),
@@ -273,13 +327,14 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let fields = match get_named_struct_fields(&ast.data) {
-        Ok(fields) => &fields.named,
-        Err(e) => return e.into_compile_error().into(),
+    let syn::Data::Struct(syn::DataStruct { fields: field_definitions, ..}) = ast.data else {
+        return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
+            .into_compile_error()
+            .into();
     };
     let path = bevy_ecs_path();
 
-    let field_attributes = fields
+    let field_attributes = field_definitions
         .iter()
         .map(|field| {
             (
@@ -314,14 +369,39 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             ignored_fields.push(field.ident.as_ref().unwrap());
             ignored_field_types.push(&field.ty);
         } else {
-            fields.push(field.ident.as_ref().unwrap());
+            let i = Index::from(i);
+            fields.push(
+                field
+                    .ident
+                    .as_ref()
+                    .map(|f| quote! { #f })
+                    .unwrap_or_else(|| quote! { #i }),
+            );
             field_types.push(&field.ty);
-            field_indices.push(Index::from(i));
+            field_indices.push(i);
         }
     }
 
     let generics = ast.generics;
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+
+    // Emit an error if there's any unrecognized lifetime names.
+    for lt in generics.lifetimes() {
+        let ident = &lt.lifetime.ident;
+        let w = format_ident!("w");
+        let s = format_ident!("s");
+        if ident != &w && ident != &s {
+            return syn::Error::new_spanned(
+                lt,
+                r#"invalid lifetime name: expected `'w` or `'s`
+ 'w -- refers to data stored in the World.
+ 's -- refers to data stored in the SystemParam's state.'"#,
+            )
+            .into_compile_error()
+            .into();
+        }
+    }
+
+    let (_impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let lifetimeless_generics: Vec<_> = generics
         .params
@@ -344,28 +424,48 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
+    // Create a where clause for the `ReadOnlySystemParam` impl.
+    // Ensure that each field implements `ReadOnlySystemParam`.
+    let mut read_only_generics = generics.clone();
+    let read_only_where_clause = read_only_generics.make_where_clause();
+    for field_type in &field_types {
+        read_only_where_clause
+            .predicates
+            .push(syn::parse_quote!(#field_type: #path::system::ReadOnlySystemParam));
+    }
+
     let struct_name = &ast.ident;
-    let fetch_struct_visibility = &ast.vis;
+    let state_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
-        // The struct can still be accessed via SystemParam::Fetch, e.g. EventReaderState can be accessed via
-        // <EventReader<'static, 'static, T> as SystemParam>::Fetch
+        // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
+        // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
-            impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type Fetch = FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents>;
+            impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+                type State = State<'w, 's, #punctuated_generic_idents>;
             }
 
             #[doc(hidden)]
-            #fetch_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
+            type State<'w, 's, #punctuated_generic_idents> = FetchState<
+                (#(<#field_types as #path::system::SystemParam>::State,)*),
+                #punctuated_generic_idents
+            >;
+
+            #[doc(hidden)]
+            #state_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
                 state: TSystemParamState,
                 marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
             }
 
-            unsafe impl<TSystemParamState: #path::system::SystemParamState, #punctuated_generics> #path::system::SystemParamState for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {
+            unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState for
+                State<'__w, '__s, #punctuated_generic_idents>
+            #where_clause {
+                type Item<'w, 's> = #struct_name #ty_generics;
+
                 fn init(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self {
                     Self {
-                        state: TSystemParamState::init(world, system_meta),
+                        state: #path::system::SystemParamState::init(world, system_meta),
                         marker: std::marker::PhantomData,
                     }
                 }
@@ -374,28 +474,25 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     self.state.new_archetype(archetype, system_meta)
                 }
 
-                fn apply(&mut self, world: &mut #path::world::World) {
-                    self.state.apply(world)
+                fn apply(&mut self, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
+                    self.state.apply(system_meta, world)
                 }
-            }
 
-            impl #impl_generics #path::system::SystemParamFetch<'w, 's> for FetchState <(#(<#field_types as #path::system::SystemParam>::Fetch,)*), #punctuated_generic_idents> #where_clause {
-                type Item = #struct_name #ty_generics;
-                unsafe fn get_param(
+                unsafe fn get_param<'w, 's>(
                     state: &'s mut Self,
                     system_meta: &#path::system::SystemMeta,
                     world: &'w #path::world::World,
                     change_tick: u32,
-                ) -> Self::Item {
+                ) -> Self::Item<'w, 's> {
                     #struct_name {
-                        #(#fields: <<#field_types as #path::system::SystemParam>::Fetch as #path::system::SystemParamFetch>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
+                        #(#fields: <<#field_types as #path::system::SystemParam>::State as #path::system::SystemParamState>::get_param(&mut state.state.#field_indices, system_meta, world, change_tick),)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }
             }
 
-            // Safety: The `ParamState` is `ReadOnlySystemParamFetch`, so this can only read from the `World`
-            unsafe impl<TSystemParamState: #path::system::SystemParamState + #path::system::ReadOnlySystemParamFetch, #punctuated_generics> #path::system::ReadOnlySystemParamFetch for FetchState <TSystemParamState, #punctuated_generic_idents> #where_clause {}
+            // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
+            unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
         };
     })
 }

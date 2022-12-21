@@ -6,8 +6,8 @@ use bevy_app::{CoreStage, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
-use bevy_reflect::std_traits::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_transform::TransformSystem;
 use std::cell::Cell;
@@ -29,7 +29,7 @@ use crate::{
 ///
 /// This is done by the `visibility_propagate_system` which uses the entity hierarchy and
 /// `Visibility` to set the values of each entity's [`ComputedVisibility`] component.
-#[derive(Component, Clone, Copy, Reflect, Debug, PartialEq, Eq, Default)]
+#[derive(Component, Clone, Copy, Reflect, FromReflect, Debug, PartialEq, Eq, Default)]
 #[reflect(Component, Default)]
 pub enum Visibility {
     /// An entity with `Visibility::Inherited` will inherit the Visibility of its [`Parent`].
@@ -62,12 +62,19 @@ impl std::cmp::PartialEq<&Visibility> for Visibility {
     }
 }
 
+bitflags::bitflags! {
+    #[derive(Reflect)]
+    pub(super) struct ComputedVisibilityFlags: u8 {
+        const VISIBLE_IN_VIEW = 1 << 0;
+        const VISIBLE_IN_HIERARCHY = 1 << 1;
+    }
+}
+
 /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
 #[derive(Component, Clone, Reflect, Debug, Eq, PartialEq)]
 #[reflect(Component, Default)]
 pub struct ComputedVisibility {
-    is_visible_in_hierarchy: bool,
-    is_visible_in_view: bool,
+    flags: ComputedVisibilityFlags,
 }
 
 impl Default for ComputedVisibility {
@@ -79,8 +86,7 @@ impl Default for ComputedVisibility {
 impl ComputedVisibility {
     /// A [`ComputedVisibility`], set as invisible.
     pub const HIDDEN: Self = ComputedVisibility {
-        is_visible_in_hierarchy: false,
-        is_visible_in_view: false,
+        flags: ComputedVisibilityFlags::empty(),
     };
 
     /// Whether this entity is visible to something this frame. This is true if and only if [`Self::is_visible_in_hierarchy`] and [`Self::is_visible_in_view`]
@@ -89,7 +95,7 @@ impl ComputedVisibility {
     /// [`CoreStage::Update`] stage will yield the value from the previous frame.
     #[inline]
     pub fn is_visible(&self) -> bool {
-        self.is_visible_in_hierarchy && self.is_visible_in_view
+        self.flags.bits == ComputedVisibilityFlags::all().bits
     }
 
     /// Whether this entity is visible in the entity hierarchy, which is determined by the [`Visibility`] component.
@@ -98,7 +104,8 @@ impl ComputedVisibility {
     /// [`VisibilitySystems::VisibilityPropagate`] system label.
     #[inline]
     pub fn is_visible_in_hierarchy(&self) -> bool {
-        self.is_visible_in_hierarchy
+        self.flags
+            .contains(ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY)
     }
 
     /// Whether this entity is visible in _any_ view (Cameras, Lights, etc). Each entity type (and view type) should choose how to set this
@@ -110,7 +117,8 @@ impl ComputedVisibility {
     /// Other entities might just set this to `true` every frame.
     #[inline]
     pub fn is_visible_in_view(&self) -> bool {
-        self.is_visible_in_view
+        self.flags
+            .contains(ComputedVisibilityFlags::VISIBLE_IN_VIEW)
     }
 
     /// Sets `is_visible_in_view` to `true`. This is not reversible for a given frame, as it encodes whether or not this is visible in
@@ -119,7 +127,16 @@ impl ComputedVisibility {
     /// label. Don't call this unless you are defining a custom visibility system. For normal user-defined entity visibility, see [`Visibility`].
     #[inline]
     pub fn set_visible_in_view(&mut self) {
-        self.is_visible_in_view = true;
+        self.flags.insert(ComputedVisibilityFlags::VISIBLE_IN_VIEW);
+    }
+
+    #[inline]
+    fn reset(&mut self, visible_in_hierarchy: bool) {
+        self.flags = if visible_in_hierarchy {
+            ComputedVisibilityFlags::VISIBLE_IN_HIERARCHY
+        } else {
+            ComputedVisibilityFlags::empty()
+        };
     }
 }
 
@@ -202,14 +219,23 @@ impl Plugin for VisibilityPlugin {
             update_frusta::<OrthographicProjection>
                 .label(UpdateOrthographicFrusta)
                 .after(camera_system::<OrthographicProjection>)
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate)
+                // We assume that no camera will have more than one projection component,
+                // so these systems will run independently of one another.
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                .ambiguous_with(update_frusta::<PerspectiveProjection>)
+                .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
             update_frusta::<PerspectiveProjection>
                 .label(UpdatePerspectiveFrusta)
                 .after(camera_system::<PerspectiveProjection>)
-                .after(TransformSystem::TransformPropagate),
+                .after(TransformSystem::TransformPropagate)
+                // We assume that no camera will have more than one projection component,
+                // so these systems will run independently of one another.
+                // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -279,15 +305,13 @@ fn visibility_propagate_system(
     children_query: Query<&Children, (With<Parent>, With<Visibility>, With<ComputedVisibility>)>,
 ) {
     for (children, visibility, mut computed_visibility, entity) in root_query.iter_mut() {
-        // Setting `Visibility::Inherited` on the root entity is the same as setting `Visibility::Visible`.
-        computed_visibility.is_visible_in_hierarchy =
-            visibility == Visibility::Inherited || visibility == Visibility::Visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.is_visible_in_view = false;
+        computed_visibility
+            .reset(visibility == Visibility::Inherited || visibility == Visibility::Visible);
         if let Some(children) = children {
             for child in children.iter() {
                 let _ = propagate_recursive(
-                    computed_visibility.is_visible_in_hierarchy,
+                    computed_visibility.is_visible_in_hierarchy(),
                     &mut visibility_query,
                     &children_query,
                     *child,
@@ -314,12 +338,11 @@ fn propagate_recursive(
             child_parent.get(), expected_parent,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
         );
-        computed_visibility.is_visible_in_hierarchy = (parent_visible
-            && visibility == Visibility::Inherited)
+        let visible_in_hierarchy = (parent_visible && visibility == Visibility::Inherited)
             || visibility == Visibility::Visible;
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
-        computed_visibility.is_visible_in_view = false;
-        computed_visibility.is_visible_in_hierarchy
+        computed_visibility.reset(visible_in_hierarchy);
+        visible_in_hierarchy
     };
 
     for child in children_query.get(entity).map_err(drop)?.iter() {
@@ -393,7 +416,7 @@ pub fn check_visibility(
                     }
                 }
 
-                computed_visibility.is_visible_in_view = true;
+                computed_visibility.set_visible_in_view();
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
@@ -415,7 +438,7 @@ pub fn check_visibility(
                     return;
                 }
 
-                computed_visibility.is_visible_in_view = true;
+                computed_visibility.set_visible_in_view();
                 let cell = thread_queues.get_or_default();
                 let mut queue = cell.take();
                 queue.push(entity);
@@ -512,7 +535,7 @@ mod test {
                 .entity(e)
                 .get::<ComputedVisibility>()
                 .unwrap()
-                .is_visible_in_hierarchy
+                .is_visible_in_hierarchy()
         };
         assert!(
             !is_visible(root1),

@@ -1,13 +1,18 @@
-use bevy_ecs::system::Resource;
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
-use raw_window_handle::RawWindowHandle;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
-#[reflect_value(PartialEq, Hash)]
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A unique ID for a [`Window`].
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
+#[reflect_value(Debug, PartialEq, Hash, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect_value(Serialize, Deserialize)
+)]
 pub struct WindowId(Uuid);
 
 /// Presentation mode for a window.
@@ -26,8 +31,13 @@ pub struct WindowId(Uuid);
 /// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor) using [`WindowDescriptor::present_mode`](WindowDescriptor::present_mode)
 /// or updated on a [`Window`](Window) using [`set_present_mode`](Window::set_present_mode).
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -58,13 +68,48 @@ pub enum PresentMode {
     Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
 }
 
+/// Specifies how the alpha channel of the textures should be handled during compositing.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Hash)]
+pub enum CompositeAlphaMode {
+    /// Chooses either `Opaque` or `Inherit` automatically，depending on the
+    /// `alpha_mode` that the current surface can support.
+    Auto = 0,
+    /// The alpha channel, if it exists, of the textures is ignored in the
+    /// compositing process. Instead, the textures is treated as if it has a
+    /// constant alpha of 1.0.
+    Opaque = 1,
+    /// The alpha channel, if it exists, of the textures is respected in the
+    /// compositing process. The non-alpha channels of the textures are
+    /// expected to already be multiplied by the alpha channel by the
+    /// application.
+    PreMultiplied = 2,
+    /// The alpha channel, if it exists, of the textures is respected in the
+    /// compositing process. The non-alpha channels of the textures are not
+    /// expected to already be multiplied by the alpha channel by the
+    /// application; instead, the compositor will multiply the non-alpha
+    /// channels of the texture by the alpha channel during compositing.
+    PostMultiplied = 3,
+    /// The alpha channel, if it exists, of the textures is unknown for processing
+    /// during compositing. Instead, the application is responsible for setting
+    /// the composite alpha blending mode using native WSI command. If not set,
+    /// then a platform-specific default will be used.
+    Inherit = 4,
+}
+
 impl WindowId {
     /// Creates a new [`WindowId`].
     pub fn new() -> Self {
         WindowId(Uuid::new_v4())
     }
     /// The [`WindowId`] for the primary window.
-    pub fn primary() -> Self {
+    pub const fn primary() -> Self {
         WindowId(Uuid::from_u128(0))
     }
     /// Get whether or not this [`WindowId`] is for the primary window.
@@ -76,7 +121,7 @@ impl WindowId {
 use crate::CursorIcon;
 use std::fmt;
 
-use crate::raw_window_handle::RawWindowHandleWrapper;
+use crate::raw_handle::RawHandleWrapper;
 
 impl fmt::Display for WindowId {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -97,8 +142,13 @@ impl Default for WindowId {
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
     pub min_height: f32,
@@ -257,14 +307,17 @@ pub struct Window {
     decorations: bool,
     cursor_icon: CursorIcon,
     cursor_visible: bool,
-    cursor_locked: bool,
+    cursor_grab_mode: CursorGrabMode,
+    hittest: bool,
     physical_cursor_position: Option<DVec2>,
-    raw_window_handle: Option<RawWindowHandleWrapper>,
+    raw_handle: Option<RawHandleWrapper>,
     focused: bool,
     mode: WindowMode,
     canvas: Option<String>,
     fit_canvas_to_parent: bool,
     command_queue: Vec<WindowCommand>,
+    alpha_mode: CompositeAlphaMode,
+    always_on_top: bool,
 }
 /// A command to be sent to a window.
 ///
@@ -306,8 +359,8 @@ pub enum WindowCommand {
         decorations: bool,
     },
     /// Set whether or not the cursor's position is locked.
-    SetCursorLockMode {
-        locked: bool,
+    SetCursorGrabMode {
+        grab_mode: CursorGrabMode,
     },
     /// Set the cursor's [`CursorIcon`].
     SetCursorIcon {
@@ -320,6 +373,10 @@ pub enum WindowCommand {
     /// Set the cursor's position.
     SetCursorPosition {
         position: Vec2,
+    },
+    /// Set whether or not mouse events within *this* window are captured, or fall through to the Window below.
+    SetCursorHitTest {
+        hittest: bool,
     },
     /// Set whether or not the window is maximized.
     SetMaximized {
@@ -340,12 +397,40 @@ pub enum WindowCommand {
     SetResizeConstraints {
         resize_constraints: WindowResizeConstraints,
     },
+    /// Set whether the window is always on top.
+    SetAlwaysOnTop {
+        always_on_top: bool,
+    },
     Close,
 }
 
+/// Defines if and how the cursor is grabbed.
+///
+/// Use this enum with [`Window::set_cursor_grab_mode`] to grab the cursor.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
+pub enum CursorGrabMode {
+    /// The cursor can freely leave the window.
+    None,
+    /// The cursor is confined to the window area.
+    Confined,
+    /// The cursor is locked inside the window area to a certain position.
+    Locked,
+}
+
 /// Defines the way a window is displayed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     Windowed,
@@ -368,7 +453,7 @@ impl Window {
         physical_height: u32,
         scale_factor: f64,
         position: Option<IVec2>,
-        raw_window_handle: Option<RawWindowHandle>,
+        raw_handle: Option<RawHandleWrapper>,
     ) -> Self {
         Window {
             id,
@@ -385,15 +470,18 @@ impl Window {
             resizable: window_descriptor.resizable,
             decorations: window_descriptor.decorations,
             cursor_visible: window_descriptor.cursor_visible,
-            cursor_locked: window_descriptor.cursor_locked,
+            cursor_grab_mode: window_descriptor.cursor_grab_mode,
             cursor_icon: CursorIcon::Default,
+            hittest: true,
             physical_cursor_position: None,
-            raw_window_handle: raw_window_handle.map(RawWindowHandleWrapper::new),
-            focused: true,
+            raw_handle,
+            focused: false,
             mode: window_descriptor.mode,
             canvas: window_descriptor.canvas.clone(),
             fit_canvas_to_parent: window_descriptor.fit_canvas_to_parent,
             command_queue: Vec::new(),
+            alpha_mode: window_descriptor.alpha_mode,
+            always_on_top: window_descriptor.always_on_top,
         }
     }
     /// Get the window's [`WindowId`].
@@ -604,6 +692,12 @@ impl Window {
     }
 
     #[inline]
+    /// Get the window's [`CompositeAlphaMode`].
+    pub fn alpha_mode(&self) -> CompositeAlphaMode {
+        self.alpha_mode
+    }
+
+    #[inline]
     #[doc(alias = "set_vsync")]
     /// Set the window's [`PresentMode`].
     pub fn set_present_mode(&mut self, present_mode: PresentMode) {
@@ -645,34 +739,40 @@ impl Window {
         self.command_queue
             .push(WindowCommand::SetDecorations { decorations });
     }
-    /// Get whether or not the cursor is locked.
+    /// Get whether or how the cursor is grabbed.
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
+    ///
+    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, it's possible the value returned here is not the same as the one actually sent to winit.
     #[inline]
-    pub fn cursor_locked(&self) -> bool {
-        self.cursor_locked
+    pub fn cursor_grab_mode(&self) -> CursorGrabMode {
+        self.cursor_grab_mode
     }
-    /// Set whether or not the cursor is locked.
+    /// Set whether and how the cursor is grabbed.
     ///
     /// This doesn't hide the cursor. For that, use [`set_cursor_visibility`](Window::set_cursor_visibility)
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor lock, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
-    pub fn set_cursor_lock_mode(&mut self, lock_mode: bool) {
-        self.cursor_locked = lock_mode;
+    ///
+    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+    pub fn set_cursor_grab_mode(&mut self, grab_mode: CursorGrabMode) {
+        self.cursor_grab_mode = grab_mode;
         self.command_queue
-            .push(WindowCommand::SetCursorLockMode { locked: lock_mode });
+            .push(WindowCommand::SetCursorGrabMode { grab_mode });
     }
     /// Get whether or not the cursor is visible.
     ///
     /// ## Platform-specific
     ///
-    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
+    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_grab_mode`](Window::set_cursor_grab_mode).
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     #[inline]
@@ -683,7 +783,7 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_lock_mode`](Window::set_cursor_lock_mode).
+    /// - **`Windows`**, **`X11`**, and **`Wayland`**: The cursor is hidden only when inside the window. To stop the cursor from leaving the window, use [`set_cursor_grab_mode`](Window::set_cursor_grab_mode).
     /// - **`macOS`**: The cursor is hidden only when the window is focused.
     /// - **`iOS`** and **`Android`** do not have cursors
     pub fn set_cursor_visibility(&mut self, visible_mode: bool) {
@@ -721,7 +821,20 @@ impl Window {
         self.command_queue
             .push(WindowCommand::SetCursorPosition { position });
     }
-
+    /// Modifies whether the window catches cursor events.
+    ///
+    /// If true, the window will catch the cursor events.
+    /// If false, events are passed through the window such that any other window behind it receives them. By default hittest is enabled.
+    pub fn set_cursor_hittest(&mut self, hittest: bool) {
+        self.hittest = hittest;
+        self.command_queue
+            .push(WindowCommand::SetCursorHitTest { hittest });
+    }
+    /// Get whether or not the hittest is active.
+    #[inline]
+    pub fn hittest(&self) -> bool {
+        self.hittest
+    }
     #[allow(missing_docs)]
     #[inline]
     pub fn update_focused_status_from_backend(&mut self, focused: bool) {
@@ -746,13 +859,25 @@ impl Window {
             resolution: UVec2::new(self.physical_width, self.physical_height),
         });
     }
+    /// Get whether or not the window is always on top.
+    #[inline]
+    pub fn always_on_top(&self) -> bool {
+        self.always_on_top
+    }
+
+    /// Set whether of not the window is always on top.
+    pub fn set_always_on_top(&mut self, always_on_top: bool) {
+        self.always_on_top = always_on_top;
+        self.command_queue
+            .push(WindowCommand::SetAlwaysOnTop { always_on_top });
+    }
     /// Close the operating system window corresponding to this [`Window`].
-    ///  
+    ///
     /// This will also lead to this [`Window`] being removed from the
     /// [`Windows`] resource.
     ///
     /// If the default [`WindowPlugin`] is used, when no windows are
-    /// open, the [app will exit](bevy_app::AppExit).  
+    /// open, the [app will exit](bevy_app::AppExit).
     /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
     /// to `false`
     ///
@@ -772,17 +897,17 @@ impl Window {
     pub fn is_focused(&self) -> bool {
         self.focused
     }
-    /// Get the [`RawWindowHandleWrapper`] corresponding to this window if set.
+    /// Get the [`RawHandleWrapper`] corresponding to this window if set.
     ///
     /// During normal use, this can be safely unwrapped; the value should only be [`None`] when synthetically constructed for tests.
-    pub fn raw_window_handle(&self) -> Option<RawWindowHandleWrapper> {
-        self.raw_window_handle.as_ref().cloned()
+    pub fn raw_handle(&self) -> Option<RawHandleWrapper> {
+        self.raw_handle.as_ref().cloned()
     }
 
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -805,8 +930,13 @@ impl Window {
 }
 
 /// Defines where window should be placed at on creation.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowPosition {
     /// The position will be set by the window manager.
     Automatic,
@@ -823,8 +953,13 @@ pub enum WindowPosition {
 }
 
 /// Defines which monitor to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.
     ///
@@ -844,8 +979,13 @@ pub enum MonitorSelection {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Resource, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///
@@ -891,8 +1031,10 @@ pub struct WindowDescriptor {
     pub decorations: bool,
     /// Sets whether the cursor is visible when the window has focus.
     pub cursor_visible: bool,
-    /// Sets whether the window locks the cursor inside its borders when the window has focus.
-    pub cursor_locked: bool,
+    /// Sets whether and how the window grabs the cursor.
+    pub cursor_grab_mode: CursorGrabMode,
+    /// Sets whether or not the window listens for 'hits' of mouse activity over _this_ window.
+    pub hittest: bool,
     /// Sets the [`WindowMode`](crate::WindowMode).
     ///
     /// The monitor to go fullscreen on can be selected with the `monitor` field.
@@ -901,15 +1043,13 @@ pub struct WindowDescriptor {
     ///
     /// ## Platform-specific
     /// - iOS / Android / Web: Unsupported.
-    /// - macOS X: Not working as expected.
-    /// - Windows 11: Not working as expected
-    /// macOS X transparent works with winit out of the box, so this issue might be related to: <https://github.com/gfx-rs/wgpu/issues/687>
-    /// Windows 11 is related to <https://github.com/rust-windowing/winit/issues/2082>
+    /// - macOS: Not working as expected. See [Bevy #6330](https://github.com/bevyengine/bevy/issues/6330).
+    /// - Linux (Wayland): Not working as expected. See [Bevy #5779](https://github.com/bevyengine/bevy/issues/5779).
     pub transparent: bool,
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -922,6 +1062,14 @@ pub struct WindowDescriptor {
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
+    /// Specifies how the alpha channel of the textures should be handled during compositing.
+    pub alpha_mode: CompositeAlphaMode,
+    /// Sets the window to always be on top of other windows.
+    ///
+    /// ## Platform-specific
+    /// - iOS / Android / Web: Unsupported.
+    /// - Linux (Wayland): Unsupported.
+    pub always_on_top: bool,
 }
 
 impl Default for WindowDescriptor {
@@ -937,12 +1085,15 @@ impl Default for WindowDescriptor {
             present_mode: PresentMode::Fifo,
             resizable: true,
             decorations: true,
-            cursor_locked: false,
+            cursor_grab_mode: CursorGrabMode::None,
             cursor_visible: true,
+            hittest: true,
             mode: WindowMode::Windowed,
             transparent: false,
             canvas: None,
             fit_canvas_to_parent: false,
+            alpha_mode: CompositeAlphaMode::Auto,
+            always_on_top: false,
         }
     }
 }

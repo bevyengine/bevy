@@ -8,6 +8,11 @@ pub mod graph {
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
+        pub const BLOOM: &str = "bloom";
+        pub const TONEMAPPING: &str = "tonemapping";
+        pub const FXAA: &str = "fxaa";
+        pub const UPSCALING: &str = "upscaling";
+        pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
     }
 }
 
@@ -22,7 +27,7 @@ use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
         EntityPhaseItem, PhaseItem, RenderPhase,
@@ -37,6 +42,8 @@ use bevy_render::{
     Extract, RenderApp, RenderStage,
 };
 use bevy_utils::{FloatOrd, HashMap};
+
+use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
 pub struct Core3dPlugin;
 
@@ -62,22 +69,46 @@ impl Plugin for Core3dPlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
+        let tonemapping = TonemappingNode::new(&mut render_app.world);
+        let upscaling = UpscalingNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
         let mut draw_3d_graph = RenderGraph::default();
         draw_3d_graph.add_node(graph::node::MAIN_PASS, pass_node_3d);
+        draw_3d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
+        draw_3d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
+        draw_3d_graph.add_node(graph::node::UPSCALING, upscaling);
         let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
             graph::input::VIEW_ENTITY,
             SlotType::Entity,
         )]);
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
-            )
-            .unwrap();
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::MAIN_PASS,
+            MainPass3dNode::IN_VIEW,
+        );
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::TONEMAPPING,
+            TonemappingNode::IN_VIEW,
+        );
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::UPSCALING,
+            UpscalingNode::IN_VIEW,
+        );
+        draw_3d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
+        draw_3d_graph.add_node_edge(
+            graph::node::TONEMAPPING,
+            graph::node::END_MAIN_PASS_POST_PROCESSING,
+        );
+        draw_3d_graph.add_node_edge(
+            graph::node::END_MAIN_PASS_POST_PROCESSING,
+            graph::node::UPSCALING,
+        );
         graph.add_sub_graph(graph::NAME, draw_3d_graph);
     }
 }

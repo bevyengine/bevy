@@ -44,7 +44,7 @@ fn remove_component(
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
-    if time.seconds_since_startup() > 2.0 {
+    if time.elapsed_seconds() > 2.0 {
         if let Some(entity) = query.iter().next() {
             commands.entity(entity).remove::<MyComponent>();
         }

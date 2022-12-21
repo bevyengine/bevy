@@ -44,7 +44,7 @@ pub fn render_system(world: &mut World) {
             }
         }
 
-        panic!("Error running render graph: {}", e);
+        panic!("Error running render graph: {e}");
     }
 
     {
@@ -102,16 +102,6 @@ pub struct RenderInstance(pub Instance);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct RenderAdapterInfo(pub AdapterInfo);
 
-/// The [`TextureFormat`](wgpu::TextureFormat) used for rendering.
-/// Initially it's the first element in `AvailableTextureFormats`, or Bevy default format.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderTextureFormat(pub wgpu::TextureFormat);
-
-/// The available [`TextureFormat`](wgpu::TextureFormat)s on the [`RenderAdapter`].
-/// Will be inserted as a `Resource` after the renderer is initialized.
-#[derive(Resource, Clone, Deref, DerefMut)]
-pub struct AvailableTextureFormats(pub Arc<Vec<wgpu::TextureFormat>>);
-
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
 } else {
@@ -124,13 +114,7 @@ pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (
-    RenderDevice,
-    RenderQueue,
-    RenderAdapterInfo,
-    RenderAdapter,
-    AvailableTextureFormats,
-) {
+) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -277,21 +261,13 @@ pub async fn initialize_renderer(
         )
         .await
         .unwrap();
-
-    let device = Arc::new(device);
     let queue = Arc::new(queue);
     let adapter = Arc::new(adapter);
-    let mut available_texture_formats = Vec::new();
-    if let Some(s) = request_adapter_options.compatible_surface {
-        available_texture_formats = s.get_supported_formats(&adapter);
-    };
-    let available_texture_formats = Arc::new(available_texture_formats);
     (
         RenderDevice::from(device),
         RenderQueue(queue),
         RenderAdapterInfo(adapter_info),
         RenderAdapter(adapter),
-        AvailableTextureFormats(available_texture_formats),
     )
 }
 

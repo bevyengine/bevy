@@ -29,15 +29,17 @@ struct Bird {
 
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            title: "BevyMark".to_string(),
-            width: 800.,
-            height: 600.,
-            present_mode: PresentMode::AutoNoVsync,
-            resizable: true,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                title: "BevyMark".to_string(),
+                width: 800.,
+                height: 600.,
+                present_mode: PresentMode::AutoNoVsync,
+                resizable: true,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(LogDiagnosticsPlugin::default())
         .insert_resource(BevyCounter {
@@ -96,35 +98,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let texture = asset_server.load("branding/icon.png");
 
+    let text_section = move |color, value: &str| {
+        TextSection::new(
+            value,
+            TextStyle {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                font_size: 40.0,
+                color,
+            },
+        )
+    };
+
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
         TextBundle::from_sections([
-            TextSection::new(
-                "Bird Count: ",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
-                    color: Color::rgb(0.0, 1.0, 0.0),
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 40.0,
-                color: Color::rgb(0.0, 1.0, 1.0),
-            }),
-            TextSection::new(
-                "\nAverage FPS: ",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 40.0,
-                    color: Color::rgb(0.0, 1.0, 0.0),
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 40.0,
-                color: Color::rgb(0.0, 1.0, 1.0),
-            }),
+            text_section(Color::GREEN, "Bird Count"),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (raw): "),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (SMA): "),
+            text_section(Color::CYAN, ""),
+            text_section(Color::GREEN, "\nFPS (EMA): "),
+            text_section(Color::CYAN, ""),
         ])
         .with_style(Style {
             position_type: PositionType::Absolute,
@@ -184,8 +179,8 @@ fn spawn_birds(
     texture: Handle<Image>,
 ) {
     let window = windows.primary();
-    let bird_x = (window.width() as f32 / -2.) + HALF_BIRD_SIZE;
-    let bird_y = (window.height() as f32 / 2.) - HALF_BIRD_SIZE;
+    let bird_x = (window.width() / -2.) + HALF_BIRD_SIZE;
+    let bird_y = (window.height() / 2.) - HALF_BIRD_SIZE;
     let mut rng = thread_rng();
 
     for count in 0..spawn_count {
@@ -226,8 +221,8 @@ fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Trans
 
 fn collision_system(windows: Res<Windows>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let window = windows.primary();
-    let half_width = window.width() as f32 * 0.5;
-    let half_height = window.height() as f32 * 0.5;
+    let half_width = window.width() * 0.5;
+    let half_height = window.height() * 0.5;
 
     for (mut bird, transform) in &mut bird_query {
         let x_vel = bird.velocity.x;
@@ -261,8 +256,14 @@ fn counter_system(
     }
 
     if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-        if let Some(average) = fps.average() {
-            text.sections[3].value = format!("{average:.2}");
+        if let Some(raw) = fps.value() {
+            text.sections[3].value = format!("{raw:.2}");
+        }
+        if let Some(sma) = fps.average() {
+            text.sections[5].value = format!("{sma:.2}");
+        }
+        if let Some(ema) = fps.smoothed() {
+            text.sections[7].value = format!("{ema:.2}");
         }
     };
 }

@@ -316,8 +316,8 @@ fn mouse_scroll(
                 MouseScrollUnit::Line => mouse_wheel_event.y * 20.,
                 MouseScrollUnit::Pixel => mouse_wheel_event.y,
             };
-            scrolling_list.position -= dy;
-            scrolling_list.position = scrolling_list.position.clamp(0., max_scroll);
+            scrolling_list.position += dy;
+            scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
             style.position.top = Val::Px(scrolling_list.position);
         }
     }

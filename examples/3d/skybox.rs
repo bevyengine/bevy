@@ -98,16 +98,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     });
 }
 
-const CUBEMAP_SWAP_DELAY: f64 = 3.0;
+const CUBEMAP_SWAP_DELAY: f32 = 3.0;
 
 fn cycle_cubemap_asset(
     time: Res<Time>,
-    mut next_swap: Local<f64>,
+    mut next_swap: Local<f32>,
     mut cubemap: ResMut<Cubemap>,
     asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
 ) {
-    let now = time.seconds_since_startup();
+    let now = time.elapsed_seconds();
     if *next_swap == 0.0 {
         *next_swap = now + CUBEMAP_SWAP_DELAY;
         return;
@@ -227,7 +227,7 @@ impl AsBindGroup for CubemapMaterial {
         render_device: &RenderDevice,
         images: &RenderAssets<Image>,
         _fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
+    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let base_color_texture = self
             .base_color_texture
             .as_ref()

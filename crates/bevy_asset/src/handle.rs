@@ -62,6 +62,7 @@ impl HandleId {
 
     /// Creates the default id for an asset of type `T`.
     #[inline]
+    #[allow(clippy::should_implement_trait)] // `Default` is not implemented for `HandleId`, the default value depends on the asset type
     pub fn default<T: Asset>() -> Self {
         HandleId::Id(T::TYPE_UUID, 0)
     }
@@ -159,9 +160,15 @@ impl<T: Asset> Handle<T> {
     }
 
     /// Recasts this handle as a weak handle of an Asset `U`.
-    pub fn as_weak<U: Asset>(&self) -> Handle<U> {
+    pub fn cast_weak<U: Asset>(&self) -> Handle<U> {
+        let id = if let HandleId::Id(_, id) = self.id {
+            HandleId::Id(U::TYPE_UUID, id)
+        } else {
+            self.id
+        };
+
         Handle {
-            id: self.id,
+            id,
             handle_type: HandleType::Weak,
             marker: PhantomData,
         }
@@ -294,7 +301,7 @@ impl<T: Asset> Default for Handle<T> {
 impl<T: Asset> Debug for Handle<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::result::Result<(), std::fmt::Error> {
         let name = std::any::type_name::<T>().split("::").last().unwrap();
-        write!(f, "{:?}Handle<{}>({:?})", self.handle_type, name, self.id)
+        write!(f, "{:?}Handle<{name}>({:?})", self.handle_type, self.id)
     }
 }
 
@@ -406,6 +413,16 @@ impl Drop for HandleUntyped {
                 let _ = sender.send(RefChange::Decrement(self.id));
             }
             HandleType::Weak => {}
+        }
+    }
+}
+
+impl<A: Asset> From<Handle<A>> for HandleUntyped {
+    fn from(mut handle: Handle<A>) -> Self {
+        let handle_type = std::mem::replace(&mut handle.handle_type, HandleType::Weak);
+        HandleUntyped {
+            id: handle.id,
+            handle_type,
         }
     }
 }

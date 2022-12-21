@@ -1,4 +1,4 @@
-use crate::clear_color::ClearColorConfig;
+use crate::{clear_color::ClearColorConfig, tonemapping::Tonemapping};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
 use bevy_render::{
@@ -18,9 +18,10 @@ pub struct Camera2d {
 impl ExtractComponent for Camera2d {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(item.clone())
     }
 }
 
@@ -34,6 +35,7 @@ pub struct Camera2dBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub camera_2d: Camera2d,
+    pub tonemapping: Tonemapping,
 }
 
 impl Default for Camera2dBundle {
@@ -74,6 +76,7 @@ impl Camera2dBundle {
             global_transform: Default::default(),
             camera: Camera::default(),
             camera_2d: Camera2d::default(),
+            tonemapping: Tonemapping::Disabled,
         }
     }
 }

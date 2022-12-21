@@ -22,8 +22,8 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    Font, FontAtlasSet, HorizontalAlign, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, VerticalAlign,
+    Font, FontAtlasSet, FontAtlasWarning, HorizontalAlign, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, VerticalAlign, YAxisOrientation,
 };
 
 /// The calculated size of text drawn in 2D scene.
@@ -117,7 +117,7 @@ pub fn extract_text2d_sprite(
                 .get(&text_glyph.atlas_info.texture_atlas)
                 .unwrap();
             let handle = atlas.texture.clone_weak();
-            let index = text_glyph.atlas_info.glyph_index as usize;
+            let index = text_glyph.atlas_info.glyph_index;
             let rect = Some(atlas.textures[index]);
 
             let glyph_transform = Transform::from_translation(
@@ -145,6 +145,11 @@ pub fn extract_text2d_sprite(
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
+///
+/// ## World Resources
+///
+/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
+/// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn update_text2d_layout(
     mut commands: Commands,
@@ -154,6 +159,7 @@ pub fn update_text2d_layout(
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     text_settings: Res<TextSettings>,
+    mut font_atlas_warning: ResMut<FontAtlasWarning>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
@@ -182,25 +188,27 @@ pub fn update_text2d_layout(
                 ),
                 None => Vec2::new(f32::MAX, f32::MAX),
             };
+
             match text_pipeline.queue_text(
                 &fonts,
                 &text.sections,
                 scale_factor,
                 text.alignment,
                 text_bounds,
-                &mut *font_atlas_set_storage,
-                &mut *texture_atlases,
-                &mut *textures,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
                 text_settings.as_ref(),
+                &mut font_atlas_warning,
+                YAxisOrientation::BottomToTop,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
                     queue.insert(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_))
-                | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
-                    panic!("Fatal error when processing text: {}.", e);
+                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                    panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
                     calculated_size.size = Vec2::new(

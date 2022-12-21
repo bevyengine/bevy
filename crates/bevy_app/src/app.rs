@@ -1,6 +1,5 @@
-use crate::{CoreStage, Plugin, PluginGroup, PluginGroupBuilder, StartupSchedule, StartupStage};
+use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule, StartupStage};
 pub use bevy_derive::AppLabel;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
@@ -11,7 +10,7 @@ use bevy_ecs::{
     system::Resource,
     world::World,
 };
-use bevy_utils::{tracing::debug, HashMap};
+use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
 
 #[cfg(feature = "trace")]
@@ -25,8 +24,12 @@ bevy_utils::define_label!(
 
 /// The [`Resource`] that stores the [`App`]'s [`TypeRegistry`](bevy_reflect::TypeRegistry).
 #[cfg(feature = "bevy_reflect")]
-#[derive(Resource, Clone, Deref, DerefMut, Default)]
+#[derive(Resource, Clone, bevy_derive::Deref, bevy_derive::DerefMut, Default)]
 pub struct AppTypeRegistry(pub bevy_reflect::TypeRegistryArc);
+
+pub(crate) enum AppError {
+    DuplicatePlugin { plugin_name: String },
+}
 
 #[allow(clippy::needless_doctest_main)]
 /// A container of app logic and data.
@@ -68,6 +71,8 @@ pub struct App {
     /// A container of [`Stage`]s set to be run in a linear order.
     pub schedule: Schedule,
     sub_apps: HashMap<AppLabelId, SubApp>,
+    plugin_registry: Vec<Box<dyn Plugin>>,
+    plugin_name_added: HashSet<String>,
 }
 
 impl Debug for App {
@@ -102,9 +107,7 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_stages()
-            .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers);
+        app.add_default_stages().add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -131,6 +134,8 @@ impl App {
             schedule: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
+            plugin_registry: Vec::default(),
+            plugin_name_added: Default::default(),
         }
     }
 
@@ -143,9 +148,13 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
         self.schedule.run(&mut self.world);
+
         for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
+            sub_app.app.world.clear_trackers();
         }
+
+        self.world.clear_trackers();
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
@@ -821,13 +830,79 @@ impl App {
     /// # }
     /// App::new().add_plugin(bevy_log::LogPlugin::default());
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if the plugin was already added to the application.
     pub fn add_plugin<T>(&mut self, plugin: T) -> &mut Self
     where
         T: Plugin,
     {
+        match self.add_boxed_plugin(Box::new(plugin)) {
+            Ok(app) => app,
+            Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
+                "Error adding plugin {}: : plugin was already added in application",
+                plugin_name
+            ),
+        }
+    }
+
+    /// Boxed variant of `add_plugin`, can be used from a [`PluginGroup`]
+    pub(crate) fn add_boxed_plugin(
+        &mut self,
+        plugin: Box<dyn Plugin>,
+    ) -> Result<&mut Self, AppError> {
         debug!("added plugin: {}", plugin.name());
+        if plugin.is_unique() && !self.plugin_name_added.insert(plugin.name().to_string()) {
+            Err(AppError::DuplicatePlugin {
+                plugin_name: plugin.name().to_string(),
+            })?;
+        }
         plugin.build(self);
-        self
+        self.plugin_registry.push(plugin);
+        Ok(self)
+    }
+
+    /// Checks if a [`Plugin`] has already been added.
+    ///
+    /// This can be used by plugins to check if a plugin they depend upon has already been
+    /// added.
+    pub fn is_plugin_added<T>(&self) -> bool
+    where
+        T: Plugin,
+    {
+        self.plugin_registry
+            .iter()
+            .any(|p| p.downcast_ref::<T>().is_some())
+    }
+
+    /// Returns a vector of references to any plugins of type `T` that have been added.
+    ///
+    /// This can be used to read the settings of any already added plugins.
+    /// This vector will be length zero if no plugins of that type have been added.
+    /// If multiple copies of the same plugin are added to the [`App`], they will be listed in insertion order in this vector.
+    ///
+    /// ```rust
+    /// # use bevy_app::prelude::*;
+    /// # #[derive(Default)]
+    /// # struct ImagePlugin {
+    /// #    default_sampler: bool,
+    /// # }
+    /// # impl Plugin for ImagePlugin {
+    /// #    fn build(&self, app: &mut App) {}
+    /// # }
+    /// # let mut app = App::new();
+    /// # app.add_plugin(ImagePlugin::default());
+    /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
+    /// ```
+    pub fn get_added_plugins<T>(&self) -> Vec<&T>
+    where
+        T: Plugin,
+    {
+        self.plugin_registry
+            .iter()
+            .filter_map(|p| p.downcast_ref())
+            .collect()
     }
 
     /// Adds a group of [`Plugin`]s.
@@ -838,7 +913,8 @@ impl App {
     /// The [`PluginGroup`]s available by default are `DefaultPlugins` and `MinimalPlugins`.
     ///
     /// To customize the plugins in the group (reorder, disable a plugin, add a new plugin
-    /// before / after another plugin), see [`add_plugins_with`](Self::add_plugins_with).
+    /// before / after another plugin), call [`build()`](PluginGroup::build) on the group,
+    /// which will convert it to a [`PluginGroupBuilder`](crate::PluginGroupBuilder).
     ///
     /// ## Examples
     /// ```
@@ -847,61 +923,13 @@ impl App {
     /// App::new()
     ///     .add_plugins(MinimalPlugins);
     /// ```
-    pub fn add_plugins<T: PluginGroup>(&mut self, mut group: T) -> &mut Self {
-        let mut plugin_group_builder = PluginGroupBuilder::default();
-        group.build(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
-        self
-    }
-
-    /// Adds a group of [`Plugin`]s with an initializer method.
     ///
-    /// Can be used to add a group of [`Plugin`]s, where the group is modified
-    /// before insertion into a Bevy application. For example, you can add
-    /// additional [`Plugin`]s at a specific place in the [`PluginGroup`], or deactivate
-    /// specific [`Plugin`]s while keeping the rest using a [`PluginGroupBuilder`].
+    /// # Panics
     ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use bevy_app::{prelude::*, PluginGroupBuilder};
-    /// #
-    /// # // Dummies created to avoid using `bevy_internal` and `bevy_log`,
-    /// # // which pulls in too many dependencies and breaks rust-analyzer
-    /// # pub mod bevy_log {
-    /// #     use bevy_app::prelude::*;
-    /// #     #[derive(Default)]
-    /// #     pub struct LogPlugin;
-    /// #     impl Plugin for LogPlugin{
-    /// #        fn build(&self, app: &mut App) {}
-    /// #     }
-    /// # }
-    /// # struct DefaultPlugins;
-    /// # impl PluginGroup for DefaultPlugins {
-    /// #     fn build(&mut self, group: &mut PluginGroupBuilder){
-    /// #         group.add(bevy_log::LogPlugin::default());
-    /// #     }
-    /// # }
-    /// #
-    /// # struct MyOwnPlugin;
-    /// # impl Plugin for MyOwnPlugin {
-    /// #     fn build(&self, app: &mut App){;}
-    /// # }
-    /// #
-    /// App::new()
-    ///      .add_plugins_with(DefaultPlugins, |group| {
-    ///             group.add_before::<bevy_log::LogPlugin, _>(MyOwnPlugin)
-    ///         });
-    /// ```
-    pub fn add_plugins_with<T, F>(&mut self, mut group: T, func: F) -> &mut Self
-    where
-        T: PluginGroup,
-        F: FnOnce(&mut PluginGroupBuilder) -> &mut PluginGroupBuilder,
-    {
-        let mut plugin_group_builder = PluginGroupBuilder::default();
-        group.build(&mut plugin_group_builder);
-        func(&mut plugin_group_builder);
-        plugin_group_builder.finish(self);
+    /// Panics if one of the plugin in the group was already added to the application.
+    pub fn add_plugins<T: PluginGroup>(&mut self, group: T) -> &mut Self {
+        let builder = group.build();
+        builder.finish(self);
         self
     }
 
@@ -1032,3 +1060,49 @@ fn run_once(mut app: App) {
 /// frame is over.
 #[derive(Debug, Clone, Default)]
 pub struct AppExit;
+
+#[cfg(test)]
+mod tests {
+    use crate::{App, Plugin};
+
+    struct PluginA;
+    impl Plugin for PluginA {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginB;
+    impl Plugin for PluginB {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginC<T>(T);
+    impl<T: Send + Sync + 'static> Plugin for PluginC<T> {
+        fn build(&self, _app: &mut crate::App) {}
+    }
+    struct PluginD;
+    impl Plugin for PluginD {
+        fn build(&self, _app: &mut crate::App) {}
+        fn is_unique(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn can_add_two_plugins() {
+        App::new().add_plugin(PluginA).add_plugin(PluginB);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_add_twice_the_same_plugin() {
+        App::new().add_plugin(PluginA).add_plugin(PluginA);
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_with_different_type_param() {
+        App::new().add_plugin(PluginC(0)).add_plugin(PluginC(true));
+    }
+
+    #[test]
+    fn can_add_twice_the_same_plugin_not_unique() {
+        App::new().add_plugin(PluginD).add_plugin(PluginD);
+    }
+}

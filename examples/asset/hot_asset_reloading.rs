@@ -2,16 +2,15 @@
 //! running. This lets you immediately see the results of your changes without restarting the game.
 //! This example illustrates hot reloading mesh changes.
 
-use bevy::{asset::AssetServerSettings, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
-        // Tell the asset server to watch for asset changes on disk:
-        .insert_resource(AssetServerSettings {
+        .add_plugins(DefaultPlugins.set(AssetPlugin {
+            // Tell the asset server to watch for asset changes on disk:
             watch_for_changes: true,
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_startup_system(setup)
         .run();
 }

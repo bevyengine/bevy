@@ -1,4 +1,4 @@
-use crate::{serde::SceneSerializer, DynamicSceneBuilder, Scene, SceneSpawnError};
+use crate::{DynamicSceneBuilder, Scene, SceneSpawnError};
 use anyhow::Result;
 use bevy_app::AppTypeRegistry;
 use bevy_ecs::{
@@ -7,6 +7,10 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
+
+#[cfg(feature = "serialize")]
+use crate::serde::SceneSerializer;
+#[cfg(feature = "serialize")]
 use serde::Serialize;
 
 /// A collection of serializable dynamic entities, each with its own run-time defined set of components.
@@ -42,7 +46,7 @@ impl DynamicScene {
         let mut builder =
             DynamicSceneBuilder::from_world_with_type_registry(world, type_registry.clone());
 
-        builder.extract_entities(world.iter_entities());
+        builder.extract_entities(world.iter_entities().map(|entity| entity.id()));
 
         builder.build()
     }
@@ -50,14 +54,15 @@ impl DynamicScene {
     /// Write the dynamic entities and their corresponding components to the given world.
     ///
     /// This method will return a [`SceneSpawnError`] if a type either is not registered
-    /// or doesn't reflect the [`Component`](bevy_ecs::component::Component) trait.
-    pub fn write_to_world(
+    /// in the provided [`AppTypeRegistry`] resource, or doesn't reflect the
+    /// [`Component`](bevy_ecs::component::Component) trait.
+    pub fn write_to_world_with(
         &self,
         world: &mut World,
         entity_map: &mut EntityMap,
+        type_registry: &AppTypeRegistry,
     ) -> Result<(), SceneSpawnError> {
-        let registry = world.resource::<AppTypeRegistry>().clone();
-        let type_registry = registry.read();
+        let type_registry = type_registry.read();
 
         for scene_entity in &self.entities {
             // Fetch the entity with the given entity id from the `entity_map`
@@ -99,14 +104,30 @@ impl DynamicScene {
         Ok(())
     }
 
+    /// Write the dynamic entities and their corresponding components to the given world.
+    ///
+    /// This method will return a [`SceneSpawnError`] if a type either is not registered
+    /// in the world's [`AppTypeRegistry`] resource, or doesn't reflect the
+    /// [`Component`](bevy_ecs::component::Component) trait.
+    pub fn write_to_world(
+        &self,
+        world: &mut World,
+        entity_map: &mut EntityMap,
+    ) -> Result<(), SceneSpawnError> {
+        let registry = world.resource::<AppTypeRegistry>().clone();
+        self.write_to_world_with(world, entity_map, &registry)
+    }
+
     // TODO: move to AssetSaver when it is implemented
     /// Serialize this dynamic scene into rust object notation (ron).
+    #[cfg(feature = "serialize")]
     pub fn serialize_ron(&self, registry: &TypeRegistryArc) -> Result<String, ron::Error> {
         serialize_ron(SceneSerializer::new(self, registry))
     }
 }
 
 /// Serialize a given Rust data structure into rust object notation (ron).
+#[cfg(feature = "serialize")]
 pub fn serialize_ron<S>(serialize: S) -> Result<String, ron::Error>
 where
     S: Serialize,

@@ -45,6 +45,23 @@ pub enum ReflectMut<'a> {
     Value(&'a mut dyn Reflect),
 }
 
+/// An owned enumeration of "kinds" of reflected type.
+///
+/// Each variant contains a trait object with methods specific to a kind of
+/// type.
+///
+/// A `ReflectOwned` is obtained via [`Reflect::reflect_owned`].
+pub enum ReflectOwned {
+    Struct(Box<dyn Struct>),
+    TupleStruct(Box<dyn TupleStruct>),
+    Tuple(Box<dyn Tuple>),
+    List(Box<dyn List>),
+    Array(Box<dyn Array>),
+    Map(Box<dyn Map>),
+    Enum(Box<dyn Enum>),
+    Value(Box<dyn Reflect>),
+}
+
 /// A reflected Rust type.
 ///
 /// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
@@ -75,10 +92,13 @@ pub trait Reflect: Any + Send + Sync {
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
-    /// Casts this type to a reflected value
+    /// Casts this type to a boxed reflected value.
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
+
+    /// Casts this type to a reflected value.
     fn as_reflect(&self) -> &dyn Reflect;
 
-    /// Casts this type to a mutable reflected value
+    /// Casts this type to a mutable reflected value.
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 
     /// Applies a reflected value to this value.
@@ -139,6 +159,11 @@ pub trait Reflect: Any + Send + Sync {
     /// See [`ReflectMut`].
     fn reflect_mut(&mut self) -> ReflectMut;
 
+    /// Returns an owned enumeration of "kinds" of type.
+    ///
+    /// See [`ReflectOwned`].
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned;
+
     /// Clones the value as a `Reflect` trait object.
     ///
     /// When deriving `Reflect` for a struct, tuple struct or enum, the value is
@@ -188,21 +213,6 @@ pub trait Reflect: Any + Send + Sync {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
-}
-
-/// A trait for types which can be constructed from a reflected type.
-///
-/// This trait can be derived on types which implement [`Reflect`]. Some complex
-/// types (such as `Vec<T>`) may only be reflected if their element types
-/// implement this trait.
-///
-/// For structs and tuple structs, fields marked with the `#[reflect(ignore)]`
-/// attribute will be constructed using the `Default` implementation of the
-/// field type, rather than the corresponding field value (if any) of the
-/// reflected value.
-pub trait FromReflect: Reflect + Sized {
-    /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
 }
 
 impl Debug for dyn Reflect {
@@ -255,6 +265,8 @@ impl dyn Reflect {
     /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
     /// to determine what type they represent. Represented types cannot be downcasted
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    ///
+    /// [`FromReflect`]: crate::FromReflect
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
         self.type_id() == TypeId::of::<T>()

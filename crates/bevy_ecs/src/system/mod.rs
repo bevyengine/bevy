@@ -116,8 +116,8 @@ mod tests {
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
-            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, RemovedComponents,
-            Res, ResMut, Resource, System, SystemState,
+            Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
+            RemovedComponents, Res, ResMut, Resource, System, SystemState,
         },
         world::{FromWorld, World},
     };
@@ -141,7 +141,7 @@ mod tests {
     #[derive(Component, Resource)]
     struct F;
 
-    #[derive(Component)]
+    #[derive(Component, Debug)]
     struct W<T>(T);
 
     #[derive(StageLabel)]
@@ -151,7 +151,7 @@ mod tests {
     fn simple_system() {
         fn sys(query: Query<&A>) {
             for a in &query {
-                println!("{:?}", a);
+                println!("{a:?}");
             }
         }
 
@@ -1161,6 +1161,19 @@ mod tests {
             for a in &q {
                 assert_eq!(a.0, 0);
             }
+        });
+    }
+
+    #[test]
+    fn readonly_query_get_mut_component_fails() {
+        let mut world = World::new();
+        let entity = world.spawn(W(42u32)).id();
+        run_system(&mut world, move |q: Query<&mut W<u32>>| {
+            let mut rq = q.to_readonly();
+            assert_eq!(
+                QueryComponentError::MissingWriteAccess,
+                rq.get_component_mut::<W<u32>>(entity).unwrap_err(),
+            );
         });
     }
 }
