@@ -150,6 +150,7 @@ Example | Description
 [Headless](../examples/app/headless.rs) | An application that runs without default plugins
 [Logs](../examples/app/logs.rs) | Illustrate how to use generate log output
 [No Renderer](../examples/app/no_renderer.rs) | An application that runs with default plugins and displays an empty window, but without an actual renderer
+[Picking](../examples/app/picking.rs) | An application that show how to pick/select objects and UI elements
 [Plugin](../examples/app/plugin.rs) | Demonstrates the creation and registration of a custom plugin
 [Plugin Group](../examples/app/plugin_group.rs) | Demonstrates the creation and registration of a custom plugin group
 [Return after Run](../examples/app/return_after_run.rs) | Show how to return to main after the Bevy app has exited
