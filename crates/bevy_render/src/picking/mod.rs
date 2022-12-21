@@ -131,8 +131,8 @@ impl PickingTextures {
 
     /// The clear color which should be used to clear picking textures.
     /// Picking textures use a single u32 value for each pixel.
-    /// This color clears that with u32::MAX.
-    /// This allows all entity index values below u32::MAX to be valid.
+    /// This color clears that with `u32::MAX`.
+    /// This allows all entity index values below `u32::MAX` to be valid.
     pub fn clear_color() -> wgpu::Color {
         Color::Rgba {
             red: f32::MAX,

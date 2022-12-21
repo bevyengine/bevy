@@ -327,14 +327,14 @@ fn picking_text(mut pick_events: EventReader<PickedEvent>, mut texts: Query<&mut
         match event {
             PickedEventVariant::Picked => {
                 if let Ok(mut text) = texts.get_mut(*entity) {
-                    for section in text.sections.iter_mut() {
+                    for section in &mut text.sections {
                         section.style.color = COLOR_HOVERED;
                     }
                 }
             }
             PickedEventVariant::Unpicked => {
                 if let Ok(mut text) = texts.get_mut(*entity) {
-                    for section in text.sections.iter_mut() {
+                    for section in &mut text.sections {
                         section.style.color = COLOR_NORMAL;
                     }
                 }

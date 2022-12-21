@@ -166,12 +166,10 @@ fn store_fox_entites(
     scene_spawner: Res<SceneSpawner>,
     fox_scene: Query<&SceneInstance, With<Fox>>,
 ) {
-    if let Some(id) = fox_scene.get_single().ok() {
-        if !**done {
-            if scene_spawner.instance_is_ready(**id) {
-                **fox_entities = HashSet::from_iter(scene_spawner.iter_instance_entities(**id));
-                **done = true;
-            }
+    if let Ok(id) = fox_scene.get_single() {
+        if !**done && scene_spawner.instance_is_ready(**id) {
+            **fox_entities = HashSet::from_iter(scene_spawner.iter_instance_entities(**id));
+            **done = true;
         }
     }
 }
@@ -196,11 +194,11 @@ fn picking(
         match event {
             PickedEventVariant::Picked => {
                 let mut light = light.single_mut();
-                light.color = LIGHT_FOX_PICKED
+                light.color = LIGHT_FOX_PICKED;
             }
             PickedEventVariant::Unpicked => {
                 let mut light = light.single_mut();
-                light.color = LIGHT_FOX_UNPICKED
+                light.color = LIGHT_FOX_UNPICKED;
             }
         }
     }
