@@ -37,8 +37,26 @@ pub trait ExtractComponent: Component {
     type Query: WorldQuery + ReadOnlyWorldQuery;
     /// Filters the entities with additional constraints.
     type Filter: WorldQuery + ReadOnlyWorldQuery;
+
+    /// The output from extraction.
+    ///
+    /// Returning `None` based on the queried item can allow early optimization,
+    /// for example if there is an `enabled: bool` field on `Self`, or by only accepting
+    /// values within certain thresholds.
+    ///
+    /// The output may be different from the queried component.
+    /// This can be useful for example if only a subset of the fields are useful
+    /// in the render world.
+    ///
+    /// `Out` has a [`Bundle`] trait bound instead of a [`Component`] trait bound in order to allow use cases
+    /// such as tuples of components as output.
+    type Out: Bundle;
+
+    // TODO: https://github.com/rust-lang/rust/issues/29661
+    // type Out: Component = Self;
+
     /// Defines how the component is transferred into the "render world".
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self;
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self::Out>;
 }
 
 /// This plugin prepares the components of the corresponding type for the GPU
@@ -172,10 +190,11 @@ impl<C: ExtractComponent> Plugin for ExtractComponentPlugin<C> {
 impl<T: Asset> ExtractComponent for Handle<T> {
     type Query = Read<Handle<T>>;
     type Filter = ();
+    type Out = Handle<T>;
 
     #[inline]
-    fn extract_component(handle: QueryItem<'_, Self::Query>) -> Self {
-        handle.clone_weak()
+    fn extract_component(handle: QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        Some(handle.clone_weak())
     }
 }
 
@@ -187,7 +206,9 @@ fn extract_components<C: ExtractComponent>(
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
-        values.push((entity, C::extract_component(query_item)));
+        if let Some(component) = C::extract_component(query_item) {
+            values.push((entity, component));
+        }
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -202,7 +223,9 @@ fn extract_visible_components<C: ExtractComponent>(
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, computed_visibility, query_item) in &query {
         if computed_visibility.is_visible() {
-            values.push((entity, C::extract_component(query_item)));
+            if let Some(component) = C::extract_component(query_item) {
+                values.push((entity, component));
+            }
         }
     }
     *previous_len = values.len();

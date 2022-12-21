@@ -419,7 +419,7 @@ impl Material for StandardMaterial {
                 .as_mut()
                 .unwrap()
                 .shader_defs
-                .push(String::from("STANDARDMATERIAL_NORMAL_MAP"));
+                .push("STANDARDMATERIAL_NORMAL_MAP".into());
         }
         descriptor.primitive.cull_mode = key.bind_group_data.cull_mode;
         if let Some(label) = &mut descriptor.label {

@@ -17,8 +17,6 @@ pub(super) struct BlobVec {
     len: usize,
     // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
     data: NonNull<u8>,
-    // the `swap_scratch` ptr's layout is always `item_layout`
-    swap_scratch: NonNull<u8>,
     // None if the underlying type doesn't need to be dropped
     drop: Option<unsafe fn(OwningPtr<'_>)>,
 }
@@ -31,7 +29,6 @@ impl std::fmt::Debug for BlobVec {
             .field("capacity", &self.capacity)
             .field("len", &self.len)
             .field("data", &self.data)
-            .field("swap_scratch", &self.swap_scratch)
             .finish()
     }
 }
@@ -52,7 +49,6 @@ impl BlobVec {
         if item_layout.size() == 0 {
             let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
             BlobVec {
-                swap_scratch: NonNull::dangling(),
                 data: bevy_ptr::dangling_with_align(align),
                 capacity: usize::MAX,
                 len: 0,
@@ -60,10 +56,7 @@ impl BlobVec {
                 drop,
             }
         } else {
-            let swap_scratch = NonNull::new(std::alloc::alloc(item_layout))
-                .unwrap_or_else(|| std::alloc::handle_alloc_error(item_layout));
             let mut blob_vec = BlobVec {
-                swap_scratch,
                 data: NonNull::dangling(),
                 capacity: 0,
                 len: 0,
@@ -213,28 +206,23 @@ impl BlobVec {
     /// caller's responsibility to drop the returned pointer, if that is desirable.
     ///
     /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is < `self.len()`
+    /// It is the caller's responsibility to ensure that `index` is less than `self.len()`.
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed element"]
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
-        // FIXME: This should probably just use `core::ptr::swap` and return an `OwningPtr`
-        //        into the underlying `BlobVec` allocation, and remove swap_scratch
-
         debug_assert!(index < self.len());
-        let last = self.len - 1;
-        let swap_scratch = self.swap_scratch.as_ptr();
-        std::ptr::copy_nonoverlapping::<u8>(
-            self.get_unchecked_mut(index).as_ptr(),
-            swap_scratch,
-            self.item_layout.size(),
-        );
-        std::ptr::copy::<u8>(
-            self.get_unchecked_mut(last).as_ptr(),
-            self.get_unchecked_mut(index).as_ptr(),
-            self.item_layout.size(),
-        );
-        self.len -= 1;
-        OwningPtr::new(self.swap_scratch)
+        let new_len = self.len - 1;
+        let size = self.item_layout.size();
+        if index != new_len {
+            std::ptr::swap_nonoverlapping::<u8>(
+                self.get_unchecked_mut(index).as_ptr(),
+                self.get_unchecked_mut(new_len).as_ptr(),
+                size,
+            );
+        }
+        self.len = new_len;
+        // Cannot use get_unchecked here as this is technically out of bounds after changing len.
+        self.get_ptr_mut().byte_add(new_len * size).promote()
     }
 
     /// Removes the value at `index` and copies the value stored into `ptr`.
@@ -333,12 +321,6 @@ impl BlobVec {
 impl Drop for BlobVec {
     fn drop(&mut self) {
         self.clear();
-        if self.item_layout.size() > 0 {
-            // SAFETY: the `swap_scratch` pointer is always allocated using `self.item_layout`
-            unsafe {
-                std::alloc::dealloc(self.swap_scratch.as_ptr(), self.item_layout);
-            }
-        }
         let array_layout =
             array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
         if array_layout.size() > 0 {

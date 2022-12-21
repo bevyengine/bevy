@@ -2,6 +2,7 @@
 
 mod array;
 mod fields;
+mod from_reflect;
 mod list;
 mod map;
 mod path;
@@ -47,6 +48,7 @@ pub mod prelude {
 pub use array::*;
 pub use enums::*;
 pub use fields::*;
+pub use from_reflect::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -103,6 +105,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use std::any::TypeId;
     use std::fmt::{Debug, Formatter};
 
     use super::prelude::*;
@@ -242,6 +245,42 @@ mod tests {
             .map(|value| *value.downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
+    }
+
+    #[test]
+    fn should_call_from_reflect_dynamically() {
+        #[derive(Reflect, FromReflect)]
+        #[reflect(FromReflect)]
+        struct MyStruct {
+            foo: usize,
+        }
+
+        // Register
+        let mut registry = TypeRegistry::default();
+        registry.register::<MyStruct>();
+
+        // Get type data
+        let type_id = TypeId::of::<MyStruct>();
+        let rfr = registry
+            .get_type_data::<ReflectFromReflect>(type_id)
+            .expect("the FromReflect trait should be registered");
+
+        // Call from_reflect
+        let mut dynamic_struct = DynamicStruct::default();
+        dynamic_struct.insert("foo", 123usize);
+        let reflected = rfr
+            .from_reflect(&dynamic_struct)
+            .expect("the type should be properly reflected");
+
+        // Assert
+        let expected = MyStruct { foo: 123 };
+        assert!(expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
+        let not_expected = MyStruct { foo: 321 };
+        assert!(!not_expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
     }
 
     #[test]

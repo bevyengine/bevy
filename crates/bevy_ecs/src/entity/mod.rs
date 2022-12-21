@@ -13,7 +13,7 @@
 //!
 //! |Operation|Command|Method|
 //! |:---:|:---:|:---:|
-//! |Spawn an entity with components|[`Commands::spawn`]|---|
+//! |Spawn an entity with components|[`Commands::spawn`]|[`World::spawn`]|
 //! |Spawn an entity without components|[`Commands::spawn_empty`]|[`World::spawn_empty`]|
 //! |Despawn an entity|[`EntityCommands::despawn`]|[`World::despawn`]|
 //! |Insert a component, bundle, or tuple of components and bundles to an entity|[`EntityCommands::insert`]|[`EntityMut::insert`]|
@@ -34,7 +34,10 @@ mod map_entities;
 
 pub use map_entities::*;
 
-use crate::{archetype::ArchetypeId, storage::SparseSetIndex};
+use crate::{
+    archetype::{ArchetypeId, ArchetypeRow},
+    storage::SparseSetIndex,
+};
 use serde::{Deserialize, Serialize};
 use std::{convert::TryFrom, fmt, mem, sync::atomic::Ordering};
 
@@ -55,6 +58,9 @@ type IdCursor = isize;
 ///
 /// The identifier is implemented using a [generational index]: a combination of an index and a generation.
 /// This allows fast insertion after data removal in an array while minimizing loss of spatial locality.
+///
+/// These identifiers are only valid on the [`World`] it's sourced from. Attempting to use an `Entity` to
+/// fetch entity components or metadata from a different world will either fail or return unexpected results.
 ///
 /// [generational index]: https://lucassardois.medium.com/generational-indices-guide-8e3c5f7fd594
 ///
@@ -103,34 +109,27 @@ type IdCursor = isize;
 /// [`EntityMut::id`]: crate::world::EntityMut::id
 /// [`EntityCommands`]: crate::system::EntityCommands
 /// [`Query::get`]: crate::system::Query::get
+/// [`World`]: crate::world::World
 #[derive(Clone, Copy, Deserialize, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize)]
 pub struct Entity {
-    pub(crate) generation: u32,
-    pub(crate) index: u32,
+    generation: u32,
+    index: u32,
 }
 
-pub enum AllocAtWithoutReplacement {
+pub(crate) enum AllocAtWithoutReplacement {
     Exists(EntityLocation),
     DidNotExist,
     ExistsWithWrongGeneration,
 }
 
 impl Entity {
-    /// Creates a new entity reference with the specified `index` and a generation of 0.
-    ///
-    /// # Note
-    ///
-    /// Spawning a specific `entity` value is __rarely the right choice__. Most apps should favor
-    /// [`Commands::spawn`](crate::system::Commands::spawn). This method should generally
-    /// only be used for sharing entities across apps, and only when they have a scheme
-    /// worked out to share an index space (which doesn't happen by default).
-    ///
-    /// In general, one should not try to synchronize the ECS by attempting to ensure that
-    /// `Entity` lines up between instances, but instead insert a secondary identifier as
-    /// a component.
-    ///
-    /// There are still some use cases where it might be appropriate to use this function
-    /// externally.
+    #[cfg(test)]
+    pub(crate) const fn new(index: u32, generation: u32) -> Entity {
+        Entity { index, generation }
+    }
+
+    /// An entity ID with a placeholder value. This may or may not correspond to an actual entity,
+    /// and should be overwritten by a new value before being used.
     ///
     /// ## Examples
     ///
@@ -138,8 +137,8 @@ impl Entity {
     ///
     /// ```no_run
     /// # use bevy_ecs::prelude::*;
-    /// // Create a new array of size 10 and initialize it with (invalid) entities.
-    /// let mut entities: [Entity; 10] = [Entity::from_raw(0); 10];
+    /// // Create a new array of size 10 filled with invalid entity ids.
+    /// let mut entities: [Entity; 10] = [Entity::PLACEHOLDER; 10];
     ///
     /// // ... replace the entities with valid ones.
     /// ```
@@ -158,11 +157,25 @@ impl Entity {
     /// impl FromWorld for MyStruct {
     ///     fn from_world(_world: &mut World) -> Self {
     ///         Self {
-    ///             entity: Entity::from_raw(u32::MAX),
+    ///             entity: Entity::PLACEHOLDER,
     ///         }
     ///     }
     /// }
     /// ```
+    pub const PLACEHOLDER: Self = Self::from_raw(u32::MAX);
+
+    /// Creates a new entity ID with the specified `index` and a generation of 0.
+    ///
+    /// # Note
+    ///
+    /// Spawning a specific `entity` value is __rarely the right choice__. Most apps should favor
+    /// [`Commands::spawn`](crate::system::Commands::spawn). This method should generally
+    /// only be used for sharing entities across apps, and only when they have a scheme
+    /// worked out to share an index space (which doesn't happen by default).
+    ///
+    /// In general, one should not try to synchronize the ECS by attempting to ensure that
+    /// `Entity` lines up between instances, but instead insert a secondary identifier as
+    /// a component.
     pub const fn from_raw(index: u32) -> Entity {
         Entity {
             index,
@@ -265,9 +278,17 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 impl<'a> core::iter::ExactSizeIterator for ReserveEntitiesIterator<'a> {}
 impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
-#[derive(Debug, Default)]
+/// A [`World`]'s internal metadata store on all of its entities.
+///
+/// Contains metadata on:
+///  - The generation of every entity.
+///  - The alive/dead status of a particular entity. (i.e. "has entity 3 been despawned?")
+///  - The location of the entity's components in memory (via [`EntityLocation`])
+///
+/// [`World`]: crate::world::World
+#[derive(Debug)]
 pub struct Entities {
-    pub(crate) meta: Vec<EntityMeta>,
+    meta: Vec<EntityMeta>,
 
     /// The `pending` and `free_cursor` fields describe three sets of Entity IDs
     /// that have been freed or are in the process of being allocated:
@@ -280,8 +301,8 @@ pub struct Entities {
     ///   `reserve_entities` or `reserve_entity()`. They are now waiting for `flush()` to make them
     ///   fully allocated.
     ///
-    /// - The count of new IDs that do not yet exist in `self.meta()`, but which we have handed out
-    ///   and reserved. `flush()` will allocate room for them in `self.meta()`.
+    /// - The count of new IDs that do not yet exist in `self.meta`, but which we have handed out
+    ///   and reserved. `flush()` will allocate room for them in `self.meta`.
     ///
     /// The contents of `pending` look like this:
     ///
@@ -311,6 +332,15 @@ pub struct Entities {
 }
 
 impl Entities {
+    pub(crate) const fn new() -> Self {
+        Entities {
+            meta: Vec::new(),
+            pending: Vec::new(),
+            free_cursor: AtomicIdCursor::new(0),
+            len: 0,
+        }
+    }
+
     /// Reserve entity IDs concurrently.
     ///
     /// Storage for entity generation and location is lazily allocated by calling `flush`.
@@ -447,7 +477,10 @@ impl Entities {
     /// Allocate a specific entity ID, overwriting its generation.
     ///
     /// Returns the location of the entity currently using the given ID, if any.
-    pub fn alloc_at_without_replacement(&mut self, entity: Entity) -> AllocAtWithoutReplacement {
+    pub(crate) fn alloc_at_without_replacement(
+        &mut self,
+        entity: Entity,
+    ) -> AllocAtWithoutReplacement {
         self.verify_flushed();
 
         let result = if entity.index as usize >= self.meta.len() {
@@ -522,6 +555,7 @@ impl Entities {
             .map_or(false, |e| e.generation() == entity.generation)
     }
 
+    /// Clears all [`Entity`] from the World.
     pub fn clear(&mut self) {
         self.meta.clear();
         self.pending.clear();
@@ -542,6 +576,18 @@ impl Entities {
         } else {
             None
         }
+    }
+
+    /// Updates the location of an [`Entity`]. This must be called when moving the components of
+    /// the entity around in storage.
+    ///
+    /// # Safety
+    ///  - `index` must be a valid entity index.
+    ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
+    ///    before handing control to unknown code.
+    pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
+        // SAFETY: Caller guarentees that `index` a valid entity index
+        self.meta.get_unchecked_mut(index as usize).location = location;
     }
 
     /// Get the [`Entity`] with a given id, if it exists in this [`Entities`] collection
@@ -645,17 +691,25 @@ impl Entities {
         self.len = count as u32;
     }
 
-    /// Accessor for getting the length of the vec in `self.meta`
+    /// The count of all entities in the [`World`] that have ever been allocated
+    /// including the entities that are currently freed.
+    ///
+    /// This does not include entities that have been reserved but have never been
+    /// allocated yet.
+    ///
+    /// [`World`]: crate::world::World
     #[inline]
-    pub fn meta_len(&self) -> usize {
+    pub fn total_count(&self) -> usize {
         self.meta.len()
     }
 
+    /// The count of currently allocated entities.
     #[inline]
     pub fn len(&self) -> u32 {
         self.len
     }
 
+    /// Checks if any entity is currently active.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
@@ -666,7 +720,7 @@ impl Entities {
 // This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 #[derive(Copy, Clone, Debug)]
 #[repr(C)]
-pub struct EntityMeta {
+struct EntityMeta {
     pub generation: u32,
     pub location: EntityLocation,
 }
@@ -676,7 +730,7 @@ impl EntityMeta {
         generation: 0,
         location: EntityLocation {
             archetype_id: ArchetypeId::INVALID,
-            index: usize::MAX, // dummy value, to be filled in
+            archetype_row: ArchetypeRow::INVALID, // dummy value, to be filled in
         },
     };
 }
@@ -689,7 +743,7 @@ pub struct EntityLocation {
     pub archetype_id: ArchetypeId,
 
     /// The index of the entity in the archetype
-    pub index: usize,
+    pub archetype_row: ArchetypeRow,
 }
 
 #[cfg(test)]
@@ -707,7 +761,7 @@ mod tests {
 
     #[test]
     fn reserve_entity_len() {
-        let mut e = Entities::default();
+        let mut e = Entities::new();
         e.reserve_entity();
         // SAFETY: entity_location is left invalid
         unsafe { e.flush(|_, _| {}) };
@@ -716,7 +770,7 @@ mod tests {
 
     #[test]
     fn get_reserved_and_invalid() {
-        let mut entities = Entities::default();
+        let mut entities = Entities::new();
         let e = entities.reserve_entity();
         assert!(entities.contains(e));
         assert!(entities.get(e).is_none());

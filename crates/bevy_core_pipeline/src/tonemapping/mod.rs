@@ -1,7 +1,3 @@
-mod node;
-
-pub use node::TonemappingNode;
-
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
@@ -13,6 +9,10 @@ use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
+
+mod node;
+
+pub use node::TonemappingNode;
 
 const TONEMAPPING_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 17015368199668024512);
@@ -66,7 +66,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let mut shader_defs = Vec::new();
         if key.deband_dither {
-            shader_defs.push("DEBAND_DITHER".to_string());
+            shader_defs.push("DEBAND_DITHER".into());
         }
         RenderPipelineDescriptor {
             label: Some("tonemapping pipeline".into()),
@@ -164,8 +164,9 @@ impl Tonemapping {
 impl ExtractComponent for Tonemapping {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<Self::Query>) -> Option<Self::Out> {
+        Some(item.clone())
     }
 }

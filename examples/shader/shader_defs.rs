@@ -68,7 +68,7 @@ impl Material for CustomMaterial {
     ) -> Result<(), SpecializedMeshPipelineError> {
         if key.bind_group_data.is_red {
             let fragment = descriptor.fragment.as_mut().unwrap();
-            fragment.shader_defs.push("IS_RED".to_string());
+            fragment.shader_defs.push("IS_RED".into());
         }
         Ok(())
     }
