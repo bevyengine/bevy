@@ -40,10 +40,11 @@ struct DirectionalLight {
 
 let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;
 
-#ifdef MAX_DIRECTIONAL_LIGHTS
 struct Lights {
+    #ifdef MAX_DIRECTIONAL_LIGHTS
     // NOTE: this array size must be kept in sync with the constants defined in bevy_pbr/src/render/light.rs
     directional_lights: array<DirectionalLight, #{MAX_DIRECTIONAL_LIGHTS}u>,
+    #endif
     ambient_color: vec4<f32>,
     // x/y/z dimensions and n_clusters in w
     cluster_dimensions: vec4<u32>,
@@ -61,7 +62,6 @@ struct Lights {
     n_directional_lights: u32,
     spot_light_shadowmap_offset: i32,
 };
-#endif
 
 #if AVAILABLE_STORAGE_BUFFER_BINDINGS >= 3
 struct PointLights {
