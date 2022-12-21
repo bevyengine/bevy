@@ -3,7 +3,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
-use bevy_render::renderer::GPUDevice;
+use bevy_render::renderer::GpuDevice;
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
@@ -41,7 +41,7 @@ pub struct UpscalingPipeline {
 
 impl FromWorld for UpscalingPipeline {
     fn from_world(render_world: &mut World) -> Self {
-        let gpu_device = render_world.resource::<GPUDevice>();
+        let gpu_device = render_world.resource::<GpuDevice>();
 
         let texture_bind_group = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("upscaling_texture_bind_group_layout"),

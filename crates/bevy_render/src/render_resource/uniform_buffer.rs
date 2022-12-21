@@ -1,6 +1,6 @@
 use crate::{
     render_resource::Buffer,
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
 };
 use encase::{
     internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
@@ -99,12 +99,12 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GPUDevice)
-    /// and the provided [`GPUQueue`](crate::renderer::GPUQueue), if a GPU-side backing buffer already exists.
+    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GpuDevice)
+    /// and the provided [`GPUQueue`](crate::renderer::GpuQueue), if a GPU-side backing buffer already exists.
     ///
     /// If a GPU-side buffer does not already exist for this data, such a buffer is initialized with currently
     /// available data.
-    pub fn write_buffer(&mut self, gpu_device: &GPUDevice, gpu_queue: &GPUQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         self.scratch.write(&self.value).unwrap();
 
         if self.label_changed || self.buffer.is_none() {
@@ -208,13 +208,13 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GPUDevice)
-    /// and the provided [`GPUQueue`](crate::renderer::GPUQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GpuDevice)
+    /// and the provided [`GPUQueue`](crate::renderer::GpuQueue).
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
     #[inline]
-    pub fn write_buffer(&mut self, gpu_device: &GPUDevice, gpu_queue: &GPUQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         let size = self.scratch.as_ref().len();
 
         if self.capacity < size || self.label_changed {

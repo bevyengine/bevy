@@ -23,8 +23,8 @@ pub fn render_system(world: &mut World) {
         graph.update(world);
     });
     let graph = world.resource::<RenderGraph>();
-    let gpu_device = world.resource::<GPUDevice>();
-    let gpu_queue = world.resource::<GPUQueue>();
+    let gpu_device = world.resource::<GpuDevice>();
+    let gpu_queue = world.resource::<GpuQueue>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
@@ -86,21 +86,21 @@ pub fn render_system(world: &mut World) {
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct GPUQueue(pub Arc<Queue>);
+pub struct GpuQueue(pub Arc<Queue>);
 
 /// The handle to the physical device being used for rendering.
 /// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct GPUAdapter(pub Arc<Adapter>);
+pub struct GpuAdapter(pub Arc<Adapter>);
 
-/// The GPU instance is used to initialize the [`GPUQueue`] and [`GPUDevice`],
+/// The GPU instance is used to initialize the [`GpuQueue`] and [`GpuDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Deref, DerefMut)]
-pub struct GPUInstance(pub Instance);
+pub struct GpuInstance(pub Instance);
 
 /// The `AdapterInfo` of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct GPUAdapterInfo(pub AdapterInfo);
+pub struct GpuAdapterInfo(pub AdapterInfo);
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -114,7 +114,7 @@ pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (GPUDevice, GPUQueue, GPUAdapterInfo, GPUAdapter) {
+) -> (GpuDevice, GpuQueue, GpuAdapterInfo, GpuAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -264,18 +264,18 @@ pub async fn initialize_renderer(
     let queue = Arc::new(queue);
     let adapter = Arc::new(adapter);
     (
-        GPUDevice::from(device),
-        GPUQueue(queue),
-        GPUAdapterInfo(adapter_info),
-        GPUAdapter(adapter),
+        GpuDevice::from(device),
+        GpuQueue(queue),
+        GpuAdapterInfo(adapter_info),
+        GpuAdapter(adapter),
     )
 }
 
 /// The context with all information required to interact with the GPU.
 ///
-/// The [`GPUDevice`] is used to create render resources and the
+/// The [`GpuDevice`] is used to create render resources and the
 /// the [`CommandEncoder`] is used to record a series of GPU operations.
-pub struct GPUContext {
-    pub gpu_device: GPUDevice,
+pub struct GpuContext {
+    pub gpu_device: GpuDevice,
     pub command_encoder: CommandEncoder,
 }

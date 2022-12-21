@@ -6,7 +6,7 @@ use crate::{
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport,
         ShaderProcessor, ShaderReflectError,
     },
-    renderer::GPUDevice,
+    renderer::GpuDevice,
     Extract,
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
@@ -151,7 +151,7 @@ impl ShaderDefVal {
 impl ShaderCache {
     fn get(
         &mut self,
-        gpu_device: &GPUDevice,
+        gpu_device: &GpuDevice,
         pipeline: CachedPipelineId,
         handle: &Handle<Shader>,
         shader_defs: &[ShaderDefVal],
@@ -304,7 +304,7 @@ struct LayoutCache {
 impl LayoutCache {
     fn get(
         &mut self,
-        gpu_device: &GPUDevice,
+        gpu_device: &GpuDevice,
         bind_group_layouts: &[BindGroupLayout],
     ) -> &wgpu::PipelineLayout {
         let key = bind_group_layouts.iter().map(|l| l.id()).collect();
@@ -339,7 +339,7 @@ impl LayoutCache {
 pub struct PipelineCache {
     layout_cache: LayoutCache,
     shader_cache: ShaderCache,
-    gpu_device: GPUDevice,
+    gpu_device: GpuDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
 }
@@ -350,7 +350,7 @@ impl PipelineCache {
     }
 
     /// Create a new pipeline cache associated with the given render device.
-    pub fn new(gpu_device: GPUDevice) -> Self {
+    pub fn new(gpu_device: GpuDevice) -> Self {
         Self {
             gpu_device,
             layout_cache: default(),

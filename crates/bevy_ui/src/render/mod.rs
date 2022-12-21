@@ -19,7 +19,7 @@ use bevy_render::{
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::Image,
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderStage,
@@ -412,8 +412,8 @@ pub struct UiBatch {
 
 pub fn prepare_uinodes(
     mut commands: Commands,
-    gpu_device: Res<GPUDevice>,
-    gpu_queue: Res<GPUQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut ui_meta: ResMut<UiMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
 ) {
@@ -557,7 +557,7 @@ pub struct UiImageBindGroups {
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     mut ui_meta: ResMut<UiMeta>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,

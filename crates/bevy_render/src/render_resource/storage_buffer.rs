@@ -1,7 +1,7 @@
 #![allow(clippy::doc_markdown)]
 
 use super::Buffer;
-use crate::renderer::{GPUDevice, GPUQueue};
+use crate::renderer::{GpuDevice, GpuQueue};
 use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,
@@ -101,12 +101,12 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GPUDevice)
-    /// and the provided [`GPUQueue`](crate::renderer::GPUQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GpuDevice)
+    /// and the provided [`GPUQueue`](crate::renderer::GpuQueue).
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
-    pub fn write_buffer(&mut self, gpu_device: &GPUDevice, gpu_queue: &GPUQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         self.scratch.write(&self.value).unwrap();
 
         let size = self.scratch.as_ref().len();
@@ -215,7 +215,7 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     }
 
     #[inline]
-    pub fn write_buffer(&mut self, gpu_device: &GPUDevice, gpu_queue: &GPUQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         let size = self.scratch.as_ref().len();
 
         if self.capacity < size || self.label_changed {

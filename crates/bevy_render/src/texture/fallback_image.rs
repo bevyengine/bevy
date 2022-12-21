@@ -6,7 +6,7 @@ use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{
     prelude::Image,
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{BevyDefault, GpuImage, ImageSampler},
 };
 
@@ -19,8 +19,8 @@ pub struct FallbackImage(GpuImage);
 
 impl FromWorld for FallbackImage {
     fn from_world(world: &mut bevy_ecs::prelude::World) -> Self {
-        let gpu_device = world.resource::<GPUDevice>();
-        let gpu_queue = world.resource::<GPUQueue>();
+        let gpu_device = world.resource::<GpuDevice>();
+        let gpu_queue = world.resource::<GpuQueue>();
         let default_sampler = world.resource::<DefaultImageSampler>();
         let image = Image::new_fill(
             Extent3d::default(),

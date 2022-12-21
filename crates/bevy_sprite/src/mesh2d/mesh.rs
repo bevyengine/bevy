@@ -13,7 +13,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
@@ -161,7 +161,7 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(Res<GPUDevice>, Res<DefaultImageSampler>)> =
+        let mut system_state: SystemState<(Res<GpuDevice>, Res<DefaultImageSampler>)> =
             SystemState::new(world);
         let (gpu_device, default_sampler) = system_state.get_mut(world);
         let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -219,7 +219,7 @@ impl FromWorld for Mesh2dPipeline {
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let gpu_queue = world.resource_mut::<GPUQueue>();
+            let gpu_queue = world.resource_mut::<GpuQueue>();
             gpu_queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
@@ -437,7 +437,7 @@ pub struct Mesh2dBindGroup {
 pub fn queue_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     mesh2d_uniforms: Res<ComponentUniforms<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.uniforms().binding() {
@@ -461,7 +461,7 @@ pub struct Mesh2dViewBindGroup {
 
 pub fn queue_mesh2d_view_bind_groups(
     mut commands: Commands,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<Entity, With<ExtractedView>>,

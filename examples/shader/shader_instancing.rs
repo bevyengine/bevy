@@ -17,7 +17,7 @@ use bevy::{
             SetItemPipeline, TrackedRenderPass,
         },
         render_resource::*,
-        renderer::GPUDevice,
+        renderer::GpuDevice,
         view::{ExtractedView, NoFrustumCulling},
         RenderApp, RenderStage,
     },
@@ -143,7 +143,7 @@ pub struct InstanceBuffer {
 fn prepare_instance_buffers(
     mut commands: Commands,
     query: Query<(Entity, &InstanceMaterialData)>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
 ) {
     for (entity, instance_data) in &query {
         let buffer = gpu_device.create_buffer_with_data(&BufferInitDescriptor {

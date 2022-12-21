@@ -19,7 +19,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::*,
-    renderer::{GPUContext, GPUDevice},
+    renderer::{GpuContext, GpuDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     RenderApp, RenderStage,
@@ -200,7 +200,7 @@ impl Node for BloomNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GPUContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         #[cfg(feature = "trace")]
@@ -350,7 +350,7 @@ struct BloomPipelines {
 
 impl FromWorld for BloomPipelines {
     fn from_world(world: &mut World) -> Self {
-        let gpu_device = world.resource::<GPUDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
         let sampler = gpu_device.create_sampler(&SamplerDescriptor {
             min_filter: FilterMode::Linear,
@@ -563,7 +563,7 @@ impl BloomTextures {
 fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     views: Query<(Entity, &ExtractedCamera), With<BloomUniform>>,
 ) {
     let mut texture_as = HashMap::default();
@@ -633,7 +633,7 @@ struct BloomBindGroups {
 
 fn queue_bloom_bind_groups(
     mut commands: Commands,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     pipelines: Res<BloomPipelines>,
     uniforms: Res<ComponentUniforms<BloomUniform>>,
     views: Query<(Entity, &ViewTarget, &BloomTextures)>,

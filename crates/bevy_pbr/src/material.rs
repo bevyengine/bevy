@@ -35,7 +35,7 @@ use bevy_render::{
         PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
-    renderer::GPUDevice,
+    renderer::GpuDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract, RenderApp, RenderStage,
@@ -266,7 +266,7 @@ where
 impl<M: Material> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let gpu_device = world.resource::<GPUDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
@@ -522,7 +522,7 @@ fn prepare_materials<M: Material>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedMaterials<M>>,
     mut render_materials: ResMut<RenderMaterials<M>>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
@@ -557,7 +557,7 @@ fn prepare_materials<M: Material>(
 
 fn prepare_material<M: Material>(
     material: &M,
-    gpu_device: &GPUDevice,
+    gpu_device: &GpuDevice,
     images: &RenderAssets<Image>,
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,

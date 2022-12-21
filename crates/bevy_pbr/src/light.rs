@@ -9,7 +9,7 @@ use bevy_render::{
     extract_resource::ExtractResource,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
-    renderer::GPUDevice,
+    renderer::GpuDevice,
     view::{ComputedVisibility, RenderLayers, VisibleEntities},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -863,7 +863,7 @@ pub(crate) fn assign_lights_to_clusters(
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_point_lights_warning_emitted: Local<bool>,
-    gpu_device: Option<Res<GPUDevice>>,
+    gpu_device: Option<Res<GpuDevice>>,
 ) {
     let gpu_device = match gpu_device {
         Some(gpu_device) => gpu_device,

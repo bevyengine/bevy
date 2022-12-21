@@ -8,7 +8,7 @@ use super::ktx2::*;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Sampler, Texture, TextureView},
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::BevyDefault,
 };
 use bevy_asset::HandleUntyped;
@@ -494,7 +494,7 @@ pub struct GpuImage {
 impl RenderAsset for Image {
     type ExtractedAsset = Image;
     type PreparedAsset = GpuImage;
-    type Param = (SRes<GPUDevice>, SRes<GPUQueue>, SRes<DefaultImageSampler>);
+    type Param = (SRes<GpuDevice>, SRes<GpuQueue>, SRes<DefaultImageSampler>);
 
     /// Clones the Image.
     fn extract_asset(&self) -> Self::ExtractedAsset {

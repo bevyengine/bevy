@@ -18,7 +18,7 @@ use bevy::{
             ShaderRef, ShaderStages, SpecializedMeshPipelineError, TextureSampleType,
             TextureViewDescriptor, TextureViewDimension,
         },
-        renderer::GPUDevice,
+        renderer::GpuDevice,
         texture::{CompressedImageFormats, FallbackImage},
     },
 };
@@ -105,7 +105,7 @@ fn cycle_cubemap_asset(
     mut next_swap: Local<f32>,
     mut cubemap: ResMut<Cubemap>,
     asset_server: Res<AssetServer>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
 ) {
     let now = time.elapsed_seconds();
     if *next_swap == 0.0 {
@@ -223,7 +223,7 @@ impl AsBindGroup for CubemapMaterial {
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
-        gpu_device: &GPUDevice,
+        gpu_device: &GpuDevice,
         images: &RenderAssets<Image>,
         _fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
@@ -259,7 +259,7 @@ impl AsBindGroup for CubemapMaterial {
         })
     }
 
-    fn bind_group_layout(gpu_device: &GPUDevice) -> BindGroupLayout {
+    fn bind_group_layout(gpu_device: &GpuDevice) -> BindGroupLayout {
         gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // Cubemap Base Color Texture

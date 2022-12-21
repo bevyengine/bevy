@@ -11,7 +11,7 @@ use crate::{
     rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{BevyDefault, TextureCache},
     RenderApp, RenderStage,
 };
@@ -234,8 +234,8 @@ pub struct ViewDepthTexture {
 
 fn prepare_view_uniforms(
     mut commands: Commands,
-    gpu_device: Res<GPUDevice>,
-    gpu_queue: Res<GPUQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
     views: Query<(Entity, &ExtractedView)>,
 ) {
@@ -277,7 +277,7 @@ fn prepare_view_targets(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     mut texture_cache: ResMut<TextureCache>,
     cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
 ) {

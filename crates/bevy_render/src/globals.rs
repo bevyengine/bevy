@@ -1,7 +1,7 @@
 use crate::{
     extract_resource::ExtractResource,
     render_resource::{ShaderType, UniformBuffer},
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -59,8 +59,8 @@ pub struct GlobalsBuffer {
 }
 
 fn prepare_globals_buffer(
-    gpu_device: Res<GPUDevice>,
-    gpu_queue: Res<GPUQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut globals_buffer: ResMut<GlobalsBuffer>,
     time: Res<Time>,
     frame_count: Res<FrameCount>,

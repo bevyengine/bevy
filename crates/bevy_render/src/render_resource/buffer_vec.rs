@@ -1,6 +1,6 @@
 use crate::{
     render_resource::Buffer,
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
 };
 use bevy_core::{cast_slice, Pod};
 use wgpu::BufferUsages;
@@ -16,7 +16,7 @@ use wgpu::BufferUsages;
 /// so this helper type is a good choice for them.
 ///
 /// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
-/// allocates VRAM from the [`GPUDevice`](crate::renderer::GPUDevice).
+/// allocates VRAM from the [`GPUDevice`](crate::renderer::GpuDevice).
 /// [`write_buffer`](crate::render_resource::BufferVec::write_buffer) queues copying of the data
 /// from system RAM to VRAM.
 ///
@@ -89,18 +89,18 @@ impl<T: Pod> BufferVec<T> {
         self.label.as_deref()
     }
 
-    /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`GPUDevice`](crate::renderer::GPUDevice) with size
+    /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`GPUDevice`](crate::renderer::GpuDevice) with size
     /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
     ///
     /// If a [`Buffer`](crate::render_resource::Buffer) exists, but is too small, references to it will be discarded,
     /// and a new [`Buffer`](crate::render_resource::Buffer) will be created. Any previously created [`Buffer`](crate::render_resource::Buffer)s
-    /// that are no longer referenced will be deleted by the [`GPUDevice`](crate::renderer::GPUDevice)
+    /// that are no longer referenced will be deleted by the [`GPUDevice`](crate::renderer::GpuDevice)
     /// once it is done using them (typically 1-2 frames).
     ///
     /// In addition to any [`BufferUsages`](crate::render_resource::BufferUsages) provided when
-    /// the `BufferVec` was created, the buffer on the [`GPUDevice`](crate::renderer::GPUDevice)
+    /// the `BufferVec` was created, the buffer on the [`GPUDevice`](crate::renderer::GpuDevice)
     /// is marked as [`BufferUsages::COPY_DST`](crate::render_resource::BufferUsages).
-    pub fn reserve(&mut self, capacity: usize, gpu_device: &GPUDevice) {
+    pub fn reserve(&mut self, capacity: usize, gpu_device: &GpuDevice) {
         if capacity > self.capacity || self.label_changed {
             self.capacity = capacity;
             let size = self.item_size * capacity;
@@ -114,12 +114,12 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GPUDevice)
-    /// and the provided [`GPUQueue`](crate::renderer::GPUQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GpuDevice)
+    /// and the provided [`GPUQueue`](crate::renderer::GpuQueue).
     ///
     /// Before queuing the write, a [`reserve`](crate::render_resource::BufferVec::reserve) operation
     /// is executed.
-    pub fn write_buffer(&mut self, gpu_device: &GPUDevice, gpu_queue: &GPUQueue) {
+    pub fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         if self.values.is_empty() {
             return;
         }

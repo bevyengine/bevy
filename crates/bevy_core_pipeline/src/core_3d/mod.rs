@@ -36,7 +36,7 @@ use bevy_render::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
     },
-    renderer::GPUDevice,
+    renderer::GpuDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
     Extract, RenderApp, RenderStage,
@@ -257,7 +257,7 @@ pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     views_3d: Query<
         (Entity, &ExtractedCamera),
         (

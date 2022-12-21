@@ -6,7 +6,7 @@ use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Buffer, VertexBufferLayout},
-    renderer::GPUDevice,
+    renderer::GpuDevice,
 };
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
@@ -831,7 +831,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<GPUDevice>;
+    type Param = SRes<GpuDevice>;
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {

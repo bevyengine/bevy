@@ -368,7 +368,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             fn as_bind_group(
                 &self,
                 layout: &#render_path::render_resource::BindGroupLayout,
-                gpu_device: &#render_path::renderer::GPUDevice,
+                gpu_device: &#render_path::renderer::GpuDevice,
                 images: &#render_path::render_asset::RenderAssets<#render_path::texture::Image>,
                 fallback_image: &#render_path::texture::FallbackImage,
             ) -> Result<#render_path::render_resource::PreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
@@ -390,7 +390,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 })
             }
 
-            fn bind_group_layout(gpu_device: &#render_path::renderer::GPUDevice) -> #render_path::render_resource::BindGroupLayout {
+            fn bind_group_layout(gpu_device: &#render_path::renderer::GpuDevice) -> #render_path::render_resource::BindGroupLayout {
                 gpu_device.create_bind_group_layout(&#render_path::render_resource::BindGroupLayoutDescriptor {
                     entries: &[#(#binding_layouts,)*],
                     label: None,

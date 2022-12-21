@@ -45,7 +45,7 @@ use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, GPUInstance},
+    renderer::{render_system, GpuInstance},
     settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
@@ -203,7 +203,7 @@ impl Plugin for RenderPlugin {
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<render_graph::RenderGraph>()
-                .insert_resource(GPUInstance(instance))
+                .insert_resource(GpuInstance(instance))
                 .insert_resource(gpu_device)
                 .insert_resource(gpu_queue)
                 .insert_resource(gpu_adapter)

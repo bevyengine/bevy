@@ -13,8 +13,8 @@ pub enum WgpuSettingsPriority {
     WebGL2,
 }
 
-/// Provides configuration for renderer initialization. Use [`GPUDevice::features`](crate::renderer::GPUDevice::features),
-/// [`GPUDevice::limits`](crate::renderer::GPUDevice::limits), and the [`WgpuAdapterInfo`](crate::render_resource::WgpuAdapterInfo)
+/// Provides configuration for renderer initialization. Use [`GPUDevice::features`](crate::renderer::GpuDevice::features),
+/// [`GPUDevice::limits`](crate::renderer::GpuDevice::limits), and the [`WgpuAdapterInfo`](crate::render_resource::WgpuAdapterInfo)
 /// resource to get runtime information about the actual adapter, backend, features, and limits.
 /// NOTE: [`Backends::DX12`](Backends::DX12), [`Backends::METAL`](Backends::METAL), and
 /// [`Backends::VULKAN`](Backends::VULKAN) are enabled by default for non-web and the best choice

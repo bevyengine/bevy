@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::*,
-    renderer::GPUDevice,
+    renderer::GpuDevice,
     texture::BevyDefault,
     view::{ViewTarget, ViewUniform},
 };
@@ -14,7 +14,7 @@ pub struct UiPipeline {
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
-        let gpu_device = world.resource::<GPUDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
         let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {

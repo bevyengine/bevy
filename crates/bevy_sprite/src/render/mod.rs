@@ -20,7 +20,7 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
@@ -46,9 +46,9 @@ pub struct SpritePipeline {
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<GPUDevice>,
+            Res<GpuDevice>,
             Res<DefaultImageSampler>,
-            Res<GPUQueue>,
+            Res<GpuQueue>,
         )> = SystemState::new(world);
         let (gpu_device, default_sampler, gpu_queue) = system_state.get_mut(world);
 
@@ -445,8 +445,8 @@ pub fn queue_sprites(
     mut commands: Commands,
     mut view_entities: Local<FixedBitSet>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    gpu_device: Res<GPUDevice>,
-    gpu_queue: Res<GPUQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,

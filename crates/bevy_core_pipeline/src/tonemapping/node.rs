@@ -10,7 +10,7 @@ use bevy_render::{
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
-    renderer::GPUContext,
+    renderer::GpuContext,
     view::{ExtractedView, ViewTarget},
 };
 
@@ -42,7 +42,7 @@ impl Node for TonemappingNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GPUContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;

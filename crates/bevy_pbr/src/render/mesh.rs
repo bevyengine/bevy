@@ -21,7 +21,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{GPUDevice, GPUQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
@@ -263,9 +263,9 @@ pub struct MeshPipeline {
 impl FromWorld for MeshPipeline {
     fn from_world(world: &mut World) -> Self {
         let mut system_state: SystemState<(
-            Res<GPUDevice>,
+            Res<GpuDevice>,
             Res<DefaultImageSampler>,
-            Res<GPUQueue>,
+            Res<GpuQueue>,
         )> = SystemState::new(world);
         let (gpu_device, default_sampler, gpu_queue) = system_state.get_mut(world);
         let clustered_forward_buffer_binding_type =
@@ -711,7 +711,7 @@ pub struct MeshBindGroup {
 pub fn queue_mesh_bind_group(
     mut commands: Commands,
     mesh_pipeline: Res<MeshPipeline>,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
@@ -772,8 +772,8 @@ impl Default for SkinnedMeshUniform {
 }
 
 pub fn prepare_skinned_meshes(
-    gpu_device: Res<GPUDevice>,
-    gpu_queue: Res<GPUQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut skinned_mesh_uniform: ResMut<SkinnedMeshUniform>,
 ) {
     if skinned_mesh_uniform.buffer.is_empty() {
@@ -795,7 +795,7 @@ pub struct MeshViewBindGroup {
 #[allow(clippy::too_many_arguments)]
 pub fn queue_mesh_view_bind_groups(
     mut commands: Commands,
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     mesh_pipeline: Res<MeshPipeline>,
     shadow_pipeline: Res<ShadowPipeline>,
     light_meta: Res<LightMeta>,

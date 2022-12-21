@@ -8,7 +8,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDescriptor},
-    renderer::GPUContext,
+    renderer::GpuContext,
     view::{ExtractedView, ViewTarget},
 };
 #[cfg(feature = "trace")]
@@ -48,7 +48,7 @@ impl Node for MainPass2dNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GPUContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;

@@ -23,7 +23,7 @@ use bevy_render::{
         TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{GPUContext, GPUDevice, GPUQueue},
+    renderer::{GpuContext, GpuDevice, GpuQueue},
     texture::*,
     view::{
         ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -141,7 +141,7 @@ impl GpuPointLights {
         }
     }
 
-    fn write_buffer(&mut self, gpu_device: &GPUDevice, gpu_queue: &GPUQueue) {
+    fn write_buffer(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         match self {
             GpuPointLights::Uniform(buffer) => buffer.write_buffer(gpu_device, gpu_queue),
             GpuPointLights::Storage(buffer) => buffer.write_buffer(gpu_device, gpu_queue),
@@ -226,7 +226,7 @@ pub struct ShadowPipeline {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
-        let gpu_device = world.resource::<GPUDevice>();
+        let gpu_device = world.resource::<GpuDevice>();
 
         let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
@@ -672,7 +672,7 @@ impl FromWorld for GlobalLightMeta {
     fn from_world(world: &mut World) -> Self {
         Self::new(
             world
-                .resource::<GPUDevice>()
+                .resource::<GpuDevice>()
                 .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
         )
     }
@@ -759,8 +759,8 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    gpu_device: Res<GPUDevice>,
-    gpu_queue: Res<GPUQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
@@ -1470,7 +1470,7 @@ impl ViewClusterBindings {
         self.n_indices += 1;
     }
 
-    pub fn write_buffers(&mut self, gpu_device: &GPUDevice, gpu_queue: &GPUQueue) {
+    pub fn write_buffers(&mut self, gpu_device: &GpuDevice, gpu_queue: &GpuQueue) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_light_index_lists,
@@ -1536,8 +1536,8 @@ impl ViewClusterBindings {
 
 pub fn prepare_clusters(
     mut commands: Commands,
-    gpu_device: Res<GPUDevice>,
-    gpu_queue: Res<GPUQueue>,
+    gpu_device: Res<GpuDevice>,
+    gpu_queue: Res<GpuQueue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_light_meta: Res<GlobalLightMeta>,
     views: Query<
@@ -1602,7 +1602,7 @@ pub fn prepare_clusters(
 }
 
 pub fn queue_shadow_view_bind_group(
-    gpu_device: Res<GPUDevice>,
+    gpu_device: Res<GpuDevice>,
     shadow_pipeline: Res<ShadowPipeline>,
     mut light_meta: ResMut<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
@@ -1757,7 +1757,7 @@ impl Node for ShadowPassNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GPUContext,
+        gpu_context: &mut GpuContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;

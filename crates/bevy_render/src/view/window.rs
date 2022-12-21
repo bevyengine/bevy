@@ -1,6 +1,6 @@
 use crate::{
     render_resource::TextureView,
-    renderer::{GPUAdapter, GPUDevice, GPUInstance},
+    renderer::{GpuAdapter, GpuDevice, GpuInstance},
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -169,9 +169,9 @@ pub fn prepare_windows(
     _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
-    gpu_device: Res<GPUDevice>,
-    gpu_instance: Res<GPUInstance>,
-    gpu_adapter: Res<GPUAdapter>,
+    gpu_device: Res<GpuDevice>,
+    gpu_instance: Res<GpuInstance>,
+    gpu_adapter: Res<GpuAdapter>,
 ) {
     for window in windows
         .windows

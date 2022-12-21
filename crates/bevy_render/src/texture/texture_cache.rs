@@ -1,6 +1,6 @@
 use crate::{
     render_resource::{Texture, TextureView},
-    renderer::GPUDevice,
+    renderer::GpuDevice,
 };
 use bevy_ecs::{prelude::ResMut, system::Resource};
 use bevy_utils::{Entry, HashMap};
@@ -36,7 +36,7 @@ impl TextureCache {
     /// [`CachedTexture`] is created.
     pub fn get(
         &mut self,
-        gpu_device: &GPUDevice,
+        gpu_device: &GpuDevice,
         descriptor: TextureDescriptor<'static>,
     ) -> CachedTexture {
         match self.textures.entry(descriptor) {
