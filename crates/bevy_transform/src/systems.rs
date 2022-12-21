@@ -58,8 +58,8 @@ pub fn propagate_transforms(
                         entity,
                         *child,
                         changed,
-                    )
-                };
+                    );
+                }
             }
         },
     );
@@ -143,8 +143,8 @@ unsafe fn propagate_recursive(
                 entity,
                 *child,
                 changed,
-            )
-        };
+            );
+        }
     }
 }
 
