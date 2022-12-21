@@ -81,20 +81,30 @@ mod splash {
     fn splash_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let icon = asset_server.load("branding/icon.png");
         // Display the logo
-        commands.spawn((
-            ImageBundle {
-                style: Style {
-                    // This will center the logo
-                    margin: UiRect::all(Val::Auto),
-                    // This will set the logo to be 200px wide, and auto adjust its height
-                    size: Size::new(Val::Px(200.0), Val::Auto),
+        commands
+            .spawn((
+                NodeBundle {
+                    style: Style {
+                        align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
+                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        ..default()
+                    },
                     ..default()
                 },
-                image: UiImage::new(icon),
-                ..default()
-            },
-            OnSplashScreen,
-        ));
+                OnSplashScreen,
+            ))
+            .with_children(|parent| {
+                parent.spawn(ImageBundle {
+                    style: Style {
+                        // This will set the logo to be 200px wide, and auto adjust its height
+                        size: Size::new(Val::Px(200.0), Val::Auto),
+                        ..default()
+                    },
+                    image: UiImage::new(icon),
+                    ..default()
+                });
+            });
         // Insert the timer as a resource
         commands.insert_resource(SplashTimer(Timer::from_seconds(1.0, TimerMode::Once)));
     }
@@ -146,73 +156,84 @@ mod game {
         let font = asset_server.load("fonts/FiraSans-Bold.ttf");
 
         commands
-            // First create a `NodeBundle` for centering what we want to display
             .spawn((
                 NodeBundle {
                     style: Style {
-                        // This will center the current node
-                        margin: UiRect::all(Val::Auto),
-                        // This will display its children in a column, from top to bottom
-                        flex_direction: FlexDirection::Column,
-                        // `align_items` will align children on the cross axis. Here the main axis is
-                        // vertical (column), so the cross axis is horizontal. This will center the
-                        // children
+                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                        // center children
                         align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    background_color: Color::BLACK.into(),
                     ..default()
                 },
                 OnGameScreen,
             ))
             .with_children(|parent| {
-                // Display two lines of text, the second one with the current settings
-                parent.spawn(
-                    TextBundle::from_section(
-                        "Will be back to the menu shortly...",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 80.0,
-                            color: TEXT_COLOR,
+                // First create a `NodeBundle` for centering what we want to display
+                parent
+                    .spawn(NodeBundle {
+                        style: Style {
+                            // This will display its children in a column, from top to bottom
+                            flex_direction: FlexDirection::Column,
+                            // `align_items` will align children on the cross axis. Here the main axis is
+                            // vertical (column), so the cross axis is horizontal. This will center the
+                            // children
+                            align_items: AlignItems::Center,
+                            ..default()
                         },
-                    )
-                    .with_style(Style {
-                        margin: UiRect::all(Val::Px(50.0)),
+                        background_color: Color::BLACK.into(),
                         ..default()
-                    }),
-                );
-                parent.spawn(
-                    TextBundle::from_sections([
-                        TextSection::new(
-                            format!("quality: {:?}", *display_quality),
-                            TextStyle {
-                                font: font.clone(),
-                                font_size: 60.0,
-                                color: Color::BLUE,
-                            },
-                        ),
-                        TextSection::new(
-                            " - ",
-                            TextStyle {
-                                font: font.clone(),
-                                font_size: 60.0,
-                                color: TEXT_COLOR,
-                            },
-                        ),
-                        TextSection::new(
-                            format!("volume: {:?}", *volume),
-                            TextStyle {
-                                font: font.clone(),
-                                font_size: 60.0,
-                                color: Color::GREEN,
-                            },
-                        ),
-                    ])
-                    .with_style(Style {
-                        margin: UiRect::all(Val::Px(50.0)),
-                        ..default()
-                    }),
-                );
+                    })
+                    .with_children(|parent| {
+                        // Display two lines of text, the second one with the current settings
+                        parent.spawn(
+                            TextBundle::from_section(
+                                "Will be back to the menu shortly...",
+                                TextStyle {
+                                    font: font.clone(),
+                                    font_size: 80.0,
+                                    color: TEXT_COLOR,
+                                },
+                            )
+                            .with_style(Style {
+                                margin: UiRect::all(Val::Px(50.0)),
+                                ..default()
+                            }),
+                        );
+                        parent.spawn(
+                            TextBundle::from_sections([
+                                TextSection::new(
+                                    format!("quality: {:?}", *display_quality),
+                                    TextStyle {
+                                        font: font.clone(),
+                                        font_size: 60.0,
+                                        color: Color::BLUE,
+                                    },
+                                ),
+                                TextSection::new(
+                                    " - ",
+                                    TextStyle {
+                                        font: font.clone(),
+                                        font_size: 60.0,
+                                        color: TEXT_COLOR,
+                                    },
+                                ),
+                                TextSection::new(
+                                    format!("volume: {:?}", *volume),
+                                    TextStyle {
+                                        font: font.clone(),
+                                        font_size: 60.0,
+                                        color: Color::GREEN,
+                                    },
+                                ),
+                            ])
+                            .with_style(Style {
+                                margin: UiRect::all(Val::Px(50.0)),
+                                ..default()
+                            }),
+                        );
+                    });
             });
         // Spawn a 5 seconds timer to trigger going back to the menu
         commands.insert_resource(GameTimer(Timer::from_seconds(5.0, TimerMode::Once)));
@@ -418,96 +439,107 @@ mod menu {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        margin: UiRect::all(Val::Auto),
-                        flex_direction: FlexDirection::Column,
+                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
                     ..default()
                 },
                 OnMainMenuScreen,
             ))
             .with_children(|parent| {
-                // Display the game name
-                parent.spawn(
-                    TextBundle::from_section(
-                        "Bevy Game Menu UI",
-                        TextStyle {
-                            font: font.clone(),
-                            font_size: 80.0,
-                            color: TEXT_COLOR,
+                parent
+                    .spawn(NodeBundle {
+                        style: Style {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
                         },
-                    )
-                    .with_style(Style {
-                        margin: UiRect::all(Val::Px(50.0)),
+                        background_color: Color::CRIMSON.into(),
                         ..default()
-                    }),
-                );
+                    })
+                    .with_children(|parent| {
+                        // Display the game name
+                        parent.spawn(
+                            TextBundle::from_section(
+                                "Bevy Game Menu UI",
+                                TextStyle {
+                                    font: font.clone(),
+                                    font_size: 80.0,
+                                    color: TEXT_COLOR,
+                                },
+                            )
+                            .with_style(Style {
+                                margin: UiRect::all(Val::Px(50.0)),
+                                ..default()
+                            }),
+                        );
 
-                // Display three buttons for each action available from the main menu:
-                // - new game
-                // - settings
-                // - quit
-                parent
-                    .spawn((
-                        ButtonBundle {
-                            style: button_style.clone(),
-                            background_color: NORMAL_BUTTON.into(),
-                            ..default()
-                        },
-                        MenuButtonAction::Play,
-                    ))
-                    .with_children(|parent| {
-                        let icon = asset_server.load("textures/Game Icons/right.png");
-                        parent.spawn(ImageBundle {
-                            style: button_icon_style.clone(),
-                            image: UiImage::new(icon),
-                            ..default()
-                        });
-                        parent.spawn(TextBundle::from_section(
-                            "New Game",
-                            button_text_style.clone(),
-                        ));
-                    });
-                parent
-                    .spawn((
-                        ButtonBundle {
-                            style: button_style.clone(),
-                            background_color: NORMAL_BUTTON.into(),
-                            ..default()
-                        },
-                        MenuButtonAction::Settings,
-                    ))
-                    .with_children(|parent| {
-                        let icon = asset_server.load("textures/Game Icons/wrench.png");
-                        parent.spawn(ImageBundle {
-                            style: button_icon_style.clone(),
-                            image: UiImage::new(icon),
-                            ..default()
-                        });
-                        parent.spawn(TextBundle::from_section(
-                            "Settings",
-                            button_text_style.clone(),
-                        ));
-                    });
-                parent
-                    .spawn((
-                        ButtonBundle {
-                            style: button_style,
-                            background_color: NORMAL_BUTTON.into(),
-                            ..default()
-                        },
-                        MenuButtonAction::Quit,
-                    ))
-                    .with_children(|parent| {
-                        let icon = asset_server.load("textures/Game Icons/exitRight.png");
-                        parent.spawn(ImageBundle {
-                            style: button_icon_style,
-                            image: UiImage::new(icon),
-                            ..default()
-                        });
-                        parent.spawn(TextBundle::from_section("Quit", button_text_style));
+                        // Display three buttons for each action available from the main menu:
+                        // - new game
+                        // - settings
+                        // - quit
+                        parent
+                            .spawn((
+                                ButtonBundle {
+                                    style: button_style.clone(),
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
+                                },
+                                MenuButtonAction::Play,
+                            ))
+                            .with_children(|parent| {
+                                let icon = asset_server.load("textures/Game Icons/right.png");
+                                parent.spawn(ImageBundle {
+                                    style: button_icon_style.clone(),
+                                    image: UiImage::new(icon),
+                                    ..default()
+                                });
+                                parent.spawn(TextBundle::from_section(
+                                    "New Game",
+                                    button_text_style.clone(),
+                                ));
+                            });
+                        parent
+                            .spawn((
+                                ButtonBundle {
+                                    style: button_style.clone(),
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
+                                },
+                                MenuButtonAction::Settings,
+                            ))
+                            .with_children(|parent| {
+                                let icon = asset_server.load("textures/Game Icons/wrench.png");
+                                parent.spawn(ImageBundle {
+                                    style: button_icon_style.clone(),
+                                    image: UiImage::new(icon),
+                                    ..default()
+                                });
+                                parent.spawn(TextBundle::from_section(
+                                    "Settings",
+                                    button_text_style.clone(),
+                                ));
+                            });
+                        parent
+                            .spawn((
+                                ButtonBundle {
+                                    style: button_style,
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
+                                },
+                                MenuButtonAction::Quit,
+                            ))
+                            .with_children(|parent| {
+                                let icon = asset_server.load("textures/Game Icons/exitRight.png");
+                                parent.spawn(ImageBundle {
+                                    style: button_icon_style,
+                                    image: UiImage::new(icon),
+                                    ..default()
+                                });
+                                parent.spawn(TextBundle::from_section("Quit", button_text_style));
+                            });
                     });
             });
     }
@@ -531,35 +563,49 @@ mod menu {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        margin: UiRect::all(Val::Auto),
-                        flex_direction: FlexDirection::Column,
+                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
                     ..default()
                 },
                 OnSettingsMenuScreen,
             ))
             .with_children(|parent| {
-                for (action, text) in [
-                    (MenuButtonAction::SettingsDisplay, "Display"),
-                    (MenuButtonAction::SettingsSound, "Sound"),
-                    (MenuButtonAction::BackToMainMenu, "Back"),
-                ] {
-                    parent
-                        .spawn((
-                            ButtonBundle {
-                                style: button_style.clone(),
-                                background_color: NORMAL_BUTTON.into(),
-                                ..default()
-                            },
-                            action,
-                        ))
-                        .with_children(|parent| {
-                            parent.spawn(TextBundle::from_section(text, button_text_style.clone()));
-                        });
-                }
+                parent
+                    .spawn(NodeBundle {
+                        style: Style {
+                            flex_direction: FlexDirection::Column,
+                            align_items: AlignItems::Center,
+                            ..default()
+                        },
+                        background_color: Color::CRIMSON.into(),
+                        ..default()
+                    })
+                    .with_children(|parent| {
+                        for (action, text) in [
+                            (MenuButtonAction::SettingsDisplay, "Display"),
+                            (MenuButtonAction::SettingsSound, "Sound"),
+                            (MenuButtonAction::BackToMainMenu, "Back"),
+                        ] {
+                            parent
+                                .spawn((
+                                    ButtonBundle {
+                                        style: button_style.clone(),
+                                        background_color: NORMAL_BUTTON.into(),
+                                        ..default()
+                                    },
+                                    action,
+                                ))
+                                .with_children(|parent| {
+                                    parent.spawn(TextBundle::from_section(
+                                        text,
+                                        button_text_style.clone(),
+                                    ));
+                                });
+                        }
+                    });
             });
     }
 
@@ -585,22 +631,20 @@ mod menu {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        margin: UiRect::all(Val::Auto),
-                        flex_direction: FlexDirection::Column,
+                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
                     ..default()
                 },
                 OnDisplaySettingsMenuScreen,
             ))
             .with_children(|parent| {
-                // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
-                // use the default value, `FlexDirection::Row`, from left to right.
                 parent
                     .spawn(NodeBundle {
                         style: Style {
+                            flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
@@ -608,48 +652,61 @@ mod menu {
                         ..default()
                     })
                     .with_children(|parent| {
-                        // Display a label for the current setting
-                        parent.spawn(TextBundle::from_section(
-                            "Display Quality",
-                            button_text_style.clone(),
-                        ));
-                        // Display a button for each possible value
-                        for quality_setting in [
-                            DisplayQuality::Low,
-                            DisplayQuality::Medium,
-                            DisplayQuality::High,
-                        ] {
-                            let mut entity = parent.spawn(ButtonBundle {
+                        // Create a new `NodeBundle`, this time not setting its `flex_direction`. It will
+                        // use the default value, `FlexDirection::Row`, from left to right.
+                        parent
+                            .spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(150.0), Val::Px(65.0)),
-                                    ..button_style.clone()
+                                    align_items: AlignItems::Center,
+                                    ..default()
                                 },
-                                background_color: NORMAL_BUTTON.into(),
+                                background_color: Color::CRIMSON.into(),
                                 ..default()
-                            });
-                            entity.insert(quality_setting).with_children(|parent| {
+                            })
+                            .with_children(|parent| {
+                                // Display a label for the current setting
                                 parent.spawn(TextBundle::from_section(
-                                    format!("{quality_setting:?}"),
+                                    "Display Quality",
                                     button_text_style.clone(),
                                 ));
+                                // Display a button for each possible value
+                                for quality_setting in [
+                                    DisplayQuality::Low,
+                                    DisplayQuality::Medium,
+                                    DisplayQuality::High,
+                                ] {
+                                    let mut entity = parent.spawn(ButtonBundle {
+                                        style: Style {
+                                            size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                                            ..button_style.clone()
+                                        },
+                                        background_color: NORMAL_BUTTON.into(),
+                                        ..default()
+                                    });
+                                    entity.insert(quality_setting).with_children(|parent| {
+                                        parent.spawn(TextBundle::from_section(
+                                            format!("{quality_setting:?}"),
+                                            button_text_style.clone(),
+                                        ));
+                                    });
+                                    if *display_quality == quality_setting {
+                                        entity.insert(SelectedOption);
+                                    }
+                                }
                             });
-                            if *display_quality == quality_setting {
-                                entity.insert(SelectedOption);
-                            }
-                        }
-                    });
-                // Display the back button to return to the settings screen
-                parent
-                    .spawn((
-                        ButtonBundle {
-                            style: button_style,
-                            background_color: NORMAL_BUTTON.into(),
-                            ..default()
-                        },
-                        MenuButtonAction::BackToSettings,
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section("Back", button_text_style));
+                        // Display the back button to return to the settings screen
+                        parent
+                            .spawn((
+                                ButtonBundle {
+                                    style: button_style,
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
+                                },
+                                MenuButtonAction::BackToSettings,
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn(TextBundle::from_section("Back", button_text_style));
+                            });
                     });
             });
     }
@@ -676,12 +733,11 @@ mod menu {
             .spawn((
                 NodeBundle {
                     style: Style {
-                        margin: UiRect::all(Val::Auto),
-                        flex_direction: FlexDirection::Column,
+                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                         align_items: AlignItems::Center,
+                        justify_content: JustifyContent::Center,
                         ..default()
                     },
-                    background_color: Color::CRIMSON.into(),
                     ..default()
                 },
                 OnSoundSettingsMenuScreen,
@@ -690,6 +746,7 @@ mod menu {
                 parent
                     .spawn(NodeBundle {
                         style: Style {
+                            flex_direction: FlexDirection::Column,
                             align_items: AlignItems::Center,
                             ..default()
                         },
@@ -697,36 +754,47 @@ mod menu {
                         ..default()
                     })
                     .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section(
-                            "Volume",
-                            button_text_style.clone(),
-                        ));
-                        for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
-                            let mut entity = parent.spawn(ButtonBundle {
+                        parent
+                            .spawn(NodeBundle {
                                 style: Style {
-                                    size: Size::new(Val::Px(30.0), Val::Px(65.0)),
-                                    ..button_style.clone()
+                                    align_items: AlignItems::Center,
+                                    ..default()
                                 },
-                                background_color: NORMAL_BUTTON.into(),
+                                background_color: Color::CRIMSON.into(),
                                 ..default()
+                            })
+                            .with_children(|parent| {
+                                parent.spawn(TextBundle::from_section(
+                                    "Volume",
+                                    button_text_style.clone(),
+                                ));
+                                for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
+                                    let mut entity = parent.spawn(ButtonBundle {
+                                        style: Style {
+                                            size: Size::new(Val::Px(30.0), Val::Px(65.0)),
+                                            ..button_style.clone()
+                                        },
+                                        background_color: NORMAL_BUTTON.into(),
+                                        ..default()
+                                    });
+                                    entity.insert(Volume(volume_setting));
+                                    if *volume == Volume(volume_setting) {
+                                        entity.insert(SelectedOption);
+                                    }
+                                }
                             });
-                            entity.insert(Volume(volume_setting));
-                            if *volume == Volume(volume_setting) {
-                                entity.insert(SelectedOption);
-                            }
-                        }
-                    });
-                parent
-                    .spawn((
-                        ButtonBundle {
-                            style: button_style,
-                            background_color: NORMAL_BUTTON.into(),
-                            ..default()
-                        },
-                        MenuButtonAction::BackToSettings,
-                    ))
-                    .with_children(|parent| {
-                        parent.spawn(TextBundle::from_section("Back", button_text_style));
+                        parent
+                            .spawn((
+                                ButtonBundle {
+                                    style: button_style,
+                                    background_color: NORMAL_BUTTON.into(),
+                                    ..default()
+                                },
+                                MenuButtonAction::BackToSettings,
+                            ))
+                            .with_children(|parent| {
+                                parent.spawn(TextBundle::from_section("Back", button_text_style));
+                            });
                     });
             });
     }

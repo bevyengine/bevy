@@ -4,14 +4,18 @@
 //!
 //! See also the `headless` example which does not display a window.
 
-use bevy::{prelude::*, render::settings::WgpuSettings};
+use bevy::{
+    prelude::*,
+    render::{settings::WgpuSettings, RenderPlugin},
+};
 
 fn main() {
     App::new()
-        .insert_resource(WgpuSettings {
-            backends: None,
-            ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(RenderPlugin {
+            wgpu_settings: WgpuSettings {
+                backends: None,
+                ..default()
+            },
+        }))
         .run();
 }

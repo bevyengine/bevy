@@ -6,7 +6,7 @@ use bevy_app::App;
 use bevy_ecs::{
     entity::Entity,
     system::{
-        lifetimeless::SRes, ReadOnlySystemParamFetch, Resource, SystemParam, SystemParamItem,
+        lifetimeless::SRes, ReadOnlySystemParam, Resource, SystemParam, SystemParamItem,
         SystemState,
     },
     world::World,
@@ -64,7 +64,7 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
 // TODO: make this generic?
 /// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct DrawFunctionId(usize);
+pub struct DrawFunctionId(u32);
 
 /// Stores all draw functions for the [`PhaseItem`] type.
 /// For retrieval they are associated with their [`TypeId`].
@@ -81,20 +81,36 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
 
     /// Adds the [`Draw`] function and associates it to the type `T`
     pub fn add_with<T: 'static, D: Draw<P>>(&mut self, draw_function: D) -> DrawFunctionId {
+        let id = DrawFunctionId(self.draw_functions.len().try_into().unwrap());
         self.draw_functions.push(Box::new(draw_function));
-        let id = DrawFunctionId(self.draw_functions.len() - 1);
         self.indices.insert(TypeId::of::<T>(), id);
         id
     }
 
     /// Retrieves the [`Draw`] function corresponding to the `id` mutably.
     pub fn get_mut(&mut self, id: DrawFunctionId) -> Option<&mut dyn Draw<P>> {
-        self.draw_functions.get_mut(id.0).map(|f| &mut **f)
+        self.draw_functions.get_mut(id.0 as usize).map(|f| &mut **f)
     }
 
     /// Retrieves the id of the [`Draw`] function corresponding to their associated type `T`.
     pub fn get_id<T: 'static>(&self) -> Option<DrawFunctionId> {
         self.indices.get(&TypeId::of::<T>()).copied()
+    }
+
+    /// Retrieves the id of the [`Draw`] function corresponding to their associated type `T`.
+    ///
+    /// Fallible wrapper for [`Self::get_id()`]
+    ///
+    /// ## Panics
+    /// If the id doesn't exist it will panic
+    pub fn id<T: 'static>(&self) -> DrawFunctionId {
+        self.get_id::<T>().unwrap_or_else(|| {
+            panic!(
+                "Draw function {} not found for {}",
+                std::any::type_name::<T>(),
+                std::any::type_name::<P>()
+            )
+        })
     }
 }
 
@@ -308,7 +324,7 @@ impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
 
 impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for RenderCommandState<P, C>
 where
-    <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+    C::Param: ReadOnlySystemParam,
 {
     /// Prepares the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
     fn draw<'w>(
@@ -331,7 +347,7 @@ pub trait AddRenderCommand {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch;
+        C::Param: ReadOnlySystemParam;
 }
 
 impl AddRenderCommand for App {
@@ -339,7 +355,7 @@ impl AddRenderCommand for App {
         &mut self,
     ) -> &mut Self
     where
-        <C::Param as SystemParam>::Fetch: ReadOnlySystemParamFetch,
+        C::Param: ReadOnlySystemParam,
     {
         let draw_function = RenderCommandState::<P, C>::new(&mut self.world);
         let draw_functions = self

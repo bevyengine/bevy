@@ -88,21 +88,22 @@ pub struct WorldBorrow<'w, T> {
 }
 
 impl<'w, T> WorldBorrow<'w, T> {
-    fn new(
-        value: &'w T,
+    fn try_new(
+        value: impl FnOnce() -> Option<&'w T>,
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
-    ) -> Self {
+    ) -> Option<Self> {
         assert!(
             access.borrow_mut().read(archetype_component_id),
             "Attempted to immutably access {}, but it is already mutably borrowed",
             std::any::type_name::<T>(),
         );
-        Self {
+        let value = value()?;
+        Some(Self {
             value,
             archetype_component_id,
             access,
-        }
+        })
     }
 }
 
@@ -129,21 +130,22 @@ pub struct WorldBorrowMut<'w, T> {
 }
 
 impl<'w, T> WorldBorrowMut<'w, T> {
-    fn new(
-        value: Mut<'w, T>,
+    fn try_new(
+        value: impl FnOnce() -> Option<Mut<'w, T>>,
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
-    ) -> Self {
+    ) -> Option<Self> {
         assert!(
             access.borrow_mut().write(archetype_component_id),
             "Attempted to mutably access {}, but it is already mutably borrowed",
             std::any::type_name::<T>(),
         );
-        Self {
+        let value = value()?;
+        Some(Self {
             value,
             archetype_component_id,
             access,
-        }
+        })
     }
 }
 
@@ -189,12 +191,12 @@ impl<'w> WorldCell<'w> {
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
-        Some(WorldBorrow::new(
+        WorldBorrow::try_new(
             // SAFETY: ComponentId matches TypeId
-            unsafe { self.world.get_resource_with_id(component_id)? },
+            || unsafe { self.world.get_resource_with_id(component_id) },
             archetype_component_id,
             self.access.clone(),
-        ))
+        )
     }
 
     /// Gets a reference to the resource of the given type
@@ -222,15 +224,12 @@ impl<'w> WorldCell<'w> {
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
-        Some(WorldBorrowMut::new(
+        WorldBorrowMut::try_new(
             // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            unsafe {
-                self.world
-                    .get_resource_unchecked_mut_with_id(component_id)?
-            },
+            || unsafe { self.world.get_resource_unchecked_mut_with_id(component_id) },
             archetype_component_id,
             self.access.clone(),
-        ))
+        )
     }
 
     /// Gets a mutable reference to the resource of the given type
@@ -258,12 +257,12 @@ impl<'w> WorldCell<'w> {
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
-        Some(WorldBorrow::new(
+        WorldBorrow::try_new(
             // SAFETY: ComponentId matches TypeId
-            unsafe { self.world.get_non_send_with_id(component_id)? },
+            || unsafe { self.world.get_non_send_with_id(component_id) },
             archetype_component_id,
             self.access.clone(),
-        ))
+        )
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -291,15 +290,12 @@ impl<'w> WorldCell<'w> {
         let archetype_component_id = self
             .world
             .get_resource_archetype_component_id(component_id)?;
-        Some(WorldBorrowMut::new(
+        WorldBorrowMut::try_new(
             // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            unsafe {
-                self.world
-                    .get_non_send_unchecked_mut_with_id(component_id)?
-            },
+            || unsafe { self.world.get_non_send_unchecked_mut_with_id(component_id) },
             archetype_component_id,
             self.access.clone(),
-        ))
+        )
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.

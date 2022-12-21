@@ -50,9 +50,10 @@ impl From<Camera3dDepthLoadOp> for LoadOp<f32> {
 impl ExtractComponent for Camera3d {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(item.clone())
     }
 }
 

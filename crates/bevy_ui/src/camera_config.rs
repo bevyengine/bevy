@@ -11,7 +11,6 @@ use bevy_render::extract_component::ExtractComponent;
 /// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
 /// it will display the UI by default.
 ///
-/// [`Camera`]: bevy_render::camera::Camera
 #[derive(Component, Clone)]
 pub struct UiCameraConfig {
     /// Whether to output UI to this camera view.
@@ -30,8 +29,9 @@ impl Default for UiCameraConfig {
 impl ExtractComponent for UiCameraConfig {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(item.clone())
     }
 }

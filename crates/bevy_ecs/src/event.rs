@@ -2,7 +2,7 @@
 
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
-use bevy_utils::tracing::{trace, warn};
+use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
 use std::{fmt, hash::Hash, marker::PhantomData};
 
@@ -226,7 +226,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// #
     /// struct CollisionEvent;
     ///
-    /// fn play_collision_sound(events: EventReader<CollisionEvent>) {
+    /// fn play_collision_sound(mut events: EventReader<CollisionEvent>) {
     ///     if !events.is_empty() {
     ///         events.clear();
     ///         // Play a sound
@@ -246,7 +246,7 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     /// In those situations you generally want to consume those events to make sure they don't appear in the next frame.
     ///
     /// For more information see [`EventReader::is_empty()`].
-    pub fn clear(mut self) {
+    pub fn clear(&mut self) {
         self.iter().last();
     }
 }
@@ -295,13 +295,11 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
 /// ```
 /// Note that this is considered *non-idiomatic*, and should only be used when `EventWriter` will not work.
 #[derive(SystemParam)]
-pub struct EventWriter<'w, 's, E: Event> {
+pub struct EventWriter<'w, E: Event> {
     events: ResMut<'w, Events<E>>,
-    #[system_param(ignore)]
-    marker: PhantomData<&'s usize>,
 }
 
-impl<'w, 's, E: Event> EventWriter<'w, 's, E> {
+impl<'w, E: Event> EventWriter<'w, E> {
     /// Sends an `event`. [`EventReader`]s can then read the event.
     /// See [`Events`] for details.
     pub fn send(&mut self, event: E) {
@@ -352,15 +350,6 @@ impl<E: Event> ManualEventReader<E> {
         events: &'a Events<E>,
     ) -> impl DoubleEndedIterator<Item = (&'a E, EventId<E>)>
            + ExactSizeIterator<Item = (&'a E, EventId<E>)> {
-        // if the reader has seen some of the events in a buffer, find the proper index offset.
-        // otherwise read all events in the buffer
-        let missed = self.missed_events(events);
-        if missed > 0 {
-            let plural = if missed == 1 { "event" } else { "events" };
-            let type_name = std::any::type_name::<E>();
-            warn!("Missed {missed} `{type_name}` {plural}. Consider reading from the `EventReader` more often (generally the best solution) or calling Events::update() less frequently (normally this is called once per frame). This problem is most likely due to run criteria/fixed timesteps or consuming events conditionally. See the Events documentation for more information.");
-        }
-
         let a_index = (self.last_event_count).saturating_sub(events.events_a.start_event_count);
         let b_index = (self.last_event_count).saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
@@ -828,7 +817,7 @@ mod tests {
         events.send(TestEvent { i: 0 });
         world.insert_resource(events);
 
-        let mut reader = IntoSystem::into_system(|events: EventReader<TestEvent>| -> bool {
+        let mut reader = IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> bool {
             if !events.is_empty() {
                 events.clear();
                 false

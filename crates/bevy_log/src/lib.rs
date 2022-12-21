@@ -114,8 +114,8 @@ impl Plugin for LogPlugin {
             }));
         }
 
+        let finished_subscriber;
         let default_filter = { format!("{},{}", self.level, self.filter) };
-        LogTracer::init().unwrap();
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
@@ -154,10 +154,14 @@ impl Plugin for LogPlugin {
             let tracy_layer = tracing_tracy::TracyLayer::new();
 
             let fmt_layer = tracing_subscriber::fmt::Layer::default();
+
+            // bevy_render::renderer logs a `tracy.frame_mark` event every frame
+            // at Level::INFO. Formatted logs should omit it.
             #[cfg(feature = "tracing-tracy")]
-            let fmt_layer = fmt_layer.with_filter(
-                tracing_subscriber::filter::Targets::new().with_target("tracy", Level::ERROR),
-            );
+            let fmt_layer =
+                fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
+                    meta.fields().field("tracy.frame_mark").is_none()
+                }));
 
             let subscriber = subscriber.with(fmt_layer);
 
@@ -166,25 +170,33 @@ impl Plugin for LogPlugin {
             #[cfg(feature = "tracing-tracy")]
             let subscriber = subscriber.with(tracy_layer);
 
-            bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            finished_subscriber = subscriber;
         }
 
         #[cfg(target_arch = "wasm32")]
         {
             console_error_panic_hook::set_once();
-            let subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
+            finished_subscriber = subscriber.with(tracing_wasm::WASMLayer::new(
                 tracing_wasm::WASMLayerConfig::default(),
             ));
-            bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
         }
 
         #[cfg(target_os = "android")]
         {
-            let subscriber = subscriber.with(android_tracing::AndroidLayer::default());
-            bevy_utils::tracing::subscriber::set_global_default(subscriber)
-                .expect("Could not set global default tracing subscriber. If you've already set up a tracing subscriber, please disable LogPlugin from Bevy's DefaultPlugins");
+            finished_subscriber = subscriber.with(android_tracing::AndroidLayer::default());
+        }
+
+        let logger_already_set = LogTracer::init().is_err();
+        let subscriber_already_set =
+            bevy_utils::tracing::subscriber::set_global_default(finished_subscriber).is_err();
+
+        match (logger_already_set, subscriber_already_set) {
+            (true, true) => warn!(
+                "Could not set global logger and tracing subscriber as they are already set. Consider disabling LogPlugin."
+            ),
+            (true, _) => warn!("Could not set global logger as it is already set. Consider disabling LogPlugin."),
+            (_, true) => warn!("Could not set global tracing subscriber as it is already set. Consider disabling LogPlugin."),
+            _ => (),
         }
     }
 }
