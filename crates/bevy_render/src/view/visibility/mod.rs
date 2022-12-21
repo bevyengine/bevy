@@ -632,7 +632,7 @@ mod test {
                 .entity(e)
                 .get::<ComputedVisibility>()
                 .unwrap()
-                .is_visible_in_hierarchy
+                .is_visible_in_hierarchy()
         };
         assert!(
             is_visible(root1),
