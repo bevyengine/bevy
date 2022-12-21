@@ -5,7 +5,7 @@ use bevy::{
         render_asset::RenderAssets,
         render_resource::{AsBindGroupError, PreparedBindGroup, *},
         renderer::RenderDevice,
-        texture::{BevyDefault, FallbackImage, ImageSampler},
+        texture::{FallbackImage, ImageSampler},
     },
 };
 use std::num::NonZeroU32;
@@ -50,7 +50,7 @@ impl FromWorld for ColorTextures {
                     },
                     TextureDimension::D2,
                     &pixel[..],
-                    TextureFormat::bevy_default(),
+                    TextureFormat::Rgba8Unorm,
                 );
                 image.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
                     address_mode_u: AddressMode::Repeat,
