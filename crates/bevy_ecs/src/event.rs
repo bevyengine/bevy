@@ -4,7 +4,7 @@ use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
-use std::{fmt, hash::Hash, marker::PhantomData, slice::Iter, iter::Chain};
+use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
@@ -441,7 +441,11 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
 impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
     type Item = (&'a E, EventId<E>);
     fn next(&mut self) -> Option<Self::Item> {
-        match self.chain.next().map(|instance| (&instance.event, instance.event_id)) {
+        match self
+            .chain
+            .next()
+            .map(|instance| (&instance.event, instance.event_id))
+        {
             Some(item) => {
                 self.reader.last_event_count += 1;
                 Some(item)
@@ -457,7 +461,9 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
 
 impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        self.chain.next_back().map(|instance| (&instance.event, instance.event_id))
+        self.chain
+            .next_back()
+            .map(|instance| (&instance.event, instance.event_id))
     }
 }
 
