@@ -35,6 +35,7 @@ pub(crate) struct OverlayDiagnostics {
     avg_fps: f32,
 }
 
+// TODO: This fails because `Res<Diagnostics>` isn't found
 fn extract_overlay_diagnostics(
     mut commands: Commands,
     diags: Res<Diagnostics>,
@@ -62,6 +63,7 @@ fn extract_overlay_diagnostics(
     }
 }
 
+// TODO: This fails because `Res<Diagnostics>` isn't found
 fn prepare_overlay_diagnostics(
     buffer: Res<DiagnosticOverlayBuffer>,
     render_queue: Res<RenderQueue>,
@@ -102,14 +104,11 @@ pub struct OverlayPlugin {
 
 impl Plugin for OverlayPlugin {
     fn build(&self, app: &mut App) {
-        if app
-            .world
-            .resource::<Diagnostics>()
-            .get(FrameTimeDiagnosticsPlugin::FPS)
-            .is_none()
-        {
-            app.add_plugin(FrameTimeDiagnosticsPlugin::default());
-        }
+        // TODO: This fails e.g. for `examples/ui/text.rs` because it also
+        //       adds FrameTimeDiagnosticsPlugin
+        // if !app.is_plugin_added::<FrameTimeDiagnosticsPlugin>() {
+        //     app.add_plugin(FrameTimeDiagnosticsPlugin::default());
+        // }
 
         load_internal_asset!(
             app,

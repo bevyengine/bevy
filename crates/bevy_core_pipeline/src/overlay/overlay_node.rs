@@ -114,18 +114,21 @@ impl Node for OverlayNode {
             return Ok(());
         };
 
-        // TODO: What does this do?
-        // let target = ViewTarget {
-        //     view: target.view.clone(),
-        //     sampled_target: None,
-        // };
+        // As far as I can tell, this skips multi-sampling?
+        // TODO: Is this correct?
+        //       Tried to adapt based on https://github.com/bevyengine/bevy/pull/6415/files
+        let dont_multi_sample = Some(bevy_render::render_resource::RenderPassColorAttachment {
+            view: target.main_texture(),
+            resolve_target: None,
+            ops: Operations {
+                load: LoadOp::Load,
+                store: true,
+            }
+        });
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some("overlay"),
-            color_attachments: &[Some(target.get_color_attachment(Operations {
-                load: LoadOp::Load,
-                store: true,
-            }))],
+            color_attachments: &[dont_multi_sample],
             depth_stencil_attachment: None,
         };
 
