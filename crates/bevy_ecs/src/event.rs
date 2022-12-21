@@ -3,8 +3,8 @@
 use crate as bevy_ecs;
 use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::tracing::trace;
-use std::ops::{Deref, DerefMut, Range, RangeInclusive};
-use std::{fmt, hash::Hash, marker::PhantomData};
+use std::ops::{Deref, DerefMut};
+use std::{fmt, hash::Hash, marker::PhantomData, slice::Iter, iter::Chain};
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
@@ -398,8 +398,8 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIterator<'a, E> {
 #[derive(Debug)]
 pub struct ManualEventIteratorWithId<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
-    events: &'a Events<E>,
-    range: Range<usize>,
+    chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
+    oldest_id: usize,
     marker: PhantomData<E>,
 }
 
@@ -412,12 +412,22 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
             reader.last_event_count = events.oldest_id();
         }
 
-        let range = reader.last_event_count..events.event_count;
+        let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
+        let b_index = (reader.last_event_count).saturating_sub(events.events_b.start_event_count);
+        let a = events.events_a.get(a_index..).unwrap_or_default();
+        let b = events.events_b.get(b_index..).unwrap_or_default();
+
+        let unread_count = a.len() + b.len();
+        // Ensure `len` is implemented correctly
+        debug_assert_eq!(unread_count, reader.len(events));
+        //self.last_event_count = events.event_count - unread_count;
+        // Iterate the oldest first, then the newer events
+        let chain = a.iter().chain(b.iter());
 
         Self {
             reader,
-            events,
-            range,
+            chain,
+            oldest_id: events.oldest_id(),
             marker: PhantomData,
         }
     }
@@ -431,7 +441,7 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
 impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
     type Item = (&'a E, EventId<E>);
     fn next(&mut self) -> Option<Self::Item> {
-        match self.range.next().and_then(|id| self.events.get_event(id)) {
+        match self.chain.next().map(|instance| (&instance.event, instance.event_id)) {
             Some(item) => {
                 self.reader.last_event_count += 1;
                 Some(item)
@@ -441,22 +451,19 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
-        self.range.size_hint()
+        self.chain.size_hint()
     }
 }
 
 impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.range.next_back() {
-            Some(id) => self.events.get_event(id),
-            None => None,
-        }
+        self.chain.next_back().map(|instance| (&instance.event, instance.event_id))
     }
 }
 
 impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
-        self.range.len()
+        self.oldest_id.saturating_sub(self.reader.last_event_count)
     }
 }
 
