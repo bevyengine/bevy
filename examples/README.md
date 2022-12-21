@@ -56,19 +56,22 @@ git checkout v0.4.0
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
   - [Window](#window)
-
 - [Tests](#tests)
 - [Platform-Specific Examples](#platform-specific-examples)
   - [Android](#android)
     - [Setup](#setup)
-    - [Build & Run](#build--run)
+    - [Build \& Run](#build--run)
+    - [Debugging](#debugging)
     - [Old phones](#old-phones)
   - [iOS](#ios)
     - [Setup](#setup-1)
-    - [Build & Run](#build--run-1)
+    - [Build \& Run](#build--run-1)
   - [WASM](#wasm)
     - [Setup](#setup-2)
-    - [Build & Run](#build--run-2)
+    - [Build \& Run](#build--run-2)
+    - [Optimizing](#optimizing)
+      - [1. Tweak your `Cargo.toml`](#1-tweak-your-cargotoml)
+      - [2. Use `wasm-opt` from the binaryen package](#2-use-wasm-opt-from-the-binaryen-package)
     - [Loading Assets](#loading-assets)
 
 # The Bare Minimum
@@ -260,6 +263,7 @@ Example | Description
 --- | ---
 [Animated](../examples/shader/animate_shader.rs) | A shader that uses dynamic data like the time since startup
 [Array Texture](../examples/shader/array_texture.rs) | A shader that shows how to reuse the core bevy PBR shading functionality in a custom material that obtains the base color from an array texture.
+[Texture Binding Array](../examples/shader/texture_binding_array.rs) | A shader that shows how bind and sample multiple textures as a binding array (a.k.a. bindless textures).
 [Compute - Game of Life](../examples/shader/compute_shader_game_of_life.rs) | A compute shader that simulates Conway's Game of Life
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
 [Instancing](../examples/shader/shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call
