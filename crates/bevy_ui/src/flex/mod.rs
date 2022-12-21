@@ -14,7 +14,10 @@ use bevy_transform::components::Transform;
 use bevy_utils::HashMap;
 use bevy_window::{Window, WindowId, WindowScaleFactorChanged, Windows};
 use std::fmt;
-use taffy::{number::Number, Taffy};
+use taffy::{
+    prelude::{AvailableSpace, Size},
+    Taffy,
+};
 
 #[derive(Resource)]
 pub struct FlexSurface {
@@ -63,7 +66,7 @@ impl FlexSurface {
         let taffy_style = convert::from_style(scale_factor, style);
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
-            taffy.new_node(taffy_style, &Vec::new()).unwrap()
+            taffy.new_leaf(taffy_style).unwrap()
         });
 
         if !added {
@@ -81,23 +84,23 @@ impl FlexSurface {
         let taffy = &mut self.taffy;
         let taffy_style = convert::from_style(scale_factor, style);
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
-            move |constraints: taffy::geometry::Size<Number>| {
+            move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
                 let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
                 match (constraints.width, constraints.height) {
-                    (Number::Undefined, Number::Undefined) => {}
-                    (Number::Defined(width), Number::Undefined) => {
+                    (None, None) => {}
+                    (Some(width), None) => {
                         if calculated_size.preserve_aspect_ratio {
                             size.height = width * size.height / size.width;
                         }
                         size.width = width;
                     }
-                    (Number::Undefined, Number::Defined(height)) => {
+                    (None, Some(height)) => {
                         if calculated_size.preserve_aspect_ratio {
                             size.width = height * size.width / size.height;
                         }
                         size.height = height;
                     }
-                    (Number::Defined(width), Number::Defined(height)) => {
+                    (Some(width), Some(height)) => {
                         size.width = width;
                         size.height = height;
                     }
@@ -110,7 +113,7 @@ impl FlexSurface {
             self.taffy.set_style(*taffy_node, taffy_style).unwrap();
             self.taffy.set_measure(*taffy_node, Some(measure)).unwrap();
         } else {
-            let taffy_node = taffy.new_leaf(taffy_style, measure).unwrap();
+            let taffy_node = taffy.new_leaf(taffy_style).unwrap();
             self.entity_to_taffy.insert(entity, taffy_node);
         }
     }
@@ -143,11 +146,10 @@ without UI components as a child of an entity with UI components, results may be
 
     pub fn update_window(&mut self, window: &Window) {
         let taffy = &mut self.taffy;
-        let node = self.window_nodes.entry(window.id()).or_insert_with(|| {
-            taffy
-                .new_node(taffy::style::Style::default(), &Vec::new())
-                .unwrap()
-        });
+        let node = self
+            .window_nodes
+            .entry(window.id())
+            .or_insert_with(|| taffy.new_leaf(taffy::style::Style::default()).unwrap());
 
         taffy
             .set_style(
@@ -178,7 +180,7 @@ without UI components as a child of an entity with UI components, results may be
     pub fn compute_window_layouts(&mut self) {
         for window_node in self.window_nodes.values() {
             self.taffy
-                .compute_layout(*window_node, taffy::geometry::Size::undefined())
+                .compute_layout(*window_node, Size::MAX_CONTENT)
                 .unwrap();
         }
     }
@@ -187,7 +189,7 @@ without UI components as a child of an entity with UI components, results may be
     pub fn remove_entities(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
             if let Some(node) = self.entity_to_taffy.remove(&entity) {
-                self.taffy.remove(node);
+                self.taffy.remove(node).unwrap();
             }
         }
     }
@@ -210,7 +212,7 @@ with UI components as a child of an entity without UI components, results may be
 #[derive(Debug)]
 pub enum FlexError {
     InvalidHierarchy,
-    TaffyError(taffy::Error),
+    TaffyError(taffy::error::TaffyError),
 }
 
 #[allow(clippy::too_many_arguments)]

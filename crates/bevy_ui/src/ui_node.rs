@@ -237,6 +237,10 @@ pub struct Style {
     pub aspect_ratio: Option<f32>,
     /// How to handle overflow
     pub overflow: Overflow,
+    /// The size of the gutters between the rows and columns of the flexbox layout
+    ///
+    /// Values of `Size::UNDEFINED` and `Size::AUTO` are treated as zero.
+    pub gap: Size,
 }
 
 impl Default for Style {
@@ -263,6 +267,7 @@ impl Default for Style {
             max_size: Size::AUTO,
             aspect_ratio: Default::default(),
             overflow: Default::default(),
+            gap: Size::UNDEFINED,
         }
     }
 }
