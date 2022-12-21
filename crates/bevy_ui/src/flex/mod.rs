@@ -86,11 +86,15 @@ impl FlexSurface {
                 match (constraints.width, constraints.height) {
                     (Number::Undefined, Number::Undefined) => {}
                     (Number::Defined(width), Number::Undefined) => {
-                        size.height = width * size.height / size.width;
+                        if calculated_size.preserve_aspect_ratio {
+                            size.height = width * size.height / size.width;
+                        }
                         size.width = width;
                     }
                     (Number::Undefined, Number::Defined(height)) => {
-                        size.width = height * size.width / size.height;
+                        if calculated_size.preserve_aspect_ratio {
+                            size.width = height * size.width / size.height;
+                        }
                         size.height = height;
                     }
                     (Number::Defined(width), Number::Defined(height)) => {
@@ -236,12 +240,6 @@ pub fn flex_node_system(
     let logical_to_physical_factor = windows.scale_factor(WindowId::primary());
     let scale_factor = logical_to_physical_factor * ui_scale.scale;
 
-    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
-        update_changed(&mut flex_surface, scale_factor, full_node_query);
-    } else {
-        update_changed(&mut flex_surface, scale_factor, node_query);
-    }
-
     fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
@@ -256,6 +254,12 @@ pub fn flex_node_system(
                 flex_surface.upsert_node(entity, style, scaling_factor);
             }
         }
+    }
+
+    if scale_factor_events.iter().next_back().is_some() || ui_scale.is_changed() {
+        update_changed(&mut flex_surface, scale_factor, full_node_query);
+    } else {
+        update_changed(&mut flex_surface, scale_factor, node_query);
     }
 
     for (entity, style, calculated_size) in &changed_size_query {

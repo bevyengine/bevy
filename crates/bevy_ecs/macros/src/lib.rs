@@ -327,13 +327,14 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let fields = match get_named_struct_fields(&ast.data) {
-        Ok(fields) => &fields.named,
-        Err(e) => return e.into_compile_error().into(),
+    let syn::Data::Struct(syn::DataStruct { fields: field_definitions, ..}) = ast.data else {
+        return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
+            .into_compile_error()
+            .into();
     };
     let path = bevy_ecs_path();
 
-    let field_attributes = fields
+    let field_attributes = field_definitions
         .iter()
         .map(|field| {
             (
@@ -358,16 +359,25 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             )
         })
         .collect::<Vec<(&Field, SystemParamFieldAttributes)>>();
+    let mut field_locals = Vec::new();
     let mut fields = Vec::new();
     let mut field_types = Vec::new();
     let mut ignored_fields = Vec::new();
     let mut ignored_field_types = Vec::new();
-    for (field, attrs) in &field_attributes {
+    for (i, (field, attrs)) in field_attributes.iter().enumerate() {
         if attrs.ignore {
             ignored_fields.push(field.ident.as_ref().unwrap());
             ignored_field_types.push(&field.ty);
         } else {
-            fields.push(field.ident.as_ref().unwrap());
+            field_locals.push(format_ident!("f{i}"));
+            let i = Index::from(i);
+            fields.push(
+                field
+                    .ident
+                    .as_ref()
+                    .map(|f| quote! { #f })
+                    .unwrap_or_else(|| quote! { #i }),
+            );
             field_types.push(&field.ty);
         }
     }
@@ -415,7 +425,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }));
 
     let mut tuple_types: Vec<_> = field_types.iter().map(|x| quote! { #x }).collect();
-    let mut tuple_patterns: Vec<_> = fields.iter().map(|x| quote! { #x }).collect();
+    let mut tuple_patterns: Vec<_> = field_locals.iter().map(|x| quote! { #x }).collect();
 
     // If the number of fields exceeds the 16-parameter limit,
     // fold the fields into tuples of tuples until we are below the limit.
@@ -491,7 +501,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                         <(#(#tuple_types,)*) as #path::system::SystemParam>::State as #path::system::SystemParamState
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
-                        #(#fields,)*
+                        #(#fields: #field_locals,)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
                     }
                 }

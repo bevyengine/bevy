@@ -1661,9 +1661,6 @@ mod tests {
         _local: Local<'s, T>,
     }
 
-    #[derive(SystemParam)]
-    pub struct UnitParam {}
-
     #[derive(Resource)]
     pub struct R<const I: usize>;
 
@@ -1692,4 +1689,13 @@ mod tests {
     fn long_system(_param: LongParam) {
         crate::system::assert_is_system(long_system);
     }
+    
+    #[derive(SystemParam)]
+    pub struct UnitParam;
+
+    #[derive(SystemParam)]
+    pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
+        Res<'w, R>,
+        Local<'s, L>,
+    );
 }
