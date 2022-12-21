@@ -4,7 +4,6 @@ use crate::{
 };
 use bevy_app::App;
 use bevy_ecs::{
-    all_tuples,
     entity::Entity,
     system::{
         lifetimeless::SRes, ReadOnlySystemParamFetch, Resource, SystemParam, SystemParamItem,
@@ -12,7 +11,7 @@ use bevy_ecs::{
     },
     world::World,
 };
-use bevy_utils::HashMap;
+use bevy_utils::{all_tuples, HashMap};
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 

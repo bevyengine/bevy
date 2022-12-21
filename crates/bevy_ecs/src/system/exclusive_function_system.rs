@@ -11,7 +11,7 @@ use crate::{
     },
     world::{World, WorldId},
 };
-use bevy_ecs_macros::all_tuples;
+use bevy_utils::all_tuples;
 use std::{borrow::Cow, marker::PhantomData};
 
 /// A function system that runs with exclusive [`World`] access.

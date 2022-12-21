@@ -13,8 +13,8 @@ use crate::{
     entity::{Entities, Entity, EntityLocation},
     storage::{SparseSetIndex, SparseSets, Storages, Table},
 };
-use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
+use bevy_utils::all_tuples;
 use std::{any::TypeId, collections::HashMap};
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
