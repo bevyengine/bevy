@@ -423,7 +423,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     }));
 
     let mut punctuated_generics_no_bounds = punctuated_generics.clone();
-    for g in punctuated_generics_no_bounds.iter_mut() {
+    for g in &mut punctuated_generics_no_bounds {
         match g {
             GenericParam::Type(g) => g.bounds.clear(),
             GenericParam::Lifetime(g) => g.bounds.clear(),
