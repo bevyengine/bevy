@@ -1517,10 +1517,10 @@ mod tests {
         #[system_param(ignore)]
         marker: PhantomData<Marker>,
     }
-    
+
     #[derive(SystemParam)]
     pub struct UnitParam;
-    
+
     #[derive(SystemParam)]
     pub struct TupleParam<'w, 's, R: Resource, L: FromWorld + Send + 'static>(
         Res<'w, R>,
