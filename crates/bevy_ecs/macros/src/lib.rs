@@ -422,6 +422,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
+    let mut punctuated_generics_no_bounds = punctuated_generics.clone();
+    for g in punctuated_generics_no_bounds.iter_mut() {
+        match g {
+            GenericParam::Type(g) => g.bounds.clear(),
+            GenericParam::Lifetime(g) => g.bounds.clear(),
+            GenericParam::Const(_) => {}
+        }
+    }
+
     let mut punctuated_type_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_type_generic_idents.extend(lifetimeless_generics.iter().filter_map(|g| match g {
         GenericParam::Type(g) => Some(&g.ident),
@@ -471,7 +480,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
 
             #[doc(hidden)]
-            type State<'w, 's, #punctuated_generics> = FetchState<
+            type State<'w, 's, #punctuated_generics_no_bounds> = FetchState<
                 (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 #punctuated_generic_idents
             >;
