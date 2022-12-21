@@ -453,15 +453,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 type Item<'_w, '_s> = #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents>;
 
                 fn init_state(world: &mut #path::world::World, system_meta: &mut #path::system::SystemMeta) -> Self::State {
-                    <(#(#field_types,)*) as #path::system::SystemParam>::init_state(world, system_meta)
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::init_state(world, system_meta)
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &#path::archetype::Archetype, system_meta: &mut #path::system::SystemMeta) {
-                    <(#(#field_types,)*) as #path::system::SystemParam>::new_archetype(state, archetype, system_meta)
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::new_archetype(state, archetype, system_meta)
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                    <(#(#field_types,)*) as #path::system::SystemParam>::apply(state, system_meta, world);
+                    <(#(#tuple_types,)*) as #path::system::SystemParam>::apply(state, system_meta, world);
                 }
 
                 unsafe fn get_param<'w2, 's2>(
@@ -472,7 +472,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 ) -> Self::Item<'w2, 's2> {
                     let (#(#tuple_patterns,)*) = <
                         (#(#tuple_types,)*) as #path::system::SystemParam
-                    >::get_param(&mut state.state, system_meta, world, change_tick);
+                    >::get_param(state, system_meta, world, change_tick);
                     #struct_name {
                         #(#fields: #field_locals,)*
                         #(#ignored_fields: <#ignored_field_types>::default(),)*
