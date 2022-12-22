@@ -460,9 +460,11 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
 
 impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
     fn next_back(&mut self) -> Option<Self::Item> {
-        match self.chain
+        match self
+            .chain
             .next_back()
-            .map(|instance| (&instance.event, instance.event_id)) {
+            .map(|instance| (&instance.event, instance.event_id))
+        {
             Some(item) => {
                 self.oldest_id -= 1;
                 Some(item)
