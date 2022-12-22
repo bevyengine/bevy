@@ -412,7 +412,7 @@ pub fn prepare_picking_targets(
                         depth_buffer: make_buffer(),
                         size: size.into(),
                         n: 0,
-                    })
+                    });
                 }
             }
 

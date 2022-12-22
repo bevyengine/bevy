@@ -9,18 +9,29 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
     render::picking::Picking,
+    utils::HashSet,
 };
+
+// An example of how to use picking.
+// Here the picked entities are stored as a hashset which other system
+// can check.
+#[derive(Debug, Default, Resource, Deref, DerefMut)]
+struct Picked(HashSet<Entity>);
 
 fn main() {
     App::new()
+        // TODO: Support MSAA != 1 with depth texture copies
+        .insert_resource(Msaa { samples: 1 })
         .add_plugins(DefaultPlugins)
+        .init_resource::<Picked>()
         .add_startup_system(setup)
         .add_startup_system(setup_ui)
         .add_system(rotate_shapes)
         .add_system(mouse_scroll)
-        // .add_system(picking_shapes)
-        // .add_system(picking_logo)
-        // .add_system(picking_text)
+        .add_system(picking_events)
+        .add_system(picking_shapes.after(picking_events))
+        .add_system(picking_logo.after(picking_events))
+        .add_system(picking_text.after(picking_events))
         .run();
 }
 
@@ -274,71 +285,63 @@ fn rotate_shapes(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>)
     }
 }
 
-// fn picking_shapes(
-//     mut pick_events: EventReader<PickedEvent>,
-//     mut shapes: Query<&mut Handle<StandardMaterial>, With<Shape>>,
-//     normal: Res<NormalMaterial>,
-//     hovered: Res<HoveredMaterial>,
-// ) {
-//     for pick_event in pick_events.iter() {
-//         let PickedEvent { entity, event } = pick_event;
+fn picking_events(
+    mut cursor_moved: EventReader<CursorMoved>,
+    picking_camera: Query<(&Picking, &Camera)>,
+    mut picked: ResMut<Picked>,
+) {
+    let (picking, camera) = picking_camera.single();
 
-//         match event {
-//             PickedEventVariant::Picked => {
-//                 if let Ok(mut material_handle) = shapes.get_mut(*entity) {
-//                     *material_handle = hovered.clone();
-//                 }
-//             }
-//             PickedEventVariant::Unpicked => {
-//                 if let Ok(mut material_handle) = shapes.get_mut(*entity) {
-//                     *material_handle = normal.clone();
-//                 }
-//             }
-//         }
-//     }
-// }
+    let picked_this_frame = HashSet::from_iter(
+        cursor_moved
+            .iter()
+            .map(|moved| moved.position.as_uvec2())
+            .filter_map(|coordinates| picking.get_entity(camera, coordinates)),
+    );
 
-// fn picking_logo(
-//     mut pick_events: EventReader<PickedEvent>,
-//     mut logo: Query<&mut Style, With<UiImage>>,
-// ) {
-//     for pick_event in pick_events.iter() {
-//         let PickedEvent { entity, event } = pick_event;
+    // Since we rely on cursor _movement_ to update what is picked,
+    // only update if something interesting happened.
+    // Else picking will only last one frame.
+    if !picked_this_frame.is_empty() {
+        **picked = picked_this_frame;
+    }
+}
 
-//         match event {
-//             PickedEventVariant::Picked => {
-//                 if let Ok(mut style) = logo.get_mut(*entity) {
-//                     style.size = Size::new(Val::Px(LOGO_HOVERED), Val::Auto);
-//                 }
-//             }
-//             PickedEventVariant::Unpicked => {
-//                 if let Ok(mut style) = logo.get_mut(*entity) {
-//                     style.size = Size::new(Val::Px(LOGO_NORMAL), Val::Auto);
-//                 }
-//             }
-//         }
-//     }
-// }
+fn picking_shapes(
+    picked: Res<Picked>,
+    mut shapes: Query<(Entity, &mut Handle<StandardMaterial>), With<Shape>>,
+    normal: Res<NormalMaterial>,
+    hovered: Res<HoveredMaterial>,
+) {
+    for (entity, mut material_handle) in shapes.iter_mut() {
+        if picked.contains(&entity) {
+            *material_handle = hovered.clone();
+        } else {
+            *material_handle = normal.clone();
+        }
+    }
+}
 
-// fn picking_text(mut pick_events: EventReader<PickedEvent>, mut texts: Query<&mut Text>) {
-//     for pick_event in pick_events.iter() {
-//         let PickedEvent { entity, event } = pick_event;
+fn picking_logo(picked: Res<Picked>, mut logos: Query<(Entity, &mut Style), With<UiImage>>) {
+    for (entity, mut style) in logos.iter_mut() {
+        if picked.contains(&entity) {
+            style.size = Size::new(Val::Px(LOGO_HOVERED), Val::Auto);
+        } else {
+            style.size = Size::new(Val::Px(LOGO_NORMAL), Val::Auto);
+        }
+    }
+}
 
-//         match event {
-//             PickedEventVariant::Picked => {
-//                 if let Ok(mut text) = texts.get_mut(*entity) {
-//                     for section in &mut text.sections {
-//                         section.style.color = COLOR_HOVERED;
-//                     }
-//                 }
-//             }
-//             PickedEventVariant::Unpicked => {
-//                 if let Ok(mut text) = texts.get_mut(*entity) {
-//                     for section in &mut text.sections {
-//                         section.style.color = COLOR_NORMAL;
-//                     }
-//                 }
-//             }
-//         }
-//     }
-// }
+fn picking_text(picked: Res<Picked>, mut texts: Query<(Entity, &mut Text)>) {
+    for (entity, mut text) in texts.iter_mut() {
+        if picked.contains(&entity) {
+            for section in &mut text.sections {
+                section.style.color = COLOR_HOVERED;
+            }
+        } else {
+            for section in &mut text.sections {
+                section.style.color = COLOR_NORMAL;
+            }
+        }
+    }
+}
