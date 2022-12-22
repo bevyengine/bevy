@@ -210,13 +210,13 @@ impl Node for BloomNode {
 
             // Upsampling pipleines.
             // Get normal(energy conserving) or additive based on bloom_settings.mode
-            pipeline_cache.get_render_pipeline(match bloom_settings.mode {
-                BloomMode::EnergyConserving => pipelines.upsampling_pipeline,
-                BloomMode::Additive => pipelines.additive_upsampling_pipeline,
+            pipeline_cache.get_render_pipeline(match bloom_settings.composite_mode {
+                BloomCompositeMode::EnergyConserving => pipelines.upsampling_pipeline,
+                BloomCompositeMode::Additive => pipelines.additive_upsampling_pipeline,
             }),
-            pipeline_cache.get_render_pipeline(match bloom_settings.mode {
-                BloomMode::EnergyConserving => pipelines.upsampling_final_pipeline,
-                BloomMode::Additive => pipelines.additive_upsampling_final_pipeline,
+            pipeline_cache.get_render_pipeline(match bloom_settings.composite_mode {
+                BloomCompositeMode::EnergyConserving => pipelines.upsampling_final_pipeline,
+                BloomCompositeMode::Additive => pipelines.additive_upsampling_final_pipeline,
             }),
         ) else {
             return Ok(());

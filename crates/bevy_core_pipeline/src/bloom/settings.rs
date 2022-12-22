@@ -30,7 +30,7 @@ pub struct BloomSettings {
     /// Set to Additive if prefilter_settings is
     /// configured in a non-energy-conserving way,
     /// otherwise set to EnergyConserving.
-    pub mode: BloomMode,
+    pub composite_mode: BloomCompositeMode,
 }
 
 impl BloomSettings {
@@ -44,7 +44,7 @@ impl BloomSettings {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
-        mode: BloomMode::EnergyConserving,
+        composite_mode: BloomCompositeMode::EnergyConserving,
     };
 
     /// Recommended for SDR rendering
@@ -57,7 +57,7 @@ impl BloomSettings {
             threshold: 0.6,
             threshold_softness: 0.2,
         },
-        mode: BloomMode::Additive,
+        composite_mode: BloomCompositeMode::Additive,
     };
 
     pub const SCREEN_BLUR: Self = Self {
@@ -69,7 +69,7 @@ impl BloomSettings {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
-        mode: BloomMode::EnergyConserving,
+        composite_mode: BloomCompositeMode::EnergyConserving,
     };
 }
 
@@ -88,7 +88,7 @@ impl Default for BloomSettings {
 /// * It is recommended to use this only if HDR rendering is not possible.
 /// * Changing these settings creates a pshysically impossible image.
 /// * Changing these settings makes it easy to make the final result look worse.
-/// * Non-default prefilter settings should be used in conjuction with mode::Additive
+/// * Non-default prefilter settings should be used in conjuction with composite_mode::Additive
 #[derive(Default, Clone, Reflect)]
 pub struct PrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
@@ -107,7 +107,7 @@ pub struct PrefilterSettings {
 }
 
 #[derive(Clone, Reflect)]
-pub enum BloomMode {
+pub enum BloomCompositeMode {
     EnergyConserving,
     Additive,
 }
