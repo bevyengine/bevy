@@ -2,7 +2,8 @@ use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
     prelude::{Changed, Component, Resource},
-    system::{Commands, NonSendMut, Query, RemovedComponents},
+    removal_detection::RemovedComponents,
+    system::{Commands, NonSendMut, Query},
     world::Mut,
 };
 use bevy_utils::{
@@ -86,7 +87,7 @@ pub(crate) fn create_window<'a>(
 pub struct WindowTitleCache(HashMap<Entity, String>);
 
 pub(crate) fn despawn_window(
-    closed: RemovedComponents<Window>,
+    mut closed: RemovedComponents<Window>,
     mut close_events: EventWriter<WindowClosed>,
     mut winit_windows: NonSendMut<WinitWindows>,
 ) {
