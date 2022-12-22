@@ -492,7 +492,7 @@ mod tests {
 
         let mut builder = DynamicSceneBuilder::from_world(&world);
         builder.extract_entities([a, b, c].into_iter());
-        builder.extract_resources(&world);
+        builder.extract_resources();
         let scene = builder.build();
 
         let expected = r#"(

@@ -172,19 +172,20 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// world.insert_resource(MyResource);
     ///
     /// let mut builder = DynamicSceneBuilder::from_world(&world);
-    /// builder.extract_resources(&world);
+    /// builder.extract_resources();
     /// let scene = builder.build();
     /// ```
-    pub fn extract_resources(&mut self, world: &'w World) -> &mut Self {
+    pub fn extract_resources(&mut self) -> &mut Self {
         let type_registry = self.type_registry.read();
-        for (component_id, _) in world.storages().resources.iter() {
-            if let Some(resource) = world
+        for (component_id, _) in self.original_world.storages().resources.iter() {
+            if let Some(resource) = self
+                .original_world
                 .components()
                 .get_info(component_id)
                 .and_then(|info| info.type_id())
                 .and_then(|type_id| type_registry.get(type_id))
                 .and_then(|registration| registration.data::<ReflectResource>())
-                .and_then(|reflect_resource| reflect_resource.reflect(world))
+                .and_then(|reflect_resource| reflect_resource.reflect(self.original_world))
             {
                 self.resources.push(resource.clone_value());
             }
@@ -199,7 +200,8 @@ impl<'w> DynamicSceneBuilder<'w> {
 mod tests {
     use bevy_app::AppTypeRegistry;
     use bevy_ecs::{
-        component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
+        component::Component, prelude::Entity, prelude::Resource, query::With,
+        reflect::ReflectComponent, reflect::ReflectResource, world::World,
     };
 
     use bevy_reflect::Reflect;
@@ -212,6 +214,9 @@ mod tests {
     #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
     #[reflect(Component)]
     struct ComponentB;
+    #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
+    #[reflect(Resource)]
+    struct ResourceA;
 
     #[test]
     fn extract_one_entity() {
@@ -351,5 +356,23 @@ mod tests {
 
         assert_eq!(scene.entities.len(), 1);
         assert_eq!(scene.entities[0].entity, entity_a.index());
+    }
+
+    #[test]
+    fn extract_one_resource() {
+        let mut world = World::default();
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<ResourceA>();
+        world.insert_resource(atr);
+
+        world.insert_resource(ResourceA);
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+        builder.extract_resources();
+        let scene = builder.build();
+
+        assert_eq!(scene.resources.len(), 1);
+        assert!(scene.resources[0].represents::<ResourceA>());
     }
 }
