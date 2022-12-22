@@ -86,15 +86,14 @@ impl Default for BloomSettings {
 ///
 /// # Considerations
 /// * It is recommended to use this only if HDR rendering is not possible.
-/// * Changing these settings creates a pshysically impossible image.
+/// * Changing these settings creates a pshysically inaccurate image.
 /// * Changing these settings makes it easy to make the final result look worse.
 /// * Non-default prefilter settings should be used in conjuction with composite_mode::Additive
 #[derive(Default, Clone, Reflect)]
 pub struct PrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
-    /// RGB values under the threshold curve will not have bloom applied.
-    /// Using a threshold is not physically accurate, but may fit better with your artistic direction.
+    /// RGB values under the threshold curve will not contribute to the effect.
     pub threshold: f32,
 
     /// Controls how much to blend between the thresholded and non-thresholded colors (default: 0.0).
