@@ -1,6 +1,6 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
-use bevy::{core_pipeline::bloom::{BloomSettings, BloomMode}, prelude::*};
+use bevy::{core_pipeline::bloom::{BloomSettings, BloomCompositeMode}, prelude::*};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -128,9 +128,9 @@ fn update_bloom_settings(
             text.push_str(&format!("(W/S) LF boost: {}\n", bloom_settings.lf_boost));
             text.push_str(&format!("(E/D) LF boost curv.: {}\n", bloom_settings.lf_boost_curvature));
             text.push_str(&format!("(R/F) High-pass freq.: {}\n", bloom_settings.high_pass_frequency));
-            text.push_str(&format!("(T/G) Mode: {}\n", match bloom_settings.mode {
-                BloomMode::EnergyConserving => "Energy-conserving",
-                BloomMode::Additive => "Additive",
+            text.push_str(&format!("(T/G) Mode: {}\n", match bloom_settings.composite_mode {
+                BloomCompositeMode::EnergyConserving => "Energy-conserving",
+                BloomCompositeMode::Additive => "Additive",
             }));
 
             if keycode.just_pressed(KeyCode::Space) {
@@ -172,10 +172,10 @@ fn update_bloom_settings(
             bloom_settings.high_pass_frequency = bloom_settings.high_pass_frequency.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::G) {
-                bloom_settings.mode = BloomMode::Additive;
+                bloom_settings.composite_mode = BloomCompositeMode::Additive;
             }
             if keycode.pressed(KeyCode::T) {
-                bloom_settings.mode = BloomMode::EnergyConserving;
+                bloom_settings.composite_mode = BloomCompositeMode::EnergyConserving;
             }
         }
 
