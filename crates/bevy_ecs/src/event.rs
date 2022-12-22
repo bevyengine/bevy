@@ -402,6 +402,10 @@ pub struct ManualEventIteratorWithId<'a, E: Event> {
     unread: usize,
 }
 
+fn event_trace<E: Event>(id: EventId<E>) {
+    trace!("EventReader::iter() -> {}", id);
+}
+
 impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
         // Check if we are behind the oldest event.
@@ -446,6 +450,7 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
             .map(|instance| (&instance.event, instance.event_id))
         {
             Some(item) => {
+                event_trace(item.1);
                 self.reader.last_event_count += 1;
                 self.unread -= 1;
                 Some(item)
@@ -467,6 +472,7 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
             .map(|instance| (&instance.event, instance.event_id))
         {
             Some(item) => {
+                event_trace(item.1);
                 self.unread -= 1;
                 Some(item)
             }
