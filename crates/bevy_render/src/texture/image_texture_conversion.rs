@@ -1,156 +1,49 @@
-use crate::texture::{Image, TextureFormatPixelInfo};
+use crate::texture::Image;
 use anyhow::anyhow;
-use image::{DynamicImage, ImageBuffer};
+use image::{buffer::ConvertBuffer, DynamicImage, ImageBuffer, Luma, Rgba};
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
     /// Converts a [`DynamicImage`] to an [`Image`].
     pub fn from_dynamic(dyn_img: DynamicImage, is_srgb: bool) -> Image {
-        use bevy_core::cast_slice;
-        let width;
-        let height;
+        let width = dyn_img.width();
+        let height = dyn_img.height();
 
         let data: Vec<u8>;
         let format: TextureFormat;
 
         match dyn_img {
             DynamicImage::ImageLuma8(i) => {
-                let i = DynamicImage::ImageLuma8(i).into_rgba8();
-                width = i.width();
-                height = i.height();
-                format = if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
-                } else {
-                    TextureFormat::Rgba8Unorm
-                };
-
+                format = TextureFormat::R8Unorm;
                 data = i.into_raw();
             }
             DynamicImage::ImageLumaA8(i) => {
-                let i = DynamicImage::ImageLumaA8(i).into_rgba8();
-                width = i.width();
-                height = i.height();
-                format = if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
-                } else {
-                    TextureFormat::Rgba8Unorm
-                };
-
-                data = i.into_raw();
+                format = TextureFormat::R8Unorm;
+                data = ConvertBuffer::<ImageBuffer<Luma<u8>, Vec<u8>>>::convert(&i).into_raw();
             }
             DynamicImage::ImageRgb8(i) => {
-                let i = DynamicImage::ImageRgb8(i).into_rgba8();
-                width = i.width();
-                height = i.height();
-                format = if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
+                if is_srgb {
+                    format = TextureFormat::Rgba8UnormSrgb;
                 } else {
-                    TextureFormat::Rgba8Unorm
-                };
-
-                data = i.into_raw();
+                    format = TextureFormat::Rgba8Unorm;
+                }
+                data = ConvertBuffer::<ImageBuffer<Rgba<u8>, Vec<u8>>>::convert(&i).into_raw();
             }
             DynamicImage::ImageRgba8(i) => {
-                width = i.width();
-                height = i.height();
-                format = if is_srgb {
-                    TextureFormat::Rgba8UnormSrgb
+                if is_srgb {
+                    format = TextureFormat::Rgba8UnormSrgb;
                 } else {
-                    TextureFormat::Rgba8Unorm
-                };
-
+                    format = TextureFormat::Rgba8Unorm;
+                }
                 data = i.into_raw();
             }
-            DynamicImage::ImageLuma16(i) => {
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::R16Uint;
-
-                let raw_data = i.into_raw();
-
-                data = cast_slice(&raw_data).to_owned();
-            }
-            DynamicImage::ImageLumaA16(i) => {
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::Rg16Uint;
-
-                let raw_data = i.into_raw();
-
-                data = cast_slice(&raw_data).to_owned();
-            }
-            DynamicImage::ImageRgb16(image) => {
-                width = image.width();
-                height = image.height();
-                format = TextureFormat::Rgba16Uint;
-
-                let mut local_data =
-                    Vec::with_capacity(width as usize * height as usize * format.pixel_size());
-
-                for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilised
-                    // https://github.com/rust-lang/rust/issues/74985
-                    let r = pixel[0];
-                    let g = pixel[1];
-                    let b = pixel[2];
-                    let a = u16::max_value();
-
-                    local_data.extend_from_slice(&r.to_ne_bytes());
-                    local_data.extend_from_slice(&g.to_ne_bytes());
-                    local_data.extend_from_slice(&b.to_ne_bytes());
-                    local_data.extend_from_slice(&a.to_ne_bytes());
-                }
-
-                data = local_data;
-            }
-            DynamicImage::ImageRgba16(i) => {
-                width = i.width();
-                height = i.height();
-                format = TextureFormat::Rgba16Uint;
-
-                let raw_data = i.into_raw();
-
-                data = cast_slice(&raw_data).to_owned();
-            }
-            DynamicImage::ImageRgb32F(image) => {
-                width = image.width();
-                height = image.height();
-                format = TextureFormat::Rgba32Float;
-
-                let mut local_data =
-                    Vec::with_capacity(width as usize * height as usize * format.pixel_size());
-
-                for pixel in image.into_raw().chunks_exact(3) {
-                    // TODO: use the array_chunks method once stabilised
-                    // https://github.com/rust-lang/rust/issues/74985
-                    let r = pixel[0];
-                    let g = pixel[1];
-                    let b = pixel[2];
-                    let a = 1f32;
-
-                    local_data.extend_from_slice(&r.to_ne_bytes());
-                    local_data.extend_from_slice(&g.to_ne_bytes());
-                    local_data.extend_from_slice(&b.to_ne_bytes());
-                    local_data.extend_from_slice(&a.to_ne_bytes());
-                }
-
-                data = local_data;
-            }
-            DynamicImage::ImageRgba32F(image) => {
-                width = image.width();
-                height = image.height();
-                format = TextureFormat::Rgba32Float;
-
-                let raw_data = image.into_raw();
-
-                data = cast_slice(&raw_data).to_owned();
-            }
-            // DynamicImage is now non exhaustive, catch future variants and convert them
             _ => {
                 let image = dyn_img.into_rgba8();
-                width = image.width();
-                height = image.height();
-                format = TextureFormat::Rgba8UnormSrgb;
+                if is_srgb {
+                    format = TextureFormat::Rgba8UnormSrgb;
+                } else {
+                    format = TextureFormat::Rgba8Unorm;
+                }
 
                 data = image.into_raw();
             }
