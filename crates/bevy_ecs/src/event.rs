@@ -427,7 +427,7 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
         Self {
             reader,
             chain,
-            oldest_id: event.oldest_id(),
+            oldest_id: events.oldest_id(),
         }
     }
 
