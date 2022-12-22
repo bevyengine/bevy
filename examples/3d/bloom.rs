@@ -124,10 +124,10 @@ fn update_bloom_settings(
         (entity, Some(mut bloom_settings)) => {
             *text = "BloomSettings (Toggle: Space)\n".to_string();
             text.push_str("-----------------------------\n");
-            text.push_str(&format!("(Q/A) Top intensity: {}\n", bloom_settings.top_intensity));
-            text.push_str(&format!("(W/S) Bump angle: {}\n", bloom_settings.bump_angle));
-            text.push_str(&format!("(E/D) Near contribution: {}\n", bloom_settings.near_contribution));
-            text.push_str(&format!("(R/F) Far contribution: {}\n", bloom_settings.far_contribution));
+            text.push_str(&format!("(Q/A) Intensity: {}\n", bloom_settings.intensity));
+            text.push_str(&format!("(W/S) LF boost: {}\n", bloom_settings.lf_boost));
+            text.push_str(&format!("(E/D) LF boost curv.: {}\n", bloom_settings.lf_boost_curvature));
+            text.push_str(&format!("(R/F) High-pass freq.: {}\n", bloom_settings.high_pass_frequency));
             text.push_str(&format!("(T/G) Mode: {}\n", match bloom_settings.mode {
                 BloomMode::EnergyConserving => "Energy-conserving",
                 BloomMode::Additive => "Additive",
@@ -140,36 +140,36 @@ fn update_bloom_settings(
             let dt = time.delta_seconds();
 
             if keycode.pressed(KeyCode::A) {
-                bloom_settings.top_intensity -= dt / 10.0;
+                bloom_settings.intensity -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::Q) {
-                bloom_settings.top_intensity += dt / 10.0;
+                bloom_settings.intensity += dt / 10.0;
             }
-            bloom_settings.top_intensity = bloom_settings.top_intensity.clamp(0.0, 1.0);
+            bloom_settings.intensity = bloom_settings.intensity.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::S) {
-                bloom_settings.bump_angle -= dt / 10.0;
+                bloom_settings.lf_boost -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::W) {
-                bloom_settings.bump_angle += dt / 10.0;
+                bloom_settings.lf_boost += dt / 10.0;
             }
-            bloom_settings.bump_angle = bloom_settings.bump_angle.clamp(0.0, 1.0);
+            bloom_settings.lf_boost = bloom_settings.lf_boost.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::D) {
-                bloom_settings.near_contribution -= dt / 10.0;
+                bloom_settings.lf_boost_curvature -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::E) {
-                bloom_settings.near_contribution += dt / 10.0;
+                bloom_settings.lf_boost_curvature += dt / 10.0;
             }
-            bloom_settings.near_contribution = bloom_settings.near_contribution.clamp(0.0, 1.0);
+            bloom_settings.lf_boost_curvature = bloom_settings.lf_boost_curvature.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::F) {
-                bloom_settings.far_contribution -= dt / 10.0;
+                bloom_settings.high_pass_frequency -= dt / 10.0;
             }
             if keycode.pressed(KeyCode::R) {
-                bloom_settings.far_contribution += dt / 10.0;
+                bloom_settings.high_pass_frequency += dt / 10.0;
             }
-            bloom_settings.far_contribution = bloom_settings.far_contribution.clamp(0.0, 1.0);
+            bloom_settings.high_pass_frequency = bloom_settings.high_pass_frequency.clamp(0.0, 1.0);
 
             if keycode.pressed(KeyCode::G) {
                 bloom_settings.mode = BloomMode::Additive;

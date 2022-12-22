@@ -47,10 +47,10 @@ pub struct PrefilterSettings {
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
-    pub far_contribution: f32,
-    pub top_intensity: f32,
-    pub bump_angle: f32,
-    pub near_contribution: f32,
+    pub intensity: f32,
+    pub lf_boost: f32,
+    pub lf_boost_curvature: f32,
+    pub high_pass_frequency: f32,
 
     pub prefilter_settings: PrefilterSettings,
 
@@ -58,7 +58,7 @@ pub struct BloomSettings {
     /// are blended between or added to each other. Useful
     /// if image brightening is desired and extremely
     /// helpful if threshold is used.
-    /// 
+    ///
     /// # Recommendation
     /// Set to Additive if prefilter_settings is
     /// configured in a non-energy-conserving way,
@@ -67,12 +67,12 @@ pub struct BloomSettings {
 }
 
 impl BloomSettings {
-    //// Recommended for HDR rendering
+    /// Recommended for HDR rendering
     pub const NATURAL: Self = Self {
-        far_contribution: 0.8,
-        top_intensity: 0.9,
-        bump_angle: 0.5,
-        near_contribution: 0.3,
+        intensity: 0.3,
+        lf_boost: 0.7,
+        lf_boost_curvature: 0.95,
+        high_pass_frequency: 1.0,
         prefilter_settings: PrefilterSettings {
             threshold: 0.0,
             threshold_softness: 0.0,
@@ -82,10 +82,10 @@ impl BloomSettings {
 
     /// Recommended for SDR rendering
     pub const OLDSCHOOL: Self = Self {
-        far_contribution: 0.8,
-        top_intensity: 0.9,
-        bump_angle: 0.5,
-        near_contribution: 0.1,
+        intensity: 0.05,
+        lf_boost: 0.7,
+        lf_boost_curvature: 0.95,
+        high_pass_frequency: 1.0,
         prefilter_settings: PrefilterSettings {
             threshold: 0.6,
             threshold_softness: 0.2,
@@ -94,13 +94,13 @@ impl BloomSettings {
     };
 
     pub const SCREEN_BLUR: Self = Self {
-        far_contribution: 0.0,
-        top_intensity: 1.0,
-        bump_angle: 0.3,
-        near_contribution: 1.0,
+        intensity: 1.0,
+        lf_boost: 0.0,
+        lf_boost_curvature: 0.0,
+        high_pass_frequency: 1.0 / 3.0,
         prefilter_settings: PrefilterSettings {
-            threshold: 0.625,
-            threshold_softness: 0.25,
+            threshold: 0.0,
+            threshold_softness: 0.0,
         },
         mode: BloomMode::EnergyConserving,
     };

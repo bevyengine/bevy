@@ -26,7 +26,7 @@ use bevy_render::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
-use std::num::NonZeroU32;
+use std::{num::NonZeroU32, ops::Mul};
 
 pub mod draw_3d_graph {
     pub mod node {
@@ -133,17 +133,12 @@ impl BloomSettings {
     fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
         let x = mip / max_mip;
 
-        // fn sigmoid(x: f32, curvature: f32) -> f32 {
-        //     (x - curvature * x) / (curvature - 2.0 * curvature * x.abs() + 1.0)
-        // }
-
-        let c = (2.0 * x.powf(self.bump_angle) - 1.0).powi(2);
-        // let s = (1.0 + sigmoid(0.5_f32.powf(1.0 / self.bump_angle) - x, -0.99999)) / 2.0;
-        let s = (1.0 + (if x < self.bump_angle { 1.0 } else { 0.0 })) / 2.0; // this is the same as above
-        let d = self.far_contribution + (self.near_contribution - self.far_contribution) * s;
-        let blend = (1.0 - c * (1.0 - d)) * self.top_intensity;
-
-        return blend;
+        let lf_boost = (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.lf_boost_curvature))) * self.lf_boost;
+        let high_pass_lq = 1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
+        // let high_pass_hq = 0.5 + 0.5 * ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0).mul(std::f32::consts::PI).cos();
+        let high_pass = high_pass_lq;
+        
+        (self.intensity + (1.0 - self.intensity) * lf_boost) * high_pass
     }
 }
 
