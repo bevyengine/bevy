@@ -82,7 +82,7 @@ impl Default for BloomSettings {
 /// Applies a threshold filter to the input image to
 /// extract the brightest regions before blurring them and compositing
 /// back onto the original image. These settings are useful if bloom is applied
-/// to an SDR image or when emulating the 90s-2000s game look.
+/// to an SDR image or when emulating the 1990s-2000s game look.
 ///
 /// # Considerations
 /// * It is recommended to use this only if HDR rendering is not possible.
