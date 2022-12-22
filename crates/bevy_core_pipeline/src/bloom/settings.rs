@@ -48,7 +48,7 @@ impl BloomSettings {
     };
 
     /// Recommended for SDR rendering
-    pub const OLDSCHOOL: Self = Self {
+    pub const OLD_SCHOOL: Self = Self {
         intensity: 0.05,
         lf_boost: 0.7,
         lf_boost_curvature: 0.95,
