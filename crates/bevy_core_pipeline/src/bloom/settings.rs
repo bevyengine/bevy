@@ -19,7 +19,7 @@ pub struct BloomSettings {
     pub lf_boost_curvature: f32,
     pub high_pass_frequency: f32,
 
-    pub prefilter_settings: PrefilterSettings,
+    pub prefilter_settings: BloomPrefilterSettings,
 
     /// Compositing mode. Conthols whether bloom textures
     /// are blended between or added to each other. Useful
@@ -40,7 +40,7 @@ impl BloomSettings {
         lf_boost: 0.7,
         lf_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
-        prefilter_settings: PrefilterSettings {
+        prefilter_settings: BloomPrefilterSettings {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
@@ -53,7 +53,7 @@ impl BloomSettings {
         lf_boost: 0.7,
         lf_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
-        prefilter_settings: PrefilterSettings {
+        prefilter_settings: BloomPrefilterSettings {
             threshold: 0.6,
             threshold_softness: 0.2,
         },
@@ -65,7 +65,7 @@ impl BloomSettings {
         lf_boost: 0.0,
         lf_boost_curvature: 0.0,
         high_pass_frequency: 1.0 / 3.0,
-        prefilter_settings: PrefilterSettings {
+        prefilter_settings: BloomPrefilterSettings {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
@@ -90,7 +90,7 @@ impl Default for BloomSettings {
 /// * Changing these settings makes it easy to make the final result look worse.
 /// * Non-default prefilter settings should be used in conjuction with composite_mode::Additive
 #[derive(Default, Clone, Reflect)]
-pub struct PrefilterSettings {
+pub struct BloomPrefilterSettings {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
     /// RGB values under the threshold curve will not contribute to the effect.
