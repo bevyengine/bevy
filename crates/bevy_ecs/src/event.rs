@@ -399,7 +399,7 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIterator<'a, E> {
 pub struct ManualEventIteratorWithId<'a, E: Event> {
     reader: &'a mut ManualEventReader<E>,
     chain: Chain<Iter<'a, EventInstance<E>>, Iter<'a, EventInstance<E>>>,
-    oldest_id: usize,
+    unread: usize,
 }
 
 impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
@@ -427,7 +427,7 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
         Self {
             reader,
             chain,
-            oldest_id: events.oldest_id(),
+            unread: unread_count,
         }
     }
 
@@ -447,6 +447,7 @@ impl<'a, E: Event> Iterator for ManualEventIteratorWithId<'a, E> {
         {
             Some(item) => {
                 self.reader.last_event_count += 1;
+                self.unread -= 1;
                 Some(item)
             }
             None => None,
@@ -466,7 +467,7 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
             .map(|instance| (&instance.event, instance.event_id))
         {
             Some(item) => {
-                self.oldest_id -= 1;
+                self.unread -= 1;
                 Some(item)
             }
             None => None,
@@ -476,7 +477,7 @@ impl<'a, E: Event> DoubleEndedIterator for ManualEventIteratorWithId<'a, E> {
 
 impl<'a, E: Event> ExactSizeIterator for ManualEventIteratorWithId<'a, E> {
     fn len(&self) -> usize {
-        self.oldest_id.saturating_sub(self.reader.last_event_count)
+        self.unread
     }
 }
 
