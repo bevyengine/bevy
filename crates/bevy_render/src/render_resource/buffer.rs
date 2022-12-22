@@ -1,5 +1,4 @@
 use crate::{define_atomic_id, render_resource::resource_macros::render_resource_wrapper};
-use bevy_utils::default;
 use std::ops::{Bound, Deref, RangeBounds};
 
 define_atomic_id!(BufferId);
@@ -39,7 +38,7 @@ impl Buffer {
 impl From<wgpu::Buffer> for Buffer {
     fn from(value: wgpu::Buffer) -> Self {
         Buffer {
-            id: default(),
+            id: BufferId::new(),
             value: ErasedBuffer::new(value),
         }
     }

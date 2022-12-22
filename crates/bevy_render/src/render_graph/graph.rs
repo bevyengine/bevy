@@ -110,7 +110,7 @@ impl RenderGraph {
     where
         T: Node,
     {
-        let id = NodeId::default();
+        let id = NodeId::new();
         let name = name.into();
         let mut node_state = NodeState::new(id, node);
         node_state.name = Some(name.clone());

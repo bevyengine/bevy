@@ -4,7 +4,6 @@ use crate::{
     render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
 };
 use bevy_asset::Handle;
-use bevy_utils::default;
 use std::{borrow::Cow, ops::Deref};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
@@ -34,7 +33,7 @@ impl RenderPipeline {
 impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
-            id: default(),
+            id: RenderPipelineId::new(),
             value: ErasedRenderPipeline::new(value),
         }
     }
@@ -73,7 +72,7 @@ impl ComputePipeline {
 impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
-            id: default(),
+            id: ComputePipelineId::new(),
             value: ErasedComputePipeline::new(value),
         }
     }

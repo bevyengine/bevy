@@ -126,8 +126,10 @@ macro_rules! define_atomic_id {
         #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
         pub struct $atomic_id_type(u32);
 
-        impl Default for $atomic_id_type {
-            fn default() -> Self {
+        // We use new instead of default to indicate that each ID created will be unique.
+        #[allow(clippy::new_without_default)]
+        impl $atomic_id_type {
+            pub fn new() -> Self {
                 use std::sync::atomic::{AtomicU32, Ordering};
 
                 static COUNTER: AtomicU32 = AtomicU32::new(1);

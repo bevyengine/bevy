@@ -1,5 +1,4 @@
 use crate::define_atomic_id;
-use bevy_utils::default;
 use std::ops::Deref;
 
 use crate::render_resource::resource_macros::*;
@@ -33,7 +32,7 @@ impl Texture {
 impl From<wgpu::Texture> for Texture {
     fn from(value: wgpu::Texture) -> Self {
         Texture {
-            id: default(),
+            id: TextureId::new(),
             value: ErasedTexture::new(value),
         }
     }
@@ -99,7 +98,7 @@ impl TextureView {
 impl From<wgpu::TextureView> for TextureView {
     fn from(value: wgpu::TextureView) -> Self {
         TextureView {
-            id: default(),
+            id: TextureViewId::new(),
             value: TextureViewValue::TextureView(ErasedTextureView::new(value)),
         }
     }
@@ -111,7 +110,7 @@ impl From<wgpu::SurfaceTexture> for TextureView {
         let texture = ErasedSurfaceTexture::new(value);
 
         TextureView {
-            id: default(),
+            id: TextureViewId::new(),
             value: TextureViewValue::SurfaceTexture { texture, view },
         }
     }
@@ -154,7 +153,7 @@ impl Sampler {
 impl From<wgpu::Sampler> for Sampler {
     fn from(value: wgpu::Sampler) -> Self {
         Sampler {
-            id: default(),
+            id: SamplerId::new(),
             value: ErasedSampler::new(value),
         }
     }

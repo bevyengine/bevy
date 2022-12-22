@@ -7,7 +7,6 @@ use crate::{
     texture::FallbackImage,
 };
 pub use bevy_render_macros::AsBindGroup;
-use bevy_utils::default;
 use encase::ShaderType;
 use std::ops::Deref;
 use wgpu::BindingResource;
@@ -38,7 +37,7 @@ impl BindGroup {
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
-            id: default(),
+            id: BindGroupId::new(),
             value: ErasedBindGroup::new(value),
         }
     }
