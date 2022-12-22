@@ -5,7 +5,7 @@ use crate::{
     ptr::PtrMut,
     system::Resource,
 };
-use bevy_ptr::UnsafeCellDeref;
+use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -427,6 +427,20 @@ impl<'a> MutUntyped<'a> {
     #[inline]
     pub fn into_inner(self) -> PtrMut<'a> {
         self.value
+    }
+
+    /// Returns a pointer to the value without taking ownership of this smart pointer or marking it as changed.
+    ///
+    /// In order to mark the value as changed, you need to call [`set_changed`](DetectChanges::set_changed) manually.
+    #[inline]
+    pub fn as_mut(&mut self) -> PtrMut<'_> {
+        self.value.shrink()
+    }
+
+    /// Returns an immutable pointer to the value without taking ownership.
+    #[inline]
+    pub fn as_ref(&self) -> Ptr<'_> {
+        self.value.as_ref()
     }
 }
 
