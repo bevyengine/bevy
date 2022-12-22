@@ -8,8 +8,8 @@ pub fn from_rect(
     rect: UiRect,
 ) -> taffy::geometry::Rect<taffy::style::Dimension> {
     taffy::geometry::Rect {
-        start: from_val(scale_factor, rect.left),
-        end: from_val(scale_factor, rect.right),
+        left: from_val(scale_factor, rect.left),
+        right: from_val(scale_factor, rect.right),
         top: from_val(scale_factor, rect.top),
         bottom: from_val(scale_factor, rect.bottom),
     }
@@ -52,10 +52,8 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         size: from_val_size(scale_factor, value.size),
         min_size: from_val_size(scale_factor, value.min_size),
         max_size: from_val_size(scale_factor, value.max_size),
-        aspect_ratio: match value.aspect_ratio {
-            Some(value) => taffy::number::Number::Defined(value),
-            None => taffy::number::Number::Undefined,
-        },
+        aspect_ratio: value.aspect_ratio,
+        gap: from_val_size(scale_factor, value.gap),
     }
 }
 

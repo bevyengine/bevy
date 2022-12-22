@@ -107,9 +107,7 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_stages()
-            .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers);
+        app.add_default_stages().add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -150,9 +148,13 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
         self.schedule.run(&mut self.world);
+
         for sub_app in self.sub_apps.values_mut() {
             (sub_app.runner)(&mut self.world, &mut sub_app.app);
+            sub_app.app.world.clear_trackers();
         }
+
+        self.world.clear_trackers();
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
