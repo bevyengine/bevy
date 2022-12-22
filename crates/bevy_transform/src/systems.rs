@@ -48,8 +48,8 @@ pub fn propagate_transforms(
             for child in children.iter() {
                 // SAFETY: Assuming the hierarchy is consistent, we can be sure that each `child` entity
                 // will be unique across each invocation of this loop body.
-                // Since this is the only place where `transform_query` gets used, `child` will not be borrowed anywhere else.
-                // Also, since `child` only has one ancestor, none of its descendants will be borrowed by other invocations of the loop.
+                // Since this is the only place where `transform_query` gets used, `child` will not get fetched elsewhere.
+                // Also, since `child` only has one ancestor, none of its descendants will get fetched by other invocations of the loop.
                 unsafe {
                     propagate_recursive(
                         &global_transform,
@@ -67,7 +67,7 @@ pub fn propagate_transforms(
 }
 
 /// # Safety
-/// `unsafe_transform_query` must not be borrowed for `entity`, nor any of its descendants.
+/// `unsafe_transform_query` must not have any existing fetches for `entity`, nor any of its descendants.
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     unsafe_transform_query: &Query<
@@ -133,7 +133,7 @@ unsafe fn propagate_recursive(
     // If our `Children` has changed, we need to recalculate everything below us
     changed |= changed_children;
     for child in children {
-        // SAFETY: The caller guarantees that `unsafe_transform_query` will not be borrowed
+        // SAFETY: The caller guarantees that `unsafe_transform_query` will not be fetched
         // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
         unsafe {
             propagate_recursive(
