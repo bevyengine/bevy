@@ -51,6 +51,8 @@ impl Plugin for BloomPlugin {
         load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
 
         app.register_type::<BloomSettings>();
+        app.register_type::<BloomPrefilterSettings>();
+        app.register_type::<BloomCompositeMode>();
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
