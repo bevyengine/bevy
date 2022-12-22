@@ -277,7 +277,7 @@ As discussed in [*How we're organized*](#how-were-organized), this role only req
 
 ### How to adopt pull requests
 
-Occasionally authors of pull requests get busy or become unresponsive, in other hand, on the project side, sometimes members fail to reply in a timely manner.
+Occasionally authors of pull requests get busy, become unresponsive, or simply do not receive review/approval in a timely manner.
 This is a natural part of any open source project.
 To avoid blocking these efforts, these pull requests may be *adopted*, where another contributor creates a new pull request with the same content.
 If there is an old pull request that is without updates, comment to the organization whether it is appropriate to add the
