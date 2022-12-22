@@ -518,6 +518,7 @@ bitflags::bitflags! {
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
         const DEBAND_DITHER               = (1 << 3);
+        const PICKING                     = (1 << 4);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -652,6 +653,21 @@ impl SpecializedMeshPipeline for MeshPipeline {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
+        let mut targets = vec![Some(ColorTargetState {
+            format,
+            blend,
+            write_mask: ColorWrites::ALL,
+        })];
+
+        if key.contains(MeshPipelineKey::PICKING) {
+            shader_defs.push("PICKING".into());
+
+            targets.push(Some(ColorTargetState {
+                format: TextureFormat::R32Uint,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }))
+        }
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
@@ -664,18 +680,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader: MESH_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![
-                    Some(ColorTargetState {
-                        format,
-                        blend,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                    Some(ColorTargetState {
-                        format: TextureFormat::R32Uint,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                ],
+                targets,
             }),
             layout: Some(bind_group_layout),
             primitive: PrimitiveState {

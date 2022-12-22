@@ -16,7 +16,9 @@ struct FragmentInput {
 
 struct FragmentOutput {
    @location(0) color: vec4<f32>,
+#ifdef PICKING
    @location(1) picking: u32,
+#endif
  }
 
 @fragment
@@ -118,7 +120,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     var out: FragmentOutput;
 
     out.color = output_color;
+#ifdef PICKING
     out.picking = mesh.entity_index;
+#endif
 
     return out;
 }

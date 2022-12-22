@@ -23,6 +23,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
+    picking::Picking,
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
@@ -342,6 +343,7 @@ pub fn queue_material_meshes<M: Material>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
+        Option<&Picking>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -353,6 +355,7 @@ pub fn queue_material_meshes<M: Material>(
         view,
         visible_entities,
         tonemapping,
+        picking,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
@@ -374,6 +377,11 @@ pub fn queue_material_meshes<M: Material>(
                 }
             }
         }
+
+        if picking.is_some() {
+            view_key |= MeshPipelineKey::PICKING;
+        }
+
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {

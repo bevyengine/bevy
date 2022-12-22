@@ -5,7 +5,6 @@ use std::{
 
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_log::info;
 use bevy_math::UVec2;
 use bevy_utils::HashMap;
 use wgpu::{
@@ -40,8 +39,6 @@ pub fn copy_to_buffer(
     // Just experimenting with perf.
     if picking_resources.n % 100 == 0 {
         let size = &picking_resources.size;
-
-        let required_pad_size = size.padded_bytes_per_row as u64 * size.texture_size.y as u64;
 
         render_context.command_encoder.copy_texture_to_buffer(
             picking_textures.main.texture.as_image_copy(),
