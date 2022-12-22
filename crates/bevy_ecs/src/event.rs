@@ -408,13 +408,6 @@ fn event_trace<E: Event>(id: EventId<E>) {
 
 impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
     pub fn new(reader: &'a mut ManualEventReader<E>, events: &'a Events<E>) -> Self {
-        // Check if we are behind the oldest event.
-        //
-        // This means we missed events.
-        if reader.last_event_count < events.oldest_id() {
-            reader.last_event_count = events.oldest_id();
-        }
-
         let a_index = (reader.last_event_count).saturating_sub(events.events_a.start_event_count);
         let b_index = (reader.last_event_count).saturating_sub(events.events_b.start_event_count);
         let a = events.events_a.get(a_index..).unwrap_or_default();
@@ -423,8 +416,7 @@ impl<'a, E: Event> ManualEventIteratorWithId<'a, E> {
         let unread_count = a.len() + b.len();
         // Ensure `len` is implemented correctly
         debug_assert_eq!(unread_count, reader.len(events));
-
-        //self.last_event_count = events.event_count - unread_count;
+        reader.last_event_count = events.event_count - unread_count;
         // Iterate the oldest first, then the newer events
         let chain = a.iter().chain(b.iter());
 
