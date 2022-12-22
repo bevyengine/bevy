@@ -164,9 +164,7 @@ impl SpritePipelineKey {
     pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        // SAFETY: The input is the correct type and the mask will ensure the output range is
-        // capped
-        unsafe { Self::from_bits_unchecked(msaa_bits) }
+        Self::from_bits_truncate(msaa_bits)
     }
 
     #[inline]
