@@ -3,10 +3,11 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_math::{UVec2, Vec2};
+use bevy_log::info;
+use bevy_math::UVec2;
 use bevy_utils::HashMap;
-use bevy_window::CursorMoved;
 use wgpu::{
     BufferDescriptor, BufferUsages, BufferView, Extent3d, ImageCopyBuffer, ImageDataLayout,
     Maintain, MapMode, Operations, RenderPassColorAttachment, TextureDescriptor, TextureDimension,
@@ -20,53 +21,144 @@ use crate::{
     render_resource::Buffer,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
-    view::Msaa,
+    view::{Msaa, ViewDepthTexture},
 };
 
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
 pub fn copy_to_buffer(
-    camera_size: UVec2,
     picking: &Picking,
     picking_textures: &PickingTextures,
+    depth: &ViewDepthTexture,
     render_context: &mut RenderContext,
 ) {
-    let picking_buffer_size = PickingBufferSize::from(camera_size);
+    let mut binding = picking.try_lock().expect("TODO: Can we lock here?");
+    let mut picking_resources = binding.as_mut().expect("Buffer should have been prepared");
 
-    let (buffer, size) = picking
-        .buffer
-        .try_lock()
-        .expect("TODO: Can we lock here?")
-        .as_ref()
-        .expect("Buffer should have been prepared")
-        .clone();
+    // Why every n only?
+    // Just experimenting with perf.
+    if picking_resources.n % 100 == 0 {
+        let size = &picking_resources.size;
 
-    render_context.command_encoder.copy_texture_to_buffer(
-        picking_textures.main.texture.as_image_copy(),
-        ImageCopyBuffer {
-            buffer: &buffer,
-            layout: ImageDataLayout {
-                offset: 0,
-                bytes_per_row: Some(
-                    std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
-                ),
-                rows_per_image: None,
+        let required_pad_size = size.padded_bytes_per_row as u64 * size.texture_size.y as u64;
+
+        render_context.command_encoder.copy_texture_to_buffer(
+            picking_textures.main.texture.as_image_copy(),
+            ImageCopyBuffer {
+                buffer: &picking_resources.pick_buffer,
+                layout: ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
+                    ),
+                    rows_per_image: None,
+                },
             },
-        },
-        Extent3d {
-            width: picking_buffer_size.texture_size.x,
-            height: picking_buffer_size.texture_size.y,
-            depth_or_array_layers: 1,
-        },
-    );
+            Extent3d {
+                width: size.texture_size.x,
+                height: size.texture_size.y,
+                depth_or_array_layers: 1,
+            },
+        );
+
+        render_context.command_encoder.copy_texture_to_buffer(
+            depth.texture.as_image_copy(),
+            ImageCopyBuffer {
+                buffer: &picking_resources.depth_buffer,
+                layout: ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
+                    ),
+                    rows_per_image: None,
+                },
+            },
+            Extent3d {
+                width: size.texture_size.x,
+                height: size.texture_size.y,
+                depth_or_array_layers: 1,
+            },
+        );
+    }
+
+    picking_resources.n += 1;
+}
+
+#[derive(Debug, Clone)]
+pub struct PickingResources {
+    // Buffer written by GPU and read by CPU. Holds entity indices.
+    pick_buffer: Buffer,
+
+    // Accompanies the above. Allows reading the depth too.
+    depth_buffer: Buffer,
+
+    // How many times we've requested to copy to texture
+    n: usize,
+
+    // A wrapper around the rendered size.
+    // The buffer might be larger due to padding.
+    size: PickingBufferSize,
 }
 
 /// Add this to a camera in order for the camera to also render to a buffer
 /// with entity indices instead of colors.
-#[derive(Component, Debug, Clone, Default)]
-pub struct Picking {
-    pub buffer: Arc<Mutex<Option<(Buffer, PickingBufferSize)>>>,
+#[derive(Component, Debug, Clone, Default, Deref)]
+pub struct Picking(Arc<Mutex<Option<PickingResources>>>);
+
+impl Picking {
+    /// Get the entity at the given coordinate.
+    /// If there is no entity, returns `None`.
+    ///
+    /// Panics if the coordinate is out of bounds.
+    pub fn get_entity(&self, camera: &Camera, coordinates: UVec2) -> Option<Entity> {
+        let guard = self.try_lock().expect("Should have been unlocked");
+        let resources = guard.as_ref().expect("Resources should have been prepared");
+
+        let slice = resources.pick_buffer.slice(..);
+
+        let entity_index = coords_to_data(
+            coordinates,
+            camera,
+            &resources.size,
+            &slice.get_mapped_range(),
+            |bytes| {
+                u32::from_le_bytes(
+                    bytes
+                        .try_into()
+                        .expect("Should be able to make u32 (entity index) out of 4 bytes"),
+                )
+            },
+        );
+
+        Some(Entity::from_raw(entity_index))
+    }
+
+    /// Get the depth at the given coordinate.
+    ///
+    /// Panics if the coordinate is out of bounds.
+    pub fn depth(&self, camera: &Camera, coordinates: UVec2) -> f32 {
+        let guard = self.try_lock().expect("Should have been unlocked");
+        let resources = guard.as_ref().expect("Resources should have been prepared");
+
+        let slice = resources.depth_buffer.slice(..);
+
+        let depth = coords_to_data(
+            coordinates,
+            camera,
+            &resources.size,
+            &slice.get_mapped_range(),
+            |bytes| {
+                f32::from_le_bytes(
+                    bytes
+                        .try_into()
+                        .expect("Should be able to make f32 (depth) out of 4 bytes"),
+                )
+            },
+        );
+
+        depth
+    }
 }
 
 #[derive(Debug, Clone, Default)]
@@ -172,53 +264,27 @@ impl PickingTextures {
     }
 }
 
-#[derive(Debug, Resource, PartialEq, Eq, PartialOrd, Ord)]
-pub enum PickedEventVariant {
-    /// The given entity is now picked/hovered.
-    // TODO: Perhaps it's useful to provide the coords as well?
-    Picked,
-
-    /// The given entity is no longer picked/hovered.
-    Unpicked,
-}
-
-#[derive(Debug, Resource, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PickedEvent {
-    /// Which entity triggered the event.
-    pub entity: Entity,
-
-    /// Which event variant occurred.
-    pub event: PickedEventVariant,
-}
-
-impl PickedEvent {
-    fn new(entity_index: u32, event: PickedEventVariant) -> Self {
-        Self {
-            entity: Entity::from_raw(entity_index),
-            event,
-        }
-    }
-
-    fn new_picked(entity_index: u32) -> Self {
-        Self::new(entity_index, PickedEventVariant::Picked)
-    }
-
-    fn new_unpicked(entity_index: u32) -> Self {
-        Self::new(entity_index, PickedEventVariant::Unpicked)
-    }
-}
-
-fn cursor_coords_to_entity_index(
-    cursor: Vec2,
-    camera_size: UVec2,
+fn coords_to_data<F, T>(
+    coords: UVec2,
+    camera: &Camera,
     picking_buffer_size: &PickingBufferSize,
     buffer_view: &BufferView,
-) -> u32 {
+    takes_4_bytes_makes_data: F,
+) -> T
+where
+    F: FnOnce(&[u8]) -> T,
+{
+    let camera_size = camera
+        .physical_target_size()
+        .expect("Camera passed should have a size");
+
     // The GPU image has a top-left origin,
     // but the cursor has a bottom-left origin.
     // Therefore we must flip the vertical axis.
-    let x = cursor.x as usize;
-    let y = camera_size.y as usize - cursor.y as usize;
+    let x = coords.x as usize;
+
+    // TODO: This can fail. Make it not do this.
+    let y = (camera_size.y as usize).saturating_sub(coords.y as usize);
 
     // We know the coordinates, but in order to find the true position of the 4 bytes
     // we're interested in, we have to know how wide a single line in the GPU written buffer is.
@@ -231,25 +297,14 @@ fn cursor_coords_to_entity_index(
     let start = (y * padded_width) + (x * pixel_size);
     let end = start + pixel_size;
 
-    let bytes = &buffer_view[start..end];
+    let bytes_4 = &buffer_view[start..end];
 
-    u32::from_le_bytes(bytes.try_into().unwrap())
+    takes_4_bytes_makes_data(bytes_4)
 }
 
-pub fn picking_events(
-    // TODO: Must be hashmap to have per-camera
-    // Maybe use the entity of the below query for that?
-    mut picked: Local<Option<u32>>,
-
-    query: Query<(&Picking, &Camera)>,
-    // TODO: Ensure we get events on the same frame as this guy
-    // UPDATE: These events are issued via winit, so presumably they arrive very early/first in the frame?
-    mut cursor_moved_events: EventReader<CursorMoved>,
-    mut events: EventWriter<PickedEvent>,
-    render_device: Res<RenderDevice>,
-) {
+pub fn map_buffers(query: Query<(&Picking, &Camera)>, render_device: Res<RenderDevice>) {
     #[cfg(feature = "trace")]
-    let _picking_span = info_span!("picking", name = "picking").entered();
+    let _picking_span = info_span!("picking_map", name = "picking_map").entered();
 
     for (picking, camera) in query.iter() {
         let Some(camera_size) = camera.physical_target_size() else { continue };
@@ -259,58 +314,52 @@ pub fn picking_events(
         }
 
         // TODO: Is it possible the GPU tries this at the same time as us?
-        let guard = picking.buffer.try_lock().unwrap();
+        let picking_resources = picking.try_lock().unwrap();
 
-        let Some((buffer, picking_buffer_size)) = guard.as_ref() else { continue };
+        let Some(picking_resources) = picking_resources.as_ref() else { continue };
 
-        let buffer_slice = buffer.slice(..);
-
-        buffer_slice.map_async(MapMode::Read, move |result| {
+        let picking_buffer_slice = picking_resources.pick_buffer.slice(..);
+        picking_buffer_slice.map_async(MapMode::Read, move |result| {
             if let Err(e) = result {
                 panic!("{e}");
             }
         });
+
+        let depth_buffer_slice = picking_resources.depth_buffer.slice(..);
+        depth_buffer_slice.map_async(MapMode::Read, move |result| {
+            if let Err(e) = result {
+                panic!("{e}");
+            }
+        });
+    }
+
+    {
+        #[cfg(feature = "trace")]
+        let _poll_span = info_span!("picking_poll", name = "picking_poll").entered();
+
         // For the above mapping to complete
         render_device.poll(Maintain::Wait);
+    }
+}
 
-        let buffer_view = buffer_slice.get_mapped_range();
+pub fn unmap_buffers(query: Query<(&Picking, &Camera)>) {
+    #[cfg(feature = "trace")]
+    let _picking_span = info_span!("picking_unmap", name = "picking_unmap").entered();
 
-        for event in cursor_moved_events.iter() {
-            let picked_index = cursor_coords_to_entity_index(
-                event.position,
-                camera_size,
-                picking_buffer_size,
-                &buffer_view,
-            );
+    for (picking, camera) in query.iter() {
+        let Some(camera_size) = camera.physical_target_size() else { continue };
 
-            match *picked {
-                Some(cached_index) if picked_index == u32::MAX => {
-                    // No entity
-                    events.send(PickedEvent::new_unpicked(cached_index));
-                    *picked = None;
-                }
-                Some(cached_index) if cached_index == picked_index => {
-                    // Nothing to report, the same entity is being hovered/picked
-                }
-                Some(cached_index) => {
-                    // The cursor moved straight between two entities
-                    events.send(PickedEvent::new_unpicked(cached_index));
-
-                    *picked = Some(picked_index);
-                    events.send(PickedEvent::new_picked(picked_index));
-                }
-                None if picked_index == u32::MAX => {
-                    // Nothing to report, this index is reserved to mean "nothing picked"
-                }
-                None => {
-                    *picked = Some(picked_index);
-                    events.send(PickedEvent::new_picked(picked_index));
-                }
-            }
+        if camera_size.x == 0 || camera_size.y == 0 {
+            continue;
         }
 
-        drop(buffer_view);
-        buffer.unmap();
+        // TODO: Is it possible the GPU tries this at the same time as us?
+        let picking_resources = picking.try_lock().unwrap();
+
+        let Some(picking_resources) = picking_resources.as_ref() else { continue };
+
+        picking_resources.pick_buffer.unmap();
+        picking_resources.depth_buffer.unmap();
     }
 }
 
@@ -335,10 +384,7 @@ pub fn prepare_picking_targets(
             let picking_buffer_dimensions = PickingBufferSize::from(size);
             let needed_buffer_size = picking_buffer_dimensions.total_needed_bytes();
 
-            let mut buffer = picking
-                .buffer
-                .try_lock()
-                .expect("TODO: Are we ok to lock here?");
+            let mut picking_resources = picking.try_lock().expect("TODO: Are we ok to lock here?");
 
             let make_buffer = || {
                 #[cfg(feature = "trace")]
@@ -352,17 +398,25 @@ pub fn prepare_picking_targets(
                 })
             };
 
-            // If either the buffer has never been created or
-            // the size of the current one has changed (e.g. due to window resize)
-            // we have to create a new one.
-            match buffer.as_mut() {
-                Some((buffer, contained_size)) => {
-                    if buffer.size() != needed_buffer_size {
-                        *buffer = make_buffer();
-                        *contained_size = size.into();
+            match picking_resources.as_mut() {
+                Some(mut pr) => {
+                    if pr.pick_buffer.size() != needed_buffer_size
+                        || pr.depth_buffer.size() != needed_buffer_size
+                        || pr.size.texture_size != target_size
+                    {
+                        pr.pick_buffer = make_buffer();
+                        pr.depth_buffer = make_buffer();
+                        pr.size = size.into();
                     }
                 }
-                None => *buffer = Some((make_buffer(), size.into())),
+                None => {
+                    *picking_resources = Some(PickingResources {
+                        pick_buffer: make_buffer(),
+                        depth_buffer: make_buffer(),
+                        size: size.into(),
+                        n: 0,
+                    })
+                }
             }
 
             // We want to store entity indices, which are u32s.

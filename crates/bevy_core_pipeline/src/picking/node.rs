@@ -1,20 +1,27 @@
-use bevy_ecs::{query::QueryState, world::World};
+use bevy_ecs::{
+    query::{QueryState, With},
+    world::World,
+};
 
 use bevy_render::{
     camera::ExtractedCamera,
     picking::{copy_to_buffer, Picking, PickingTextures},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     renderer::RenderContext,
+    view::ViewDepthTexture,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
 pub struct PickingNode {
-    query: QueryState<(
-        &'static ExtractedCamera,
-        &'static Picking,
-        &'static PickingTextures,
-    )>,
+    query: QueryState<
+        (
+            &'static ViewDepthTexture,
+            &'static Picking,
+            &'static PickingTextures,
+        ),
+        With<ExtractedCamera>,
+    >,
 }
 
 impl PickingNode {
@@ -22,7 +29,7 @@ impl PickingNode {
 
     pub fn new(world: &mut World) -> Self {
         Self {
-            query: world.query(),
+            query: world.query_filtered(),
         }
     }
 }
@@ -43,7 +50,7 @@ impl Node for PickingNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, picking, picking_textures) =
+        let (depth, picking, picking_textures) =
             if let Ok(result) = self.query.get_manual(world, view_entity) {
                 result
             } else {
@@ -54,9 +61,7 @@ impl Node for PickingNode {
             #[cfg(feature = "trace")]
             let _picking_pass = info_span!("picking_pass").entered();
 
-            if let Some(camera_size) = camera.physical_target_size {
-                copy_to_buffer(camera_size, picking, picking_textures, render_context);
-            }
+            copy_to_buffer(picking, picking_textures, depth, render_context);
         }
 
         Ok(())

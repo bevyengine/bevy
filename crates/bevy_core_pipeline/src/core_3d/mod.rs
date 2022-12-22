@@ -292,7 +292,7 @@ pub fn prepare_core_3d_depth_textures(
                             dimension: TextureDimension::D2,
                             format: TextureFormat::Depth32Float, /* PERF: vulkan docs recommend using 24
                                                                   * bit depth for better performance */
-                            usage: TextureUsages::RENDER_ATTACHMENT,
+                            usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
                         },
                     )
                 })

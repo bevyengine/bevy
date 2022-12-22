@@ -3,12 +3,7 @@
 use std::f32::consts::PI;
 use std::time::Duration;
 
-use bevy::{
-    prelude::*,
-    render::picking::{PickedEvent, PickedEventVariant, Picking},
-    scene::SceneInstance,
-    utils::HashSet,
-};
+use bevy::{prelude::*, render::picking::Picking, scene::SceneInstance, utils::HashSet};
 
 #[derive(Debug, Default, Deref, DerefMut, Resource)]
 struct FoxEntities(HashSet<Entity>);
@@ -18,6 +13,7 @@ const LIGHT_FOX_UNPICKED: Color = Color::CRIMSON;
 
 fn main() {
     App::new()
+        .insert_resource(Msaa { samples: 1 })
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             color: Color::WHITE,
@@ -78,6 +74,33 @@ fn setup(
         },
         ..default()
     });
+
+    // Debug text
+    commands.spawn(
+        TextBundle::from_section(
+            "",
+            TextStyle {
+                // TODO: Mono
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 50.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_text_alignment(TextAlignment::CENTER)
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(5.0),
+                right: Val::Px(15.0),
+                ..default()
+            },
+            max_size: Size {
+                width: Val::Px(400.),
+                height: Val::Undefined,
+            },
+            ..default()
+        }),
+    );
 
     commands.spawn((
         SceneBundle {
@@ -176,27 +199,30 @@ fn store_fox_entites(
 
 fn picking(
     fox_entities: Res<FoxEntities>,
-    mut pick_events: EventReader<PickedEvent>,
     mut light: Query<&mut DirectionalLight>,
+    mut text: Query<&mut Text>,
+    mut cursor_moved: EventReader<CursorMoved>,
+    picking_camera: Query<(&Picking, &Camera)>,
 ) {
     if fox_entities.is_empty() {
         // Not ready
         return;
     }
 
-    for pick_event in pick_events.iter() {
-        let PickedEvent { entity, event } = pick_event;
+    let (picking, camera) = picking_camera.single();
 
-        if !fox_entities.contains(entity) {
-            return;
-        }
+    for moved in cursor_moved.iter() {
+        let coordinates = moved.position.as_uvec2();
 
-        match event {
-            PickedEventVariant::Picked => {
+        let depth = picking.depth(camera, coordinates);
+
+        text.single_mut().sections[0].value = format!("Depth: {depth:.7?}");
+
+        if let Some(entity) = picking.get_entity(camera, coordinates) {
+            if fox_entities.contains(&entity) {
                 let mut light = light.single_mut();
                 light.color = LIGHT_FOX_PICKED;
-            }
-            PickedEventVariant::Unpicked => {
+            } else {
                 let mut light = light.single_mut();
                 light.color = LIGHT_FOX_UNPICKED;
             }

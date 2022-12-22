@@ -8,7 +8,7 @@ use std::f32::consts::PI;
 use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     prelude::*,
-    render::picking::{PickedEvent, PickedEventVariant, Picking},
+    render::picking::Picking,
 };
 
 fn main() {
@@ -18,9 +18,9 @@ fn main() {
         .add_startup_system(setup_ui)
         .add_system(rotate_shapes)
         .add_system(mouse_scroll)
-        .add_system(picking_shapes)
-        .add_system(picking_logo)
-        .add_system(picking_text)
+        // .add_system(picking_shapes)
+        // .add_system(picking_logo)
+        // .add_system(picking_text)
         .run();
 }
 
@@ -274,71 +274,71 @@ fn rotate_shapes(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>)
     }
 }
 
-fn picking_shapes(
-    mut pick_events: EventReader<PickedEvent>,
-    mut shapes: Query<&mut Handle<StandardMaterial>, With<Shape>>,
-    normal: Res<NormalMaterial>,
-    hovered: Res<HoveredMaterial>,
-) {
-    for pick_event in pick_events.iter() {
-        let PickedEvent { entity, event } = pick_event;
+// fn picking_shapes(
+//     mut pick_events: EventReader<PickedEvent>,
+//     mut shapes: Query<&mut Handle<StandardMaterial>, With<Shape>>,
+//     normal: Res<NormalMaterial>,
+//     hovered: Res<HoveredMaterial>,
+// ) {
+//     for pick_event in pick_events.iter() {
+//         let PickedEvent { entity, event } = pick_event;
 
-        match event {
-            PickedEventVariant::Picked => {
-                if let Ok(mut material_handle) = shapes.get_mut(*entity) {
-                    *material_handle = hovered.clone();
-                }
-            }
-            PickedEventVariant::Unpicked => {
-                if let Ok(mut material_handle) = shapes.get_mut(*entity) {
-                    *material_handle = normal.clone();
-                }
-            }
-        }
-    }
-}
+//         match event {
+//             PickedEventVariant::Picked => {
+//                 if let Ok(mut material_handle) = shapes.get_mut(*entity) {
+//                     *material_handle = hovered.clone();
+//                 }
+//             }
+//             PickedEventVariant::Unpicked => {
+//                 if let Ok(mut material_handle) = shapes.get_mut(*entity) {
+//                     *material_handle = normal.clone();
+//                 }
+//             }
+//         }
+//     }
+// }
 
-fn picking_logo(
-    mut pick_events: EventReader<PickedEvent>,
-    mut logo: Query<&mut Style, With<UiImage>>,
-) {
-    for pick_event in pick_events.iter() {
-        let PickedEvent { entity, event } = pick_event;
+// fn picking_logo(
+//     mut pick_events: EventReader<PickedEvent>,
+//     mut logo: Query<&mut Style, With<UiImage>>,
+// ) {
+//     for pick_event in pick_events.iter() {
+//         let PickedEvent { entity, event } = pick_event;
 
-        match event {
-            PickedEventVariant::Picked => {
-                if let Ok(mut style) = logo.get_mut(*entity) {
-                    style.size = Size::new(Val::Px(LOGO_HOVERED), Val::Auto);
-                }
-            }
-            PickedEventVariant::Unpicked => {
-                if let Ok(mut style) = logo.get_mut(*entity) {
-                    style.size = Size::new(Val::Px(LOGO_NORMAL), Val::Auto);
-                }
-            }
-        }
-    }
-}
+//         match event {
+//             PickedEventVariant::Picked => {
+//                 if let Ok(mut style) = logo.get_mut(*entity) {
+//                     style.size = Size::new(Val::Px(LOGO_HOVERED), Val::Auto);
+//                 }
+//             }
+//             PickedEventVariant::Unpicked => {
+//                 if let Ok(mut style) = logo.get_mut(*entity) {
+//                     style.size = Size::new(Val::Px(LOGO_NORMAL), Val::Auto);
+//                 }
+//             }
+//         }
+//     }
+// }
 
-fn picking_text(mut pick_events: EventReader<PickedEvent>, mut texts: Query<&mut Text>) {
-    for pick_event in pick_events.iter() {
-        let PickedEvent { entity, event } = pick_event;
+// fn picking_text(mut pick_events: EventReader<PickedEvent>, mut texts: Query<&mut Text>) {
+//     for pick_event in pick_events.iter() {
+//         let PickedEvent { entity, event } = pick_event;
 
-        match event {
-            PickedEventVariant::Picked => {
-                if let Ok(mut text) = texts.get_mut(*entity) {
-                    for section in &mut text.sections {
-                        section.style.color = COLOR_HOVERED;
-                    }
-                }
-            }
-            PickedEventVariant::Unpicked => {
-                if let Ok(mut text) = texts.get_mut(*entity) {
-                    for section in &mut text.sections {
-                        section.style.color = COLOR_NORMAL;
-                    }
-                }
-            }
-        }
-    }
-}
+//         match event {
+//             PickedEventVariant::Picked => {
+//                 if let Ok(mut text) = texts.get_mut(*entity) {
+//                     for section in &mut text.sections {
+//                         section.style.color = COLOR_HOVERED;
+//                     }
+//                 }
+//             }
+//             PickedEventVariant::Unpicked => {
+//                 if let Ok(mut text) = texts.get_mut(*entity) {
+//                     for section in &mut text.sections {
+//                         section.style.color = COLOR_NORMAL;
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }

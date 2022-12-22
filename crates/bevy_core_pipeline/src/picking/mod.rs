@@ -1,7 +1,7 @@
 use bevy_app::{CoreStage, Plugin};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    picking::{self, PickedEvent, Picking},
+    picking::{self, Picking},
     RenderApp, RenderStage,
 };
 
@@ -17,11 +17,8 @@ impl Plugin for PickingPlugin {
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
         render_app.add_system_to_stage(RenderStage::Prepare, picking::prepare_picking_targets);
 
-        // TODO: Also register type?
-        app.add_event::<PickedEvent>()
-            .add_plugin(ExtractComponentPlugin::<Picking>::default())
-            // In PreUpdate such that written events are ensure not to have a frame delay
-            // for default user systems
-            .add_system_to_stage(CoreStage::PreUpdate, picking::picking_events);
+        app.add_plugin(ExtractComponentPlugin::<Picking>::default())
+            .add_system_to_stage(CoreStage::PreUpdate, picking::map_buffers)
+            .add_system_to_stage(CoreStage::PostUpdate, picking::unmap_buffers);
     }
 }
