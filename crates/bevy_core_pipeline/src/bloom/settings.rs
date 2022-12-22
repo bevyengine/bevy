@@ -1,39 +1,6 @@
 use bevy_ecs::prelude::Component;
 use bevy_reflect::Reflect;
 
-#[derive(Clone, Reflect)]
-pub enum BloomMode {
-    EnergyConserving,
-    Additive,
-}
-
-/// Applies a threshold filter to the input image to
-/// extract the brightest regions before blurring them and compositing
-/// back onto the original image. These settings are useful if bloom is applied
-/// to an SDR image or when emulating the 90s-2000s game look.
-///
-/// # Considerations
-/// * It is recommended to use this only if HDR rendering is not possible.
-/// * Changing these settings creates a pshysically impossible image.
-/// * Changing these settings makes it easy to make the final result look worse.
-/// * Non-default prefilter settings should be used in conjuction with mode::Additive
-#[derive(Default, Clone, Reflect)]
-pub struct PrefilterSettings {
-    /// Baseline of the quadratic threshold curve (default: 0.0).
-    ///
-    /// RGB values under the threshold curve will not have bloom applied.
-    /// Using a threshold is not physically accurate, but may fit better with your artistic direction.
-    pub threshold: f32,
-
-    /// Controls how much to blend between the thresholded and non-thresholded colors (default: 0.0).
-    ///
-    /// 0.0 = Abrupt threshold, no blending
-    /// 1.0 = Fully soft threshold
-    ///
-    /// Values outside of the range [0.0, 1.0] will be clamped.
-    pub threshold_softness: f32,
-}
-
 /// Applies a bloom effect to a HDR-enabled 2d or 3d camera.
 ///
 /// Bloom emulates an effect found in real cameras and the human eye,
@@ -110,4 +77,37 @@ impl Default for BloomSettings {
     fn default() -> Self {
         Self::NATURAL
     }
+}
+
+/// Applies a threshold filter to the input image to
+/// extract the brightest regions before blurring them and compositing
+/// back onto the original image. These settings are useful if bloom is applied
+/// to an SDR image or when emulating the 90s-2000s game look.
+///
+/// # Considerations
+/// * It is recommended to use this only if HDR rendering is not possible.
+/// * Changing these settings creates a pshysically impossible image.
+/// * Changing these settings makes it easy to make the final result look worse.
+/// * Non-default prefilter settings should be used in conjuction with mode::Additive
+#[derive(Default, Clone, Reflect)]
+pub struct PrefilterSettings {
+    /// Baseline of the quadratic threshold curve (default: 0.0).
+    ///
+    /// RGB values under the threshold curve will not have bloom applied.
+    /// Using a threshold is not physically accurate, but may fit better with your artistic direction.
+    pub threshold: f32,
+
+    /// Controls how much to blend between the thresholded and non-thresholded colors (default: 0.0).
+    ///
+    /// 0.0 = Abrupt threshold, no blending
+    /// 1.0 = Fully soft threshold
+    ///
+    /// Values outside of the range [0.0, 1.0] will be clamped.
+    pub threshold_softness: f32,
+}
+
+#[derive(Clone, Reflect)]
+pub enum BloomMode {
+    EnergyConserving,
+    Additive,
 }
