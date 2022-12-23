@@ -534,7 +534,7 @@ impl<'w, 's> Commands<'w, 's> {
 ///
 /// ```
 /// # use std::collections::HashSet;
-/// # use bevy_ecs::{prelude::*, self as bevy_ecs};
+/// # use bevy_ecs::prelude::*;
 /// use bevy_ecs::system::EntityCommand;
 /// #
 /// # #[derive(Component, PartialEq)]
@@ -769,6 +769,21 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
     }
 
     /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # fn my_system(mut commands: Commands) {
+    /// commands
+    ///     .spawn_empty()
+    ///     // Closures with this signature implement `EntityCommand`.
+    ///     .add(|id: Entity, world: &mut World| {
+    ///         println!("Executed an EntityCommand for {id:?}");
+    ///     });
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(my_system);
+    /// ```
     pub fn add<C: EntityCommand>(&mut self, command: C) -> &mut Self {
         self.commands.add(command.with_entity(self.entity));
         self
