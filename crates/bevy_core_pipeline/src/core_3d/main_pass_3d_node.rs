@@ -6,7 +6,7 @@ use bevy_ecs::prelude::*;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
@@ -95,20 +95,13 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.resource::<DrawFunctions<Opaque3d>>();
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
-            }
-            for item in &opaque_phase.items {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+            opaque_phase.render(
+                world,
+                render_context,
+                view_entity,
+                camera.viewport.as_ref(),
+                pass_descriptor,
+            );
         }
 
         if !alpha_mask_phase.items.is_empty() {
@@ -134,20 +127,13 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.resource::<DrawFunctions<AlphaMask3d>>();
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
-            }
-            for item in &alpha_mask_phase.items {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+            alpha_mask_phase.render(
+                world,
+                render_context,
+                view_entity,
+                camera.viewport.as_ref(),
+                pass_descriptor,
+            );
         }
 
         if !transparent_phase.items.is_empty() {
@@ -178,20 +164,13 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.resource::<DrawFunctions<Transparent3d>>();
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
-            if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
-            }
-            for item in &transparent_phase.items {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+            transparent_phase.render(
+                world,
+                render_context,
+                view_entity,
+                camera.viewport.as_ref(),
+                pass_descriptor,
+            );
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
