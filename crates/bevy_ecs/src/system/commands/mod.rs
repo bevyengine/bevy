@@ -529,6 +529,60 @@ impl<'w, 's> Commands<'w, 's> {
 }
 
 /// A [`Command`] which gets executed for a given [`Entity`].
+///
+/// # Examples
+///
+/// ```
+/// # use std::collections::HashSet;
+/// # use bevy_ecs::{prelude::*, self as bevy_ecs};
+/// use bevy_ecs::system::EntityCommand;
+/// #
+/// # #[derive(Component, PartialEq)]
+/// # struct Name(String);
+/// # impl Name {
+/// #   fn new(s: String) -> Self { Name(s) }
+/// #   fn as_str(&self) -> &str { &self.0 }
+/// # }
+///
+/// #[derive(Resource, Default)]
+/// struct Counter(i64);
+///
+/// /// A `Command` which names an entity based on a global counter.
+/// struct CountName;
+///
+/// impl EntityCommand for CountName {
+///     fn write(self, id: Entity, world: &mut World) {
+///         // Get the current value of the counter, and increment it for next time.
+///         let mut counter = world.resource_mut::<Counter>();
+///         let i = counter.0;
+///         counter.0 += 1;
+///
+///         // Name the entity after the value of the counter.
+///         world.entity_mut(id).insert(Name::new(format!("Entity #{i}")));
+///     }
+/// }
+///
+/// // App creation boilerplate omitted...
+/// # let mut world = World::new();
+/// # world.init_resource::<Counter>();
+/// #
+/// # let mut setup_stage = SystemStage::single_threaded().with_system(setup);
+/// # let mut assert_stage = SystemStage::single_threaded().with_system(assert_names);
+/// #
+/// # setup_stage.run(&mut world);
+/// # assert_stage.run(&mut world);
+///
+/// fn setup(mut commands: Commands) {
+///     commands.spawn_empty().add(CountName);
+///     commands.spawn_empty().add(CountName);
+/// }
+///
+/// fn assert_names(named: Query<&Name>) {
+///     // We use a HashSet because we do not care about the order.
+///     let names: HashSet<_> = named.iter().map(Name::as_str).collect();
+///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
+/// }
+/// ```
 pub trait EntityCommand: Send + 'static {
     fn write(self, id: Entity, world: &mut World);
     /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
