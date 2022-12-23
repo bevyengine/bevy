@@ -10,9 +10,10 @@
 @group(0) @binding(1) var history: texture_2d<f32>;
 @group(0) @binding(2) var velocity: texture_2d<f32>;
 @group(0) @binding(3) var depth: texture_depth_2d;
-@group(0) @binding(4) var previous_depth: texture_depth_2d;
-@group(0) @binding(5) var nearest_sampler: sampler;
-@group(0) @binding(6) var linear_sampler: sampler;
+@group(0) @binding(4) var previous_velocity: texture_2d<f32>;
+@group(0) @binding(5) var previous_depth: texture_depth_2d;
+@group(0) @binding(6) var nearest_sampler: sampler;
+@group(0) @binding(7) var linear_sampler: sampler;
 
 struct Output {
     @location(0) view_target: vec4<f32>,
@@ -70,7 +71,8 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let offset = texel_size * 2.0;
     let v_tl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, offset.y)).rg;
     let v_tr = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, offset.y)).rg;
-    var current_velocity = textureSample(velocity, nearest_sampler, uv).rg;
+    let current_velocity = textureSample(velocity, nearest_sampler, uv).rg;
+    var closest_velocity = textureSample(velocity, nearest_sampler, uv).rg;
     let v_bl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, -offset.y)).rg;
     let v_br = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, -offset.y)).rg;
     let d_tl = textureSample(depth, nearest_sampler, uv + vec2(-offset.x, offset.y));
@@ -80,19 +82,19 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let d_bl = textureSample(depth, nearest_sampler, uv + vec2(-offset.x, -offset.y));
     let d_br = textureSample(depth, nearest_sampler, uv + vec2(offset.x, -offset.y));
     if d_tl > closest_depth {
-        current_velocity = v_tl;
+        closest_velocity = v_tl;
         closest_depth = d_tl;
     }
     if d_tr > closest_depth {
-        current_velocity = v_tr;
+        closest_velocity = v_tr;
         closest_depth = d_tr;
     }
     if d_bl > closest_depth {
-        current_velocity = v_bl;
+        closest_velocity = v_bl;
         closest_depth = d_bl;
     }
     if d_br > closest_depth {
-        current_velocity = v_br;
+        closest_velocity = v_br;
     }
 
     // Reproject to find the equivalent sample from the past
@@ -101,7 +103,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // https://vec3.ca/bicubic-filtering-in-fewer-taps
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
-    let sample_position = (uv + current_velocity) * texture_size;
+    let sample_position = (uv + closest_velocity) * texture_size;
     let texel_center = floor(sample_position - 0.5) + 0.5;
     let f = sample_position - texel_center;
     let w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
@@ -119,14 +121,22 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
 
-    // Detect large depth differences between frames, and skip blending (reduces ghosting)
+    // Skip blending when disocclusion is detected (reduces ghosting)
     var disocclusion_detected = false;
-#ifdef DEPTH_REJECTION
-    let previous_depth = textureSample(previous_depth, nearest_sampler, uv);
-    disocclusion_detected = abs(current_depth - previous_depth) > 0.1;
+    var alpha = 1.0;
+
+#ifdef VELOCITY_REJECTION
+    // Detect disocclusion based on large acceleration between frames
+    let previous_velocity = textureSample(previous_velocity, nearest_sampler, uv).rg;
+    disocclusion_detected |= length(current_velocity - previous_velocity) > 0.000000001;
 #endif
 
-    var alpha = 1.0;
+#ifdef DEPTH_REJECTION
+    // Detect disocclusion based on large depth differences between frames
+    let previous_depth = textureSample(previous_depth, nearest_sampler, uv);
+    disocclusion_detected |= abs(current_depth - previous_depth) > 0.000000001;
+#endif
+
     if !disocclusion_detected {
         alpha = 0.1;
 

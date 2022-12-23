@@ -4,7 +4,7 @@ use bevy_core::FrameCount;
 use bevy_core_pipeline::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
-    prepass::{PrepassDepthSettings, PrepassSettings, ViewPrepassTextures},
+    prepass::{PrepassSettings, ViewPrepassTextures},
 };
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
@@ -98,11 +98,13 @@ pub struct TemporalAntialiasBundle {
 #[derive(Component, Reflect, Clone)]
 pub struct TemporalAntialiasSettings {
     pub depth_rejection_enabled: bool,
+    pub velocity_rejection_enabled: bool,
 }
 
 impl Default for TemporalAntialiasSettings {
     fn default() -> Self {
         Self {
+            velocity_rejection_enabled: true,
             depth_rejection_enabled: true,
         }
     }
@@ -158,10 +160,17 @@ impl Node for TAANode {
         ) else {
             return Ok(());
         };
-        let (Some(taa_pipeline), Some(prepass_velocity_texture), Some(prepass_depth_texture), Some(prepass_previous_depth_texture)) = (
+        let (
+            Some(taa_pipeline),
+            Some(prepass_velocity_texture),
+            Some(prepass_depth_texture),
+            Some(prepass_previous_velocity_texture),
+            Some(prepass_previous_depth_texture)
+        ) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.velocity,
             &prepass_textures.depth,
+            &prepass_textures.previous_velocity,
             &prepass_textures.previous_depth,
         ) else {
             return Ok(());
@@ -197,15 +206,21 @@ impl Node for TAANode {
                     BindGroupEntry {
                         binding: 4,
                         resource: BindingResource::TextureView(
-                            &prepass_previous_depth_texture.default_view,
+                            &prepass_previous_velocity_texture.default_view,
                         ),
                     },
                     BindGroupEntry {
                         binding: 5,
-                        resource: BindingResource::Sampler(&pipelines.nearest_sampler),
+                        resource: BindingResource::TextureView(
+                            &prepass_previous_depth_texture.default_view,
+                        ),
                     },
                     BindGroupEntry {
                         binding: 6,
+                        resource: BindingResource::Sampler(&pipelines.nearest_sampler),
+                    },
+                    BindGroupEntry {
+                        binding: 7,
                         resource: BindingResource::Sampler(&pipelines.linear_sampler),
                     },
                 ],
@@ -315,9 +330,20 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Previous Depth
+                    // Previous Velocity
                     BindGroupLayoutEntry {
                         binding: 4,
+                        visibility: ShaderStages::FRAGMENT,
+                        ty: BindingType::Texture {
+                            sample_type: TextureSampleType::Float { filterable: true },
+                            view_dimension: TextureViewDimension::D2,
+                            multisampled: false,
+                        },
+                        count: None,
+                    },
+                    // Previous Depth
+                    BindGroupLayoutEntry {
+                        binding: 5,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Texture {
                             sample_type: TextureSampleType::Depth,
@@ -328,14 +354,14 @@ impl FromWorld for TAAPipeline {
                     },
                     // Nearest sampler
                     BindGroupLayoutEntry {
-                        binding: 5,
+                        binding: 6,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                         count: None,
                     },
                     // Linear sampler
                     BindGroupLayoutEntry {
-                        binding: 6,
+                        binding: 7,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
@@ -354,6 +380,7 @@ impl FromWorld for TAAPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct TAAPipelineKey {
     hdr: bool,
+    velocity_rejection_enabled: bool,
     depth_rejection_enabled: bool,
 }
 
@@ -372,6 +399,9 @@ impl SpecializedRenderPipeline for TAAPipeline {
 
         if key.depth_rejection_enabled {
             shader_defs.push("DEPTH_REJECTION".into());
+        }
+        if key.velocity_rejection_enabled {
+            shader_defs.push("VELOCITY_REJECTION".into());
         }
 
         RenderPipelineDescriptor {
@@ -417,21 +447,19 @@ fn extract_taa_settings(
     >,
 ) {
     for (entity, camera, taa_settings, prepass_settings) in &cameras_3d {
-        let history_rejection_test = match (
-            taa_settings.depth_rejection_enabled,
-            &prepass_settings.depth_settings,
-        ) {
-            (
-                true,
-                PrepassDepthSettings::Enabled {
-                    keep_1_frame_history: true,
-                },
-            )
-            | (false, _) => true,
-            _ => false,
+        let velocity_test = if taa_settings.velocity_rejection_enabled {
+            prepass_settings.velocity.enabled_with_history()
+        } else {
+            prepass_settings.velocity.enabled()
         };
 
-        if camera.is_active && prepass_settings.velocity_enabled && history_rejection_test {
+        let depth_test = if taa_settings.depth_rejection_enabled {
+            prepass_settings.depth.enabled_with_history()
+        } else {
+            prepass_settings.depth.enabled()
+        };
+
+        if camera.is_active && velocity_test && depth_test {
             commands.get_or_spawn(entity).insert(taa_settings.clone());
         }
     }
@@ -506,6 +534,7 @@ fn prepare_taa_pipelines(
     for (entity, view, taa_settings) in &views {
         let pipeline_key = TAAPipelineKey {
             hdr: view.hdr,
+            velocity_rejection_enabled: taa_settings.velocity_rejection_enabled,
             depth_rejection_enabled: taa_settings.depth_rejection_enabled,
         };
 

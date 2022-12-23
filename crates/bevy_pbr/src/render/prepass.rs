@@ -3,10 +3,7 @@ use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_core_pipeline::{
     prelude::Camera3d,
-    prepass::{
-        AlphaMask3dPrepass, Opaque3dPrepass, PrepassDepthSettings, PrepassSettings,
-        ViewPrepassTextures,
-    },
+    prepass::{AlphaMask3dPrepass, Opaque3dPrepass, PrepassSettings, ViewPrepassTextures},
 };
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -487,7 +484,7 @@ pub fn prepare_prepass_textures(
             height: physical_target_size.y,
         };
 
-        let cached_depth_1_texture = prepass_settings.depth_enabled().then(|| {
+        let cached_depth_1_texture = prepass_settings.depth.enabled().then(|| {
             depth_1_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -508,13 +505,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let need_second_depth = matches!(
-            prepass_settings.depth_settings,
-            PrepassDepthSettings::Enabled {
-                keep_1_frame_history: true,
-            }
-        );
-        let cached_depth_2_texture = need_second_depth.then(|| {
+        let cached_depth_2_texture = prepass_settings.depth.enabled_with_history().then(|| {
             depth_2_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -556,14 +547,14 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_velocities_texture = prepass_settings.velocity_enabled.then(|| {
+        let cached_velocities_1_texture = prepass_settings.velocity.enabled().then(|| {
             velocity_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
                         &render_device,
                         TextureDescriptor {
-                            label: Some("prepass_velocity_texture"),
+                            label: Some("prepass_velocity_1_texture"),
                             size,
                             mip_level_count: 1,
                             sample_count: msaa.samples,
@@ -576,26 +567,50 @@ pub fn prepare_prepass_textures(
                 })
                 .clone()
         });
+        let cached_velocities_2_texture =
+            prepass_settings.velocity.enabled_with_history().then(|| {
+                velocity_textures
+                    .entry(camera.target.clone())
+                    .or_insert_with(|| {
+                        texture_cache.get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("prepass_velocity_2_texture"),
+                                size,
+                                mip_level_count: 1,
+                                sample_count: msaa.samples,
+                                dimension: TextureDimension::D2,
+                                format: TextureFormat::Rg32Float,
+                                usage: TextureUsages::RENDER_ATTACHMENT
+                                    | TextureUsages::TEXTURE_BINDING,
+                            },
+                        )
+                    })
+                    .clone()
+            });
 
-        let textures = if frame_count.0 % 2 == 0 && need_second_depth {
-            ViewPrepassTextures {
-                depth: cached_depth_2_texture,
-                previous_depth: cached_depth_1_texture,
-                normal: cached_normals_texture,
-                velocity: cached_velocities_texture,
-                size,
-            }
-        } else {
-            ViewPrepassTextures {
-                depth: cached_depth_1_texture,
-                previous_depth: cached_depth_2_texture,
-                normal: cached_normals_texture,
-                velocity: cached_velocities_texture,
-                size,
-            }
-        };
+        let (depth, previous_depth) =
+            if frame_count.0 % 2 == 0 && prepass_settings.depth.enabled_with_history() {
+                (cached_depth_2_texture, cached_depth_1_texture)
+            } else {
+                (cached_depth_1_texture, cached_depth_2_texture)
+            };
 
-        commands.entity(entity).insert(textures);
+        let (velocity, previous_velocity) =
+            if frame_count.0 % 2 == 0 && prepass_settings.velocity.enabled_with_history() {
+                (cached_velocities_2_texture, cached_velocities_1_texture)
+            } else {
+                (cached_velocities_1_texture, cached_velocities_2_texture)
+            };
+
+        commands.entity(entity).insert(ViewPrepassTextures {
+            depth,
+            previous_depth,
+            normal: cached_normals_texture,
+            velocity,
+            previous_velocity,
+            size,
+        });
     }
 }
 
@@ -673,7 +688,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
         if prepass_settings.normal_enabled {
             view_key |= MeshPipelineKey::PREPASS_NORMALS;
         }
-        if prepass_settings.velocity_enabled {
+        if prepass_settings.velocity.enabled() {
             view_key |= MeshPipelineKey::PREPASS_VELOCITIES;
         }
 

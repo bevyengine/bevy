@@ -1,7 +1,7 @@
 //! A scene showcasing temporal antialiasing.
 
 use bevy::{
-    core_pipeline::prepass::{PrepassDepthSettings, PrepassSettings},
+    core_pipeline::prepass::{PrepassSettings, PrepassSubpassSetting},
     pbr::{PbrPlugin, TemporalAntialiasBundle, TemporalAntialiasPlugin},
     prelude::*,
     render::camera::TemporalJitter,
@@ -33,10 +33,12 @@ fn setup(
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             // 3. Enable the depth and velocity prepass on the camera
             prepass_settings: PrepassSettings {
-                depth_settings: PrepassDepthSettings::Enabled {
+                depth: PrepassSubpassSetting::Enabled {
                     keep_1_frame_history: true,
                 },
-                velocity_enabled: true,
+                velocity: PrepassSubpassSetting::Enabled {
+                    keep_1_frame_history: true,
+                },
                 ..default()
             },
             ..default()
