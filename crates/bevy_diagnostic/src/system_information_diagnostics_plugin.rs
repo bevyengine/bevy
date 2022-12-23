@@ -3,6 +3,8 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::{ResMut, Resource};
 use sysinfo::{CpuExt, System, SystemExt};
 
+const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
+
 #[derive(Resource)]
 pub struct SystemInfo {
     pub sys: System,
@@ -41,13 +43,13 @@ impl SystemInformationDiagnosticsPlugin {
 
     pub fn diagnostic_system(
         mut diagnostics: ResMut<Diagnostics>,
-        mut susinfo: ResMut<SystemInfo>,
+        mut sysinfo: ResMut<SystemInfo>,
     ) {
-        susinfo.sys.refresh_cpu();
-        susinfo.sys.refresh_memory();
+        sysinfo.sys.refresh_cpu();
+        sysinfo.sys.refresh_memory();
         let current_cpu_usage = {
             let mut usage = 0.0;
-            let cpus = susinfo.sys.cpus();
+            let cpus = sysinfo.sys.cpus();
             for cpu in cpus {
                 usage += cpu.cpu_usage(); // note for future maintainers: this returns a value from 0.0 to 100.0
             }
@@ -55,11 +57,11 @@ impl SystemInformationDiagnosticsPlugin {
             usage / cpus.len() as f32
         };
         // `memory()` fns return a value in bytes
-        let total_mem = susinfo.sys.total_memory() as f64 / 1_073_741_824_f64;
-        let used_mem = susinfo.sys.used_memory() as f64 / 1_073_741_824_f64;
+        let total_mem = sysinfo.sys.total_memory() as f64 / BYTES_TO_GIB;
+        let used_mem = sysinfo.sys.used_memory() as f64 / BYTES_TO_GIB;
         let current_used_mem = used_mem / total_mem * 100.0;
 
         diagnostics.add_measurement(Self::CPU_USAGE, || current_cpu_usage as f64);
-        diagnostics.add_measurement(Self::MEM_USAGE, || current_used_mem as f64);
+        diagnostics.add_measurement(Self::MEM_USAGE, || current_used_mem);
     }
 }
