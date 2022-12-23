@@ -709,7 +709,7 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
 impl<F> Command for F
 where
-    F: FnOnce(&mut World) + Send + Sync + 'static,
+    F: FnOnce(&mut World) + Send + 'static,
 {
     fn write(self, world: &mut World) {
         self(world);
