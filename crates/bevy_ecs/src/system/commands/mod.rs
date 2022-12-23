@@ -800,6 +800,15 @@ where
     }
 }
 
+impl<F> EntityCommand for F
+where
+    F: FnOnce(Entity, &mut World) + Send + 'static,
+{
+    fn write(self, id: Entity, world: &mut World) {
+        self(id, world);
+    }
+}
+
 #[derive(Debug)]
 pub struct Spawn<T> {
     pub bundle: T,
