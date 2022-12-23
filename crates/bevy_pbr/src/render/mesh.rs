@@ -653,6 +653,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
+
         let mut targets = vec![Some(ColorTargetState {
             format,
             blend,

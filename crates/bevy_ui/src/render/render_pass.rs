@@ -19,7 +19,7 @@ pub struct UiPassNode {
         (
             &'static RenderPhase<TransparentUi>,
             &'static ViewTarget,
-            &'static PickingTextures,
+            Option<&'static PickingTextures>,
             Option<&'static UiCameraConfig>,
         ),
         With<ExtractedView>,
@@ -84,12 +84,15 @@ impl Node for UiPassNode {
             store: true,
         };
 
+        let mut color_attachments = vec![Some(target.get_unsampled_color_attachment(ops))];
+
+        if let Some(picking_textures) = picking_textures {
+            color_attachments.push(Some(picking_textures.get_unsampled_color_attachment(ops)));
+        }
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
-            color_attachments: &[
-                Some(target.get_unsampled_color_attachment(ops)),
-                Some(picking_textures.get_unsampled_color_attachment(ops)),
-            ],
+            color_attachments: &color_attachments,
             depth_stencil_attachment: None,
         });
 

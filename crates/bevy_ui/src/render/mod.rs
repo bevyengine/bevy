@@ -2,6 +2,7 @@ mod pipeline;
 mod render_pass;
 
 use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_render::picking::Picking;
 pub use pipeline::*;
 pub use render_pass::*;
 
@@ -382,8 +383,8 @@ pub fn extract_text_uinodes(
 struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
-    pub entity_index: u32,
     pub color: [f32; 4],
+    pub entity_index: u32,
 }
 
 #[derive(Resource)]
@@ -574,7 +575,11 @@ pub fn queue_uinodes(
     mut image_bind_groups: ResMut<UiImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     ui_batches: Query<(Entity, &UiBatch)>,
-    mut views: Query<(&ExtractedView, &mut RenderPhase<TransparentUi>)>,
+    mut views: Query<(
+        &ExtractedView,
+        Option<&Picking>,
+        &mut RenderPhase<TransparentUi>,
+    )>,
     events: Res<SpriteAssetEvents>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
@@ -597,12 +602,14 @@ pub fn queue_uinodes(
             layout: &ui_pipeline.view_layout,
         }));
         let draw_ui_function = draw_functions.read().id::<DrawUi>();
-        for (view, mut transparent_phase) in &mut views {
-            let pipeline = pipelines.specialize(
-                &mut pipeline_cache,
-                &ui_pipeline,
-                UiPipelineKey { hdr: view.hdr },
-            );
+        for (view, picking, mut transparent_phase) in &mut views {
+            let mut key = UiPipelineKey::from_hdr(view.hdr);
+
+            if picking.is_some() {
+                key |= UiPipelineKey::PICKING;
+            }
+
+            let pipeline = pipelines.specialize(&mut pipeline_cache, &ui_pipeline, key);
             for (entity, batch) in &ui_batches {
                 image_bind_groups
                     .values

@@ -59,29 +59,70 @@ impl FromWorld for UiPipeline {
     }
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiPipelineKey {
-    pub hdr: bool,
+bitflags::bitflags! {
+    #[repr(transparent)]
+    pub struct UiPipelineKey: u32 {
+        const NONE              = 0;
+        const HDR               = (1 << 0);
+        const PICKING           = (1 << 1);
+    }
+}
+
+impl UiPipelineKey {
+    pub fn from_hdr(hdr: bool) -> Self {
+        if hdr {
+            UiPipelineKey::HDR
+        } else {
+            UiPipelineKey::NONE
+        }
+    }
 }
 
 impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let vertex_layout = VertexBufferLayout::from_vertex_formats(
-            VertexStepMode::Vertex,
-            vec![
-                // position
-                VertexFormat::Float32x3,
-                // uv
-                VertexFormat::Float32x2,
+        let mut vertex_formats = vec![
+            // position
+            VertexFormat::Float32x3,
+            // uv
+            VertexFormat::Float32x2,
+            // color
+            VertexFormat::Float32x4,
+        ];
+
+        // TODO: Find shader locs of color etc.
+
+        let mut shader_defs = Vec::new();
+
+        if key.contains(UiPipelineKey::PICKING) {
+            vertex_formats.push(
                 // entity index
                 VertexFormat::Uint32,
-                // color
-                VertexFormat::Float32x4,
-            ],
-        );
-        let shader_defs = Vec::new();
+            );
+            shader_defs.push("PICKING".into());
+        }
+
+        let vertex_layout =
+            VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, vertex_formats);
+
+        let mut targets = vec![Some(ColorTargetState {
+            format: if key.contains(UiPipelineKey::HDR) {
+                ViewTarget::TEXTURE_FORMAT_HDR
+            } else {
+                TextureFormat::bevy_default()
+            },
+            blend: Some(BlendState::ALPHA_BLENDING),
+            write_mask: ColorWrites::ALL,
+        })];
+
+        if key.contains(UiPipelineKey::PICKING) {
+            targets.push(Some(ColorTargetState {
+                format: TextureFormat::R32Uint,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }))
+        }
 
         RenderPipelineDescriptor {
             vertex: VertexState {
@@ -94,22 +135,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![
-                    Some(ColorTargetState {
-                        format: if key.hdr {
-                            ViewTarget::TEXTURE_FORMAT_HDR
-                        } else {
-                            TextureFormat::bevy_default()
-                        },
-                        blend: Some(BlendState::ALPHA_BLENDING),
-                        write_mask: ColorWrites::ALL,
-                    }),
-                    Some(ColorTargetState {
-                        format: TextureFormat::R32Uint,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                ],
+                targets,
             }),
             layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
             primitive: PrimitiveState {

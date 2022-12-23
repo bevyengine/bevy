@@ -292,6 +292,7 @@ bitflags::bitflags! {
         const HDR                         = (1 << 0);
         const TONEMAP_IN_SHADER           = (1 << 1);
         const DEBAND_DITHER               = (1 << 2);
+        const PICKING                     = (1 << 3);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -394,6 +395,22 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             false => TextureFormat::bevy_default(),
         };
 
+        let mut targets = vec![Some(ColorTargetState {
+            format,
+            blend: Some(BlendState::ALPHA_BLENDING),
+            write_mask: ColorWrites::ALL,
+        })];
+
+        if key.contains(Mesh2dPipelineKey::PICKING) {
+            shader_defs.push("PICKING".into());
+
+            targets.push(Some(ColorTargetState {
+                format: TextureFormat::R32Uint,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }))
+        }
+
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: MESH2D_SHADER_HANDLE.typed::<Shader>(),
@@ -405,18 +422,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 shader: MESH2D_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![
-                    Some(ColorTargetState {
-                        format,
-                        blend: Some(BlendState::ALPHA_BLENDING),
-                        write_mask: ColorWrites::ALL,
-                    }),
-                    Some(ColorTargetState {
-                        format: TextureFormat::R32Uint,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                ],
+                targets,
             }),
             layout: Some(vec![self.view_layout.clone(), self.mesh_layout.clone()]),
             primitive: PrimitiveState {

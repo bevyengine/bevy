@@ -18,6 +18,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
+    picking::Picking,
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
@@ -328,6 +329,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
+        Option<&Picking>,
         &mut RenderPhase<Transparent2d>,
     )>,
 ) where
@@ -337,7 +339,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
         return;
     }
 
-    for (view, visible_entities, tonemapping, mut transparent_phase) in &mut views {
+    for (view, visible_entities, tonemapping, picking, mut transparent_phase) in &mut views {
         let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
@@ -351,6 +353,10 @@ pub fn queue_material2d_meshes<M: Material2d>(
                     view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
                 }
             }
+        }
+
+        if picking.is_some() {
+            view_key |= Mesh2dPipelineKey::PICKING;
         }
 
         for visible_entity in &visible_entities.entities {

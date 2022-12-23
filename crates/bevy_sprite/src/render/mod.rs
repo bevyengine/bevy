@@ -14,6 +14,7 @@ use bevy_math::{Rect, Vec2};
 use bevy_reflect::Uuid;
 use bevy_render::{
     color::Color,
+    picking::Picking,
     render_asset::RenderAssets,
     render_phase::{
         BatchedPhaseItem, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
@@ -152,6 +153,7 @@ bitflags::bitflags! {
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
         const DEBAND_DITHER               = (1 << 3);
+        const PICKING                     = (1 << 4);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
     }
 }
@@ -231,6 +233,22 @@ impl SpecializedRenderPipeline for SpritePipeline {
             false => TextureFormat::bevy_default(),
         };
 
+        let mut targets = vec![Some(ColorTargetState {
+            format,
+            blend: Some(BlendState::ALPHA_BLENDING),
+            write_mask: ColorWrites::ALL,
+        })];
+
+        if key.contains(SpritePipelineKey::PICKING) {
+            shader_defs.push("PICKING".into());
+
+            targets.push(Some(ColorTargetState {
+                format: TextureFormat::R32Uint,
+                blend: None,
+                write_mask: ColorWrites::ALL,
+            }))
+        }
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
@@ -242,18 +260,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 shader: SPRITE_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![
-                    Some(ColorTargetState {
-                        format,
-                        blend: Some(BlendState::ALPHA_BLENDING),
-                        write_mask: ColorWrites::ALL,
-                    }),
-                    Some(ColorTargetState {
-                        format: TextureFormat::R32Uint,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    }),
-                ],
+                targets,
             }),
             layout: Some(vec![self.view_layout.clone(), self.material_layout.clone()]),
             primitive: PrimitiveState {
@@ -472,6 +479,7 @@ pub fn queue_sprites(
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
+        Option<&Picking>,
     )>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -527,7 +535,7 @@ pub fn queue_sprites(
         });
         let image_bind_groups = &mut *image_bind_groups;
 
-        for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
+        for (mut transparent_phase, visible_entities, view, tonemapping, picking) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
             if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
                 if !view.hdr {
@@ -538,6 +546,11 @@ pub fn queue_sprites(
                     }
                 }
             }
+
+            if picking.is_some() {
+                view_key |= SpritePipelineKey::PICKING;
+            }
+
             let pipeline = pipelines.specialize(
                 &mut pipeline_cache,
                 &sprite_pipeline,

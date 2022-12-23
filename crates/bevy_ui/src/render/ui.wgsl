@@ -14,8 +14,8 @@ var<uniform> view: View;
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
-    @location(1) entity_index: u32,
-    @location(2) color: vec4<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) entity_index: u32,
     @builtin(position) position: vec4<f32>,
 };
 
@@ -23,14 +23,14 @@ struct VertexOutput {
 fn vertex(
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
-    @location(2) entity_index: u32,
-    @location(3) vertex_color: vec4<f32>,
+    @location(2) vertex_color: vec4<f32>,
+    @location(3) entity_index: u32,
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
-    out.entity_index = entity_index;
     out.color = vertex_color;
+    out.entity_index = entity_index;
     return out;
 }
 
@@ -40,9 +40,11 @@ var sprite_texture: texture_2d<f32>;
 var sprite_sampler: sampler;
 
 struct FragmentOutput {
-   @location(0) color: vec4<f32>,
-   @location(1) picking: u32,
- }
+    @location(0) color: vec4<f32>,
+#ifdef PICKING
+    @location(1) picking: u32,
+#endif
+}
 
 @fragment
 fn fragment(in: VertexOutput) -> FragmentOutput {
@@ -52,7 +54,10 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
     out.color = color;
+
+#ifdef PICKING
     out.picking = in.entity_index;
+#endif
 
     return out;
 }

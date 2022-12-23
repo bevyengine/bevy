@@ -35,3 +35,4 @@ serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
 bytemuck = { version = "1.5", features = ["derive"] }
 thiserror = "1.0.0"
+bitflags = "1.2"

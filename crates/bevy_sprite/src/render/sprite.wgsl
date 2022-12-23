@@ -50,9 +50,11 @@ var sprite_texture: texture_2d<f32>;
 var sprite_sampler: sampler;
 
 struct FragmentOutput {
-   @location(0) color: vec4<f32>,
-   @location(1) picking: u32,
- }
+    @location(0) color: vec4<f32>,
+#ifdef PICKING
+    @location(1) picking: u32,
+#endif
+}
 
 @fragment
 fn fragment(in: VertexOutput) -> FragmentOutput {
@@ -68,7 +70,10 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     var out: FragmentOutput;
 
     out.color = color;
+
+#ifdef PICKING
     out.picking = in.entity_index;
+#endif
 
     return out;
 }
