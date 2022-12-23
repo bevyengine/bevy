@@ -380,9 +380,9 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
     commands
         .spawn(NodeBundle {
             style: Style {
-                margin: UiRect::all(Val::Auto),
-                justify_content: JustifyContent::Center,
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 ..default()
             },
             ..default()

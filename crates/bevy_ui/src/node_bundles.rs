@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, ImageMode},
-    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
+    UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -67,13 +67,11 @@ pub struct ImageBundle {
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
-    /// Configures how the image should scale
-    pub image_mode: ImageMode,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// The background color, which serves as a "fill" for this node
     ///
-    /// When combined with `UiImage`, tints the provided image.
+    /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
@@ -180,7 +178,7 @@ impl Default for TextBundle {
 }
 
 /// A UI node that is a button
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -214,23 +212,4 @@ pub struct ButtonBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
-}
-
-impl Default for ButtonBundle {
-    fn default() -> Self {
-        ButtonBundle {
-            button: Button,
-            interaction: Default::default(),
-            focus_policy: Default::default(),
-            node: Default::default(),
-            style: Default::default(),
-            background_color: Default::default(),
-            image: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
 }

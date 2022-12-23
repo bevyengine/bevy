@@ -1,15 +1,20 @@
 use crate::render_resource::{BindGroupLayout, Shader};
 use bevy_asset::Handle;
 use bevy_reflect::Uuid;
-use std::{borrow::Cow, ops::Deref, sync::Arc};
+use std::{borrow::Cow, ops::Deref};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
     VertexAttribute, VertexFormat, VertexStepMode,
 };
 
+use super::ShaderDefVal;
+use crate::render_resource::resource_macros::*;
+
 /// A [`RenderPipeline`] identifier.
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct RenderPipelineId(Uuid);
+
+render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
@@ -18,7 +23,7 @@ pub struct RenderPipelineId(Uuid);
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
-    value: Arc<wgpu::RenderPipeline>,
+    value: ErasedRenderPipeline,
 }
 
 impl RenderPipeline {
@@ -32,7 +37,7 @@ impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
             id: RenderPipelineId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: ErasedRenderPipeline::new(value),
         }
     }
 }
@@ -50,6 +55,8 @@ impl Deref for RenderPipeline {
 #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
 pub struct ComputePipelineId(Uuid);
 
+render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
+
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
 /// May be converted from and dereferences to a wgpu [`ComputePipeline`](wgpu::ComputePipeline).
@@ -57,7 +64,7 @@ pub struct ComputePipelineId(Uuid);
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
-    value: Arc<wgpu::ComputePipeline>,
+    value: ErasedComputePipeline,
 }
 
 impl ComputePipeline {
@@ -72,7 +79,7 @@ impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
             id: ComputePipelineId(Uuid::new_v4()),
-            value: Arc::new(value),
+            value: ErasedComputePipeline::new(value),
         }
     }
 }
@@ -109,7 +116,7 @@ pub struct RenderPipelineDescriptor {
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
-    pub shader_defs: Vec<String>,
+    pub shader_defs: Vec<ShaderDefVal>,
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
@@ -161,7 +168,7 @@ impl VertexBufferLayout {
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
-    pub shader_defs: Vec<String>,
+    pub shader_defs: Vec<ShaderDefVal>,
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,
@@ -176,7 +183,7 @@ pub struct ComputePipelineDescriptor {
     pub layout: Option<Vec<BindGroupLayout>>,
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
-    pub shader_defs: Vec<String>,
+    pub shader_defs: Vec<ShaderDefVal>,
     /// The name of the entry point in the compiled shader. There must be a
     /// function with this name in the shader.
     pub entry_point: Cow<'static, str>,

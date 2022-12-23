@@ -67,10 +67,13 @@ fn setup_scene(
     });
     // sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            subdivisions: 4,
-            radius: 0.5,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                subdivisions: 4,
+                radius: 0.5,
+            })
+            .unwrap(),
+        ),
         material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()

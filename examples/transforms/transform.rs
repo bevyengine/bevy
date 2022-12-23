@@ -40,10 +40,13 @@ fn setup(
     // Add an object (sphere) for visualizing scaling.
     commands.spawn((
         PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Icosphere {
-                radius: 3.0,
-                subdivisions: 32,
-            })),
+            mesh: meshes.add(
+                Mesh::try_from(shape::Icosphere {
+                    radius: 3.0,
+                    subdivisions: 32,
+                })
+                .unwrap(),
+            ),
             material: materials.add(Color::YELLOW.into()),
             transform: Transform::from_translation(Vec3::ZERO),
             ..default()

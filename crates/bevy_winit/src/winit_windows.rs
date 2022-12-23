@@ -63,17 +63,20 @@ impl WinitWindows {
                     window_descriptor.height as u32,
                 )),
             )),
-            _ => {
+            WindowMode::Windowed => {
                 if let Some(sf) = scale_factor_override {
                     winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
                 } else {
                     winit_window_builder.with_inner_size(logical_size)
                 }
             }
+        };
+
+        winit_window_builder = winit_window_builder
             .with_resizable(window_descriptor.resizable)
             .with_decorations(window_descriptor.decorations)
-            .with_transparent(window_descriptor.transparent),
-        };
+            .with_transparent(window_descriptor.transparent)
+            .with_always_on_top(window_descriptor.always_on_top);
 
         let constraints = window_descriptor.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {

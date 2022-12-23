@@ -47,7 +47,8 @@ fn setup_scene(
             radius: 0.5,
             subdivisions: 5,
         }
-        .into(),
+        .try_into()
+        .unwrap(),
     );
 
     for x in -10..10 {

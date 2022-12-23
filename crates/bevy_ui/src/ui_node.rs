@@ -1,6 +1,5 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -190,9 +189,6 @@ impl Val {
 /// Describes the style of a UI node
 ///
 /// It uses the [Flexbox](https://cssreference.io/flexbox/) system.
-///
-/// **Note:** Bevy's UI is upside down compared to how Flexbox normally works, to stay consistent with engine paradigms about layouting from
-/// the upper left corner of the display
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq)]
 pub struct Style {
@@ -241,6 +237,10 @@ pub struct Style {
     pub aspect_ratio: Option<f32>,
     /// How to handle overflow
     pub overflow: Overflow,
+    /// The size of the gutters between the rows and columns of the flexbox layout
+    ///
+    /// Values of `Size::UNDEFINED` and `Size::AUTO` are treated as zero.
+    pub gap: Size,
 }
 
 impl Default for Style {
@@ -267,6 +267,7 @@ impl Default for Style {
             max_size: Size::AUTO,
             aspect_ratio: Default::default(),
             overflow: Default::default(),
+            gap: Size::UNDEFINED,
         }
     }
 }
@@ -438,6 +439,8 @@ pub enum FlexWrap {
 pub struct CalculatedSize {
     /// The size of the node
     pub size: Size,
+    /// Whether to attempt to preserve the aspect ratio when determing the layout for this item
+    pub preserve_aspect_ratio: bool,
 }
 
 /// The background color of the node
@@ -455,19 +458,39 @@ impl From<Color> for BackgroundColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiImage(pub Handle<Image>);
+pub struct UiImage {
+    /// Handle to the texture
+    pub texture: Handle<Image>,
+    /// Whether the image should be flipped along its x-axis
+    pub flip_x: bool,
+    /// Whether the image should be flipped along its y-axis
+    pub flip_y: bool,
+}
 
 impl Default for UiImage {
-    fn default() -> Self {
-        Self(DEFAULT_IMAGE_HANDLE.typed())
+    fn default() -> UiImage {
+        UiImage {
+            texture: DEFAULT_IMAGE_HANDLE.typed(),
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+}
+
+impl UiImage {
+    pub fn new(texture: Handle<Image>) -> Self {
+        Self {
+            texture,
+            ..Default::default()
+        }
     }
 }
 
 impl From<Handle<Image>> for UiImage {
-    fn from(handle: Handle<Image>) -> Self {
-        Self(handle)
+    fn from(texture: Handle<Image>) -> Self {
+        Self::new(texture)
     }
 }
 

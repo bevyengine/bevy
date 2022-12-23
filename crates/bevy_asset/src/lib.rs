@@ -62,6 +62,7 @@ pub enum AssetStage {
 ///
 /// Assets are typed collections with change tracking, which are added as App Resources. Examples of
 /// assets: textures, sounds, 3d models, maps, scenes
+#[derive(Debug, Clone)]
 pub struct AssetPlugin {
     /// The base folder where assets are loaded from, relative to the executable.
     pub asset_folder: String,

@@ -131,7 +131,18 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
+    pub fn truncate(&mut self, len: usize) {
+        self.values.truncate(len);
+    }
+
     pub fn clear(&mut self) {
         self.values.clear();
+    }
+}
+
+impl<T: Pod> Extend<T> for BufferVec<T> {
+    #[inline]
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        self.values.extend(iter);
     }
 }
