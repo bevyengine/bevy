@@ -528,6 +528,30 @@ impl<'w, 's> Commands<'w, 's> {
     }
 }
 
+/// A [`Command`] which gets executed for a given [`Entity`].
+pub trait EntityCommand: Send + 'static {
+    fn write(self, id: Entity, world: &mut World);
+    /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
+    fn with_entity(self, id: Entity) -> WithEntity<Self>
+    where
+        Self: Sized,
+    {
+        WithEntity { cmd: self, id }
+    }
+}
+
+pub struct WithEntity<C: EntityCommand> {
+    cmd: C,
+    id: Entity,
+}
+
+impl<C: EntityCommand> Command for WithEntity<C> {
+    #[inline]
+    fn write(self, world: &mut World) {
+        self.cmd.write(self.id, world);
+    }
+}
+
 /// A list of commands that will be run to modify an [entity](crate::entity).
 pub struct EntityCommands<'w, 's, 'a> {
     entity: Entity,
@@ -688,6 +712,12 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self.commands.add(Despawn {
             entity: self.entity,
         });
+    }
+
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    pub fn add<C: EntityCommand>(&mut self, command: C) -> &mut Self {
+        self.commands.add(command.with_entity(self.entity));
+        self
     }
 
     /// Logs the components of the entity at the info level.
