@@ -10,7 +10,9 @@ use bevy_utils::tracing::trace;
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
 
-/// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
+/// Tracks the state of a [`TrackedRenderPass`].
+///
+/// This is used to skip redundant operations on the [`TrackedRenderPass`] (e.g. setting an already set pipeline, binding an already bound bind group).
 #[derive(Debug, Default)]
 pub struct DrawState {
     pipeline: Option<RenderPipelineId>,
@@ -20,6 +22,21 @@ pub struct DrawState {
 }
 
 impl DrawState {
+    /// Marks the `pipeline` as bound.
+    pub fn set_pipeline(&mut self, pipeline: RenderPipelineId) {
+        // TODO: do these need to be cleared?
+        // self.bind_groups.clear();
+        // self.vertex_buffers.clear();
+        // self.index_buffer = None;
+        self.pipeline = Some(pipeline);
+    }
+
+    /// Checks, whether the `pipeline` is already bound.
+    pub fn is_pipeline_set(&self, pipeline: RenderPipelineId) -> bool {
+        self.pipeline == Some(pipeline)
+    }
+
+    /// Marks the `bind_group` as bound to the `index`.
     pub fn set_bind_group(
         &mut self,
         index: usize,
@@ -34,6 +51,7 @@ impl DrawState {
         self.bind_groups[index].1.extend(dynamic_indices);
     }
 
+    /// Checks, whether the `bind_group` is already bound to the `index`.
     pub fn is_bind_group_set(
         &self,
         index: usize,
@@ -47,6 +65,7 @@ impl DrawState {
         }
     }
 
+    /// Marks the vertex `buffer` as bound to the `index`.
     pub fn set_vertex_buffer(&mut self, index: usize, buffer: BufferId, offset: u64) {
         if index >= self.vertex_buffers.len() {
             self.vertex_buffers.resize(index + 1, None);
@@ -54,6 +73,7 @@ impl DrawState {
         self.vertex_buffers[index] = Some((buffer, offset));
     }
 
+    /// Checks, whether the vertex `buffer` is already bound to the `index`.
     pub fn is_vertex_buffer_set(&self, index: usize, buffer: BufferId, offset: u64) -> bool {
         if let Some(current) = self.vertex_buffers.get(index) {
             *current == Some((buffer, offset))
@@ -62,10 +82,12 @@ impl DrawState {
         }
     }
 
+    /// Marks the index `buffer` as bound to the `index`.
     pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
         self.index_buffer = Some((buffer, offset, index_format));
     }
 
+    /// Checks, whether the index `buffer` is already bound to the `index`.
     pub fn is_index_buffer_set(
         &self,
         buffer: BufferId,
@@ -74,22 +96,10 @@ impl DrawState {
     ) -> bool {
         self.index_buffer == Some((buffer, offset, index_format))
     }
-
-    pub fn is_pipeline_set(&self, pipeline: RenderPipelineId) -> bool {
-        self.pipeline == Some(pipeline)
-    }
-
-    pub fn set_pipeline(&mut self, pipeline: RenderPipelineId) {
-        // TODO: do these need to be cleared?
-        // self.bind_groups.clear();
-        // self.vertex_buffers.clear();
-        // self.index_buffer = None;
-        self.pipeline = Some(pipeline);
-    }
 }
 
-/// A [`RenderPass`], which tracks the current pipeline state to ensure all draw calls are valid.
-/// It is used to set the current [`RenderPipeline`], [`BindGroups`](BindGroup) and buffers.
+/// A [`RenderPass`], which tracks the current pipeline state to skip redundant operations.
+/// It is used to set the current [`RenderPipeline`], [`BindGroup`]s and [`Buffer`]s.
 /// After all requirements are specified, draw calls can be issued.
 pub struct TrackedRenderPass<'a> {
     pass: RenderPass<'a>,
@@ -117,8 +127,12 @@ impl<'a> TrackedRenderPass<'a> {
         self.state.set_pipeline(pipeline.id());
     }
 
-    /// Sets the active [`BindGroup`] for a given bind group index. The bind group layout in the
-    /// active pipeline when any `draw()` function is called must match the layout of this `bind group`.
+    /// Sets the active bind group for a given bind group index. The bind group layout
+    /// in the active pipeline when any `draw()` function is called must match the layout of this bind group.
+    ///
+    /// If the bind group have dynamic offsets, provide them in binding order.
+    /// These offsets have to be aligned to [`WgpuLimits::min_uniform_buffer_offset_alignment`](crate::settings::WgpuLimits::min_uniform_buffer_offset_alignment)
+    /// or [`WgpuLimits::min_storage_buffer_offset_alignment`](crate::settings::WgpuLimits::min_storage_buffer_offset_alignment) appropriately.
     pub fn set_bind_group(
         &mut self,
         index: usize,
@@ -152,11 +166,14 @@ impl<'a> TrackedRenderPass<'a> {
 
     /// Assign a vertex buffer to a slot.
     ///
-    /// Subsequent calls to [`TrackedRenderPass::draw`] and [`TrackedRenderPass::draw_indexed`]
-    /// will use the buffer referenced by `buffer_slice` as one of the source vertex buffer(s).
+    /// Subsequent calls to [`draw`] and [`draw_indexed`] on this
+    /// [`RenderPass`] will use `buffer` as one of the source vertex buffers.
     ///
-    /// The `slot_index` refers to the index of the matching descriptor in
+    /// The `slot` refers to the index of the matching descriptor in
     /// [`VertexState::buffers`](crate::render_resource::VertexState::buffers).
+    ///
+    /// [`draw`]: TrackedRenderPass::draw
+    /// [`draw_indexed`]: TrackedRenderPass::draw_indexed
     pub fn set_vertex_buffer(&mut self, slot_index: usize, buffer_slice: BufferSlice<'a>) {
         let offset = buffer_slice.offset();
         if self
@@ -497,7 +514,7 @@ impl<'a> TrackedRenderPass<'a> {
             .set_viewport(x, y, width, height, min_depth, max_depth);
     }
 
-    /// Set the rendering viewport to the given [`Camera`](crate::camera::Viewport) [`Viewport`].
+    /// Set the rendering viewport to the given camera [`Viewport`].
     ///
     /// Subsequent draw calls will be projected into that viewport.
     pub fn set_camera_viewport(&mut self, viewport: &Viewport) {
@@ -561,6 +578,9 @@ impl<'a> TrackedRenderPass<'a> {
         self.pass.pop_debug_group();
     }
 
+    /// Sets the blend color as used by some of the blending modes.
+    ///
+    /// Subsequent blending tests will test against this value.
     pub fn set_blend_constant(&mut self, color: Color) {
         trace!("set blend constant: {:?}", color);
         self.pass.set_blend_constant(wgpu::Color::from(color));
