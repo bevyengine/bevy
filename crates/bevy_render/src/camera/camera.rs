@@ -35,12 +35,83 @@ use wgpu::{Extent3d, TextureFormat};
 pub struct Viewport {
     /// The physical position to render this viewport to within the [`RenderTarget`] of this [`Camera`].
     /// (0,0) corresponds to the top-left corner
-    pub physical_position: UVec2,
+    pub physical_position: ViewportPosition,
     /// The physical size of the viewport rectangle to render to within the [`RenderTarget`] of this [`Camera`].
     /// The origin of the rectangle is in the top-left corner.
-    pub physical_size: UVec2,
+    pub physical_size: ViewportSize,
     /// The minimum and maximum depth to render (on a scale from 0.0 to 1.0).
     pub depth: Range<f32>,
+}
+
+/// An enum that represents viewport's top-left corner position either as absolute value (in pixels)
+/// or as a percentage of camera's render target's size.
+/// (0,0) corresponds to the top-left corner
+#[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
+pub enum ViewportPosition {
+    Absolute(UVec2),
+    Percentage(Vec2),
+}
+
+impl Default for ViewportPosition {
+    fn default() -> Self {
+        Self::Absolute(Default::default())
+    }
+}
+
+impl ViewportPosition {
+    /// Converts this size into a absolute size in pixels.
+    #[inline]
+    pub fn as_absolute(&self, of: UVec2) -> UVec2 {
+        match self {
+            ViewportPosition::Absolute(v) => *v,
+            ViewportPosition::Percentage(v) => (of.as_vec2() * *v).as_uvec2(),
+        }
+    }
+
+    /// Converts this size into a absolute size in pixels if possible.
+    ///
+    /// Returns `None` if self is `Percentage` and argument is `None`
+    #[inline]
+    pub fn try_as_absolute(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
+        match self {
+            ViewportPosition::Absolute(v) => Some(*v),
+            ViewportPosition::Percentage(_) => of_opt.map(|of| self.as_absolute(of)),
+        }
+    }
+}
+/// An enum that represents viewport's size either as absolute value (in pixels) or as a percentage of camera's render target's size.
+#[derive(Reflect, Debug, Clone, Serialize, Deserialize)]
+pub enum ViewportSize {
+    Absolute(UVec2),
+    Percentage(Vec2),
+}
+
+impl Default for ViewportSize {
+    fn default() -> Self {
+        Self::Absolute(Default::default())
+    }
+}
+
+impl ViewportSize {
+    /// Converts this size into a absolute size in pixels.
+    #[inline]
+    pub fn as_absolute(&self, of: UVec2) -> UVec2 {
+        match self {
+            ViewportSize::Absolute(v) => *v,
+            ViewportSize::Percentage(v) => (of.as_vec2() * *v).as_uvec2(),
+        }
+    }
+
+    /// Converts this size into a absolute size in pixels if possible.
+    ///
+    /// Returns `None` if self is `Percentage` and argument is `None`
+    #[inline]
+    pub fn try_as_absolute(&self, of_opt: Option<UVec2>) -> Option<UVec2> {
+        match self {
+            ViewportSize::Absolute(v) => Some(*v),
+            ViewportSize::Percentage(_) => of_opt.map(|of| self.as_absolute(of)),
+        }
+    }
 }
 
 impl Default for Viewport {
@@ -126,16 +197,26 @@ impl Camera {
         Some((physical_size.as_dvec2() / scale).as_vec2())
     }
 
+    /// Returns absolute size of this `Camera`'s viewport.
+    ///
+    /// I.e. multiplies the percentage size of viewport with `physical_target_size` or uses
+    /// viewport's absolute size
+    ///
+    /// Returns `None` if viewport size is a `Percentage` and [`Camera::physical_target_size`] returns
+    /// `None`
+    #[inline]
+    pub fn viewport_absolute_size(&self) -> Option<UVec2> {
+        self.viewport
+            .as_ref()
+            .and_then(|v| v.physical_size.try_as_absolute(self.physical_target_size()))
+    }
+
     /// The rendered physical bounds (minimum, maximum) of the camera. If the `viewport` field is
     /// set to [`Some`], this will be the rect of that custom viewport. Otherwise it will default to
     /// the full physical rect of the current [`RenderTarget`].
     #[inline]
     pub fn physical_viewport_rect(&self) -> Option<(UVec2, UVec2)> {
-        let min = self
-            .viewport
-            .as_ref()
-            .map(|v| v.physical_position)
-            .unwrap_or(UVec2::ZERO);
+        let min = self.viewport_absolute_size().unwrap_or(UVec2::ZERO);
         let max = min + self.physical_viewport_size()?;
         Some((min, max))
     }
@@ -156,9 +237,8 @@ impl Camera {
     /// [`RenderTarget`], prefer [`Camera::logical_target_size`].
     #[inline]
     pub fn logical_viewport_size(&self) -> Option<Vec2> {
-        self.viewport
-            .as_ref()
-            .and_then(|v| self.to_logical(v.physical_size))
+        self.viewport_absolute_size()
+            .and_then(|s| self.to_logical(s))
             .or_else(|| self.logical_target_size())
     }
 
@@ -168,9 +248,7 @@ impl Camera {
     /// For logic that requires the full physical size of the [`RenderTarget`], prefer [`Camera::physical_target_size`].
     #[inline]
     pub fn physical_viewport_size(&self) -> Option<UVec2> {
-        self.viewport
-            .as_ref()
-            .map(|v| v.physical_size)
+        self.viewport_absolute_size()
             .or_else(|| self.physical_target_size())
     }
 

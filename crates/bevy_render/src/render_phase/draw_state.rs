@@ -500,12 +500,28 @@ impl<'a> TrackedRenderPass<'a> {
     /// Set the rendering viewport to the given [`Camera`](crate::camera::Viewport) [`Viewport`].
     ///
     /// Subsequent draw calls will be projected into that viewport.
-    pub fn set_camera_viewport(&mut self, viewport: &Viewport) {
+    pub fn set_camera_viewport(
+        &mut self,
+        viewport: &Viewport,
+        physical_target_size: Option<bevy_math::UVec2>,
+    ) {
+        let physical_size = viewport
+            .physical_size
+            .try_as_absolute(physical_target_size)
+            .expect("Couldn't get camera.physical_target_size (needed for relative viewport size)");
+
+        let physical_position = viewport
+            .physical_position
+            .try_as_absolute(physical_target_size)
+            .expect(
+                "Couldn't get camera.physical_target_size (needed for relative viewport position)",
+            );
+
         self.set_viewport(
-            viewport.physical_position.x as f32,
-            viewport.physical_position.y as f32,
-            viewport.physical_size.x as f32,
-            viewport.physical_size.y as f32,
+            physical_position.x as f32,
+            physical_position.y as f32,
+            physical_size.x as f32,
+            physical_size.y as f32,
             viewport.depth.start,
             viewport.depth.end,
         );
