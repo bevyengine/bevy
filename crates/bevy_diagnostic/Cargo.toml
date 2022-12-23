@@ -21,17 +21,10 @@ bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 # iOS or MacOS
 [target.'cfg(any(target_os="ios",target_os="macos"))'.dependencies.sysinfo]
 version = "0.27.1"
+# Some features of sysinfo are not supported by apple. This will disable those features on apple devices
 features = ["apple-app-store"]
 default-features = false
 
-# use the unknown ci feature for RPi
-# [target.'cfg(all(target_os="linux",any(target_arch="aarch64",target_arch="arm")))'.dependencies.sysinfo]
-# version = "0.27.1"
-# # this prevents linking to the C interface, which causes some build issues
-# features = ["unknown-ci"]
-# default-features = false
-
-# general case
 [dependencies.sysinfo]
 version = "0.27.1"
 default-features = false
