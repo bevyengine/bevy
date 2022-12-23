@@ -594,6 +594,7 @@ pub trait EntityCommand: Send + 'static {
     }
 }
 
+/// Turns an [`EntityCommand`] type into a [`Command`] type.
 pub struct WithEntity<C: EntityCommand> {
     cmd: C,
     id: Entity,
