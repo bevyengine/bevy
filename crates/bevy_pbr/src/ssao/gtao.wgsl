@@ -101,14 +101,17 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let falloff_add = falloff_from / falloff_range + 1.0;
 
     let pixel_coordinates = vec2<i32>(global_id.xy);
+    let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
+
     var pixel_depth = calculate_neighboring_depth_differences(pixel_coordinates);
     pixel_depth += 0.00001; // Avoid depth precision issues
 
-    let uv = (vec2<f32>(pixel_coordinates) + 0.5) / view.viewport.zw;
-    let noise = load_noise(pixel_coordinates);
     let pixel_position = reconstruct_view_space_position(pixel_depth, uv);
     let pixel_normal = load_normal_view_space(uv);
     let view_vec = normalize(-pixel_position);
+
+    let noise = load_noise(pixel_coordinates);
+    let sample_scale = (-0.5 * effect_radius * view.projection[0][0]) / pixel_position.z;
 
     var visibility = 0.0;
     for (var slice_t = 0.0; slice_t < slice_count; slice_t += 1.0) {
@@ -130,13 +133,14 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let min_cos_horizon_2 = cos(n - half_pi);
         var cos_horizon_1 = min_cos_horizon_1;
         var cos_horizon_2 = min_cos_horizon_2;
+        let sample_mul = vec2<f32>(omega.x, -omega.y) * sample_scale;
         for (var sample_t = 0.0; sample_t < samples_per_slice_side; sample_t += 1.0) {
             var sample_noise = (slice_t + sample_t * samples_per_slice_side) * 0.6180339887498948482;
             sample_noise = fract(noise.y + sample_noise);
 
             var sample = (sample_t + sample_noise) / samples_per_slice_side;
             sample *= sample; // https://github.com/GameTechDev/XeGTAO#sample-distribution
-            let sample = sample * vec2<f32>(omega.x, -omega.y);
+            let sample = sample * sample_mul;
 
             let sample_mip_level = clamp(log2(length(sample)) - 3.3, 0.0, 5.0); // https://github.com/GameTechDev/XeGTAO#memory-bandwidth-bottleneck
             let sample_position_1 = load_and_reconstruct_view_space_position(uv + sample, sample_mip_level);
