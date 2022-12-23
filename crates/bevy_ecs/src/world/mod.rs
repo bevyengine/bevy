@@ -8,13 +8,14 @@ pub use spawn_batch::*;
 pub use world_cell::*;
 
 use crate::{
-    archetype::{ArchetypeComponentId, ArchetypeId, Archetypes},
+    archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
     change_detection::{MutUntyped, Ticks},
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
-    entity::{AllocAtWithoutReplacement, Entities, Entity},
+    entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    event::{Event, Events},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
@@ -323,11 +324,20 @@ impl World {
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
     #[inline]
-    pub fn iter_entities(&self) -> impl Iterator<Item = Entity> + '_ {
-        self.archetypes
-            .iter()
-            .flat_map(|archetype| archetype.entities().iter())
-            .map(|archetype_entity| archetype_entity.entity())
+    pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
+        self.archetypes.iter().flat_map(|archetype| {
+            archetype
+                .entities()
+                .iter()
+                .enumerate()
+                .map(|(archetype_row, archetype_entity)| {
+                    let location = EntityLocation {
+                        archetype_id: archetype.id(),
+                        archetype_row: ArchetypeRow::new(archetype_row),
+                    };
+                    EntityRef::new(self, archetype_entity.entity(), location)
+                })
+        })
     }
 
     /// Retrieves an [`EntityMut`] that exposes read and write operations for the given `entity`.
@@ -586,7 +596,45 @@ impl World {
         }
     }
 
-    /// Clears component tracker state
+    /// Clears the internal component tracker state.
+    ///
+    /// The world maintains some internal state about changed and removed components. This state
+    /// is used by [`RemovedComponents`] to provide access to the entities that had a specific type
+    /// of component removed since last tick.
+    ///
+    /// The state is also used for change detection when accessing components and resources outside
+    /// of a system, for example via [`World::get_mut()`] or [`World::get_resource_mut()`].
+    ///
+    /// By clearing this internal state, the world "forgets" about those changes, allowing a new round
+    /// of detection to be recorded.
+    ///
+    /// When using `bevy_ecs` as part of the full Bevy engine, this method is added as a system to the
+    /// main app, to run during the `CoreStage::Last`, so you don't need to call it manually. When using
+    /// `bevy_ecs` as a separate standalone crate however, you need to call this manually.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # #[derive(Component, Default)]
+    /// # struct Transform;
+    /// // a whole new world
+    /// let mut world = World::new();
+    ///
+    /// // you changed it
+    /// let entity = world.spawn(Transform::default()).id();
+    ///
+    /// // change is detected
+    /// let transform = world.get_mut::<Transform>(entity).unwrap();
+    /// assert!(transform.is_changed());
+    ///
+    /// // update the last change tick
+    /// world.clear_trackers();
+    ///
+    /// // change is no longer detected
+    /// let transform = world.get_mut::<Transform>(entity).unwrap();
+    /// assert!(!transform.is_changed());
+    /// ```
+    ///
+    /// [`RemovedComponents`]: crate::system::RemovedComponents
     pub fn clear_trackers(&mut self) {
         for entities in self.removed_components.values_mut() {
             entities.clear();
@@ -1087,7 +1135,7 @@ impl World {
                             if location.archetype_id == archetype =>
                         {
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.index, bundle) };
+                            unsafe { inserter.insert(entity, location.archetype_row, bundle) };
                         }
                         _ => {
                             let mut inserter = bundle_info.get_bundle_inserter(
@@ -1099,7 +1147,7 @@ impl World {
                                 change_tick,
                             );
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.index, bundle) };
+                            unsafe { inserter.insert(entity, location.archetype_row, bundle) };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
                         }
@@ -1221,22 +1269,22 @@ impl World {
         result
     }
 
-    /// Sends an [`Event`](crate::event::Event).
+    /// Sends an [`Event`].
     #[inline]
-    pub fn send_event<E: crate::event::Event>(&mut self, event: E) {
+    pub fn send_event<E: Event>(&mut self, event: E) {
         self.send_event_batch(std::iter::once(event));
     }
 
-    /// Sends the default value of the [`Event`](crate::event::Event) of type `E`.
+    /// Sends the default value of the [`Event`] of type `E`.
     #[inline]
-    pub fn send_event_default<E: crate::event::Event + Default>(&mut self) {
+    pub fn send_event_default<E: Event + Default>(&mut self) {
         self.send_event_batch(std::iter::once(E::default()));
     }
 
-    /// Sends a batch of [`Event`](crate::event::Event)s from an iterator.
+    /// Sends a batch of [`Event`]s from an iterator.
     #[inline]
-    pub fn send_event_batch<E: crate::event::Event>(&mut self, events: impl Iterator<Item = E>) {
-        match self.get_resource_mut::<crate::event::Events<E>>() {
+    pub fn send_event_batch<E: Event>(&mut self, events: impl IntoIterator<Item = E>) {
+        match self.get_resource_mut::<Events<E>>() {
             Some(mut events_resource) => events_resource.extend(events),
             None => bevy_utils::tracing::error!(
                     "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
@@ -1387,11 +1435,19 @@ impl World {
         self.change_tick.fetch_add(1, Ordering::AcqRel)
     }
 
+    /// Reads the current change tick of this world.
+    ///
+    /// If you have exclusive (`&mut`) access to the world, consider using [`change_tick()`](Self::change_tick),
+    /// which is more efficient since it does not require atomic synchronization.
     #[inline]
     pub fn read_change_tick(&self) -> u32 {
         self.change_tick.load(Ordering::Acquire)
     }
 
+    /// Reads the current change tick of this world.
+    ///
+    /// This does the same thing as [`read_change_tick()`](Self::read_change_tick), only this method
+    /// is more efficient since it does not require atomic synchronization.
     #[inline]
     pub fn change_tick(&mut self) -> u32 {
         *self.change_tick.get_mut()
@@ -1448,14 +1504,14 @@ impl World {
             self.validate_non_send_access_untyped(info.name());
         }
 
+        let change_tick = self.change_tick();
+
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
         // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
         // - index is in-bounds because the column is initialized and non-empty
         // - no other reference to the ticks of the same row can exist at the same time
-        let ticks = unsafe {
-            Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
-        };
+        let ticks = unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -1490,12 +1546,16 @@ impl World {
     /// use this in cases where the actual types are not known at compile time.**
     #[inline]
     pub fn get_by_id(&self, entity: Entity, component_id: ComponentId) -> Option<Ptr<'_>> {
-        self.components().get_info(component_id)?;
-        // SAFETY: entity_location is valid, component_id is valid as checked by the line above
+        let info = self.components().get_info(component_id)?;
+        // SAFETY:
+        // - entity_location is valid
+        // - component_id is valid as checked by the line above
+        // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
             get_component(
                 self,
                 component_id,
+                info.storage_type(),
                 entity,
                 self.get_entity(entity)?.location(),
             )
@@ -1870,7 +1930,7 @@ mod tests {
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
             for entity in world.iter_entities() {
-                let counter = entity_counters.entry(entity).or_insert(0);
+                let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
             }
         };
