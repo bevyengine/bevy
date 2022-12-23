@@ -18,7 +18,9 @@ var<uniform> view: View;
 
 struct VertexOutput {
     @location(0) uv: vec2<f32>,
+#ifdef PICKING
     @location(1) entity_index: u32,
+#endif
 #ifdef COLORED
     @location(2) color: vec4<f32>,
 #endif
@@ -29,14 +31,18 @@ struct VertexOutput {
 fn vertex(
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
+#ifdef PICKING
     @location(2) entity_index: u32,
+#endif
 #ifdef COLORED
     @location(3) vertex_color: vec4<f32>,
 #endif
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
+#ifdef PICKING
     out.entity_index = entity_index;
+#endif
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
 #ifdef COLORED
     out.color = vertex_color;

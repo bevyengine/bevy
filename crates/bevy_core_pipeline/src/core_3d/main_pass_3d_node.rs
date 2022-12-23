@@ -95,7 +95,7 @@ impl Node for MainPass3dNode {
                 color_attachments.push(Some(picking_textures.get_color_attachment(Operations {
                     load: LoadOp::Clear(PickingTextures::clear_color()),
                     store: true,
-                })))
+                })));
             }
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
