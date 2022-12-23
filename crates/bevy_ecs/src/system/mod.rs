@@ -54,18 +54,21 @@
 //! #     fn new() -> SystemStage { SystemStage::single_threaded() }
 //! # }
 //! # let mut app = SystemStage::single_threaded();
-//! # let mut app =
-//! App::new()
-//!     # ; app
-//!     .add_system(print_first)
-//!     .add_system(print_second.after(print_first))
-//!     # ; app
-//!     .run(); // Prints "Hello, World!" each frame.
+//! // Prints "Hello, World!" each frame.
+//! app
+//!     .add_system(print_first.before(print_mid))
+//!     .add_system(print_mid)
+//!     .add_system(print_last.after(print_mid));
+//! # let mut world = World::new();
+//! # app.run(&mut world);
 //!
 //! fn print_first() {
-//!     print!("Hello, ");
+//!     print!("Hello");
 //! }
-//! fn print_second() {
+//! fn print_mid() {
+//!     print!(", ");
+//! }
+//! fn print_last() {
 //!     println!("World!");
 //! }
 //! ```
