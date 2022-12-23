@@ -25,11 +25,11 @@ features = ["apple-app-store"]
 default-features = false
 
 # use the unknown ci feature for RPi
-[target.'cfg(all(target_os="linux",any(target_arch="aarch64",target_arch="arm")))'.dependencies.sysinfo]
-version = "0.27.1"
-# this prevents linking to the C interface, which causes some build issues
-features = ["unknown-ci"]
-default-features = false
+# [target.'cfg(all(target_os="linux",any(target_arch="aarch64",target_arch="arm")))'.dependencies.sysinfo]
+# version = "0.27.1"
+# # this prevents linking to the C interface, which causes some build issues
+# features = ["unknown-ci"]
+# default-features = false
 
 # general case
 [dependencies.sysinfo]
