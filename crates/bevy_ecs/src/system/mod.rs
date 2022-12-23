@@ -45,6 +45,31 @@
 //!   methods such as `.before()` and `.after()` are appended to systems to determine
 //!   execution order in respect to other systems.
 //!
+//! ## Example
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! # struct App;
+//! # impl App {
+//! #     fn new() -> SystemStage { SystemStage::single_threaded() }
+//! # }
+//! # let mut app = SystemStage::single_threaded();
+//! # let mut app =
+//! App::new()
+//!     # ; app
+//!     .add_system(print_first)
+//!     .add_system(print_second.after(print_first))
+//!     # ; app
+//!     .run(); // Prints "Hello, World!" each frame.
+//!
+//! fn print_first() {
+//!     print!("Hello, ");
+//! }
+//! fn print_second() {
+//!     println!("World!");
+//! }
+//! ```
+//!
 //! # System parameter list
 //! Following is the complete list of accepted types as system parameters:
 //!
