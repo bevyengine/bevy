@@ -1,6 +1,6 @@
 use crate::converters::convert_cursor_grab_mode;
 use bevy_math::{DVec2, IVec2};
-use bevy_utils::HashMap;
+use bevy_utils::{tracing::error, HashMap};
 use bevy_window::{
     CursorGrabMode, MonitorSelection, RawHandleWrapper, Window, WindowDescriptor, WindowId,
     WindowMode,
@@ -165,15 +165,23 @@ impl WinitWindows {
             }
         }
 
-        // Do not set the grab mode on window creation if it's none, this can fail on mobile
-        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
-            match winit_window
-                .set_cursor_grab(convert_cursor_grab_mode(window_descriptor.cursor_grab_mode))
-            {
-                Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
-                Err(err) => Err(err).unwrap(),
+        match window_descriptor.cursor_grab_mode {
+            bevy_window::CursorGrabMode::None => {
+                // Do not set the grab mode on window creation if it's none, this can fail on mobile
+                Ok(())
             }
+            bevy_window::CursorGrabMode::Confined => winit_window
+                .set_cursor_grab(convert_cursor_grab_mode(CursorGrabMode::Confined))
+                .or_else(|_e| {
+                    winit_window.set_cursor_grab(convert_cursor_grab_mode(CursorGrabMode::Locked))
+                }),
+            bevy_window::CursorGrabMode::Locked => winit_window
+                .set_cursor_grab(convert_cursor_grab_mode(CursorGrabMode::Locked))
+                .or_else(|_e| {
+                    winit_window.set_cursor_grab(convert_cursor_grab_mode(CursorGrabMode::Confined))
+                }),
         }
+        .unwrap_or_else(|e| error!("Unable to un/grab cursor: {}", e));
 
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
 
