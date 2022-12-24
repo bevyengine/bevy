@@ -423,7 +423,7 @@ pub mod adapter {
             unimplemented!()
         }
 
-        /// Mocks an exclusive system that returns a value of type `T`.
+        /// Mocks an exclusive system that takes an input and returns an output.
         fn exclusive_in_out<A, B>(_: In<A>, _: &mut World) -> B {
             unimplemented!()
         }
