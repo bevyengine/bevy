@@ -18,7 +18,7 @@
 
 @compute
 @workgroup_size(8, 8, 1)
-fn denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
+fn spatial_denoise(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let pixel_coordinates = vec2<i32>(global_id.xy);
     let uv = vec2<f32>(pixel_coordinates) / view.viewport.zw;
 
