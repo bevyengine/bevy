@@ -34,10 +34,10 @@ fn setup(
             // 3. Enable the depth and velocity prepass on the camera
             prepass_settings: PrepassSettings {
                 depth: PrepassSubpassSetting::Enabled {
-                    keep_1_frame_history: true,
+                    keep_1_frame_history: false,
                 },
                 velocity: PrepassSubpassSetting::Enabled {
-                    keep_1_frame_history: true,
+                    keep_1_frame_history: false,
                 },
                 ..default()
             },

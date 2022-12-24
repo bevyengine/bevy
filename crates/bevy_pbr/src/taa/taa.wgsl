@@ -128,14 +128,14 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 #ifdef VELOCITY_REJECTION
     // Detect disocclusion based on large acceleration between frames
     let previous_velocity = textureSample(previous_velocity, nearest_sampler, previous_uv).rg;
-    disocclusion_detected |= distance(closest_velocity, previous_velocity) > 0.000000001;
+    disocclusion_detected = distance(closest_velocity, previous_velocity) > 0.01;
 #endif
 
-// #ifdef DEPTH_REJECTION
-//     // Detect disocclusion based on large depth differences between frames
-//     let previous_depth = textureSample(previous_depth, nearest_sampler, uv);
-//     disocclusion_detected |= abs(current_depth - previous_depth) > 0.000000001;
-// #endif
+#ifdef DEPTH_REJECTION
+    // Detect disocclusion based on large depth differences between frames
+    let previous_depth = textureSample(previous_depth, nearest_sampler, uv);
+    disocclusion_detected |= abs(current_depth - previous_depth) > 0.01;
+#endif
 
     if !disocclusion_detected {
         alpha = 0.1;

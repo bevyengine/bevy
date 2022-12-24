@@ -104,8 +104,8 @@ pub struct TemporalAntialiasSettings {
 impl Default for TemporalAntialiasSettings {
     fn default() -> Self {
         Self {
-            velocity_rejection_enabled: true,
-            depth_rejection_enabled: true,
+            velocity_rejection_enabled: false,
+            depth_rejection_enabled: false,
         }
     }
 }
