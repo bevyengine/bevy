@@ -55,6 +55,9 @@ pub struct PipeSystem<SystemA, SystemB> {
 }
 
 impl<SystemA, SystemB> PipeSystem<SystemA, SystemB> {
+    /// Manual constructor for creating a [`PipeSystem`].
+    /// This should only be used when [`IntoPipeSystem::pipe`] cannot be used,
+    /// such as in `const` contexts.
     pub const fn new(system_a: SystemA, system_b: SystemB, name: Cow<'static, str>) -> Self {
         Self {
             system_a,
