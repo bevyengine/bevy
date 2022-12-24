@@ -423,8 +423,15 @@ pub mod adapter {
             unimplemented!()
         }
 
+        /// Mocks an exclusive system that returns a value of type `T`.
+        fn exclusive_in_out<A, B>(_: &mut World, _: In<A>) -> B {
+            unimplemented!()
+        }
+
         assert_is_system(returning::<Result<u32, std::io::Error>>.pipe(unwrap));
         assert_is_system(returning::<Option<()>>.pipe(ignore));
         assert_is_system(returning::<&str>.pipe(new(u64::from_str)).pipe(unwrap));
+        assert_is_system(exclusive_in_out::<(), Result<(), std::io::Error>>.pipe(error));
+        assert_is_system(returning::<bool>.pipe(exclusive_in_out::<bool, ()>));
     }
 }
