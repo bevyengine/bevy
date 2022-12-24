@@ -29,7 +29,7 @@ fn fallback_image_new(
     format: TextureFormat,
     samples: u32,
 ) -> GpuImage {
-    let data = vec![255; format.pixel_size() as usize];
+    let data = vec![255; format.pixel_size()];
 
     let mut image = Image::new_fill(Extent3d::default(), TextureDimension::D2, &data, format);
 
