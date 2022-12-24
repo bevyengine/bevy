@@ -76,6 +76,7 @@ impl<T: SparseSetIndex> Default for Access<T> {
 }
 
 impl<T: SparseSetIndex> Access<T> {
+    /// Creates an empty [`Access`] collection.
     pub const fn new() -> Self {
         Self {
             reads_all: false,
