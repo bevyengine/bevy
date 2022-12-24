@@ -51,8 +51,8 @@ pub fn gilrs_event_system(mut gilrs: NonSendMut<Gilrs>, mut events: EventWriter<
                     ));
                 }
             }
-            EventType::AxisChanged(gilrs_axis, value, _) => {
-                if let Some(axis_type) = convert_axis(gilrs_axis) {
+            EventType::AxisChanged(gilrs_axis, value, code) => {
+                if let Some(axis_type) = convert_axis(gilrs_axis, code) {
                     events.send(GamepadEventRaw::new(
                         convert_gamepad_id(gilrs_event.id),
                         GamepadEventType::AxisChanged(axis_type, value),
