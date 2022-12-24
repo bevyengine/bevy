@@ -30,7 +30,7 @@ impl FromWorld for ColorTextures {
     fn from_world(world: &mut World) -> Self {
         let mut images = world.resource_mut::<Assets<Image>>();
 
-        // Create 16 textures with different color gradient
+        // Create 16 textures with different color gradients
         let handles = (1..=MAX_TEXTURE_COUNT)
             .map(|id| {
                 let mut pixel = vec![(256 / id - 1) as u8; 64];
@@ -109,6 +109,7 @@ impl AsBindGroup for BindlessMaterial {
         let mut textures: Vec<_> = textures.into_iter().map(|texture| &**texture).collect();
         let mut samplers: Vec<_> = samplers.into_iter().map(|sampler| &**sampler).collect();
 
+        // Fill in up to the first `MAX_TEXTURE_COUNT` textures and samplers to the arrays
         for (id, image) in self
             .textures
             .iter()
