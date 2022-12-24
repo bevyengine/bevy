@@ -51,10 +51,6 @@
 //!
 //! ```
 //! # use bevy_ecs::prelude::*;
-//! # struct App;
-//! # impl App {
-//! #     fn new() -> SystemStage { SystemStage::single_threaded() }
-//! # }
 //! # let mut app = SystemStage::single_threaded();
 //! // Prints "Hello, World!" each frame.
 //! app
