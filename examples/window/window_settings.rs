@@ -16,7 +16,6 @@ fn main() {
                 height: 300.,
                 present_mode: PresentMode::AutoVsync,
                 always_on_top: true,
-                cursor_grab_mode: CursorGrabMode::Confined,
                 ..default()
             },
             ..default()
