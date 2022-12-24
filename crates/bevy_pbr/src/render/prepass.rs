@@ -472,7 +472,8 @@ pub fn prepare_prepass_textures(
     let mut depth_1_textures = HashMap::default();
     let mut depth_2_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
-    let mut velocity_textures = HashMap::default();
+    let mut velocity_1_textures = HashMap::default();
+    let mut velocity_2_textures = HashMap::default();
     for (entity, camera, prepass_settings) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
@@ -548,7 +549,7 @@ pub fn prepare_prepass_textures(
         });
 
         let cached_velocities_1_texture = prepass_settings.velocity.enabled().then(|| {
-            velocity_textures
+            velocity_1_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     texture_cache.get(
@@ -569,7 +570,7 @@ pub fn prepare_prepass_textures(
         });
         let cached_velocities_2_texture =
             prepass_settings.velocity.enabled_with_history().then(|| {
-                velocity_textures
+                velocity_2_textures
                     .entry(camera.target.clone())
                     .or_insert_with(|| {
                         texture_cache.get(
