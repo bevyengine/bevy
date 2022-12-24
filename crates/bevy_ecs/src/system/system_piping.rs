@@ -54,6 +54,18 @@ pub struct PipeSystem<SystemA, SystemB> {
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
+impl<SystemA, SystemB> PipeSystem<SystemA, SystemB> {
+    pub const fn new(system_a: SystemA, system_b: SystemB, name: Cow<'static, str>) -> Self {
+        Self {
+            system_a,
+            system_b,
+            name,
+            component_access: Access::new(),
+            archetype_component_access: Access::new(),
+        }
+    }
+}
+
 impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<SystemA, SystemB> {
     type In = SystemA::In;
     type Out = SystemB::Out;
