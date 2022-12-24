@@ -3,7 +3,7 @@
 //! The textures are not generated for any material using alpha blending.
 
 use bevy::{
-    core_pipeline::prepass::PrepassSettings,
+    core_pipeline::prepass::DepthPrepass,
     pbr::PbrPlugin,
     prelude::*,
     reflect::TypeUuid,
@@ -39,16 +39,18 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        // You can configure which textures is going to be used by the prepass.
-        prepass_settings: PrepassSettings {
-            // In this case we don't use the normals so we can simply disable it
-            normal_enabled: false,
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 3., 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            // You can configure which textures is going to be used by the prepass.
             ..default()
         },
-        ..default()
-    });
+        // To enable the prepass you need to add the components associated with the ones you need
+        // This will enable the depth prepass
+        DepthPrepass,
+        // This will enable the normal prepass
+        // NormalPrepass
+    ));
 
     // plane
     commands.spawn(PbrBundle {
