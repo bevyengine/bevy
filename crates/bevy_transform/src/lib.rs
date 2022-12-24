@@ -2,7 +2,6 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
-/// Extension to [`EntityCommands`] to change hierarchy while preserving [`GlobalTransform`].
 pub mod commands;
 /// The basic components of the transform crate
 pub mod components;

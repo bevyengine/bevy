@@ -1,3 +1,5 @@
+//! Extension to [`EntityCommands`] to change hierarchy while preserving [`GlobalTransform`].
+
 use bevy_ecs::{prelude::Entity, system::Command, system::EntityCommands, world::World};
 use bevy_hierarchy::{AddChild, RemoveParent};
 
