@@ -14,7 +14,7 @@ use std::num::NonZeroU32;
 /// `binding_array<texture<f32>>` shader binding slot and sample non-uniformly.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugin(MaterialPlugin::<BindlessMaterial>::default())
         .add_startup_system(setup)
         .run();
