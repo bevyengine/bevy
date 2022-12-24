@@ -5,7 +5,7 @@ use bevy::{
         render_asset::RenderAssets,
         render_resource::{AsBindGroupError, PreparedBindGroup, *},
         renderer::RenderDevice,
-        texture::{FallbackImage, ImageSampler},
+        texture::FallbackImage,
     },
 };
 use std::num::NonZeroU32;
@@ -16,72 +16,39 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugin(MaterialPlugin::<BindlessMaterial>::default())
-        .init_resource::<ColorTextures>()
         .add_startup_system(setup)
         .run();
 }
 
 const MAX_TEXTURE_COUNT: usize = 16;
-
-#[derive(Resource, Deref)]
-struct ColorTextures(Vec<Handle<Image>>);
-
-impl FromWorld for ColorTextures {
-    fn from_world(world: &mut World) -> Self {
-        let mut images = world.resource_mut::<Assets<Image>>();
-
-        // Create 16 textures with different color gradients
-        let handles = (1..=MAX_TEXTURE_COUNT)
-            .map(|id| {
-                let mut pixel = vec![(256 / id - 1) as u8; 64];
-                for y in 0..3 {
-                    for x in 0..3 {
-                        pixel[16 * y + 4 * x + 1] = (256 / (y + 1) - 1) as u8;
-                        pixel[16 * y + 4 * x + 2] = (256 / (x + 1) - 1) as u8;
-                        pixel[16 * y + 4 * x + 3] = 255;
-                    }
-                }
-
-                let mut image = Image::new_fill(
-                    Extent3d {
-                        width: 4,
-                        height: 4,
-                        depth_or_array_layers: 1,
-                    },
-                    TextureDimension::D2,
-                    &pixel[..],
-                    TextureFormat::Rgba8Unorm,
-                );
-                image.sampler_descriptor = ImageSampler::Descriptor(SamplerDescriptor {
-                    address_mode_u: AddressMode::Repeat,
-                    address_mode_v: AddressMode::Repeat,
-                    address_mode_w: AddressMode::Repeat,
-                    ..Default::default()
-                });
-                images.add(image)
-            })
-            .collect();
-
-        Self(handles)
-    }
-}
+const TILE_ID: [usize; 16] = [
+    19, 23, 4, 33, 12, 69, 30, 48, 10, 65, 40, 47, 57, 41, 44, 46,
+];
 
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<BindlessMaterial>>,
-    color_textures: Res<ColorTextures>,
+    asset_server: Res<AssetServer>,
 ) {
     commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(2.0, 2.0, 2.0).looking_at(Vec3::new(0.0, 0.0, 0.0), Vec3::Y),
         ..Default::default()
     });
 
+    // load 16 textures
+    let textures: Vec<_> = TILE_ID
+        .iter()
+        .map(|id| {
+            let path = format!("textures/rpg/tiles/generic-rpg-tile{:0>2}.png", id);
+            asset_server.load(path)
+        })
+        .collect();
+
+    // a cube with multiple textures
     commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: materials.add(BindlessMaterial {
-            textures: color_textures.clone(),
-        }),
+        material: materials.add(BindlessMaterial { textures }),
         ..Default::default()
     });
 }
@@ -99,24 +66,27 @@ impl AsBindGroup for BindlessMaterial {
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
-        images: &RenderAssets<Image>,
+        image_assets: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
+        // retrieve the render resources from handles
+        let mut images = vec![];
+        for handle in self.textures.iter().take(MAX_TEXTURE_COUNT) {
+            match image_assets.get(handle) {
+                Some(image) => images.push(image),
+                None => return Err(AsBindGroupError::RetryNextUpdate),
+            }
+        }
+
         let textures = vec![&fallback_image.texture_view; MAX_TEXTURE_COUNT];
         let samplers = vec![&fallback_image.sampler; MAX_TEXTURE_COUNT];
 
-        // Convert bevy's resource types to wgpu's references
+        // convert bevy's resource types to WGPU's references
         let mut textures: Vec<_> = textures.into_iter().map(|texture| &**texture).collect();
         let mut samplers: Vec<_> = samplers.into_iter().map(|sampler| &**sampler).collect();
 
-        // Fill in up to the first `MAX_TEXTURE_COUNT` textures and samplers to the arrays
-        for (id, image) in self
-            .textures
-            .iter()
-            .filter_map(|handle| images.get(handle))
-            .take(MAX_TEXTURE_COUNT)
-            .enumerate()
-        {
+        // fill in up to the first `MAX_TEXTURE_COUNT` textures and samplers to the arrays
+        for (id, image) in images.into_iter().enumerate() {
             textures[id] = &*image.texture_view;
             samplers[id] = &*image.sampler;
         }
