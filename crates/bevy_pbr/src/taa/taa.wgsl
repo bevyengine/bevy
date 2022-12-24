@@ -71,7 +71,6 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     let offset = texel_size * 2.0;
     let v_tl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, offset.y)).rg;
     let v_tr = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, offset.y)).rg;
-    let current_velocity = textureSample(velocity, nearest_sampler, uv).rg;
     var closest_velocity = textureSample(velocity, nearest_sampler, uv).rg;
     let v_bl = textureSample(velocity, nearest_sampler, uv + vec2(-offset.x, -offset.y)).rg;
     let v_br = textureSample(velocity, nearest_sampler, uv + vec2(offset.x, -offset.y)).rg;
@@ -96,6 +95,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     if d_br > closest_depth {
         closest_velocity = v_br;
     }
+    let previous_uv = uv - closest_velocity;
 
     // Reproject to find the equivalent sample from the past
     // Uses 5-sample Catmull-Rom filtering (reduces blurriness)
@@ -103,7 +103,7 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     // https://vec3.ca/bicubic-filtering-in-fewer-taps
     // https://developer.nvidia.com/gpugems/gpugems2/part-iii-high-quality-rendering/chapter-20-fast-third-order-texture-filtering
     // https://www.activision.com/cdn/research/Dynamic_Temporal_Antialiasing_and_Upsampling_in_Call_of_Duty_v4.pdf#page=68
-    let sample_position = (uv + closest_velocity) * texture_size;
+    let sample_position = previous_uv * texture_size;
     let texel_center = floor(sample_position - 0.5) + 0.5;
     let f = sample_position - texel_center;
     let w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
@@ -127,15 +127,15 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
 
 #ifdef VELOCITY_REJECTION
     // Detect disocclusion based on large acceleration between frames
-    let previous_velocity = textureSample(previous_velocity, nearest_sampler, uv).rg;
-    disocclusion_detected |= length(current_velocity - previous_velocity) > 0.000000001;
+    let previous_velocity = textureSample(previous_velocity, nearest_sampler, previous_uv).rg;
+    disocclusion_detected |= distance(closest_velocity, previous_velocity) > 0.000000001;
 #endif
 
-#ifdef DEPTH_REJECTION
-    // Detect disocclusion based on large depth differences between frames
-    let previous_depth = textureSample(previous_depth, nearest_sampler, uv);
-    disocclusion_detected |= abs(current_depth - previous_depth) > 0.000000001;
-#endif
+// #ifdef DEPTH_REJECTION
+//     // Detect disocclusion based on large depth differences between frames
+//     let previous_depth = textureSample(previous_depth, nearest_sampler, uv);
+//     disocclusion_detected |= abs(current_depth - previous_depth) > 0.000000001;
+// #endif
 
     if !disocclusion_detected {
         alpha = 0.1;

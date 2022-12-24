@@ -1,13 +1,6 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
 
-fn clip_to_uv(clip: vec4<f32>) -> vec2<f32> {
-    var uv = clip.xy / clip.w;
-    uv = (uv + 1.0) * 0.5;
-    uv.y = 1.0 - uv.y;
-    return uv;
-}
-
 struct Vertex {
     @location(0) position: vec3<f32>,
 
@@ -119,8 +112,10 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
 #ifdef PREPASS_VELOCITIES
     let clip_position = view.unjittered_view_proj * in.world_position;
+    let clip_position = clip_position.xy / clip_position.w;
     let previous_clip_position = previous_view_proj * in.previous_world_position;
-    out.velocity = clip_to_uv(clip_position) - clip_to_uv(previous_clip_position);
+    let previous_clip_position = previous_clip_position.xy / previous_clip_position.w;
+    out.velocity = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
 #endif // PREPASS_VELOCITIES
 
     return out;
