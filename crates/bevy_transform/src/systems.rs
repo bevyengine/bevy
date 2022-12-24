@@ -46,10 +46,12 @@ pub fn propagate_transforms(
             changed |= children_changed;
 
             for child in children.iter() {
-                // SAFETY: Assuming the hierarchy is consistent, we can be sure that each `child` entity
-                // will be unique across each invocation of this loop body.
-                // Since this is the only place where `transform_query` gets used, `child` will not get fetched elsewhere.
-                // Also, since `child` only has one ancestor, none of its descendants will get fetched by other invocations of the loop.
+                // SAFETY:
+                // - We may operate as if the hierarchy is consistent, since `propagate_recursive` will panic before continuing
+                //   to propagate if it encounters an entity with inconsistent parentage.
+                // - Since each root entity is unique and the hierarchy is consistent and forest-like,
+                //   other root entities' `propagate_recursive` calls will not conflict with this one.
+                // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
                 unsafe {
                     propagate_recursive(
                         &global_transform,
@@ -66,8 +68,17 @@ pub fn propagate_transforms(
     );
 }
 
+/// Recursively propagates the transforms for `entity` and all of its descendants.
+///
+/// # Panics
+///
+/// If `entity` or any of its descendants have a malformed hierarchy.
+/// The panic will occur propagating the transforms of any malformed entities and their descendants.
+///
 /// # Safety
-/// `unsafe_transform_query` must not have any existing fetches for `entity`, nor any of its descendants.
+///
+/// While this function is running, `unsafe_transform_query` must not have any fetches for `entity`,
+/// nor any of its descendants.
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     unsafe_transform_query: &Query<
