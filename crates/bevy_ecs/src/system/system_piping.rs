@@ -424,7 +424,7 @@ pub mod adapter {
         }
 
         /// Mocks an exclusive system that returns a value of type `T`.
-        fn exclusive_in_out<A, B>(_: &mut World, _: In<A>) -> B {
+        fn exclusive_in_out<A, B>(_: In<A>, _: &mut World) -> B {
             unimplemented!()
         }
 

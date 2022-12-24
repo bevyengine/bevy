@@ -216,8 +216,8 @@ macro_rules! impl_exclusive_system_function {
         impl<Input, Out, Func: Send + Sync + 'static, $($param: ExclusiveSystemParam),*> ExclusiveSystemParamFunction<Input, Out, ($($param,)*), InputMarker> for Func
         where
         for <'a> &'a mut Func:
-                FnMut(&mut World, In<Input>, $($param),*) -> Out +
-                FnMut(&mut World, In<Input>, $(ExclusiveSystemParamItem<$param>),*) -> Out,
+                FnMut(In<Input>, &mut World, $($param),*) -> Out +
+                FnMut(In<Input>, &mut World, $(ExclusiveSystemParamItem<$param>),*) -> Out,
             Out: 'static,
         {
             #[inline]
@@ -227,15 +227,15 @@ macro_rules! impl_exclusive_system_function {
                 // is a function, potentially because of the multiple impls of `FnMut`
                 #[allow(clippy::too_many_arguments)]
                 fn call_inner<Input, Out, $($param,)*>(
-                    mut f: impl FnMut(&mut World, In<Input>, $($param,)*) -> Out,
-                    world: &mut World,
+                    mut f: impl FnMut(In<Input>, &mut World, $($param,)*) -> Out,
                     input: Input,
+                    world: &mut World,
                     $($param: $param,)*
                 ) -> Out {
-                    f(world, In(input), $($param,)*)
+                    f(In(input), world, $($param,)*)
                 }
                 let ($($param,)*) = param_value;
-                call_inner(self, world, input, $($param),*)
+                call_inner(self, input, world, $($param),*)
             }
         }
     };
