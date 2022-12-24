@@ -73,7 +73,7 @@ pub fn propagate_transforms(
 /// # Panics
 ///
 /// If `entity` or any of its descendants have a malformed hierarchy.
-/// The panic will occur propagating the transforms of any malformed entities and their descendants.
+/// The panic will occur before propagating the transforms of any malformed entities and their descendants.
 ///
 /// # Safety
 ///
