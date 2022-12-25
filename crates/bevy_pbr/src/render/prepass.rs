@@ -3,7 +3,10 @@ use bevy_asset::{load_internal_asset, AssetServer, Handle, HandleUntyped};
 use bevy_core::FrameCount;
 use bevy_core_pipeline::{
     prelude::Camera3d,
-    prepass::{AlphaMask3dPrepass, Opaque3dPrepass, PrepassSettings, ViewPrepassTextures},
+    prepass::{
+        AlphaMask3dPrepass, DepthPrepass, NormalPrepass, Opaque3dPrepass, VelocityPrepass,
+        ViewPrepassTextures, DEPTH_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+    },
 };
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -51,8 +54,6 @@ use crate::{
 
 use std::{hash::Hash, marker::PhantomData};
 
-pub const PREPASS_DEPTH_FORMAT: TextureFormat = TextureFormat::Depth32Float;
-
 pub const PREPASS_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 921124473254008983);
 
@@ -92,7 +93,7 @@ where
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
         render_app
-            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_components)
+            .add_system_to_stage(RenderStage::Extract, extract_camera_prepass_phase)
             .add_system_to_stage(RenderStage::Prepare, prepare_prepass_textures)
             .add_system_to_stage(
                 RenderStage::Prepare,
@@ -293,10 +294,12 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
+        // The fragment shader is only used when the normal prepass is enabled or the material uses an alpha mask
         let fragment = if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS)
             || key.mesh_key.contains(MeshPipelineKey::PREPASS_VELOCITIES)
             || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
         {
+            // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
                 handle.clone()
             } else {
@@ -304,6 +307,7 @@ where
             };
 
             let mut targets = vec![];
+            // When the normal prepass is enabled we need a target to be able to write to it.
             if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
                 targets.push(Some(ColorTargetState {
                     format: TextureFormat::Rgb10a2Unorm,
@@ -329,6 +333,7 @@ where
             None
         };
 
+        // Use the vertex shader from the material if present
         let vert_shader_handle = if let Some(handle) = &self.material_vertex_shader {
             handle.clone()
         } else {
@@ -354,7 +359,7 @@ where
                 conservative: false,
             },
             depth_stencil: Some(DepthStencilState {
-                format: PREPASS_DEPTH_FORMAT,
+                format: DEPTH_PREPASS_FORMAT,
                 depth_write_enabled: true,
                 depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
@@ -386,32 +391,51 @@ where
     }
 }
 
-pub fn extract_camera_prepass_components(
+pub fn extract_camera_prepass_phase(
     mut commands: Commands,
     cameras_3d: Extract<
         Query<
             (
                 Entity,
                 &Camera,
-                &PrepassSettings,
+                Option<&DepthPrepass>,
+                Option<&NormalPrepass>,
+                Option<&VelocityPrepass>,
                 Option<&PreviousViewProjection>,
             ),
             With<Camera3d>,
         >,
     >,
 ) {
-    for (entity, camera, prepass_settings, maybe_previous_view_proj) in cameras_3d.iter() {
+    for (
+        entity,
+        camera,
+        depth_prepass,
+        normal_prepass,
+        velocity_prepass,
+        maybe_previous_view_proj,
+    ) in cameras_3d.iter()
+    {
         if camera.is_active {
-            let mut commands = commands.get_or_spawn(entity);
+            let mut entity = commands.get_or_spawn(entity);
 
-            commands.insert((
+            entity.insert((
                 RenderPhase::<Opaque3dPrepass>::default(),
                 RenderPhase::<AlphaMask3dPrepass>::default(),
-                prepass_settings.clone(),
             ));
 
+            if depth_prepass.is_some() {
+                entity.insert(DepthPrepass);
+            }
+            if normal_prepass.is_some() {
+                entity.insert(NormalPrepass);
+            }
+            if velocity_prepass.is_some() {
+                entity.insert(VelocityPrepass);
+            }
+
             if let Some(previous_view) = maybe_previous_view_proj {
-                commands.insert(previous_view.clone());
+                entity.insert(previous_view.clone());
             }
         }
     }
@@ -455,6 +479,7 @@ pub fn prepare_previous_view_projection_uniforms(
         .write_buffer(&render_device, &render_queue);
 }
 
+// Prepares the textures used by the prepass
 pub fn prepare_prepass_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
@@ -462,7 +487,13 @@ pub fn prepare_prepass_textures(
     frame_count: Res<FrameCount>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, &PrepassSettings),
+        (
+            Entity,
+            &ExtractedCamera,
+            Option<&DepthPrepass>,
+            Option<&NormalPrepass>,
+            Option<&VelocityPrepass>,
+        ),
         (
             With<RenderPhase<Opaque3dPrepass>>,
             With<RenderPhase<AlphaMask3dPrepass>>,
@@ -472,8 +503,6 @@ pub fn prepare_prepass_textures(
     let mut depth_1_textures = HashMap::default();
     let mut depth_2_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
-    let mut velocity_1_textures = HashMap::default();
-    let mut velocity_2_textures = HashMap::default();
     for (entity, camera, prepass_settings) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
@@ -485,29 +514,8 @@ pub fn prepare_prepass_textures(
             height: physical_target_size.y,
         };
 
-        let cached_depth_1_texture = prepass_settings.depth.enabled().then(|| {
-            depth_1_textures
-                .entry(camera.target.clone())
-                .or_insert_with(|| {
-                    let descriptor = TextureDescriptor {
-                        label: Some("prepass_depth_1_texture"),
-                        size,
-                        mip_level_count: 1,
-                        sample_count: msaa.samples,
-                        dimension: TextureDimension::D2,
-                        format: TextureFormat::Depth32Float,
-                        usage: TextureUsages::COPY_SRC
-                            | TextureUsages::COPY_DST
-                            | TextureUsages::RENDER_ATTACHMENT
-                            | TextureUsages::TEXTURE_BINDING,
-                    };
-                    texture_cache.get(&render_device, descriptor)
-                })
-                .clone()
-        });
-
-        let cached_depth_2_texture = prepass_settings.depth.enabled_with_history().then(|| {
-            depth_2_textures
+        let cached_depth_texture = prepass_settings.depth_enabled.then(|| {
+            depth_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
@@ -517,8 +525,7 @@ pub fn prepare_prepass_textures(
                         sample_count: msaa.samples,
                         dimension: TextureDimension::D2,
                         format: TextureFormat::Depth32Float,
-                        usage: TextureUsages::COPY_SRC
-                            | TextureUsages::COPY_DST
+                        usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,
                     };
@@ -527,7 +534,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_normals_texture = prepass_settings.normal_enabled.then(|| {
+        let cached_normals_texture = normal_prepass.is_some().then(|| {
             normal_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -539,7 +546,7 @@ pub fn prepare_prepass_textures(
                             mip_level_count: 1,
                             sample_count: msaa.samples,
                             dimension: TextureDimension::D2,
-                            format: TextureFormat::Rgb10a2Unorm,
+                            format: NORMAL_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
                         },
@@ -664,9 +671,11 @@ pub fn queue_prepass_material_meshes<M: Material>(
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
-        &PrepassSettings,
         &mut RenderPhase<Opaque3dPrepass>,
         &mut RenderPhase<AlphaMask3dPrepass>,
+        Option<&DepthPrepass>,
+        Option<&NormalPrepass>,
+        Option<&VelocityPrepass>,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -679,19 +688,30 @@ pub fn queue_prepass_material_meshes<M: Material>(
         .read()
         .get_id::<DrawPrepass<M>>()
         .unwrap();
-    for (view, visible_entities, prepass_settings, mut opaque_phase, mut alpha_mask_phase) in
-        &mut views
+    for (
+        view,
+        visible_entities,
+        mut opaque_phase,
+        mut alpha_mask_phase,
+        depth_prepass,
+        normal_prepass,
+        velocity_prepass,
+    ) in &mut views
     {
-        let rangefinder = view.rangefinder3d();
-
-        let mut view_key =
-            MeshPipelineKey::PREPASS_DEPTH | MeshPipelineKey::from_msaa_samples(msaa.samples);
-        if prepass_settings.normal_enabled {
+        let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
+        if depth_prepass.is_some() {
+            view_key |= MeshPipelineKey::PREPASS_DEPTH;
+        }
+        if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::PREPASS_NORMALS;
         }
-        if prepass_settings.velocity.enabled() {
+        if velocity_prepass.is_some() {
             view_key |= MeshPipelineKey::PREPASS_VELOCITIES;
         }
+
+        let rangefinder = view.rangefinder3d();
+
+        let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
             let Ok((material_handle, mesh_handle, mesh_uniform)) = material_meshes.get(*visible_entity) else {
@@ -705,12 +725,12 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 continue;
             };
 
-            let mut key =
+            let mut mesh_key =
                 MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
             let alpha_mode = material.properties.alpha_mode;
             match alpha_mode {
                 AlphaMode::Opaque => {}
-                AlphaMode::Mask(_) => key |= MeshPipelineKey::ALPHA_MASK,
+                AlphaMode::Mask(_) => mesh_key |= MeshPipelineKey::ALPHA_MASK,
                 AlphaMode::Blend => continue,
             }
 
@@ -718,7 +738,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
                 &mut pipeline_cache,
                 &prepass_pipeline,
                 MaterialPipelineKey {
-                    mesh_key: key,
+                    mesh_key,
                     bind_group_data: material.key.clone(),
                 },
                 &mesh.layout,

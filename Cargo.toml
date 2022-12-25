@@ -15,6 +15,7 @@ repository = "https://github.com/bevyengine/bevy"
 exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
 members = [
   "crates/*",
+  "examples/android",
   "examples/ios",
   "tools/ci",
   "tools/spancmp",
@@ -31,7 +32,13 @@ default = [
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
-  "render",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
   "png",
   "hdr",
   "vorbis",
@@ -41,17 +48,6 @@ default = [
 
 # Force dynamic linking, which improves iterative compile times
 dynamic = ["bevy_dylib"]
-
-# Rendering support
-render = [
-  "bevy_internal/bevy_core_pipeline",
-  "bevy_internal/bevy_pbr",
-  "bevy_internal/bevy_gltf",
-  "bevy_internal/bevy_render",
-  "bevy_internal/bevy_sprite",
-  "bevy_internal/bevy_text",
-  "bevy_internal/bevy_ui",
-]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -1636,31 +1632,13 @@ description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
 wasm = true
 
-# Android
-[[example]]
-crate-type = ["cdylib"]
-name = "android_example"
-path = "examples/android/android.rs"
-
-[package.metadata.example.android_example]
-hidden = true
-
-[package.metadata.android]
-package = "org.bevyengine.example"
-apk_name = "bevyexample"
-assets = "assets"
-resources = "assets/android-res"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
-
-[package.metadata.android.application]
-icon = "@mipmap/ic_launcher"
-label = "Bevy Example"
-
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[profile.stress-test]
+inherits = "release"
+lto = "fat"
+panic = "abort"

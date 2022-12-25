@@ -1,7 +1,7 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
-    prepass::PrepassSettings,
+    prepass::DepthPrepass,
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -27,7 +27,7 @@ pub struct MainPass3dNode {
             &'static Camera3d,
             &'static ViewTarget,
             &'static ViewDepthTexture,
-            Option<&'static PrepassSettings>,
+            Option<&'static DepthPrepass>,
         ),
         With<ExtractedView>,
     >,
@@ -67,7 +67,7 @@ impl Node for MainPass3dNode {
             camera_3d,
             target,
             depth,
-            prepass_settings,
+            depth_prepass,
         ) = match self.query.get_manual(world, view_entity) {
             Ok(query) => query,
             Err(_) => {
@@ -99,12 +99,11 @@ impl Node for MainPass3dNode {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
-                        // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
-                        load: match prepass_settings {
-                            Some(prepass_settings) if prepass_settings.depth.enabled() => {
-                                Camera3dDepthLoadOp::Load
-                            }
-                            _ => camera_3d.depth_load_op.clone(),
+                        // NOTE: 0.0 is the near plane due to bevy's use of reverse-z projections.
+                        load: if depth_prepass.is_some() {
+                            Camera3dDepthLoadOp::Load
+                        } else {
+                            camera_3d.depth_load_op.clone()
                         }
                         .into(),
                         store: true,

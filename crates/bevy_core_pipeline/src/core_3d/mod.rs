@@ -45,7 +45,7 @@ use bevy_render::{
 use bevy_utils::{FloatOrd, HashMap};
 
 use crate::{
-    prepass::{node::PrepassNode, PrepassSettings},
+    prepass::{node::PrepassNode, DepthPrepass},
     tonemapping::TonemappingNode,
     upscaling::UpscalingNode,
 };
@@ -274,7 +274,7 @@ pub fn prepare_core_3d_depth_textures(
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, Option<&PrepassSettings>),
+        (Entity, &ExtractedCamera, Option<&DepthPrepass>),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -283,7 +283,7 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, prepass_settings) in &views_3d {
+    for (entity, camera, depth_prepass) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -293,7 +293,7 @@ pub fn prepare_core_3d_depth_textures(
             .or_insert_with(|| {
                 // Default usage required to write to the depth texture
                 let mut usage = TextureUsages::RENDER_ATTACHMENT;
-                if prepass_settings.map_or(false, |settings| settings.depth.enabled()) {
+                if depth_prepass.is_some() {
                     // Required to read the output of the prepass
                     usage |= TextureUsages::COPY_SRC;
                 }

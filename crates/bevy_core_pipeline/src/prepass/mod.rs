@@ -1,8 +1,21 @@
-//! Run a prepass before the main pass to get the depth and/or normals texture.
-//! The depth prepass texture is then used by the main pass to reduce overdraw.
+//! Run a prepass before the main pass to generate depth and/or normals texture, also called a g-buffer.
+//! These textures are useful for various screen-space effects and reducing overdraw in the main pass.
 //!
-//! To enable the prepass, you need to add a `PrepassSettings` component to a `Camera`.
-//! Both textures are available on the `PrepassTextures` component attached to each `Camera` with a `PrepassSettings`
+//! To enable the prepass, you need to add a prepass component to a [`crate::prelude::Camera3d`].
+//!
+//! [`DepthPrepass`]
+//! [`NormalPrepass`]
+//!
+//! Both textures are available on the `PrepassTextures` component attached to each [`crate::prelude::Camera3d`] with a prepass component.
+//! The textures are automatically added to the default mesh view bindings. You can also get the raw textures
+//! by querying the [`ViewPrepassTextures`] component on any camera with a prepass component.
+//!
+//! When using the default mesh view bindings you should be able to use `prepass_depth()`
+//! and `prepass_normal()` to load the related textures. These functions are defined in `bevy_pbr::utils`.
+//! See the `shader_prepass` example that shows how to use it.
+//!
+//! The prepass runs for each `Material`, you can control if the prepass should run by setting the `prepass_enabled`
+//! flag on the `MaterialPlugin`.
 //!
 //! Currently only works for 3d
 
@@ -11,97 +24,48 @@ pub mod node;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, EntityPhaseItem, PhaseItem},
-    render_resource::{CachedRenderPipelineId, Extent3d},
+    render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
 };
 use bevy_utils::FloatOrd;
 
-/// Add a [`PrepassSettings`] component to a [`crate::prelude::Camera3d`] to perform a depth and/or normal prepass.
-/// These textures are useful for various screen-space effects and reducing overdraw in the main pass.
+pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
+pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
+pub const VELOCITY_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg32Float;
+
+/// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
+/// The main pass already uses a depth texture by default which helps reduce overdraw, but this will help reduce it even more.
 ///
-/// The textures are automatically added to the default mesh view bindings. You can also get the raw textures
-/// by querying the [`ViewPrepassTextures`] component on the camera with the [`PrepassSettings`].
+/// Make sure to enable the prepass on your `Material` for this to do anything.
+#[derive(Component)]
+pub struct DepthPrepass;
+
+/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 ///
-/// When using the default mesh view bindings you should be able to use `prepass_depth()`,
-/// `prepass_normal()`, and `prepass_velocity()` to load the related textures.
-/// These functions are defined in `bevy_pbr::utils`. See the `shader_prepass` example that shows how to use it.
-#[derive(Clone, Component)]
-pub struct PrepassSettings {
-    /// If enabled then depth values will be copied to a separate texture available to the main pass.
-    /// This will help reduce overdraw in the main pass.
-    pub depth: PrepassSubpassSetting,
-    /// If true then vertex world normals will be copied to a separate texture available to the main pass.
-    pub normal_enabled: bool,
-    /// If true then velocity values will be copied to a separate texture available to the main pass.
-    pub velocity: PrepassSubpassSetting,
-}
+/// Make sure to enable the prepass on your `Material` for this to do anything.
+#[derive(Component)]
+pub struct NormalPrepass;
 
-impl PrepassSettings {
-    pub fn all() -> Self {
-        Self {
-            depth: PrepassSubpassSetting::Enabled {
-                keep_1_frame_history: true,
-            },
-            normal_enabled: true,
-            velocity: PrepassSubpassSetting::Enabled {
-                keep_1_frame_history: true,
-            },
-        }
-    }
-}
-
-impl Default for PrepassSettings {
-    fn default() -> Self {
-        Self {
-            depth: PrepassSubpassSetting::Enabled {
-                keep_1_frame_history: false,
-            },
-            normal_enabled: false,
-            velocity: PrepassSubpassSetting::Enabled {
-                keep_1_frame_history: false,
-            },
-        }
-    }
-}
-
-#[derive(Clone, Component)]
-pub enum PrepassSubpassSetting {
-    Disabled,
-    Enabled { keep_1_frame_history: bool },
-}
-
-impl PrepassSubpassSetting {
-    pub fn enabled(&self) -> bool {
-        match self {
-            PrepassSubpassSetting::Disabled => false,
-            PrepassSubpassSetting::Enabled { .. } => true,
-        }
-    }
-
-    pub fn enabled_with_history(&self) -> bool {
-        match self {
-            PrepassSubpassSetting::Enabled {
-                keep_1_frame_history: true,
-            } => true,
-            _ => false,
-        }
-    }
-}
+/// If added to a [`crate::prelude::Camera3d`] then screen space velocities will be copied to a separate texture available to the main pass.
+///
+/// Make sure to enable the prepass on your `Material` for this to do anything.
+#[derive(Component)]
+pub struct VelocityPrepass;
 
 /// Textures that are written to by the prepass.
 ///
-/// The texture only exists if the relevant option on [`PrepassSettings`] is `true`.
+/// This component only exists if any of the relevant prepass components are present.
 #[derive(Component)]
 pub struct ViewPrepassTextures {
     /// The depth texture generated by the prepass.
-    /// Exists only if `depth_enabled` on [`PrepassSettings`] is true.
+    /// Exists only if [`DepthPrepass`] is added to the `ViewTarget`
     pub depth: Option<CachedTexture>,
     pub previous_depth: Option<CachedTexture>,
     /// The normals texture generated by the prepass.
-    /// Exists only if `normal_enabled` on [`PrepassSettings`] is true.
+    /// Exists only if [`NormalPrepass`] is added to the `ViewTarget`
     pub normal: Option<CachedTexture>,
     /// The velocities texture generated by the prepass.
-    /// Exists only if `velocity_enabled` on [`PrepassSettings`] is true.
+    /// Exists only if [`VelocityPrepass`] is added to the `ViewTarget`
     pub velocity: Option<CachedTexture>,
     pub previous_velocity: Option<CachedTexture>,
     /// The size of the textures.
