@@ -1,10 +1,9 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    core_pipeline::prepass::PrepassSettings,
     pbr::{
-        PbrPlugin, ScreenSpaceAmbientOcclusionSettings, TemporalAntialiasBundle,
-        TemporalAntialiasPlugin,
+        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings,
+        TemporalAntialiasBundle, TemporalAntialiasPlugin,
     },
     prelude::*,
     render::camera::TemporalJitter,
@@ -16,10 +15,7 @@ fn main() {
             brightness: 5.0,
             ..default()
         })
-        .add_plugins(DefaultPlugins.set(PbrPlugin {
-            prepass_enabled: true,
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntialiasPlugin)
         .add_startup_system(setup)
         .add_system(update)
@@ -35,10 +31,9 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            prepass_settings: PrepassSettings::all(),
             ..default()
         },
-        ScreenSpaceAmbientOcclusionSettings::default(),
+        ScreenSpaceAmbientOcclusionBundle::default(),
         TemporalAntialiasBundle::default(),
     ));
 

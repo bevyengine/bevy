@@ -1,20 +1,15 @@
 //! A scene showcasing temporal antialiasing.
 
 use bevy::{
-    core_pipeline::prepass::{PrepassSettings, PrepassSubpassSetting},
-    pbr::{PbrPlugin, TemporalAntialiasBundle, TemporalAntialiasPlugin},
+    pbr::{TemporalAntialiasBundle, TemporalAntialiasPlugin},
     prelude::*,
     render::camera::TemporalJitter,
 };
 
 fn main() {
     App::new()
-        // 1. Enable the prepass
-        .add_plugins(DefaultPlugins.set(PbrPlugin {
-            prepass_enabled: true,
-            ..default()
-        }))
-        .add_plugin(TemporalAntialiasPlugin) // 2. Add the TAA plugin (this will disable MSAA)
+        .add_plugins(DefaultPlugins)
+        .add_plugin(TemporalAntialiasPlugin) // 1. Add the TAA plugin (this will disable MSAA)
         .add_startup_system(setup)
         .add_system(update)
         .run();
@@ -31,19 +26,9 @@ fn setup(
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            // 3. Enable the depth and velocity prepass on the camera
-            prepass_settings: PrepassSettings {
-                depth: PrepassSubpassSetting::Enabled {
-                    keep_1_frame_history: false,
-                },
-                velocity: PrepassSubpassSetting::Enabled {
-                    keep_1_frame_history: false,
-                },
-                ..default()
-            },
             ..default()
         },
-        TemporalAntialiasBundle::default(), // 4. Add TemporalAntialiasBundle to the camera
+        TemporalAntialiasBundle::default(), // 2. Add TemporalAntialiasBundle to the camera
     ));
 
     // TODO: Add moving object and camera

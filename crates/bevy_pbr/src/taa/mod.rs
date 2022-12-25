@@ -4,7 +4,7 @@ use bevy_core::FrameCount;
 use bevy_core_pipeline::{
     fullscreen_vertex_shader::fullscreen_shader_vertex_state,
     prelude::Camera3d,
-    prepass::{PrepassSettings, ViewPrepassTextures},
+    prepass::{DepthPrepass, VelocityPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
@@ -92,6 +92,8 @@ impl Plugin for TemporalAntialiasPlugin {
 #[derive(Bundle, Default)]
 pub struct TemporalAntialiasBundle {
     pub settings: TemporalAntialiasSettings,
+    pub depth_prepass: DepthPrepass,
+    pub velocity_prepass: VelocityPrepass,
     pub jitter: TemporalJitter,
 }
 
@@ -436,30 +438,19 @@ fn extract_taa_settings(
     mut commands: Commands,
     cameras_3d: Extract<
         Query<
+            (Entity, &Camera, &TemporalAntialiasSettings),
             (
-                Entity,
-                &Camera,
-                &TemporalAntialiasSettings,
-                &PrepassSettings,
+                With<Camera3d>,
+                With<TemporalJitter>,
+                With<DepthPrepass>,
+                With<VelocityPrepass>,
             ),
-            (With<Camera3d>, With<TemporalJitter>),
         >,
     >,
 ) {
-    for (entity, camera, taa_settings, prepass_settings) in &cameras_3d {
-        let velocity_test = if taa_settings.velocity_rejection_enabled {
-            prepass_settings.velocity.enabled_with_history()
-        } else {
-            prepass_settings.velocity.enabled()
-        };
-
-        let depth_test = if taa_settings.depth_rejection_enabled {
-            prepass_settings.depth.enabled_with_history()
-        } else {
-            prepass_settings.depth.enabled()
-        };
-
-        if camera.is_active && velocity_test && depth_test {
+    for (entity, camera, taa_settings) in &cameras_3d {
+        // TODO: Check prepass history against TAA settings
+        if camera.is_active {
             commands.get_or_spawn(entity).insert(taa_settings.clone());
         }
     }

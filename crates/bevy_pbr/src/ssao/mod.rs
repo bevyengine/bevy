@@ -3,10 +3,10 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_core_pipeline::{
     prelude::Camera3d,
-    prepass::{PrepassSettings, ViewPrepassTextures},
+    prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
-    prelude::{Component, Entity},
+    prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
@@ -129,6 +129,13 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
             bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
         );
     }
+}
+
+#[derive(Bundle, Default)]
+pub struct ScreenSpaceAmbientOcclusionBundle {
+    pub settings: ScreenSpaceAmbientOcclusionSettings,
+    pub depth_prepass: DepthPrepass,
+    pub normal_prepass: NormalPrepass,
 }
 
 #[derive(Component, Reflect, PartialEq, Eq, Hash, Clone)]
@@ -597,18 +604,13 @@ fn extract_ssao_settings(
     mut commands: Commands,
     cameras: Extract<
         Query<
-            (
-                Entity,
-                &Camera,
-                &ScreenSpaceAmbientOcclusionSettings,
-                &PrepassSettings,
-            ),
-            With<Camera3d>,
+            (Entity, &Camera, &ScreenSpaceAmbientOcclusionSettings),
+            (With<Camera3d>, With<DepthPrepass>, With<NormalPrepass>),
         >,
     >,
 ) {
-    for (entity, camera, ssao_settings, prepass_settings) in &cameras {
-        if camera.is_active && prepass_settings.depth.enabled() && prepass_settings.normal_enabled {
+    for (entity, camera, ssao_settings) in &cameras {
+        if camera.is_active {
             commands.get_or_spawn(entity).insert(ssao_settings.clone());
         }
     }

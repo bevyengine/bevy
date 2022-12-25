@@ -5,7 +5,7 @@ use bevy_core_pipeline::{
     prelude::Camera3d,
     prepass::{
         AlphaMask3dPrepass, DepthPrepass, NormalPrepass, Opaque3dPrepass, VelocityPrepass,
-        ViewPrepassTextures, DEPTH_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        ViewPrepassTextures, DEPTH_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT, VELOCITY_PREPASS_FORMAT,
     },
 };
 use bevy_ecs::{
@@ -36,7 +36,7 @@ use bevy_render::{
         PrimitiveState, RenderPipelineDescriptor, Shader, ShaderDefVal, ShaderRef, ShaderStages,
         ShaderType, SpecializedMeshPipeline, SpecializedMeshPipelineError,
         SpecializedMeshPipelines, StencilFaceState, StencilState, TextureDescriptor,
-        TextureDimension, TextureFormat, TextureUsages, VertexState,
+        TextureDimension, TextureUsages, VertexState,
     },
     renderer::{RenderDevice, RenderQueue},
     texture::TextureCache,
@@ -124,7 +124,7 @@ pub struct PreviousViewProjection {
 
 pub fn update_previous_view_projections(
     mut commands: Commands,
-    query: Query<(Entity, &ExtractedView), (With<Camera3d>, With<PrepassSettings>)>,
+    query: Query<(Entity, &ExtractedView), (With<Camera3d>, With<VelocityPrepass>)>,
 ) {
     for (entity, camera) in &query {
         commands.entity(entity).insert(PreviousViewProjection {
@@ -310,14 +310,14 @@ where
             // When the normal prepass is enabled we need a target to be able to write to it.
             if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
                 targets.push(Some(ColorTargetState {
-                    format: TextureFormat::Rgb10a2Unorm,
+                    format: NORMAL_PREPASS_FORMAT,
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 }));
             }
             if key.mesh_key.contains(MeshPipelineKey::PREPASS_VELOCITIES) {
                 targets.push(Some(ColorTargetState {
-                    format: TextureFormat::Rg32Float,
+                    format: VELOCITY_PREPASS_FORMAT,
                     blend: Some(BlendState::REPLACE),
                     write_mask: ColorWrites::ALL,
                 }));
@@ -503,7 +503,9 @@ pub fn prepare_prepass_textures(
     let mut depth_1_textures = HashMap::default();
     let mut depth_2_textures = HashMap::default();
     let mut normal_textures = HashMap::default();
-    for (entity, camera, prepass_settings) in &views_3d {
+    let mut velocity_1_textures = HashMap::default();
+    let mut velocity_2_textures = HashMap::default();
+    for (entity, camera, depth_prepass, normal_prepass, velocity_prepass) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
@@ -514,8 +516,30 @@ pub fn prepare_prepass_textures(
             height: physical_target_size.y,
         };
 
-        let cached_depth_texture = prepass_settings.depth_enabled.then(|| {
-            depth_textures
+        // TODO: Past textures
+
+        let cached_depth_1_texture = depth_prepass.is_some().then(|| {
+            depth_1_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    let descriptor = TextureDescriptor {
+                        label: Some("prepass_depth_1_texture"),
+                        size,
+                        mip_level_count: 1,
+                        sample_count: msaa.samples,
+                        dimension: TextureDimension::D2,
+                        format: DEPTH_PREPASS_FORMAT,
+                        usage: TextureUsages::COPY_DST
+                            | TextureUsages::RENDER_ATTACHMENT
+                            | TextureUsages::TEXTURE_BINDING,
+                    };
+                    texture_cache.get(&render_device, descriptor)
+                })
+                .clone()
+        });
+
+        let cached_depth_2_texture = false.then(|| {
+            depth_2_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
                     let descriptor = TextureDescriptor {
@@ -524,7 +548,7 @@ pub fn prepare_prepass_textures(
                         mip_level_count: 1,
                         sample_count: msaa.samples,
                         dimension: TextureDimension::D2,
-                        format: TextureFormat::Depth32Float,
+                        format: DEPTH_PREPASS_FORMAT,
                         usage: TextureUsages::COPY_DST
                             | TextureUsages::RENDER_ATTACHMENT
                             | TextureUsages::TEXTURE_BINDING,
@@ -555,7 +579,7 @@ pub fn prepare_prepass_textures(
                 .clone()
         });
 
-        let cached_velocities_1_texture = prepass_settings.velocity.enabled().then(|| {
+        let cached_velocities_1_texture = velocity_prepass.is_some().then(|| {
             velocity_1_textures
                 .entry(camera.target.clone())
                 .or_insert_with(|| {
@@ -567,7 +591,7 @@ pub fn prepare_prepass_textures(
                             mip_level_count: 1,
                             sample_count: msaa.samples,
                             dimension: TextureDimension::D2,
-                            format: TextureFormat::Rg32Float,
+                            format: VELOCITY_PREPASS_FORMAT,
                             usage: TextureUsages::RENDER_ATTACHMENT
                                 | TextureUsages::TEXTURE_BINDING,
                         },
@@ -575,41 +599,38 @@ pub fn prepare_prepass_textures(
                 })
                 .clone()
         });
-        let cached_velocities_2_texture =
-            prepass_settings.velocity.enabled_with_history().then(|| {
-                velocity_2_textures
-                    .entry(camera.target.clone())
-                    .or_insert_with(|| {
-                        texture_cache.get(
-                            &render_device,
-                            TextureDescriptor {
-                                label: Some("prepass_velocity_2_texture"),
-                                size,
-                                mip_level_count: 1,
-                                sample_count: msaa.samples,
-                                dimension: TextureDimension::D2,
-                                format: TextureFormat::Rg32Float,
-                                usage: TextureUsages::RENDER_ATTACHMENT
-                                    | TextureUsages::TEXTURE_BINDING,
-                            },
-                        )
-                    })
-                    .clone()
-            });
+        let cached_velocities_2_texture = false.then(|| {
+            velocity_2_textures
+                .entry(camera.target.clone())
+                .or_insert_with(|| {
+                    texture_cache.get(
+                        &render_device,
+                        TextureDescriptor {
+                            label: Some("prepass_velocity_2_texture"),
+                            size,
+                            mip_level_count: 1,
+                            sample_count: msaa.samples,
+                            dimension: TextureDimension::D2,
+                            format: VELOCITY_PREPASS_FORMAT,
+                            usage: TextureUsages::RENDER_ATTACHMENT
+                                | TextureUsages::TEXTURE_BINDING,
+                        },
+                    )
+                })
+                .clone()
+        });
 
-        let (depth, previous_depth) =
-            if frame_count.0 % 2 == 0 && prepass_settings.depth.enabled_with_history() {
-                (cached_depth_2_texture, cached_depth_1_texture)
-            } else {
-                (cached_depth_1_texture, cached_depth_2_texture)
-            };
+        let (depth, previous_depth) = if frame_count.0 % 2 == 0 && false {
+            (cached_depth_2_texture, cached_depth_1_texture)
+        } else {
+            (cached_depth_1_texture, cached_depth_2_texture)
+        };
 
-        let (velocity, previous_velocity) =
-            if frame_count.0 % 2 == 0 && prepass_settings.velocity.enabled_with_history() {
-                (cached_velocities_2_texture, cached_velocities_1_texture)
-            } else {
-                (cached_velocities_1_texture, cached_velocities_2_texture)
-            };
+        let (velocity, previous_velocity) = if frame_count.0 % 2 == 0 && false {
+            (cached_velocities_2_texture, cached_velocities_1_texture)
+        } else {
+            (cached_velocities_1_texture, cached_velocities_2_texture)
+        };
 
         commands.entity(entity).insert(ViewPrepassTextures {
             depth,
@@ -708,8 +729,6 @@ pub fn queue_prepass_material_meshes<M: Material>(
         if velocity_prepass.is_some() {
             view_key |= MeshPipelineKey::PREPASS_VELOCITIES;
         }
-
-        let rangefinder = view.rangefinder3d();
 
         let rangefinder = view.rangefinder3d();
 
