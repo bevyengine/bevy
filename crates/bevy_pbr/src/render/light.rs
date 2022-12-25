@@ -1812,7 +1812,7 @@ pub struct SetShadowViewBindGroup<const I: usize>;
 impl<const I: usize> RenderCommand<Shadow> for SetShadowViewBindGroup<I> {
     type Param = SRes<LightMeta>;
     type ViewWorldQuery = Read<ViewUniformOffset>;
-    type WorldQuery = ();
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(

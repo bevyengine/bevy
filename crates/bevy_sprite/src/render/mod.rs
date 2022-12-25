@@ -699,7 +699,7 @@ pub struct SetSpriteViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
     type Param = SRes<SpriteMeta>;
     type ViewWorldQuery = Read<ViewUniformOffset>;
-    type WorldQuery = ();
+    type ItemWorldQuery = ();
 
     fn render<'w>(
         _item: &P,
@@ -720,7 +720,7 @@ pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<ImageBindGroups>;
     type ViewWorldQuery = ();
-    type WorldQuery = Read<SpriteBatch>;
+    type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         _item: &P,
@@ -747,7 +747,7 @@ pub struct DrawSpriteBatch;
 impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
     type Param = SRes<SpriteMeta>;
     type ViewWorldQuery = ();
-    type WorldQuery = Read<SpriteBatch>;
+    type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
         item: &P,

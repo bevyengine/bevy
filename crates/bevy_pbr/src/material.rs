@@ -298,7 +298,7 @@ pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
     type Param = SRes<RenderMaterials<M>>;
     type ViewWorldQuery = ();
-    type WorldQuery = Read<Handle<M>>;
+    type ItemWorldQuery = Read<Handle<M>>;
 
     #[inline]
     fn render<'w>(

@@ -499,7 +499,7 @@ pub struct SetMesh2dViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
     type Param = ();
     type ViewWorldQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
-    type WorldQuery = ();
+    type ItemWorldQuery = ();
 
     #[inline]
     fn render<'w>(
@@ -519,7 +519,7 @@ pub struct SetMesh2dBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     type Param = SRes<Mesh2dBindGroup>;
     type ViewWorldQuery = ();
-    type WorldQuery = Read<DynamicUniformIndex<Mesh2dUniform>>;
+    type ItemWorldQuery = Read<DynamicUniformIndex<Mesh2dUniform>>;
 
     #[inline]
     fn render<'w>(
@@ -542,13 +542,13 @@ pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
     type Param = SRes<RenderAssets<Mesh>>;
     type ViewWorldQuery = ();
-    type WorldQuery = Read<Mesh2dHandle>;
+    type ItemWorldQuery = Read<Mesh2dHandle>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        mesh_handle: ROQueryItem<'w, Self::WorldQuery>,
+        mesh_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
         meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {

@@ -23,7 +23,7 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 /// are more modular.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Prepares the draw function to be used. This is called once and only once before the phase
-    /// begins. There may be zero or more `draw` calls following a call to this function.. 
+    /// begins. There may be zero or more `draw` calls following a call to this function..
     /// Implementing this is optional.
     #[allow(unused_variables)]
     fn prepare(&mut self, world: &'_ World) {}
@@ -184,13 +184,13 @@ pub trait RenderCommand<P: PhaseItem> {
     /// All parameters have to be read only.
     type Param: SystemParam + 'static;
     type ViewWorldQuery: ReadOnlyWorldQuery;
-    type WorldQuery: ReadOnlyWorldQuery;
+    type ItemWorldQuery: ReadOnlyWorldQuery;
 
     /// Renders the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
         view: ROQueryItem<'w, Self::ViewWorldQuery>,
-        entity: ROQueryItem<'w, Self::WorldQuery>,
+        entity: ROQueryItem<'w, Self::ItemWorldQuery>,
         param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult;
@@ -255,7 +255,7 @@ pub struct SetItemPipeline;
 impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
     type Param = SRes<PipelineCache>;
     type ViewWorldQuery = ();
-    type WorldQuery = ();
+    type ItemWorldQuery = ();
     #[inline]
     fn render<'w>(
         item: &P,
@@ -281,13 +281,13 @@ macro_rules! render_command_tuple_impl {
         impl<P: PhaseItem, $($name: RenderCommand<P>),*> RenderCommand<P> for ($($name,)*) {
             type Param = ($($name::Param,)*);
             type ViewWorldQuery = ($($name::ViewWorldQuery,)*);
-            type WorldQuery = ($($name::WorldQuery,)*);
+            type ItemWorldQuery = ($($name::ItemWorldQuery,)*);
 
             #[allow(non_snake_case)]
             fn render<'w>(
                 _item: &P,
                 ($($view,)*): ROQueryItem<'w, Self::ViewWorldQuery>,
-                ($($entity,)*): ROQueryItem<'w, Self::WorldQuery>,
+                ($($entity,)*): ROQueryItem<'w, Self::ItemWorldQuery>,
                 ($($name,)*): SystemParamItem<'w, '_, Self::Param>,
                 _pass: &mut TrackedRenderPass<'w>,
             ) -> RenderCommandResult {
@@ -307,7 +307,7 @@ all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
 pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
     state: SystemState<C::Param>,
     view: QueryState<C::ViewWorldQuery>,
-    entity: QueryState<C::WorldQuery>,
+    entity: QueryState<C::ItemWorldQuery>,
 }
 
 impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {

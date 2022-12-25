@@ -146,7 +146,7 @@ pub struct SetUiViewBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
     type Param = SRes<UiMeta>;
     type ViewWorldQuery = Read<ViewUniformOffset>;
-    type WorldQuery = ();
+    type ItemWorldQuery = ();
 
     fn render<'w>(
         _item: &P,
@@ -167,7 +167,7 @@ pub struct SetUiTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
     type Param = SRes<UiImageBindGroups>;
     type ViewWorldQuery = ();
-    type WorldQuery = Read<UiBatch>;
+    type ItemWorldQuery = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(
@@ -186,7 +186,7 @@ pub struct DrawUiNode;
 impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
     type Param = SRes<UiMeta>;
     type ViewWorldQuery = ();
-    type WorldQuery = Read<UiBatch>;
+    type ItemWorldQuery = Read<UiBatch>;
 
     #[inline]
     fn render<'w>(

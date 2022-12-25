@@ -286,13 +286,13 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
 {
     type Param = SRes<RenderMaterials2d<M>>;
     type ViewWorldQuery = ();
-    type WorldQuery = Read<Handle<M>>;
+    type ItemWorldQuery = Read<Handle<M>>;
 
     #[inline]
     fn render<'w>(
         _item: &P,
         _view: (),
-        material2d_handle: ROQueryItem<'_, Self::WorldQuery>,
+        material2d_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
         materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
