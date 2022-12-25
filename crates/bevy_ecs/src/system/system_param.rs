@@ -239,6 +239,114 @@ fn assert_component_access_compatibility(
            query_type, filter_type, system_name, accesses);
 }
 
+/// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
+///
+/// Allows systems to safely access and interact with up to 8 mutually exclusive [`SystemParam`]s, such as
+/// two queries that reference the same mutable data or an event reader and writer of the same type.
+///
+/// Each individual [`SystemParam`] can be accessed by using the functions `p0()`, `p1()`, ..., `p7()`,
+/// according to the order they are defined in the `ParamSet`. This ensures that there's either
+/// only one mutable reference to a parameter at a time or any number of immutable references.
+///
+/// # Examples
+///
+/// The following system mutably accesses the same component two times,
+/// which is not allowed due to rust's mutability rules.
+///
+/// ```should_panic
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct Ally;
+/// #
+/// // This will panic at runtime when the system gets initialized.
+/// fn bad_system(
+///     mut enemies: Query<&mut Health, With<Enemy>>,
+///     mut allies: Query<&mut Health, With<Ally>>,
+/// ) {
+///     // ...
+/// }
+/// #
+/// # let mut bad_system_system = bevy_ecs::system::IntoSystem::into_system(bad_system);
+/// # let mut world = World::new();
+/// # bad_system_system.initialize(&mut world);
+/// # bad_system_system.run((), &mut world);
+/// ```
+///
+/// Conflicing `SystemParam`s like these can be placed in a `ParamSet`,
+/// which leverages the borrow checker to ensure that only one of the contained parameters are accessed at a given time.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Component)]
+/// # struct Health;
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct Ally;
+/// #
+/// // Given the following system
+/// fn fancy_system(
+///     mut set: ParamSet<(
+///         Query<&mut Health, With<Enemy>>,
+///         Query<&mut Health, With<Ally>>,
+///     )>
+/// ) {
+///     // This will access the first `SystemParam`.
+///     for mut health in set.p0().iter_mut() {
+///         // Do your fancy stuff here...
+///     }
+///
+///     // The second `SystemParam`.
+///     // This would fail to compile if the previous parameter was still borrowed.
+///     for mut health in set.p1().iter_mut() {
+///         // Do even fancier stuff here...
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(fancy_system);
+/// ```
+///
+/// Of course, `ParamSet`s can be used with any kind of `SystemParam`, not just [queries](Query).
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # struct MyEvent;
+/// # impl MyEvent {
+/// #   pub fn new() -> Self { Self }
+/// # }
+/// fn event_system(
+///     mut set: ParamSet<(
+///         // `EventReader`s and `EventWriter`s conflict with each other,
+///         // since they both access the event queue resource for `MyEvent`.
+///         EventReader<MyEvent>,
+///         EventWriter<MyEvent>,
+///         // `&World` reads the entire world, so a `ParamSet` is the only way
+///         // that it can be used in the same system as any mutable accesses.
+///         &World,
+///     )>,
+/// ) {
+///     for event in set.p0().iter() {
+///         // ...
+///         # let _event = event;
+///     }
+///     set.p1().send(MyEvent::new());
+///     
+///     let entities = set.p2().entities();
+///     // ...
+///     # let _entities = entities;
+/// }
+/// # bevy_ecs::system::assert_is_system(event_system);
+/// ```
 pub struct ParamSet<'w, 's, T: SystemParam> {
     param_states: &'s mut T::State,
     world: &'w World,
