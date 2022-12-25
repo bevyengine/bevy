@@ -8,12 +8,12 @@ struct Vertex {
     @location(1) uv: vec2<f32>,
 #endif // VERTEX_UVS
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     @location(2) normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(3) tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 
 #ifdef SKINNED
     @location(4) joint_indices: vec4<u32>,
@@ -28,17 +28,17 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     @location(1) world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 
-#ifdef PREPASS_VELOCITIES
+#ifdef VELOCITY_PREPASS
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
-#endif // PREPASS_VELOCITIES
+#endif // VELOCITY_PREPASS
 }
 
 @vertex
@@ -51,10 +51,10 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     var model = mesh.model;
 #endif // SKINNED
 
-#ifdef PREPASS_VELOCITIES
+#ifdef VELOCITY_PREPASS
     out.world_position = mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
     out.previous_world_position = mesh_position_local_to_world(mesh.previous_model, vec4<f32>(vertex.position, 1.0));
-#endif // PREPASS_VELOCITIES
+#endif // VELOCITY_PREPASS
 
     out.clip_position = mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
 
@@ -62,7 +62,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
 #endif // VERTEX_UVS
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
 #ifdef SKINNED
     out.world_normal = skin_normals(model, vertex.normal);
 #else // SKINNED
@@ -72,13 +72,13 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 
     return out;
 }
 
 struct FragmentInput {
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     @location(0) world_normal: vec3<f32>,
 #ifdef VERTEX_UVS
     @location(1) uv: vec2<f32>,
@@ -86,37 +86,39 @@ struct FragmentInput {
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
-#ifdef PREPASS_VELOCITIES
+#endif // NORMAL_PREPASS
+
+#ifdef VELOCITY_PREPASS
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
-#endif // PREPASS_VELOCITIES
+#endif // VELOCITY_PREPASS
 }
 
 struct FragmentOutput {
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     @location(0) normal: vec4<f32>,
-#endif // PREPASS_NORMALS
-#ifdef PREPASS_VELOCITIES
-    @location(#PREPASS_VELOCITY_LOCATION) velocity: vec2<f32>,
-#endif // PREPASS_VELOCITIES
+#endif // NORMAL_PREPASS
+
+#ifdef VELOCITY_PREPASS
+    @location(#VELOCITY_PREPASS_LOCATION) velocity: vec2<f32>,
+#endif // VELOCITY_PREPASS
 }
 
 @fragment
 fn fragment(in: FragmentInput) -> FragmentOutput {
     var out: FragmentOutput;
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 
-#ifdef PREPASS_VELOCITIES
+#ifdef VELOCITY_PREPASS
     let clip_position = view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position.xy / clip_position.w;
     let previous_clip_position = previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position.xy / previous_clip_position.w;
     out.velocity = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
-#endif // PREPASS_VELOCITIES
+#endif // VELOCITY_PREPASS
 
     return out;
 }

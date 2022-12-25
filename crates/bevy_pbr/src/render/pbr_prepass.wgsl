@@ -91,25 +91,28 @@ struct FragmentInput {
 #ifdef VERTEX_UVS
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
-#ifdef PREPASS_NORMALS
+
+#ifdef NORMAL_PREPASS
     @location(1) world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
-#ifdef PREPASS_VELOCITIES
+#endif // NORMAL_PREPASS
+
+#ifdef VELOCITY_PREPASS
     @location(3) world_position: vec4<f32>,
     @location(4) previous_world_position: vec4<f32>,
-#endif // PREPASS_VELOCITIES
+#endif // VELOCITY_PREPASS
 };
 
 struct FragmentOutput {
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     @location(0) normal: vec4<f32>,
-#endif // PREPASS_NORMALS
-#ifdef PREPASS_VELOCITIES
-    @location(#PREPASS_VELOCITY_LOCATION) velocity: vec2<f32>,
-#endif // PREPASS_VELOCITIES
+#endif // NORMAL_PREPASS
+
+#ifdef VELOCITY_PREPASS
+    @location(#VELOCITY_PREPASS_LOCATION) velocity: vec2<f32>,
+#endif // VELOCITY_PREPASS
 }
 
 @fragment
@@ -130,7 +133,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     }
 #endif // ALPHA_MASK
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         let world_normal = prepare_world_normal(
@@ -156,15 +159,22 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     } else {
         out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
     }
-#endif // PREPASS_NORMALS
+    <<<<<<< HEAD
+#endif // NORMAL_PREPASS
 
-#ifdef PREPASS_VELOCITIES
+#ifdef VELOCITY_PREPASS
     let clip_position = view.unjittered_view_proj * in.world_position;
     let clip_position = clip_position.xy / clip_position.w;
     let previous_clip_position = previous_view_proj * in.previous_world_position;
     let previous_clip_position = previous_clip_position.xy / previous_clip_position.w;
     out.velocity = (clip_position - previous_clip_position) * vec2(0.5, -0.5);
-#endif // PREPASS_VELOCITIES
+#endif // VELOCITY_PREPASS
 
     return out;
+    ====== = #else
+    // if the prepass normals is not defined then this will be ignored,
+    // but we still need a return to compile the shader
+    return vec4(0.0, 0.0, 0.0, 0.0);
+#endif // NORMAL_PREPASS
+    >>>>>>> a54b73e0b7bbd90489c26c95c3abd9d3d8723f07
 }

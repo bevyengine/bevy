@@ -86,10 +86,7 @@ where
             Shader::from_wgsl
         );
 
-        app.register_type::<DepthPrepass>()
-            .register_type::<NormalPrepass>()
-            .register_type::<VelocityPrepass>()
-            .add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
+        app.add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
             .add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
@@ -236,8 +233,8 @@ where
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layout.insert(1, self.material_layout.clone());
 
-        if key.mesh_key.contains(MeshPipelineKey::PREPASS_DEPTH) {
-            shader_defs.push("PREPASS_DEPTH".into());
+        if key.mesh_key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+            shader_defs.push("DEPTH_PREPASS".into());
         }
 
         if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
@@ -297,10 +294,10 @@ where
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         // The fragment shader is only used when the normal prepass is enabled or the material uses an alpha mask
-        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
-            || key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS)
-            || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-        {
+        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) || {
+            key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS)
+                || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+        } {
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
                 handle.clone()
@@ -666,7 +663,7 @@ pub fn queue_prepass_material_meshes<M: Material>(
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
         if depth_prepass.is_some() {
-            view_key |= MeshPipelineKey::PREPASS_DEPTH;
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
         if normal_prepass.is_some() {
             view_key |= MeshPipelineKey::NORMAL_PREPASS;

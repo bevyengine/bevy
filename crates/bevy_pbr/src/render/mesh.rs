@@ -586,9 +586,9 @@ bitflags::bitflags! {
         const HDR                            = (1 << 1);
         const TONEMAP_IN_SHADER              = (1 << 2);
         const DEBAND_DITHER                  = (1 << 3);
-        const PREPASS_DEPTH                  = (1 << 4);
-        const PREPASS_NORMALS                = (1 << 5);
-        const PREPASS_VELOCITIES             = (1 << 6);
+        const DEPTH_PREPASS                  = (1 << 4);
+        const NORMAL_PREPASS                 = (1 << 5);
+        const VELOCITY_PREPASS               = (1 << 6);
         const ALPHA_MASK                     = (1 << 7);
         const SCREEN_SPACE_AMBIENT_OCCLUSION = (1 << 8);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
