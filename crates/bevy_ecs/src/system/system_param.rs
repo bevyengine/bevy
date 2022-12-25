@@ -1773,6 +1773,9 @@ mod tests {
     pub struct R<const I: usize>;
 
     #[derive(SystemParam)]
+    pub struct ConstGenericParam<'w, const I: usize>(Res<'w, R<I>>);
+
+    #[derive(SystemParam)]
     pub struct LongParam<'w> {
         _r0: Res<'w, R<0>>,
         _r1: Res<'w, R<1>>,

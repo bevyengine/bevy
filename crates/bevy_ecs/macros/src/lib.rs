@@ -14,8 +14,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::Comma,
-    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta, Result,
-    Token, TypeParam,
+    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta,
+    Result, Token, TypeParam,
 };
 
 struct AllTuples {
@@ -416,7 +416,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let lifetimeless_generics: Vec<_> = generics
         .params
         .iter()
-        .filter(|g| matches!(g, GenericParam::Type(_)))
+        .filter(|g| !matches!(g, GenericParam::Lifetime(_)))
         .collect();
 
     let mut punctuated_generics = Punctuated::<_, Token![,]>::new();
@@ -425,12 +425,32 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             default: None,
             ..g.clone()
         }),
+        GenericParam::Const(g) => GenericParam::Const(ConstParam {
+            default: None,
+            ..g.clone()
+        }),
         _ => unreachable!(),
+    }));
+
+    let mut punctuated_generics_no_bounds = punctuated_generics.clone();
+    for g in &mut punctuated_generics_no_bounds {
+        match g {
+            GenericParam::Type(g) => g.bounds.clear(),
+            GenericParam::Lifetime(g) => g.bounds.clear(),
+            GenericParam::Const(_) => {}
+        }
+    }
+
+    let mut punctuated_type_generic_idents = Punctuated::<_, Token![,]>::new();
+    punctuated_type_generic_idents.extend(lifetimeless_generics.iter().filter_map(|g| match g {
+        GenericParam::Type(g) => Some(&g.ident),
+        _ => None,
     }));
 
     let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
+        GenericParam::Const(g) => &g.ident,
         _ => unreachable!(),
     }));
 
@@ -470,15 +490,15 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
 
             #[doc(hidden)]
-            type State<'w, 's, #punctuated_generic_idents> = FetchState<
+            type State<'w, 's, #punctuated_generics_no_bounds> = FetchState<
                 (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 #punctuated_generic_idents
             >;
 
             #[doc(hidden)]
-            #state_struct_visibility struct FetchState <TSystemParamState, #punctuated_generic_idents> {
+            #state_struct_visibility struct FetchState <TSystemParamState, #punctuated_generics> {
                 state: TSystemParamState,
-                marker: std::marker::PhantomData<fn()->(#punctuated_generic_idents)>
+                marker: std::marker::PhantomData<fn()->(#punctuated_type_generic_idents)>
             }
 
             unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState for
