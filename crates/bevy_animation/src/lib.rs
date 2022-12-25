@@ -11,22 +11,17 @@ use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
     prelude::Component,
-    prelude::*,
+    query::With,
     reflect::ReflectComponent,
     schedule::IntoSystemDescriptor,
-    storage::SparseSet,
     system::{Query, Res},
 };
-use bevy_hierarchy::Children;
+use bevy_hierarchy::{Children, Parent};
 use bevy_math::{Quat, Vec3};
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
-use bevy_tasks::{ComputeTaskPool, ParallelSlice};
 use bevy_time::Time;
 use bevy_transform::{prelude::Transform, TransformSystem};
 use bevy_utils::{tracing::warn, HashMap};
-use smallvec::{smallvec, SmallVec};
-use std::cell::Cell;
-use thread_local::ThreadLocal;
 
 #[allow(missing_docs)]
 pub mod prelude {
@@ -212,21 +207,6 @@ impl AnimationPlayer {
     }
 }
 
-/// A singular bone binding that between an [`AnimationPlayer`] and the target entity it animates.
-#[derive(Clone)]
-pub struct BoneBinding {
-    root: Entity,
-    bone_id: usize,
-    elapsed: f32,
-}
-
-/// A [`Resource`] that contains the intermediate state of the animation system.
-#[derive(Resource, Default)]
-pub struct BoneBindings {
-    // Entity must be globally unique.
-    bindings: Vec<(Entity, SmallVec<[BoneBinding; 2]>)>,
-}
-
 fn find_bone(
     root: Entity,
     path: &EntityPath,
@@ -272,21 +252,37 @@ fn find_bone(
     Some(current_entity)
 }
 
-/// Binds the bones used by [`AnimationPlayer`] into [`BoneBindings`]
-/// for use in [`animation_player`].
-#[allow(clippy::too_many_arguments)]
-pub fn bind_bones(
+/// Verify that there are no ancestors of a given entity that have an AnimationPlayer.
+fn verify_no_ancestor_player(
+    player_parent: Option<&Parent>,
+    parents: &Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+) -> bool {
+    let Some(mut current) = player_parent.map(Parent::get) else { return true };
+    loop {
+        let Ok((maybe_player, parent)) = parents.get(current) else { return true };
+        if maybe_player.is_some() {
+            return false;
+        }
+        if let Some(parent) = parent {
+            current = parent.get()
+        } else {
+            return true;
+        }
+    }
+}
+
+/// System that will play all animations, using any entity with a [`AnimationPlayer`]
+/// and a [`Handle<AnimationClip>`] as an animation root
+pub fn animation_player(
     time: Res<Time>,
     animations: Res<Assets<AnimationClip>>,
-    names: Query<&Name>,
     children: Query<&Children>,
-    mut animation_players: Query<(Entity, &mut AnimationPlayer)>,
-    mut queues: Local<ThreadLocal<Cell<Vec<(Entity, BoneBinding)>>>>,
-    mut dedup: Local<SparseSet<Entity, usize>>,
-    mut bone_bindings: ResMut<BoneBindings>,
+    names: Query<&Name>,
+    transforms: Query<&mut Transform>,
+    parents: Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
+    mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
-    bone_bindings.bindings.clear();
-    animation_players.par_for_each_mut(100, |(root, mut player)| {
+    animation_players.par_for_each_mut(10, |(root, maybe_parent, mut player)| {
         let Some(animation_clip) = animations.get(&player.animation_clip) else { return };
         // Continue if paused unless the `AnimationPlayer` was changed
         // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
@@ -303,126 +299,78 @@ pub fn bind_bones(
         if elapsed < 0.0 {
             elapsed += animation_clip.duration;
         }
-        let queue_cell = queues.get_or_default();
-        let mut queue = queue_cell.take();
         if player.path_cache.len() != animation_clip.paths.len() {
             player.path_cache = vec![Vec::new(); animation_clip.paths.len()];
         }
+        if !verify_no_ancestor_player(maybe_parent, &parents) {
+            warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
+            return;
+        }
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut player.path_cache[*bone_id];
-            if let Some(target) = find_bone(root, path, &children, &names, cached_path) {
-                queue.push((
-                    target,
-                    BoneBinding {
-                        root,
-                        bone_id: *bone_id,
-                        elapsed,
-                    },
-                ));
-            }
-        }
-        queue_cell.set(queue);
-    });
-    bone_bindings.bindings.clear();
-    for queue in queues.iter_mut() {
-        for (entity, binding) in queue.get_mut() {
-            if let Some(idx) = dedup.get(*entity) {
-                bone_bindings.bindings[*idx].1.push(binding.clone());
-            } else {
-                let idx = bone_bindings.bindings.len();
-                bone_bindings
-                    .bindings
-                    .push((*entity, smallvec![binding.clone()]));
-                dedup.insert(*entity, idx);
-            }
-        }
-        queue.get_mut().clear();
-    }
-    dedup.clear();
-}
-
-/// System that will play all animations, using any entity with a [`AnimationPlayer`]
-/// and a [`Handle<AnimationClip>`] as an animation root
-pub fn animation_player(
-    animations: Res<Assets<AnimationClip>>,
-    animation_players: Query<&AnimationPlayer>,
-    transforms: Query<&mut Transform>,
-    mut bone_bindings: ResMut<BoneBindings>,
-) {
-    if bone_bindings.bindings.is_empty() {
-        return;
-    }
-    let task_pool = ComputeTaskPool::get();
-    let thread_count = task_pool.thread_num().max(1);
-    let batch_size = bone_bindings.bindings.len() / thread_count;
-    bone_bindings.bindings.par_chunk_map(task_pool, batch_size, |chunk| {
-        for (target, bindings) in chunk {
-            // SAFETY: bind_bones ensures that every binding in BoneBindings is unique.
-            let Ok(mut transform) = (unsafe { transforms.get_unchecked(*target) }) else { continue };
-            for binding in bindings {
-                let Ok(animator) = animation_players.get(binding.root) else { continue };
-                let Some(animation_clip) = animations.get(&animator.animation_clip) else { continue };
-                let Some(curves) = animation_clip.get_curves(binding.bone_id) else { continue };
-                for curve in curves {
-                    // Some curves have only one keyframe used to set a transform
-                    if curve.keyframe_timestamps.len() == 1 {
-                        match &curve.keyframes {
-                            Keyframes::Rotation(keyframes) => transform.rotation = keyframes[0],
-                            Keyframes::Translation(keyframes) => {
-                                transform.translation = keyframes[0];
-                            }
-                            Keyframes::Scale(keyframes) => transform.scale = keyframes[0],
-                        }
-                        continue;
-                    }
-
-                    // Find the current keyframe
-                    // PERF: finding the current keyframe can be optimised
-                    let step_start = match curve
-                        .keyframe_timestamps
-                        .binary_search_by(|probe| probe.partial_cmp(&binding.elapsed).unwrap())
-                    {
-                        Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                        Ok(i) => i,
-                        Err(0) => continue, // this curve isn't started yet
-                        Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                        Err(i) => i - 1,
-                    };
-                    let ts_start = curve.keyframe_timestamps[step_start];
-                    let ts_end = curve.keyframe_timestamps[step_start + 1];
-                    let lerp = (binding.elapsed - ts_start) / (ts_end - ts_start);
-
-                    // Apply the keyframe
+            let curves = animation_clip.get_curves(*bone_id).unwrap();
+            let Some(target) = find_bone(root, path, &children, &names, cached_path) else { continue };
+            // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
+            // any of their descendant Transforms.
+            let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
+            for curve in curves {
+                // Some curves have only one keyframe used to set a transform
+                if curve.keyframe_timestamps.len() == 1 {
                     match &curve.keyframes {
-                        Keyframes::Rotation(keyframes) => {
-                            let rot_start = keyframes[step_start];
-                            let mut rot_end = keyframes[step_start + 1];
-                            // Choose the smallest angle for the rotation
-                            if rot_end.dot(rot_start) < 0.0 {
-                                rot_end = -rot_end;
-                            }
-                            // Rotations are using a spherical linear interpolation
-                            transform.rotation =
-                                rot_start.normalize().slerp(rot_end.normalize(), lerp);
-                        }
+                        Keyframes::Rotation(keyframes) => transform.rotation = keyframes[0],
                         Keyframes::Translation(keyframes) => {
-                            let translation_start = keyframes[step_start];
-                            let translation_end = keyframes[step_start + 1];
-                            let result = translation_start.lerp(translation_end, lerp);
-                            transform.translation = result;
+                            transform.translation = keyframes[0];
                         }
-                        Keyframes::Scale(keyframes) => {
-                            let scale_start = keyframes[step_start];
-                            let scale_end = keyframes[step_start + 1];
-                            let result = scale_start.lerp(scale_end, lerp);
-                            transform.scale = result;
+                        Keyframes::Scale(keyframes) => transform.scale = keyframes[0],
+                    }
+                    continue;
+                }
+
+                // Find the current keyframe
+                // PERF: finding the current keyframe can be optimised
+                let step_start = match curve
+                    .keyframe_timestamps
+                    .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
+                {
+                    Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                    Ok(i) => i,
+                    Err(0) => continue, // this curve isn't started yet
+                    Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
+                    Err(i) => i - 1,
+                };
+                let ts_start = curve.keyframe_timestamps[step_start];
+                let ts_end = curve.keyframe_timestamps[step_start + 1];
+                let lerp = (elapsed - ts_start) / (ts_end - ts_start);
+
+                // Apply the keyframe
+                match &curve.keyframes {
+                    Keyframes::Rotation(keyframes) => {
+                        let rot_start = keyframes[step_start];
+                        let mut rot_end = keyframes[step_start + 1];
+                        // Choose the smallest angle for the rotation
+                        if rot_end.dot(rot_start) < 0.0 {
+                            rot_end = -rot_end;
                         }
+                        // Rotations are using a spherical linear interpolation
+                        transform.rotation =
+                            rot_start.normalize().slerp(rot_end.normalize(), lerp);
+                    }
+                    Keyframes::Translation(keyframes) => {
+                        let translation_start = keyframes[step_start];
+                        let translation_end = keyframes[step_start + 1];
+                        let result = translation_start.lerp(translation_end, lerp);
+                        transform.translation = result;
+                    }
+                    Keyframes::Scale(keyframes) => {
+                        let scale_start = keyframes[step_start];
+                        let scale_end = keyframes[step_start + 1];
+                        let result = scale_start.lerp(scale_end, lerp);
+                        transform.scale = result;
                     }
                 }
             }
         }
     });
-    bone_bindings.bindings.clear();
 }
 
 /// Adds animation support to an app
@@ -434,8 +382,6 @@ impl Plugin for AnimationPlugin {
         app.add_asset::<AnimationClip>()
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
-            .init_resource::<BoneBindings>()
-            .add_system_to_stage(CoreStage::PostUpdate, bind_bones.before(animation_player))
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),
