@@ -176,7 +176,7 @@ pub struct MaterialPlugin<M: Material> {
 impl<M: Material> Default for MaterialPlugin<M> {
     fn default() -> Self {
         Self {
-            prepass_enabled: false,
+            prepass_enabled: true,
             _marker: Default::default(),
         }
     }

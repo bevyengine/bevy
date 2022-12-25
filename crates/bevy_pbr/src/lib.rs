@@ -76,11 +76,18 @@ pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
 /// Sets up the entire PBR infrastructure of bevy.
-#[derive(Default)]
 pub struct PbrPlugin {
     /// Controls if the prepass is enabled for the StandardMaterial.
     /// For more information about what is a prepass, see the [`bevy_core_pipeline::prepass`] docs
     pub prepass_enabled: bool,
+}
+
+impl Default for PbrPlugin {
+    fn default() -> Self {
+        Self {
+            prepass_enabled: true,
+        }
+    }
 }
 
 impl Plugin for PbrPlugin {
