@@ -455,7 +455,7 @@ pub enum GamepadAxisType {
     RightZ,
 
     /// Non-standard support for other axis types (i.e. HOTAS sliders, potentiometers, etc).
-    Other(u8),
+    Other(u32),
 }
 
 /// An axis of a [`Gamepad`].
