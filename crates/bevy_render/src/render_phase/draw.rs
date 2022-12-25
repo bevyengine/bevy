@@ -22,7 +22,9 @@ use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
 /// They are the general form of drawing items, whereas [`RenderCommands`](RenderCommand)
 /// are more modular.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
-    /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
+    /// Prepares the draw function to be used. This is called once and only once before the phase
+    /// begins. There may be zero or more `draw` calls following a call to this function.. 
+    /// Implementing this is optional.
     #[allow(unused_variables)]
     fn prepare(&mut self, world: &'_ World) {}
 
