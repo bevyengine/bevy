@@ -29,11 +29,11 @@ fn coords_to_viewport_uv(position: vec2<f32>, viewport: vec4<f32>) -> vec2<f32> 
 #ifndef DEPTH_PREPASS
 fn prepass_depth(frag_coord: vec4<f32>, sample_index: u32) -> f32 {
 #ifdef MULTISAMPLED
-    let velocity_sample = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
+    let depth_sample = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), i32(sample_index));
 #else
-    let velocity_sample = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
+    let depth_sample = textureLoad(depth_prepass_texture, vec2<i32>(frag_coord.xy), 0);
 #endif
-    return velocity_sample.rg;
+    return depth_sample;
 }
 #endif // DEPTH_PREPASS
 

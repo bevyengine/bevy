@@ -34,6 +34,11 @@ struct VertexOutput {
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS
+
+#ifdef VELOCITY_PREPASS
+    @location(3) world_position: vec4<f32>,
+    @location(4) previous_world_position: vec4<f32>,
+#endif // VELOCITY_PREPASS
 }
 
 @vertex
@@ -106,7 +111,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
 #ifdef NORMAL_PREPASS
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
-#edif
+#endif
 
 #ifdef VELOCITY_PREPASS
     let clip_position = view.unjittered_view_proj * in.world_position;

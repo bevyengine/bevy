@@ -154,9 +154,9 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 #endif
         );
 
-        return vec4(normal * 0.5 + vec3(0.5), 1.0);
+        out.normal = vec4(normal * 0.5 + vec3(0.5), 1.0);
     } else {
-        return vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
+        out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
     }
 #else
 #endif // NORMAL_PREPASS
