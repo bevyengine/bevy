@@ -534,8 +534,11 @@ pub fn queue_sprites(
                 view_key | SpritePipelineKey::from_colored(true),
             );
 
-            view_entities.clear();
-            view_entities.extend(visible_entities.entities.iter().map(|e| e.index() as usize));
+            let visible_entities_map = visible_entities.entities.iter().map(|e| e.index() as usize);
+            let visible_entities_map_len = visible_entities_map.len();
+            view_entities.reset();
+            view_entities.extend_exact(visible_entities_map, visible_entities_map_len);
+
             transparent_phase.items.reserve(extracted_sprites.len());
 
             // Impossible starting values that will be replaced on the first iteration

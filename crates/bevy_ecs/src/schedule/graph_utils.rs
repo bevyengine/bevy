@@ -33,7 +33,7 @@ where
         labels
             .entry(label)
             .or_insert_with(|| FixedBitSet::with_capacity(nodes.len()))
-            .insert(index);
+            .set(index);
     }
     let mut graph = HashMap::with_capacity_and_hasher(nodes.len(), Default::default());
     for (index, node) in nodes.iter().enumerate() {
