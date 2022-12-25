@@ -278,7 +278,7 @@ where
             }
 
             shader_defs.push(ShaderDefVal::Int(
-                "PREPASS_VELOCITY_LOCATION".to_owned(),
+                "VELOCITY_PREPASS_LOCATION".to_owned(),
                 velocity_output_location,
             ));
         }
