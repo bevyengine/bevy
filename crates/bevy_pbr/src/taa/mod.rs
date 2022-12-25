@@ -166,14 +166,14 @@ impl Node for TAANode {
             Some(taa_pipeline),
             Some(prepass_velocity_texture),
             Some(prepass_depth_texture),
-            Some(prepass_previous_velocity_texture),
-            Some(prepass_previous_depth_texture)
+        //     Some(prepass_previous_velocity_texture),
+        //     Some(prepass_previous_depth_texture)
         ) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.velocity,
             &prepass_textures.depth,
-            &prepass_textures.previous_velocity,
-            &prepass_textures.previous_depth,
+            // &prepass_textures.previous_velocity,
+            // &prepass_textures.previous_depth,
         ) else {
             return Ok(());
         };
@@ -205,18 +205,18 @@ impl Node for TAANode {
                         binding: 3,
                         resource: BindingResource::TextureView(&prepass_depth_texture.default_view),
                     },
-                    BindGroupEntry {
-                        binding: 4,
-                        resource: BindingResource::TextureView(
-                            &prepass_previous_velocity_texture.default_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 5,
-                        resource: BindingResource::TextureView(
-                            &prepass_previous_depth_texture.default_view,
-                        ),
-                    },
+                    // BindGroupEntry {
+                    //     binding: 4,
+                    //     resource: BindingResource::TextureView(
+                    //         &prepass_previous_velocity_texture.default_view,
+                    //     ),
+                    // },
+                    // BindGroupEntry {
+                    //     binding: 5,
+                    //     resource: BindingResource::TextureView(
+                    //         &prepass_previous_depth_texture.default_view,
+                    //     ),
+                    // },
                     BindGroupEntry {
                         binding: 6,
                         resource: BindingResource::Sampler(&pipelines.nearest_sampler),
@@ -332,28 +332,28 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // Previous Velocity
-                    BindGroupLayoutEntry {
-                        binding: 4,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
-                    // Previous Depth
-                    BindGroupLayoutEntry {
-                        binding: 5,
-                        visibility: ShaderStages::FRAGMENT,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Depth,
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        count: None,
-                    },
+                    // // Previous Velocity
+                    // BindGroupLayoutEntry {
+                    //     binding: 4,
+                    //     visibility: ShaderStages::FRAGMENT,
+                    //     ty: BindingType::Texture {
+                    //         sample_type: TextureSampleType::Float { filterable: true },
+                    //         view_dimension: TextureViewDimension::D2,
+                    //         multisampled: false,
+                    //     },
+                    //     count: None,
+                    // },
+                    // // Previous Depth
+                    // BindGroupLayoutEntry {
+                    //     binding: 5,
+                    //     visibility: ShaderStages::FRAGMENT,
+                    //     ty: BindingType::Texture {
+                    //         sample_type: TextureSampleType::Depth,
+                    //         view_dimension: TextureViewDimension::D2,
+                    //         multisampled: false,
+                    //     },
+                    //     count: None,
+                    // },
                     // Nearest sampler
                     BindGroupLayoutEntry {
                         binding: 6,

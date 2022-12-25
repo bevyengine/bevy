@@ -28,14 +28,15 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
-        ScreenSpaceAmbientOcclusionBundle::default(),
-        // TemporalAntialiasBundle::default(),
-    ));
+    commands
+        .spawn((
+            Camera3dBundle {
+                transform: Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
+                ..default()
+            },
+            ScreenSpaceAmbientOcclusionBundle::default(),
+        ))
+        .insert(TemporalAntialiasBundle::default());
 
     let material = materials.add(StandardMaterial {
         base_color: Color::rgb(0.5, 0.5, 0.5),
@@ -142,9 +143,9 @@ fn update(
     }
     if keycode.just_pressed(KeyCode::Space) {
         if temporal_jitter.is_some() {
-            commands.remove::<TemporalAntialiasBundle>();
+            commands.remove::<TemporalJitter>();
         } else {
-            commands.insert(TemporalAntialiasBundle::default());
+            commands.insert(TemporalJitter::default());
         }
     }
 
