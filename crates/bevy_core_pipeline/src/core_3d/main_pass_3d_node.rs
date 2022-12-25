@@ -1,7 +1,7 @@
 use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
-    prepass::DepthPrepass,
+    prepass::{DepthPrepass, NormalPrepass},
 };
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -28,6 +28,7 @@ pub struct MainPass3dNode {
             &'static ViewTarget,
             &'static ViewDepthTexture,
             Option<&'static DepthPrepass>,
+            Option<&'static NormalPrepass>,
         ),
         With<ExtractedView>,
     >,
@@ -59,7 +60,7 @@ impl Node for MainPass3dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (
+        let Ok((
             camera,
             opaque_phase,
             alpha_mask_phase,
@@ -68,11 +69,10 @@ impl Node for MainPass3dNode {
             target,
             depth,
             depth_prepass,
-        ) = match self.query.get_manual(world, view_entity) {
-            Ok(query) => query,
-            Err(_) => {
-                return Ok(());
-            } // No window
+            normal_prepass,
+        )) = self.query.get_manual(world, view_entity) else {
+            // No window
+            return Ok(());
         };
 
         // Always run opaque pass to ensure screen is cleared
@@ -99,10 +99,12 @@ impl Node for MainPass3dNode {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
                     depth_ops: Some(Operations {
-                        // NOTE: 0.0 is the near plane due to bevy's use of reverse-z projections.
-                        load: if depth_prepass.is_some() {
+                        load: if depth_prepass.is_some() || normal_prepass.is_some() {
+                            // if any prepass runs, it will generate a depth buffer so we should use it,
+                            // even if only the normal_prepass is used.
                             Camera3dDepthLoadOp::Load
                         } else {
+                            // NOTE: 0.0 is the near plane due to bevy's use of reverse-z projections.
                             camera_3d.depth_load_op.clone()
                         }
                         .into(),
