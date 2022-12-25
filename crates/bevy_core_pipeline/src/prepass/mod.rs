@@ -17,7 +17,7 @@
 //! The prepass runs for each `Material`, you can control if the prepass should run by setting the `prepass_enabled`
 //! flag on the `MaterialPlugin`.
 //!
-//! Currently only works for 3d
+//! Currently only works for 3d.
 
 pub mod node;
 
