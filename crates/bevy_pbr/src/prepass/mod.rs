@@ -293,11 +293,11 @@ where
 
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
-        // The fragment shader is only used when the normal prepass is enabled or the material uses an alpha mask
-        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) || {
-            key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS)
-                || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
-        } {
+        // The fragment shader is only used when the normal or velocity prepass is enabled or the material uses an alpha mask
+        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
+            || key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS)
+            || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
+        {
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
                 handle.clone()
