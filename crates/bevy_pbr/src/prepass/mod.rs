@@ -84,9 +84,6 @@ where
             Shader::from_wgsl
         );
 
-        app.register_type::<DepthPrepass>()
-            .register_type::<NormalPrepass>();
-
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
