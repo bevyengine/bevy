@@ -11,6 +11,7 @@ use std::{
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,
+    full_path: Cow<'a, Path>,
     label: Option<Cow<'a, str>>,
 }
 
@@ -20,6 +21,22 @@ impl<'a> AssetPath<'a> {
     pub fn new_ref(path: &'a Path, label: Option<&'a str>) -> AssetPath<'a> {
         AssetPath {
             path: Cow::Borrowed(path),
+            full_path: Cow::Borrowed(path),
+            label: label.map(Cow::Borrowed),
+        }
+    }
+
+    /// Creates a new asset path using borrowed information with a sub-path.
+    #[inline]
+    pub fn new_sub_ref(
+        path: &'a Path,
+        sub_path: &'a Path,
+        label: Option<&'a str>,
+    ) -> AssetPath<'a> {
+        let full_path = path.join(":").join(sub_path);
+        AssetPath {
+            path: Cow::Borrowed(path),
+            full_path: Cow::Owned(full_path),
             label: label.map(Cow::Borrowed),
         }
     }
@@ -28,7 +45,19 @@ impl<'a> AssetPath<'a> {
     #[inline]
     pub fn new(path: PathBuf, label: Option<String>) -> AssetPath<'a> {
         AssetPath {
+            path: Cow::Owned(path.clone()),
+            full_path: Cow::Owned(path),
+            label: label.map(Cow::Owned),
+        }
+    }
+
+    /// Creates a new asset path with a sub-path.
+    #[inline]
+    pub fn new_sub(path: PathBuf, sub_path: PathBuf, label: Option<String>) -> AssetPath<'a> {
+        let full_path = path.join(":").join(sub_path);
+        AssetPath {
             path: Cow::Owned(path),
+            full_path: Cow::Owned(full_path),
             label: label.map(Cow::Owned),
         }
     }
@@ -46,9 +75,31 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Gets the path to the asset in the filesystem.
+    ///
+    /// If the `AssetPath` has no sub-path then this will be the same what is
+    /// returned by `full_path`.
     #[inline]
     pub fn path(&self) -> &Path {
         &self.path
+    }
+
+    /// Gets the full path to the asset, including both the filesystem path for the
+    /// super-asset and the sub-asset path.
+    #[inline]
+    pub fn full_path(&self) -> &Path {
+        &self.full_path
+    }
+
+    /// Gets the path to the sub-asset contained in the super-asset.
+    ///
+    /// Returns `None` if there is no sub-path.
+    #[inline]
+    pub fn sub_path(&self) -> Option<&Path> {
+        self.full_path
+            .strip_prefix(&self.path)
+            .expect("full path not an extension of \"real\" path")
+            .strip_prefix(":")
+            .ok()
     }
 
     /// Converts the borrowed path data to owned.
@@ -56,6 +107,7 @@ impl<'a> AssetPath<'a> {
     pub fn to_owned(&self) -> AssetPath<'static> {
         AssetPath {
             path: Cow::Owned(self.path.to_path_buf()),
+            full_path: Cow::Owned(self.full_path.to_path_buf()),
             label: self
                 .label
                 .as_ref()
@@ -137,7 +189,7 @@ where
     fn from(value: T) -> Self {
         let asset_path: AssetPath = value.into();
         AssetPathId(
-            SourcePathId::from(asset_path.path()),
+            SourcePathId::from(asset_path.full_path()),
             LabelId::from(asset_path.label()),
         )
     }
@@ -146,7 +198,7 @@ where
 impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
     fn from(asset_path: &'a AssetPath<'b>) -> Self {
         AssetPathId(
-            SourcePathId::from(asset_path.path()),
+            SourcePathId::from(asset_path.full_path()),
             LabelId::from(asset_path.label()),
         )
     }
@@ -155,10 +207,20 @@ impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
 impl<'a> From<&'a str> for AssetPath<'a> {
     fn from(asset_path: &'a str) -> Self {
         let mut parts = asset_path.splitn(2, '#');
-        let path = Path::new(parts.next().expect("Path must be set."));
+        let full_path = Path::new(parts.next().expect("Path must be set."));
         let label = parts.next();
+        // Iterate through the path until we find our sub-path separator, then take the
+        // parent of the separator path.
+        let mut path_iter = full_path.ancestors().skip_while(|p| {
+            p.file_name()
+                .map(|n| n.to_string_lossy() != ":")
+                .unwrap_or(true)
+        });
+        path_iter.next();
+        let path = path_iter.next().unwrap_or(full_path);
         AssetPath {
             path: Cow::Borrowed(path),
+            full_path: Cow::Borrowed(full_path),
             label: label.map(Cow::Borrowed),
         }
     }
@@ -174,6 +236,7 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
     fn from(path: &'a Path) -> Self {
         AssetPath {
             path: Cow::Borrowed(path),
+            full_path: Cow::Borrowed(path),
             label: None,
         }
     }
@@ -182,7 +245,8 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
 impl<'a> From<PathBuf> for AssetPath<'a> {
     fn from(path: PathBuf) -> Self {
         AssetPath {
-            path: Cow::Owned(path),
+            path: Cow::Owned(path.clone()),
+            full_path: Cow::Owned(path),
             label: None,
         }
     }
@@ -191,10 +255,20 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
 impl<'a> From<String> for AssetPath<'a> {
     fn from(asset_path: String) -> Self {
         let mut parts = asset_path.splitn(2, '#');
-        let path = PathBuf::from(parts.next().expect("Path must be set."));
+        let full_path = PathBuf::from(parts.next().expect("Path must be set."));
         let label = parts.next().map(String::from);
+        // Iterate through the path until we find our sub-path separator, then take the
+        // parent of the separator path.
+        let mut path_iter = full_path.ancestors().skip_while(|p| {
+            p.file_name()
+                .map(|n| n.to_string_lossy() != ":")
+                .unwrap_or(true)
+        });
+        path_iter.next();
+        let path = path_iter.next().unwrap_or(&full_path);
         AssetPath {
-            path: Cow::Owned(path),
+            path: Cow::Owned(path.to_owned()),
+            full_path: Cow::Owned(full_path),
             label: label.map(Cow::Owned),
         }
     }

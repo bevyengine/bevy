@@ -5,13 +5,14 @@ use crate::{
     RefChange, RefChangeChannel, SourceInfo, SourceMeta,
 };
 use anyhow::Result;
+use async_recursion::async_recursion;
 use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
-use bevy_utils::{Entry, HashMap, Uuid};
+use bevy_utils::{HashMap, Uuid};
 use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{path::Path, sync::Arc};
+use std::{borrow::Cow, path::Path, sync::Arc};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`.
@@ -304,28 +305,45 @@ impl AssetServer {
         self.load_untyped(path).typed()
     }
 
+    #[cfg_attr(target_family = "wasm", async_recursion(?Send))]
+    #[cfg_attr(not(target_family = "wasm"), async_recursion)]
     async fn load_async(
         &self,
-        asset_path: AssetPath<'_>,
+        asset_path: AssetPath<'async_recursion>,
         force: bool,
+        bytes: Option<&'async_recursion [u8]>,
     ) -> Result<AssetPathId, AssetServerError> {
         let asset_path_id: AssetPathId = asset_path.get_id();
+
+        // If this is a sub-asset then we need to load the primary asset first.
+        if asset_path.sub_path().is_some() && bytes.is_none() {
+            self.load_async(asset_path.path().into(), force, None)
+                .await?;
+            // Wait for the super-asset to finish loading.
+            std::future::poll_fn(|_cx| {
+                let asset_path: AssetPath = asset_path.path().into();
+                match self.get_load_state(asset_path.get_id()) {
+                    LoadState::Loading => std::task::Poll::Pending,
+                    _ => std::task::Poll::Ready(()),
+                }
+            })
+            .await;
+        }
 
         // load metadata and update source info. this is done in a scope to ensure we release the
         // locks before loading
         let version = {
             let mut asset_sources = self.server.asset_sources.write();
-            let source_info = match asset_sources.entry(asset_path_id.source_path_id()) {
-                Entry::Occupied(entry) => entry.into_mut(),
-                Entry::Vacant(entry) => entry.insert(SourceInfo {
+            let source_info = asset_sources
+                .entry(asset_path_id.source_path_id())
+                .or_insert(SourceInfo {
                     asset_types: Default::default(),
                     committed_assets: Default::default(),
                     load_state: LoadState::NotLoaded,
                     meta: None,
                     path: asset_path.path().to_owned(),
                     version: 0,
-                }),
-            };
+                });
 
             // if asset is already loaded or is loading, don't load again
             if !force
@@ -334,6 +352,19 @@ impl AssetServer {
                     .contains(&asset_path_id.label_id())
                     || source_info.load_state == LoadState::Loading)
             {
+                return Ok(asset_path_id);
+            }
+
+            if asset_path.sub_path().is_some() && bytes.is_none() {
+                if source_info.load_state == LoadState::NotLoaded {
+                    source_info.load_state = LoadState::Failed;
+                    return Err(AssetServerError::AssetLoaderError(anyhow::anyhow!(
+                        "Sub-asset \"{}\" was not loaded by super-asset \"{}\".",
+                        asset_path.full_path().display(),
+                        asset_path.path().display(),
+                    )));
+                }
+
                 return Ok(asset_path_id);
             }
 
@@ -353,7 +384,7 @@ impl AssetServer {
         };
 
         // get the according asset loader
-        let asset_loader = match self.get_path_asset_loader(asset_path.path()) {
+        let asset_loader = match self.get_path_asset_loader(asset_path.full_path()) {
             Ok(loader) => loader,
             Err(err) => {
                 set_asset_failed();
@@ -362,17 +393,21 @@ impl AssetServer {
         };
 
         // load the asset bytes
-        let bytes = match self.asset_io().load_path(asset_path.path()).await {
-            Ok(bytes) => bytes,
-            Err(err) => {
-                set_asset_failed();
-                return Err(AssetServerError::AssetIoError(err));
+        let bytes = if let Some(bytes) = bytes {
+            Cow::Borrowed(bytes)
+        } else {
+            match self.asset_io().load_path(asset_path.path()).await {
+                Ok(bytes) => Cow::Owned(bytes),
+                Err(err) => {
+                    set_asset_failed();
+                    return Err(AssetServerError::AssetIoError(err));
+                }
             }
         };
 
         // load the asset source using the corresponding AssetLoader
         let mut load_context = LoadContext::new(
-            asset_path.path(),
+            asset_path.full_path(),
             &self.server.asset_ref_counter.channel,
             self.asset_io(),
             version,
@@ -385,6 +420,22 @@ impl AssetServer {
         {
             set_asset_failed();
             return Err(err);
+        }
+
+        for (path, bounds) in load_context.defered_loads.drain() {
+            let owned_path = path.to_owned();
+            if let Err(err) = self
+                .load_async(owned_path, force, Some(&bytes[bounds]))
+                .await
+            {
+                warn!("{}", err);
+            }
+            let handle_id = path.get_id().into();
+            self.server
+                .handle_to_path
+                .write()
+                .entry(handle_id)
+                .or_insert_with(|| path.to_owned());
         }
 
         // if version has changed since we loaded and grabbed a lock, return. theres is a newer
@@ -450,7 +501,7 @@ impl AssetServer {
         let owned_path = asset_path.to_owned();
         IoTaskPool::get()
             .spawn(async move {
-                if let Err(err) = server.load_async(owned_path, force).await {
+                if let Err(err) = server.load_async(owned_path, force, None).await {
                     warn!("{}", err);
                 }
             })
@@ -797,7 +848,7 @@ mod test {
         let path: AssetPath = "file.not-a-real-extension".into();
         let handle = asset_server.get_handle_untyped(path.get_id());
 
-        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
+        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true, None))
             .unwrap_err();
         assert!(match err {
             AssetServerError::MissingAssetLoader { extensions } => {
@@ -817,7 +868,7 @@ mod test {
         let path: AssetPath = "an/invalid/path.png".into();
         let handle = asset_server.get_handle_untyped(path.get_id());
 
-        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
+        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true, None))
             .unwrap_err();
         assert!(matches!(err, AssetServerError::AssetIoError(_)));
 
@@ -833,7 +884,7 @@ mod test {
         let path: AssetPath = "fake.fail".into();
         let handle = asset_server.get_handle_untyped(path.get_id());
 
-        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
+        let err = futures_lite::future::block_on(asset_server.load_async(path.clone(), true, None))
             .unwrap_err();
         assert!(matches!(err, AssetServerError::AssetLoaderError(_)));
 
@@ -857,8 +908,9 @@ mod test {
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
             let asset_server = world.resource::<AssetServer>();
-            let id = futures_lite::future::block_on(asset_server.load_async(path.clone(), true))
-                .unwrap();
+            let id =
+                futures_lite::future::block_on(asset_server.load_async(path.clone(), true, None))
+                    .unwrap();
             asset_server.get_handle_untyped(id)
         }
 
