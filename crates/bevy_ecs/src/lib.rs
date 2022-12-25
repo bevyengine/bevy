@@ -1551,9 +1551,7 @@ mod tests {
         world_a.flush();
 
         let world_a_max_entities = world_a.entities().len();
-        world_b
-            .entities
-            .reserve_entities(world_a_max_entities as u32);
+        world_b.entities.reserve_entities(world_a_max_entities);
         world_b.entities.flush_as_invalid();
 
         let e4 = world_b.spawn(A(4)).id();

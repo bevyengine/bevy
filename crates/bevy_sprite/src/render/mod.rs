@@ -160,17 +160,20 @@ impl SpritePipelineKey {
     const MSAA_MASK_BITS: u32 = 0b111;
     const MSAA_SHIFT_BITS: u32 = 32 - Self::MSAA_MASK_BITS.count_ones();
 
-    pub fn from_msaa_samples(msaa_samples: u32) -> Self {
+    #[inline]
+    pub const fn from_msaa_samples(msaa_samples: u32) -> Self {
         let msaa_bits =
             (msaa_samples.trailing_zeros() & Self::MSAA_MASK_BITS) << Self::MSAA_SHIFT_BITS;
-        Self::from_bits(msaa_bits).unwrap()
+        Self::from_bits_truncate(msaa_bits)
     }
 
-    pub fn msaa_samples(&self) -> u32 {
+    #[inline]
+    pub const fn msaa_samples(&self) -> u32 {
         1 << ((self.bits >> Self::MSAA_SHIFT_BITS) & Self::MSAA_MASK_BITS)
     }
 
-    pub fn from_colored(colored: bool) -> Self {
+    #[inline]
+    pub const fn from_colored(colored: bool) -> Self {
         if colored {
             SpritePipelineKey::COLORED
         } else {
@@ -178,7 +181,8 @@ impl SpritePipelineKey {
         }
     }
 
-    pub fn from_hdr(hdr: bool) -> Self {
+    #[inline]
+    pub const fn from_hdr(hdr: bool) -> Self {
         if hdr {
             SpritePipelineKey::HDR
         } else {

@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 
-use bevy_ecs::system::Resource;
 pub use wgpu::{Backends, Features as WgpuFeatures, Limits as WgpuLimits, PowerPreference};
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
@@ -23,7 +22,7 @@ pub enum WgpuSettingsPriority {
 /// NOTE: If you want to use [`Backends::GL`](Backends::GL) in a native app on Windows, you must
 /// use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle). This is because wgpu requires EGL to
 /// create a GL context without a window and only ANGLE supports that.
-#[derive(Resource, Clone)]
+#[derive(Clone)]
 pub struct WgpuSettings {
     pub device_label: Option<Cow<'static, str>>,
     pub backends: Option<Backends>,
