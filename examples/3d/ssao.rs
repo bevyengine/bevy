@@ -2,7 +2,7 @@
 
 use bevy::{
     pbr::{
-        PbrPlugin, ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings,
+        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings,
         TemporalAntialiasBundle, TemporalAntialiasPlugin,
     },
     prelude::*,
@@ -15,10 +15,7 @@ fn main() {
             brightness: 5.0,
             ..default()
         })
-        .add_plugins(DefaultPlugins.set(PbrPlugin {
-            prepass_enabled: true,
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_plugin(TemporalAntialiasPlugin)
         .add_startup_system(setup)
         .add_system(update)
