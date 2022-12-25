@@ -1,23 +1,18 @@
-pub use bevy_render_macros::AsBindGroup;
-use encase::ShaderType;
-
 use crate::{
+    define_atomic_id,
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
+    render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
     texture::FallbackImage,
 };
-use bevy_reflect::Uuid;
+pub use bevy_render_macros::AsBindGroup;
+use encase::ShaderType;
 use std::ops::Deref;
 use wgpu::BindingResource;
 
-use crate::render_resource::resource_macros::*;
+define_atomic_id!(BindGroupId);
 render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
-
-/// A [`BindGroup`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BindGroupId(Uuid);
 
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
@@ -42,7 +37,7 @@ impl BindGroup {
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
-            id: BindGroupId(Uuid::new_v4()),
+            id: BindGroupId::new(),
             value: ErasedBindGroup::new(value),
         }
     }

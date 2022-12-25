@@ -14,8 +14,8 @@ use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
     token::Comma,
-    DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta, Result,
-    Token, TypeParam,
+    ConstParam, DeriveInput, Field, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta,
+    Result, Token, TypeParam,
 };
 
 struct AllTuples {
@@ -221,7 +221,17 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
     for (i, param) in params.iter().enumerate() {
         let fn_name = Ident::new(&format!("p{i}"), Span::call_site());
         let index = Index::from(i);
+        let ordinal = match i {
+            1 => "1st".to_owned(),
+            2 => "2nd".to_owned(),
+            3 => "3rd".to_owned(),
+            x => format!("{x}th"),
+        };
+        let comment =
+            format!("Gets exclusive access to the {ordinal} parameter in this [`ParamSet`].");
         param_fn_muts.push(quote! {
+            #[doc = #comment]
+            /// No other parameters may be accessed while this one is active.
             pub fn #fn_name<'a>(&'a mut self) -> SystemParamItem<'a, 'a, #param> {
                 // SAFETY: systems run without conflicts with other systems.
                 // Conflicting params in ParamSet are not accessible at the same time
@@ -397,7 +407,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let lifetimeless_generics: Vec<_> = generics
         .params
         .iter()
-        .filter(|g| matches!(g, GenericParam::Type(_)))
+        .filter(|g| !matches!(g, GenericParam::Lifetime(_)))
         .collect();
 
     let mut shadowed_lifetimes: Vec<_> = generics.lifetimes().map(|x| x.lifetime.clone()).collect();
@@ -412,12 +422,32 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             default: None,
             ..g.clone()
         }),
+        GenericParam::Const(g) => GenericParam::Const(ConstParam {
+            default: None,
+            ..g.clone()
+        }),
         _ => unreachable!(),
+    }));
+
+    let mut punctuated_generics_no_bounds = punctuated_generics.clone();
+    for g in &mut punctuated_generics_no_bounds {
+        match g {
+            GenericParam::Type(g) => g.bounds.clear(),
+            GenericParam::Lifetime(g) => g.bounds.clear(),
+            GenericParam::Const(_) => {}
+        }
+    }
+
+    let mut punctuated_type_generic_idents = Punctuated::<_, Token![,]>::new();
+    punctuated_type_generic_idents.extend(lifetimeless_generics.iter().filter_map(|g| match g {
+        GenericParam::Type(g) => Some(&g.ident),
+        _ => None,
     }));
 
     let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
+        GenericParam::Const(g) => &g.ident,
         _ => unreachable!(),
     }));
 
