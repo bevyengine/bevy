@@ -87,7 +87,10 @@ where
             Shader::from_wgsl
         );
 
-        app.add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
+        app.register_type::<DepthPrepass>()
+            .register_type::<NormalPrepass>()
+            .register_type::<VelocityPrepass>()
+            .add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
             .add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms);
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
@@ -419,10 +422,12 @@ pub fn extract_camera_prepass_phase(
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
 
-            entity.insert((
-                RenderPhase::<Opaque3dPrepass>::default(),
-                RenderPhase::<AlphaMask3dPrepass>::default(),
-            ));
+            if depth_prepass.is_some() || normal_prepass.is_some() || velocity_prepass.is_some() {
+                entity.insert((
+                    RenderPhase::<Opaque3dPrepass>::default(),
+                    RenderPhase::<AlphaMask3dPrepass>::default(),
+                ));
+            }
 
             if depth_prepass.is_some() {
                 entity.insert(DepthPrepass);

@@ -22,6 +22,7 @@
 pub mod node;
 
 use bevy_ecs::prelude::*;
+use bevy_reflect::Reflect;
 use bevy_render::{
     render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, EntityPhaseItem, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
@@ -37,19 +38,19 @@ pub const VELOCITY_PREPASS_FORMAT: TextureFormat = TextureFormat::Rg32Float;
 /// The main pass already uses a depth texture by default which helps reduce overdraw, but this will help reduce it even more.
 ///
 /// Make sure to enable the prepass on your `Material` for this to do anything.
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
 pub struct DepthPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
 ///
 /// Make sure to enable the prepass on your `Material` for this to do anything.
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
 pub struct NormalPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then screen space velocities will be copied to a separate texture available to the main pass.
 ///
 /// Make sure to enable the prepass on your `Material` for this to do anything.
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
 pub struct VelocityPrepass;
 
 /// Textures that are written to by the prepass.
