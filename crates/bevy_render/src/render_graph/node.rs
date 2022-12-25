@@ -1,4 +1,5 @@
 use crate::{
+    define_atomic_id,
     render_graph::{
         Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos, SlotType, SlotValue,
@@ -6,28 +7,11 @@ use crate::{
     renderer::RenderContext,
 };
 use bevy_ecs::world::World;
-use bevy_utils::Uuid;
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
 
-/// A [`Node`] identifier.
-/// It automatically generates its own random uuid.
-///
-/// This id is used to reference the node internally (edges, etc).
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
-pub struct NodeId(Uuid);
-
-impl NodeId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        NodeId(Uuid::new_v4())
-    }
-
-    pub fn uuid(&self) -> &Uuid {
-        &self.0
-    }
-}
+define_atomic_id!(NodeId);
 
 /// A render node that can be added to a [`RenderGraph`](super::RenderGraph).
 ///

@@ -24,6 +24,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use std::path::PathBuf;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -97,6 +98,35 @@ impl Plugin for WindowPlugin {
         if self.close_when_requested {
             app.add_system(close_when_requested);
         }
+
+        // Register event types
+        app.register_type::<WindowResized>()
+            .register_type::<CreateWindow>()
+            .register_type::<RequestRedraw>()
+            .register_type::<WindowCreated>()
+            .register_type::<WindowCloseRequested>()
+            .register_type::<WindowClosed>()
+            .register_type::<CursorMoved>()
+            .register_type::<CursorEntered>()
+            .register_type::<CursorLeft>()
+            .register_type::<ReceivedCharacter>()
+            .register_type::<WindowFocused>()
+            .register_type::<WindowScaleFactorChanged>()
+            .register_type::<WindowBackendScaleFactorChanged>()
+            .register_type::<FileDragAndDrop>()
+            .register_type::<WindowMoved>();
+
+        // Register window descriptor and related types
+        app.register_type::<WindowId>()
+            .register_type::<PresentMode>()
+            .register_type::<WindowResizeConstraints>()
+            .register_type::<WindowMode>()
+            .register_type::<WindowPosition>()
+            .register_type::<MonitorSelection>()
+            .register_type::<WindowDescriptor>();
+
+        // Register `PathBuf` as it's used by `FileDragAndDrop`
+        app.register_type::<PathBuf>();
     }
 }
 

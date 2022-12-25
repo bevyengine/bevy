@@ -1,19 +1,18 @@
 use crate as bevy_reflect;
 use crate::prelude::ReflectDefault;
-use crate::reflect::Reflect;
 use crate::{ReflectDeserialize, ReflectSerialize};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_struct, impl_reflect_value};
 use glam::*;
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct IVec2 {
         x: i32,
         y: i32,
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct IVec3 {
         x: i32,
         y: i32,
@@ -21,7 +20,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct IVec4 {
         x: i32,
         y: i32,
@@ -31,14 +30,14 @@ impl_reflect_struct!(
 );
 
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct UVec2 {
         x: u32,
         y: u32,
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct UVec3 {
         x: u32,
         y: u32,
@@ -46,7 +45,7 @@ impl_reflect_struct!(
     }
 );
 impl_reflect_struct!(
-    #[reflect(Debug, PartialEq, Default)]
+    #[reflect(Debug, Hash, PartialEq, Default)]
     struct UVec4 {
         x: u32,
         y: u32,

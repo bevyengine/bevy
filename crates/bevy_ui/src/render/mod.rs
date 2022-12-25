@@ -588,7 +588,7 @@ pub fn queue_uinodes(
             label: Some("ui_view_bind_group"),
             layout: &ui_pipeline.view_layout,
         }));
-        let draw_ui_function = draw_functions.read().get_id::<DrawUi>().unwrap();
+        let draw_ui_function = draw_functions.read().id::<DrawUi>();
         for (view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
                 &mut pipeline_cache,

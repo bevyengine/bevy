@@ -243,16 +243,6 @@ impl<'w, 's> Commands<'w, 's> {
         e
     }
 
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `spawn` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn spawn_bundle<'a, T: Bundle>(&'a mut self, bundle: T) -> EntityCommands<'w, 's, 'a> {
-        let mut e = self.spawn_empty();
-        e.insert(bundle);
-        e
-    }
-
     /// Returns the [`EntityCommands`] for the requested [`Entity`].
     ///
     /// # Panics
@@ -397,7 +387,7 @@ impl<'w, 's> Commands<'w, 's> {
     ///
     /// This method is equivalent to iterating `bundles_iter`,
     /// calling [`get_or_spawn`](Self::get_or_spawn) for each bundle,
-    /// and passing it to [`insert_bundle`](EntityCommands::insert_bundle),
+    /// and passing it to [`insert`](EntityCommands::insert),
     /// but it is faster due to memory pre-allocation.
     ///
     /// # Note
@@ -538,6 +528,85 @@ impl<'w, 's> Commands<'w, 's> {
     }
 }
 
+/// A [`Command`] which gets executed for a given [`Entity`].
+///
+/// # Examples
+///
+/// ```
+/// # use std::collections::HashSet;
+/// # use bevy_ecs::prelude::*;
+/// use bevy_ecs::system::EntityCommand;
+/// #
+/// # #[derive(Component, PartialEq)]
+/// # struct Name(String);
+/// # impl Name {
+/// #   fn new(s: String) -> Self { Name(s) }
+/// #   fn as_str(&self) -> &str { &self.0 }
+/// # }
+///
+/// #[derive(Resource, Default)]
+/// struct Counter(i64);
+///
+/// /// A `Command` which names an entity based on a global counter.
+/// struct CountName;
+///
+/// impl EntityCommand for CountName {
+///     fn write(self, id: Entity, world: &mut World) {
+///         // Get the current value of the counter, and increment it for next time.
+///         let mut counter = world.resource_mut::<Counter>();
+///         let i = counter.0;
+///         counter.0 += 1;
+///
+///         // Name the entity after the value of the counter.
+///         world.entity_mut(id).insert(Name::new(format!("Entity #{i}")));
+///     }
+/// }
+///
+/// // App creation boilerplate omitted...
+/// # let mut world = World::new();
+/// # world.init_resource::<Counter>();
+/// #
+/// # let mut setup_stage = SystemStage::single_threaded().with_system(setup);
+/// # let mut assert_stage = SystemStage::single_threaded().with_system(assert_names);
+/// #
+/// # setup_stage.run(&mut world);
+/// # assert_stage.run(&mut world);
+///
+/// fn setup(mut commands: Commands) {
+///     commands.spawn_empty().add(CountName);
+///     commands.spawn_empty().add(CountName);
+/// }
+///
+/// fn assert_names(named: Query<&Name>) {
+///     // We use a HashSet because we do not care about the order.
+///     let names: HashSet<_> = named.iter().map(Name::as_str).collect();
+///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
+/// }
+/// ```
+pub trait EntityCommand: Send + 'static {
+    fn write(self, id: Entity, world: &mut World);
+    /// Returns a [`Command`] which executes this [`EntityCommand`] for the given [`Entity`].
+    fn with_entity(self, id: Entity) -> WithEntity<Self>
+    where
+        Self: Sized,
+    {
+        WithEntity { cmd: self, id }
+    }
+}
+
+/// Turns an [`EntityCommand`] type into a [`Command`] type.
+pub struct WithEntity<C: EntityCommand> {
+    cmd: C,
+    id: Entity,
+}
+
+impl<C: EntityCommand> Command for WithEntity<C> {
+    #[inline]
+    fn write(self, world: &mut World) {
+        self.cmd.write(self.id, world);
+    }
+}
+
 /// A list of commands that will be run to modify an [entity](crate::entity).
 pub struct EntityCommands<'w, 's, 'a> {
     entity: Entity,
@@ -620,14 +689,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self
     }
 
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `insert` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn insert_bundle(&mut self, bundle: impl Bundle) -> &mut Self {
-        self.insert(bundle)
-    }
-
     /// Removes a [`Bundle`] of components from the entity.
     ///
     /// See [`EntityMut::remove`](crate::world::EntityMut::remove) for more
@@ -677,17 +738,6 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         self
     }
 
-    #[deprecated(
-        since = "0.9.0",
-        note = "Use `remove` instead, which now accepts bundles, components, and tuples of bundles and components."
-    )]
-    pub fn remove_bundle<T>(&mut self) -> &mut Self
-    where
-        T: Bundle,
-    {
-        self.remove::<T>()
-    }
-
     /// Despawns the entity.
     ///
     /// See [`World::despawn`] for more details.
@@ -719,6 +769,27 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
         });
     }
 
+    /// Pushes an [`EntityCommand`] to the queue, which will get executed for the current [`Entity`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// # fn my_system(mut commands: Commands) {
+    /// commands
+    ///     .spawn_empty()
+    ///     // Closures with this signature implement `EntityCommand`.
+    ///     .add(|id: Entity, world: &mut World| {
+    ///         println!("Executed an EntityCommand for {id:?}");
+    ///     });
+    /// # }
+    /// # bevy_ecs::system::assert_is_system(my_system);
+    /// ```
+    pub fn add<C: EntityCommand>(&mut self, command: C) -> &mut Self {
+        self.commands.add(command.with_entity(self.entity));
+        self
+    }
+
     /// Logs the components of the entity at the info level.
     ///
     /// # Panics
@@ -738,10 +809,19 @@ impl<'w, 's, 'a> EntityCommands<'w, 's, 'a> {
 
 impl<F> Command for F
 where
-    F: FnOnce(&mut World) + Send + Sync + 'static,
+    F: FnOnce(&mut World) + Send + 'static,
 {
     fn write(self, world: &mut World) {
         self(world);
+    }
+}
+
+impl<F> EntityCommand for F
+where
+    F: FnOnce(Entity, &mut World) + Send + 'static,
+{
+    fn write(self, id: Entity, world: &mut World) {
+        self(id, world);
     }
 }
 

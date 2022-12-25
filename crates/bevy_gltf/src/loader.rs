@@ -465,7 +465,7 @@ async fn load_gltf<'a, 'b>(
         let mut entity_to_skin_index_map = HashMap::new();
 
         world
-            .spawn(SpatialBundle::VISIBLE_IDENTITY)
+            .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
@@ -669,7 +669,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
-            base_color: Color::rgba(color[0], color[1], color[2], color[3]),
+            base_color: Color::rgba_linear(color[0], color[1], color[2], color[3]),
             base_color_texture,
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
@@ -682,7 +682,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
                 Some(Face::Back)
             },
             occlusion_texture,
-            emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
+            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2]),
             emissive_texture,
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),

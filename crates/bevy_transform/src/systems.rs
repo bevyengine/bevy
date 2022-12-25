@@ -46,21 +46,40 @@ pub fn propagate_transforms(
             changed |= children_changed;
 
             for child in children.iter() {
-                propagate_recursive(
-                    &global_transform,
-                    &transform_query,
-                    &parent_query,
-                    &children_query,
-                    entity,
-                    *child,
-                    changed,
-                );
+                // SAFETY:
+                // - We may operate as if the hierarchy is consistent, since `propagate_recursive` will panic before continuing
+                //   to propagate if it encounters an entity with inconsistent parentage.
+                // - Since each root entity is unique and the hierarchy is consistent and forest-like,
+                //   other root entities' `propagate_recursive` calls will not conflict with this one.
+                // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
+                unsafe {
+                    propagate_recursive(
+                        &global_transform,
+                        &transform_query,
+                        &parent_query,
+                        &children_query,
+                        entity,
+                        *child,
+                        changed,
+                    );
+                }
             }
         },
     );
 }
 
-fn propagate_recursive(
+/// Recursively propagates the transforms for `entity` and all of its descendants.
+///
+/// # Panics
+///
+/// If `entity` or any of its descendants have a malformed hierarchy.
+/// The panic will occur before propagating the transforms of any malformed entities and their descendants.
+///
+/// # Safety
+///
+/// While this function is running, `unsafe_transform_query` must not have any fetches for `entity`,
+/// nor any of its descendants.
+unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     unsafe_transform_query: &Query<
         (&Transform, Changed<Transform>, &mut GlobalTransform),
@@ -71,7 +90,6 @@ fn propagate_recursive(
     expected_parent: Entity,
     entity: Entity,
     mut changed: bool,
-    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) {
     let Ok(actual_parent) = parent_query.get(entity) else {
         panic!("Propagated child for {:?} has no Parent component!", entity);
@@ -126,15 +144,19 @@ fn propagate_recursive(
     // If our `Children` has changed, we need to recalculate everything below us
     changed |= changed_children;
     for child in children {
-        propagate_recursive(
-            &global_matrix,
-            unsafe_transform_query,
-            parent_query,
-            children_query,
-            entity,
-            *child,
-            changed,
-        );
+        // SAFETY: The caller guarantees that `unsafe_transform_query` will not be fetched
+        // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
+        unsafe {
+            propagate_recursive(
+                &global_matrix,
+                unsafe_transform_query,
+                parent_query,
+                children_query,
+                entity,
+                *child,
+                changed,
+            );
+        }
     }
 }
 

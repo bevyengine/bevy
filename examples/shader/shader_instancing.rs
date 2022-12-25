@@ -35,7 +35,7 @@ fn main() {
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
         meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        SpatialBundle::VISIBLE_IDENTITY,
+        SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (1..=10)
                 .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
@@ -109,10 +109,7 @@ fn queue_custom(
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
-    let draw_custom = transparent_3d_draw_functions
-        .read()
-        .get_id::<DrawCustom>()
-        .unwrap();
+    let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
