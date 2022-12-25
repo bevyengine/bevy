@@ -4,8 +4,9 @@ use bevy_core::FrameCount;
 use bevy_core_pipeline::{
     prelude::Camera3d,
     prepass::{
-        AlphaMask3dPrepass, DepthPrepass, NormalPrepass, Opaque3dPrepass, VelocityPrepass,
-        ViewPrepassTextures, DEPTH_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT, VELOCITY_PREPASS_FORMAT,
+        AlphaMask3dPrepass, DepthPrepass, NormalPrepass, Opaque3dPrepass, PrepassKeep1FrameHistory,
+        VelocityPrepass, ViewPrepassTextures, DEPTH_PREPASS_FORMAT, NORMAL_PREPASS_FORMAT,
+        VELOCITY_PREPASS_FORMAT,
     },
 };
 use bevy_ecs::{
@@ -90,6 +91,7 @@ where
         app.register_type::<DepthPrepass>()
             .register_type::<NormalPrepass>()
             .register_type::<VelocityPrepass>()
+            .register_type::<PrepassKeep1FrameHistory>()
             .add_system_to_stage(CoreStage::PreUpdate, update_previous_view_projections)
             .add_system_to_stage(CoreStage::PreUpdate, update_mesh_previous_global_transforms);
 

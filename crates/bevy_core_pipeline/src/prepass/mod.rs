@@ -5,13 +5,14 @@
 //!
 //! [`DepthPrepass`]
 //! [`NormalPrepass`]
+//! [`VelocityPrepass`]
 //!
-//! Both textures are available on the `PrepassTextures` component attached to each [`crate::prelude::Camera3d`] with a prepass component.
+//! All textures are available on the `PrepassTextures` component attached to each [`crate::prelude::Camera3d`] with a prepass component.
 //! The textures are automatically added to the default mesh view bindings. You can also get the raw textures
 //! by querying the [`ViewPrepassTextures`] component on any camera with a prepass component.
 //!
-//! When using the default mesh view bindings you should be able to use `prepass_depth()`
-//! and `prepass_normal()` to load the related textures. These functions are defined in `bevy_pbr::utils`.
+//! When using the default mesh view bindings you should be able to use `prepass_depth()`,
+//! `prepass_normal()`, and `prepass_velocity` to load the related textures. These functions are defined in `bevy_pbr::utils`.
 //! See the `shader_prepass` example that shows how to use it.
 //!
 //! The prepass runs for each `Material`, you can control if the prepass should run by setting the `prepass_enabled`
@@ -52,6 +53,9 @@ pub struct NormalPrepass;
 /// Make sure to enable the prepass on your `Material` for this to do anything.
 #[derive(Component, Default, Reflect)]
 pub struct VelocityPrepass;
+
+#[derive(Component, Default, Reflect)]
+pub struct PrepassKeep1FrameHistory;
 
 /// Textures that are written to by the prepass.
 ///
