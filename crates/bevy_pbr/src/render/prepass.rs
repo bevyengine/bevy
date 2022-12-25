@@ -338,20 +338,22 @@ pub fn extract_camera_prepass_phase(
     >,
 ) {
     for (entity, camera, depth_prepass, normal_prepass) in cameras_3d.iter() {
-        if camera.is_active {
-            let mut entity = commands.get_or_spawn(entity);
-            if depth_prepass.is_some() || normal_prepass.is_some() {
-                entity.insert((
-                    RenderPhase::<Opaque3dPrepass>::default(),
-                    RenderPhase::<AlphaMask3dPrepass>::default(),
-                ));
-            }
-            if depth_prepass.is_some() {
-                entity.insert(DepthPrepass);
-            }
-            if normal_prepass.is_some() {
-                entity.insert(NormalPrepass);
-            }
+        if !camera.is_active {
+            continue;
+        }
+
+        let mut entity = commands.get_or_spawn(entity);
+        if depth_prepass.is_some() || normal_prepass.is_some() {
+            entity.insert((
+                RenderPhase::<Opaque3dPrepass>::default(),
+                RenderPhase::<AlphaMask3dPrepass>::default(),
+            ));
+        }
+        if depth_prepass.is_some() {
+            entity.insert(DepthPrepass);
+        }
+        if normal_prepass.is_some() {
+            entity.insert(NormalPrepass);
         }
     }
 }
