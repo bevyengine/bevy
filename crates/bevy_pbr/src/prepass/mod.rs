@@ -187,8 +187,8 @@ where
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layout.insert(1, self.material_layout.clone());
 
-        if key.mesh_key.contains(MeshPipelineKey::PREPASS_DEPTH) {
-            shader_defs.push("PREPASS_DEPTH".into());
+        if key.mesh_key.contains(MeshPipelineKey::DEPTH_PREPASS) {
+            shader_defs.push("DEPTH_PREPASS".into());
         }
 
         if key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK) {
@@ -210,9 +210,9 @@ where
             vertex_attributes.push(Mesh::ATTRIBUTE_UV_0.at_shader_location(1));
         }
 
-        if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
+        if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
             vertex_attributes.push(Mesh::ATTRIBUTE_NORMAL.at_shader_location(2));
-            shader_defs.push("PREPASS_NORMALS".into());
+            shader_defs.push("NORMAL_PREPASS".into());
 
             if layout.contains(Mesh::ATTRIBUTE_TANGENT) {
                 shader_defs.push("VERTEX_TANGENTS".into());
@@ -234,7 +234,7 @@ where
         let vertex_buffer_layout = layout.get_layout(&vertex_attributes)?;
 
         // The fragment shader is only used when the normal prepass is enabled or the material uses an alpha mask
-        let fragment = if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS)
+        let fragment = if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS)
             || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
         {
             // Use the fragment shader from the material if present
@@ -246,7 +246,7 @@ where
 
             let mut targets = vec![];
             // When the normal prepass is enabled we need a target to be able to write to it.
-            if key.mesh_key.contains(MeshPipelineKey::PREPASS_NORMALS) {
+            if key.mesh_key.contains(MeshPipelineKey::NORMAL_PREPASS) {
                 targets.push(Some(ColorTargetState {
                     format: TextureFormat::Rgb10a2Unorm,
                     blend: Some(BlendState::REPLACE),
@@ -504,10 +504,10 @@ pub fn queue_prepass_material_meshes<M: Material>(
     {
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
         if depth_prepass.is_some() {
-            view_key |= MeshPipelineKey::PREPASS_DEPTH;
+            view_key |= MeshPipelineKey::DEPTH_PREPASS;
         }
         if normal_prepass.is_some() {
-            view_key |= MeshPipelineKey::PREPASS_NORMALS;
+            view_key |= MeshPipelineKey::NORMAL_PREPASS;
         }
 
         let rangefinder = view.rangefinder3d();

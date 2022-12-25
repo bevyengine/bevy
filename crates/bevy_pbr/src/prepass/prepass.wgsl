@@ -8,12 +8,12 @@ struct Vertex {
     @location(1) uv: vec2<f32>,
 #endif // VERTEX_UVS
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     @location(2) normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(3) tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 
 #ifdef SKINNED
     @location(4) joint_indices: vec4<u32>,
@@ -28,12 +28,12 @@ struct VertexOutput {
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     @location(1) world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 }
 
 @vertex
@@ -52,7 +52,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     out.uv = vertex.uv;
 #endif // VERTEX_UVS
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
 #ifdef SKINNED
     out.world_normal = skin_normals(model, vertex.normal);
 #else // SKINNED
@@ -62,12 +62,12 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_tangent_local_to_world(model, vertex.tangent);
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 
     return out;
 }
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @location(0) world_normal: vec3<f32>,
@@ -83,4 +83,4 @@ struct FragmentInput {
 fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     return vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 }
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS

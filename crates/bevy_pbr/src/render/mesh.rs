@@ -557,8 +557,8 @@ bitflags::bitflags! {
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
         const DEBAND_DITHER               = (1 << 3);
-        const PREPASS_DEPTH               = (1 << 4);
-        const PREPASS_NORMALS             = (1 << 5);
+        const DEPTH_PREPASS               = (1 << 4);
+        const NORMAL_PREPASS              = (1 << 5);
         const ALPHA_MASK                  = (1 << 6);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;

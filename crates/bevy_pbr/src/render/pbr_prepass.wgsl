@@ -11,8 +11,8 @@ fn prepare_world_normal(
     is_front: bool,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
-#ifndef VERTEX_TANGENTS
-#ifndef STANDARDMATERIAL_NORMAL_MAP
+    #ifndef VERTEX_TANGENTS
+    #ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted. This is a branchless version of that.
     output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
@@ -91,12 +91,12 @@ struct FragmentInput {
 #ifdef VERTEX_UVS
     @location(0) uv: vec2<f32>,
 #endif // VERTEX_UVS
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     @location(1) world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
     @location(2) world_tangent: vec4<f32>,
 #endif // VERTEX_TANGENTS
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 };
 
 @fragment
@@ -115,7 +115,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     }
 #endif // ALPHA_MASK
 
-#ifdef PREPASS_NORMALS
+#ifdef NORMAL_PREPASS
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         let world_normal = prepare_world_normal(
@@ -145,5 +145,5 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     // if the prepass normals is not defined then this will be ignored,
     // but we still need a return to compile the shader
     return vec4(0.0, 0.0, 0.0, 0.0);
-#endif // PREPASS_NORMALS
+#endif // NORMAL_PREPASS
 }

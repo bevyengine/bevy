@@ -5,6 +5,7 @@ mod bundle;
 mod light;
 mod material;
 mod pbr_material;
+mod prepass;
 mod render;
 
 pub use alpha::*;
@@ -13,6 +14,7 @@ pub use bundle::*;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
+pub use prepass::*;
 pub use render::*;
 
 use bevy_window::ModifiesWindows;
