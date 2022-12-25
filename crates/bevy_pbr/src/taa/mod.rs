@@ -98,17 +98,11 @@ pub struct TemporalAntialiasBundle {
 }
 
 #[derive(Component, Reflect, Clone)]
-pub struct TemporalAntialiasSettings {
-    pub depth_rejection_enabled: bool,
-    pub velocity_rejection_enabled: bool,
-}
+pub struct TemporalAntialiasSettings {}
 
 impl Default for TemporalAntialiasSettings {
     fn default() -> Self {
-        Self {
-            velocity_rejection_enabled: false,
-            depth_rejection_enabled: false,
-        }
+        Self {}
     }
 }
 
@@ -166,14 +160,10 @@ impl Node for TAANode {
             Some(taa_pipeline),
             Some(prepass_velocity_texture),
             Some(prepass_depth_texture),
-        //     Some(prepass_previous_velocity_texture),
-        //     Some(prepass_previous_depth_texture)
         ) = (
             pipeline_cache.get_render_pipeline(taa_pipeline_id.0),
             &prepass_textures.velocity,
             &prepass_textures.depth,
-            // &prepass_textures.previous_velocity,
-            // &prepass_textures.previous_depth,
         ) else {
             return Ok(());
         };
@@ -205,24 +195,12 @@ impl Node for TAANode {
                         binding: 3,
                         resource: BindingResource::TextureView(&prepass_depth_texture.default_view),
                     },
-                    // BindGroupEntry {
-                    //     binding: 4,
-                    //     resource: BindingResource::TextureView(
-                    //         &prepass_previous_velocity_texture.default_view,
-                    //     ),
-                    // },
-                    // BindGroupEntry {
-                    //     binding: 5,
-                    //     resource: BindingResource::TextureView(
-                    //         &prepass_previous_depth_texture.default_view,
-                    //     ),
-                    // },
                     BindGroupEntry {
-                        binding: 6,
+                        binding: 4,
                         resource: BindingResource::Sampler(&pipelines.nearest_sampler),
                     },
                     BindGroupEntry {
-                        binding: 7,
+                        binding: 5,
                         resource: BindingResource::Sampler(&pipelines.linear_sampler),
                     },
                 ],
@@ -332,38 +310,16 @@ impl FromWorld for TAAPipeline {
                         },
                         count: None,
                     },
-                    // // Previous Velocity
-                    // BindGroupLayoutEntry {
-                    //     binding: 4,
-                    //     visibility: ShaderStages::FRAGMENT,
-                    //     ty: BindingType::Texture {
-                    //         sample_type: TextureSampleType::Float { filterable: true },
-                    //         view_dimension: TextureViewDimension::D2,
-                    //         multisampled: false,
-                    //     },
-                    //     count: None,
-                    // },
-                    // // Previous Depth
-                    // BindGroupLayoutEntry {
-                    //     binding: 5,
-                    //     visibility: ShaderStages::FRAGMENT,
-                    //     ty: BindingType::Texture {
-                    //         sample_type: TextureSampleType::Depth,
-                    //         view_dimension: TextureViewDimension::D2,
-                    //         multisampled: false,
-                    //     },
-                    //     count: None,
-                    // },
                     // Nearest sampler
                     BindGroupLayoutEntry {
-                        binding: 6,
+                        binding: 4,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::NonFiltering),
                         count: None,
                     },
                     // Linear sampler
                     BindGroupLayoutEntry {
-                        binding: 7,
+                        binding: 5,
                         visibility: ShaderStages::FRAGMENT,
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
                         count: None,
@@ -382,8 +338,6 @@ impl FromWorld for TAAPipeline {
 #[derive(PartialEq, Eq, Hash, Clone)]
 struct TAAPipelineKey {
     hdr: bool,
-    velocity_rejection_enabled: bool,
-    depth_rejection_enabled: bool,
 }
 
 impl SpecializedRenderPipeline for TAAPipeline {
@@ -398,13 +352,6 @@ impl SpecializedRenderPipeline for TAAPipeline {
         } else {
             TextureFormat::bevy_default()
         };
-
-        if key.depth_rejection_enabled {
-            shader_defs.push("DEPTH_REJECTION".into());
-        }
-        if key.velocity_rejection_enabled {
-            shader_defs.push("VELOCITY_REJECTION".into());
-        }
 
         RenderPipelineDescriptor {
             label: Some("taa_pipeline".into()),
@@ -449,7 +396,6 @@ fn extract_taa_settings(
     >,
 ) {
     for (entity, camera, taa_settings) in &cameras_3d {
-        // TODO: Check prepass history against TAA settings
         if camera.is_active {
             commands.get_or_spawn(entity).insert(taa_settings.clone());
         }
@@ -520,14 +466,10 @@ fn prepare_taa_pipelines(
     mut pipeline_cache: ResMut<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
-    views: Query<(Entity, &ExtractedView, &TemporalAntialiasSettings)>,
+    views: Query<(Entity, &ExtractedView), With<TemporalAntialiasSettings>>,
 ) {
-    for (entity, view, taa_settings) in &views {
-        let pipeline_key = TAAPipelineKey {
-            hdr: view.hdr,
-            velocity_rejection_enabled: taa_settings.velocity_rejection_enabled,
-            depth_rejection_enabled: taa_settings.depth_rejection_enabled,
-        };
+    for (entity, view) in &views {
+        let pipeline_key = TAAPipelineKey { hdr: view.hdr };
 
         let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pipeline, pipeline_key);
 

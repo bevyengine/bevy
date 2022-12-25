@@ -10,10 +10,8 @@
 @group(0) @binding(1) var history: texture_2d<f32>;
 @group(0) @binding(2) var velocity: texture_2d<f32>;
 @group(0) @binding(3) var depth: texture_depth_2d;
-// @group(0) @binding(4) var previous_velocity: texture_2d<f32>;
-// @group(0) @binding(5) var previous_depth: texture_depth_2d;
-@group(0) @binding(6) var nearest_sampler: sampler;
-@group(0) @binding(7) var linear_sampler: sampler;
+@group(0) @binding(4) var nearest_sampler: sampler;
+@group(0) @binding(5) var linear_sampler: sampler;
 
 struct Output {
     @location(0) view_target: vec4<f32>,
@@ -121,49 +119,30 @@ fn taa(@location(0) uv: vec2<f32>) -> Output {
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_3.x, texel_position_12.y)).rgb * w3.x * w12.y;
     previous_color += textureSample(history, linear_sampler, vec2(texel_position_12.x, texel_position_3.y)).rgb * w12.x * w3.y;
 
-    // Skip blending when disocclusion is detected (reduces ghosting)
-    var disocclusion_detected = false;
-    var alpha = 1.0;
 
-// #ifdef VELOCITY_REJECTION
-//     // Detect disocclusion based on large acceleration between frames
-//     let previous_velocity = textureSample(previous_velocity, nearest_sampler, previous_uv).rg;
-//     disocclusion_detected = distance(closest_velocity, previous_velocity) > 0.01;
-// #endif
-
-// #ifdef DEPTH_REJECTION
-//     // Detect disocclusion based on large depth differences between frames
-//     let previous_depth = textureSample(previous_depth, nearest_sampler, uv);
-//     disocclusion_detected |= abs(current_depth - previous_depth) > 0.01;
-// #endif
-
-    if !disocclusion_detected {
-        alpha = 0.1;
-
-        // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
-        // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
-        // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
-        let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
-        let s_tm = sample_view_target(uv + vec2(0.0, texel_size.y));
-        let s_tr = sample_view_target(uv + texel_size);
-        let s_ml = sample_view_target(uv - vec2(texel_size.x, 0.0));
-        let s_mm = RGB_to_YCoCg(current_color);
-        let s_mr = sample_view_target(uv + vec2(texel_size.x, 0.0));
-        let s_bl = sample_view_target(uv - texel_size);
-        let s_bm = sample_view_target(uv - vec2(0.0, texel_size.y));
-        let s_br = sample_view_target(uv + vec2(texel_size.x, -texel_size.y));
-        let moment_1 = s_tl + s_tm + s_tr + s_ml + s_mm + s_mr + s_bl + s_bm + s_br;
-        let moment_2 = (s_tl * s_tl) + (s_tm * s_tm) + (s_tr * s_tr) + (s_ml * s_ml) + (s_mm * s_mm) + (s_mr * s_mr) + (s_bl * s_bl) + (s_bm * s_bm) + (s_br * s_br);
-        let mean = moment_1 / 9.0;
-        var variance = sqrt((moment_2 / 9.0) - (mean * mean));
-        variance += mix(0.01, 0.0, saturate(length(closest_velocity) / 128.0)); // TODO: Use previous velocity?
-        previous_color = RGB_to_YCoCg(previous_color);
-        previous_color = clip_towards_aabb_center(previous_color, s_mm, mean - variance, mean + variance);
-        previous_color = YCoCg_to_RGB(previous_color);
-    }
+    // Constrain past sample with 3x3 YCoCg variance clipping (reduces ghosting)
+    // YCoCg: https://advances.realtimerendering.com/s2014/index.html#_HIGH-QUALITY_TEMPORAL_SUPERSAMPLING, slide 33
+    // Variance clipping: https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
+    let s_tl = sample_view_target(uv + vec2(-texel_size.x, texel_size.y));
+    let s_tm = sample_view_target(uv + vec2(0.0, texel_size.y));
+    let s_tr = sample_view_target(uv + texel_size);
+    let s_ml = sample_view_target(uv - vec2(texel_size.x, 0.0));
+    let s_mm = RGB_to_YCoCg(current_color);
+    let s_mr = sample_view_target(uv + vec2(texel_size.x, 0.0));
+    let s_bl = sample_view_target(uv - texel_size);
+    let s_bm = sample_view_target(uv - vec2(0.0, texel_size.y));
+    let s_br = sample_view_target(uv + vec2(texel_size.x, -texel_size.y));
+    let moment_1 = s_tl + s_tm + s_tr + s_ml + s_mm + s_mr + s_bl + s_bm + s_br;
+    let moment_2 = (s_tl * s_tl) + (s_tm * s_tm) + (s_tr * s_tr) + (s_ml * s_ml) + (s_mm * s_mm) + (s_mr * s_mr) + (s_bl * s_bl) + (s_bm * s_bm) + (s_br * s_br);
+    let mean = moment_1 / 9.0;
+    var variance = sqrt((moment_2 / 9.0) - (mean * mean));
+    variance += mix(0.01, 0.0, saturate(length(closest_velocity) / 128.0)); // TODO: Use previous velocity?
+    previous_color = RGB_to_YCoCg(previous_color);
+    previous_color = clip_towards_aabb_center(previous_color, s_mm, mean - variance, mean + variance);
+    previous_color = YCoCg_to_RGB(previous_color);
 
     // Blend current and past sample
-    let output = mix(previous_color, current_color, alpha);
+    let output = mix(previous_color, current_color, 0.1);
 
     // Write output to history and view target
     var out: Output;
