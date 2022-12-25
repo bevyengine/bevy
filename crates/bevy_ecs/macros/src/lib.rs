@@ -429,21 +429,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
-    let mut punctuated_generics_no_bounds = punctuated_generics.clone();
-    for g in &mut punctuated_generics_no_bounds {
-        match g {
-            GenericParam::Type(g) => g.bounds.clear(),
-            GenericParam::Lifetime(g) => g.bounds.clear(),
-            GenericParam::Const(_) => {}
-        }
-    }
-
-    let mut punctuated_type_generic_idents = Punctuated::<_, Token![,]>::new();
-    punctuated_type_generic_idents.extend(lifetimeless_generics.iter().filter_map(|g| match g {
-        GenericParam::Type(g) => Some(&g.ident),
-        _ => None,
-    }));
-
     let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
