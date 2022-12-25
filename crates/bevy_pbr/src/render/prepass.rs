@@ -84,6 +84,9 @@ where
             Shader::from_wgsl
         );
 
+        app.register_type::<DepthPrepass>()
+            .register_type::<NormalPrepass>();
+
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -337,10 +340,12 @@ pub fn extract_camera_prepass_phase(
     for (entity, camera, depth_prepass, normal_prepass) in cameras_3d.iter() {
         if camera.is_active {
             let mut entity = commands.get_or_spawn(entity);
-            entity.insert((
-                RenderPhase::<Opaque3dPrepass>::default(),
-                RenderPhase::<AlphaMask3dPrepass>::default(),
-            ));
+            if depth_prepass.is_some() || normal_prepass.is_some() {
+                entity.insert((
+                    RenderPhase::<Opaque3dPrepass>::default(),
+                    RenderPhase::<AlphaMask3dPrepass>::default(),
+                ));
+            }
             if depth_prepass.is_some() {
                 entity.insert(DepthPrepass);
             }
