@@ -2,7 +2,7 @@
 
 use bevy::{
     pbr::{
-        ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings,
+        PbrPlugin, ScreenSpaceAmbientOcclusionBundle, ScreenSpaceAmbientOcclusionSettings,
         TemporalAntialiasBundle, TemporalAntialiasPlugin,
     },
     prelude::*,
@@ -15,7 +15,10 @@ fn main() {
             brightness: 5.0,
             ..default()
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(PbrPlugin {
+            prepass_enabled: true,
+            ..default()
+        }))
         .add_plugin(TemporalAntialiasPlugin)
         .add_startup_system(setup)
         .add_system(update)
@@ -34,7 +37,7 @@ fn setup(
             ..default()
         },
         ScreenSpaceAmbientOcclusionBundle::default(),
-        TemporalAntialiasBundle::default(),
+        // TemporalAntialiasBundle::default(),
     ));
 
     let material = materials.add(StandardMaterial {

@@ -1,15 +1,19 @@
 //! A scene showcasing temporal antialiasing.
 
 use bevy::{
-    pbr::{TemporalAntialiasBundle, TemporalAntialiasPlugin},
+    pbr::{PbrPlugin, TemporalAntialiasBundle, TemporalAntialiasPlugin},
     prelude::*,
     render::camera::TemporalJitter,
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugin(TemporalAntialiasPlugin) // 1. Add the TAA plugin (this will disable MSAA)
+        // 1. Enable the prepass for the PBR StandrardMaterial
+        .add_plugins(DefaultPlugins.set(PbrPlugin {
+            prepass_enabled: true,
+            ..default()
+        }))
+        .add_plugin(TemporalAntialiasPlugin) // 2. Add the TAA plugin (this will disable MSAA)
         .add_startup_system(setup)
         .add_system(update)
         .run();
@@ -28,7 +32,7 @@ fn setup(
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
-        TemporalAntialiasBundle::default(), // 2. Add TemporalAntialiasBundle to the camera
+        TemporalAntialiasBundle::default(), // 3. Add TemporalAntialiasBundle to the camera
     ));
 
     // TODO: Add moving object and camera
