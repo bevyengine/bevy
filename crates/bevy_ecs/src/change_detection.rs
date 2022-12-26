@@ -421,20 +421,22 @@ pub struct MutUntyped<'a> {
 }
 
 impl<'a> MutUntyped<'a> {
-    /// Returns the pointer to the value, without marking it as changed.
+    /// Returns the pointer to the value, marking it as changed.
     ///
-    /// In order to mark the value as changed, you need to call [`set_changed`](DetectChanges::set_changed) manually.
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
     #[inline]
-    pub fn into_inner(self) -> PtrMut<'a> {
+    pub fn into_inner(mut self) -> PtrMut<'a> {
+        self.set_changed();
         self.value
     }
 
-    /// Returns a pointer to the value without taking ownership of this smart pointer or marking it as changed.
+    /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
     ///
-    /// In order to mark the value as changed, you need to call [`set_changed`](DetectChanges::set_changed) manually.
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
     #[inline]
     pub fn as_mut(&mut self) -> PtrMut<'_> {
-        self.value.shrink()
+        self.set_changed();
+        self.value.reborrow()
     }
 
     /// Returns an immutable pointer to the value without taking ownership.

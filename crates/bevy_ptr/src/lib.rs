@@ -179,7 +179,7 @@ impl<'a> PtrMut<'a> {
 
     /// Gets a `PtrMut` from this with a smaller lifetime
     #[inline]
-    pub fn shrink(&mut self) -> PtrMut<'_> {
+    pub fn reborrow(&mut self) -> PtrMut<'_> {
         // SAFE: the ptrmut we're borrowing from is assumed to be valid
         unsafe { PtrMut::new(self.0) }
     }
