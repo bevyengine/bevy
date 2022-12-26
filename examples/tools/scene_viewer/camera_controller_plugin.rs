@@ -3,6 +3,7 @@
 //! - Copy the code for the `CameraControllerPlugin` and add the plugin to your App.
 //! - Attach the `CameraController` component to an entity with a `Camera3dBundle`.
 
+use bevy::window::CursorGrabMode;
 use bevy::{input::mouse::MouseMotion, prelude::*};
 
 use std::f32::consts::*;
@@ -35,7 +36,7 @@ impl Default for CameraController {
         Self {
             enabled: true,
             initialized: false,
-            sensitivity: 0.5,
+            sensitivity: 1.0,
             key_forward: KeyCode::W,
             key_back: KeyCode::S,
             key_left: KeyCode::A,
@@ -91,12 +92,14 @@ impl Plugin for CameraControllerPlugin {
 
 fn camera_controller(
     time: Res<Time>,
+    mut windows: ResMut<Windows>,
     mut mouse_events: EventReader<MouseMotion>,
     mouse_button_input: Res<Input<MouseButton>>,
     key_input: Res<Input<KeyCode>>,
     mut move_toggled: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
+    let window = windows.primary_mut();
     let dt = time.delta_seconds();
 
     if let Ok((mut transform, mut options)) = query.get_single_mut() {
@@ -158,9 +161,15 @@ fn camera_controller(
         // Handle mouse input
         let mut mouse_delta = Vec2::ZERO;
         if mouse_button_input.pressed(options.mouse_key_enable_mouse) || *move_toggled {
+            window.set_cursor_grab_mode(CursorGrabMode::Locked);
+            window.set_cursor_visibility(false);
+
             for mouse_event in mouse_events.iter() {
                 mouse_delta += mouse_event.delta;
             }
+        } else {
+            window.set_cursor_grab_mode(CursorGrabMode::None);
+            window.set_cursor_visibility(true);
         }
 
         if mouse_delta != Vec2::ZERO {
