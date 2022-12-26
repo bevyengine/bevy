@@ -3,8 +3,8 @@
 //! The textures are not generated for any material using alpha blending.
 
 use bevy::{
-    core_pipeline::prepass::DepthPrepass,
-    pbr::PbrPlugin,
+    core_pipeline::prepass::{DepthPrepass, NormalPrepass},
+    pbr::{NotShadowCaster, PbrPlugin},
     prelude::*,
     reflect::TypeUuid,
     render::render_resource::{AsBindGroup, ShaderRef},
@@ -26,6 +26,7 @@ fn main() {
         .add_plugin(MaterialPlugin::<PrepassOutputMaterial>::default())
         .add_startup_system(setup)
         .add_system(rotate)
+        .add_system(update)
         .run();
 }
 
@@ -49,7 +50,7 @@ fn setup(
         // This will enable the depth prepass
         DepthPrepass,
         // This will enable the normal prepass
-        // NormalPrepass
+        NormalPrepass,
     ));
 
     // plane
@@ -60,16 +61,23 @@ fn setup(
     });
 
     // A plane that shows the output of the depth prepass
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Mesh::from(shape::Quad {
-            flip: false,
-            size: Vec2::new(1.5, 1.5),
-        })),
-        material: depth_materials.add(PrepassOutputMaterial {}),
-        transform: Transform::from_xyz(-0.75, 1.25, 2.0)
-            .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad {
+                flip: false,
+                // make the quad larger than the window
+                size: Vec2::new(20.0, 20.0),
+            })),
+            material: depth_materials.add(PrepassOutputMaterial {
+                show_depth: 0.0,
+                show_normal: 0.0,
+            }),
+            transform: Transform::from_xyz(-0.75, 1.25, 3.0)
+                .looking_at(Vec3::new(2.0, -2.5, -5.0), Vec3::Y),
+            ..default()
+        },
+        NotShadowCaster,
+    ));
 
     // Opaque cube using the StandardMaterial
     commands.spawn((
@@ -118,6 +126,31 @@ fn setup(
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
+
+    let style = TextStyle {
+        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+        font_size: 18.0,
+        color: Color::WHITE,
+    };
+
+    commands.spawn(
+        TextBundle::from_sections(vec![
+            TextSection::new("Prepass Output: transparent\n", style.clone()),
+            TextSection::new("\n\n", style.clone()),
+            TextSection::new("Controls\n", style.clone()),
+            TextSection::new("---------------\n", style.clone()),
+            TextSection::new("Space - Change output\n", style),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(10.0),
+                left: Val::Px(10.0),
+                ..default()
+            },
+            ..default()
+        }),
+    );
 }
 
 // This is the struct that will be passed to your shader
@@ -163,14 +196,49 @@ fn rotate(mut q: Query<&mut Transform, With<Rotates>>, time: Res<Time>) {
 // This shader simply loads the prepass texture and outputs it directly
 #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
 #[uuid = "0af99895-b96e-4451-bc12-c6b1c1c52750"]
-pub struct PrepassOutputMaterial {}
+pub struct PrepassOutputMaterial {
+    #[uniform(0)]
+    show_depth: f32,
+    #[uniform(1)]
+    show_normal: f32,
+}
 
 impl Material for PrepassOutputMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/show_depth.wgsl".into()
+        "shaders/show_prepass.wgsl".into()
     }
 
+    // This needs to be transparent in order to show the depth of what is behind the mesh
     fn alpha_mode(&self) -> AlphaMode {
         AlphaMode::Blend
+    }
+}
+
+fn update(
+    keycode: Res<Input<KeyCode>>,
+    material_handle: Query<&Handle<PrepassOutputMaterial>>,
+    mut materials: ResMut<Assets<PrepassOutputMaterial>>,
+    mut text: Query<&mut Text>,
+) {
+    if keycode.just_pressed(KeyCode::Space) {
+        let handle = material_handle.single();
+        let mut mat = materials.get_mut(handle).unwrap();
+        let out_text;
+        if mat.show_depth == 1.0 {
+            out_text = "normal";
+            mat.show_depth = 0.0;
+            mat.show_normal = 1.0;
+        } else if mat.show_normal == 1.0 {
+            out_text = "transparent";
+            mat.show_depth = 0.0;
+            mat.show_normal = 0.0;
+        } else {
+            out_text = "depth";
+            mat.show_depth = 1.0;
+            mat.show_normal = 0.0;
+        }
+
+        let mut text = text.single_mut();
+        text.sections[0].value = format!("Prepass Output: {out_text}\n");
     }
 }
