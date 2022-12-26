@@ -117,7 +117,7 @@ fn calculate_view(
 
 struct PbrInput {
     material: StandardMaterial,
-    ambient_occlusion: vec3<f32>,
+    diffuse_occlusion: vec3<f32>,
     specular_occlusion: vec3<f32>,
     frag_coord: vec4<f32>,
     world_position: vec4<f32>,
@@ -137,7 +137,7 @@ fn pbr_input_new() -> PbrInput {
     var pbr_input: PbrInput;
 
     pbr_input.material = standard_material_new();
-    pbr_input.ambient_occlusion = vec3<f32>(1.0, 1.0, 1.0);
+    pbr_input.diffuse_occlusion = vec3<f32>(1.0, 1.0, 1.0);
     pbr_input.specular_occlusion = vec3<f32>(1.0, 1.0, 1.0);
 
     pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
@@ -165,7 +165,7 @@ fn pbr(
     let perceptual_roughness = in.material.perceptual_roughness;
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
 
-    let ambient_occlusion = in.ambient_occlusion;
+    let diffuse_occlusion = in.diffuse_occlusion;
     let specular_occlusion = in.specular_occlusion;
 
     output_color = alpha_discard(in.material, output_color);
@@ -230,11 +230,10 @@ fn pbr(
         light_accum = light_accum + light_contrib * shadow;
     }
 
-    let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV) * ambient_occlusion;
+    // TODO: Diffuse/specular occlusion should apply to indirect lighting from global illumination solutions
+    let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV) * diffuse_occlusion;
     let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV) * specular_occlusion;
     let light_ambient = (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb;
-
-    // TODO: Ambient/specular occlusion should apply to indirect lighting from global illumination solutions
 
     output_color = vec4<f32>(
         light_accum + light_ambient + emissive.rgb * output_color.a,
