@@ -39,27 +39,31 @@ struct SystemInfo {
 const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
 fn log_system_info() {
-    use sysinfo::{CpuExt, SystemExt};
+    // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS
+    #[cfg(not(any(feature = "bevy_dynamic_plugin", target_os = "ios")))]
+    {
+        use sysinfo::{CpuExt, SystemExt};
 
-    let mut sys = sysinfo::System::new();
-    sys.refresh_cpu();
-    sys.refresh_memory();
+        let mut sys = sysinfo::System::new();
+        sys.refresh_cpu();
+        sys.refresh_memory();
 
-    let info = SystemInfo {
-        os: sys
-            .long_os_version()
-            .unwrap_or_else(|| String::from("not available")),
-        kernel: sys
-            .kernel_version()
-            .unwrap_or_else(|| String::from("not available")),
-        cpu: sys.global_cpu_info().brand().trim().to_string(),
-        core_count: sys
-            .physical_core_count()
-            .map(|x| x.to_string())
-            .unwrap_or_else(|| String::from("not available")),
-        // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
-        memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
-    };
+        let info = SystemInfo {
+            os: sys
+                .long_os_version()
+                .unwrap_or_else(|| String::from("not available")),
+            kernel: sys
+                .kernel_version()
+                .unwrap_or_else(|| String::from("not available")),
+            cpu: sys.global_cpu_info().brand().trim().to_string(),
+            core_count: sys
+                .physical_core_count()
+                .map(|x| x.to_string())
+                .unwrap_or_else(|| String::from("not available")),
+            // Convert from Bytes to GibiBytes since it's probably what people expect most of the time
+            memory: format!("{:.1} GiB", sys.total_memory() as f64 * BYTES_TO_GIB),
+        };
 
-    info!("{:?}", info);
+        info!("{:?}", info);
+    }
 }
