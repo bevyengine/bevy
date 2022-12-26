@@ -120,4 +120,32 @@ macro_rules! render_resource_wrapper {
     };
 }
 
+#[macro_export]
+macro_rules! define_atomic_id {
+    ($atomic_id_type:ident) => {
+        #[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
+        pub struct $atomic_id_type(u32);
+
+        // We use new instead of default to indicate that each ID created will be unique.
+        #[allow(clippy::new_without_default)]
+        impl $atomic_id_type {
+            pub fn new() -> Self {
+                use std::sync::atomic::{AtomicU32, Ordering};
+
+                static COUNTER: AtomicU32 = AtomicU32::new(1);
+
+                match COUNTER.fetch_add(1, Ordering::Relaxed) {
+                    0 => {
+                        panic!(
+                            "The system ran out of unique `{}`s.",
+                            stringify!($atomic_id_type)
+                        );
+                    }
+                    id => Self(id),
+                }
+            }
+        }
+    };
+}
+
 pub use render_resource_wrapper;

@@ -33,24 +33,24 @@ impl Node for CameraDriverNode {
         let mut sorted_cameras = self
             .cameras
             .iter_manual(world)
-            .map(|(e, c)| (e, c.priority, c.target.clone()))
+            .map(|(e, c)| (e, c.order, c.target.clone()))
             .collect::<Vec<_>>();
-        // sort by priority and ensure within a priority, RenderTargets of the same type are packed together
+        // sort by order and ensure within an order, RenderTargets of the same type are packed together
         sorted_cameras.sort_by(|(_, p1, t1), (_, p2, t2)| match p1.cmp(p2) {
             std::cmp::Ordering::Equal => t1.cmp(t2),
             ord => ord,
         });
         let mut camera_windows = HashSet::new();
-        let mut previous_priority_target = None;
+        let mut previous_order_target = None;
         let mut ambiguities = HashSet::new();
-        for (entity, priority, target) in sorted_cameras {
-            let new_priority_target = (priority, target);
-            if let Some(previous_priority_target) = previous_priority_target {
-                if previous_priority_target == new_priority_target {
-                    ambiguities.insert(new_priority_target.clone());
+        for (entity, order, target) in sorted_cameras {
+            let new_order_target = (order, target);
+            if let Some(previous_order_target) = previous_order_target {
+                if previous_order_target == new_order_target {
+                    ambiguities.insert(new_order_target.clone());
                 }
             }
-            previous_priority_target = Some(new_priority_target);
+            previous_order_target = Some(new_order_target);
             if let Ok((_, camera)) = self.cameras.get_manual(world, entity) {
                 if let RenderTarget::Window(id) = camera.target {
                     camera_windows.insert(id);
@@ -62,8 +62,8 @@ impl Node for CameraDriverNode {
 
         if !ambiguities.is_empty() {
             warn!(
-                "Camera priority ambiguities detected for active cameras with the following priorities: {:?}. \
-                To fix this, ensure there is exactly one Camera entity spawned with a given priority for a given RenderTarget. \
+                "Camera order ambiguities detected for active cameras with the following priorities: {:?}. \
+                To fix this, ensure there is exactly one Camera entity spawned with a given order for a given RenderTarget. \
                 Ambiguities should be resolved because either (1) multiple active cameras were spawned accidentally, which will \
                 result in rendering multiple instances of the scene or (2) for cases where multiple active cameras is intentional, \
                 ambiguities could result in unpredictable render results.",

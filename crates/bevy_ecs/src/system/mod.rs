@@ -41,9 +41,35 @@
 //!
 //! - **System Stages:** They determine hard execution synchronization boundaries inside of
 //!   which systems run in parallel by default.
-//! - **Labeling:** First, systems are labeled upon creation by calling `.label()`. Then,
-//!   methods such as `.before()` and `.after()` are appended to systems to determine
-//!   execution order in respect to other systems.
+//! - **Labels:** Systems may be ordered within a stage using the methods `.before()` and `.after()`,
+//!   which order systems based on their [`SystemLabel`]s. Each system is implicitly labeled with
+//!   its `fn` type, and custom labels may be added by calling `.label()`.
+//!
+//! [`SystemLabel`]: crate::schedule::SystemLabel
+//!
+//! ## Example
+//!
+//! ```
+//! # use bevy_ecs::prelude::*;
+//! # let mut app = SystemStage::single_threaded();
+//! // Prints "Hello, World!" each frame.
+//! app
+//!     .add_system(print_first.before(print_mid))
+//!     .add_system(print_mid)
+//!     .add_system(print_last.after(print_mid));
+//! # let mut world = World::new();
+//! # app.run(&mut world);
+//!
+//! fn print_first() {
+//!     print!("Hello");
+//! }
+//! fn print_mid() {
+//!     print!(", ");
+//! }
+//! fn print_last() {
+//!     println!("World!");
+//! }
+//! ```
 //!
 //! # System parameter list
 //! Following is the complete list of accepted types as system parameters:
