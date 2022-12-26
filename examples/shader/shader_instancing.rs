@@ -226,7 +226,7 @@ pub struct DrawMeshInstanced;
 impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
     type Param = SRes<RenderAssets<Mesh>>;
     type ViewWorldQuery = ();
-    type WorldQuery = (Read<Handle<Mesh>>, Read<InstanceBuffer>);
+    type ItemWorldQuery = (Read<Handle<Mesh>>, Read<InstanceBuffer>);
 
     #[inline]
     fn render<'w>(
