@@ -65,8 +65,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// ## Usage
 ///
 /// The primary way to access the individual connected gamepads is done through the [`Gamepads`]
-/// `bevy` resource. It is also used inside of [`GamepadEvent`]s and [`GamepadEventRaw`]s to distinguish
-/// which gamepad an event corresponds to.
+/// `bevy` resource. It is also used inside of [`GamepadConnectionEvent`]s to correspond a gamepad
+/// with a connection event.
 ///
 /// ## Note
 ///
@@ -111,8 +111,7 @@ pub struct GamepadInfo {
 /// ## Updating
 ///
 /// The [`Gamepad`]s are registered and deregistered in the [`gamepad_connection_system`]
-/// whenever a [`GamepadEventType::Connected`] or [`GamepadEventType::Disconnected`]
-/// event is received.
+/// whenever a [`GamepadConnectionEvent`] is received.
 #[derive(Resource, Default, Debug)]
 pub struct Gamepads {
     /// The collection of the connected [`Gamepad`]s.
@@ -217,7 +216,8 @@ pub enum GamepadButtonType {
 ///
 /// ## Updating
 ///
-/// The resources are updated inside of the [`gamepad_event_system`].
+/// The resources are updated inside of [`gamepad_raw_axis_event_system`] and
+/// [`gamepad_raw_button_event_system`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -1066,7 +1066,7 @@ impl GamepadConnectionEvent {
 }
 
 /// Gamepad axis changed event, used internally to create a [`GamepadAxisChangedEvent`]
-/// and update `Input<T>` resources in the `gamepad_raw_axis_event_system`. The
+/// and update `Input<T>` resources in the [`gamepad_raw_axis_event_system`]. The
 /// difference between [`RawGamepadAxisChangedEvent`] and [`GamepadAxisChangedEvent`]
 /// is that the latters axis "value" is filtered, based on a [`GamepadSettings`].
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
@@ -1116,7 +1116,7 @@ impl GamepadAxisChangedEvent {
 }
 
 /// Raw event indicating that the "value" of a button has changed.
-/// This event is processed by the `gamepad_raw_button_event_system`
+/// This event is processed by the [`gamepad_raw_button_event_system`]
 /// to generate a [`GamepadButtonChangedEvent`], if the change passes
 /// a the [`GamepadSettings`] filter.
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
