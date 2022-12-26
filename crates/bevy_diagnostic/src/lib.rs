@@ -39,8 +39,16 @@ struct SystemInfo {
 const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
 fn log_system_info() {
-    // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS
-    #[cfg(not(any(feature = "bevy_dynamic_plugin", target_os = "ios")))]
+    // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
+    #[cfg(all(
+        any(
+            target_os = "linux",
+            target_os = "windows",
+            target_os = "android",
+            target_os = "macos"
+        ),
+        not(feature = "bevy_dynamic_plugin")
+    ))]
     {
         use sysinfo::{CpuExt, SystemExt};
 
