@@ -165,9 +165,9 @@ fn camera_controller(
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update
-            options.pitch = (options.pitch - mouse_delta.y * 0.5 * options.sensitivity * dt)
+            options.pitch = (options.pitch - mouse_delta.y / 180.0 * options.sensitivity)
                 .clamp(-PI / 2., PI / 2.);
-            options.yaw -= mouse_delta.x * options.sensitivity * dt;
+            options.yaw -= mouse_delta.x / 180.0 * options.sensitivity;
             transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }
     }
