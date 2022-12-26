@@ -158,6 +158,7 @@ pub struct StandardMaterial {
     /// it to right-handed conventions.
     pub flip_normal_map_y: bool,
 
+    // TODO: Should probably rename this and describe how it applies to all diffuse indirect light
     /// Specifies the level of exposure to ambient light.
     ///
     /// This is usually generated and stored automatically ("baked") by 3D-modelling software.
