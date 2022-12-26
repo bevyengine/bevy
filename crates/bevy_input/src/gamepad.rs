@@ -1059,29 +1059,6 @@ impl ButtonAxisSettings {
 
         raw_value
     }
-
-    /// Determines whether the change from an `old_value` to a `new_value` should
-    /// be registered as a change event, according to the specified settings.
-    fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
-        if old_value.is_none() {
-            return true;
-        }
-
-        f32::abs(new_value - old_value.unwrap()) > self.threshold
-    }
-
-    /// Filters the `new_value` based on the `old_value`, according to the `ButtonAxisSettings`.
-    ///
-    /// Returns the `ButtonAxisSettings::clamp`ed `new_value` if the change exceeds the settings threshold,
-    /// and `None` otherwise.
-    fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
-        let new_value = self.clamp(new_value);
-
-        if self.should_register_change(new_value, old_value) {
-            return Some(new_value);
-        }
-        None
-    }
 }
 
 /// Monitors gamepad connection and disconnection events and updates the [`Gamepads`] resource accordingly.
