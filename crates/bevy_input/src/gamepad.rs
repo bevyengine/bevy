@@ -1,4 +1,4 @@
-use crate::{Axis, ButtonState, Input};
+use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::{
     change_detection::DetectChanges,
@@ -145,120 +145,12 @@ impl Gamepads {
     }
 }
 
-/// An event of a [`Gamepad`].
-///
-/// This event is the translated version of the [`GamepadEventRaw`]. It is available to
-/// the end user and can be used for game logic.
-///
-/// ## Differences
-///
-/// The difference between the [`GamepadEventRaw`] and the [`GamepadEvent`] is that the
-/// former respects user defined [`GamepadSettings`] for the gamepad inputs when translating it
-/// to the latter. The former also updates the [`Input<GamepadButton>`], [`Axis<GamepadAxis>`],
-/// and [`Axis<GamepadButton>`] resources accordingly.
-///
-/// ## Gamepad input mocking
-///
-/// When mocking gamepad input, use [`GamepadEventRaw`]s instead of [`GamepadEvent`]s.
-/// Otherwise [`GamepadSettings`] won't be respected and the [`Input<GamepadButton>`],
-/// [`Axis<GamepadAxis>`], and [`Axis<GamepadButton>`] resources won't be updated correctly.
-///
-/// An example for gamepad input mocking can be seen in the documentation of the [`GamepadEventRaw`].
-
-/// A raw event of a [`Gamepad`].
-///
-/// This event is the translated version of the `EventType` from the `GilRs` crate.
-/// It is available to the end user and can be used for game logic.
-///
-/// ## Differences
-///
-/// The difference between the `EventType` from the `GilRs` crate and the [`GamepadEventRaw`]
-/// is that the latter has less events, because the button pressing logic is handled through the generic
-/// [`Input<T>`] instead of through events.
-///
-/// The difference between the [`GamepadEventRaw`] and the [`GamepadEvent`] can be seen in the documentation
-/// of the [`GamepadEvent`].
-///
-/// ## Gamepad input mocking
-///
-/// The following example showcases how to mock gamepad input by manually sending [`GamepadEventRaw`]s.
-///
-/// ```
-/// # use bevy_input::prelude::*;
-/// # use bevy_input::InputPlugin;
-/// # use bevy_input::gamepad::{GamepadConnectionEvent, GamepadConnection, RawGamepadButtonChangedEvent, GamepadInfo};
-/// # use bevy_app::prelude::*;
-/// # use bevy_ecs::prelude::*;
-/// #[derive(Resource)]
-/// struct MyResource(bool);
-///
-/// // This system sets the bool inside `MyResource` to `true` if the `South` button of the first gamepad is pressed.
-/// fn change_resource_on_gamepad_button_press(
-///     mut my_resource: ResMut<MyResource>,
-///     gamepads: Res<Gamepads>,
-///     button_inputs: ResMut<Input<GamepadButton>>,
-/// ) {
-///     let gamepad = gamepads.iter().next().unwrap();
-///     let gamepad_button = GamepadButton::new(gamepad, GamepadButtonType::South);
-///
-///     my_resource.0 = button_inputs.pressed(gamepad_button);
-/// }
-///
-/// // Create our app.
-/// let mut app = App::new();
-///
-/// // Add the input plugin and the system/resource we want to test.
-/// app.add_plugin(InputPlugin)
-///     .insert_resource(MyResource(false))
-///     .add_system(change_resource_on_gamepad_button_press);
-///
-/// // Define our dummy gamepad input data.
-/// let gamepad = Gamepad::new(0);
-/// let button_type = GamepadButtonType::South;
-///
-/// // Send the gamepad connected event to mark our gamepad as connected.
-/// // This updates the `Gamepads` resource accordingly.
-/// let info = GamepadInfo { name: "Mock Gamepad".into() };
-/// app.world.send_event(GamepadConnectionEvent::new(gamepad, GamepadConnection::Connected(info)));
-///
-/// // Send the gamepad input event to mark the `South` gamepad button as pressed.
-/// // This updates the `Input<GamepadButton>` resource accordingly.
-/// app.world.send_event(RawGamepadButtonChangedEvent::new(
-///     gamepad,
-///     button_type,
-///     1.0,
-/// ));
-///
-/// // Advance the execution of the schedule by a single cycle.
-/// app.update();
-///
-/// // At this point you can check if your game logic corresponded correctly to the gamepad input.
-/// // In this example we are checking if the bool in `MyResource` was updated from `false` to `true`.
-/// assert!(app.world.resource::<MyResource>().0);
-///
-/// // Send the gamepad input event to mark the `South` gamepad button as released.
-/// // This updates the `Input<GamepadButton>` resource accordingly.
-/// app.world.send_event(RawGamepadButtonChangedEvent::new(
-///     gamepad,
-///     button_type,
-///     0.0
-/// ));
-///
-/// // Advance the execution of the schedule by another cycle.
-/// app.update();
-///
-/// // Check if the bool in `MyResource` was updated from `true` to `false`.
-/// assert!(!app.world.resource::<MyResource>().0);
-/// #
-/// # bevy_ecs::system::assert_is_system(change_resource_on_gamepad_button_press);
-/// ```
-
 /// A type of a [`GamepadButton`].
 ///
 /// ## Usage
 ///
 /// This is used to determine which button has changed its value when receiving a
-/// [`GamepadEventType::ButtonChanged`]. It is also used in the [`GamepadButton`]
+/// [`RawGamepadButtonChangedEvent`]. It is also used in the [`GamepadButton`]
 /// which in turn is used to create the [`Input<GamepadButton>`] or
 /// [`Axis<GamepadButton>`] `bevy` resources.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
@@ -1020,7 +912,7 @@ impl AxisSettings {
 ///
 /// ## Updating
 ///
-/// The current value of a button is received through the [RawGamepadButtonChangedEvent].
+/// The current value of a button is received through the [`RawGamepadButtonChangedEvent`].
 #[derive(Debug, Clone, Reflect, FromReflect)]
 #[reflect(Debug, Default)]
 pub struct ButtonAxisSettings {
@@ -1058,6 +950,29 @@ impl ButtonAxisSettings {
         }
 
         raw_value
+    }
+
+    /// Determines whether the change from an `old_value` to a `new_value` should
+    /// be registered as a change event, according to the specified settings.
+    fn should_register_change(&self, new_value: f32, old_value: Option<f32>) -> bool {
+        if old_value.is_none() {
+            return true;
+        }
+
+        f32::abs(new_value - old_value.unwrap()) > self.threshold
+    }
+
+    /// Filters the `new_value` based on the `old_value`, according to the `ButtonAxisSettings`.
+    ///
+    /// Returns the `ButtonAxisSettings::clamp`ed `new_value` if the change exceeds the settings threshold,
+    /// and `None` otherwise.
+    fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
+        let new_value = self.clamp(new_value);
+
+        if self.should_register_change(new_value, old_value) {
+            return Some(new_value);
+        }
+        None
     }
 }
 
@@ -1104,6 +1019,7 @@ pub fn gamepad_connection_system(
         }
     }
 }
+
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1116,6 +1032,8 @@ pub enum GamepadConnection {
     Disconnected,
 }
 
+/// A Gamepad connection event. Created when a connection to a gamepad
+/// is established and when a gamepad is disconnected.
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1124,7 +1042,9 @@ pub enum GamepadConnection {
     reflect(Serialize, Deserialize)
 )]
 pub struct GamepadConnectionEvent {
+    /// The gamepad whose connection status changed.
     pub gamepad: Gamepad,
+    /// The change in the gamepads connection.
     pub connection: GamepadConnection,
 }
 
@@ -1135,8 +1055,20 @@ impl GamepadConnectionEvent {
             connection,
         }
     }
+
+    pub fn connected(&self) -> bool {
+        matches!(self.connection, GamepadConnection::Connected(_))
+    }
+
+    pub fn disconnected(&self) -> bool {
+        !self.connected()
+    }
 }
 
+/// Gamepad axis changed event, used internally to create a [`GamepadAxisChangedEvent`]
+/// and update `Input<T>` resources in the `gamepad_raw_axis_event_system`. The
+/// difference between [`RawGamepadAxisChangedEvent`] and [`GamepadAxisChangedEvent`]
+/// is that the latters axis "value" is filtered, based on a [`GamepadSettings`].
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1185,8 +1117,8 @@ impl GamepadAxisChangedEvent {
 
 /// Raw event indicating that the "value" of a button has changed.
 /// This event is processed by the `gamepad_raw_button_event_system`
-/// to generate a [GamepadButtonEvent] if the button was just pressed
-/// or released.
+/// to generate a [`GamepadButtonChangedEvent`], if the change passes
+/// a the [`GamepadSettings`] filter.
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
@@ -1222,27 +1154,23 @@ impl RawGamepadButtonChangedEvent {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct GamepadButtonEvent {
+pub struct GamepadButtonChangedEvent {
     pub gamepad: Gamepad,
     pub button_type: GamepadButtonType,
-    pub button_state: ButtonState,
+    pub value: f32,
 }
 
-impl GamepadButtonEvent {
-    pub fn new(
-        gamepad: Gamepad,
-        button_type: GamepadButtonType,
-        button_state: ButtonState,
-    ) -> Self {
+impl GamepadButtonChangedEvent {
+    pub fn new(gamepad: Gamepad, button_type: GamepadButtonType, value: f32) -> Self {
         Self {
             gamepad,
             button_type,
-            button_state,
+            value,
         }
     }
 }
 
-/// Handle [RawGamepadAxisChangedEvent]s, create [GamepadAxisChangedEvent]s, and update
+/// Handle [`RawGamepadAxisChangedEvent`]s, create [`GamepadAxisChangedEvent`]s, and update
 /// the relevant `Input` and `Axis` values.
 pub fn gamepad_raw_axis_event_system(
     mut button_input: ResMut<Input<GamepadButton>>,
@@ -1270,11 +1198,11 @@ pub fn gamepad_raw_axis_event_system(
     }
 }
 
-/// Handle [RawGamepadButtonChangedEvent]s, create [GamepadButtonEvent]s, and update
+/// Handle [`RawGamepadButtonChangedEvent`]s, create [`GamepadButtonChangedEvent`]s, and update
 /// the relevant `Input` and `Axis` values.
 pub fn gamepad_raw_button_event_system(
     mut raw_button_events: EventReader<RawGamepadButtonChangedEvent>,
-    mut button_events: EventWriter<GamepadButtonEvent>,
+    mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
     settings: Res<GamepadSettings>,
@@ -1283,26 +1211,29 @@ pub fn gamepad_raw_button_event_system(
     for button_event in raw_button_events.iter() {
         let gamepad = button_event.gamepad.to_owned();
         let button = GamepadButton::new(gamepad, button_event.button_type);
-        let raw_value = button_event.unfiltered_value;
-        let new_value = settings.get_button_axis_settings(button).clamp(raw_value);
-
-        button_axis.set(button, new_value);
+        let button_axis_settings = settings.get_button_axis_settings(button);
+        let new_value = button_axis_settings.clamp(button_event.unfiltered_value);
+        let old_value = button_axis.get(button);
         let button_property = settings.get_button_settings(button);
-        if button_property.is_released(new_value) {
+
+        // Check if the button is pressed or released
+        let was_pressed = old_value.is_some() && button_property.is_pressed(old_value.unwrap());
+        if was_pressed && button_property.is_released(new_value) {
             button_input.release(button);
-            button_events.send(GamepadButtonEvent::new(
-                gamepad,
-                button_event.button_type,
-                ButtonState::Released,
-            ));
         } else if button_property.is_pressed(new_value) {
             button_input.press(button);
-            button_events.send(GamepadButtonEvent::new(
-                gamepad,
-                button_event.button_type,
-                ButtonState::Pressed,
-            ));
         };
+
+        button_axis.set(button, new_value);
+
+        // Check if the change should be registered
+        if button_axis_settings.filter(new_value, old_value).is_some() {
+            button_events.send(GamepadButtonChangedEvent::new(
+                gamepad,
+                button.button_type,
+                new_value,
+            ));
+        }
     }
 }
 

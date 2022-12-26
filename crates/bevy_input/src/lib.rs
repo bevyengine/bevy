@@ -34,8 +34,8 @@ use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touch
 use gamepad::{
     gamepad_connection_system, gamepad_raw_axis_event_system, gamepad_raw_button_event_system,
     AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis,
-    GamepadAxisChangedEvent, GamepadAxisType, GamepadButton, GamepadButtonEvent, GamepadButtonType,
-    GamepadConnection, GamepadConnectionEvent, GamepadSettings, Gamepads,
+    GamepadAxisChangedEvent, GamepadAxisType, GamepadButton, GamepadButtonChangedEvent,
+    GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadSettings, Gamepads,
     RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
 };
 
@@ -73,7 +73,7 @@ impl Plugin for InputPlugin {
             .add_event::<RawGamepadAxisChangedEvent>()
             .add_event::<RawGamepadButtonChangedEvent>()
             .add_event::<GamepadConnectionEvent>()
-            .add_event::<GamepadButtonEvent>()
+            .add_event::<GamepadButtonChangedEvent>()
             .add_event::<GamepadAxisChangedEvent>()
             .init_resource::<GamepadSettings>()
             .init_resource::<Gamepads>()
