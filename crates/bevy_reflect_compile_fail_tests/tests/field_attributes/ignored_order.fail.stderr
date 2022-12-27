@@ -1,0 +1,5 @@
+error: fields marked with `#[reflect(ignore)]` must come last in type definition
+ --> tests/field_attributes/ignored_order.fail.rs:5:15
+  |
+5 |     #[reflect(ignore)]
+  |               ^^^^^^

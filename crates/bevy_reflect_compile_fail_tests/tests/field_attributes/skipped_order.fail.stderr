@@ -1,0 +1,11 @@
+error: fields marked with `#[reflect(skip_serializing)]` must come last in type definition (but before any fields marked `#[reflect(ignore)]`)
+ --> tests/field_attributes/skipped_order.fail.rs:5:15
+  |
+5 |     #[reflect(skip_serializing)]
+  |               ^^^^^^^^^^^^^^^^
+
+error: fields marked with `#[reflect(ignore)]` must come last in type definition
+  --> tests/field_attributes/skipped_order.fail.rs:13:15
+   |
+13 |     #[reflect(ignore)]
+   |               ^^^^^^
