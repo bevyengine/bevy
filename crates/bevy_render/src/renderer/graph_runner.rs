@@ -66,7 +66,7 @@ impl RenderGraphRunner {
         {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(vec![render_context.command_encoder.finish()]);
+            queue.submit(vec![gpu_context.gpu_command_encoder.finish()]);
         }
         Ok(())
     }

@@ -1,9 +1,5 @@
-use crate::gpu_resource::{define_atomic_id, resource_macros::*};
-use bevy_utils::Uuid;
+use crate::{define_atomic_id, gpu_resource::resource_macros::*};
 use std::ops::{Bound, Deref, RangeBounds};
-
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BufferId(Uuid);
 
 define_atomic_id!(BufferId);
 gpu_resource_wrapper!(ErasedBuffer, wgpu::Buffer);

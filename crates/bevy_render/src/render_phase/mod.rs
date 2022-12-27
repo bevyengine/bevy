@@ -4,13 +4,13 @@ mod draw_state;
 pub use draw::*;
 pub use draw_state::*;
 
-use crate::{camera::Viewport, renderer::GpuContext};
+use crate::camera::Viewport;
 use bevy_ecs::{
     entity::Entity,
     prelude::{Component, Query},
     world::World,
 };
-use wgpu::RenderPassDescriptor;
+use bevy_gpu::{gpu_resource::RenderPassDescriptor, GpuContext};
 
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]

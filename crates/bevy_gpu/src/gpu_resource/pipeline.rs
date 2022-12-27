@@ -1,4 +1,7 @@
-use crate::{define_atomic_id, gpu_resource::{resource_macros::*, BindGroupLayout, Shader, ShaderDefVal}};
+use crate::{
+    define_atomic_id,
+    gpu_resource::{resource_macros::*, BindGroupLayout, Shader, ShaderDefVal},
+};
 use bevy_asset::Handle;
 use std::{borrow::Cow, ops::Deref};
 use wgpu::{
@@ -7,7 +10,7 @@ use wgpu::{
 };
 
 define_atomic_id!(RenderPipelineId);
-render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
+gpu_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///

@@ -10,7 +10,7 @@ use bevy_gpu::{
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_phase::RenderPhase,
     view::{ExtractedView, ViewTarget},
 };
 #[cfg(feature = "trace")]

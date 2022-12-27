@@ -110,13 +110,21 @@ pub struct GpuAdapterInfo(pub AdapterInfo);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct GpuQueue(pub Arc<Queue>);
 
+/// Encodes a series of GPU operations.
+///
+/// A command encoder can record [`RenderPass`]es,
+/// [`ComputePass`]es, and transfer operations between
+/// driver-managed resources like [`Buffer`]s and
+/// [`Texture`]s.
+pub type GpuCommandEncoder = CommandEncoder;
+
 /// The context with all information required to interact with the GPU.
 ///
-/// The [`GpuDevice`] is used to create render resources and the
-/// the [`CommandEncoder`] is used to record a series of GPU operations.
+/// The [`GpuDevice`] is used to create gpu resources (buffers, bind groups, pipelines, etc.) and
+/// the [`GpuCommandEncoder`] is used to record a series of GPU operations.
 pub struct GpuContext {
     pub gpu_device: GpuDevice,
-    pub command_encoder: CommandEncoder,
+    pub gpu_command_encoder: GpuCommandEncoder,
 }
 
 gpu_resource_wrapper!(ErasedGpuDevice, wgpu::Device);

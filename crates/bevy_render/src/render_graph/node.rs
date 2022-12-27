@@ -3,11 +3,10 @@ use crate::render_graph::{
     SlotInfo, SlotInfos, SlotType, SlotValue,
 };
 use bevy_ecs::world::World;
-use bevy_utils::Uuid;
+use bevy_gpu::{define_atomic_id, GpuContext};
 use downcast_rs::{impl_downcast, Downcast};
 use std::{borrow::Cow, fmt::Debug};
 use thiserror::Error;
-use bevy_gpu::{define_atomic_id};
 
 define_atomic_id!(NodeId);
 

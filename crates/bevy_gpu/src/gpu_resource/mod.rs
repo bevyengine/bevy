@@ -37,7 +37,7 @@ pub use wgpu::{
     ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout, ImageSubresourceRange, IndexFormat,
     Limits as WgpuLimits, LoadOp, MapMode, MultisampleState, Operations, Origin3d, PipelineLayout,
     PipelineLayoutDescriptor, PolygonMode, PresentMode as WgpuPresentMode, PrimitiveState,
-    PrimitiveTopology, RenderPass as WgpuRenderPass, RenderPassColorAttachment,
+    PrimitiveTopology, RenderPass as WgpuRenderPass, RenderPass, RenderPassColorAttachment,
     RenderPassDepthStencilAttachment, RenderPassDescriptor,
     RenderPipelineDescriptor as RawRenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
     ShaderModule, ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState,

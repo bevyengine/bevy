@@ -1,5 +1,4 @@
-use crate::gpu_resource::{define_atomic_id, resource_macros::*};
-use bevy_reflect::Uuid;
+use crate::{define_atomic_id, gpu_resource::resource_macros::*};
 use std::ops::Deref;
 
 define_atomic_id!(BindGroupLayoutId);
@@ -32,7 +31,7 @@ impl BindGroupLayout {
 impl From<wgpu::BindGroupLayout> for BindGroupLayout {
     fn from(value: wgpu::BindGroupLayout) -> Self {
         BindGroupLayout {
-            id: BindGroupLayoutId(Uuid::new_v4()),
+            id: BindGroupLayoutId::new(),
             value: ErasedBindGroupLayout::new(value),
         }
     }
