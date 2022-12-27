@@ -1,7 +1,4 @@
-use std::{
-    mem::{ManuallyDrop, MaybeUninit},
-    ptr::NonNull,
-};
+use std::{mem::MaybeUninit, ptr::NonNull};
 
 use bevy_ptr::OwningPtr;
 
@@ -46,9 +43,11 @@ impl CommandQueue {
     where
         C: Command,
     {
-        let size = std::mem::size_of::<C>();
         let old_len = self.bytes.len();
 
+        // SAFETY: After adding the metadata, we correctly write the corresponding `command`
+        // of type `C` into `self.bytes`. Zero-sized commands do not get written into the buffer,
+        // but dangling pointers to zero-sized types are valid.
         self.metas.push(CommandMeta {
             offset: old_len,
             write_command: |command, world| {
@@ -59,29 +58,25 @@ impl CommandQueue {
             },
         });
 
-        // Use `ManuallyDrop` to forget `command` right away, avoiding
-        // any use of it after the `ptr::copy_nonoverlapping`.
-        let command = ManuallyDrop::new(command);
-
+        let size = std::mem::size_of::<C>();
         if size > 0 {
             self.bytes.reserve(size);
 
-            // SAFETY: The internal `bytes` vector has enough storage for the
-            // command (see the call the `reserve` above), the vector has
-            // its length set appropriately and can contain any kind of bytes.
-            // In case we're writing a ZST and the `Vec` hasn't allocated yet
-            // then `as_mut_ptr` will be a dangling (non null) pointer, and
-            // thus valid for ZST writes.
-            // Also `command` is forgotten so that  when `apply` is called
-            // later, a double `drop` does not occur.
-            unsafe {
-                std::ptr::copy_nonoverlapping(
-                    &*command as *const C as *const MaybeUninit<u8>,
-                    self.bytes.as_mut_ptr().add(old_len),
-                    size,
-                );
-                self.bytes.set_len(old_len + size);
-            }
+            // SAFETY: Due to the call to `.reserve()` above, the buffer has enough space to store
+            // a value of type `C`. Since the buffer is of type `MaybeUninit<u8>`, any bit patterns are valid.
+            let ptr: *mut C = unsafe { self.bytes.as_mut_ptr().add(old_len).cast() };
+
+            // Transfer ownership of the command into the buffer.
+            // SAFETY: `ptr` must be non-null, since it is within a non-null buffer.
+            unsafe { ptr.write_unaligned(command) };
+
+            // Grow the vector to include the command we just wrote.
+            // SAFETY: Due to the call to `.reserve(size)` above,
+            // this is guaranteed to fit in the vector's capacity.
+            unsafe { self.bytes.set_len(old_len + size) };
+        } else {
+            // Forget the command, so it doesn't get double-dropped when the queue gets applied.
+            std::mem::forget(command);
         }
     }
 
