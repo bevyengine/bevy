@@ -61,11 +61,11 @@ impl<P: SystemParam> ExclusiveSystemParamState for SystemState<P> {
     }
 }
 
-impl<'s, T: FromWorld + Send + Sync + 'static> ExclusiveSystemParam for Local<'s, T> {
+impl<'s, T: FromWorld + Send + 'static> ExclusiveSystemParam for Local<'s, T> {
     type State = LocalState<T>;
 }
 
-impl<T: FromWorld + Send + Sync> ExclusiveSystemParamState for LocalState<T> {
+impl<T: FromWorld + Send> ExclusiveSystemParamState for LocalState<T> {
     type Item<'s> = Local<'s, T>;
 
     fn init(world: &mut World, _system_meta: &mut SystemMeta) -> Self {
