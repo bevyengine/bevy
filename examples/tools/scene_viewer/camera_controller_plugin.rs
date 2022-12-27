@@ -9,6 +9,11 @@ use bevy::{input::mouse::MouseMotion, prelude::*};
 use std::f32::consts::*;
 use std::fmt;
 
+/// Based on Valorant's default sensitivity, not entirely sure why it is exactly 1.0 / 180.0,
+/// but I'm guessing it is a misunderstanding between degrees/radians and then sticking with
+/// it because it felt nice.
+pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
+
 #[derive(Component)]
 pub struct CameraController {
     pub enabled: bool,
@@ -174,9 +179,9 @@ fn camera_controller(
 
         if mouse_delta != Vec2::ZERO {
             // Apply look update
-            options.pitch = (options.pitch - mouse_delta.y / 180.0 * options.sensitivity)
+            options.pitch = (options.pitch - mouse_delta.y * RADIANS_PER_DOT * options.sensitivity)
                 .clamp(-PI / 2., PI / 2.);
-            options.yaw -= mouse_delta.x / 180.0 * options.sensitivity;
+            options.yaw -= mouse_delta.x * RADIANS_PER_DOT * options.sensitivity;
             transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, options.yaw, options.pitch);
         }
     }
