@@ -77,9 +77,7 @@ macro_rules! impl_exclusive_system_param_tuple {
             #[inline]
             fn apply(state: &mut Self::State, _world: &mut World) {
                 let ($($param,)*) = state;
-                $(
-                    $param::apply($param, _world);
-                )*
+                $($param::apply($param, _world);)*
             }
 
             #[inline]
