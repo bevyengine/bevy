@@ -193,11 +193,12 @@ impl ReflectFieldAttrParser {
     fn check_ignore_order(&self, args: &ReflectFieldAttr, errors: &mut Option<syn::Error>) {
         if args.ignore.is_active() {
             if let Some(span) = self.last_ignored {
-                if self.is_variant {
-                    Self::combine_error(syn::Error::new(span, format!("fields marked with `#[reflect({IGNORE_ALL_ATTR})]` must come last in variant definition")), errors);
+                let message = if self.is_variant {
+                    format!("fields marked with `#[reflect({IGNORE_ALL_ATTR})]` must come last in variant definition")
                 } else {
-                    Self::combine_error(syn::Error::new(span, format!("fields marked with `#[reflect({IGNORE_ALL_ATTR})]` must come last in type definition")), errors);
-                }
+                    format!("fields marked with `#[reflect({IGNORE_ALL_ATTR})]` must come last in type definition")
+                };
+                Self::combine_error(syn::Error::new(span, message), errors);
             }
         }
     }
@@ -207,11 +208,12 @@ impl ReflectFieldAttrParser {
     fn check_skip_order(&self, args: &ReflectFieldAttr, errors: &mut Option<syn::Error>) {
         if args.ignore == ReflectIgnoreBehavior::None {
             if let Some(span) = self.last_skipped {
-                if self.is_variant {
-                    Self::combine_error(syn::Error::new(span, format!("fields marked with `#[reflect({IGNORE_SERIALIZATION_ATTR})]` must come last in variant definition (but before any fields marked `#[reflect({IGNORE_ALL_ATTR})]`)")), errors);
+                let message = if self.is_variant {
+                    format!("fields marked with `#[reflect({IGNORE_SERIALIZATION_ATTR})]` must come last in variant definition (but before any fields marked `#[reflect({IGNORE_ALL_ATTR})]`)")
                 } else {
-                    Self::combine_error(syn::Error::new(span, format!("fields marked with `#[reflect({IGNORE_SERIALIZATION_ATTR})]` must come last in type definition (but before any fields marked `#[reflect({IGNORE_ALL_ATTR})]`)")), errors);
-                }
+                    format!("fields marked with `#[reflect({IGNORE_SERIALIZATION_ATTR})]` must come last in type definition (but before any fields marked `#[reflect({IGNORE_ALL_ATTR})]`)")
+                };
+                Self::combine_error(syn::Error::new(span, message), errors);
             }
         }
     }
