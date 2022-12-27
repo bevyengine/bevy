@@ -312,6 +312,16 @@ pub fn animation_player(
             let Some(target) = find_bone(root, path, &children, &names, cached_path) else { continue };
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
+            // 
+            // The system scheduler prevents any other system from mutating Transforms at the same time, 
+            // so the only way this fetch can alias is if two AnimationPlayers are targetting the same bone.
+            // This can only happen if there are two or more AnimationPlayers are ancestors to the same
+            // entities. By verifying that there is no other AnimationPlayer in the ancestors of a
+            // running AnimationPlayer before animating any entity, this fetch cannot alias.
+            //
+            // This means only the AnimationPlayers closest to the root of the hierarchy will be able
+            // to run their animation. Any players in the children or descendants will log a warning
+            // and do nothing.
             let Ok(mut transform) = (unsafe { transforms.get_unchecked(target) }) else { continue };
             for curve in curves {
                 // Some curves have only one keyframe used to set a transform
