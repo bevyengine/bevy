@@ -1,23 +1,35 @@
-use std::mem::{ManuallyDrop, MaybeUninit};
+use std::{
+    mem::{ManuallyDrop, MaybeUninit},
+    ptr::NonNull,
+};
+
+use bevy_ptr::OwningPtr;
 
 use super::Command;
 use crate::world::World;
 
 struct CommandMeta {
+    /// Offset from the start of `CommandQueue.bytes` at which the corresponding command is stored.
     offset: usize,
-    func: unsafe fn(value: *mut MaybeUninit<u8>, world: &mut World),
+    /// SAFETY: The `value` must point to a value of type `T: Command`,
+    /// where `T` is some specific type that was used to produce this metadata.
+    write_command: unsafe fn(value: OwningPtr, world: &mut World),
 }
 
 /// A queue of [`Command`]s
 //
-// NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` over a `Vec<Box<dyn Command>>`
+// NOTE: [`CommandQueue`] is implemented via a `Vec<MaybeUninit<u8>>` instead of a `Vec<Box<dyn Command>>`
 // as an optimization. Since commands are used frequently in systems as a way to spawn
 // entities/components/resources, and it's not currently possible to parallelize these
 // due to mutable [`World`] access, maximizing performance for [`CommandQueue`] is
 // preferred to simplicity of implementation.
 #[derive(Default)]
 pub struct CommandQueue {
+    /// Densely stores the data for all commands in the queue.
     bytes: Vec<MaybeUninit<u8>>,
+    /// Metadata for each command stored in the queue.
+    /// SAFETY: Each entry must have a corresponding value stored in `bytes`,
+    /// stored at offset `CommandMeta.offset` and with an underlying type matching `CommandMeta.write_command`.
     metas: Vec<CommandMeta>,
 }
 
@@ -34,20 +46,17 @@ impl CommandQueue {
     where
         C: Command,
     {
-        /// SAFETY: This function is only every called when the `command` bytes is the associated
-        /// [`Commands`] `T` type. Also this only reads the data via `read_unaligned` so unaligned
-        /// accesses are safe.
-        unsafe fn write_command<T: Command>(command: *mut MaybeUninit<u8>, world: &mut World) {
-            let command = command.cast::<T>().read_unaligned();
-            command.write(world);
-        }
-
         let size = std::mem::size_of::<C>();
         let old_len = self.bytes.len();
 
         self.metas.push(CommandMeta {
             offset: old_len,
-            func: write_command::<C>,
+            write_command: |command, world| {
+                // SAFETY: According to the invariants of `CommandMeta.write_command`,
+                // `command` must point to a value of type `C`.
+                let command: C = unsafe { command.read_unaligned() };
+                command.write(world);
+            },
         });
 
         // Use `ManuallyDrop` to forget `command` right away, avoiding
@@ -83,17 +92,21 @@ impl CommandQueue {
         // flush the previously queued entities
         world.flush();
 
-        // SAFETY: In the iteration below, `meta.func` will safely consume and drop each pushed command.
-        // This operation is so that we can reuse the bytes `Vec<u8>`'s internal storage and prevent
-        // unnecessary allocations.
+        // Reset the buffer, so it can be reused after this function ends.
+        // In the loop below, ownership of each command will be transferred into user code.
+        // SAFETY: `set_len(0)` is always valid.
         unsafe { self.bytes.set_len(0) };
 
         for meta in self.metas.drain(..) {
-            // SAFETY: The implementation of `write_command` is safe for the according Command type.
-            // It's ok to read from `bytes.as_mut_ptr()` because we just wrote to it in `push`.
-            // The bytes are safely cast to their original type, safely read, and then dropped.
+            // SAFETY: `CommandQueue` guarantees that each metadata must have a corresponding value stored in `self.bytes`,
+            // so this addition will not overflow its original allocation.
+            let cmd = unsafe { self.bytes.as_mut_ptr().add(meta.offset) };
+            // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
+            // gaurantees that nothing stored in the buffer will get observed after this function ends.
+            let cmd = unsafe { OwningPtr::new(NonNull::new_unchecked(cmd.cast())) };
+            // SAFETY: The underlying type of `cmd` matches the type expected by `meta.write_command`.
             unsafe {
-                (meta.func)(self.bytes.as_mut_ptr().add(meta.offset), world);
+                (meta.write_command)(cmd, world);
             }
         }
     }
