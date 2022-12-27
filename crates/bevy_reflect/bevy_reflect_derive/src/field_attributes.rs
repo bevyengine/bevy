@@ -117,10 +117,9 @@ impl ReflectFieldAttrParser {
         self.check_ignore_order(&args, &mut errors);
         self.check_skip_order(&args, &mut errors);
 
-        if let Some(error) = errors {
-            Err(error)
-        } else {
-            Ok(args)
+        match errors {
+            Some(error) => Err(error),
+            None => Ok(args),
         }
     }
 
