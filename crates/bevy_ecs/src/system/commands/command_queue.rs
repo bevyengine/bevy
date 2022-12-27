@@ -62,12 +62,13 @@ impl CommandQueue {
         if size > 0 {
             self.bytes.reserve(size);
 
-            // SAFETY: Due to the call to `.reserve()` above, the buffer has enough space to store
-            // a value of type `C`. Since the buffer is of type `MaybeUninit<u8>`, any bit patterns are valid.
+            // SAFETY: Due to the call to `.reserve()` above, the buffer must be
+            // non-null and have enough space to store a value of type `C`.
             let ptr: *mut C = unsafe { self.bytes.as_mut_ptr().add(old_len).cast() };
 
             // Transfer ownership of the command into the buffer.
             // SAFETY: `ptr` must be non-null, since it is within a non-null buffer.
+            // Since the underlying buffer is of type `MaybeUninit<u8>`, any bit patterns are valid for writes.
             unsafe { ptr.write_unaligned(command) };
 
             // Grow the vector to include the command we just wrote.
