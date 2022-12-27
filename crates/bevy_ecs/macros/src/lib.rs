@@ -281,10 +281,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
 
                 fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
-                    let (#(#param,)*) = state;
-                    #(
-                        #param::new_archetype(#param, archetype, system_meta);
-                    )*
+                    <(#(#param,)*) as SystemParam>::new_archetype(state, archetype, system_meta);
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
