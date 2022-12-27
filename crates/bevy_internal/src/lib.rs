@@ -136,9 +136,9 @@ pub mod pbr {
 #[cfg(feature = "bevy_render")]
 pub mod render {
     //! Cameras, meshes, textures, shaders, and pipelines.
-    //! Use [`GPUDevice::features`](crate::render::renderer::GpuDevice::features),
-    //! [`GPUDevice::limits`](crate::render::renderer::GpuDevice::limits), and the
-    //! [`RenderAdapterInfo`](crate::render::renderer::RenderAdapterInfo) resource to
+    //! Use [`GpuDevice::features`](crate::render::renderer::GpuDevice::features),
+    //! [`GpuDevice::limits`](crate::render::renderer::GpuDevice::limits), and the
+    //! [`GpuAdapterInfo`](crate::render::renderer::GpuAdapterInfo) resource to
     //! get runtime information about the actual adapter, backend, features, and limits.
     pub use bevy_render::*;
 }

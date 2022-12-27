@@ -215,7 +215,7 @@ impl render_graph::Node for GameOfLifeNode {
         let pipeline = world.resource::<GameOfLifePipeline>();
 
         let mut pass = gpu_context
-            .command_encoder
+            .gpu_command_encoder
             .begin_compute_pass(&ComputePassDescriptor::default());
 
         pass.set_bind_group(0, texture_bind_group, &[]);

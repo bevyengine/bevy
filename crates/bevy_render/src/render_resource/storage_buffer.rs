@@ -101,7 +101,7 @@ impl<T: ShaderType + WriteInto> StorageBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`GPUDevice`](crate::renderer::GpuDevice)
+    /// Queues writing of data from system RAM to VRAM using the [`GpuDevice`](crate::renderer::GpuDevice)
     /// and the provided [`GPUQueue`](crate::renderer::GpuQueue).
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously

@@ -189,7 +189,7 @@ impl Node for MainPass3dNode {
             };
 
             gpu_context
-                .command_encoder
+                .gpu_command_encoder
                 .begin_render_pass(&pass_descriptor);
         }
 

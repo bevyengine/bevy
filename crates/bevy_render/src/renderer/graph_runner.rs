@@ -58,18 +58,18 @@ impl RenderGraphRunner {
         queue: &wgpu::Queue,
         world: &World,
     ) -> Result<(), RenderGraphRunnerError> {
-        let command_encoder =
+        let gpu_command_encoder =
             gpu_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         let mut gpu_context = GpuContext {
             gpu_device,
-            command_encoder,
+            gpu_command_encoder,
         };
 
         Self::run_graph(graph, None, &mut gpu_context, world, &[])?;
         {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(vec![gpu_context.command_encoder.finish()]);
+            queue.submit(vec![gpu_context.gpu_command_encoder.finish()]);
         }
         Ok(())
     }

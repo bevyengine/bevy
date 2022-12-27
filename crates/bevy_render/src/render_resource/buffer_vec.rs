@@ -16,7 +16,7 @@ use wgpu::BufferUsages;
 /// so this helper type is a good choice for them.
 ///
 /// The contained data is stored in system RAM. Calling [`reserve`](crate::render_resource::BufferVec::reserve)
-/// allocates VRAM from the [`GPUDevice`](crate::renderer::GpuDevice).
+/// allocates VRAM from the [`GpuDevice`](crate::renderer::GpuDevice).
 /// [`write_buffer`](crate::render_resource::BufferVec::write_buffer) queues copying of the data
 /// from system RAM to VRAM.
 ///
@@ -89,7 +89,7 @@ impl<T: Pod> BufferVec<T> {
         self.label.as_deref()
     }
 
-    /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`GPUDevice`](crate::renderer::GpuDevice) with size
+    /// Creates a [`Buffer`](crate::render_resource::Buffer) on the [`GpuDevice`](crate::renderer::GpuDevice) with size
     /// at least `std::mem::size_of::<T>() * capacity`, unless a such a buffer already exists.
     ///
     /// If a [`Buffer`](crate::render_resource::Buffer) exists, but is too small, references to it will be discarded,

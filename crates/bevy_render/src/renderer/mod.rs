@@ -102,6 +102,14 @@ pub struct GpuInstance(pub Instance);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct GpuAdapterInfo(pub AdapterInfo);
 
+/// Encodes a series of GPU operations.
+///
+/// A command encoder can record [`RenderPass`](crate::render_resource::RenderPass)es,
+/// [`ComputePass`](crate::render_resource::ComputePass)es, and transfer operations between
+/// driver-managed resources like [`Buffer`](crate::render_resource::Buffer)s and
+/// [`Texture`](crate::render_resource::Texture)s.
+pub type GpuCommandEncoder = CommandEncoder;
+
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
 } else {
@@ -273,9 +281,9 @@ pub async fn initialize_renderer(
 
 /// The context with all information required to interact with the GPU.
 ///
-/// The [`GpuDevice`] is used to create render resources and the
-/// the [`CommandEncoder`] is used to record a series of GPU operations.
+/// The [`GpuDevice`] is used to create gpu resources (buffers, bind groups, pipelines, etc.) and
+/// the [`GpuCommandEncoder`] is used to record a series of GPU operations.
 pub struct GpuContext {
     pub gpu_device: GpuDevice,
-    pub command_encoder: CommandEncoder,
+    pub gpu_command_encoder: GpuCommandEncoder,
 }

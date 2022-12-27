@@ -117,7 +117,7 @@ impl Node for FxaaNode {
         };
 
         let mut render_pass = gpu_context
-            .command_encoder
+            .gpu_command_encoder
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);
