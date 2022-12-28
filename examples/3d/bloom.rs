@@ -25,7 +25,7 @@ fn setup_scene(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true, // 1. HDR must be enabled on the camera
+                hdr: true, // 1. HDR can tremendously improve the look and realism of bloom 
                 ..default()
             },
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -35,7 +35,7 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(500.0, 50.0, 0.0), // 3. Set StandardMaterial::emissive using Color::rgb_linear, for entities we want to glow
+        emissive: Color::rgb_linear(500.0, 50.0, 0.0), // 3. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
