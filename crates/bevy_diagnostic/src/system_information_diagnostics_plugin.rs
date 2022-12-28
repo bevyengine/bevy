@@ -87,6 +87,11 @@ mod internal {
     not(feature = "bevy_dynamic_plugin")
 )))]
 mod internal {
+    use crate::{DiagnosticId, Diagnostics};
+    use bevy_app::{App, Plugin};
+    use bevy_ecs::prelude::ResMut;
+    use bevy_log::warn;
+
     /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
     #[derive(Default)]
     pub struct SystemInformationDiagnosticsPlugin;
@@ -104,9 +109,9 @@ mod internal {
         pub const MEM_USAGE: DiagnosticId =
             DiagnosticId::from_u128(42846254859293759601295317811892519825);
 
-        pub fn setup_system(_diagnostics: ResMut<Diagnostics>) {}
-
-        pub fn diagnostic_system(_diagnostics: ResMut<Diagnostics>, _sysinfo: ResMut<SystemInfo>) {}
+        pub fn setup_system(_diagnostics: ResMut<Diagnostics>) {
+            warn!("SystemInformationDiagnosticsPlugin: This platform and/or configuration is not supported!")
+        }
     }
 }
 
