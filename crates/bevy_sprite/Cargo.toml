@@ -26,7 +26,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
 
 # other
 bytemuck = { version = "1.5", features = ["derive"] }
-fixedbitset = "0.4"
+fixedbitset = { version = "0.4", path = "../../../fixedbitset" }
 guillotiere = "0.6.0"
 thiserror = "1.0"
 rectangle-pack = "0.4"

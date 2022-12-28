@@ -126,15 +126,17 @@ impl ParallelSystemExecutor for ParallelExecutor {
 
         ComputeTaskPool::init(TaskPool::default).scope(|scope| {
             self.prepare_systems(scope, systems, world);
-            if self.should_run.count_ones(..) == 0 {
+
+            if self.should_run.count_ones(0 .. self.should_run.len()) == 0 {
                 return;
             }
+
             let parallel_executor = async {
                 // All systems have been ran if there are no queued or running systems.
-                while 0 != self.queued.count_ones(..) + self.running.count_ones(..) {
+                while 0 != self.queued.count_ones(0.. self.queued.len()) + self.running.count_ones(0..self.running.len()) {
                     self.process_queued_systems();
                     // Avoid deadlocking if no systems were actually started.
-                    if self.running.count_ones(..) != 0 {
+                    if self.running.count_ones(0 .. self.running.len()) != 0 {
                         // Wait until at least one system has finished.
                         let index = self
                             .finish_receiver
@@ -191,7 +193,10 @@ impl ParallelExecutor {
             // Queue the system if it has no dependencies, otherwise reset its dependency counter.
             if system_data.dependencies_total == 0 {
                 if !can_start {
-                    self.queued.insert(index);
+                    if index > self.queued.len() {
+                        self.queued.grow(index+1);
+                    }
+                    self.queued.set(index);
                 }
             } else {
                 system_data.dependencies_now = system_data.dependencies_total;
@@ -202,7 +207,11 @@ impl ParallelExecutor {
             }
 
             // Spawn the system task.
-            self.should_run.insert(index);
+
+            if index > self.should_run.len() {
+                self.should_run.grow(index+1);
+            }
+            self.should_run.set(index);
             let finish_sender = self.finish_sender.clone();
             let system = system.system_mut();
             #[cfg(feature = "trace")] // NB: outside the task to get the TLS current span
@@ -243,8 +252,11 @@ impl ParallelExecutor {
                 {
                     started_systems += 1;
                 }
-
-                self.running.insert(index);
+    
+                if index > self.running.len() {
+                    self.running.grow(index+1);
+                }
+                self.running.set(index);
                 if !system_data.is_send {
                     self.non_send_running = true;
                 }
@@ -319,7 +331,10 @@ impl ParallelExecutor {
                     started_systems += 1;
                 }
                 system_metadata.start.notify_additional_relaxed(1);
-                self.running.insert(index);
+                if index > self.running.len() {
+                    self.running.grow(index + 1);
+                }
+                self.running.set(index);
                 if !system_metadata.is_send {
                     self.non_send_running = true;
                 }
@@ -345,7 +360,7 @@ impl ParallelExecutor {
         if !system_data.is_send {
             self.non_send_running = false;
         }
-        self.running.set(index, false);
+        self.running.unset(index);
         self.dependants_scratch.extend(&system_data.dependants);
     }
 
@@ -366,7 +381,10 @@ impl ParallelExecutor {
             let dependant_data = &mut self.system_metadata[index];
             dependant_data.dependencies_now -= 1;
             if dependant_data.dependencies_now == 0 {
-                self.queued.insert(index);
+                if index > self.queued.len() {
+                    self.queued.grow(index+1);
+                }
+                self.queued.set(index);
             }
         }
     }
