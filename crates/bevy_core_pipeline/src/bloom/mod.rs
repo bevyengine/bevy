@@ -44,6 +44,36 @@ pub mod draw_2d_graph {
 const BLOOM_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 929599476923908);
 
+impl BloomSettings {
+    /// Calculates blend intesnities of blur pyramid levels
+    /// during the upsampling+compositing stage.
+    ///
+    /// The function assumes all pyramid levels are upsampled and
+    /// blended into higher frequency ones using this function to
+    /// calculate blend levels every time. The final (highest frequency)
+    /// pyramid level in not blended into anything therefore this function
+    /// is not applied to it. As a result, the *mip* Earameter of 0 indicates
+    /// the second-highest frequency pyramid level (in our case that is the
+    /// 0th mip of the bloom texture with the original image being the
+    /// actual highest frequency level).
+    ///
+    /// Parameters:
+    /// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
+    /// * *max_mip* - the index of the lowest frequency pyramid level.
+    fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
+        let x = mip / max_mip;
+
+        let lf_boost =
+            (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.lf_boost_curvature))) * self.lf_boost;
+        let high_pass_lq =
+            1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
+        // let high_pass_hq = 0.5 + 0.5 * ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0).mul(std::f32::consts::PI).cos();
+        let high_pass = high_pass_lq;
+
+        (self.intensity + (1.0 - self.intensity) * lf_boost) * high_pass
+    }
+}
+
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
@@ -128,21 +158,6 @@ impl Plugin for BloomPlugin {
                 )
                 .unwrap();
         }
-    }
-}
-
-impl BloomSettings {
-    fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
-        let x = mip / max_mip;
-
-        let lf_boost =
-            (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.lf_boost_curvature))) * self.lf_boost;
-        let high_pass_lq =
-            1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
-        // let high_pass_hq = 0.5 + 0.5 * ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0).mul(std::f32::consts::PI).cos();
-        let high_pass = high_pass_lq;
-
-        (self.intensity + (1.0 - self.intensity) * lf_boost) * high_pass
     }
 }
 
