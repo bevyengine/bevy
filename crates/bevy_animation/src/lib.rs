@@ -1,5 +1,6 @@
 //! Animation for the game engine Bevy
 
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 use std::ops::Deref;

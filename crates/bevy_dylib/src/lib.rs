@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 #![allow(clippy::single_component_path_imports)]
 

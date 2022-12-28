@@ -1,3 +1,4 @@
+#![allow(clippy::type_complexity)]
 //! This crate contains macros used by Bevy's `Reflect` API.
 //!
 //! The main export of this crate is the derive macro for [`Reflect`]. This allows

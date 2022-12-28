@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod converters;
 #[cfg(target_arch = "wasm32")]
 mod web_resize;

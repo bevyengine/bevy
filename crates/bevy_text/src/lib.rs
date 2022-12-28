@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod error;
 mod font;
 mod font_atlas;

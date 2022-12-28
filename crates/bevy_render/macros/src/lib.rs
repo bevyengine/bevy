@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod as_bind_group;
 mod extract_resource;
 

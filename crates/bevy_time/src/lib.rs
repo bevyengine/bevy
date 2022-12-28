@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 mod fixed_timestep;
 mod stopwatch;
 #[allow(clippy::module_inception)]
