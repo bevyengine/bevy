@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 
 [dependencies]
+# bevy
 bevy_app = { path = "../bevy_app", version = "0.9.0" }
 bevy_core = { path = "../bevy_core", version = "0.9.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
