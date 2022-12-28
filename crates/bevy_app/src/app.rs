@@ -90,7 +90,20 @@ impl Debug for App {
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 struct SubApp {
     app: App,
-    runner: Box<dyn Fn(&mut World, &mut App)>,
+    extract: Box<dyn Fn(&mut World, &mut App)>,
+}
+
+impl SubApp {
+    /// run the `SubApp`'s schedule
+    pub fn run(&mut self) {
+        self.app.schedule.run(&mut self.app.world);
+        self.app.world.clear_trackers();
+    }
+
+    /// extract data from main world to sub app
+    pub fn extract(&mut self, main_world: &mut World) {
+        (self.extract)(main_world, &mut self.app);
+    }
 }
 
 impl Debug for SubApp {
@@ -153,8 +166,8 @@ impl App {
         self.schedule.run(&mut self.world);
 
         for sub_app in self.sub_apps.values_mut() {
-            (sub_app.runner)(&mut self.world, &mut sub_app.app);
-            sub_app.app.world.clear_trackers();
+            sub_app.extract(&mut self.world);
+            sub_app.run();
         }
 
         self.world.clear_trackers();
@@ -1004,13 +1017,13 @@ impl App {
         &mut self,
         label: impl AppLabel,
         app: App,
-        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
+        extract: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
             label.as_label(),
             SubApp {
                 app,
-                runner: Box::new(sub_app_runner),
+                extract: Box::new(extract),
             },
         );
         self

@@ -198,7 +198,10 @@ impl Plugin for RenderPlugin {
                         .with_system(PipelineCache::process_pipeline_queue_system)
                         .with_system(render_system.at_end()),
                 )
-                .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+                .add_stage(
+                    RenderStage::Cleanup,
+                    SystemStage::parallel().with_system(World::clear_entities.at_end()),
+                )
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
@@ -247,78 +250,6 @@ impl Plugin for RenderPlugin {
 
                     // extract
                     extract(app_world, render_app);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "prepare").entered();
-
-                    // prepare
-                    let prepare = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::Prepare)
-                        .unwrap();
-                    prepare.run(&mut render_app.world);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "queue").entered();
-
-                    // queue
-                    let queue = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::Queue)
-                        .unwrap();
-                    queue.run(&mut render_app.world);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "sort").entered();
-
-                    // phase sort
-                    let phase_sort = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::PhaseSort)
-                        .unwrap();
-                    phase_sort.run(&mut render_app.world);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "render").entered();
-
-                    // render
-                    let render = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::Render)
-                        .unwrap();
-                    render.run(&mut render_app.world);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "cleanup").entered();
-
-                    // cleanup
-                    let cleanup = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::Cleanup)
-                        .unwrap();
-                    cleanup.run(&mut render_app.world);
-                }
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "clear_entities").entered();
-
-                    render_app.world.clear_entities();
                 }
             });
         }
