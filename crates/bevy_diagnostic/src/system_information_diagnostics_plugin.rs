@@ -29,7 +29,8 @@ mod internal {
     }
 
     /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
-    #[derive(Default)]
+    ///
+    /// NOT supported on non-linux, android, windows, or macos targets and NOT supported when using bevy-dynamic/    #[derive(Default)]
     pub struct SystemInformationDiagnosticsPlugin;
 
     impl Plugin for SystemInformationDiagnosticsPlugin {
@@ -93,6 +94,8 @@ mod internal {
     use bevy_log::warn;
 
     /// Adds a System Information Diagnostic, specifically `cpu_usage` (in %) and `mem_usage` (in %)
+    ///
+    /// NOT supported on non-linux, android, windows, or macos targets and NOT supported when using bevy-dynamic/
     #[derive(Default)]
     pub struct SystemInformationDiagnosticsPlugin;
 
