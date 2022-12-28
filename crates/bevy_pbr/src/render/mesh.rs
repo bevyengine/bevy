@@ -1,7 +1,8 @@
 use crate::{
-    GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
+    new_environment_map_bind_group_layout, GlobalLightMeta, GpuLights, GpuPointLights, LightMeta,
+    NotShadowCaster, NotShadowReceiver, ShadowPipeline, ViewClusterBindings,
+    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
+    MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -255,6 +256,7 @@ pub struct MeshPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
+    pub environment_map_layout: BindGroupLayout,
     // This dummy white texture is to be used in place of optional StandardMaterial textures
     pub dummy_white_gpu_image: GpuImage,
     pub clustered_forward_buffer_binding_type: BufferBindingType,
@@ -481,6 +483,7 @@ impl FromWorld for MeshPipeline {
             view_layout,
             mesh_layout,
             skinned_mesh_layout,
+            environment_map_layout: new_environment_map_bind_group_layout(&render_device),
             clustered_forward_buffer_binding_type,
             dummy_white_gpu_image,
         }
@@ -515,6 +518,7 @@ bitflags::bitflags! {
         const HDR                         = (1 << 1);
         const TONEMAP_IN_SHADER           = (1 << 2);
         const DEBAND_DITHER               = (1 << 3);
+        const ENVIRONMENT_MAP             = (1 << 4);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -643,6 +647,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             if key.contains(MeshPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
             }
+        }
+
+        if key.contains(MeshPipelineKey::ENVIRONMENT_MAP) {
+            shader_defs.push("ENVIRONMENT_MAP".into());
+            bind_group_layout.push(self.environment_map_layout.clone());
         }
 
         let format = match key.contains(MeshPipelineKey::HDR) {

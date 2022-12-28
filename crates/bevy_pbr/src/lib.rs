@@ -2,6 +2,7 @@ pub mod wireframe;
 
 mod alpha;
 mod bundle;
+mod environment_map;
 mod light;
 mod material;
 mod pbr_material;
@@ -9,6 +10,7 @@ mod render;
 
 pub use alpha::*;
 pub use bundle::*;
+pub use environment_map::*;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
@@ -136,6 +138,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .add_plugin(EnvironmentMapPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()

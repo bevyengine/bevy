@@ -1,6 +1,6 @@
 use crate::{
-    AlphaMode, DrawMesh, MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup,
-    SetMeshViewBindGroup,
+    AlphaMode, DrawMesh, EnvironmentMap, MeshPipeline, MeshPipelineKey, MeshUniform,
+    SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEnvironmentMapBindGroup,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
@@ -294,6 +294,15 @@ type DrawMaterial<M> = (
     DrawMesh,
 );
 
+type DrawMaterialWithEnvironmentMap<M> = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetMaterialBindGroup<M, 1>,
+    SetMeshBindGroup<2>,
+    SetMeshViewEnvironmentMapBindGroup<3>,
+    DrawMesh,
+);
+
 /// Sets the bind group for a given [`Material`] at the configured `I` index.
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
 impl<M: Material, const I: usize> EntityRenderCommand for SetMaterialBindGroup<M, I> {
@@ -327,6 +336,7 @@ pub fn queue_material_meshes<M: Material>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
+        Option<&EnvironmentMap>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -338,17 +348,36 @@ pub fn queue_material_meshes<M: Material>(
         view,
         visible_entities,
         tonemapping,
+        environment_map,
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
     ) in &mut views
     {
-        let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
-        let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
-        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
-
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
+
+        let (draw_opaque_pbr, draw_alpha_mask_pbr, draw_transparent_pbr) = if environment_map
+            .is_some()
+        {
+            view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
+
+            let draw_opaque_pbr = opaque_draw_functions
+                .read()
+                .id::<DrawMaterialWithEnvironmentMap<M>>();
+            let draw_alpha_mask_pbr = alpha_mask_draw_functions
+                .read()
+                .id::<DrawMaterialWithEnvironmentMap<M>>();
+            let draw_transparent_pbr = transparent_draw_functions
+                .read()
+                .id::<DrawMaterialWithEnvironmentMap<M>>();
+            (draw_opaque_pbr, draw_alpha_mask_pbr, draw_transparent_pbr)
+        } else {
+            let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
+            let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
+            let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
+            (draw_opaque_pbr, draw_alpha_mask_pbr, draw_transparent_pbr)
+        };
 
         if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
             if !view.hdr {
@@ -359,8 +388,8 @@ pub fn queue_material_meshes<M: Material>(
                 }
             }
         }
-        let rangefinder = view.rangefinder3d();
 
+        let rangefinder = view.rangefinder3d();
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
                 material_meshes.get(*visible_entity)

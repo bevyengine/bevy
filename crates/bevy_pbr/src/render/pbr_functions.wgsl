@@ -4,6 +4,9 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
+#ifdef ENVIRONMENT_MAP
+#import bevy_pbr::environment_map
+#endif
 
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
     var color = output_color;
@@ -181,8 +184,7 @@ fn pbr(
 
     let R = reflect(-in.V, in.N);
 
-    // accumulate color
-    var light_accum: vec3<f32> = vec3<f32>(0.0);
+    var direct_light: vec3<f32> = vec3<f32>(0.0);
 
     let view_z = dot(vec4<f32>(
         view.inverse_view[0].z,
@@ -193,7 +195,7 @@ fn pbr(
     let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
     let offset_and_counts = unpack_offset_and_counts(cluster_index);
 
-    // point lights
+    // Point lights (direct) 
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = get_light_id(i);
         let light = point_lights.data[light_id];
@@ -203,10 +205,10 @@ fn pbr(
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        light_accum = light_accum + light_contrib * shadow;
+        direct_light += light_contrib * shadow;
     }
 
-    // spot lights
+    // Spot lights (direct)
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
         let light_id = get_light_id(i);
         let light = point_lights.data[light_id];
@@ -216,9 +218,10 @@ fn pbr(
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        light_accum = light_accum + light_contrib * shadow;
+        direct_light += light_contrib * shadow;
     }
 
+    // Directional lights (direct)
     let n_directional_lights = lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
         let light = lights.directional_lights[i];
@@ -228,17 +231,31 @@ fn pbr(
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
         let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        light_accum = light_accum + light_contrib * shadow;
+        direct_light += light_contrib * shadow;
     }
 
-    let diffuse_ambient = EnvBRDFApprox(diffuse_color, 1.0, NdotV);
-    let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
+    var indirect_diffuse_light = vec3(0.0);
+    var indirect_specular_light = vec3(0.0);
 
+    // Ambient light (indirect)
+    indirect_diffuse_light += EnvBRDFApprox(diffuse_color, 1.0, NdotV) * lights.ambient_color.rgb;
+    indirect_specular_light += EnvBRDFApprox(F0, perceptual_roughness, NdotV) * lights.ambient_color.rgb;
+
+    // Environment map light (indirect)
+#ifdef ENVIRONMENT_MAP
+    indirect_diffuse_light += environment_map_diffuse(N, diffuse_color);
+    specular_ambient += environment_map_specular(NDotNdotV, perceptual_roughness, R, F0);
+#endif
+
+    let indirect_light = (indirect_diffuse_light * occlusion) + indirect_specular_light;
+
+    let emissive_light = emissive.rgb * output_color.a;
+
+    // Total light
     output_color = vec4<f32>(
-        light_accum +
-            (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion +
-            emissive.rgb * output_color.a,
-        output_color.a);
+        direct_light + indirect_light + emissive_light,
+        output_color.a
+    );
 
     output_color = cluster_debug_visualization(
         output_color,
