@@ -496,18 +496,31 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let end = Vec::from_iter(tuple_patterns.drain(..LIMIT));
         tuple_patterns.push(parse_quote!( (#(#end,)*) ));
     }
-    // Create a where clause for the `ReadOnlySystemParam` impl.
-    // Ensure that each field implements `ReadOnlySystemParam`.
-    let mut read_only_generics = generics.clone();
-    let read_only_where_clause = read_only_generics.make_where_clause();
-    for field_type in &field_types {
-        read_only_where_clause
-            .predicates
-            .push(syn::parse_quote!(#field_type: #path::system::ReadOnlySystemParam));
-    }
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
+
+    let read_only_impl = match access {
+        ParamAccess::Auto => {
+            // Create a where clause for the `ReadOnlySystemParam` impl.
+            // Ensure that each field implements `ReadOnlySystemParam`.
+            let mut read_only_generics = generics.clone();
+            let read_only_where_clause = read_only_generics.make_where_clause();
+            for field_type in &field_types {
+                read_only_where_clause
+                    .predicates
+                    .push(syn::parse_quote!(#field_type: #path::system::ReadOnlySystemParam));
+            }
+
+            quote! {
+                // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
+                unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause
+                {}
+            }
+        }
+        ParamAccess::ReadOnly => todo!(),
+        ParamAccess::Mutable => quote! {},
+    };
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
@@ -566,8 +579,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
             }
 
-            // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
-            unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
+            #read_only_impl
         };
     })
 }
