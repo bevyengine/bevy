@@ -1,6 +1,9 @@
 pub mod settings;
 pub use self::settings::*;
 
+mod upsampling_pipeline;
+use self::upsampling_pipeline::*;
+
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
@@ -44,6 +47,8 @@ pub mod draw_2d_graph {
 const BLOOM_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 929599476923908);
 
+const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
+
 impl BloomSettings {
     /// Calculates blend intesnities of blur pyramid levels
     /// during the upsampling+compositing stage.
@@ -60,7 +65,7 @@ impl BloomSettings {
     /// Parameters:
     /// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
     /// * *max_mip* - the index of the lowest frequency pyramid level.
-    /// 
+    ///
     /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
     /// BloomSettings parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
     fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
@@ -94,10 +99,13 @@ impl Plugin for BloomPlugin {
 
         render_app
             .init_resource::<BloomPipelines>()
+            .init_resource::<BloomUpsamplingPipeline>()
+            .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .init_resource::<BloomUniforms>()
             .add_system_to_stage(RenderStage::Extract, extract_bloom_settings)
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
+            .add_system_to_stage(RenderStage::Prepare, prepare_upsampling_pipeline)
             .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
 
         // Add bloom to the 3d render graph
@@ -172,6 +180,7 @@ struct BloomNode {
         &'static BloomBindGroups,
         &'static BloomUniformIndex,
         &'static BloomSettings,
+        &'static UpsamplingPipelineIds,
     )>,
 }
 
@@ -211,7 +220,7 @@ impl Node for BloomNode {
         let bloom_uniforms = world.resource::<BloomUniforms>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
-            Ok((camera, view_target, bloom_texture, bind_groups, uniform_index, bloom_settings)),
+            Ok((camera, view_target, bloom_texture, bind_groups, uniform_index, bloom_settings, upsampling_pipeline_ids)),
             Some(bloom_uniforms),
         ) = (
             self.view_query.get_manual(world, view_entity),
@@ -220,26 +229,24 @@ impl Node for BloomNode {
             return Ok(());
         };
 
+        // Downsampling pipelines
         let (
             Some(downsampling_first_pipeline),
             Some(downsampling_pipeline),
+        ) = (
+            pipeline_cache.get_render_pipeline(pipelines.downsampling_first_pipeline),
+            pipeline_cache.get_render_pipeline(pipelines.downsampling_pipeline),
+        ) else {
+            return Ok(());
+        };
+
+        // Upsampling pipleines
+        let (
             Some(upsampling_pipeline),
             Some(upsampling_final_pipeline),
         ) = (
-            // Downsampling pipelines
-            pipeline_cache.get_render_pipeline(pipelines.downsampling_first_pipeline),
-            pipeline_cache.get_render_pipeline(pipelines.downsampling_pipeline),
-
-            // Upsampling pipleines.
-            // Get normal(energy conserving) or additive based on bloom_settings.mode
-            pipeline_cache.get_render_pipeline(match bloom_settings.composite_mode {
-                BloomCompositeMode::EnergyConserving => pipelines.upsampling_pipeline,
-                BloomCompositeMode::Additive => pipelines.additive_upsampling_pipeline,
-            }),
-            pipeline_cache.get_render_pipeline(match bloom_settings.composite_mode {
-                BloomCompositeMode::EnergyConserving => pipelines.upsampling_final_pipeline,
-                BloomCompositeMode::Additive => pipelines.additive_upsampling_final_pipeline,
-            }),
+            pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
+            pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
         ) else {
             return Ok(());
         };
@@ -392,21 +399,7 @@ impl Node for BloomNode {
 struct BloomPipelines {
     downsampling_first_pipeline: CachedRenderPipelineId,
     downsampling_pipeline: CachedRenderPipelineId,
-    upsampling_pipeline: CachedRenderPipelineId,
-    upsampling_final_pipeline: CachedRenderPipelineId,
-    // A bit of a waste having normal and additive
-    // pipelines exist at the same time but I'm not sure
-    // how to avoid that. We need access to bloom settings
-    // to create them conditionally.
-    //
-    // TODO: Remove additive pipelines in favor of
-    // conditionally defining the normal pipelines
-    // with the proper blend components
-    additive_upsampling_pipeline: CachedRenderPipelineId,
-    additive_upsampling_final_pipeline: CachedRenderPipelineId,
-
     main_bind_group_layout: BindGroupLayout,
-
     sampler: Sampler,
 }
 
@@ -474,7 +467,7 @@ impl FromWorld for BloomPipelines {
                     shader_defs: vec!["FIRST_DOWNSAMPLE".into()],
                     entry_point: "downsample_first".into(),
                     targets: vec![Some(ColorTargetState {
-                        format: TextureFormat::Rg11b10Float,
+                        format: BLOOM_TEXTURE_FORMAT,
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     })],
@@ -494,7 +487,7 @@ impl FromWorld for BloomPipelines {
                     shader_defs: vec![],
                     entry_point: "downsample".into(),
                     targets: vec![Some(ColorTargetState {
-                        format: TextureFormat::Rg11b10Float,
+                        format: BLOOM_TEXTURE_FORMAT,
                         blend: None,
                         write_mask: ColorWrites::ALL,
                     })],
@@ -504,115 +497,10 @@ impl FromWorld for BloomPipelines {
                 multisample: MultisampleState::default(),
             });
 
-        macro_rules! upsampling_pipeline {
-            // This macro uses pipeline_cache.queue_render_pipeline()
-            // to create a pipeline for upsampling. We use it because
-            // most things between all upsampling pipelines are the same.
-            (
-                $label:expr,
-                $texture_format:expr,
-                $color_blend:expr
-            ) => {
-                pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-                    label: Some($label.into()),
-                    layout: Some(vec![main_bind_group_layout.clone()]),
-                    vertex: fullscreen_shader_vertex_state(),
-                    fragment: Some(FragmentState {
-                        shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                        shader_defs: vec![],
-                        entry_point: "upsample".into(),
-                        targets: vec![Some(ColorTargetState {
-                            format: $texture_format,
-                            blend: Some(BlendState {
-                                color: $color_blend,
-                                alpha: BlendComponent::REPLACE,
-                            }),
-                            write_mask: ColorWrites::ALL,
-                        })],
-                    }),
-                    primitive: PrimitiveState::default(),
-                    depth_stencil: None,
-                    multisample: MultisampleState::default(),
-                })
-            };
-        }
-
-        macro_rules! energy_conserving_upsampling_pipeline {
-            (
-                $label:expr,
-                $texture_format:expr
-            ) => {
-                upsampling_pipeline!(
-                    $label,
-                    $texture_format,
-                    // At the time of developing this we decided to blend our
-                    // blur pyramid levels using native WGPU render pass blend
-                    // constants. They are set in the node's run function.
-                    // This seemed like a good approach at the time which allowed
-                    // us to perform complex calculations for blend levels on the CPU,
-                    // however, we missed the fact that this prevented us from using
-                    // textures to customize bloom apperance on individual parts
-                    // of the screen and create effects such as lens dirt or
-                    // screen blur behind certain UI elements.
-                    //
-                    // TODO: Use alpha instead of blend constants and move
-                    // compute_blend_factor to the shader. The shader
-                    // will likely need to know current mip number or
-                    // mip "angle" (original texture is 0deg, max mip is 90deg)
-                    // so make sure you give it that as a uniform.
-                    // That does have to be provided per each pass unlike other
-                    // uniforms that are set once.
-                    BlendComponent {
-                        src_factor: BlendFactor::Constant,
-                        dst_factor: BlendFactor::OneMinusConstant,
-                        operation: BlendOperation::Add,
-                    }
-                )
-            };
-        }
-
-        macro_rules! additive_upsampling_pipeline {
-            (
-                $label:expr,
-                $texture_format:expr
-            ) => {
-                upsampling_pipeline!(
-                    $label,
-                    $texture_format,
-                    BlendComponent {
-                        src_factor: BlendFactor::Constant,
-                        dst_factor: BlendFactor::One,
-                        operation: BlendOperation::Add,
-                    }
-                )
-            };
-        }
-
-        let upsampling_pipeline = energy_conserving_upsampling_pipeline!(
-            "bloom_upsampling_pipeline",
-            TextureFormat::Rg11b10Float
-        );
-        let upsampling_final_pipeline = energy_conserving_upsampling_pipeline!(
-            "bloom_upsampling_final_pipeline",
-            ViewTarget::TEXTURE_FORMAT_HDR
-        );
-        let additive_upsampling_pipeline =
-            additive_upsampling_pipeline!("bloom_upsampling_pipeline", TextureFormat::Rg11b10Float);
-        let additive_upsampling_final_pipeline = additive_upsampling_pipeline!(
-            "bloom_upsampling_final_pipeline",
-            ViewTarget::TEXTURE_FORMAT_HDR
-        );
-
         BloomPipelines {
             downsampling_first_pipeline,
             downsampling_pipeline,
-            upsampling_pipeline,
-            upsampling_final_pipeline,
-            additive_upsampling_pipeline,
-            additive_upsampling_final_pipeline,
-
             sampler,
-
             main_bind_group_layout,
         }
     }
@@ -623,7 +511,7 @@ fn extract_bloom_settings(
     cameras: Extract<Query<(Entity, &Camera, &BloomSettings), With<Camera>>>,
 ) {
     for (entity, camera, bloom_settings) in &cameras {
-        if camera.is_active && camera.hdr {
+        if camera.is_active {
             commands.get_or_spawn(entity).insert(bloom_settings.clone());
         }
     }
@@ -673,7 +561,7 @@ fn prepare_bloom_textures(
                 mip_level_count: mip_count,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rg11b10Float,
+                format: BLOOM_TEXTURE_FORMAT,
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             };
 
@@ -798,7 +686,9 @@ fn queue_bloom_bind_groups(
                             binding: 1,
                             resource: BindingResource::Sampler(&pipelines.sampler),
                         },
-                        // TODO: This is unused. Uniforms only matter in prefiltering (first downsample)
+                        // TODO: This is unused right now but we are keeping it to provide an
+                        // easy to find placeholder for blend factor calculation uniforms for when
+                        // someone decided to move that to the shader.
                         BindGroupEntry {
                             binding: 2,
                             resource: bloom_uniforms.clone(),
