@@ -1785,7 +1785,13 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                shadow_phase.render(world, render_context, view_entity, None, pass_descriptor);
+                shadow_phase.render(
+                    world,
+                    render_context,
+                    view_light_entity,
+                    None,
+                    pass_descriptor,
+                );
             }
         }
 
