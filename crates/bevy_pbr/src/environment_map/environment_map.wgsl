@@ -9,12 +9,12 @@ var environment_map_specular: texture_cube<f32>;
 @group(3) @binding(3)
 var environment_map_sampler: sampler;
 
-fn environment_map_diffuse(N: vec3<f32>, diffuse_color: vec3<f32>) -> vec3<f32> {
+fn environment_map_sample_diffuse(N: vec3<f32>, diffuse_color: vec3<f32>) -> vec3<f32> {
     let irradiance = textureSample(environment_map_diffuse, environment_map_sampler, N).rgb;
     return diffuse_color * irradiance;
 }
 
-fn environment_map_specular(NdotV: f32, perceptual_roughness: f32, R: vec3<f32>, F0: vec3<f32>) -> vec3<f32> {
+fn environment_map_sample_specular(NdotV: f32, perceptual_roughness: f32, R: vec3<f32>, F0: vec3<f32>) -> vec3<f32> {
     let environment_map_specular_mip_count = 5.0;
     let mip_level = perceptual_roughness * (environment_map_specular_mip_count - 1.0);
 

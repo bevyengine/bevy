@@ -243,8 +243,8 @@ fn pbr(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    indirect_diffuse_light += environment_map_diffuse(N, diffuse_color);
-    specular_ambient += environment_map_specular(NDotNdotV, perceptual_roughness, R, F0);
+    indirect_diffuse_light += environment_map_sample_diffuse(in.N, diffuse_color);
+    indirect_specular_light += environment_map_sample_specular(NdotV, perceptual_roughness, R, F0);
 #endif
 
     let indirect_light = (indirect_diffuse_light * occlusion) + indirect_specular_light;

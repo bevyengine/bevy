@@ -1,6 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::prelude::*;
+use bevy::{pbr::EnvironmentMap, prelude::*};
 
 fn main() {
     App::new()
@@ -14,6 +14,7 @@ fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     // add entities to the world
     for y in -2..=2 {
@@ -70,13 +71,19 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
-        projection: OrthographicProjection {
-            scale: 0.01,
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
+            projection: OrthographicProjection {
+                scale: 0.01,
+                ..default()
+            }
+            .into(),
             ..default()
-        }
-        .into(),
-        ..default()
-    });
+        },
+        EnvironmentMap {
+            diffuse_map: asset_server.load("hdris/pisa_diffuse.ktx2"),
+            specular_map: asset_server.load("hdris/pisa_specular.ktx2"),
+        },
+    ));
 }

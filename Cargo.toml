@@ -382,6 +382,7 @@ wasm = true
 [[example]]
 name = "pbr"
 path = "examples/3d/pbr.rs"
+required-features = ["ktx2"]
 
 [package.metadata.example.pbr]
 name = "Physically Based Rendering"

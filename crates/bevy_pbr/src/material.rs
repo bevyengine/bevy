@@ -170,6 +170,9 @@ where
                 .add_render_command::<Transparent3d, DrawMaterial<M>>()
                 .add_render_command::<Opaque3d, DrawMaterial<M>>()
                 .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
+                .add_render_command::<Transparent3d, DrawMaterialWithEnvironmentMap<M>>()
+                .add_render_command::<Opaque3d, DrawMaterialWithEnvironmentMap<M>>()
+                .add_render_command::<AlphaMask3d, DrawMaterialWithEnvironmentMap<M>>()
                 .init_resource::<MaterialPipeline<M>>()
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
@@ -332,6 +335,7 @@ pub fn queue_material_meshes<M: Material>(
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
+    images: Res<RenderAssets<Image>>,
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
@@ -357,8 +361,11 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
 
-        let (draw_opaque_pbr, draw_alpha_mask_pbr, draw_transparent_pbr) = if environment_map
-            .is_some()
+        let environment_map_ready = match environment_map {
+            Some(environment_map) => environment_map.is_ready(&images),
+            None => false,
+        };
+        let (draw_opaque_pbr, draw_alpha_mask_pbr, draw_transparent_pbr) = if environment_map_ready
         {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
 

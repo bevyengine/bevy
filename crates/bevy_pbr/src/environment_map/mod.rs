@@ -1,49 +1,75 @@
+use crate::MeshPipeline;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, load_internal_binary_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
     system::{
         lifetimeless::{Read, SQuery},
-        Resource, SystemParamItem,
+        Commands, Query, Res, SystemParamItem,
     },
 };
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
+    render_asset::RenderAssets,
     render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
-        BindGroup, BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        SamplerBindingType, Shader, ShaderStages, TextureSampleType, TextureViewDimension,
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType, Shader,
+        ShaderStages, TextureSampleType, TextureViewDimension,
     },
     renderer::RenderDevice,
-    texture::Image,
+    texture::{CompressedImageFormats, Image, ImageType},
+    RenderApp, RenderStage,
 };
 
+pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 154476556247605696);
 pub const ENVIRONMENT_BRDF_LUT_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 754476556247605696);
+    HandleUntyped::weak_from_u64(Image::TYPE_UUID, 754476556247605696);
 
 pub struct EnvironmentMapPlugin;
 
 impl Plugin for EnvironmentMapPlugin {
     fn build(&self, app: &mut App) {
-        let lut_handle =
-            load_internal_asset!(app, ENVIRONMENT_BRDF_LUT_HANDLE, "environment/brdf_lut.png");
+        load_internal_asset!(
+            app,
+            ENVIRONMENT_MAP_SHADER_HANDLE,
+            "environment_map.wgsl",
+            Shader::from_wgsl
+        );
+        load_internal_binary_asset!(app, ENVIRONMENT_BRDF_LUT_HANDLE, "brdf_lut.png", |bytes| {
+            Image::from_buffer(
+                bytes,
+                ImageType::MimeType("image/png"),
+                CompressedImageFormats::NONE,
+                false,
+            )
+            .unwrap()
+        });
 
-        app.add_plugin(ExtractComponentPlugin::<EnvironmentMap>::default())
-            .insert_resource(EnvironmentMapBRDFLUT { lut_handle });
+        app.register_type::<EnvironmentMap>()
+            .add_plugin(ExtractComponentPlugin::<EnvironmentMap>::default());
+
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+
+        render_app.add_system_to_stage(RenderStage::Queue, queue_environment_map_bind_groups);
     }
 }
 
-#[derive(Component, Clone)]
+#[derive(Component, Reflect, Clone)]
 pub struct EnvironmentMap {
-    bind_group: BindGroup,
+    pub diffuse_map: Handle<Image>,
+    pub specular_map: Handle<Image>,
 }
 
 impl EnvironmentMap {
-    pub fn load_from_disk() -> Self {
-        todo!()
+    pub fn is_ready(&self, images: &RenderAssets<Image>) -> bool {
+        images.get(&ENVIRONMENT_BRDF_LUT_HANDLE.typed()).is_some()
+            && images.get(&self.diffuse_map).is_some()
+            && images.get(&self.specular_map).is_some()
     }
 }
 
@@ -57,9 +83,54 @@ impl ExtractComponent for EnvironmentMap {
     }
 }
 
-#[derive(Resource)]
-struct EnvironmentMapBRDFLUT {
-    lut_handle: Handle<Image>,
+#[derive(Component)]
+pub struct EnvironmentMapBindGroup {
+    bind_group: BindGroup,
+}
+
+fn queue_environment_map_bind_groups(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    images: Res<RenderAssets<Image>>,
+    pipeline: Res<MeshPipeline>,
+    views: Query<(Entity, &EnvironmentMap)>,
+) {
+    for (entity, environment_map) in &views {
+        let (Some(brdf_lut), Some(diffuse_map), Some(specular_map)) = (
+            images.get(&ENVIRONMENT_BRDF_LUT_HANDLE.typed()),
+            images.get(&environment_map.diffuse_map),
+            images.get(&environment_map.specular_map)
+        ) else { return };
+
+        // TODO: Validate texture descriptors, warn if wrong and return
+
+        let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+            label: Some("environment_map_bind_group"),
+            layout: &pipeline.environment_map_layout,
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: BindingResource::TextureView(&brdf_lut.texture_view),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::TextureView(&diffuse_map.texture_view),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(&specular_map.texture_view),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(&brdf_lut.sampler),
+                },
+            ],
+        });
+
+        commands
+            .entity(entity)
+            .insert(EnvironmentMapBindGroup { bind_group });
+    }
 }
 
 pub fn new_environment_map_bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout {
@@ -108,7 +179,7 @@ pub fn new_environment_map_bind_group_layout(render_device: &RenderDevice) -> Bi
 
 pub struct SetMeshViewEnvironmentMapBindGroup<const I: usize>;
 impl<const I: usize> EntityRenderCommand for SetMeshViewEnvironmentMapBindGroup<I> {
-    type Param = SQuery<Read<EnvironmentMap>>;
+    type Param = SQuery<Read<EnvironmentMapBindGroup>>;
     #[inline]
     fn render<'w>(
         view: Entity,
