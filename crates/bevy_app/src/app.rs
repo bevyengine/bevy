@@ -189,6 +189,14 @@ impl App {
         if app.is_building_plugin {
             panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
         }
+
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let mut plugin_registry = std::mem::take(&mut app.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.setup(&mut app);
+        }
+        std::mem::swap(&mut app.plugin_registry, &mut plugin_registry);
+
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
