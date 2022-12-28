@@ -16,7 +16,7 @@ trace = [
     "bevy_ecs/trace",
     "bevy_log?/trace",
     "bevy_render?/trace",
-    "bevy_hierarchy/trace",
+    "bevy_hierarchy?/trace",
     "bevy_winit?/trace"
 ]
 trace_chrome = [ "bevy_log?/tracing-chrome" ]
@@ -70,7 +70,6 @@ bevy_app = { path = "../bevy_app", version = "0.9.0" }
 bevy_core = { path = "../bevy_core", version = "0.9.0" }
 bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0" }
 bevy_ptr = { path = "../bevy_ptr", version = "0.9.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
@@ -82,6 +81,7 @@ bevy_asset = { path = "../bevy_asset", optional = true, version = "0.9.0" }
 bevy_audio = { path = "../bevy_audio", optional = true, version = "0.9.0" }
 bevy_log = { path = "../bevy_log", optional = true, version = "0.9.0" }
 bevy_time = { path = "../bevy_time", optional = true, version = "0.9.0" }
+bevy_hierarchy = { path = "../bevy_hierarchy", optional = true, version = "0.9.0" }
 bevy_diagnostic = { path = "../bevy_diagnostic", optional = true, version = "0.9.0" }
 bevy_math = { path = "../bevy_math", optional = true, version = "0.9.0" }
 bevy_transform = { path = "../bevy_transform", optional = true, version = "0.9.0" }

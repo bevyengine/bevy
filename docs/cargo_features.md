@@ -10,6 +10,7 @@
 |bevy_diagnostic|Provides diagnostic functionality for Bevy Engine.|
 |bevy_gilrs|Gamepad system made using Gilrs for Bevy Engine.|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support.|
+|bevy_hierarchy|Provides hierarchy functionality for Bevy Engine.|
 |bevy_input|Provides input functionality for Bevy Engine.|
 |bevy_log|Provides logging for Bevy Engine.|
 [bevy_math|[glam](https://github.com/bitshifter/glam-rs) Provides math functionality for Bevy Engine.|

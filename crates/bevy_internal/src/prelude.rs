@@ -1,7 +1,6 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, core::prelude::*, ecs::prelude::*, hierarchy::prelude::*, utils::prelude::*,
-    DefaultPlugins, MinimalPlugins,
+    app::prelude::*, core::prelude::*, ecs::prelude::*, utils::prelude::*, DefaultPlugins, MinimalPlugins,
 };
 
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
@@ -25,6 +24,10 @@ pub use crate::log::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_time")]
 pub use crate::time::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_hierarchy")]
+pub use crate::hierarchy::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_math")]
