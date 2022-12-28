@@ -100,7 +100,7 @@ fn main() {
         {
             // Reflect Compile Fail Tests
             // Run tests (they do not get executed with the workspace tests)
-            // - See crates/bevy_ecs_compile_fail_tests/README.md
+            // - See crates/bevy_reflect_compile_fail_tests/README.md
             let _subdir = sh.push_dir("crates/bevy_reflect_compile_fail_tests");
             cmd!(sh, "cargo test --target-dir ../../target")
                 .run()
