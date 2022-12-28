@@ -27,8 +27,7 @@ pub struct DefaultPlugins;
 impl PluginGroup for DefaultPlugins {
     fn build(self) -> PluginGroupBuilder {
         let mut group = PluginGroupBuilder::start::<Self>()
-            .add(bevy_core::CorePlugin::default())
-            .add(bevy_hierarchy::HierarchyPlugin::default());
+            .add(bevy_core::CorePlugin::default());
 
         #[cfg(feature = "bevy_log")]
         {
@@ -58,6 +57,11 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_transform")]
         {
             group = group.add(bevy_transform::TransformPlugin::default());
+        }
+
+        #[cfg(feature = "bevy_hierarchy")]
+        {
+            group = group.add(bevy_hierarchy::HierarchyPlugin::default());
         }
 
         #[cfg(feature = "bevy_scene")]

@@ -35,6 +35,7 @@ default = [
   "bevy_diagnostic",
   "bevy_math",
   "bevy_transform",
+  "bevy_hierarchy",
   "bevy_gilrs",
   "bevy_scene",
   "bevy_input",
@@ -67,6 +68,7 @@ bevy_time = ["bevy_internal/bevy_time"]
 bevy_diagnostic = ["bevy_internal/bevy_diagnostic"]
 bevy_math = ["bevy_internal/bevy_math"]
 bevy_transform = ["bevy_internal/bevy_transform"]
+bevy_hierarchy = ["bevy_internal/bevy_hierarchy"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 bevy_dynamic_plugin = ["bevy_internal/bevy_dynamic_plugin"]
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
