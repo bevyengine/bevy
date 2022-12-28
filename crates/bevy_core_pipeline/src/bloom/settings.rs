@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::Component;
 use bevy_reflect::Reflect;
 
-/// Applies a bloom effect to a HDR-enabled 2d or 3d camera.
+/// Applies a bloom effect to a 2d or 3d camera.
 ///
 /// Bloom emulates an effect found in real cameras and the human eye,
 /// causing halos to appear around very bright parts of the scene.
@@ -21,13 +21,13 @@ pub struct BloomSettings {
 
     pub prefilter_settings: BloomPrefilterSettings,
 
-    /// Compositing mode. Conthols whether bloom textures
+    /// Controls whether bloom textures
     /// are blended between or added to each other. Useful
-    /// if image brightening is desired and extremely
-    /// helpful if threshold is used.
+    /// if image brightening is desired and a must-change
+    /// if prefilter_settings are used.
     ///
     /// # Recommendation
-    /// Set to Additive if prefilter_settings is
+    /// Set to Additive if prefilter_settings are
     /// configured in a non-energy-conserving way,
     /// otherwise set to EnergyConserving.
     pub composite_mode: BloomCompositeMode,
@@ -86,7 +86,7 @@ impl Default for BloomSettings {
 ///
 /// # Considerations
 /// * It is recommended to use this only if HDR rendering is not possible.
-/// * Changing these settings creates a pshysically inaccurate image.
+/// * Changing these settings creates a physically inaccurate image.
 /// * Changing these settings makes it easy to make the final result look worse.
 /// * Non-default prefilter settings should be used in conjuction with composite_mode::Additive
 #[derive(Default, Clone, Reflect)]
