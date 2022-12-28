@@ -408,7 +408,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 format: TextureFormat::R32Uint,
                 blend: None,
                 write_mask: ColorWrites::ALL,
-            }))
+            }));
         }
 
         Ok(RenderPipelineDescriptor {

@@ -197,18 +197,23 @@ impl SpecializedRenderPipeline for SpritePipeline {
     type Key = SpritePipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        // TODO: We have done goofed
+
         let mut formats = vec![
             // position
             VertexFormat::Float32x3,
             // uv
             VertexFormat::Float32x2,
-            // entity index
-            VertexFormat::Uint32,
         ];
 
         if key.contains(SpritePipelineKey::COLORED) {
             // color
             formats.push(VertexFormat::Float32x4);
+        }
+
+        if key.contains(SpritePipelineKey::PICKING) {
+            // entity index
+            formats.push(VertexFormat::Uint32);
         }
 
         let vertex_layout =
@@ -246,7 +251,7 @@ impl SpecializedRenderPipeline for SpritePipeline {
                 format: TextureFormat::R32Uint,
                 blend: None,
                 write_mask: ColorWrites::ALL,
-            }))
+            }));
         }
 
         RenderPipelineDescriptor {

@@ -115,8 +115,6 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     output_color = vec4(output_rgb, output_color.a);
 #endif
 
-    let location = vec2<i32>(i32(in.frag_coord.x), i32(in.frag_coord.y));
-
     var out: FragmentOutput;
 
     out.color = output_color;
