@@ -30,7 +30,7 @@ bevy_window = { path = "../bevy_window", version = "0.9.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
 # other
-taffy = "0.1.0"
+taffy = "0.2.2"
 serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1.6", features = ["union", "const_generics"] }
 bytemuck = { version = "1.5", features = ["derive"] }

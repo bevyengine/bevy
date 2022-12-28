@@ -61,7 +61,7 @@ fn setup(
             transform: Transform::from_xyz(100.0, 100., 150.0).looking_at(Vec3::ZERO, Vec3::Y),
             camera: Camera {
                 // Renders the right camera after the left camera, which has a default priority of 0
-                priority: 1,
+                order: 1,
                 ..default()
             },
             camera_3d: Camera3d {
