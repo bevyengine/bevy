@@ -60,6 +60,9 @@ impl BloomSettings {
     /// Parameters:
     /// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
     /// * *max_mip* - the index of the lowest frequency pyramid level.
+    /// 
+    /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
+    /// BloomSettings parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
     fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
         let x = mip / max_mip;
 
