@@ -40,7 +40,11 @@ pub mod input {
     pub use bevy_input::*;
 }
 
-#[cfg(any(feature = "bevy_log", feature = "bevy_diagnostic"))]
+#[cfg(any(
+    feature = "bevy_log",
+    feature = "bevy_hierarchy",
+    feature = "bevy_diagnostic"
+))]
 pub mod log {
     //! Logging capabilities
     pub use bevy_log::*;
