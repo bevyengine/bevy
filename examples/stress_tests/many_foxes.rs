@@ -113,7 +113,7 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                SpatialBundle::VISIBLE_IDENTITY,
+                SpatialBundle::INHERITED_IDENTITY,
                 ring_direction,
                 Ring { radius },
             ))

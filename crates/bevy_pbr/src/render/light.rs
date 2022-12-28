@@ -1785,16 +1785,7 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                let draw_functions = world.resource::<DrawFunctions<Shadow>>();
-                let render_pass = render_context
-                    .command_encoder
-                    .begin_render_pass(&pass_descriptor);
-                let mut draw_functions = draw_functions.write();
-                let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for item in &shadow_phase.items {
-                    let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                    draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
-                }
+                shadow_phase.render(world, render_context, view_entity, None, pass_descriptor);
             }
         }
 
