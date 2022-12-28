@@ -102,8 +102,7 @@ mod internal {
 
     impl Plugin for SystemInformationDiagnosticsPlugin {
         fn build(&self, app: &mut App) {
-            app.add_startup_system(Self::setup_system)
-                .add_system(Self::diagnostic_system);
+            app.add_startup_system(Self::setup_system);
         }
     }
 

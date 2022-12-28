@@ -5,7 +5,6 @@ mod log_diagnostics_plugin;
 mod system_information_diagnostics_plugin;
 
 use bevy_app::prelude::*;
-use bevy_log::info;
 pub use diagnostic::*;
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
@@ -52,6 +51,7 @@ fn log_system_info() {
         not(feature = "bevy_dynamic_plugin")
     ))]
     {
+        use bevy_log::info;
         use sysinfo::{CpuExt, SystemExt};
 
         let mut sys = sysinfo::System::new();
