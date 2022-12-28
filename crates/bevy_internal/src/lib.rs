@@ -83,7 +83,6 @@ pub mod time {
     pub use bevy_time::*;
 }
 
-#[cfg(feature = "bevy_hierarchy")]
 pub mod hierarchy {
     //! Entity hierarchies and property inheritance
     pub use bevy_hierarchy::*;
