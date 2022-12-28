@@ -97,15 +97,15 @@ impl<T: SparseSetIndex> Access<T> {
     /// Adds access to the element given by `index`.
     pub fn add_read(&mut self, index: T) {
         self.reads_and_writes.grow(index.sparse_set_index() + 1);
-        self.reads_and_writes.set(index.sparse_set_index());
+        self.reads_and_writes.insert(index.sparse_set_index());
     }
 
     /// Adds exclusive access to the element given by `index`.
     pub fn add_write(&mut self, index: T) {
         self.reads_and_writes.grow(index.sparse_set_index() + 1);
-        self.reads_and_writes.set(index.sparse_set_index());
+        self.reads_and_writes.insert(index.sparse_set_index());
         self.writes.grow(index.sparse_set_index() + 1);
-        self.writes.set(index.sparse_set_index());
+        self.writes.insert(index.sparse_set_index());
     }
 
     /// Returns `true` if this can access the element given by `index`.
@@ -149,11 +149,11 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn is_compatible(&self, other: &Access<T>) -> bool {
         // Only systems that do not write data are compatible with systems that operate on `&World`.
         if self.reads_all {
-            return other.writes.count_ones(0.. other.writes.len()) == 0;
+            return other.writes.count_ones(..) == 0;
         }
 
         if other.reads_all {
-            return self.writes.count_ones(0..self.writes.len()) == 0
+            return self.writes.count_ones(..) == 0;
         }
 
         self.writes.is_disjoint(&other.reads_and_writes)
@@ -164,18 +164,14 @@ impl<T: SparseSetIndex> Access<T> {
     pub fn get_conflicts(&self, other: &Access<T>) -> Vec<T> {
         let mut conflicts = FixedBitSet::default();
         if self.reads_all {
-            conflicts.extend_exact(other.writes.ones(), other.writes.ones().len());
+            conflicts.extend(other.writes.ones());
         }
 
         if other.reads_all {
-            conflicts.extend_exact(self.writes.ones(), self.writes.ones().len());
+            conflicts.extend(self.writes.ones());
         }
-        let writes_intersection = self.writes.intersection(&other.reads_and_writes);
-        let writes_length = writes_intersection.len();
-        conflicts.extend_exact(writes_intersection, writes_length);
-        let reads_and_writes_intersection = self.reads_and_writes.intersection(&other.writes);
-        let reads_and_writes_length = reads_and_writes_intersection.len();
-        conflicts.extend_exact(reads_and_writes_intersection, reads_and_writes_length);
+        conflicts.extend(self.writes.intersection(&other.reads_and_writes));
+        conflicts.extend(self.reads_and_writes.intersection(&other.writes));
         conflicts
             .ones()
             .map(SparseSetIndex::get_sparse_set_index)
@@ -282,13 +278,13 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Retains only combinations where the element given by `index` is also present.
     pub fn add_with(&mut self, index: T) {
         self.with.grow(index.sparse_set_index() + 1);
-        self.with.set(index.sparse_set_index());
+        self.with.insert(index.sparse_set_index());
     }
 
     /// Retains only combinations where the element given by `index` is not present.
     pub fn add_without(&mut self, index: T) {
         self.without.grow(index.sparse_set_index() + 1);
-        self.without.set(index.sparse_set_index());
+        self.without.insert(index.sparse_set_index());
     }
 
     pub fn extend_intersect_filter(&mut self, other: &FilteredAccess<T>) {

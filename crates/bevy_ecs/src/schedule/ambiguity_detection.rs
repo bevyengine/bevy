@@ -214,24 +214,14 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
             || should_ignore_inner(&system_b.ambiguity_detection, system_a.labels())
     }
 
-    if systems.is_empty() {
-        return Vec::new();
-    }
-
     let mut all_dependencies = Vec::<FixedBitSet>::with_capacity(systems.len());
     let mut all_dependants = Vec::<FixedBitSet>::with_capacity(systems.len());
     for (index, container) in systems.iter().enumerate() {
         let mut dependencies = FixedBitSet::with_capacity(systems.len());
         for &dependency in container.dependencies() {
             dependencies.union_with(&all_dependencies[dependency]);
-            if dependency > dependencies.len() {
-                dependencies.grow(dependency+1);
-            }
-            dependencies.set(dependency);
-            if all_dependants[dependency].len() < index {
-                all_dependants[dependency].grow(index+1);
-            }
-            all_dependants[dependency].set(index);
+            dependencies.insert(dependency);
+            all_dependants[dependency].insert(index);
         }
 
         all_dependants.push(FixedBitSet::with_capacity(systems.len()));
@@ -241,7 +231,7 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
         let mut dependants = FixedBitSet::with_capacity(systems.len());
         for dependant in all_dependants[index].ones() {
             dependants.union_with(&all_dependants[dependant]);
-            dependants.set(dependant);
+            dependants.insert(dependant);
         }
         all_dependants[index] = dependants;
     }
@@ -253,7 +243,7 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
             let mut relations = FixedBitSet::with_capacity(systems.len());
             relations.union_with(&dependencies);
             relations.union_with(&dependants);
-            relations.set(index);
+            relations.insert(index);
             relations
         })
         .collect::<Vec<FixedBitSet>>();
@@ -281,7 +271,7 @@ fn find_ambiguities(systems: &[SystemContainer]) -> Vec<(usize, usize, Vec<Compo
                 }
             }
         }
-        processed.set(index_a);
+        processed.insert(index_a);
     }
     ambiguities
 }
