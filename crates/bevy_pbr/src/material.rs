@@ -361,11 +361,11 @@ pub fn queue_material_meshes<M: Material>(
         let mut view_key =
             MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
 
-        let environment_map_ready = match environment_map {
-            Some(environment_map) => environment_map.is_ready(&images),
+        let environment_map_loaded = match environment_map {
+            Some(environment_map) => environment_map.is_loaded(&images),
             None => false,
         };
-        let (draw_opaque_pbr, draw_alpha_mask_pbr, draw_transparent_pbr) = if environment_map_ready
+        let (draw_opaque_pbr, draw_alpha_mask_pbr, draw_transparent_pbr) = if environment_map_loaded
         {
             view_key |= MeshPipelineKey::ENVIRONMENT_MAP;
 
