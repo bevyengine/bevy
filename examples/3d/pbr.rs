@@ -137,8 +137,8 @@ fn setup(
 
     // camera
     let environment_map = EnvironmentMap {
-        diffuse_map: asset_server.load("hdris/pisa_diffuse.ktx2"),
-        specular_map: asset_server.load("hdris/pisa_specular.ktx2"),
+        diffuse_map: asset_server.load("environment_maps/pisa_diffuse.ktx2"),
+        specular_map: asset_server.load("environment_maps/pisa_specular.ktx2"),
     };
     commands.insert_resource(EnvironmentMapHandles {
         handles: environment_map.clone(),

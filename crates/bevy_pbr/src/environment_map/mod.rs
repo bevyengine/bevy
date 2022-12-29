@@ -59,6 +59,19 @@ impl Plugin for EnvironmentMapPlugin {
     }
 }
 
+/// Environment map based indirect lighting.
+///
+/// When added to a 3D camera, this component adds indirect light
+/// to the scene based on an environment cubemap texture.
+///
+/// The environment map must be prefiltered into a diffuse and specular map based on the
+/// [split-sum approximation](https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf).
+/// The specular map must have exactly 11 mips [0, 10].
+///
+/// To prefilter your environment map, you can use KhronosGroup's [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler).
+/// The diffuse map uses the Lambertian distribution, and the specular map uses the GGX distribution.
+///
+/// KhronoGroup also has several prefiltered environment maps that can be found [here](https://github.com/KhronosGroup/glTF-Sample-Environments).
 #[derive(Component, Reflect, Clone)]
 pub struct EnvironmentMap {
     pub diffuse_map: Handle<Image>,
@@ -101,8 +114,6 @@ fn queue_environment_map_bind_groups(
             images.get(&environment_map.diffuse_map),
             images.get(&environment_map.specular_map)
         ) else { return };
-
-        // TODO: Validate texture descriptors, warn if wrong and return
 
         let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
             label: Some("environment_map_bind_group"),
