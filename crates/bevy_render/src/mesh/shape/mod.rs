@@ -49,6 +49,20 @@ impl Box {
             min_z: -z_length / 2.0,
         }
     }
+
+    /// Creates a new box given the coordinates of two opposing corners.
+    pub fn from_corners(a: Vec3, b: Vec3) -> Box {
+        let max = a.max(b);
+        let min = a.min(b);
+        Box {
+            max_x: max.x,
+            min_x: min.x,
+            max_y: max.y,
+            min_y: min.y,
+            max_z: max.z,
+            min_z: min.z,
+        }
+    }
 }
 
 impl Default for Box {
@@ -207,12 +221,14 @@ impl From<Plane> for Mesh {
 }
 
 mod capsule;
+mod cylinder;
 mod icosphere;
 mod regular_polygon;
 mod torus;
 mod uvsphere;
 
 pub use capsule::{Capsule, CapsuleUvProfile};
+pub use cylinder::Cylinder;
 pub use icosphere::Icosphere;
 pub use regular_polygon::{Circle, RegularPolygon};
 pub use torus::Torus;

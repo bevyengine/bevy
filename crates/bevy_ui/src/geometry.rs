@@ -338,7 +338,7 @@ impl Size {
     /// assert_eq!(size.width, Val::Px(100.0));
     /// assert_eq!(size.height, Val::Px(200.0));
     /// ```
-    pub fn new(width: Val, height: Val) -> Self {
+    pub const fn new(width: Val, height: Val) -> Self {
         Size { width, height }
     }
 

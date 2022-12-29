@@ -282,8 +282,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #[inline(always)]
                 unsafe fn fetch<'__w>(
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
-                    _entity: Entity,
-                    _table_row: usize
+                    _entity: #path::entity::Entity,
+                    _table_row: #path::storage::TableRow,
                 ) -> <Self as #path::query::WorldQuery>::Item<'__w> {
                     Self::Item {
                         #(#field_idents: <#field_types>::fetch(&mut _fetch.#field_idents, _entity, _table_row),)*
@@ -295,8 +295,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 #[inline(always)]
                 unsafe fn filter_fetch<'__w>(
                     _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
-                    _entity: Entity,
-                    _table_row: usize
+                    _entity: #path::entity::Entity,
+                    _table_row: #path::storage::TableRow,
                 ) -> bool {
                     true #(&& <#field_types>::filter_fetch(&mut _fetch.#field_idents, _entity, _table_row))*
                 }
@@ -333,10 +333,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let readonly_impl = if fetch_struct_attributes.is_mutable {
         let world_query_impl = impl_fetch(true);
         quote! {
-            #[doc(hidden)]
-            #[doc = "Automatically generated internal [`WorldQuery`] type for [`"]
+            #[doc = "Automatically generated [`WorldQuery`] type for a read-only variant of [`"]
             #[doc = stringify!(#struct_name)]
-            #[doc = "`], used for read-only access."]
+            #[doc = "`]."]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #( #field_idents: #read_only_field_types, )*

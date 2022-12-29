@@ -92,8 +92,8 @@ sudo pacman -S libx11 pkgconf alsa-lib
 
 Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
 
-Note that for Intel GPUs, Vulkan drivers are not installed by default, you must also install
-the `vulkan-intel` for bevy to work.
+Depending on your graphics card, you may have to install one of the following:
+`vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
 ## Void
 
@@ -113,7 +113,7 @@ with pkgs; mkShell rec {
     llvmPackages.bintools # To use lld linker
   ];
   buildInputs = [
-    udev alsaLib vulkan-loader
+    udev alsa-lib vulkan-loader
     xlibsWrapper xorg.libXcursor xorg.libXrandr xorg.libXi # To use x11 feature
     libxkbcommon wayland # To use wayland feature
   ];
@@ -136,6 +136,10 @@ Note that this template does not add Rust to the environment because there are m
 ```bash
    sudo emerge --ask libX11 pkgconf alsa-lib
 ```
+
+When using an AMD Radeon GPU, you may also need to emerge `amdgpu-pro-vulkan` to get Bevy to find the GPU.
+
+When using a NVIDIA GPU with the proprietary driver (eg. `x11-drivers/nvidia-drivers`), you may also need to emerge `media-libs/vulkan-loader` to get Bevy to find the GPU. NVIDIA Vulkan driver is included in `nvidia-driver`, but may need the loader to find the correct driver. See Gentoo [Documentation](https://wiki.gentoo.org/wiki/Vulkan) for details.
 
 ## [Clear Linux OS](https://clearlinux.org/)
 

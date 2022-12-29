@@ -47,10 +47,13 @@ fn setup(
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: RADIUS,
-            subdivisions: 9,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: RADIUS,
+                subdivisions: 9,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()

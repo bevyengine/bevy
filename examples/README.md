@@ -93,6 +93,7 @@ Example | Description
 [Mesh 2D](../examples/2d/mesh2d.rs) | Renders a 2d mesh
 [Mesh 2D With Vertex Colors](../examples/2d/mesh2d_vertex_color_texture.rs) | Renders a 2d mesh with vertex color attributes
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
+[Pixel Perfect](../examples/2d/pixel_perfect.rs) | Demonstrates pixel perfect in 2d
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Flipping](../examples/2d/sprite_flipping.rs) | Renders a sprite flipped along an axis
 [Sprite Sheet](../examples/2d/sprite_sheet.rs) | Renders an animated sprite
@@ -294,7 +295,7 @@ Example | Description
 Example | Description
 --- | ---
 [Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
-[Scene Viewer](../examples/tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
+[Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 
 ## Transforms
 
@@ -318,6 +319,7 @@ Example | Description
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
+[Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
 
 ## Window
 

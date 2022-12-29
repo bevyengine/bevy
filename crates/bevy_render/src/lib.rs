@@ -1,3 +1,6 @@
+#[cfg(target_pointer_width = "16")]
+compile_error!("bevy_render cannot compile for a 16-bit platform.");
+
 extern crate core;
 
 pub mod camera;
@@ -19,7 +22,6 @@ mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
-use bevy_core::FrameCount;
 use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 
@@ -38,16 +40,13 @@ pub mod prelude {
 
 use globals::GlobalsPlugin;
 pub use once_cell;
-use prelude::ComputedVisibility;
 
 use crate::{
     camera::CameraPlugin,
-    color::Color,
     mesh::MeshPlugin,
-    primitives::{CubemapFrusta, Frustum},
-    render_graph::RenderGraph,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
+    settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -61,7 +60,9 @@ use std::{
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
-pub struct RenderPlugin;
+pub struct RenderPlugin {
+    pub wgpu_settings: WgpuSettings,
+}
 
 /// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -129,19 +130,12 @@ pub struct RenderApp;
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let options = app
-            .world
-            .get_resource::<settings::WgpuSettings>()
-            .cloned()
-            .unwrap_or_default();
-
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
-            .init_debug_asset_loader::<ShaderLoader>()
-            .register_type::<Color>();
+            .init_debug_asset_loader::<ShaderLoader>();
 
-        if let Some(backends) = options.backends {
+        if let Some(backends) = self.wgpu_settings.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
 
@@ -154,22 +148,23 @@ impl Plugin for RenderPlugin {
                 });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: options.power_preference,
+                power_preference: self.wgpu_settings.power_preference,
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue, adapter_info, render_adapter) = futures_lite::future::block_on(
-                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
-            );
+            let (device, queue, adapter_info, render_adapter) =
+                futures_lite::future::block_on(renderer::initialize_renderer(
+                    &instance,
+                    &self.wgpu_settings,
+                    &request_adapter_options,
+                ));
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone())
-                .init_resource::<ScratchMainWorld>()
-                .register_type::<Frustum>()
-                .register_type::<CubemapFrusta>();
+                .init_resource::<ScratchMainWorld>();
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -204,7 +199,7 @@ impl Plugin for RenderPlugin {
                         .with_system(render_system.at_end()),
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
-                .init_resource::<RenderGraph>()
+                .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
@@ -228,7 +223,7 @@ impl Plugin for RenderPlugin {
 
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let meta_len = app_world.entities().meta_len();
+                    let total_count = app_world.entities().total_count();
 
                     assert_eq!(
                         render_app.world.entities().len(),
@@ -241,7 +236,7 @@ impl Plugin for RenderPlugin {
                         render_app
                             .world
                             .entities_mut()
-                            .flush_and_reserve_invalid_assuming_no_entities(meta_len);
+                            .flush_and_reserve_invalid_assuming_no_entities(total_count);
                     }
                 }
 
@@ -328,13 +323,17 @@ impl Plugin for RenderPlugin {
             });
         }
 
-        app.add_plugin(ValidParentCheckPlugin::<ComputedVisibility>::default())
+        app.add_plugin(ValidParentCheckPlugin::<view::ComputedVisibility>::default())
             .add_plugin(WindowRenderPlugin)
             .add_plugin(CameraPlugin)
             .add_plugin(ViewPlugin)
             .add_plugin(MeshPlugin)
-            .add_plugin(GlobalsPlugin)
-            .add_plugin(FrameCountPlugin);
+            .add_plugin(GlobalsPlugin);
+
+        app.register_type::<color::Color>()
+            .register_type::<primitives::Aabb>()
+            .register_type::<primitives::CubemapFrusta>()
+            .register_type::<primitives::Frustum>();
     }
 }
 
@@ -367,23 +366,4 @@ fn extract(app_world: &mut World, render_app: &mut App) {
     // so that in future, pipelining will be able to do this too without any code relying on it.
     // see <https://github.com/bevyengine/bevy/issues/5082>
     extract.apply_buffers(running_world);
-}
-
-pub struct FrameCountPlugin;
-impl Plugin for FrameCountPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.add_system(update_frame_count);
-
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_frame_count);
-        }
-    }
-}
-
-fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
-    frame_count.0 = frame_count.0.wrapping_add(1);
-}
-
-fn extract_frame_count(mut commands: Commands, frame_count: Extract<Res<FrameCount>>) {
-    commands.insert_resource(**frame_count);
 }

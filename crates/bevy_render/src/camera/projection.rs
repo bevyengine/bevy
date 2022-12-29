@@ -185,9 +185,12 @@ pub enum ScalingMode {
     None,
     /// Match the window size. 1 world unit = 1 pixel.
     WindowSize,
-    /// Use minimal possible viewport size while keeping the aspect ratio.
+    /// Keeping the aspect ratio while the axes can't be smaller than given minimum.
     /// Arguments are in world units.
-    Auto { min_width: f32, min_height: f32 },
+    AutoMin { min_width: f32, min_height: f32 },
+    /// Keeping the aspect ratio while the axes can't be bigger than given maximum.
+    /// Arguments are in world units.
+    AutoMax { max_width: f32, max_height: f32 },
     /// Keep vertical axis constant; resize horizontal with aspect ratio.
     /// The argument is the desired height of the viewport in world units.
     FixedVertical(f32),
@@ -227,14 +230,28 @@ impl CameraProjection for OrthographicProjection {
     fn update(&mut self, width: f32, height: f32) {
         let (viewport_width, viewport_height) = match self.scaling_mode {
             ScalingMode::WindowSize => (width, height),
-            ScalingMode::Auto {
+            ScalingMode::AutoMin {
                 min_width,
                 min_height,
             } => {
+                // Compare Pixels of current width and minimal height and Pixels of minimal width with current height.
+                // Then use bigger (min_height when true) as what it refers to (height when true) and calculate rest so it can't get under minimum.
                 if width * min_height > min_width * height {
                     (width * min_height / height, min_height)
                 } else {
                     (min_width, height * min_width / width)
+                }
+            }
+            ScalingMode::AutoMax {
+                max_width,
+                max_height,
+            } => {
+                // Compare Pixels of current width and maximal height and Pixels of maximal width with current height.
+                // Then use smaller (max_height when true) as what it refers to (height when true) and calculate rest so it can't get over maximum.
+                if width * max_height < max_width * height {
+                    (width * max_height / height, max_height)
+                } else {
+                    (max_width, height * max_width / width)
                 }
             }
             ScalingMode::FixedVertical(viewport_height) => {

@@ -53,6 +53,16 @@ impl Windows {
             .expect("Primary window does not exist")
     }
 
+    /// Get a reference to the focused [`Window`].
+    pub fn get_focused(&self) -> Option<&Window> {
+        self.windows.values().find(|window| window.is_focused())
+    }
+
+    /// Get a mutable reference to the focused [`Window`].
+    pub fn get_focused_mut(&mut self) -> Option<&mut Window> {
+        self.windows.values_mut().find(|window| window.is_focused())
+    }
+
     /// Returns the scale factor for the [`Window`] of `id`, or `1.0` if the window does not exist.
     pub fn scale_factor(&self, id: WindowId) -> f64 {
         if let Some(window) = self.get(id) {

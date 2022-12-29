@@ -118,7 +118,7 @@ fn setup(
     commands
         .spawn((
             PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Icosphere::default())),
+                mesh: meshes.add(Mesh::try_from(shape::Icosphere::default()).unwrap()),
                 material: materials.add(Color::rgb(0.8, 0.7, 0.6).into()),
                 ..default()
             },
@@ -129,7 +129,7 @@ fn setup(
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
             p.spawn((
-                SpatialBundle::VISIBLE_IDENTITY,
+                SpatialBundle::INHERITED_IDENTITY,
                 // Add the Name component
                 orbit_controller,
             ))
