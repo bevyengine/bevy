@@ -43,7 +43,7 @@ use std::{
 /// will be created with the default value upon realisation.
 /// This is most useful for `PhantomData` fields, such as markers for generic types.
 ///
-/// ### Example
+/// # Example
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -64,29 +64,6 @@ use std::{
 /// }
 ///
 /// # bevy_ecs::system::assert_is_system(my_system::<()>);
-/// ```
-///
-/// `#[system_param(read_only)]` and `#[system_param(mutable)]`:
-/// Can be placed on the struct definition to indicate whether or not the type should
-/// implement [`ReadOnlySystemParam`].
-/// In most cases you do not need to worry about either of these attributes, since derived
-/// `SystemParam`s automatically implement `ReadOnlySystemParam` if each field does.
-///
-/// However, it is necessary to manually specifify this when you need to encapsulate
-/// private fields, since the default automagic `ReadOnlySystemParam` impl publicly
-/// exposes the type of each field.
-///
-/// ### Example
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// # use bevy_ecs_macros::SystemParam;
-/// #[derive(Resource)]
-/// struct MyResource(u32);
-///
-/// #[derive(SystemParam)]
-/// #[system_param(mutable)] // `MyResource` gets leaked if you don't add this
-/// pub struct MyParam<'w>(ResMut<'w, MyResource>);
 /// ```
 ///
 /// # Generic `SystemParam`s
