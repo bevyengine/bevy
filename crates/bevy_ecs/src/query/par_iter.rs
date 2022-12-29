@@ -183,8 +183,9 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryParIter<'w, 's, Q, F> {
                 .unwrap_or(0)
         };
         let batch_size = max_size / (thread_count * self.batching_strategy.batches_per_thread);
-        batch_size
-            .min(self.batching_strategy.batch_size_limits.end)
-            .max(self.batching_strategy.batch_size_limits.start)
+        batch_size.clamp(
+            self.batching_strategy.batch_size_limits.start,
+            self.batching_strategy.batch_size_limits.end,
+        )
     }
 }
