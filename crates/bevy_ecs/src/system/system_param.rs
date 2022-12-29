@@ -1811,7 +1811,6 @@ mod tests {
     );
 
     #[derive(SystemParam)]
-    #[system_param(read_only)]
     pub struct EncapsulatedParam<'s> {
         p: PrivateParam<'s>,
     }

@@ -333,13 +333,6 @@ struct SystemParamFieldAttributes {
 
 static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 
-#[derive(Debug)]
-enum ParamAccess {
-    Auto,
-    ReadOnly,
-    Mutable,
-}
-
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
@@ -350,28 +343,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .into();
     };
     let path = bevy_ecs_path();
-
-    let mut access = ParamAccess::Auto;
-    for attr in &ast.attrs {
-        let expected_attr_name = format_ident!("{SYSTEM_PARAM_ATTRIBUTE_NAME}");
-        if attr.path.get_ident() != Some(&expected_attr_name) {
-            continue;
-        }
-
-        syn::custom_keyword!(read_only);
-        syn::custom_keyword!(mutable);
-
-        attr.parse_args_with(|input: ParseStream| {
-            if input.parse::<Option<read_only>>()?.is_some() {
-                access = ParamAccess::ReadOnly;
-            }
-            if input.parse::<Option<mutable>>()?.is_some() {
-                access = ParamAccess::Mutable;
-            }
-            Ok(())
-        })
-        .expect("Invalid 'system_param' attribute format.");
-    }
 
     let field_attributes = field_definitions
         .iter()
