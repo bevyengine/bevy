@@ -3,6 +3,7 @@ use bevy_utils::AHasher;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
+    ffi::OsStr,
     hash::{Hash, Hasher},
     path::{Path, PathBuf},
 };
