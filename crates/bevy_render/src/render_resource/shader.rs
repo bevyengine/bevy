@@ -31,35 +31,61 @@ pub struct Shader {
     source: Source,
     import_path: Option<ShaderImport>,
     imports: Vec<ShaderImport>,
+    path: String,
 }
 
 impl Shader {
-    pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Shader {
+    pub fn from_wgsl_with_path(
+        source: impl Into<Cow<'static, str>>,
+        path: impl Into<String>,
+    ) -> Shader {
         let source = source.into();
         let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
         Shader {
             imports: shader_imports.imports,
             import_path: shader_imports.import_path,
             source: Source::Wgsl(source),
+            path: path.into(),
         }
     }
 
-    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Shader {
+    pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Shader {
+        Shader::from_wgsl_with_path(source, "wgsl")
+    }
+
+    pub fn from_glsl_with_path(
+        source: impl Into<Cow<'static, str>>,
+        stage: naga::ShaderStage,
+        path: impl Into<String>,
+    ) -> Shader {
         let source = source.into();
         let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
         Shader {
             imports: shader_imports.imports,
             import_path: shader_imports.import_path,
             source: Source::Glsl(source, stage),
+            path: path.into(),
         }
     }
 
-    pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>) -> Shader {
+    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Shader {
+        Shader::from_glsl_with_path(source, stage, "glsl")
+    }
+
+    pub fn from_spirv_with_path(
+        source: impl Into<Cow<'static, [u8]>>,
+        path: impl Into<String>,
+    ) -> Shader {
         Shader {
             imports: Vec::new(),
             import_path: None,
             source: Source::SpirV(source.into()),
+            path: path.into(),
         }
+    }
+
+    pub fn from_spirv(source: impl Into<Cow<'static, [u8]>>) -> Shader {
+        Shader::from_spirv_with_path(source, "spirv")
     }
 
     pub fn set_import_path<P: Into<String>>(&mut self, import_path: P) {
@@ -82,7 +108,7 @@ impl Shader {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub enum Source {
     Wgsl(Cow<'static, str>),
     Glsl(Cow<'static, str>, naga::ShaderStage),
@@ -94,39 +120,42 @@ pub enum Source {
 
 /// A processed [Shader]. This cannot contain preprocessor directions. It must be "ready to compile"
 #[derive(PartialEq, Eq, Debug)]
-pub enum ProcessedShader {
-    Wgsl(Cow<'static, str>),
-    Glsl(Cow<'static, str>, naga::ShaderStage),
-    SpirV(Cow<'static, [u8]>),
+pub struct ProcessedShader {
+    pub source: Source,
+    path: String,
 }
 
 impl ProcessedShader {
     pub fn get_wgsl_source(&self) -> Option<&str> {
-        if let ProcessedShader::Wgsl(source) = self {
+        if let Source::Wgsl(source) = &self.source {
             Some(source)
         } else {
             None
         }
     }
     pub fn get_glsl_source(&self) -> Option<&str> {
-        if let ProcessedShader::Glsl(source, _stage) = self {
+        if let Source::Glsl(source, _stage) = &self.source {
             Some(source)
         } else {
             None
         }
     }
 
+    pub fn get_path(&self) -> &str {
+        &self.path
+    }
+
     pub fn reflect(&self, features: Features) -> Result<ShaderReflection, ShaderReflectError> {
-        let module = match &self {
+        let module = match &self.source {
             // TODO: process macros here
-            ProcessedShader::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
-            ProcessedShader::Glsl(source, shader_stage) => {
+            Source::Wgsl(source) => naga::front::wgsl::parse_str(source)?,
+            Source::Glsl(source, shader_stage) => {
                 let mut parser = naga::front::glsl::Parser::default();
                 parser
                     .parse(&naga::front::glsl::Options::from(*shader_stage), source)
                     .map_err(ShaderReflectError::GlslParse)?
             }
-            ProcessedShader::SpirV(source) => naga::front::spv::parse_u8_slice(
+            Source::SpirV(source) => naga::front::spv::parse_u8_slice(
                 source,
                 &naga::front::spv::Options {
                     adjust_coordinate_space: false,
@@ -164,8 +193,8 @@ impl ProcessedShader {
     ) -> Result<ShaderModuleDescriptor, AsModuleDescriptorError> {
         Ok(ShaderModuleDescriptor {
             label: None,
-            source: match self {
-                ProcessedShader::Wgsl(source) => {
+            source: match &self.source {
+                Source::Wgsl(source) => {
                     #[cfg(debug_assertions)]
                     // Parse and validate the shader early, so that (e.g. while hot reloading) we can
                     // display nicely formatted error messages instead of relying on just displaying the error string
@@ -174,14 +203,14 @@ impl ProcessedShader {
 
                     ShaderSource::Wgsl(source.clone())
                 }
-                ProcessedShader::Glsl(_source, _stage) => {
+                Source::Glsl(_source, _stage) => {
                     let reflection = self.reflect(features)?;
                     // TODO: it probably makes more sense to convert this to spirv, but as of writing
                     // this comment, naga's spirv conversion is broken
                     let wgsl = reflection.get_wgsl()?;
                     ShaderSource::Wgsl(wgsl.into())
                 }
-                ProcessedShader::SpirV(source) => make_spirv(source),
+                Source::SpirV(source) => make_spirv(source),
             },
         })
     }
@@ -231,21 +260,25 @@ impl AssetLoader for ShaderLoader {
     ) -> BoxedFuture<'a, Result<(), anyhow::Error>> {
         Box::pin(async move {
             let ext = load_context.path().extension().unwrap().to_str().unwrap();
+            let path = load_context.path().to_str().unwrap();
 
             let mut shader = match ext {
-                "spv" => Shader::from_spirv(Vec::from(bytes)),
-                "wgsl" => Shader::from_wgsl(String::from_utf8(Vec::from(bytes))?),
-                "vert" => Shader::from_glsl(
+                "spv" => Shader::from_spirv_with_path(Vec::from(bytes), path),
+                "wgsl" => Shader::from_wgsl_with_path(String::from_utf8(Vec::from(bytes))?, path),
+                "vert" => Shader::from_glsl_with_path(
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Vertex,
+                    path,
                 ),
-                "frag" => Shader::from_glsl(
+                "frag" => Shader::from_glsl_with_path(
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Fragment,
+                    path,
                 ),
-                "comp" => Shader::from_glsl(
+                "comp" => Shader::from_glsl_with_path(
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Compute,
+                    path,
                 ),
                 _ => panic!("unhandled extension: {ext}"),
             };
@@ -404,9 +437,12 @@ impl ShaderProcessor {
         let shader_str = match &shader.source {
             Source::Wgsl(source) => source.deref(),
             Source::Glsl(source, _stage) => source.deref(),
-            Source::SpirV(source) => {
+            Source::SpirV(_) => {
                 if shader_defs.is_empty() {
-                    return Ok(ProcessedShader::SpirV(source.clone()));
+                    return Ok(ProcessedShader {
+                        source: shader.source.clone(),
+                        path: "".to_string(),
+                    });
                 }
                 return Err(ProcessShaderError::ShaderFormatDoesNotSupportShaderDefs);
             }
@@ -564,13 +600,16 @@ impl ShaderProcessor {
 
         let processed_source = Cow::from(final_string);
 
-        match &shader.source {
-            Source::Wgsl(_source) => Ok(ProcessedShader::Wgsl(processed_source)),
-            Source::Glsl(_source, stage) => Ok(ProcessedShader::Glsl(processed_source, *stage)),
-            Source::SpirV(_source) => {
-                unreachable!("SpirV has early return");
-            }
-        }
+        Ok(ProcessedShader {
+            source: match &shader.source {
+                Source::Wgsl(_source) => Source::Wgsl(processed_source),
+                Source::Glsl(_source, stage) => Source::Glsl(processed_source, *stage),
+                Source::SpirV(_source) => {
+                    unreachable!("SpirV has early return");
+                }
+            },
+            path: shader.path.clone(),
+        })
     }
 
     fn apply_import(
@@ -591,14 +630,14 @@ impl ShaderProcessor {
 
         match &shader.source {
             Source::Wgsl(_) => {
-                if let ProcessedShader::Wgsl(import_source) = &imported_processed {
+                if let Source::Wgsl(import_source) = &imported_processed.source {
                     final_string.push_str(import_source);
                 } else {
                     return Err(ProcessShaderError::MismatchedImportFormat(import.clone()));
                 }
             }
             Source::Glsl(_, _) => {
-                if let ProcessedShader::Glsl(import_source, _) = &imported_processed {
+                if let Source::Glsl(import_source, _) = &imported_processed.source {
                     final_string.push_str(import_source);
                 } else {
                     return Err(ProcessShaderError::MismatchedImportFormat(import.clone()));

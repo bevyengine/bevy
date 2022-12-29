@@ -4,7 +4,7 @@ use crate::{
         ComputePipelineDescriptor, ProcessShaderError, ProcessedShader,
         RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
         RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport,
-        ShaderProcessor, ShaderReflectError,
+        ShaderProcessor, ShaderReflectError, Source,
     },
     renderer::RenderDevice,
     Extract,
@@ -699,7 +699,7 @@ impl PipelineCache {
     }
 }
 
-fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
+fn log_shader_error(shader: &ProcessedShader, error: &AsModuleDescriptorError) {
     use codespan_reporting::{
         diagnostic::{Diagnostic, Label},
         files::SimpleFile,
@@ -709,17 +709,17 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
     match error {
         AsModuleDescriptorError::ShaderReflectError(error) => match error {
             ShaderReflectError::WgslParse(error) => {
-                let source = source
+                let source = shader
                     .get_wgsl_source()
                     .expect("non-wgsl source for wgsl error");
-                let msg = error.emit_to_string(source);
+                let msg = error.emit_to_string_with_path(source, shader.get_path());
                 error!("failed to process shader:\n{}", msg);
             }
             ShaderReflectError::GlslParse(errors) => {
-                let source = source
+                let source = shader
                     .get_glsl_source()
                     .expect("non-glsl source for glsl error");
-                let files = SimpleFile::new("glsl", source);
+                let files = SimpleFile::new(shader.get_path(), source);
                 let config = codespan_reporting::term::Config::default();
                 let mut writer = term::termcolor::Ansi::new(Vec::new());
 
@@ -743,16 +743,15 @@ fn log_shader_error(source: &ProcessedShader, error: &AsModuleDescriptorError) {
                 error!("failed to process shader:\n{}", error);
             }
             ShaderReflectError::Validation(error) => {
-                let (filename, source) = match source {
-                    ProcessedShader::Wgsl(source) => ("wgsl", source.as_ref()),
-                    ProcessedShader::Glsl(source, _) => ("glsl", source.as_ref()),
-                    ProcessedShader::SpirV(_) => {
+                let source = match &shader.source {
+                    Source::Wgsl(source) | Source::Glsl(source, _) => source.as_ref(),
+                    Source::SpirV(_) => {
                         error!("failed to process shader:\n{}", error);
                         return;
                     }
                 };
 
-                let files = SimpleFile::new(filename, source);
+                let files = SimpleFile::new(shader.get_path(), source);
                 let config = term::Config::default();
                 let mut writer = term::termcolor::Ansi::new(Vec::new());
 
