@@ -184,8 +184,8 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
     fn from(mut path: PathBuf) -> Self {
         match path
             .file_name()
-            .map(ToOwned::to_owned)
             .and_then(OsStr::to_str)
+            .map(ToOwned::to_owned)
         {
             Some(path) => {
                 let mut parts = path.splitn(2, '#');
