@@ -10,13 +10,11 @@ mod render;
 
 pub use alpha::*;
 pub use bundle::*;
-pub use environment_map::*;
+pub use environment_map::EnvironmentMap;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
 pub use render::*;
-
-use bevy_window::ModifiesWindows;
 
 pub mod prelude {
     #[doc(hidden)]
@@ -26,6 +24,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
+        environment_map::EnvironmentMap,
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
@@ -54,6 +53,8 @@ use bevy_render::{
     RenderApp, RenderStage,
 };
 use bevy_transform::TransformSystem;
+use bevy_window::ModifiesWindows;
+use environment_map::EnvironmentMapPlugin;
 
 pub const PBR_TYPES_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1708015359337029744);

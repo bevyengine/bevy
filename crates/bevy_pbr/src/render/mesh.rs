@@ -1,8 +1,8 @@
 use crate::{
-    new_environment_map_bind_group_layout, GlobalLightMeta, GpuLights, GpuPointLights, LightMeta,
-    NotShadowCaster, NotShadowReceiver, ShadowPipeline, ViewClusterBindings,
-    ViewLightsUniformOffset, ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT,
-    MAX_DIRECTIONAL_LIGHTS,
+    environment_map::new_environment_map_bind_group_layout, GlobalLightMeta, GpuLights,
+    GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver, ShadowPipeline,
+    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
+    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};

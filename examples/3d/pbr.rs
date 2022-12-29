@@ -1,6 +1,6 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{asset::LoadState, pbr::EnvironmentMap, prelude::*};
+use bevy::{asset::LoadState, prelude::*};
 
 fn main() {
     App::new()
