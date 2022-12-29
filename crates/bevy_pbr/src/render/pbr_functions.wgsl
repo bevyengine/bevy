@@ -166,7 +166,9 @@ fn pbr(
     let metallic = in.material.metallic;
     let perceptual_roughness = in.material.perceptual_roughness;
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
+    let clear_coat_roughness = perceptualRoughnessToRoughness(in.material.clear_coat_peceptual_roughness);
 
+    let clear_coat = in.material.clear_coat;
     let occlusion = in.occlusion;
 
     output_color = alpha_discard(in.material, output_color);
@@ -177,7 +179,16 @@ fn pbr(
     // Remapping [0,1] reflectance to F0
     // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
     let reflectance = in.material.reflectance;
-    let F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
+    var F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
+
+    // Adjust base layer F0 based on clear coat
+    // See https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/baselayermodification
+    if clear_coat != 0.0 {
+        let sqrt_base_f0 = sqrt(F0);
+        let n = 1.0 - (5.0 * sqrt_base_f0);
+        let d = 5.0 - sqrt_base_f0;
+        F0 = (n * n) / (d * d);
+    }
 
     // Diffuse strength inversely related to metallicity
     let diffuse_color = output_color.rgb * (1.0 - metallic);
@@ -204,8 +215,8 @@ fn pbr(
                 && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        direct_light += light_contrib * shadow;
+        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
+        light_accum = light_accum + light_contrib * shadow;
     }
 
     // Spot lights (direct)
@@ -217,8 +228,8 @@ fn pbr(
                 && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        direct_light += light_contrib * shadow;
+        let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
+        light_accum = light_accum + light_contrib * shadow;
     }
 
     // Directional lights (direct)
@@ -230,8 +241,8 @@ fn pbr(
                 && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
-        let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
-        direct_light += light_contrib * shadow;
+        let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
+        light_accum = light_accum + light_contrib * shadow;
     }
 
     var indirect_diffuse_light = vec3(0.0);

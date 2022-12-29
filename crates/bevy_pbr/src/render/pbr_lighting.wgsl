@@ -76,6 +76,11 @@ fn V_SmithGGXCorrelated(roughness: f32, NoV: f32, NoL: f32) -> f32 {
     return v;
 }
 
+// https://google.github.io/filament/Filament.html#listing_kelemen
+fn V_Kelemen(LoH: f32) -> f32 {
+    return 0.25 / (LoH * LoH);
+}
+
 // Fresnel function
 // see https://google.github.io/filament/Filament.html#citation-schlick94
 // F_Schlick(v,h,f_0,f_90) = f_0 + (f_90 − f_0) (1 − v⋅h)^5
@@ -149,9 +154,22 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
     return clampedPerceptualRoughness * clampedPerceptualRoughness;
 }
 
+// https://google.github.io/filament/Filament.html#listing_clearcoatbrdf
+fn apply_clear_cloat(clear_coat: f32, clear_coat_roughness: f32, color: vec3<f32>, 
+    Fd: vec3<f32>, Fr: vec3<f32>, NoH: f32, H: vec3<f32>, LoH: f32
+) -> vec3<f32> {
+    let Dc = D_GGX(clear_coat_roughness, NoH, H);
+    let Vc = V_Kelemen(LoH);
+    let Fc = F_Schlick(0.04, 1.0, LoH) * clear_coat;
+    let Frc = (Dc * Vc) * Fc;
+
+    let inv_Fc = 1.0 - Fc;
+    return color * ((Fd + Fr * inv_Fc) * inv_Fc + Frc);
+}
+
 fn point_light(
     world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
-    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
+    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>, clear_coat: f32, clear_coat_roughness: f32
 ) -> vec3<f32> {
     let light_to_frag = light.position_radius.xyz - world_position.xyz;
     let distance_square = dot(light_to_frag, light_to_frag);
@@ -201,15 +219,17 @@ fn point_light(
 
     // TODO compensate for energy loss https://google.github.io/filament/Filament.html#materialsystem/improvingthebrdfs/energylossinspecularreflectance
 
-    return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
+    let color = ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
+
+    return apply_clear_cloat(clear_coat, clear_coat_roughness, color, diffuse, specular_light, NoH, H, LoH);
 }
 
 fn spot_light(
     world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
-    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>
+    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>, clear_coat: f32, clear_coat_roughness: f32
 ) -> vec3<f32> {
     // reuse the point light calculations
-    let point_light = point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor);
+    let point_light = point_light(world_position, light, roughness, NdotV, N, V, R, F0, diffuseColor, clear_coat, clear_coat_roughness);
 
     // reconstruct spot dir from x/z and y-direction flag
     var spot_dir = vec3<f32>(light.light_custom_data.x, 0.0, light.light_custom_data.y);
@@ -229,7 +249,9 @@ fn spot_light(
     return point_light * spot_attenuation;
 }
 
-fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>) -> vec3<f32> {
+fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal: vec3<f32>, view: vec3<f32>, 
+    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>, clear_coat: f32, clear_coat_roughness: f32
+) -> vec3<f32> {
     let incident_light = light.direction_to_light.xyz;
 
     let half_vector = normalize(incident_light + view);
@@ -241,5 +263,7 @@ fn directional_light(light: DirectionalLight, roughness: f32, NdotV: f32, normal
     let specularIntensity = 1.0;
     let specular_light = specular(F0, roughness, half_vector, NdotV, NoL, NoH, LoH, specularIntensity);
 
-    return (specular_light + diffuse) * light.color.rgb * NoL;
+    let color = (specular_light + diffuse) * light.color.rgb * NoL;
+
+    return apply_clear_cloat(clear_coat, clear_coat_roughness, color, diffuse, specular_light, NoH, half_vector, LoH);
 }

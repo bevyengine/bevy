@@ -129,6 +129,25 @@ pub struct StandardMaterial {
     #[doc(alias = "specular_intensity")]
     pub reflectance: f32,
 
+    /// Clear coat strength in range `[0.0, 1.0]`.
+    ///
+    /// Controls how strong an additional clear coat layer over the base material
+    /// should appear.
+    ///
+    /// Set to `0.0`, no clear coat layer is visible, and when set to `1.0`
+    /// the clear coat is fully visible.
+    ///
+    /// Defaults to `0.0` meaning no clear coat.
+    pub clear_coat: f32,
+
+    /// Linear perceptual roughness of the clear coat, clamped to `[0.089, 1.0]` in the shader.
+    ///
+    /// Defaults to minimum of `0.089`.
+    ///
+    /// Low values result in a "glossy" clear coat with specular highlights,
+    /// while values close to `1` result in rough materials.
+    pub clear_coat_perceptual_roughness: f32,
+
     /// Used to fake the lighting of bumps and dents on a material.
     ///
     /// A typical usage would be faking cobblestones on a flat plane mesh in 3D.
@@ -248,6 +267,8 @@ impl Default for StandardMaterial {
             // Expressed in a linear scale and equivalent to 4% reflectance see
             // <https://google.github.io/filament/Material%20Properties.pdf>
             reflectance: 0.5,
+            clear_coat: 0.0,
+            clear_coat_perceptual_roughness: 0.089,
             occlusion_texture: None,
             normal_map_texture: None,
             flip_normal_map_y: false,
@@ -322,6 +343,12 @@ pub struct StandardMaterialUniform {
     /// Specular intensity for non-metals on a linear scale of [0.0, 1.0]
     /// defaults to 0.5 which is mapped to 4% reflectance in the shader
     pub reflectance: f32,
+    /// Clear coat strength in range [0.0, 1.0]
+    /// Defaults to 0.0
+    pub clear_coat: f32,
+    /// Linear perceptual roughness for the clear coat, clamped to [0.089, 1.0] in the shader
+    /// Defaults to minimum of 0.089
+    pub clear_coat_peceptual_roughness: f32,
     /// The [`StandardMaterialFlags`] accessible in the `wgsl` shader.
     pub flags: u32,
     /// When the alpha mode mask flag is set, any base color alpha above this cutoff means fully opaque,
@@ -385,6 +412,8 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
             roughness: self.perceptual_roughness,
             metallic: self.metallic,
             reflectance: self.reflectance,
+            clear_coat: self.clear_coat,
+            clear_coat_peceptual_roughness: self.clear_coat_perceptual_roughness,
             flags: flags.bits(),
             alpha_cutoff,
         }
