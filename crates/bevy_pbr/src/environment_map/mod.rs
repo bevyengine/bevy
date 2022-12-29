@@ -1,6 +1,6 @@
 use crate::MeshPipeline;
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, load_internal_binary_asset, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     prelude::{Component, Entity},
@@ -21,14 +21,12 @@ use bevy_render::{
         ShaderStages, TextureSampleType, TextureViewDimension,
     },
     renderer::RenderDevice,
-    texture::{CompressedImageFormats, Image, ImageType},
+    texture::Image,
     RenderApp, RenderStage,
 };
 
 pub const ENVIRONMENT_MAP_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 154476556247605696);
-pub const ENVIRONMENT_BRDF_LUT_HANDLE: HandleUntyped =
-    HandleUntyped::weak_from_u64(Image::TYPE_UUID, 754476556247605696);
 
 pub struct EnvironmentMapPlugin;
 
@@ -40,15 +38,6 @@ impl Plugin for EnvironmentMapPlugin {
             "environment_map.wgsl",
             Shader::from_wgsl
         );
-        load_internal_binary_asset!(app, ENVIRONMENT_BRDF_LUT_HANDLE, "brdf_lut.png", |bytes| {
-            Image::from_buffer(
-                bytes,
-                ImageType::MimeType("image/png"),
-                CompressedImageFormats::NONE,
-                false,
-            )
-            .unwrap()
-        });
 
         app.register_type::<EnvironmentMap>()
             .add_plugin(ExtractComponentPlugin::<EnvironmentMap>::default());
@@ -83,9 +72,7 @@ impl EnvironmentMap {
     /// Whether or not all textures neccesary to use the environment map
     /// have been loaded by the asset server.
     pub fn is_loaded(&self, images: &RenderAssets<Image>) -> bool {
-        images.get(&ENVIRONMENT_BRDF_LUT_HANDLE.typed()).is_some()
-            && images.get(&self.diffuse_map).is_some()
-            && images.get(&self.specular_map).is_some()
+        images.get(&self.diffuse_map).is_some() && images.get(&self.specular_map).is_some()
     }
 }
 
@@ -112,8 +99,7 @@ fn queue_environment_map_bind_groups(
     views: Query<(Entity, &EnvironmentMap)>,
 ) {
     for (entity, environment_map) in &views {
-        let (Some(brdf_lut), Some(diffuse_map), Some(specular_map)) = (
-            images.get(&ENVIRONMENT_BRDF_LUT_HANDLE.typed()),
+        let (Some(diffuse_map), Some(specular_map)) = (
             images.get(&environment_map.diffuse_map),
             images.get(&environment_map.specular_map)
         ) else { return };
@@ -124,19 +110,15 @@ fn queue_environment_map_bind_groups(
             entries: &[
                 BindGroupEntry {
                     binding: 0,
-                    resource: BindingResource::TextureView(&brdf_lut.texture_view),
-                },
-                BindGroupEntry {
-                    binding: 1,
                     resource: BindingResource::TextureView(&diffuse_map.texture_view),
                 },
                 BindGroupEntry {
-                    binding: 2,
+                    binding: 1,
                     resource: BindingResource::TextureView(&specular_map.texture_view),
                 },
                 BindGroupEntry {
-                    binding: 3,
-                    resource: BindingResource::Sampler(&brdf_lut.sampler),
+                    binding: 2,
+                    resource: BindingResource::Sampler(&specular_map.sampler),
                 },
             ],
         });
@@ -156,7 +138,7 @@ pub fn new_environment_map_bind_group_layout(render_device: &RenderDevice) -> Bi
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Texture {
                     sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::D2,
+                    view_dimension: TextureViewDimension::Cube,
                     multisampled: false,
                 },
                 count: None,
@@ -173,16 +155,6 @@ pub fn new_environment_map_bind_group_layout(render_device: &RenderDevice) -> Bi
             },
             BindGroupLayoutEntry {
                 binding: 2,
-                visibility: ShaderStages::FRAGMENT,
-                ty: BindingType::Texture {
-                    sample_type: TextureSampleType::Float { filterable: true },
-                    view_dimension: TextureViewDimension::Cube,
-                    multisampled: false,
-                },
-                count: None,
-            },
-            BindGroupLayoutEntry {
-                binding: 3,
                 visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Sampler(SamplerBindingType::Filtering),
                 count: None,
