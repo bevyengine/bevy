@@ -2,10 +2,19 @@ use crate::{Children, HierarchyEvent, Parent};
 use bevy_ecs::{
     bundle::Bundle,
     entity::Entity,
+    prelude::Events,
     system::{Command, Commands, EntityCommands},
     world::{EntityMut, World},
 };
 use smallvec::SmallVec;
+
+// Do not use `world.send_event_batch` as it prints error message when the Events are not available in the world,
+// even though it's a valid use case to execute commands on a world without events. Loading a GLTF file for example
+fn push_events(world: &mut World, events: impl IntoIterator<Item = HierarchyEvent>) {
+    if let Some(mut moved) = world.get_resource_mut::<Events<HierarchyEvent>>() {
+        moved.extend(events);
+    }
+}
 
 fn push_child_unchecked(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
@@ -58,13 +67,16 @@ fn update_old_parent(world: &mut World, child: Entity, parent: Entity) {
         }
         remove_from_children(world, previous_parent, child);
 
-        world.send_event(HierarchyEvent::ChildMoved {
-            child,
-            previous_parent,
-            new_parent: parent,
-        });
+        push_events(
+            world,
+            [HierarchyEvent::ChildMoved {
+                child,
+                previous_parent,
+                new_parent: parent,
+            }],
+        );
     } else {
-        world.send_event(HierarchyEvent::ChildAdded { child, parent });
+        push_events(world, [HierarchyEvent::ChildAdded { child, parent }]);
     }
 }
 
@@ -95,7 +107,7 @@ fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
             events.push(HierarchyEvent::ChildAdded { child, parent });
         }
     }
-    world.send_event_batch(events);
+    push_events(world, events);
 }
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
@@ -114,7 +126,7 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
             world.entity_mut(child).remove::<Parent>();
         }
     }
-    world.send_event_batch(events);
+    push_events(world, events);
 
     let mut parent = world.entity_mut(parent);
     if let Some(mut parent_children) = parent.get_mut::<Children>() {
@@ -337,10 +349,13 @@ impl<'w> WorldChildBuilder<'w> {
     pub fn spawn(&mut self, bundle: impl Bundle + Send + Sync + 'static) -> EntityMut<'_> {
         let entity = self.world.spawn((bundle, Parent(self.parent))).id();
         push_child_unchecked(self.world, self.parent, entity);
-        self.world.send_event(HierarchyEvent::ChildAdded {
-            child: entity,
-            parent: self.parent,
-        });
+        push_events(
+            self.world,
+            [HierarchyEvent::ChildAdded {
+                child: entity,
+                parent: self.parent,
+            }],
+        );
         self.world.entity_mut(entity)
     }
 
@@ -348,10 +363,13 @@ impl<'w> WorldChildBuilder<'w> {
     pub fn spawn_empty(&mut self) -> EntityMut<'_> {
         let entity = self.world.spawn(Parent(self.parent)).id();
         push_child_unchecked(self.world, self.parent, entity);
-        self.world.send_event(HierarchyEvent::ChildAdded {
-            child: entity,
-            parent: self.parent,
-        });
+        push_events(
+            self.world,
+            [HierarchyEvent::ChildAdded {
+                child: entity,
+                parent: self.parent,
+            }],
+        );
         self.world.entity_mut(entity)
     }
 
@@ -465,7 +483,7 @@ impl<'w> BuildWorldChildren for EntityMut<'w> {
         if let Some(parent) = self.remove::<Parent>().map(|p| p.get()) {
             self.world_scope(|world| {
                 remove_from_children(world, parent, child);
-                world.send_event(HierarchyEvent::ChildRemoved { child, parent });
+                push_events(world, [HierarchyEvent::ChildRemoved { child, parent }]);
             });
         }
         self
