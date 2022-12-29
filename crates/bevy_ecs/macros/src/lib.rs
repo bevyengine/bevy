@@ -518,7 +518,21 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 {}
             }
         }
-        ParamAccess::ReadOnly => todo!(),
+        ParamAccess::ReadOnly => {
+            quote! {
+                fn __assert_field_is_read_only_system_param<T: #path::system::ReadOnlySystemParam>() {}
+                fn __assert_each_field_is_read_only_system_param #impl_generics () #where_clause {
+                    #(
+                        __assert_field_is_read_only_system_param::<#field_types>();
+                    )*
+                }
+
+                // SAFETY: The above code will cause a compile error if each field does not implement `ReadOnlySystemParam`.
+                // Since each field is `ReadOnlySystemParam`, this can only read from the `World`
+                unsafe impl #impl_generics #path::system::ReadOnlySystemParam for #struct_name #ty_generics #where_clause
+                {}
+            }
+        }
         ParamAccess::Mutable => quote! {},
     };
 
