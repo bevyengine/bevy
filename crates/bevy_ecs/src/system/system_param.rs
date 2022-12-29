@@ -1812,10 +1812,10 @@ mod tests {
 
     #[derive(SystemParam)]
     #[system_param(read_only)]
-    pub struct EncapsulatedParam<'s, T: Send + 'static> {
-        _p: PrivateParam<'s, T>,
+    pub struct EncapsulatedParam<'s> {
+        p: PrivateParam<'s>,
     }
 
     #[derive(SystemParam)]
-    struct PrivateParam<'s, T: Send + 'static>(Local<'s, PhantomData<T>>);
+    struct PrivateParam<'s>(Local<'s, ()>);
 }
