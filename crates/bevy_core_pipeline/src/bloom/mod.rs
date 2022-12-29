@@ -231,9 +231,11 @@ impl Node for BloomNode {
 
         {
             let view = &BloomTextures::texture_view(&textures.texture_a, 0);
-            let mut prefilter_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &RenderPassDescriptor {
+            let mut prefilter_pass = TrackedRenderPass::new(
+                &render_context.render_device,
+                render_context
+                    .command_encoder
+                    .begin_render_pass(&RenderPassDescriptor {
                         label: Some("bloom_prefilter_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
@@ -241,8 +243,8 @@ impl Node for BloomNode {
                             ops: Operations::default(),
                         })],
                         depth_stencil_attachment: None,
-                    },
-                ));
+                    }),
+            );
             prefilter_pass.set_render_pipeline(downsampling_prefilter_pipeline);
             prefilter_pass.set_bind_group(
                 0,
@@ -257,9 +259,11 @@ impl Node for BloomNode {
 
         for mip in 1..textures.mip_count {
             let view = &BloomTextures::texture_view(&textures.texture_a, mip);
-            let mut downsampling_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &RenderPassDescriptor {
+            let mut downsampling_pass = TrackedRenderPass::new(
+                &render_context.render_device,
+                render_context
+                    .command_encoder
+                    .begin_render_pass(&RenderPassDescriptor {
                         label: Some("bloom_downsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
@@ -267,8 +271,8 @@ impl Node for BloomNode {
                             ops: Operations::default(),
                         })],
                         depth_stencil_attachment: None,
-                    },
-                ));
+                    }),
+            );
             downsampling_pass.set_render_pipeline(downsampling_pipeline);
             downsampling_pass.set_bind_group(
                 0,
@@ -283,9 +287,11 @@ impl Node for BloomNode {
 
         for mip in (1..textures.mip_count).rev() {
             let view = &BloomTextures::texture_view(&textures.texture_b, mip - 1);
-            let mut upsampling_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &RenderPassDescriptor {
+            let mut upsampling_pass = TrackedRenderPass::new(
+                &render_context.render_device,
+                render_context
+                    .command_encoder
+                    .begin_render_pass(&RenderPassDescriptor {
                         label: Some("bloom_upsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
@@ -293,8 +299,8 @@ impl Node for BloomNode {
                             ops: Operations::default(),
                         })],
                         depth_stencil_attachment: None,
-                    },
-                ));
+                    }),
+            );
             upsampling_pass.set_render_pipeline(upsampling_pipeline);
             upsampling_pass.set_bind_group(
                 0,
@@ -308,9 +314,11 @@ impl Node for BloomNode {
         }
 
         {
-            let mut upsampling_final_pass =
-                TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
-                    &RenderPassDescriptor {
+            let mut upsampling_final_pass = TrackedRenderPass::new(
+                &render_context.render_device,
+                render_context
+                    .command_encoder
+                    .begin_render_pass(&RenderPassDescriptor {
                         label: Some("bloom_upsampling_final_pass"),
                         color_attachments: &[Some(view_target.get_unsampled_color_attachment(
                             Operations {
@@ -319,8 +327,8 @@ impl Node for BloomNode {
                             },
                         ))],
                         depth_stencil_attachment: None,
-                    },
-                ));
+                    }),
+            );
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(
                 0,

@@ -46,7 +46,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         let render_pass = render_context
             .command_encoder
             .begin_render_pass(&pass_descriptor);
-        let mut render_pass = TrackedRenderPass::new(render_pass);
+        let mut render_pass = TrackedRenderPass::new(&render_context.render_device, render_pass);
 
         if let Some(viewport) = viewport {
             render_pass.set_camera_viewport(viewport);
