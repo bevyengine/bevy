@@ -253,7 +253,7 @@ impl Color {
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
-        let hex = hex.as_ref().replace("#", "");
+        let hex = hex.as_ref().replace('#', "");
 
         // RGB
         if hex.len() == 3 {
