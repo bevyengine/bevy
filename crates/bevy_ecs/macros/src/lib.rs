@@ -533,7 +533,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 {}
             }
         }
-        // For unconditionally mutable params, we simply do not implement `ReadOnlySystemParam`.
         ParamAccess::Mutable => quote! {},
     };
 
