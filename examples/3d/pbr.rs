@@ -1,11 +1,12 @@
 //! This example shows how to configure Physically Based Rendering (PBR) parameters.
 
-use bevy::{pbr::EnvironmentMap, prelude::*};
+use bevy::{asset::LoadState, pbr::EnvironmentMap, prelude::*};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
+        .add_system(environment_map_load_finish)
         .run();
 }
 
@@ -60,6 +61,7 @@ fn setup(
         transform: Transform::from_xyz(-5.0, -2.5, 0.0),
         ..default()
     });
+
     // light
     commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(50.0, 50.0, 50.0),
@@ -70,7 +72,77 @@ fn setup(
         },
         ..default()
     });
+
+    // labels
+    commands.spawn(
+        TextBundle::from_section(
+            "Perceptual Roughness",
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 36.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(20.0),
+                left: Val::Px(100.0),
+                ..default()
+            },
+            ..default()
+        }),
+    );
+
+    commands.spawn(
+        TextBundle::from_section(
+            "M\ne\nt\na\nl\nl\ni\nc",
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 36.0,
+                color: Color::WHITE,
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(80.0),
+                right: Val::Px(50.0),
+                ..default()
+            },
+            ..default()
+        }),
+    );
+
+    commands.spawn((
+        TextBundle::from_section(
+            "Loading Environment Map...",
+            TextStyle {
+                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
+                font_size: 36.0,
+                color: Color::RED,
+            },
+        )
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                bottom: Val::Px(20.0),
+                right: Val::Px(20.0),
+                ..default()
+            },
+            ..default()
+        }),
+        EnvironmentMapLabel,
+    ));
+
     // camera
+    let environment_map = EnvironmentMap {
+        diffuse_map: asset_server.load("hdris/pisa_diffuse.ktx2"),
+        specular_map: asset_server.load("hdris/pisa_specular.ktx2"),
+    };
+    commands.insert_resource(EnvironmentMapHandles {
+        handles: environment_map.clone(),
+    });
     commands.spawn((
         Camera3dBundle {
             transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::default(), Vec3::Y),
@@ -81,9 +153,29 @@ fn setup(
             .into(),
             ..default()
         },
-        EnvironmentMap {
-            diffuse_map: asset_server.load("hdris/pisa_diffuse.ktx2"),
-            specular_map: asset_server.load("hdris/pisa_specular.ktx2"),
-        },
+        environment_map,
     ));
 }
+
+fn environment_map_load_finish(
+    mut commands: Commands,
+    handles: Res<EnvironmentMapHandles>,
+    asset_server: Res<AssetServer>,
+    label_query: Query<Entity, With<EnvironmentMapLabel>>,
+) {
+    if asset_server.get_load_state(&handles.handles.diffuse_map) == LoadState::Loaded
+        && asset_server.get_load_state(&handles.handles.specular_map) == LoadState::Loaded
+    {
+        if let Ok(label_entity) = label_query.get_single() {
+            commands.entity(label_entity).despawn();
+        }
+    }
+}
+
+#[derive(Resource)]
+struct EnvironmentMapHandles {
+    handles: EnvironmentMap,
+}
+
+#[derive(Component)]
+struct EnvironmentMapLabel;
