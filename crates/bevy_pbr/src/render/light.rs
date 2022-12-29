@@ -1790,7 +1790,7 @@ impl Node for ShadowPassNode {
                     .begin_render_pass(&pass_descriptor);
                 let mut render_pass = TrackedRenderPass::new(render_pass);
 
-                shadow_phase.render(&mut render_pass, world, view_entity);
+                shadow_phase.render(&mut render_pass, world, view_light_entity);
             }
         }
 
