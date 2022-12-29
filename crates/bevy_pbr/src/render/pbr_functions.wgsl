@@ -216,7 +216,7 @@ fn pbr(
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
-        light_accum = light_accum + light_contrib * shadow;
+        direct_light += light_contrib * shadow;
     }
 
     // Spot lights (direct)
@@ -229,7 +229,7 @@ fn pbr(
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
-        light_accum = light_accum + light_contrib * shadow;
+        direct_light += light_contrib * shadow;
     }
 
     // Directional lights (direct)
@@ -242,7 +242,7 @@ fn pbr(
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
         let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
-        light_accum = light_accum + light_contrib * shadow;
+        direct_light += light_contrib * shadow;
     }
 
     var indirect_diffuse_light = vec3(0.0);
