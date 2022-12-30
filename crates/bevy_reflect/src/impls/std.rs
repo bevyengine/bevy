@@ -226,7 +226,7 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
-                Box::new($remove(self, index)) as Box<dyn Reflect>
+                Box::new($remove(self, index))
             }
 
             fn push(&mut self, value: Box<dyn Reflect>) {
