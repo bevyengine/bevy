@@ -94,25 +94,30 @@ fn setup(
         }),
     );
 
-    commands.spawn(
-        TextBundle::from_section(
-            "M\ne\nt\na\nl\nl\ni\nc",
+    commands.spawn(TextBundle {
+        text: Text::from_section(
+            "Metallic",
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 36.0,
                 color: Color::WHITE,
             },
-        )
-        .with_style(Style {
+        ),
+        style: Style {
             position_type: PositionType::Absolute,
             position: UiRect {
-                top: Val::Px(80.0),
-                right: Val::Px(50.0),
+                top: Val::Px(130.0),
+                right: Val::Px(0.0),
                 ..default()
             },
             ..default()
-        }),
-    );
+        },
+        transform: Transform {
+            rotation: Quat::from_rotation_z(std::f32::consts::PI / 2.0),
+            ..default()
+        },
+        ..default()
+    });
 
     commands.spawn((
         TextBundle::from_section(
