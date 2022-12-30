@@ -1,19 +1,16 @@
-
-use crate::{Diagnostic, DiagnosticId, Diagnostics};
+use crate::{Diagnostic, DiagnosticId, Diagnostics, BYTES_TO_GIB};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::{ResMut, Resource};
 use sysinfo::{CpuExt, System, SystemExt};
 
-const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
-
 #[derive(Resource)]
-pub struct SystemInfo {
+pub struct SystemInfoResource {
     pub sys: System,
 }
 
-impl Default for SystemInfo {
+impl Default for SystemInfoResource {
     fn default() -> Self {
-        SystemInfo {
+        SystemInfoResource {
             sys: System::new_all(),
         }
     }
@@ -23,16 +20,17 @@ impl Default for SystemInfo {
 ///
 /// Supported targets:
 /// * linux,
-/// * android,
 /// * windows,
+/// * android,
 /// * macos
 ///
-///  NOT supported when using bevy_dynamic even when using previously mentioned targets
+/// NOT supported when using the `bevy/dynamic` feature even when using previously mentioned targets
 #[derive(Default)]
 pub struct SystemInformationDiagnosticsPlugin;
 
 impl Plugin for SystemInformationDiagnosticsPlugin {
     fn build(&self, app: &mut App) {
+        // NOTE: sysinfo fails to compile when using bevy dynamic or on iOS and does nothing on wasm
         #[cfg(all(
             any(
                 target_os = "linux",
@@ -43,7 +41,7 @@ impl Plugin for SystemInformationDiagnosticsPlugin {
             not(feature = "bevy_dynamic_plugin")
         ))]
         {
-            app.insert_resource(SystemInfo::default());
+            app.insert_resource(SystemInfoResource::default());
             app.add_startup_system(Self::setup_system)
                 .add_system(Self::diagnostic_system);
         }
@@ -57,7 +55,7 @@ impl Plugin for SystemInformationDiagnosticsPlugin {
             not(feature = "bevy_dynamic_plugin")
         )))]
         {
-            warn!("SystemInformationDiagnosticsPlugin: This platform and/or configuration is not supported!")
+            bevy_log::warn!("This platform and/or configuration is not supported!")
         }
     }
 }
@@ -75,7 +73,7 @@ impl SystemInformationDiagnosticsPlugin {
 
     pub fn diagnostic_system(
         mut diagnostics: ResMut<Diagnostics>,
-        mut sysinfo: ResMut<SystemInfo>,
+        mut sysinfo: ResMut<SystemInfoResource>,
     ) {
         sysinfo.sys.refresh_cpu();
         sysinfo.sys.refresh_memory();
@@ -83,7 +81,7 @@ impl SystemInformationDiagnosticsPlugin {
             let mut usage = 0.0;
             let cpus = sysinfo.sys.cpus();
             for cpu in cpus {
-                usage += cpu.cpu_usage(); // note for future maintainers: this returns a value from 0.0 to 100.0
+                usage += cpu.cpu_usage(); // NOTE: this returns a value from 0.0 to 100.0
             }
             // average
             usage / cpus.len() as f32
