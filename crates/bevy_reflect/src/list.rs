@@ -27,7 +27,7 @@ pub trait List: Reflect + Array {
     fn insert(&mut self, index: usize, element: Box<dyn Reflect>);
 
     /// Removes and returns the element at position `index` within the list,
-    /// shifting all elements after it towards the front of the list.
+    /// shifting all elements before it towards the front of the list.
     ///
     /// # Panics
     /// Panics if `index` is out of bounds.
