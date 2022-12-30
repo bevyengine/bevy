@@ -33,14 +33,10 @@ pub const DEPTH_PREPASS_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 
 /// If added to a [`crate::prelude::Camera3d`] then depth values will be copied to a separate texture available to the main pass.
-///
-/// Make sure to enable the prepass on your `Material` for this to do anything.
 #[derive(Component, Default, Reflect)]
 pub struct DepthPrepass;
 
 /// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass. It will also handle normal maps.
-///
-/// Make sure to enable the prepass on your `Material` for this to do anything.
 #[derive(Component, Default, Reflect)]
 pub struct NormalPrepass;
 
