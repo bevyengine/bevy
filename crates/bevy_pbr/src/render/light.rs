@@ -192,6 +192,7 @@ pub struct GpuDirectionalLight {
     shadow_normal_bias: f32,
     num_cascades: u32,
     cascades_overlap_proportion: f32,
+    depth_texture_base_index: u32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -984,10 +985,6 @@ pub fn prepare_lights(
             .bounds
             .len()
             .min(MAX_CASCADES_PER_LIGHT);
-        if index < directional_shadow_enabled_count {
-            num_directional_cascades_enabled += num_cascades;
-        }
-
         gpu_directional_lights[index] = GpuDirectionalLight {
             // Filled in later.
             cascades: [GpuDirectionalCascade::default(); MAX_CASCADES_PER_LIGHT],
@@ -1001,7 +998,11 @@ pub fn prepare_lights(
             shadow_normal_bias: light.shadow_normal_bias,
             num_cascades: num_cascades as u32,
             cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
+            depth_texture_base_index: num_directional_cascades_enabled as u32,
         };
+        if index < directional_shadow_enabled_count {
+            num_directional_cascades_enabled += num_cascades;
+        }
     }
 
     global_light_meta.gpu_point_lights.set(gpu_point_lights);

@@ -44,6 +44,7 @@ struct DirectionalLight {
     shadow_normal_bias: f32,
     num_cascades: u32,
     cascades_overlap_proportion: f32,
+    depth_texture_base_index: u32,
 };
 
 let DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT: u32 = 1u;

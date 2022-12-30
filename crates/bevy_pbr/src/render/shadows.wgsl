@@ -150,7 +150,7 @@ fn sample_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, s
         directional_shadow_textures,
         directional_shadow_textures_sampler,
         light_local,
-        i32(light_id * #{MAX_CASCADES_PER_LIGHT}u + cascade_index),
+        i32(light.depth_texture_base_index + cascade_index),
         depth
     );   
 #endif

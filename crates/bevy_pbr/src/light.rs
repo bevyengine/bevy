@@ -267,7 +267,7 @@ impl CascadeShadowConfig {
     /// Returns a cascade config for `num_cascades` cascades, with the first cascade
     /// having far bound `nearest_bound` and the last cascade having far bound `shadow_maximum_distance`.
     /// In-between cascades will be exponentially spaced.
-    fn new(
+    pub fn new(
         num_cascades: usize,
         nearest_bound: f32,
         shadow_maximum_distance: f32,
