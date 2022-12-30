@@ -73,13 +73,14 @@ impl Default for Box {
 
 impl From<Box> for Mesh {
     fn from(sp: Box) -> Self {
+        // suppose Y-up right hand, and camera look from +z to -z
         let vertices = &[
-            // Top
+            // Front
             ([sp.min_x, sp.min_y, sp.max_z], [0., 0., 1.0], [0., 0.]),
             ([sp.max_x, sp.min_y, sp.max_z], [0., 0., 1.0], [1.0, 0.]),
             ([sp.max_x, sp.max_y, sp.max_z], [0., 0., 1.0], [1.0, 1.0]),
             ([sp.min_x, sp.max_y, sp.max_z], [0., 0., 1.0], [0., 1.0]),
-            // Bottom
+            // Back
             ([sp.min_x, sp.max_y, sp.min_z], [0., 0., -1.0], [1.0, 0.]),
             ([sp.max_x, sp.max_y, sp.min_z], [0., 0., -1.0], [0., 0.]),
             ([sp.max_x, sp.min_y, sp.min_z], [0., 0., -1.0], [0., 1.0]),
@@ -94,12 +95,12 @@ impl From<Box> for Mesh {
             ([sp.min_x, sp.max_y, sp.max_z], [-1.0, 0., 0.], [0., 0.]),
             ([sp.min_x, sp.max_y, sp.min_z], [-1.0, 0., 0.], [0., 1.0]),
             ([sp.min_x, sp.min_y, sp.min_z], [-1.0, 0., 0.], [1.0, 1.0]),
-            // Front
+            // Top
             ([sp.max_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [1.0, 0.]),
             ([sp.min_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [0., 0.]),
             ([sp.min_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [0., 1.0]),
             ([sp.max_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [1.0, 1.0]),
-            // Back
+            // Bottom
             ([sp.max_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [0., 0.]),
             ([sp.min_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [1.0, 0.]),
             ([sp.min_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [1.0, 1.0]),
@@ -111,12 +112,12 @@ impl From<Box> for Mesh {
         let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let indices = Indices::U32(vec![
-            0, 1, 2, 2, 3, 0, // top
-            4, 5, 6, 6, 7, 4, // bottom
+            0, 1, 2, 2, 3, 0, // front
+            4, 5, 6, 6, 7, 4, // back
             8, 9, 10, 10, 11, 8, // right
             12, 13, 14, 14, 15, 12, // left
-            16, 17, 18, 18, 19, 16, // front
-            20, 21, 22, 22, 23, 20, // back
+            16, 17, 18, 18, 19, 16, // top
+            20, 21, 22, 22, 23, 20, // bottom
         ]);
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
