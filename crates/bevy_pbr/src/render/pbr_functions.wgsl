@@ -5,13 +5,13 @@
 #endif
 
 
-fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
+fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+    if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
-        if (color.a >= material.alpha_cutoff) {
+    } else if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u {
+        if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {
@@ -29,8 +29,8 @@ fn prepare_world_normal(
     is_front: bool,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
-#ifndef VERTEX_TANGENTS
-#ifndef STANDARDMATERIAL_NORMAL_MAP
+    #ifndef VERTEX_TANGENTS
+    #ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted. This is a branchless version of that.
     output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
@@ -75,7 +75,7 @@ fn apply_normal_mapping(
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
@@ -83,7 +83,7 @@ fn apply_normal_mapping(
         Nt = Nt * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u {
         Nt.y = -Nt.y;
     }
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
@@ -106,7 +106,7 @@ fn calculate_view(
     is_orthographic: bool,
 ) -> vec3<f32> {
     var V: vec3<f32>;
-    if (is_orthographic) {
+    if is_orthographic {
         // Orthographic view vector
         V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
     } else {
@@ -151,6 +151,7 @@ fn pbr_input_new() -> PbrInput {
     return pbr_input;
 }
 
+#ifndef NORMAL_PREPASS
 fn pbr(
     in: PbrInput,
 ) -> vec4<f32> {
@@ -198,8 +199,7 @@ fn pbr(
         let light_id = get_light_id(i);
         let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
@@ -211,8 +211,7 @@ fn pbr(
         let light_id = get_light_id(i);
         let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
@@ -223,8 +222,7 @@ fn pbr(
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
         let light = lights.directional_lights[i];
         var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
         let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
@@ -235,10 +233,9 @@ fn pbr(
     let specular_ambient = EnvBRDFApprox(F0, perceptual_roughness, NdotV);
 
     output_color = vec4<f32>(
-        light_accum +
-            (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion +
-            emissive.rgb * output_color.a,
-        output_color.a);
+        light_accum + (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion + emissive.rgb * output_color.a,
+        output_color.a
+    );
 
     output_color = cluster_debug_visualization(
         output_color,
@@ -250,6 +247,7 @@ fn pbr(
 
     return output_color;
 }
+#endif // NORMAL_PREPASS
 
 #ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
@@ -260,11 +258,11 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 }
-#endif
+#endif // TONEMAP_IN_SHADER
 
 #ifdef DEBAND_DITHER
 fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
 }
-#endif
+#endif // DEBAND_DITHER
 
