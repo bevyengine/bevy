@@ -12,7 +12,18 @@ struct EnvironmentMapLight {
     specular: vec3<f32>,
 };
 
-fn environment_map_light(perceptual_roughness: f32, roughness: f32, diffuse_color: vec3<f32>, NdotV: f32, N: vec3<f32>, R: vec3<f32>, F0: vec3<f32>) -> EnvironmentMapLight {
+fn environment_map_light(
+    perceptual_roughness: f32,
+    roughness: f32,
+    diffuse_color: vec3<f32>,
+    NdotV: f32,
+    N: vec3<f32>,
+    R: vec3<f32>,
+    F0: vec3<f32>,
+    clear_coat: f32,
+    clear_coat_perceptual_roughness: f32,
+    clear_coat_roughness: f32,
+) -> EnvironmentMapLight {
     let environment_map_specular_smallest_mip_level = 10.0;
 
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
@@ -39,5 +50,21 @@ fn environment_map_light(perceptual_roughness: f32, roughness: f32, diffuse_colo
     var out: EnvironmentMapLight;
     out.diffuse = Fms * Ems * irradiance;
     out.specular = FssEss * radiance;
+
+    // Clear coat IBL: https://google.github.io/filament/Filament.html#lighting/imagebasedlights/clearcoat
+    if clear_coat != 0.0 {
+        let Fc = F_Schlick(0.04, 1.0, NdotV) * clear_coat;
+        let Fr = max(vec3(1.0 - clear_coat_roughness), F0) - F0;
+        let kS = F0 + Fr * pow(1.0 - NdotV, 5.0);
+        let FssEss = kS * f_ab.x + f_ab.y;
+
+        let attenuation = 1.0 - Fc;
+        out.diffuse *= attenuation;
+        out.specular *= attenuation * attenuation;
+
+        let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, R, clear_coat_perceptual_roughness * environment_map_specular_smallest_mip_level).rgb;
+        out.specular += FssEss * radiance;
+    }
+
     return out;
 }

@@ -166,7 +166,8 @@ fn pbr(
     let metallic = in.material.metallic;
     let perceptual_roughness = in.material.perceptual_roughness;
     let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
-    let clear_coat_roughness = perceptualRoughnessToRoughness(in.material.clear_coat_peceptual_roughness);
+    let clear_coat_perceptual_roughness = in.material.clear_coat_perceptual_roughness;
+    let clear_coat_roughness = perceptualRoughnessToRoughness(clear_coat_perceptual_roughness);
 
     let clear_coat = in.material.clear_coat;
     let occlusion = in.occlusion;
@@ -254,7 +255,18 @@ fn pbr(
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
-    let environment_light = environment_map_light(perceptual_roughness, roughness, diffuse_color, NdotV, in.N, R, F0);
+    let environment_light = environment_map_light(
+        perceptual_roughness,
+        roughness,
+        diffuse_color,
+        NdotV,
+        in.N,
+        R,
+        F0,
+        clear_coat,
+        clear_coat_perceptual_roughness,
+        clear_coat_roughness,
+    );
     indirect_diffuse_light += environment_light.diffuse;
     indirect_specular_light += environment_light.specular;
 #endif

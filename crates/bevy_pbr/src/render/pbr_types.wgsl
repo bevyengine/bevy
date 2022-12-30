@@ -7,7 +7,7 @@ struct StandardMaterial {
     metallic: f32,
     reflectance: f32,
     clear_coat: f32,
-    clear_coat_peceptual_roughness: f32,
+    clear_coat_perceptual_roughness: f32,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.
     flags: u32,
     alpha_cutoff: f32,
@@ -36,7 +36,7 @@ fn standard_material_new() -> StandardMaterial {
     material.metallic = 0.01;
     material.reflectance = 0.5;
     material.clear_coat = 0.0;
-    material.clear_coat_peceptual_roughness = 0.089;
+    material.clear_coat_perceptual_roughness = 0.089;
     material.flags = STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE;
     material.alpha_cutoff = 0.5;
 
