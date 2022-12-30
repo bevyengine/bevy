@@ -193,13 +193,13 @@ pub enum ScalingMode {
 }
 
 /// Project a 3D space onto a 2D surface using parallel lines, i.e., unlike [`PerspectiveProjection`],
-/// the size of objects remain the same regardless of their distance to camera.
+/// the size of objects remains the same regardless of their distance to the camera.
 ///
 /// The volume contained in the projection is called the *view frustum*. Since the viewport is rectangular
 /// and projection lines are parallel, the view frustum takes the shape of a rectangular prism.
 ///
 /// Note that the scale of the projection and the apparent size of objects are inversely proportional.
-/// As the size of the projection increases, the apparent size of objects decreases.
+/// As the size of the projection increases, the size of objects decreases.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[reflect(Component, Default)]
 pub struct OrthographicProjection {
@@ -217,17 +217,16 @@ pub struct OrthographicProjection {
     pub far: f32,
     /// Specifies the origin of the viewport as a normalized position from 0 to 1, where (0, 0) is the bottom left
     /// and (1, 1) is the top right. This determines where the camera's position sits inside the viewport.
-    /// Set this to (0.5, 0.5) to make scaling affect opposite sides equally, thereby keeping centered objects on each axis centered.
     ///
-    /// When the projection scales due to viewport resizing (assuming `scaling_mode` is not set to `Fixed`), the position
-    /// of the camera doesn't change, and since `viewport_origin` specifies the point on the viewport where the camera sits,
-    /// this point will always remain at the same position (relative on the viewport).
+    /// When the projection scales due to viewport resizing, the position of the camera, and thereby `viewport_origin`,
+    /// remains at the same relative point.
     ///
     /// Consequently, this is pivot point when scaling. With a bottom left pivot, the projection will expand
     /// upwards and to the right. With a top right pivot, the projection will expand downwards and to the left.
     /// Values in between will caused the projection to scale proportionally on each axis.
     ///
-    /// Defaults to `(0.5, 0.5)`
+    /// Defaults to `(0.5, 0.5)`, which makes scaling affect opposite sides equally, keeping the center
+    /// point of the viewport centered.
     pub viewport_origin: Vec2,
     /// How the projection will scale when the viewport is resized.
     ///
@@ -239,9 +238,13 @@ pub struct OrthographicProjection {
     ///
     /// Defaults to `1.0`
     pub scale: f32,
-    /// The area that the projection covers.
+    /// The area that the projection covers relative to `viewport_origin`.
     ///
-    /// This value is automatically updated and shouldn't be manually modified.
+    /// Bevy's [`camera_system`](crate::camera::camera_system) automatically
+    /// updates this value when the viewport is resized depending on `OrthographicProjection`'s other fields.
+    /// In this case, `area` should not be manually modified.
+    ///
+    /// It may be necessary to set this manually for shadow projections and such.
     pub area: Rect,
 }
 
