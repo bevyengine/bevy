@@ -46,9 +46,11 @@ fn environment_map_light(
     let Ems = 1.0 - Ess;
     let Favg = F0 + (1.0 - F0) / 21.0;
     let Fms = FssEss * Favg / (1.0 - Ems * Favg);
+    let Edss = 1.0 - (FssEss + Fms * Ems);
+    let kD = diffuse_color * Edss;
 
     var out: EnvironmentMapLight;
-    out.diffuse = Fms * Ems * irradiance;
+    out.diffuse = (Fms * Ems + kD) * irradiance;
     out.specular = FssEss * radiance;
 
     // Clear coat IBL: https://google.github.io/filament/Filament.html#lighting/imagebasedlights/clearcoat
