@@ -16,8 +16,8 @@ struct FragmentInput {
 #endif // NORMAL_PREPASS
 };
 
-@fragment
-fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+// We can use a simplified version of alpha_discard() here since we only need to handle the alpha_cutoff
+fn prepass_alpha_discard(in: FragmentInput) {
 #ifdef ALPHA_MASK
     var output_color: vec4<f32> = material.base_color;
 
@@ -31,8 +31,14 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         discard;
     }
 #endif // ALPHA_MASK
+}
 
 #ifdef NORMAL_PREPASS
+
+@fragment
+fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
+    prepass_alpha_discard(in);
+
     // NOTE: Unlit bit not set means == 0 is true, so the true case is if lit
     if (material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) == 0u {
         let world_normal = prepare_world_normal(
@@ -58,9 +64,14 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     } else {
         return vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
     }
-#else
-    // If NORMAL_PREPASS is not defined then the return value will be ignored,
-    // but we still need a return value to compile the shader.
-    return vec4(0.0, 0.0, 0.0, 0.0);
-#endif // NORMAL_PREPASS
 }
+
+#else // NORMAL_PREPASS
+
+@fragment
+fn fragment(in: FragmentInput) {
+    prepass_alpha_discard(in);
+}
+
+#endif // NORMAL_PREPASS
+
