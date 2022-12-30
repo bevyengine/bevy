@@ -13,7 +13,7 @@
 //! and `prepass_normal()` to load the related textures. These functions are defined in `bevy_pbr::utils`.
 //! See the `shader_prepass` example that shows how to use it.
 //!
-//! The prepass runs for each `Material`, you can control if the prepass should run by setting the `prepass_enabled`
+//! The prepass runs for each `Material`. You can control if the prepass should run per-material by setting the `prepass_enabled`
 //! flag on the `MaterialPlugin`.
 //!
 //! Currently only works for 3D.
@@ -36,7 +36,7 @@ pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 #[derive(Component, Default, Reflect)]
 pub struct DepthPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass. It will also handle normal maps.
+/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass. Normals will have normal map textures already applied.
 #[derive(Component, Default, Reflect)]
 pub struct NormalPrepass;
 

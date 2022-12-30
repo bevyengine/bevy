@@ -21,8 +21,8 @@ fn main() {
         }))
         .add_plugin(MaterialPlugin::<CustomMaterial>::default())
         .add_plugin(MaterialPlugin::<PrepassOutputMaterial> {
-            // This material only needs to read the prepass textures
-            // but it shouldn't write to it, so we can disable it.
+            // This material only needs to read the prepass textures,
+            // but the meshes using it should not contribute to the prepass render, so we can disable it.
             prepass_enabled: false,
             ..default()
         })
