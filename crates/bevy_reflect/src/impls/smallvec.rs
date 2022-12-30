@@ -62,7 +62,7 @@ where
     }
 
     fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
-        Box::new(self.remove(index)) as Box<dyn Reflect>
+        Box::new(self.remove(index))
     }
 
     fn push(&mut self, value: Box<dyn Reflect>) {
