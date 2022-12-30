@@ -104,7 +104,7 @@ impl Node for MainPass3dNode {
                             // even if only the normal_prepass is used.
                             Camera3dDepthLoadOp::Load
                         } else {
-                            // NOTE: 0.0 is the near plane due to bevy's use of reverse-z projections.
+                            // NOTE: 0.0 is the far plane due to bevy's use of reverse-z projections.
                             camera_3d.depth_load_op.clone()
                         }
                         .into(),

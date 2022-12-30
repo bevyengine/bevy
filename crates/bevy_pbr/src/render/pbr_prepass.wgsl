@@ -108,7 +108,7 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
     if (material.flags & STANDARD_MATERIAL_FLAGS_BASE_COLOR_TEXTURE_BIT) != 0u {
         output_color = output_color * textureSample(base_color_texture, base_color_sampler, in.uv);
     }
-#endif
+#endif // VERTEX_UVS
 
     if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) && output_color.a < material.alpha_cutoff {
         discard;
@@ -130,11 +130,11 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 #ifdef VERTEX_TANGENTS
 #ifdef STANDARDMATERIAL_NORMAL_MAP
             in.world_tangent,
-#endif
-#endif
+#endif // STANDARDMATERIAL_NORMAL_MAP
+#endif // VERTEX_TANGENTS
 #ifdef VERTEX_UVS
             in.uv,
-#endif
+#endif // VERTEX_UVS
         );
 
         return vec4(normal * 0.5 + vec3(0.5), 1.0);
@@ -142,8 +142,8 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
         return vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
     }
 #else
-    // if the prepass normals is not defined then this will be ignored,
-    // but we still need a return to compile the shader
+    // If NORMAL_PREPASS is not defined then the return value will be ignored,
+    // but we still need a return value to compile the shader.
     return vec4(0.0, 0.0, 0.0, 0.0);
 #endif // NORMAL_PREPASS
 }
