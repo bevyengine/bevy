@@ -19,7 +19,8 @@ use crate::{
 /// [`push`](List::push) and [`pop`](List::pop) have default implementations,
 /// however it may be faster to implement them manually.
 pub trait List: Reflect + Array {
-    /// Inserts an element at position `index` within the list.
+    /// Inserts an element at position `index` within the list,
+    /// shifting all elements after it towards the back of the list.
     ///
     /// # Panics
     /// Panics if `index > len`.
