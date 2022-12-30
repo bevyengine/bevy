@@ -250,6 +250,9 @@ impl Color {
     /// # use bevy_render::color::Color;
     /// let color = Color::hex("FF00FF").unwrap(); // fuchsia
     /// let color = Color::hex("FF00FF7F").unwrap(); // partially transparent fuchsia
+    ///
+    /// // A standard hex color notation is also available
+    /// assert_eq!(Color::hex("#FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
