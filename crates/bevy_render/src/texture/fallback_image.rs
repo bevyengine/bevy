@@ -29,6 +29,7 @@ fn fallback_image_new(
     format: TextureFormat,
     samples: u32,
 ) -> GpuImage {
+    // TODO make this configurable
     let data = vec![255; format.pixel_size()];
 
     let mut image = Image::new_fill(Extent3d::default(), TextureDimension::D2, &data, format);
@@ -78,6 +79,7 @@ impl FromWorld for FallbackImage {
     }
 }
 
+// TODO these could be combined in one FallbackImage cache.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
 #[derive(Resource, Deref, DerefMut, Default)]
