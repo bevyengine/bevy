@@ -165,7 +165,7 @@ pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'stat
 /// asset type.
 pub struct MaterialPlugin<M: Material> {
     /// Controls if the prepass is enabled for the Material.
-    /// For more information about what is a prepass, see the [`bevy_core_pipeline::prepass`] docs.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     ///
     /// When it is enabled, it will automatically add the [`PrepassPlugin`]
     /// required to make the prepass work on this Material.

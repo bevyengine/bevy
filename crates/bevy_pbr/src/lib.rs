@@ -80,7 +80,7 @@ pub const SHADOW_SHADER_HANDLE: HandleUntyped =
 /// Sets up the entire PBR infrastructure of bevy.
 pub struct PbrPlugin {
     /// Controls if the prepass is enabled for the StandardMaterial.
-    /// For more information about what is a prepass, see the [`bevy_core_pipeline::prepass`] docs
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs
     pub prepass_enabled: bool,
 }
 
