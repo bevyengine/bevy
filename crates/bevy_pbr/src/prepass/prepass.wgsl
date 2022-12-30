@@ -1,6 +1,8 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
 
+// Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
+// pass them to custom prepass shaders like pbr_prepass.wgsl.
 struct Vertex {
     @location(0) position: vec3<f32>,
 
