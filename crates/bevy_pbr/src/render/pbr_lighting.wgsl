@@ -168,13 +168,17 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
 fn apply_clear_cloat(clear_coat: f32, clear_coat_roughness: f32, color: vec3<f32>, 
     Fd: vec3<f32>, Fr: vec3<f32>, NoH: f32, H: vec3<f32>, LoH: f32
 ) -> vec3<f32> {
-    let Dc = D_GGX(clear_coat_roughness, NoH, H);
-    let Vc = V_Kelemen(LoH);
-    let Fc = F_Schlick(0.04, 1.0, LoH) * clear_coat;
-    let Frc = (Dc * Vc) * Fc;
+    var out = color;
+    if clear_coat != 0.0 {
+        let Dc = D_GGX(clear_coat_roughness, NoH, H);
+        let Vc = V_Kelemen(LoH);
+        let Fc = F_Schlick(0.04, 1.0, LoH) * clear_coat;
+        let Frc = (Dc * Vc) * Fc;
 
-    let inv_Fc = 1.0 - Fc;
-    return color * ((Fd + Fr * inv_Fc) * inv_Fc + Frc);
+        let inv_Fc = 1.0 - Fc;
+        out *= ((Fd + Fr * inv_Fc) * inv_Fc + Frc);
+    }
+    return out;
 }
 
 fn point_light(
