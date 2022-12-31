@@ -697,7 +697,7 @@ impl<'a> MutUntyped<'a> {
     /// # use bevy_ecs::change_detection::{Mut, MutUntyped};
     /// # let mut_untyped: MutUntyped = unimplemented!();
     /// // SAFETY: ptr is of type `u8`
-    /// mut_untyped.to_typed(|ptr| unsafe { ptr.deref_mut::<u8>() });
+    /// mut_untyped.map_unchanged(|ptr| unsafe { ptr.deref_mut::<u8>() });
     /// ```
     /// If you have a [`ReflectFromPtr`](bevy_reflect::ReflectFromPtr) that you know belongs to this [`MutUntyped`],
     /// you can do
@@ -706,9 +706,9 @@ impl<'a> MutUntyped<'a> {
     /// # let mut_untyped: MutUntyped = unimplemented!();
     /// # let reflect_from_ptr: bevy_reflect::ReflectFromPtr = unimplemented!();
     /// // SAFETY: from the context it is known that `ReflectFromPtr` was made for the type of the `MutUntyped`
-    /// mut_untyped.to_typed(|ptr| unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) });
+    /// mut_untyped.map_unchanged(|ptr| unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) });
     /// ```
-    pub fn to_typed<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
+    pub fn map_unchanged<T: ?Sized>(self, f: impl FnOnce(PtrMut<'a>) -> &'a mut T) -> Mut<'a, T> {
         Mut {
             value: f(self.value),
             ticks: self.ticks,
@@ -1047,7 +1047,7 @@ mod tests {
 
         let reflect_from_ptr = <ReflectFromPtr as FromType<i32>>::from_type();
 
-        let mut new = value.to_typed(|ptr| {
+        let mut new = value.map_unchanged(|ptr| {
             // SAFETY: ptr has type of ReflectFromPtr
             let value = unsafe { reflect_from_ptr.as_reflect_ptr_mut(ptr) };
             value
