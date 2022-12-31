@@ -141,7 +141,7 @@ fn setup(
     ));
 
     // camera
-    let environment_map = EnvironmentMap {
+    let environment_map = EnvironmentMapLight {
         diffuse_map: asset_server.load("environment_maps/pisa_diffuse.ktx2"),
         specular_map: asset_server.load("environment_maps/pisa_specular.ktx2"),
     };
@@ -179,7 +179,7 @@ fn environment_map_load_finish(
 
 #[derive(Resource)]
 struct EnvironmentMapHandles {
-    handles: EnvironmentMap,
+    handles: EnvironmentMapLight,
 }
 
 #[derive(Component)]

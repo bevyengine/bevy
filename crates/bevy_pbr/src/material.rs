@@ -1,5 +1,5 @@
 use crate::{
-    environment_map::SetMeshViewEnvironmentMapBindGroup, AlphaMode, DrawMesh, EnvironmentMap,
+    environment_map::SetMeshViewEnvironmentMapBindGroup, AlphaMode, DrawMesh, EnvironmentMapLight,
     MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup,
 };
 use bevy_app::{App, Plugin};
@@ -340,7 +340,7 @@ pub fn queue_material_meshes<M: Material>(
         &ExtractedView,
         &VisibleEntities,
         Option<&Tonemapping>,
-        Option<&EnvironmentMap>,
+        Option<&EnvironmentMapLight>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,

@@ -10,7 +10,7 @@ mod render;
 
 pub use alpha::*;
 pub use bundle::*;
-pub use environment_map::EnvironmentMap;
+pub use environment_map::EnvironmentMapLight;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
@@ -24,7 +24,7 @@ pub mod prelude {
             DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
             SpotLightBundle,
         },
-        environment_map::EnvironmentMap,
+        environment_map::EnvironmentMapLight,
         light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,

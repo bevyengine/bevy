@@ -196,6 +196,8 @@ fn pbr(
 
     let R = reflect(-in.V, in.N);
 
+    let f_ab = F_AB(perceptual_roughness, NdotV);
+
     var direct_light: vec3<f32> = vec3<f32>(0.0);
 
     let view_z = dot(vec4<f32>(
@@ -216,7 +218,7 @@ fn pbr(
                 && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
+        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color, clear_coat, clear_coat_roughness);
         direct_light += light_contrib * shadow;
     }
 
@@ -229,7 +231,7 @@ fn pbr(
                 && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
+        let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color, clear_coat, clear_coat_roughness);
         direct_light += light_contrib * shadow;
     }
 
@@ -242,7 +244,7 @@ fn pbr(
                 && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
-        let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color, clear_coat, clear_coat_roughness);
+        let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color, clear_coat, clear_coat_roughness);
         direct_light += light_contrib * shadow;
     }
 
@@ -250,22 +252,23 @@ fn pbr(
     var indirect_specular_light = vec3(0.0);
 
     // Ambient light (indirect)
-    indirect_diffuse_light += EnvBRDFApprox(diffuse_color, 1.0, NdotV) * lights.ambient_color.rgb;
-    indirect_specular_light += EnvBRDFApprox(F0, perceptual_roughness, NdotV) * lights.ambient_color.rgb;
+    indirect_diffuse_light += EnvBRDFApprox(diffuse_color, F_AB(1.0, NdotV)) * lights.ambient_color.rgb;
+    indirect_specular_light += EnvBRDFApprox(F0, f_ab) * lights.ambient_color.rgb;
 
     // Environment map light (indirect)
 #ifdef ENVIRONMENT_MAP
     let environment_light = environment_map_light(
-        perceptual_roughness,
-        roughness,
-        diffuse_color,
-        NdotV,
-        in.N,
-        R,
-        F0,
+        perceptual_roughness, 
+        roughness, 
+        diffuse_color, 
+        NdotV, 
+        f_ab, 
+        in.N, 
+        R, 
+        F0,  
         clear_coat,
         clear_coat_perceptual_roughness,
-        clear_coat_roughness,
+        clear_coat_roughness
     );
     indirect_diffuse_light += environment_light.diffuse;
     indirect_specular_light += environment_light.specular;

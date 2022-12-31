@@ -39,8 +39,8 @@ impl Plugin for EnvironmentMapPlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<EnvironmentMap>()
-            .add_plugin(ExtractComponentPlugin::<EnvironmentMap>::default());
+        app.register_type::<EnvironmentMapLight>()
+            .add_plugin(ExtractComponentPlugin::<EnvironmentMapLight>::default());
 
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
 
@@ -48,27 +48,27 @@ impl Plugin for EnvironmentMapPlugin {
     }
 }
 
-/// Environment map based indirect lighting.
+/// Environment map based ambient lighting.
 ///
 /// When added to a 3D camera, this component adds indirect light
-/// to every point of the scene (including enclosed areas) based on
+/// to every point of the scene (including inside, enclosed areas) based on
 /// an environment cubemap texture.
 ///
 /// The environment map must be prefiltered into a diffuse and specular map based on the
 /// [split-sum approximation](https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf).
 /// The specular map must have exactly 11 mips [0, 10].
 ///
-/// To prefilter your environment map, you can use KhronosGroup's [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler).
+/// To prefilter your environment map, you can use `KhronosGroup`'s [glTF-IBL-Sampler](https://github.com/KhronosGroup/glTF-IBL-Sampler).
 /// The diffuse map uses the Lambertian distribution, and the specular map uses the GGX distribution.
 ///
-/// KhronoGroup also has several prefiltered environment maps that can be found [here](https://github.com/KhronosGroup/glTF-Sample-Environments).
+/// `KhronoGroup` also has several prefiltered environment maps that can be found [here](https://github.com/KhronosGroup/glTF-Sample-Environments).
 #[derive(Component, Reflect, Clone)]
-pub struct EnvironmentMap {
+pub struct EnvironmentMapLight {
     pub diffuse_map: Handle<Image>,
     pub specular_map: Handle<Image>,
 }
 
-impl EnvironmentMap {
+impl EnvironmentMapLight {
     /// Whether or not all textures neccesary to use the environment map
     /// have been loaded by the asset server.
     pub fn is_loaded(&self, images: &RenderAssets<Image>) -> bool {
@@ -76,7 +76,7 @@ impl EnvironmentMap {
     }
 }
 
-impl ExtractComponent for EnvironmentMap {
+impl ExtractComponent for EnvironmentMapLight {
     type Query = &'static Self;
     type Filter = With<Camera3d>;
     type Out = Self;
@@ -96,7 +96,7 @@ fn queue_environment_map_bind_groups(
     render_device: Res<RenderDevice>,
     images: Res<RenderAssets<Image>>,
     pipeline: Res<MeshPipeline>,
-    views: Query<(Entity, &EnvironmentMap)>,
+    views: Query<(Entity, &EnvironmentMapLight)>,
 ) {
     for (entity, environment_map) in &views {
         let (Some(diffuse_map), Some(specular_map)) = (
