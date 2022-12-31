@@ -177,7 +177,7 @@ impl Default for SpotLight {
 /// Shadows are produced via [cascaded shadow maps](https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf).
 ///
 /// To modify the cascade set up, such as the number of cascades or the maximum shadow distance,
-/// change the [`CascadeShadowConfig`] component of the `[`DirectionalLightBundle`].
+/// change the [`CascadeShadowConfig`] component of the [`DirectionalLightBundle`].
 ///
 /// To control the resolution of the shadow maps, use the [`DirectionalLightShadowMap`] resource:
 ///

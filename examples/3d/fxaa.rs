@@ -70,7 +70,6 @@ fn setup(
     });
 
     // light
-    const HALF_SIZE: f32 = 2.0;
     commands.spawn(DirectionalLightBundle {
         directional_light: DirectionalLight {
             shadows_enabled: true,
