@@ -59,7 +59,7 @@ fn environment_map_light(
         out.diffuse *= attenuation;
         out.specular *= attenuation * attenuation;
 
-        let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, R, clear_coat_perceptual_roughness * environment_map_specular_smallest_mip_level).rgb;
+        let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, R, clear_coat_perceptual_roughness * ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL).rgb;
         out.specular += FssEss * radiance;
     }
 
