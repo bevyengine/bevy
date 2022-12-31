@@ -179,7 +179,7 @@ fn apply_clear_cloat(clear_coat: f32, clear_coat_roughness: f32, color: vec3<f32
 
 fn point_light(
     world_position: vec3<f32>, light: PointLight, roughness: f32, NdotV: f32, N: vec3<f32>, V: vec3<f32>,
-    R: vec3<f32>, F0: vec3<f32>, diffuseColor: vec3<f32>, f_ab: vec2<f32>, clear_coat: f32, clear_coat_roughness: f32
+    R: vec3<f32>, F0: vec3<f32>, f_ab: vec2<f32>, diffuseColor: vec3<f32>, clear_coat: f32, clear_coat_roughness: f32
 ) -> vec3<f32> {
     let light_to_frag = light.position_radius.xyz - world_position.xyz;
     let distance_square = dot(light_to_frag, light_to_frag);
