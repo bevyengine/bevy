@@ -211,7 +211,8 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
     ///
     /// Updates the [`EventReader`]'s event counter, meaning subsequent reads
     /// will start after the fetched event, if it exists.
-    pub fn next(&mut self) -> Option<&'w E> {
+    #[allow(clippy::should_implement_trait)]
+    pub fn next(&mut self) -> Option<&E> {
         self.reader.iter(&self.events).next()
     }
 
