@@ -37,45 +37,65 @@ impl SceneFilter {
     /// Allow the given type, `T`.
     ///
     /// If this filter is already set as a [denylist](Self::Denylist),
+    /// then the given type will be removed from the denied set.
+    ///
+    /// If this filter is already set as [`SceneFilter::None`],
     /// then it will be completely replaced by a new [allowlist](Self::Allowlist).
-    pub fn allow<T: Any>(self) -> Self {
+    pub fn allow<T: Any>(&mut self) -> &mut Self {
         self.allow_by_id(TypeId::of::<T>())
     }
 
     /// Allow the given type.
     ///
     /// If this filter is already set as a [denylist](Self::Denylist),
+    /// then the given type will be removed from the denied set.
+    ///
+    /// If this filter is already set as [`SceneFilter::None`],
     /// then it will be completely replaced by a new [allowlist](Self::Allowlist).
-    pub fn allow_by_id(mut self, type_id: TypeId) -> Self {
+    pub fn allow_by_id(&mut self, type_id: TypeId) -> &mut Self {
         match self {
-            Self::Allowlist(ref mut list) => {
-                list.insert(type_id);
-                self
+            Self::None => {
+                *self = Self::Allowlist(HashSet::from([type_id]));
             }
-            Self::None | Self::Denylist(_) => Self::Allowlist(HashSet::from([type_id])),
+            Self::Allowlist(list) => {
+                list.insert(type_id);
+            }
+            Self::Denylist(list) => {
+                list.remove(&type_id);
+            }
         }
+        self
     }
 
     /// Deny the given type, `T`.
     ///
-    /// If this filter is already set as an [allowlist](Self::Allowlist),
+    /// If this filter is already set as a [allowlist](Self::Allowlist),
+    /// then the given type will be removed from the allowed set.
+    ///
+    /// If this filter is already set as [`SceneFilter::None`],
     /// then it will be completely replaced by a new [denylist](Self::Denylist).
-    pub fn deny<T: Any>(self) -> Self {
+    pub fn deny<T: Any>(&mut self) -> &mut Self {
         self.deny_by_id(TypeId::of::<T>())
     }
 
     /// Deny the given type.
     ///
-    /// If this filter is already set as an [allowlist](Self::Allowlist),
+    /// If this filter is already set as a [allowlist](Self::Allowlist),
+    /// then the given type will be removed from the allowed set.
+    ///
+    /// If this filter is already set as [`SceneFilter::None`],
     /// then it will be completely replaced by a new [denylist](Self::Denylist).
-    pub fn deny_by_id(mut self, type_id: TypeId) -> Self {
+    pub fn deny_by_id(&mut self, type_id: TypeId) -> &mut Self {
         match self {
-            Self::None | Self::Allowlist(_) => Self::Denylist(HashSet::from([type_id])),
-            Self::Denylist(ref mut list) => {
+            Self::None => *self = Self::Denylist(HashSet::from([type_id])),
+            Self::Allowlist(list) => {
+                list.remove(&type_id);
+            }
+            Self::Denylist(list) => {
                 list.insert(type_id);
-                self
             }
         }
+        self
     }
 
     /// Returns true if the given type, `T`, is allowed by the filter.

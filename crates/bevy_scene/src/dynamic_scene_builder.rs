@@ -84,49 +84,45 @@ impl<'w> DynamicSceneBuilder<'w> {
 
     /// Allows the given component type, `T`, to be included in the generated scene.
     ///
-    /// This method may be called for multiple components.
+    /// This method may be called multiple times for any number of components.
     ///
-    /// Please note that this method is mutually exclusive with the [`deny`](Self::deny) method.
-    /// Calling this one will replace the denylist with a new allowlist.
+    /// This is the inverse of [`deny`](Self::deny).
+    /// If `T` has already been denied, then it will be removed from the denylist.
     pub fn allow<T: Component>(&mut self) -> &mut Self {
-        self.component_filter =
-            core::mem::replace(&mut self.component_filter, SceneFilter::None).allow::<T>();
+        self.component_filter.allow::<T>();
         self
     }
 
     /// Denies the given component type, `T`, from being included in the generated scene.
     ///
-    /// This method may be called for multiple components.
+    /// This method may be called multiple times for any number of components.
     ///
-    /// Please note that this method is mutually exclusive with the [`allow`](Self::allow) method.
-    /// Calling this one will replace the allowlist with a new denylist.
+    /// This is the inverse of [`allow`](Self::allow).
+    /// If `T` has already been allowed, then it will be removed from the allowlist.
     pub fn deny<T: Component>(&mut self) -> &mut Self {
-        self.component_filter =
-            core::mem::replace(&mut self.component_filter, SceneFilter::None).deny::<T>();
+        self.component_filter.deny::<T>();
         self
     }
 
     /// Allows the given resource type, `T`, to be included in the generated scene.
     ///
-    /// This method may be called for multiple resources.
+    /// This method may be called multiple times for any number of resources.
     ///
-    /// Please note that this method is mutually exclusive with the [`deny_resource`](Self::deny_resource) method.
-    /// Calling this one will replace the denylist with a new allowlist.
+    /// This is the inverse of [`deny_resource`](Self::deny_resource).
+    /// If `T` has already been denied, then it will be removed from the denylist.
     pub fn allow_resource<T: Resource>(&mut self) -> &mut Self {
-        self.resource_filter =
-            core::mem::replace(&mut self.resource_filter, SceneFilter::None).allow::<T>();
+        self.resource_filter.allow::<T>();
         self
     }
 
     /// Denies the given resource type, `T`, from being included in the generated scene.
     ///
-    /// This method may be called for multiple resources.
+    /// This method may be called multiple times for any number of resources.
     ///
-    /// Please note that this method is mutually exclusive with the [`allow_resource`](Self::allow_resource) method.
-    /// Calling this one will replace the allowlist with a new denylist.
+    /// This is the inverse of [`allow_resource`](Self::allow_resource).
+    /// If `T` has already been allowed, then it will be removed from the allowlist.
     pub fn deny_resource<T: Resource>(&mut self) -> &mut Self {
-        self.resource_filter =
-            core::mem::replace(&mut self.resource_filter, SceneFilter::None).deny::<T>();
+        self.resource_filter.deny::<T>();
         self
     }
 
