@@ -169,3 +169,55 @@ impl IntoIterator for SceneFilter {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn should_set_list_type_if_none() {
+        let mut filter = SceneFilter::None;
+        filter.allow::<i32>();
+        assert!(matches!(filter, SceneFilter::Allowlist(_)));
+
+        let mut filter = SceneFilter::None;
+        filter.deny::<i32>();
+        assert!(matches!(filter, SceneFilter::Denylist(_)));
+    }
+
+    #[test]
+    fn should_add_to_list() {
+        let mut filter = SceneFilter::default();
+        filter.allow::<i16>();
+        filter.allow::<i32>();
+        assert_eq!(2, filter.len());
+        assert!(filter.is_allowed::<i16>());
+        assert!(filter.is_allowed::<i32>());
+
+        let mut filter = SceneFilter::default();
+        filter.deny::<i16>();
+        filter.deny::<i32>();
+        assert_eq!(2, filter.len());
+        assert!(filter.is_denied::<i16>());
+        assert!(filter.is_denied::<i32>());
+    }
+
+    #[test]
+    fn should_remove_from_list() {
+        let mut filter = SceneFilter::default();
+        filter.allow::<i16>();
+        filter.allow::<i32>();
+        filter.deny::<i32>();
+        assert_eq!(1, filter.len());
+        assert!(filter.is_allowed::<i16>());
+        assert!(!filter.is_allowed::<i32>());
+
+        let mut filter = SceneFilter::default();
+        filter.deny::<i16>();
+        filter.deny::<i32>();
+        filter.allow::<i32>();
+        assert_eq!(1, filter.len());
+        assert!(filter.is_denied::<i16>());
+        assert!(!filter.is_denied::<i32>());
+    }
+}
