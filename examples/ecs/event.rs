@@ -8,10 +8,13 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_event::<MyEvent>()
         .add_event::<PlaySound>()
+        .add_event::<ExitGameEvent>()
         .init_resource::<EventTriggerState>()
         .add_system(event_trigger)
         .add_system(event_listener)
         .add_system(sound_player)
+        .add_system(check_exit_game)
+        .add_system(handle_exit_game.after(check_exit_game))
         .run();
 }
 
@@ -26,6 +29,9 @@ struct PlaySound;
 struct EventTriggerState {
     event_timer: Timer,
 }
+
+#[derive(Default)]
+struct ExitGameEvent;
 
 impl Default for EventTriggerState {
     fn default() -> Self {
