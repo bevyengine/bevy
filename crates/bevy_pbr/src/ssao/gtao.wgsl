@@ -16,18 +16,18 @@
 @group(1) @binding(0) var point_clamp_sampler: sampler;
 @group(1) @binding(1) var<uniform> view: View;
 
+let PI = 3.1415926535897932384626433832795;
+let HALF_PI = 1.57079632679;
+
 fn fast_sqrt(x: f32) -> f32 {
     return bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
 }
 
 fn fast_acos(in_x: f32) -> f32 {
-    let pi = 3.1415926535897932384626433832795;
-    let half_pi = pi / 2.0;
-
     let x = abs(in_x);
-    var res = -0.156583 * x + half_pi;
+    var res = -0.156583 * x + HALF_PI;
     res *= fast_sqrt(1.0 - x);
-    return select(pi - res, res, in_x >= 0.0);
+    return select(PI - res, res, in_x >= 0.0);
 }
 
 fn load_noise(pixel_coordinates: vec2<i32>) -> vec2<f32> {
@@ -96,9 +96,6 @@ fn load_and_reconstruct_view_space_position(uv: vec2<f32>, sample_mip_level: f32
 @compute
 @workgroup_size(8, 8, 1)
 fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    let pi = 3.1415926535897932384626433832795;
-    let half_pi = pi / 2.0;
-
     let slice_count = f32(#SLICE_COUNT);
     let samples_per_slice_side = f32(#SAMPLES_PER_SLICE_SIDE);
     let effect_radius = 0.5 * 1.457;
@@ -123,7 +120,7 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var visibility = 0.0;
     for (var slice_t = 0.0; slice_t < slice_count; slice_t += 1.0) {
         let slice = slice_t + noise.x;
-        let phi = (pi / slice_count) * slice;
+        let phi = (PI / slice_count) * slice;
         let omega = vec2<f32>(cos(phi), sin(phi));
 
         let direction = vec3<f32>(omega.xy, 0.0);
@@ -136,8 +133,8 @@ fn gtao(@builtin(global_invocation_id) global_id: vec3<u32>) {
         let cos_norm = saturate(dot(projected_normal, view_vec) / projected_normal_length);
         let n = sign_norm * fast_acos(cos_norm);
 
-        let min_cos_horizon_1 = cos(n + half_pi);
-        let min_cos_horizon_2 = cos(n - half_pi);
+        let min_cos_horizon_1 = cos(n + HALF_PI);
+        let min_cos_horizon_2 = cos(n - HALF_PI);
         var cos_horizon_1 = min_cos_horizon_1;
         var cos_horizon_2 = min_cos_horizon_2;
         let sample_mul = vec2<f32>(omega.x, -omega.y) * sample_scale;
