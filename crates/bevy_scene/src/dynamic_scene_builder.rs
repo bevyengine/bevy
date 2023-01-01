@@ -53,8 +53,8 @@ use std::collections::BTreeMap;
 pub struct DynamicSceneBuilder<'w> {
     extracted_resources: BTreeMap<ComponentId, Box<dyn Reflect>>,
     extracted_scene: BTreeMap<Entity, DynamicEntity>,
-    component_filter: Option<SceneFilter>,
-    resource_filter: Option<SceneFilter>,
+    component_filter: SceneFilter,
+    resource_filter: SceneFilter,
     original_world: &'w World,
 }
 
@@ -64,20 +64,20 @@ impl<'w> DynamicSceneBuilder<'w> {
         Self {
             extracted_resources: default(),
             extracted_scene: default(),
-            component_filter: None,
-            resource_filter: None,
+            component_filter: SceneFilter::None,
+            resource_filter: SceneFilter::None,
             original_world: world,
         }
     }
 
     /// Specify a custom component [`SceneFilter`] to be used with this builder.
-    pub fn with_filter(&mut self, filter: Option<SceneFilter>) -> &mut Self {
+    pub fn with_filter(&mut self, filter: SceneFilter) -> &mut Self {
         self.component_filter = filter;
         self
     }
 
     /// Specify a custom resource [`SceneFilter`] to be used with this builder.
-    pub fn with_resource_filter(&mut self, filter: Option<SceneFilter>) -> &mut Self {
+    pub fn with_resource_filter(&mut self, filter: SceneFilter) -> &mut Self {
         self.resource_filter = filter;
         self
     }
@@ -89,13 +89,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Please note that this method is mutually exclusive with the [`deny`](Self::deny) method.
     /// Calling this one will replace the denylist with a new allowlist.
     pub fn allow<T: Component>(&mut self) -> &mut Self {
-        self.component_filter = Some(
-            self.component_filter
-                .take()
-                .unwrap_or_else(SceneFilter::new_allowlist)
-                .allow::<T>(),
-        );
-
+        self.component_filter =
+            core::mem::replace(&mut self.component_filter, SceneFilter::None).allow::<T>();
         self
     }
 
@@ -106,13 +101,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Please note that this method is mutually exclusive with the [`allow`](Self::allow) method.
     /// Calling this one will replace the allowlist with a new denylist.
     pub fn deny<T: Component>(&mut self) -> &mut Self {
-        self.component_filter = Some(
-            self.component_filter
-                .take()
-                .unwrap_or_else(SceneFilter::new_denylist)
-                .deny::<T>(),
-        );
-
+        self.component_filter =
+            core::mem::replace(&mut self.component_filter, SceneFilter::None).deny::<T>();
         self
     }
 
@@ -123,13 +113,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Please note that this method is mutually exclusive with the [`deny_resource`](Self::deny_resource) method.
     /// Calling this one will replace the denylist with a new allowlist.
     pub fn allow_resource<T: Resource>(&mut self) -> &mut Self {
-        self.resource_filter = Some(
-            self.resource_filter
-                .take()
-                .unwrap_or_else(SceneFilter::new_allowlist)
-                .allow::<T>(),
-        );
-
+        self.resource_filter =
+            core::mem::replace(&mut self.resource_filter, SceneFilter::None).allow::<T>();
         self
     }
 
@@ -140,13 +125,8 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Please note that this method is mutually exclusive with the [`allow_resource`](Self::allow_resource) method.
     /// Calling this one will replace the allowlist with a new denylist.
     pub fn deny_resource<T: Resource>(&mut self) -> &mut Self {
-        self.resource_filter = Some(
-            self.resource_filter
-                .take()
-                .unwrap_or_else(SceneFilter::new_denylist)
-                .deny::<T>(),
-        );
-
+        self.resource_filter =
+            core::mem::replace(&mut self.resource_filter, SceneFilter::None).deny::<T>();
         self
     }
 
@@ -233,11 +213,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                         .get_info(component_id)?
                         .type_id()?;
 
-                    let is_denied = self
-                        .component_filter
-                        .as_ref()
-                        .map(|filter| filter.is_denied_by_id(type_id))
-                        .unwrap_or_default();
+                    let is_denied = self.component_filter.is_denied_by_id(type_id);
 
                     if is_denied {
                         // Component is either in the denylist or _not_ in the allowlist
@@ -297,11 +273,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                     .get_info(component_id)?
                     .type_id()?;
 
-                let is_denied = self
-                    .resource_filter
-                    .as_ref()
-                    .map(|filter| filter.is_denied_by_id(type_id))
-                    .unwrap_or_default();
+                let is_denied = self.resource_filter.is_denied_by_id(type_id);
 
                 if is_denied {
                     // Resource is either in the denylist or _not_ in the allowlist
