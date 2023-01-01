@@ -207,14 +207,6 @@ impl<'w, 's, E: Event> EventReader<'w, 's, E> {
         self.reader.len(&self.events)
     }
 
-    /// Retrieves the next event in the [`EventReader`] that has not been seen.
-    ///
-    /// Updates the [`EventReader`]'s event counter, meaning subsequent reads
-    /// will start after the fetched event, if it exists.
-    pub fn next(&mut self) -> Option<&'w E> {
-        self.reader.iter(&self.events).next()
-    }
-
     /// Determines if no events are available to be read without consuming any.
     /// If you need to consume the iterator you can use [`EventReader::clear`].
     ///
