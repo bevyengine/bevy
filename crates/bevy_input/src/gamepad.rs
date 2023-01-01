@@ -966,10 +966,9 @@ impl ButtonAxisSettings {
 
     /// Filters the `new_value` based on the `old_value`, according to the `ButtonAxisSettings`.
     ///
-    /// Returns the [clamped](`ButtonAxisSettings::clamp`) `new_value` if the change exceeds the settings threshold,
-    /// and `None` otherwise.
-    #[allow(unused)]
-    fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
+    /// Returns the clamped `new_value`, according to the [`ButtonAxisSettings`], if the change
+    /// exceeds the settings threshold, and `None` otherwise.
+    pub fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
         let new_value = self.clamp(new_value);
 
         if self.should_register_change(new_value, old_value) {
