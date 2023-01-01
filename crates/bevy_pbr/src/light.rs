@@ -1902,10 +1902,10 @@ pub fn check_light_mesh_visibility(
                         if !frustum.intersects_obb(aabb, &transform.compute_matrix(), false, true) {
                             continue;
                         }
-                    }
 
-                    computed_visibility.set_visible_in_view();
-                    frustum_visible_entities.entities.push(entity);
+                        computed_visibility.set_visible_in_view();
+                        frustum_visible_entities.entities.push(entity);
+                    }
                 }
             }
         }

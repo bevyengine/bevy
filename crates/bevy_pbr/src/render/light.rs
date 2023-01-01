@@ -178,7 +178,7 @@ bitflags::bitflags! {
 #[derive(Copy, Clone, ShaderType, Default, Debug)]
 pub struct GpuDirectionalCascade {
     view_projection: Mat4,
-    texel_size: Vec4,
+    texel_size: f32,
     far_bound: f32,
 }
 
@@ -1216,7 +1216,7 @@ pub fn prepare_lights(
                 gpu_lights.directional_lights[light_index].cascades[cascade_index] =
                     GpuDirectionalCascade {
                         view_projection: cascade.view_projection,
-                        texel_size: Vec4::splat(cascade.texel_size),
+                        texel_size: cascade.texel_size,
                         far_bound: *bound,
                     };
 
