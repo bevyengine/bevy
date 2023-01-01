@@ -145,17 +145,20 @@ impl Plugin for PbrPlugin {
             Shader::from_wgsl
         );
 
-        app.register_type::<CubemapVisibleEntities>()
-            .register_type::<DirectionalLight>()
-            .register_type::<PointLight>()
-            .register_type::<SpotLight>()
-            .register_asset_reflect::<StandardMaterial>()
+        app.register_asset_reflect::<StandardMaterial>()
             .register_type::<AmbientLight>()
-            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<CascadeShadowConfig>()
+            .register_type::<Cascades>()
+            .register_type::<CascadesVisibleEntities>()
             .register_type::<ClusterConfig>()
-            .register_type::<ClusterZConfig>()
             .register_type::<ClusterFarZMode>()
+            .register_type::<ClusterZConfig>()
+            .register_type::<CubemapVisibleEntities>()
+            .register_type::<DirectionalLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<PointLight>()
             .register_type::<PointLightShadowMap>()
+            .register_type::<SpotLight>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial> {
                 prepass_enabled: self.prepass_enabled,
