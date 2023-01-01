@@ -135,15 +135,15 @@ pub struct Frustum {
 }
 
 impl Frustum {
-    /// Returns a frustrum derived from `view_projection`.
+    /// Returns a frustum derived from `view_projection`.
     #[inline]
     pub fn from_view_projection(view_projection: &Mat4) -> Self {
-        let mut frustrum = Frustum::from_view_projection_no_far(view_projection);
-        frustrum.planes[5] = Plane::new(view_projection.row(2));
-        frustrum
+        let mut frustum = Frustum::from_view_projection_no_far(view_projection);
+        frustum.planes[5] = Plane::new(view_projection.row(2));
+        frustum
     }
 
-    /// Returns a frustrum derived from `view_projection`, but with a custom
+    /// Returns a frustum derived from `view_projection`, but with a custom
     /// far plane.
     #[inline]
     pub fn from_view_projection_custom_far(
@@ -152,10 +152,10 @@ impl Frustum {
         view_backward: &Vec3,
         far: f32,
     ) -> Self {
-        let mut frustrum = Frustum::from_view_projection_no_far(view_projection);
+        let mut frustum = Frustum::from_view_projection_no_far(view_projection);
         let far_center = *view_translation - far * *view_backward;
-        frustrum.planes[5] = Plane::new(view_backward.extend(-view_backward.dot(far_center)));
-        frustrum
+        frustum.planes[5] = Plane::new(view_backward.extend(-view_backward.dot(far_center)));
+        frustum
     }
 
     // NOTE: This approach of extracting the frustum planes from the view

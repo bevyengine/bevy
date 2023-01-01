@@ -284,7 +284,7 @@ impl CascadeShadowConfig {
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct Cascades {
-    /// Cascade configuration, per-view.
+    /// Map from a view to the configuration of each of its [`Cascade`]s.
     pub(crate) cascades: HashMap<Entity, Vec<Cascade>>,
 }
 
@@ -295,7 +295,8 @@ pub struct Cascade {
     /// The orthographic projection for this cascade.
     pub(crate) projection: Mat4,
     /// The view-projection matrix for this cacade, converting world space into light clip space.
-    /// Derived and stored separately from `view_transform` and `projection` for better stability.
+    /// Importantly, this is derived and stored separately from `view_transform` and `projection` to
+    /// ensure shadow stability.
     pub(crate) view_projection: Mat4,
     /// Size of each shadow map texel in world units.
     pub(crate) texel_size: f32,
@@ -313,7 +314,7 @@ pub fn update_directional_light_cascades(
 ) {
     let views = views
         .iter()
-        .filter_map(|x| match x {
+        .filter_map(|view| match view {
             // TODO: orthographic camera projection support.
             (entity, transform, Projection::Perspective(projection), camera)
                 if camera.is_active =>
@@ -438,8 +439,8 @@ fn calculate_cascade(
     );
 
     // It is critical for `world_to_cascade` to be stable. So rather than forming `cascade_to_world`
-    // an inverting it, which risks instability due to numerical precision, we directly form
-    // `world_to_cascde` as the text suggests.
+    // and inverting it, which risks instability due to numerical precision, we directly form
+    // `world_to_cascde` as the reference material suggests.
     let light_to_world_transpose = light_to_world.transpose();
     let world_to_cascade = Mat4::from_cols(
         light_to_world_transpose.x_axis,
@@ -448,8 +449,8 @@ fn calculate_cascade(
         (-near_plane_center).extend(1.0),
     );
 
-    // Right-handed orthogographic projection, centered at `near_plane_center`.
-    // NOTE: This is different from the text, as we use reverse Z.
+    // Right-handed orthographic projection, centered at `near_plane_center`.
+    // NOTE: This is different from the reference material, as we use reverse Z.
     let r = (max.z - min.z).recip();
     let cascade_projection = Mat4::from_cols(
         Vec4::new(2.0 / cascade_diameter, 0.0, 0.0, 0.0),
@@ -1886,17 +1887,17 @@ pub fn check_light_mesh_visibility(
                 continue;
             }
 
-            for (view, view_frustra) in frusta.frusta.iter() {
-                let view_visible_entities = visible_entities
-                    .entities
-                    .get_mut(view)
-                    .expect("per-view should have been inserted already");
+            // If we have an aabb and transform, do frustum culling
+            if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
+                for (view, view_frusta) in frusta.frusta.iter() {
+                    let view_visible_entities = visible_entities
+                        .entities
+                        .get_mut(view)
+                        .expect("Per-view visible entities should have been inserted already");
 
-                for (frustum, frustum_visible_entities) in
-                    view_frustra.iter().zip(view_visible_entities)
-                {
-                    // If we have an aabb and transform, do frustum culling
-                    if let (Some(aabb), Some(transform)) = (maybe_aabb, maybe_transform) {
+                    for (frustum, frustum_visible_entities) in
+                        view_frusta.iter().zip(view_visible_entities)
+                    {
                         // Disable near-plane culling, as a shadow caster could lie before the near plane.
                         if !frustum.intersects_obb(aabb, &transform.compute_matrix(), false, true) {
                             continue;

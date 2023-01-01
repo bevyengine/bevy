@@ -70,7 +70,7 @@ impl CubemapVisibleEntities {
 #[derive(Component, Clone, Debug, Default, Reflect)]
 #[reflect(Component)]
 pub struct CascadesVisibleEntities {
-    /// The visible entities for each cascade frustrum, for each view.
+    /// Map of view entity to the visible entities for each cascade frustum.
     #[reflect(ignore)]
     pub entities: HashMap<Entity, Vec<VisibleEntities>>,
 }
