@@ -295,7 +295,8 @@ pub enum GamepadAxisType {
 ///
 /// ## Updating
 ///
-/// The resource is updated inside of the gamepad event handling systems.
+/// The resource is updated inside of the gamepad event handling systems,
+/// [`gamepad_raw_button_event_system`] and [`gamepad_raw_axis_event_system`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Reflect, FromReflect)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
@@ -338,8 +339,9 @@ impl GamepadAxis {
 ///
 /// ## Note
 ///
-/// The [`GamepadSettings`] are used inside of the gamepad event handling systems, but are never written to
-/// inside of `bevy`. To modify these settings, mutate the corresponding resource.
+/// The [`GamepadSettings`] are used inside of the gamepad event handling systems,
+/// [`gamepad_raw_button_event_system`] and [`gamepad_raw_axis_event_system`], but
+/// are never written to inside of `bevy`. To modify these settings, mutate the corresponding resource.
 #[derive(Resource, Default, Debug, Reflect, FromReflect)]
 #[reflect(Debug, Default)]
 pub struct GamepadSettings {
@@ -885,7 +887,7 @@ impl AxisSettings {
 
     /// Filters the `new_value` based on the `old_value`, according to the `AxisSettings`.
     ///
-    /// Returns the `AxisSettings::clamp`ed `new_value` if the change exceeds the settings threshold,
+    /// Returns the [clamped](`AxisSettings::clamp`) `new_value` if the change exceeds the settings threshold,
     /// and `None` otherwise.
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
         let new_value = self.clamp(new_value);
@@ -964,8 +966,9 @@ impl ButtonAxisSettings {
 
     /// Filters the `new_value` based on the `old_value`, according to the `ButtonAxisSettings`.
     ///
-    /// Returns the `ButtonAxisSettings::clamp`ed `new_value` if the change exceeds the settings threshold,
+    /// Returns the [clamped](`ButtonAxisSettings::clamp`) `new_value` if the change exceeds the settings threshold,
     /// and `None` otherwise.
+    #[allow(unused)]
     fn filter(&self, new_value: f32, old_value: Option<f32>) -> Option<f32> {
         let new_value = self.clamp(new_value);
 
@@ -976,7 +979,10 @@ impl ButtonAxisSettings {
     }
 }
 
-/// Monitors gamepad connection and disconnection events and updates the [`Gamepads`] resource accordingly.
+/// Handles [`GamepadConnectionEvent`]s and updates gamepad resources.
+///
+/// Updates the [`Gamepads`] resource and resets and/or initializes
+/// the [`Axis<GamepadButton>`] and [`Input<GamepadButton>`] resources.
 ///
 /// ## Note
 ///
@@ -1066,8 +1072,9 @@ impl GamepadConnectionEvent {
 }
 
 /// Gamepad axis changed event, used internally to create a [`GamepadAxisChangedEvent`]
-/// and update `Input<T>` resources in the [`gamepad_raw_axis_event_system`]. The
-/// difference between [`RawGamepadAxisChangedEvent`] and [`GamepadAxisChangedEvent`]
+/// and update `Input<T>` resources in the [`gamepad_raw_axis_event_system`].
+///
+/// The difference between [`RawGamepadAxisChangedEvent`] and [`GamepadAxisChangedEvent`]
 /// is that the latters axis "value" is filtered, based on a [`GamepadSettings`].
 #[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
@@ -1116,6 +1123,7 @@ impl GamepadAxisChangedEvent {
 }
 
 /// Raw event indicating that the "value" of a button has changed.
+///
 /// This event is processed by the [`gamepad_raw_button_event_system`]
 /// to generate a [`GamepadButtonChangedEvent`], if the change passes
 /// a the [`GamepadSettings`] filter.
@@ -1227,7 +1235,7 @@ pub fn gamepad_raw_button_event_system(
         button_axis.set(button, new_value);
 
         // Check if the change should be registered
-        if button_axis_settings.filter(new_value, old_value).is_some() {
+        if button_axis_settings.should_register_change(new_value, old_value) {
             button_events.send(GamepadButtonChangedEvent::new(
                 gamepad,
                 button.button_type,

@@ -22,7 +22,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel, SystemSet};
 use bevy_reflect::{FromReflect, Reflect};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{
@@ -80,17 +80,13 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
-            .add_system_to_stage(
+            .add_system_set_to_stage(
                 CoreStage::PreUpdate,
-                gamepad_raw_button_event_system.label(InputSystem),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                gamepad_raw_axis_event_system.label(InputSystem),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                gamepad_connection_system.label(InputSystem),
+                SystemSet::new()
+                    .with_system(gamepad_raw_button_event_system)
+                    .with_system(gamepad_raw_axis_event_system)
+                    .with_system(gamepad_connection_system)
+                    .label(InputSystem),
             )
             // touch
             .add_event::<TouchInput>()
