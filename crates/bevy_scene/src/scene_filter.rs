@@ -1,3 +1,4 @@
+use bevy_utils::hashbrown::hash_set::IntoIter;
 use bevy_utils::HashSet;
 use std::any::{Any, TypeId};
 
@@ -10,6 +11,7 @@ use std::any::{Any, TypeId};
 /// [`DynamicScene`]: crate::DynamicScene
 /// [components]: bevy_ecs::prelude::Component
 /// [resources]: bevy_ecs::prelude::Resource
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
 pub enum SceneFilter {
     /// Represents an unset filter.
     ///
@@ -18,6 +20,7 @@ pub enum SceneFilter {
     ///
     /// [`Denylist`]: SceneFilter::Denylist
     /// [`Allowlist`]: SceneFilter::Allowlist
+    #[default]
     None,
     /// Contains the set of permitted types by their [`TypeId`].
     ///
@@ -129,10 +132,40 @@ impl SceneFilter {
     pub fn is_denied_by_id(&self, type_id: TypeId) -> bool {
         !self.is_allowed_by_id(type_id)
     }
+
+    /// Returns an iterator over the items in the filter.
+    pub fn iter(&self) -> Box<dyn ExactSizeIterator<Item = &TypeId> + '_> {
+        match self {
+            Self::None => Box::new(core::iter::empty()),
+            Self::Allowlist(list) | Self::Denylist(list) => Box::new(list.iter()),
+        }
+    }
+
+    /// Returns the number of items in the filter.
+    pub fn len(&self) -> usize {
+        match self {
+            Self::None => 0,
+            Self::Allowlist(list) | Self::Denylist(list) => list.len(),
+        }
+    }
+
+    /// Returns true if there are zero items in the filter.
+    pub fn is_empty(&self) -> bool {
+        match self {
+            Self::None => true,
+            Self::Allowlist(list) | Self::Denylist(list) => list.is_empty(),
+        }
+    }
 }
 
-impl Default for SceneFilter {
-    fn default() -> Self {
-        Self::None
+impl IntoIterator for SceneFilter {
+    type Item = TypeId;
+    type IntoIter = IntoIter<TypeId>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            Self::None => HashSet::new().into_iter(),
+            Self::Allowlist(list) | Self::Denylist(list) => list.into_iter(),
+        }
     }
 }
