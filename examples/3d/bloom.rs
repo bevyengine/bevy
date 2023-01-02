@@ -1,6 +1,9 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
-use bevy::{core_pipeline::bloom::{BloomSettings, BloomCompositeMode}, prelude::*};
+use bevy::{
+    core_pipeline::bloom::{BloomCompositeMode, BloomSettings},
+    prelude::*,
+};
 use std::{
     collections::hash_map::DefaultHasher,
     hash::{Hash, Hasher},
@@ -12,6 +15,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
         .add_system(update_bloom_settings)
+        .add_system(update_camera_settings)
         .add_system(bounce_spheres)
         .run();
 }
@@ -25,7 +29,7 @@ fn setup_scene(
     commands.spawn((
         Camera3dBundle {
             camera: Camera {
-                hdr: true, // 1. HDR can tremendously improve the look and realism of bloom 
+                hdr: true, // 1. HDR can tremendously improve the look and realism of bloom
                 ..default()
             },
             transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
@@ -35,15 +39,15 @@ fn setup_scene(
     ));
 
     let material_emissive1 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(500.0, 50.0, 0.0), // 3. Put something bright in a dark environment to see the effect
+        emissive: Color::rgb_linear(500.0, 50.0, 5.0), // 3. Put something bright in a dark environment to see the effect
         ..default()
     });
     let material_emissive2 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(0.0, 500.0, 50.0),
+        emissive: Color::rgb_linear(5.0, 500.0, 50.0),
         ..default()
     });
     let material_emissive3 = materials.add(StandardMaterial {
-        emissive: Color::rgb_linear(50.0, 0.0, 500.0),
+        emissive: Color::rgb_linear(50.0, 5.0, 500.0),
         ..default()
     });
     let material_non_emissive = materials.add(StandardMaterial {
@@ -123,15 +127,31 @@ fn update_bloom_settings(
     match bloom_settings {
         (entity, Some(mut bloom_settings)) => {
             *text = "BloomSettings (Toggle: Space)\n".to_string();
-            text.push_str("-----------------------------\n");
             text.push_str(&format!("(Q/A) Intensity: {}\n", bloom_settings.intensity));
             text.push_str(&format!("(W/S) LF boost: {}\n", bloom_settings.lf_boost));
-            text.push_str(&format!("(E/D) LF boost curv.: {}\n", bloom_settings.lf_boost_curvature));
-            text.push_str(&format!("(R/F) High-pass freq.: {}\n", bloom_settings.high_pass_frequency));
-            text.push_str(&format!("(T/G) Mode: {}\n", match bloom_settings.composite_mode {
-                BloomCompositeMode::EnergyConserving => "Energy-conserving",
-                BloomCompositeMode::Additive => "Additive",
-            }));
+            text.push_str(&format!(
+                "(E/D) LF boost curv.: {}\n",
+                bloom_settings.lf_boost_curvature
+            ));
+            text.push_str(&format!(
+                "(R/F) High-pass freq.: {}\n",
+                bloom_settings.high_pass_frequency
+            ));
+            text.push_str(&format!(
+                "(T/G) Mode: {}\n",
+                match bloom_settings.composite_mode {
+                    BloomCompositeMode::EnergyConserving => "Energy-conserving",
+                    BloomCompositeMode::Additive => "Additive",
+                }
+            ));
+            text.push_str(&format!(
+                "(Y/H) Threshold: {}\n",
+                bloom_settings.prefilter_settings.threshold
+            ));
+            text.push_str(&format!(
+                "(U/J) Threshld softness: {}\n",
+                bloom_settings.prefilter_settings.threshold_softness
+            ));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(entity).remove::<BloomSettings>();
@@ -177,6 +197,26 @@ fn update_bloom_settings(
             if keycode.pressed(KeyCode::T) {
                 bloom_settings.composite_mode = BloomCompositeMode::EnergyConserving;
             }
+
+            if keycode.pressed(KeyCode::H) {
+                bloom_settings.prefilter_settings.threshold -= dt / 10.0;
+            }
+            if keycode.pressed(KeyCode::Y) {
+                bloom_settings.prefilter_settings.threshold += dt * 10.0;
+            }
+            bloom_settings.prefilter_settings.threshold =
+                bloom_settings.prefilter_settings.threshold.max(0.0);
+
+            if keycode.pressed(KeyCode::J) {
+                bloom_settings.prefilter_settings.threshold_softness -= dt / 10.0;
+            }
+            if keycode.pressed(KeyCode::U) {
+                bloom_settings.prefilter_settings.threshold_softness += dt / 10.0;
+            }
+            bloom_settings.prefilter_settings.threshold_softness = bloom_settings
+                .prefilter_settings
+                .threshold_softness
+                .clamp(0.0, 1.0);
         }
 
         (entity, None) => {
@@ -186,6 +226,29 @@ fn update_bloom_settings(
                 commands.entity(entity).insert(BloomSettings::default());
             }
         }
+    }
+}
+
+fn update_camera_settings(
+    mut camera: Query<(Entity, &mut Camera), With<Camera>>,
+    mut text: Query<&mut Text>,
+    keycode: Res<Input<KeyCode>>,
+) {
+    let mut camera = camera.single_mut();
+    let mut text = text.single_mut();
+    let text = &mut text.sections[0].value;
+
+    text.push_str("-----------------------------\n");
+    text.push_str(&format!(
+        "Camera HDR: {} (Toggle: Return)\n",
+        match camera.1.hdr {
+            true => "On",
+            false => "Off",
+        }
+    ));
+
+    if keycode.just_pressed(KeyCode::Return) {
+        camera.1.hdr = !camera.1.hdr;
     }
 }
 
