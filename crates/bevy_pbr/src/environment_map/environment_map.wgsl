@@ -14,52 +14,53 @@ struct EnvironmentMapLight {
     specular: vec3<f32>,
 };
 
-fn environment_map_light(
-    perceptual_roughness: f32, 
-    roughness: f32, 
-    diffuse_color: vec3<f32>, 
-    NdotV: f32, 
-    f_ab: vec2<f32>, 
-    N: vec3<f32>, 
-    R: vec3<f32>, 
-    F0: vec3<f32>,
-    clear_coat: f32,
-    clear_coat_perceptual_roughness: f32,
-    clear_coat_roughness: f32,
-) -> EnvironmentMapLight {
+fn environment_map_light(s: PbrState) -> EnvironmentMapLight {
+    let F0 = s.F0;
+    let f_ab = s.f_ab;
+    let material = s.in.material;
 
     // Split-sum approximation for image based lighting: https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf
-    let irradiance = textureSample(environment_map_diffuse, environment_map_sampler, N).rgb;
-    let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, R, perceptual_roughness * ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL).rgb;
+    let irradiance = textureSample(environment_map_diffuse, environment_map_sampler, s.in.N).rgb;
+    let radiance = textureSampleLevel(
+        environment_map_specular,
+        environment_map_sampler,
+        s.R,
+        material.perceptual_roughness * ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL
+    ).rgb;
 
     // Multiscattering approximation: https://www.jcgt.org/published/0008/01/03/paper.pdf
     // Useful reference: https://bruop.github.io/ibl
-    let Fr = max(vec3(1.0 - roughness), F0) - F0;
-    let kS = F0 + Fr * pow(1.0 - NdotV, 5.0);
+    let Fr = max(vec3(1.0 - s.roughness), F0) - F0;
+    let kS = F0 + Fr * pow(1.0 - s.NdotV, 5.0);
     let FssEss = kS * f_ab.x + f_ab.y;
     let Ess = f_ab.x + f_ab.y;
     let Ems = 1.0 - Ess;
     let Favg = F0 + (1.0 - F0) / 21.0;
     let Fms = FssEss * Favg / (1.0 - Ems * Favg);
     let Edss = 1.0 - (FssEss + Fms * Ems);
-    let kD = diffuse_color * Edss;
+    let kD = s.diffuse_color * Edss;
 
     var out: EnvironmentMapLight;
     out.diffuse = (Fms * Ems + kD) * irradiance;
     out.specular = FssEss * radiance;
 
     // Clear coat IBL: https://google.github.io/filament/Filament.html#lighting/imagebasedlights/clearcoat
-    if clear_coat != 0.0 {
-        let Fc = F_Schlick(0.04, 1.0, NdotV) * clear_coat;
-        let Fr = max(vec3(1.0 - clear_coat_roughness), F0) - F0;
-        let kS = F0 + Fr * pow(1.0 - NdotV, 5.0);
+    if material.clear_coat != 0.0 {
+        let Fc = F_Schlick(0.04, 1.0, s.NdotV) * material.clear_coat;
+        let Fr = max(vec3(1.0 - s.clear_coat_roughness), F0) - F0;
+        let kS = F0 + Fr * pow(1.0 - s.NdotV, 5.0);
         let FssEss = kS * f_ab.x + f_ab.y;
 
         let attenuation = 1.0 - Fc;
         out.diffuse *= attenuation;
         out.specular *= attenuation * attenuation;
 
-        let radiance = textureSampleLevel(environment_map_specular, environment_map_sampler, R, clear_coat_perceptual_roughness * ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL).rgb;
+        let radiance = textureSampleLevel(
+            environment_map_specular,
+            environment_map_sampler,
+            s.R,
+            material.clear_coat_perceptual_roughness * ENVIRONMENT_MAP_SPECULAR_SMALLEST_MIP_LEVEL
+        ).rgb;
         out.specular += (FssEss * radiance) * Fc;
     }
 

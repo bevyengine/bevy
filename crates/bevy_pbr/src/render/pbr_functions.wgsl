@@ -1,20 +1,143 @@
 #define_import_path bevy_pbr::pbr_functions
 
-#ifdef TONEMAP_IN_SHADER
-#import bevy_core_pipeline::tonemapping
-#endif
-
 #ifdef ENVIRONMENT_MAP
 #import bevy_pbr::environment_map
 #endif
 
-fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
+fn direct_lighting(s: PbrState) -> vec3<f32> {
+    let world_position = s.in.world_position;
+    let world_normal = s.in.world_normal;
+
+    // Determine lights within pixel's cluster
+    let view_z = dot(vec4<f32>(
+        view.inverse_view[0].z,
+        view.inverse_view[1].z,
+        view.inverse_view[2].z,
+        view.inverse_view[3].z
+    ), s.in.world_position);
+    let cluster_index = fragment_cluster_index(s.in.frag_coord.xy, view_z, s.in.is_orthographic);
+    let offset_and_counts = unpack_offset_and_counts(cluster_index);
+
+    var direct_light = vec3(0.0);
+
+    // Point lights
+    for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
+        let light_id = get_light_id(i);
+        let light = point_lights.data[light_id];
+        var shadow = 1.0;
+        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
+            shadow = fetch_point_shadow(light_id, world_position, world_normal);
+        }
+        direct_light += point_light(light, s) * shadow;
+    }
+
+    // Spot lights
+    for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
+        let light_id = get_light_id(i);
+        let light = point_lights.data[light_id];
+        var shadow = 1.0;
+        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
+            shadow = fetch_spot_shadow(light_id, world_position, world_normal);
+        }
+        direct_light += spot_light(light, s) * shadow;
+    }
+
+    // Directional lights
+    let n_directional_lights = lights.n_directional_lights;
+    for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
+        let light = lights.directional_lights[i];
+        var shadow = 1.0;
+        if (mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u {
+            shadow = fetch_directional_shadow(i, world_position, world_normal);
+        }
+        direct_light += directional_light(light, s) * shadow;
+    }
+
+    return direct_light;
+}
+
+fn indirect_lighting(s: PbrState) -> vec3<f32> {
+    var indirect_diffuse_light = vec3(0.0);
+    var indirect_specular_light = vec3(0.0);
+
+    // Ambient light
+    indirect_diffuse_light += EnvBRDFApprox(s.diffuse_color, F_AB(1.0, s.NdotV)) * lights.ambient_color.rgb;
+    indirect_specular_light += EnvBRDFApprox(s.F0, s.f_ab) * lights.ambient_color.rgb;
+
+    // Environment map light
+#ifdef ENVIRONMENT_MAP
+    let environment_light = environment_map_light(s);
+    indirect_diffuse_light += environment_light.diffuse;
+    indirect_specular_light += environment_light.specular;
+#endif
+
+    // Apply indirect occlusion
+    indirect_diffuse_light *= s.in.occlusion;
+
+    // Combine diffuse and specular light
+    return indirect_diffuse_light + indirect_specular_light;
+}
+
+fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
+    // clamp perceptual roughness to prevent precision problems
+    // According to Filament design 0.089 is recommended for mobile
+    // Filament uses 0.045 for non-mobile
+    let clampedPerceptualRoughness = clamp(perceptualRoughness, 0.089, 1.0);
+    return clampedPerceptualRoughness * clampedPerceptualRoughness;
+}
+
+fn pbr(
+    in: PbrInput,
+) -> vec4<f32> {
+    let material = in.material;
+
+    // Setup needed state
+    var s: PbrState;
+    s.in = in;
+
+    // Convert perceptually-linear roughness to actual roughness
+    s.roughness = perceptualRoughnessToRoughness(material.perceptual_roughness);
+    s.clear_coat_roughness = perceptualRoughnessToRoughness(material.clear_coat_perceptual_roughness);
+
+    // Diffuse strength inversely related to metallicity
+    s.diffuse_color = material.base_color.rgb * (1.0 - material.metallic);
+
+    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
+    s.NdotV = max(dot(in.N, in.V), 0.0001);
+    s.R = reflect(-in.V, in.N);
+
+    // Remapping [0,1] reflectance to F0
+    // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
+    s.F0 = 0.16 * material.reflectance * material.reflectance * (1.0 - material.metallic) + material.base_color.rgb * material.metallic;
+
+    // Scale and bias used for some forms of indirect lighting
+    s.f_ab = F_AB(material.perceptual_roughness, s.NdotV);
+
+    // Calculate lighting
+    let direct_light = direct_lighting(s);
+    let indirect_light = indirect_lighting(s);
+    let emissive_light = material.emissive.rgb * material.base_color.a;
+    let total_light = direct_light + indirect_light + emissive_light;
+
+    var output_color = vec4<f32>(total_light, material.base_color.a);
+    // output_color = cluster_debug_visualization(
+    //     output_color,
+    //     view_z,
+    //     in.is_orthographic,
+    //     offset_and_counts,
+    //     cluster_index,
+    // );
+
+    return output_color;
+}
+
+fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32> {
     var color = output_color;
-    if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
+    if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u {
         // NOTE: If rendering as opaque, alpha should be ignored so set to 1.0
         color.a = 1.0;
-    } else if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u) {
-        if (color.a >= material.alpha_cutoff) {
+    } else if (material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_MASK) != 0u {
+        if color.a >= material.alpha_cutoff {
             // NOTE: If rendering as masked alpha and >= the cutoff, render as fully opaque
             color.a = 1.0;
         } else {
@@ -32,8 +155,8 @@ fn prepare_world_normal(
     is_front: bool,
 ) -> vec3<f32> {
     var output: vec3<f32> = world_normal;
-#ifndef VERTEX_TANGENTS
-#ifndef STANDARDMATERIAL_NORMAL_MAP
+    #ifndef VERTEX_TANGENTS
+    #ifndef STANDARDMATERIAL_NORMAL_MAP
     // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
     // material, the normal needs to be inverted. This is a branchless version of that.
     output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
@@ -78,7 +201,7 @@ fn apply_normal_mapping(
 #ifdef STANDARDMATERIAL_NORMAL_MAP
     // Nt is the tangent-space normal.
     var Nt = textureSample(normal_map_texture, normal_map_sampler, uv).rgb;
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u) {
+    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_TWO_COMPONENT_NORMAL_MAP) != 0u {
         // Only use the xy components and derive z for 2-component normal maps.
         Nt = vec3<f32>(Nt.rg * 2.0 - 1.0, 0.0);
         Nt.z = sqrt(1.0 - Nt.x * Nt.x - Nt.y * Nt.y);
@@ -86,7 +209,7 @@ fn apply_normal_mapping(
         Nt = Nt * 2.0 - 1.0;
     }
     // Normal maps authored for DirectX require flipping the y component
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u) {
+    if (standard_material_flags & STANDARD_MATERIAL_FLAGS_FLIP_NORMAL_MAP_Y) != 0u {
         Nt.y = -Nt.y;
     }
     // NOTE: The mikktspace method of normal mapping applies maps the tangent-space normal from
@@ -109,7 +232,7 @@ fn calculate_view(
     is_orthographic: bool,
 ) -> vec3<f32> {
     var V: vec3<f32>;
-    if (is_orthographic) {
+    if is_orthographic {
         // Orthographic view vector
         V = normalize(vec3<f32>(view.view_proj[0].z, view.view_proj[1].z, view.view_proj[2].z));
     } else {
@@ -118,197 +241,3 @@ fn calculate_view(
     }
     return V;
 }
-
-struct PbrInput {
-    material: StandardMaterial,
-    occlusion: f32,
-    frag_coord: vec4<f32>,
-    world_position: vec4<f32>,
-    // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
-    // mapping
-    world_normal: vec3<f32>,
-    // Normalized normal-mapped world normal used for lighting
-    N: vec3<f32>,
-    // Normalized view vector in world space, pointing from the fragment world position toward the
-    // view world position
-    V: vec3<f32>,
-    is_orthographic: bool,
-};
-
-// Creates a PbrInput with default values
-fn pbr_input_new() -> PbrInput {
-    var pbr_input: PbrInput;
-
-    pbr_input.material = standard_material_new();
-    pbr_input.occlusion = 1.0;
-
-    pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
-    pbr_input.world_normal = vec3<f32>(0.0, 0.0, 1.0);
-
-    pbr_input.is_orthographic = false;
-
-    pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
-    pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
-
-    return pbr_input;
-}
-
-fn pbr(
-    in: PbrInput,
-) -> vec4<f32> {
-    var output_color: vec4<f32> = in.material.base_color;
-
-    // TODO use .a for exposure compensation in HDR
-    let emissive = in.material.emissive;
-
-    // calculate non-linear roughness from linear perceptualRoughness
-    let metallic = in.material.metallic;
-    let perceptual_roughness = in.material.perceptual_roughness;
-    let roughness = perceptualRoughnessToRoughness(perceptual_roughness);
-    let clear_coat_perceptual_roughness = in.material.clear_coat_perceptual_roughness;
-    let clear_coat_roughness = perceptualRoughnessToRoughness(clear_coat_perceptual_roughness);
-
-    let clear_coat = in.material.clear_coat;
-    let occlusion = in.occlusion;
-
-    output_color = alpha_discard(in.material, output_color);
-
-    // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"
-    let NdotV = max(dot(in.N, in.V), 0.0001);
-
-    // Remapping [0,1] reflectance to F0
-    // See https://google.github.io/filament/Filament.html#materialsystem/parameterization/remapping
-    let reflectance = in.material.reflectance;
-    var F0 = 0.16 * reflectance * reflectance * (1.0 - metallic) + output_color.rgb * metallic;
-
-    // Adjust base layer F0 based on clear coat
-    // See https://google.github.io/filament/Filament.html#materialsystem/clearcoatmodel/baselayermodification
-    if clear_coat != 0.0 {
-        let sqrt_base_f0 = sqrt(F0);
-        let n = 1.0 - (5.0 * sqrt_base_f0);
-        let d = 5.0 - sqrt_base_f0;
-        F0 = (n * n) / (d * d);
-    }
-
-    // Diffuse strength inversely related to metallicity
-    let diffuse_color = output_color.rgb * (1.0 - metallic);
-
-    let R = reflect(-in.V, in.N);
-
-    let f_ab = F_AB(perceptual_roughness, NdotV);
-
-    var direct_light: vec3<f32> = vec3<f32>(0.0);
-
-    let view_z = dot(vec4<f32>(
-        view.inverse_view[0].z,
-        view.inverse_view[1].z,
-        view.inverse_view[2].z,
-        view.inverse_view[3].z
-    ), in.world_position);
-    let cluster_index = fragment_cluster_index(in.frag_coord.xy, view_z, in.is_orthographic);
-    let offset_and_counts = unpack_offset_and_counts(cluster_index);
-
-    // Point lights (direct) 
-    for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
-        let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
-        var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
-        }
-        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color, clear_coat, clear_coat_roughness);
-        direct_light += light_contrib * shadow;
-    }
-
-    // Spot lights (direct)
-    for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
-        let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
-        var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
-        }
-        let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color, clear_coat, clear_coat_roughness);
-        direct_light += light_contrib * shadow;
-    }
-
-    // Directional lights (direct)
-    let n_directional_lights = lights.n_directional_lights;
-    for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-        let light = lights.directional_lights[i];
-        var shadow: f32 = 1.0;
-        if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
-            shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
-        }
-        let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color, clear_coat, clear_coat_roughness);
-        direct_light += light_contrib * shadow;
-    }
-
-    var indirect_diffuse_light = vec3(0.0);
-    var indirect_specular_light = vec3(0.0);
-
-    // Ambient light (indirect)
-    indirect_diffuse_light += EnvBRDFApprox(diffuse_color, F_AB(1.0, NdotV)) * lights.ambient_color.rgb;
-    indirect_specular_light += EnvBRDFApprox(F0, f_ab) * lights.ambient_color.rgb;
-
-    // Environment map light (indirect)
-#ifdef ENVIRONMENT_MAP
-    let environment_light = environment_map_light(
-        perceptual_roughness, 
-        roughness, 
-        diffuse_color, 
-        NdotV, 
-        f_ab, 
-        in.N, 
-        R, 
-        F0,  
-        clear_coat,
-        clear_coat_perceptual_roughness,
-        clear_coat_roughness
-    );
-    indirect_diffuse_light += environment_light.diffuse;
-    indirect_specular_light += environment_light.specular;
-#endif
-
-    let indirect_light = (indirect_diffuse_light * occlusion) + indirect_specular_light;
-
-    let emissive_light = emissive.rgb * output_color.a;
-
-    // Total light
-    output_color = vec4<f32>(
-        direct_light + indirect_light + emissive_light,
-        output_color.a
-    );
-
-    output_color = cluster_debug_visualization(
-        output_color,
-        view_z,
-        in.is_orthographic,
-        offset_and_counts,
-        cluster_index,
-    );
-
-    return output_color;
-}
-
-#ifdef TONEMAP_IN_SHADER
-fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
-    // tone_mapping
-    return vec4<f32>(reinhard_luminance(in.rgb), in.a);
-
-    // Gamma correction.
-    // Not needed with sRGB buffer
-    // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
-}
-#endif
-
-#ifdef DEBAND_DITHER
-fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
-    return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
-}
-#endif
-

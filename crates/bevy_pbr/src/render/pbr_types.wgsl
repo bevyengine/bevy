@@ -42,3 +42,49 @@ fn standard_material_new() -> StandardMaterial {
 
     return material;
 }
+
+struct PbrInput {
+    material: StandardMaterial,
+    occlusion: f32,
+    frag_coord: vec4<f32>,
+    world_position: vec4<f32>,
+    // Normalized world normal used for shadow mapping as normal-mapping is not used for shadow
+    // mapping
+    world_normal: vec3<f32>,
+    // Normalized normal-mapped world normal used for lighting
+    N: vec3<f32>,
+    // Normalized view vector in world space, pointing from the fragment world position toward the
+    // view world position
+    V: vec3<f32>,
+    is_orthographic: bool,
+};
+
+// Creates a PbrInput with default values
+fn pbr_input_new() -> PbrInput {
+    var pbr_input: PbrInput;
+
+    pbr_input.material = standard_material_new();
+    pbr_input.occlusion = 1.0;
+
+    pbr_input.frag_coord = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.world_position = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    pbr_input.world_normal = vec3<f32>(0.0, 0.0, 1.0);
+
+    pbr_input.is_orthographic = false;
+
+    pbr_input.N = vec3<f32>(0.0, 0.0, 1.0);
+    pbr_input.V = vec3<f32>(1.0, 0.0, 0.0);
+
+    return pbr_input;
+}
+
+struct PbrState {
+    in: PbrInput,
+    roughness: f32,
+    clear_coat_roughness: f32,
+    diffuse_color: vec3<f32>,
+    F0: vec3<f32>,
+    f_ab: vec2<f32>,
+    R: vec3<f32>,
+    NdotV: f32,
+};
