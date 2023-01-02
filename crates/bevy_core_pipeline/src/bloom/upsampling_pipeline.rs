@@ -7,10 +7,10 @@ use bevy_ecs::{
 use bevy_render::{
     render_resource::{
         BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType,
+        BlendComponent, BlendFactor, BlendOperation, BlendState,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, MultisampleState,
         PipelineCache, PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
         TextureFormat, TextureSampleType, TextureViewDimension,
     },
     renderer::RenderDevice,
@@ -21,7 +21,7 @@ use bevy_render::{
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
 use super::{
-    BloomCompositeMode, BloomSettings, BloomUniform, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT,
+    BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT,
 };
 
 #[derive(Component)]
@@ -32,7 +32,7 @@ pub struct UpsamplingPipelineIds {
 
 #[derive(Resource)]
 pub struct BloomUpsamplingPipeline {
-    bind_group_layout: BindGroupLayout,
+    pub bind_group_layout: BindGroupLayout,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -65,21 +65,6 @@ impl FromWorld for BloomUpsamplingPipeline {
                     BindGroupLayoutEntry {
                         binding: 1,
                         ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // Bloom settings
-                    //
-                    // TODO: Bloom settings are irrelevant right now but we are
-                    // creating a slot for them anyway because bled factor calculation
-                    // based on bloom settings should be moved to the shader.
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(BloomUniform::min_size()),
-                        },
                         visibility: ShaderStages::FRAGMENT,
                         count: None,
                     },

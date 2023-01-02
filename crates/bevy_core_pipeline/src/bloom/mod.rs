@@ -347,7 +347,7 @@ impl Node for BloomNode {
             upsampling_pass.set_bind_group(
                 0,
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
-                &[uniform_index.0],
+                &[],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_pass.set_camera_viewport(viewport);
@@ -380,7 +380,7 @@ impl Node for BloomNode {
             upsampling_final_pass.set_bind_group(
                 0,
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize],
-                &[uniform_index.0],
+                &[],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_final_pass.set_camera_viewport(viewport);
@@ -640,6 +640,7 @@ fn queue_bloom_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipelines: Res<BloomPipelines>,
+    upsampling_pipeline: Res<BloomUpsamplingPipeline>,
     bloom_uniforms: Res<BloomUniforms>,
     views: Query<(Entity, &BloomTexture)>,
 ) {
@@ -676,7 +677,7 @@ fn queue_bloom_bind_groups(
             for mip in (0..bloom_texture.mip_count).rev() {
                 let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
                     label: Some("bloom_upsampling_bind_group"),
-                    layout: &pipelines.main_bind_group_layout,
+                    layout: &upsampling_pipeline.bind_group_layout,
                     entries: &[
                         BindGroupEntry {
                             binding: 0,
@@ -685,13 +686,6 @@ fn queue_bloom_bind_groups(
                         BindGroupEntry {
                             binding: 1,
                             resource: BindingResource::Sampler(&pipelines.sampler),
-                        },
-                        // TODO: This is unused right now but we are keeping it to provide an
-                        // easy to find placeholder for blend factor calculation uniforms for when
-                        // someone decided to move that to the shader.
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: bloom_uniforms.clone(),
                         },
                     ],
                 });
