@@ -152,7 +152,6 @@ pub fn prepare_upsampling_pipeline(
     mut pipelines: ResMut<SpecializedRenderPipelines<BloomUpsamplingPipeline>>,
     pipeline: Res<BloomUpsamplingPipeline>,
     views: Query<(Entity, &ExtractedView, &BloomSettings), With<BloomSettings>>,
-    // cameras: Query<(Entity, &Camera, &BloomSettings), With<Camera>>,
 ) {
     for (entity, view, settings) in &views {
         let pipeline_id = pipelines.specialize(
