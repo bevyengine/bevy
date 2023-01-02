@@ -112,7 +112,9 @@ fn downsample_first(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     var sample = sample_input_13_tap(uv);
     sample = clamp(sample, vec3<f32>(0.0), vec3<f32>(3.40282347E+38)); // Prevent NaNs
 
+#ifdef USE_THRESHOLD
     sample = soft_threshold(sample);
+#endif
 
     return vec4<f32>(sample, 1.0);
 }
