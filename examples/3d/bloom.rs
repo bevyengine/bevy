@@ -199,10 +199,10 @@ fn update_bloom_settings(
             }
 
             if keycode.pressed(KeyCode::H) {
-                bloom_settings.prefilter_settings.threshold -= dt / 10.0;
+                bloom_settings.prefilter_settings.threshold -= dt;
             }
             if keycode.pressed(KeyCode::Y) {
-                bloom_settings.prefilter_settings.threshold += dt / 10.0;
+                bloom_settings.prefilter_settings.threshold += dt;
             }
             bloom_settings.prefilter_settings.threshold =
                 bloom_settings.prefilter_settings.threshold.max(0.0);
