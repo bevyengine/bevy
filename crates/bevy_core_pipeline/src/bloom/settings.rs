@@ -14,9 +14,60 @@ use bevy_reflect::Reflect;
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
+    /// Controls the baseline of how much the image is scattered (default: 0.3).
+    /// 
+    /// # In energy-conserving mode
+    /// The value represents how likely the light is to scatter.
+    /// 
+    /// The value should be clamed between 0.0 and 1.0 where:
+    /// * 0.0 means no bloom
+    /// * 1.0 means the light is scattered as much as possible
+    ///  
+    /// # In additive mode
+    /// The value represents how much scattered light is added to
+    /// the image to create the glow effect.
+    /// 
+    /// In this configuration:
+    /// * 0.0 means no bloom
+    /// * > 0.0 means a propotrionate amount of scattered light is added
     pub intensity: f32,
+
+    /// Low frequency contribution boost.
+    /// Controls how much more likely the light
+    /// is to scatter completely sideways (low frequency image).
+    /// 
+    /// Comparable to a low shelf boost on an equalizer.
+    /// 
+    /// # In energy-conserving mode
+    /// The value should be clamed between 0.0 and 1.0 where:
+    /// * 0.0 means low frequency light uses base intensity for blend factor calculation
+    /// * 1.0 means low frequency light contributes at full power
+    ///  
+    /// # In additive mode
+    /// The value represents how much scattered light is added to
+    /// the image to create the glow effect.
+    /// 
+    /// In this configuration:
+    /// * 0.0 means no bloom
+    /// * > 0.0 means a propotrionate amount of scattered light is added
     pub lf_boost: f32,
+
+    /// Low frequency contribution boost curve.
+    /// Controls the curvature of the blend factor function
+    /// making frequncies next to lowest one contribute more.
+    /// 
+    /// Somewhat comparable to the Q factor of an equalizer node.
+    /// 
+    /// Valid range:
+    /// * 0.0 - base base intensity and boosted intensity are lineraly interpolated
+    /// * 1.0 - all frequencies below maximum are at boosted intensity level
     pub lf_boost_curvature: f32,
+
+    /// Tightens how much the light scatters (default: 1.0).
+    /// 
+    /// Valid range:
+    /// * 0.0 - maximum scattering angle is 0deg (no scattering)
+    /// * 1.0 - maximum scattering angle is 90deg
     pub high_pass_frequency: f32,
 
     pub prefilter_settings: BloomPrefilterSettings,
