@@ -85,7 +85,13 @@ impl Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        transparent_phase.render(world, render_context, view_entity, None, pass_descriptor);
+        let render_pass = render_context
+            .command_encoder
+            .begin_render_pass(&pass_descriptor);
+        let mut render_pass = TrackedRenderPass::new(render_pass);
+
+        transparent_phase.render(&mut render_pass, world, view_entity);
+
         Ok(())
     }
 }
