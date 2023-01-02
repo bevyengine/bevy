@@ -12,6 +12,11 @@ use bevy_reflect::Reflect;
 /// such as ACES Filmic (Bevy's default).
 ///
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
+/// 
+/// Bevy's implementation uses a parametric curve to blend between a set of
+/// blurred (lower freequency) images generated from input image.
+/// See <https://starlederer.github.io/bloom/> for a vizualization of the parametric curve
+/// used in Bevy as well as a vislualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
     /// Controls the baseline of how much the image is scattered (default: 0.3).
