@@ -308,9 +308,9 @@ mod tests {
         };
 
         let dyn_struct = DynamicStruct::default();
-        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct).unwrap();
 
-        assert_eq!(Some(expected), my_struct);
+        assert_eq!(expected, my_struct);
     }
 
     #[test]
@@ -338,9 +338,9 @@ mod tests {
         };
 
         let dyn_struct = DynamicStruct::default();
-        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct);
+        let my_struct = <MyStruct as FromReflect>::from_reflect(&dyn_struct).unwrap();
 
-        assert_eq!(Some(expected), my_struct);
+        assert_eq!(expected, my_struct);
     }
 
     #[test]

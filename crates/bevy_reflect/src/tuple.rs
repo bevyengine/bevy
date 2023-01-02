@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, FromReflectError, GetTypeRegistration, Reflect, ReflectMut,
+    ReflectOwned, ReflectRef, ReflectType, TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -588,17 +588,17 @@ macro_rules! impl_reflect_tuple {
 
         impl<$($name: FromReflect),*> FromReflect for ($($name,)*)
         {
-            fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+            fn from_reflect(reflect: &dyn Reflect) -> Result<Self, FromReflectError> {
                 if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {
-                    Some(
+                    Ok(
                         (
                             $(
-                                <$name as FromReflect>::from_reflect(_ref_tuple.field($index)?)?,
+                                <$name as FromReflect>::from_reflect(_ref_tuple.field($index).ok_or(FromReflectError{ from_type_name: reflect.type_name(), to_type: ReflectType::Tuple })?)?,
                             )*
                         )
                     )
                 } else {
-                    None
+                    Err(FromReflectError{ from_type_name: reflect.type_name(), to_type: ReflectType::Tuple })
                 }
             }
         }

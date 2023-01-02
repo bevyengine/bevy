@@ -1,4 +1,5 @@
 use crate::{FromType, Reflect};
+use thiserror::Error;
 
 /// A trait for types which can be constructed from a reflected type.
 ///
@@ -12,7 +13,29 @@ use crate::{FromType, Reflect};
 /// reflected value.
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+    fn from_reflect(reflect: &dyn Reflect) -> Result<Self, FromReflectError>;
+}
+
+/// An enum representing all the kinds of types that a value implementing [`Reflect`] could be.
+/// This enum is primarily used in [`FromReflectError`].
+#[derive(Debug)]
+pub enum ReflectType {
+    Struct,
+    TupleStruct,
+    Tuple,
+    List,
+    Array,
+    Map,
+    Enum,
+    Value,
+}
+
+/// An Error for failed conversion of reflected type to original type in [`FromReflect::from_reflect`].
+#[derive(Error, Debug)]
+#[error("The reflected type of `{}` cannot be converted to {:?}", .from_type_name, .to_type)]
+pub struct FromReflectError<'a> {
+    pub from_type_name: &'a str,
+    pub to_type: ReflectType,
 }
 
 /// Type data that represents the [`FromReflect`] trait and allows it to be used dynamically.
@@ -67,7 +90,7 @@ pub trait FromReflect: Reflect + Sized {
 /// [`DynamicEnum`]: crate::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {
-    from_reflect: fn(&dyn Reflect) -> Option<Box<dyn Reflect>>,
+    from_reflect: fn(&dyn Reflect) -> Result<Box<dyn Reflect>, FromReflectError>,
 }
 
 impl ReflectFromReflect {
@@ -76,7 +99,10 @@ impl ReflectFromReflect {
     /// This will convert the object to a concrete type if it wasn't already, and return
     /// the value as `Box<dyn Reflect>`.
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_reflect(&self, reflect_value: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+    pub fn from_reflect<'a>(
+        &'a self,
+        reflect_value: &'a dyn Reflect,
+    ) -> Result<Box<dyn Reflect>, FromReflectError> {
         (self.from_reflect)(reflect_value)
     }
 }

@@ -2,7 +2,7 @@ use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
-use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption};
+use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption, FQResult};
 use crate::{ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -26,8 +26,8 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
-                #FQOption::Some(#FQClone::clone(<dyn #FQAny>::downcast_ref::<#type_name #ty_generics>(<dyn #bevy_reflect_path::Reflect>::as_any(reflect))?))
+            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQResult<Self, #bevy_reflect_path::FromReflectError> {
+                #FQResult::Ok(#FQClone::clone(<dyn #FQAny>::downcast_ref::<#type_name #ty_generics>(<dyn #bevy_reflect_path::Reflect>::as_any(reflect)).ok_or(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::Value })?))
             }
         }
     })
@@ -35,7 +35,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
 /// Implements `FromReflect` for the given enum type
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
-    let fqoption = FQOption.into_token_stream();
+    let fqresult = FQResult.into_token_stream();
 
     let type_name = reflect_enum.meta().type_name();
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -50,14 +50,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         reflect_enum.meta().generics().split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
-            fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
+            fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<Self, #bevy_reflect_path::FromReflectError> {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     match #bevy_reflect_path::Enum::variant_name(#ref_value) {
-                        #(#variant_names => #fqoption::Some(#variant_constructors),)*
+                        #(#variant_names => #fqresult::Ok(#variant_constructors),)*
                         name => panic!("variant with name `{}` does not exist on enum `{}`", name, ::core::any::type_name::<Self>()),
                     }
                 } else {
-                    #FQOption::None
+                    #FQResult::Err(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(#ref_value), to_type: #bevy_reflect_path::ReflectType::Enum })
                 }
             }
         }
@@ -75,7 +75,7 @@ impl MemberValuePair {
 }
 
 fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> TokenStream {
-    let fqoption = FQOption.into_token_stream();
+    let fqresult = FQResult.into_token_stream();
 
     let struct_name = reflect_struct.meta().type_name();
     let generics = reflect_struct.meta().generics();
@@ -92,23 +92,29 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
     let MemberValuePair(active_members, active_values) =
         get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
+    let error = if is_tuple {
+        quote!(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::TupleStruct })
+    } else {
+        quote!(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::Struct })
+    };
+
     let constructor = if reflect_struct.meta().traits().contains(REFLECT_DEFAULT) {
         quote!(
             let mut __this: Self = #FQDefault::default();
             #(
-                if let #fqoption::Some(__field) = #active_values() {
+                if let #fqresult::Ok(__field) = #active_values() {
                     // Iff field exists -> use its value
                     __this.#active_members = __field;
                 }
             )*
-            #FQOption::Some(__this)
+            #FQResult::Ok(__this)
         )
     } else {
         let MemberValuePair(ignored_members, ignored_values) =
             get_ignored_fields(reflect_struct, is_tuple);
 
         quote!(
-            #FQOption::Some(
+            #FQResult::Ok(
                 Self {
                     #(#active_members: #active_values()?,)*
                     #(#ignored_members: #ignored_values,)*
@@ -134,11 +140,11 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #struct_name #ty_generics #where_from_reflect_clause
         {
-            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
+            fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQResult<Self, #bevy_reflect_path::FromReflectError> {
                 if let #bevy_reflect_path::ReflectRef::#ref_struct_type(#ref_struct) = #bevy_reflect_path::Reflect::reflect_ref(reflect) {
                     #constructor
                 } else {
-                    #FQOption::None
+                    #FQResult::Err(#error)
                 }
             }
         }
@@ -179,6 +185,12 @@ fn get_active_fields(
 ) -> MemberValuePair {
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
+    let error = if is_tuple {
+        quote!(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::TupleStruct })
+    } else {
+        quote!(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::Struct })
+    };
+
     MemberValuePair::new(
         reflect_struct
             .active_fields()
@@ -197,7 +209,7 @@ fn get_active_fields(
                             if let #FQOption::Some(field) = #get_field {
                                 <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                             } else {
-                                #FQOption::Some(#path())
+                                #FQResult::Ok(#path())
                             }
                         )
                     },
@@ -206,12 +218,12 @@ fn get_active_fields(
                             if let #FQOption::Some(field) = #get_field {
                                 <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
                             } else {
-                                #FQOption::Some(#FQDefault::default())
+                                #FQResult::Ok(#FQDefault::default())
                             }
                         )
                     },
                     DefaultBehavior::Required => quote! {
-                        (|| <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?))
+                        (|| <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field.ok_or(#error)?))
                     },
                 };
 

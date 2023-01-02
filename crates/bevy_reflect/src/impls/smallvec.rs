@@ -3,8 +3,9 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    Array, ArrayIter, FromReflect, FromReflectError, FromType, GetTypeRegistration, List, ListInfo,
+    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, ReflectType, TypeInfo,
+    TypeRegistration, Typed,
 };
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
@@ -51,7 +52,7 @@ where
 {
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|_| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
                     value.type_name()
@@ -146,15 +147,18 @@ impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+    fn from_reflect(reflect: &dyn Reflect) -> Result<Self, FromReflectError> {
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut new_list = Self::with_capacity(ref_list.len());
             for field in ref_list.iter() {
                 new_list.push(<T as smallvec::Array>::Item::from_reflect(field)?);
             }
-            Some(new_list)
+            Ok(new_list)
         } else {
-            None
+            Err(FromReflectError {
+                from_type_name: reflect.type_name(),
+                to_type: ReflectType::List,
+            })
         }
     }
 }
