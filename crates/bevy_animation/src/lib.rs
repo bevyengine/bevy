@@ -71,7 +71,7 @@ pub struct AnimationClip {
 
 impl AnimationClip {
     #[inline]
-    /// Hashmap of the [`VariableCurve`]s per [`EntityPath`].
+    /// [`VariableCurve`]s for each bone. Indexed by the bone ID.
     pub fn curves(&self) -> &Vec<Vec<VariableCurve>> {
         &self.curves
     }
