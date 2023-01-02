@@ -1,10 +1,15 @@
 mod draw;
 mod draw_state;
 
+use bevy_ecs::entity::Entity;
 pub use draw::*;
 pub use draw_state::*;
+use wgpu::RenderPassDescriptor;
 
+use crate::camera::Viewport;
+use crate::renderer::RenderContext;
 use bevy_ecs::prelude::{Component, Query};
+use bevy_ecs::world::World;
 
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]
@@ -28,6 +33,32 @@ impl<I: PhaseItem> RenderPhase<I> {
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
         I::sort(&mut self.items);
+    }
+
+    pub fn render(
+        &self,
+        world: &World,
+        render_context: &mut RenderContext,
+        view: Entity,
+        viewport: Option<&Viewport>,
+        pass_descriptor: RenderPassDescriptor,
+    ) {
+        let render_pass = render_context
+            .command_encoder
+            .begin_render_pass(&pass_descriptor);
+        let mut render_pass = TrackedRenderPass::new(render_pass);
+
+        if let Some(viewport) = viewport {
+            render_pass.set_camera_viewport(viewport);
+        }
+
+        let draw_functions = world.resource::<DrawFunctions<I>>();
+        let mut draw_functions = draw_functions.write();
+
+        for item in &self.items {
+            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
+            draw_function.draw(world, &mut render_pass, view, item);
+        }
     }
 }
 

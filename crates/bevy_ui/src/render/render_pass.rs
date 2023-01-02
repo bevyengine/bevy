@@ -85,18 +85,7 @@ impl Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        let draw_functions = world.resource::<DrawFunctions<TransparentUi>>();
-
-        let render_pass = render_context
-            .command_encoder
-            .begin_render_pass(&pass_descriptor);
-
-        let mut draw_functions = draw_functions.write();
-        let mut tracked_pass = TrackedRenderPass::new(render_pass);
-        for item in &transparent_phase.items {
-            let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-            draw_function.draw(world, &mut tracked_pass, view_entity, item);
-        }
+        transparent_phase.render(world, render_context, view_entity, None, pass_descriptor);
         Ok(())
     }
 }
