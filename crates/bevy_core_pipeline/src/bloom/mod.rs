@@ -71,14 +71,19 @@ impl BloomSettings {
     fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
         let x = mip / max_mip;
 
-        let lf_boost =
+        let mut lf_boost =
             (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.lf_boost_curvature))) * self.lf_boost;
         let high_pass_lq =
             1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
         // let high_pass_hq = 0.5 + 0.5 * ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0).mul(std::f32::consts::PI).cos();
         let high_pass = high_pass_lq;
 
-        (self.intensity + (1.0 - self.intensity) * lf_boost) * high_pass
+        lf_boost *= match self.composite_mode {
+            BloomCompositeMode::EnergyConserving => 1.0 - self.intensity,
+            BloomCompositeMode::Additive => 1.0,
+        };
+
+        (self.intensity + lf_boost) * high_pass
     }
 }
 
