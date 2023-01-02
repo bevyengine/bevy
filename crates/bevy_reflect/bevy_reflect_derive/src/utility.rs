@@ -24,6 +24,15 @@ pub(crate) fn get_reflect_ident(name: &str) -> Ident {
     Ident::new(&reflected, Span::call_site())
 }
 
+/// Set or combine the given error into an optionally existing error.
+pub(crate) fn combine_error(err: syn::Error, errors: &mut Option<syn::Error>) {
+    if let Some(error) = errors {
+        error.combine(err);
+    } else {
+        *errors = Some(err);
+    }
+}
+
 /// Helper struct used to process an iterator of `Result<Vec<T>, syn::Error>`,
 /// combining errors into one along the way.
 pub(crate) struct ResultSifter<T> {

@@ -4,6 +4,7 @@
 //! as opposed to an entire struct or enum. An example of such an attribute is
 //! the derive helper attribute for `Reflect`, which looks like: `#[reflect(ignore)]`.
 
+use crate::utility::combine_error;
 use crate::REFLECT_ATTRIBUTE_NAME;
 use proc_macro2::Span;
 use quote::ToTokens;
@@ -110,7 +111,7 @@ impl ReflectFieldAttrParser {
         for attr in attrs {
             let meta = attr.parse_meta()?;
             if let Err(err) = self.parse_meta(&mut args, &meta) {
-                Self::combine_error(err, &mut errors);
+                combine_error(err, &mut errors);
             }
         }
 
@@ -197,7 +198,7 @@ impl ReflectFieldAttrParser {
                 } else {
                     format!("fields marked with `#[reflect({IGNORE_ALL_ATTR})]` must come last in type definition")
                 };
-                Self::combine_error(syn::Error::new(span, message), errors);
+                combine_error(syn::Error::new(span, message), errors);
             }
         }
     }
@@ -212,17 +213,8 @@ impl ReflectFieldAttrParser {
                 } else {
                     format!("fields marked with `#[reflect({IGNORE_SERIALIZATION_ATTR})]` must come last in type definition (but before any fields marked `#[reflect({IGNORE_ALL_ATTR})]`)")
                 };
-                Self::combine_error(syn::Error::new(span, message), errors);
+                combine_error(syn::Error::new(span, message), errors);
             }
-        }
-    }
-
-    /// Set or combine the given error into an optionally existing error.
-    fn combine_error(err: syn::Error, errors: &mut Option<syn::Error>) {
-        if let Some(error) = errors {
-            error.combine(err);
-        } else {
-            *errors = Some(err);
         }
     }
 }
