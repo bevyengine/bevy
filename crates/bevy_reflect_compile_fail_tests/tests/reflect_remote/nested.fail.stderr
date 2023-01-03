@@ -1,0 +1,55 @@
+error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
+  --> tests/reflect_remote/nested.fail.rs:24:5
+   |
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+   |
+   = help: the following other types implement trait `Reflect`:
+             &'static Path
+             ()
+             (A, B)
+             (A, B, C)
+             (A, B, C, D)
+             (A, B, C, D, E)
+             (A, B, C, D, E, F)
+             (A, B, C, D, E, F, G)
+           and $N others
+   = note: required for the cast from `TheirInner<T>` to the object type `dyn Reflect`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
+  --> tests/reflect_remote/nested.fail.rs:24:5
+   |
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+   |
+   = help: the following other types implement trait `Reflect`:
+             &'static Path
+             ()
+             (A, B)
+             (A, B, C)
+             (A, B, C, D)
+             (A, B, C, D, E)
+             (A, B, C, D, E, F)
+             (A, B, C, D, E, F, G)
+           and $N others
+   = note: required for the cast from `TheirInner<T>` to the object type `(dyn Reflect + 'static)`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
+  --> tests/reflect_remote/nested.fail.rs:24:5
+   |
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+   |
+   = help: the following other types implement trait `Reflect`:
+             &'static Path
+             ()
+             (A, B)
+             (A, B, C)
+             (A, B, C, D)
+             (A, B, C, D, E)
+             (A, B, C, D, E, F)
+             (A, B, C, D, E, F, G)
+           and $N others
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
