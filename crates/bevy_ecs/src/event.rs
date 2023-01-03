@@ -10,7 +10,6 @@ use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
 ///
 /// Events must be thread-safe.
 pub trait Event: Send + Sync + 'static {}
-impl<T> Event for T where T: Send + Sync + 'static {}
 
 /// An `EventId` uniquely identifies an event.
 ///
