@@ -123,7 +123,6 @@ impl Plugin for WindowPlugin {
         // Register window descriptor and related types
         app.register_type::<Window>()
             .register_type::<Cursor>()
-            .register_type::<CursorPosition>()
             .register_type::<WindowResolution>()
             .register_type::<WindowPosition>()
             .register_type::<WindowMode>()

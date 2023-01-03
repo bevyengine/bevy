@@ -141,8 +141,8 @@ pub(crate) fn changed_window(
                 winit_window.set_inner_size(physical_size);
             }
 
-            if window.cursor_position != previous.cursor_position {
-                if let Some(physical_position) = window.cursor_position {
+            if window.cursor.position != previous.cursor.position {
+                if let Some(physical_position) = window.cursor.position {
                     let inner_size = winit_window.inner_size();
 
                     let position = PhysicalPosition::new(
@@ -157,9 +157,11 @@ pub(crate) fn changed_window(
                 }
             }
 
-            if window.cursor != previous.cursor {
+            if window.cursor.icon != previous.cursor.icon {
                 winit_window.set_cursor_icon(converters::convert_cursor_icon(window.cursor.icon));
+            }
 
+            if window.cursor.grab_mode != previous.cursor.grab_mode {
                 let grab_result = match window.cursor.grab_mode {
                     bevy_window::CursorGrabMode::None => {
                         winit_window.set_cursor_grab(winit::window::CursorGrabMode::None)
@@ -185,7 +187,9 @@ pub(crate) fn changed_window(
 
                     error!("Unable to {} cursor: {}", err_desc, err);
                 }
+            }
 
+            if window.cursor.visible != previous.cursor.visible {
                 winit_window.set_cursor_visible(window.cursor.visible);
             }
 

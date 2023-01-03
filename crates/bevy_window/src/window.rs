@@ -204,8 +204,6 @@ pub enum WindowMode {
 pub struct Window {
     /// The cursor of this window.
     pub cursor: Cursor,
-    /// The position of this window's cursor.
-    pub cursor_position: Option<DVec2>,
     /// What presentation mode to give the window.
     pub present_mode: PresentMode,
     /// Which fullscreen or windowing mode should be used?
@@ -283,7 +281,6 @@ impl Default for Window {
         Self {
             title: "Bevy App".to_owned(),
             cursor: Default::default(),
-            cursor_position: Default::default(),
             present_mode: Default::default(),
             mode: Default::default(),
             position: Default::default(),
@@ -377,13 +374,13 @@ impl WindowResizeConstraints {
 }
 
 /// Stores data about the window's cursor.
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Debug, Copy, Clone, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-#[reflect(Debug, PartialEq, Default)]
+#[reflect(Debug, Default)]
 pub struct Cursor {
     /// Get the current [`CursorIcon`] while inside the window.
     pub icon: CursorIcon,
@@ -408,6 +405,9 @@ pub struct Cursor {
     ///
     /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
+
+    /// The position of this window's cursor.
+    pub position: Option<DVec2>,
 }
 
 impl Default for Cursor {
@@ -416,40 +416,8 @@ impl Default for Cursor {
             icon: CursorIcon::Default,
             visible: true,
             grab_mode: CursorGrabMode::None,
+            position: None,
         }
-    }
-}
-
-/// Stores the cursor position of the window.
-#[derive(Default, Debug, Clone, Reflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, Default)]
-pub struct CursorPosition {
-    /// Cursor position if it is inside of the window.
-    physical_cursor_position: Option<DVec2>,
-}
-
-impl CursorPosition {
-    /// Creates a new [`CursorPosition`].
-    pub fn new(physical_cursor_position: Option<DVec2>) -> Self {
-        Self {
-            physical_cursor_position,
-        }
-    }
-
-    /// The current mouse position, in physical pixels.
-    #[inline]
-    pub fn physical_position(&self) -> Option<DVec2> {
-        self.physical_cursor_position
-    }
-
-    /// Set the cursor's position, in physical pixels.
-    pub fn set(&mut self, position: Option<DVec2>) {
-        self.physical_cursor_position = position;
     }
 }
 
