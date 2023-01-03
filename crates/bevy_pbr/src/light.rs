@@ -1234,7 +1234,9 @@ pub(crate) fn assign_lights_to_clusters(
                 let spot_light_dir_sin_cos = light.spot_light_angle.map(|angle| {
                     let (angle_sin, angle_cos) = angle.sin_cos();
                     (
-                        (inverse_view_transform * light.transform.back().extend(0.0)).truncate().normalize(),
+                        (inverse_view_transform * light.transform.back().extend(0.0))
+                            .truncate()
+                            .normalize(),
                         angle_sin,
                         angle_cos,
                     )
@@ -1375,7 +1377,8 @@ pub(crate) fn assign_lights_to_clusters(
                                 let angle_cull =
                                     distance_closest_point > cluster_aabb_sphere.radius;
 
-                                let front_cull = v1_len > cluster_aabb_sphere.radius + light.range * view_inv_scale;
+                                let front_cull = v1_len
+                                    > cluster_aabb_sphere.radius + light.range * view_inv_scale;
                                 let back_cull = v1_len < -cluster_aabb_sphere.radius;
 
                                 if !angle_cull && !front_cull && !back_cull {
