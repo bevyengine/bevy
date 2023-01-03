@@ -36,4 +36,19 @@ mod incorrect_inner_type {
     struct MyInner<T: Reflect>(pub T);
 }
 
+mod mismatched_remote_type {
+    use bevy_reflect::{reflect_remote, Reflect};
+
+    #[reflect_remote(super::external_crate::TheirOuter<T>)]
+    //~^ ERROR: mismatched types
+    struct MyOuter<T: Reflect> {
+        // Reason: Should be `MyInner<T>`
+        #[reflect(remote = "MyOuter<T>")]
+        pub inner: super::external_crate::TheirInner<T>,
+    }
+
+    #[reflect_remote(super::external_crate::TheirInner<T>)]
+    struct MyInner<T: Reflect>(pub T);
+}
+
 fn main() {}
