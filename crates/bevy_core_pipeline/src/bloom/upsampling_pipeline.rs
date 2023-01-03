@@ -7,11 +7,11 @@ use bevy_ecs::{
 use bevy_render::{
     render_resource::{
         BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-        BlendComponent, BlendFactor, BlendOperation, BlendState,
-        CachedRenderPipelineId, ColorTargetState, ColorWrites, FragmentState, MultisampleState,
-        PipelineCache, PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureFormat, TextureSampleType, TextureViewDimension,
+        BlendComponent, BlendFactor, BlendOperation, BlendState, CachedRenderPipelineId,
+        ColorTargetState, ColorWrites, FragmentState, MultisampleState, PipelineCache,
+        PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages,
+        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        TextureViewDimension,
     },
     renderer::RenderDevice,
     texture::BevyDefault,
@@ -20,9 +20,7 @@ use bevy_render::{
 
 use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 
-use super::{
-    BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT,
-};
+use super::{BloomCompositeMode, BloomSettings, BLOOM_SHADER_HANDLE, BLOOM_TEXTURE_FORMAT};
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -134,7 +132,11 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                                 operation: BlendOperation::Add,
                             },
                         },
-                        alpha: BlendComponent::REPLACE,
+                        alpha: BlendComponent {
+                            src_factor: BlendFactor::Zero,
+                            dst_factor: BlendFactor::One,
+                            operation: BlendOperation::Add,
+                        },
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
