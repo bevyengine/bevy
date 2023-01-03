@@ -1,11 +1,13 @@
 use crate::{
     camera::Viewport,
     prelude::Color,
+    render_phase::{DrawFunctions, PhaseItem, RenderPhase},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
 };
+use bevy_ecs::prelude::{Entity, World};
 use bevy_utils::tracing::trace;
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
@@ -94,14 +96,26 @@ impl DrawState {
 pub struct TrackedRenderPass<'a> {
     pass: RenderPass<'a>,
     state: DrawState,
+    pub view_entity: Entity,
 }
 
 impl<'a> TrackedRenderPass<'a> {
     /// Tracks the supplied render pass.
-    pub fn new(pass: RenderPass<'a>) -> Self {
+    pub fn new(pass: RenderPass<'a>, view_entity: Entity) -> Self {
         Self {
             state: DrawState::default(),
             pass,
+            view_entity,
+        }
+    }
+
+    pub fn render_phase<I: PhaseItem>(&mut self, render_phase: &RenderPhase<I>, world: &'a World) {
+        let draw_functions = world.resource::<DrawFunctions<I>>();
+        let mut draw_functions = draw_functions.write();
+
+        for item in &render_phase.items {
+            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
+            draw_function.draw(world, self, item);
         }
     }
 

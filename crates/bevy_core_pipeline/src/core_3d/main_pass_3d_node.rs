@@ -99,13 +99,13 @@ impl Node for MainPass3dNode {
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            let mut render_pass = TrackedRenderPass::new(render_pass, view_entity);
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            opaque_phase.render(&mut render_pass, world, view_entity);
+            render_pass.render_phase(opaque_phase, world);
         }
 
         if !alpha_mask_phase.items.is_empty() {
@@ -134,13 +134,13 @@ impl Node for MainPass3dNode {
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            let mut render_pass = TrackedRenderPass::new(render_pass, view_entity);
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            alpha_mask_phase.render(&mut render_pass, world, view_entity);
+            render_pass.render_phase(alpha_mask_phase, world);
         }
 
         if !transparent_phase.items.is_empty() {
@@ -174,13 +174,13 @@ impl Node for MainPass3dNode {
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            let mut render_pass = TrackedRenderPass::new(render_pass, view_entity);
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
+            render_pass.render_phase(transparent_phase, world);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't

@@ -29,13 +29,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     fn prepare(&mut self, world: &'_ World) {}
 
     /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
-    fn draw<'w>(
-        &mut self,
-        world: &'w World,
-        pass: &mut TrackedRenderPass<'w>,
-        view: Entity,
-        item: &P,
-    );
+    fn draw<'w>(&mut self, world: &'w World, pass: &mut TrackedRenderPass<'w>, item: &P);
 }
 
 /// An item which will be drawn to the screen. A phase item should be queued up for rendering
@@ -330,15 +324,9 @@ where
     }
 
     /// Prepares the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
-    fn draw<'w>(
-        &mut self,
-        world: &'w World,
-        pass: &mut TrackedRenderPass<'w>,
-        view: Entity,
-        item: &P,
-    ) {
+    fn draw<'w>(&mut self, world: &'w World, pass: &mut TrackedRenderPass<'w>, item: &P) {
         let param = self.state.get(world);
-        let view = self.view.get_manual(world, view).unwrap();
+        let view = self.view.get_manual(world, pass.view_entity).unwrap();
         let entity = self.entity.get_manual(world, item.entity()).unwrap();
         C::render(item, view, entity, param, pass);
     }
