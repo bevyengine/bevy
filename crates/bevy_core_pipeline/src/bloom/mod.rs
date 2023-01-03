@@ -14,7 +14,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::{UVec2, Vec4};
+use bevy_math::{UVec2, UVec4, Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -29,7 +29,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    RenderApp, RenderStage, Extract,
+    Extract, RenderApp, RenderStage,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -173,22 +173,31 @@ impl ExtractComponent for BloomSettings {
             return None;
         }
 
-        camera.physical_viewport_size().map(|_size| {
+        if let (Some((origin, _)), Some(size), Some(target_size)) = (
+            camera.physical_viewport_rect(),
+            camera.physical_viewport_size(),
+            camera.physical_target_size(),
+        ) {
             // let min_view = size.x.min(size.y) / 2;
             // let mip_count = calculate_mip_count(min_view);
             // let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
             let pref_sett = &settings.prefilter_settings;
             let knee = pref_sett.threshold * pref_sett.threshold_softness.clamp(0.0, 1.0);
-            
-            BloomDownsamplingUniform {
+
+            Some(BloomDownsamplingUniform {
                 threshold_precomputations: Vec4::new(
                     pref_sett.threshold,
                     pref_sett.threshold - knee,
                     2.0 * knee,
                     0.25 / (knee + 0.00001),
                 ),
-            }
-        })
+                viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
+                    / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
+                        .as_vec4(),
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -249,12 +258,11 @@ impl Node for BloomNode {
             uniform_index,
             bloom_settings,
             upsampling_pipeline_ids,
-            downsampling_pipeline_ids
-        ) =
-            match self.view_query.get_manual(world, view_entity) {
-                Ok(result) => result,
-                _ => return Ok(()),
-            };
+            downsampling_pipeline_ids,
+        ) = match self.view_query.get_manual(world, view_entity) {
+            Ok(result) => result,
+            _ => return Ok(()),
+        };
 
         // Downsampling pipelines
         let (
@@ -325,10 +333,6 @@ impl Node for BloomNode {
                 &downsampling_first_bind_group,
                 &[uniform_index.index()],
             );
-
-            if let Some(viewport) = camera.viewport.as_ref() {
-                downsampling_first_pass.set_camera_viewport(viewport);
-            }
             downsampling_first_pass.draw(0..3, 0..1);
         }
 
@@ -353,9 +357,6 @@ impl Node for BloomNode {
                 &bind_groups.downsampling_bind_groups[mip as usize - 1],
                 &[],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                downsampling_pass.set_camera_viewport(viewport);
-            }
             downsampling_pass.draw(0..3, 0..1);
         }
 
@@ -383,9 +384,6 @@ impl Node for BloomNode {
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
                 &[],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                upsampling_pass.set_camera_viewport(viewport);
-            }
             let blend = bloom_settings
                 .compute_blend_factor((mip) as f32, (bloom_texture.mip_count - 1) as f32);
             upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));

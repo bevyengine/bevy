@@ -48,6 +48,7 @@ pub struct BloomDownsamplingPipelineKeys {
 pub struct BloomDownsamplingUniform {
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
+    pub viewport: Vec4,
 }
 
 impl FromWorld for BloomDownsamplingPipeline {
@@ -130,8 +131,6 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
         if key.prefilter {
             shader_defs.push("USE_THRESHOLD".into());
         }
-
-        println!("yay");
 
         RenderPipelineDescriptor {
             label: Some(
