@@ -40,6 +40,7 @@ impl<I: PhaseItem> RenderPhase<I> {
     ) {
         let draw_functions = world.resource::<DrawFunctions<I>>();
         let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
 
         for item in &self.items {
             let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
