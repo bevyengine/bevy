@@ -325,6 +325,7 @@ where
     C::Param: ReadOnlySystemParam,
 {
     fn prepare(&mut self, world: &'_ World) {
+        self.state.update_archetypes(world);
         self.view.update_archetypes(world);
         self.entity.update_archetypes(world);
     }
@@ -337,7 +338,7 @@ where
         view: Entity,
         item: &P,
     ) {
-        let param = self.state.get(world);
+        let param = self.state.get_manual(world);
         let view = self.view.get_manual(world, view).unwrap();
         let entity = self.entity.get_manual(world, item.entity()).unwrap();
         C::render(item, view, entity, param, pass);
