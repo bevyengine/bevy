@@ -248,8 +248,6 @@ pub struct Window {
     pub transparent: bool,
     /// Should the window start focused?
     pub focused: bool,
-    /// How the window will interact if it is on a web platform rather than OS window.
-    pub canvas: WindowCanvas,
     /// Should the window always be on top of other windows?
     ///
     /// ## Platform-specific
@@ -262,6 +260,22 @@ pub struct Window {
     ///
     /// - iOS / Android / Web / X11: Unsupported.
     pub hit_test: bool,
+    /// The "html canvas" element selector.
+    ///
+    /// If set, this selector will be used to find a matching html canvas element,
+    /// rather than creating a new one.   
+    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
+    ///
+    /// This value has no effect on non-web platforms.
+    pub canvas: Option<String>,
+    /// Whether or not to fit the canvas element's size to its parent element's size.
+    ///
+    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
+    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
+    /// feature, ensure the parent's size is not affected by its children.
+    ///
+    /// This value has no effect on non-web platforms.
+    pub fit_canvas_to_parent: bool,
 }
 
 impl Default for Window {
@@ -276,7 +290,6 @@ impl Default for Window {
             resolution: Default::default(),
             state: Default::default(),
             composite_alpha_mode: Default::default(),
-            canvas: Default::default(),
             resize_constraints: Default::default(),
             resizable: true,
             decorations: true,
@@ -284,6 +297,8 @@ impl Default for Window {
             focused: true,
             always_on_top: false,
             hit_test: true,
+            fit_canvas_to_parent: false,
+            canvas: None,
         }
     }
 }
@@ -743,53 +758,6 @@ impl WindowState {
     /// windowing backend. Instead use [`WindowState::set_maximize`].
     pub fn set_maximize_by_backend(&mut self, maximized: bool) {
         self.maximized = maximized;
-    }
-}
-
-/// Defines how this window should behave in relation to web-canvas elements.
-#[derive(Default, Debug, Clone, PartialEq, Eq, Reflect, FromReflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, PartialEq, Default)]
-pub struct WindowCanvas {
-    canvas: Option<String>,
-    fit_canvas_to_parent: bool,
-}
-
-impl WindowCanvas {
-    /// Creates a new [`WindowCanvas`].
-    pub fn new(canvas: Option<String>, fit_canvas_to_parent: bool) -> Self {
-        Self {
-            canvas,
-            fit_canvas_to_parent,
-        }
-    }
-
-    /// The "html canvas" element selector.
-    ///
-    /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
-    /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
-    ///
-    /// This value has no effect on non-web platforms.
-    #[inline]
-    pub fn canvas(&self) -> Option<&str> {
-        self.canvas.as_deref()
-    }
-
-    /// Whether or not to fit the canvas element's size to its parent element's size.
-    ///
-    /// **Warning**: this will not behave as expected for parents that set their size according to the size of their
-    /// children. This creates a "feedback loop" that will result in the canvas growing on each resize. When using this
-    /// feature, ensure the parent's size is not affected by its children.
-    ///
-    /// This value has no effect on non-web platforms.
-    #[inline]
-    pub fn fit_canvas_to_parent(&self) -> bool {
-        self.fit_canvas_to_parent
     }
 }
 

@@ -57,8 +57,8 @@ pub(crate) fn create_window<'a>(
 
         #[cfg(target_arch = "wasm32")]
         {
-            if component.canvas.fit_canvas_to_parent() {
-                let selector = if let Some(selector) = &component.canvas.canvas() {
+            if component.fit_canvas_to_parent {
+                let selector = if let Some(selector) = &component.canvas {
                     selector
                 } else {
                     WINIT_CANVAS_SELECTOR

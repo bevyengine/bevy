@@ -4,7 +4,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, PrimaryWindow, Window, WindowCanvas, WindowPlugin},
+    window::{CursorGrabMode, PresentMode, PrimaryWindow, Window, WindowPlugin},
 };
 
 fn main() {
@@ -15,7 +15,7 @@ fn main() {
                 resolution: (500., 300.).into(),
                 present_mode: PresentMode::AutoVsync,
                 // Tells wasm to resize the window according to the available canvas
-                canvas: WindowCanvas::new(None, true),
+                fit_canvas_to_parent: true,
                 ..default()
             }),
             ..default()

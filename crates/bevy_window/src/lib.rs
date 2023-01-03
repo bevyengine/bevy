@@ -130,7 +130,6 @@ impl Plugin for WindowPlugin {
             .register_type::<PresentMode>()
             .register_type::<WindowState>()
             .register_type::<MonitorSelection>()
-            .register_type::<WindowCanvas>()
             .register_type::<WindowResizeConstraints>();
 
         // Register `PathBuf` as it's used by `FileDragAndDrop`
