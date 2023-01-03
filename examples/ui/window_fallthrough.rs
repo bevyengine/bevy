@@ -1,10 +1,7 @@
 //! This example illustrates how have a mouse's clicks/wheel/movement etc fall through the spawned transparent window to a window below.
 //! If you build this, and hit 'P' it should toggle on/off the mouse's passthrough.
 
-use bevy::{
-    prelude::*,
-    window::{PrimaryWindow, Window, WindowPlugin},
-};
+use bevy::prelude::*;
 
 fn main() {
     App::new()
@@ -52,12 +49,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
 }
 // A simple system to handle some keyboard input and toggle on/off the hittest.
-fn toggle_mouse_passthrough(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
-) {
+fn toggle_mouse_passthrough(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     if keyboard_input.just_pressed(KeyCode::P) {
-        let mut window = primary_window.single_mut();
+        let mut window = windows.single_mut();
         window.hit_test = !window.hit_test;
     }
 }

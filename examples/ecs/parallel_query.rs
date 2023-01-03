@@ -1,9 +1,6 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
-use bevy::{
-    prelude::*,
-    window::{PrimaryWindow, Window},
-};
+use bevy::prelude::*;
 use rand::random;
 
 #[derive(Component, Deref)]
@@ -40,11 +37,8 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
 }
 
 // Bounce sprites outside the window
-fn bounce_system(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
-    mut sprites: Query<(&Transform, &mut Velocity)>,
-) {
-    let window = primary_window.single();
+fn bounce_system(windows: Query<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
+    let window = windows.single();
     let width = window.resolution.width();
     let height = window.resolution.height();
     let left = width / -2.0;

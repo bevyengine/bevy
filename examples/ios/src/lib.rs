@@ -1,8 +1,4 @@
-use bevy::{
-    input::touch::TouchPhase,
-    prelude::*,
-    window::{PrimaryWindow, WindowMode, WindowPlugin},
-};
+use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 
 // the `bevy_main` proc_macro generates the required ios boilerplate
 #[bevy_main]
@@ -24,12 +20,12 @@ fn main() {
 }
 
 fn touch_camera(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
+    windows: Query<&Window>,
     mut touches: EventReader<TouchInput>,
     mut camera: Query<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
 ) {
-    let window = primary_window.single();
+    let window = windows.single();
 
     for touch in touches.iter() {
         if touch.phase == TouchPhase::Started {

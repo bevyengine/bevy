@@ -1,8 +1,5 @@
 ///! This example illustrates how to resize windows, and how to respond to a window being resized.
-use bevy::{
-    prelude::*,
-    window::{PrimaryWindow, Window, WindowResized},
-};
+use bevy::{prelude::*, window::WindowResized};
 
 fn main() {
     App::new()
@@ -65,10 +62,10 @@ fn setup_ui(mut cmd: Commands, asset_server: Res<AssetServer>) {
 /// This system shows how to request the window to a new resolution
 fn toggle_resolution(
     keys: Res<Input<KeyCode>>,
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut windows: Query<&mut Window>,
     resolution: Res<ResolutionSettings>,
 ) {
-    let mut window = primary_window.single_mut();
+    let mut window = windows.single_mut();
 
     if keys.just_pressed(KeyCode::Key1) {
         let res = resolution.small;

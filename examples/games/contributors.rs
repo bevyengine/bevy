@@ -1,10 +1,6 @@
 //! This example displays each contributor to the bevy source code as a bouncing bevy-ball.
 
-use bevy::{
-    prelude::*,
-    utils::HashSet,
-    window::{PrimaryWindow, Window},
-};
+use bevy::{prelude::*, utils::HashSet};
 use rand::{prelude::SliceRandom, Rng};
 use std::{
     env::VarError,
@@ -249,7 +245,7 @@ fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collision_system(
-    windows: Query<&Window, With<PrimaryWindow>>,
+    windows: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
     let window = windows.single();

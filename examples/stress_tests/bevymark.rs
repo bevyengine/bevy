@@ -6,7 +6,7 @@ use bevy::{
     diagnostic::{Diagnostics, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     time::FixedTimestep,
-    window::{PresentMode, PrimaryWindow, Window, WindowPlugin, WindowResolution},
+    window::{PresentMode, WindowResolution},
 };
 use rand::{thread_rng, Rng};
 
@@ -65,12 +65,12 @@ struct BirdScheduled {
 
 fn scheduled_spawner(
     mut commands: Commands,
-    primary_window: Query<&Window, With<PrimaryWindow>>,
+    windows: Query<&Window>,
     mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
     bird_texture: Res<BirdTexture>,
 ) {
-    let window = primary_window.single();
+    let window = windows.single();
 
     if scheduled.wave > 0 {
         spawn_birds(
@@ -150,11 +150,11 @@ fn mouse_handler(
     mut commands: Commands,
     time: Res<Time>,
     mouse_button_input: Res<Input<MouseButton>>,
-    primary_window: Query<&Window, With<PrimaryWindow>>,
+    windows: Query<&Window>,
     bird_texture: Res<BirdTexture>,
     mut counter: ResMut<BevyCounter>,
 ) {
-    let window = primary_window.single();
+    let window = windows.single();
 
     if mouse_button_input.just_released(MouseButton::Left) {
         let mut rng = thread_rng();
@@ -220,11 +220,8 @@ fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Trans
     }
 }
 
-fn collision_system(
-    primary_window: Query<&Window, With<PrimaryWindow>>,
-    mut bird_query: Query<(&mut Bird, &Transform)>,
-) {
-    let window = primary_window.single();
+fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+    let window = windows.single();
 
     let half_width = window.resolution.width() * 0.5;
     let half_height = window.resolution.height() * 0.5;

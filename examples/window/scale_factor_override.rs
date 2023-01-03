@@ -1,10 +1,7 @@
 //! This example illustrates how to override the window scale factor imposed by the
 //! operating system.
 
-use bevy::{
-    prelude::*,
-    window::{PrimaryWindow, Window, WindowPlugin, WindowResolution},
-};
+use bevy::{prelude::*, window::WindowResolution};
 
 fn main() {
     App::new()
@@ -67,8 +64,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 /// Set the title of the window to the current override
-fn display_override(mut primary_window: Query<&mut Window, With<PrimaryWindow>>) {
-    let mut window = primary_window.single_mut();
+fn display_override(mut windows: Query<&mut Window>) {
+    let mut window = windows.single_mut();
 
     window.title = format!(
         "Scale override: {:?}",
@@ -77,11 +74,8 @@ fn display_override(mut primary_window: Query<&mut Window, With<PrimaryWindow>>)
 }
 
 /// This system toggles scale factor overrides when enter is pressed
-fn toggle_override(
-    input: Res<Input<KeyCode>>,
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
-) {
-    let mut window = primary_window.single_mut();
+fn toggle_override(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+    let mut window = windows.single_mut();
 
     if input.just_pressed(KeyCode::Return) {
         let scale_factor_override = window.resolution.scale_factor_override();
@@ -92,10 +86,7 @@ fn toggle_override(
 }
 
 /// This system changes the scale factor override when up or down is pressed
-fn change_scale_factor(
-    input: Res<Input<KeyCode>>,
-    mut windows: Query<&mut Window, With<PrimaryWindow>>,
-) {
+fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     let mut window = windows.single_mut();
     let scale_factor_override = window.resolution.scale_factor_override();
     if input.just_pressed(KeyCode::Up) {

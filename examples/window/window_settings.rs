@@ -4,7 +4,7 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{CursorGrabMode, PresentMode, PrimaryWindow, Window, WindowPlugin},
+    window::{CursorGrabMode, PresentMode},
 };
 
 fn main() {
@@ -32,12 +32,9 @@ fn main() {
 
 /// This system toggles the vsync mode when pressing the button V.
 /// You'll see fps increase displayed in the console.
-fn toggle_vsync(
-    input: Res<Input<KeyCode>>,
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
-) {
+fn toggle_vsync(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     if input.just_pressed(KeyCode::V) {
-        let mut window = primary_window.single_mut();
+        let mut window = windows.single_mut();
 
         window.present_mode = if matches!(window.present_mode, PresentMode::AutoVsync) {
             PresentMode::AutoNoVsync
@@ -54,12 +51,9 @@ fn toggle_vsync(
 /// This feature only works on some platforms. Please check the
 /// [documentation](https://docs.rs/bevy/latest/bevy/prelude/struct.WindowDescriptor.html#structfield.always_on_top)
 /// for more details.
-fn toggle_always_on_top(
-    input: Res<Input<KeyCode>>,
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
-) {
+fn toggle_always_on_top(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     if input.just_pressed(KeyCode::T) {
-        let mut window = primary_window.single_mut();
+        let mut window = windows.single_mut();
 
         window.always_on_top = !window.always_on_top;
 
@@ -72,20 +66,17 @@ fn toggle_always_on_top(
 }
 
 /// This system will then change the title during execution
-fn change_title(mut primary_window: Query<&mut Window, With<PrimaryWindow>>, time: Res<Time>) {
-    let mut window = primary_window.single_mut();
+fn change_title(mut windows: Query<&mut Window>, time: Res<Time>) {
+    let mut window = windows.single_mut();
     window.title = format!(
         "Seconds since startup: {}",
         time.elapsed().as_secs_f32().round()
     );
 }
 
-fn toggle_cursor(
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
-    input: Res<Input<KeyCode>>,
-) {
+fn toggle_cursor(mut windows: Query<&mut Window>, input: Res<Input<KeyCode>>) {
     if input.just_pressed(KeyCode::Space) {
-        let mut window = primary_window.single_mut();
+        let mut window = windows.single_mut();
 
         window.cursor.visible = !window.cursor.visible;
         window.cursor.grab_mode = match window.cursor.grab_mode {
@@ -97,11 +88,11 @@ fn toggle_cursor(
 
 /// This system cycles the cursor's icon through a small set of icons when clicking
 fn cycle_cursor_icon(
-    mut primary_window: Query<&mut Window, With<PrimaryWindow>>,
+    mut windows: Query<&mut Window>,
     input: Res<Input<MouseButton>>,
     mut index: Local<usize>,
 ) {
-    let mut window = primary_window.single_mut();
+    let mut window = windows.single_mut();
 
     const ICONS: &[CursorIcon] = &[
         CursorIcon::Default,

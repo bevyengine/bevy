@@ -1,11 +1,7 @@
 //! A test to confirm that `bevy` allows setting the window to arbitrary small sizes
 //! This is run in CI to ensure that this doesn't regress again.
 
-use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    prelude::*,
-    window::{PrimaryWindow, WindowPlugin, WindowResolution},
-};
+use bevy::{core_pipeline::clear_color::ClearColorConfig, prelude::*, window::WindowResolution};
 
 // The smallest size reached is 1x1, as X11 doesn't support windows with a 0 dimension
 // TODO: Add a check for platforms other than X11 for 0xk and kx0, despite those currently unsupported on CI.
@@ -103,7 +99,7 @@ fn change_window_size(
     }
 }
 
-fn sync_dimensions(dim: Res<Dimensions>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+fn sync_dimensions(dim: Res<Dimensions>, mut windows: Query<&mut Window>) {
     if dim.is_changed() {
         let mut window = windows.single_mut();
         window.resolution.set(dim.width as f32, dim.height as f32);
