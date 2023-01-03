@@ -262,10 +262,11 @@ When in doubt about a matter of architectural philosophy, refer back to [*What w
 Once you're happy with the work and feel you're reasonably qualified to assess quality in this particular area, leave your `Approved` review on the PR.
 If you're new to GitHub, check out the [Pull Request Review documentation](https://docs.github.com/en/github/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/about-pull-request-reviews). Anyone can leave reviews ... no special permissions are required!
 
-There are a two main places you can check for things to review:
+There are three main places you can check for things to review:
 
-1. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
-2. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
+1. Pull request which are ready and in need of more reviews on [bevy](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+-label%3AS-Ready-For-Final-Review+-draft%3A%3Atrue+-label%3AS-Needs-RFC+-reviewed-by%3A%40me+-author%3A%40me)
+2. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
+3. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
 
 Official focus areas and work done by @cart go through this review process as well.
 Not even our project lead is exempt from reviews and RFCs!
@@ -273,6 +274,35 @@ By giving feedback on this work (and related supporting work), you can help us m
 
 Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
 As discussed in [*How we're organized*](#how-were-organized), this role only requires good faith and a basic understanding of our development process.
+
+### How to adopt pull requests
+
+Occasionally authors of pull requests get busy or become unresponsive, or project members fail to reply in a timely manner.
+This is a natural part of any open source project.
+To avoid blocking these efforts, these pull requests may be *adopted*, where another contributor creates a new pull request with the same content.
+If there is an old pull request that is without updates, comment to the organization whether it is appropriate to add the
+*[S-Adopt-Me](https://github.com/bevyengine/bevy/labels/S-Adopt-Me)* label, to indicate that it can be *adopted*.
+If you plan on adopting a PR yourself, you can also leave a comment on the PR asking the author if they plan on returning.
+If the author gives permission or simply doesn't respond after a few days, then it can be adopted.
+This may sometimes even skip the labeling process since at that point the PR has been adopted by you.
+
+With this label added, it's best practice to fork the original author's branch.
+This ensures that they still get credit for working on it and that the commit history is retained.
+When the new pull request is ready, it should reference the original PR in the description.
+Then notify org members to close the original.
+
+* For example, you can reference the original PR by adding the following to your PR description:
+
+`Adopted #number-original-pull-request`
+
+### Maintaining code
+
+Maintainers can merge uncontroversial pull requests that have at least two approvals (or at least one for trivial changes).
+
+These search filters show the requests that can be merged by maintainers, and those which need a final approval from @cart.
+
+1. Pulls requests which are ready for maintainers to merge without consultation: [requests to pull](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+-label%3AS-Controversial+-label%3AS-Blocked+-label%3AS-Adopt-Me+)
+2. Pull requests which need final input from @cart: [requests to verify](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+label%3AS-Controversial+)
 
 ### Contributing code
 
@@ -282,6 +312,7 @@ If you're new to Bevy, here's the workflow we use:
 1. Fork the `bevyengine/bevy` repository on GitHub. You'll need to create a GitHub account if you don't have one already.
 2. Make your changes in a local clone of your fork, typically in its own new branch.
    1. Try to split your work into separate commits, each with a distinct purpose. Be particularly mindful of this when responding to reviews so it's easy to see what's changed.
+   2. Tip: [You can set up a global `.gitignore` file](https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files#configuring-ignored-files-for-all-repositories-on-your-computer) to exclude your operating system/text editor's special/temporary files. (e.g. `.DS_Store`, `thumbs.db`, `*~`, `*.swp` or `*.swo`) This allows us to keep the `.gitignore` file in the repo uncluttered.
 3. To test CI validations locally, run the `cargo run -p ci` command. This will run most checks that happen in CI, but can take some time. You can also run sub-commands to iterate faster depending on what you're contributing:
     * `cargo run -p ci -- lints` - to run formatting and clippy
     * `cargo run -p ci -- test` - to run tests

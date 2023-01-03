@@ -1,6 +1,6 @@
 // Bloom works by creating an intermediate texture with a bunch of mip levels, each half the size of the previous.
 // You then downsample each mip (starting with the original texture) to the lower resolution mip under it, going in order.
-// You then upsample each mip (starting from the smallest mip) and additively blend with the higher resolution mip above it (ending on the original texture).
+// You then upsample each mip (starting from the smallest mip) and blend with the higher resolution mip above it (ending on the original texture).
 //
 // References:
 // * http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare
@@ -10,8 +10,8 @@
 #import bevy_core_pipeline::tonemapping
 
 struct BloomUniforms {
-    intensity: f32,
     threshold_precomputations: vec4<f32>,
+    viewport: vec4<f32>,
 };
 
 @group(0) @binding(0)
@@ -20,8 +20,6 @@ var input_texture: texture_2d<f32>;
 var s: sampler;
 @group(0) @binding(2)
 var<uniform> uniforms: BloomUniforms;
-@group(0) @binding(3)
-var main_pass_texture: texture_2d<f32>;
 
 // https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
 fn soft_threshold(color: vec3<f32>) -> vec3<f32> {
@@ -111,11 +109,14 @@ fn sample_input_3x3_tent(uv: vec2<f32>) -> vec3<f32> {
 }
 
 @fragment
-fn downsample_first(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    var sample = sample_input_13_tap(uv);
+fn downsample_first(@location(0) output_uv: vec2<f32>) -> @location(0) vec4<f32> {
+    let sample_uv = uniforms.viewport.xy + output_uv * uniforms.viewport.zw;
+    var sample = sample_input_13_tap(sample_uv);
     sample = clamp(sample, vec3<f32>(0.0), vec3<f32>(3.40282347E+38)); // Prevent NaNs
 
+#ifdef USE_THRESHOLD
     sample = soft_threshold(sample);
+#endif
 
     return vec4<f32>(sample, 1.0);
 }
@@ -128,14 +129,4 @@ fn downsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 @fragment
 fn upsample(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     return vec4<f32>(sample_input_3x3_tent(uv), 1.0);
-}
-
-@fragment
-fn upsample_final(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-    let main_pass_sample = textureSample(main_pass_texture, s, uv);
-    let bloom_sample = sample_input_3x3_tent(uv);
-
-    let mixed_sample = mix(main_pass_sample.rgb, bloom_sample, uniforms.intensity);
-
-    return vec4<f32>(mixed_sample, main_pass_sample.a);
 }

@@ -1,21 +1,32 @@
-use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
+pub mod settings;
+pub use self::settings::*;
+
+mod downsampling_pipeline;
+mod upsampling_pipeline;
+use self::{downsampling_pipeline::*, upsampling_pipeline::*};
+
+use crate::{core_2d, core_3d};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{QueryState, With},
+    query::{QueryItem, QueryState, With},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::{UVec2, Vec4};
-use bevy_reflect::{Reflect, TypeUuid};
+use bevy_math::{UVec2, UVec4, Vec4};
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
-    prelude::Camera,
+    extract_component::{
+        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
+        UniformComponentPlugin,
+    },
+    prelude::{Camera, Color},
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     Extract, RenderApp, RenderStage,
@@ -25,21 +36,48 @@ use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
 use std::num::NonZeroU32;
 
-pub mod draw_3d_graph {
-    pub mod node {
-        /// Label for the bloom render node.
-        pub const BLOOM: &str = "bloom_3d";
-    }
-}
-pub mod draw_2d_graph {
-    pub mod node {
-        /// Label for the bloom render node.
-        pub const BLOOM: &str = "bloom_2d";
-    }
-}
-
 const BLOOM_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 929599476923908);
+
+const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
+
+impl BloomSettings {
+    /// Calculates blend intesnities of blur pyramid levels
+    /// during the upsampling+compositing stage.
+    ///
+    /// The function assumes all pyramid levels are upsampled and
+    /// blended into higher frequency ones using this function to
+    /// calculate blend levels every time. The final (highest frequency)
+    /// pyramid level in not blended into anything therefore this function
+    /// is not applied to it. As a result, the *mip* Earameter of 0 indicates
+    /// the second-highest frequency pyramid level (in our case that is the
+    /// 0th mip of the bloom texture with the original image being the
+    /// actual highest frequency level).
+    ///
+    /// Parameters:
+    /// * *mip* - the index of the lower frequency pyramid level (0 - max_mip, where 0 indicates highest frequency mip but not the highest frequency image).
+    /// * *max_mip* - the index of the lowest frequency pyramid level.
+    ///
+    /// This function can be visually previewed for all values of *mip* (normalized) with tweakable
+    /// BloomSettings parameters on [Desmos graphing calculator](https://www.desmos.com/calculator/ncc8xbhzzl).
+    fn compute_blend_factor(&self, mip: f32, max_mip: f32) -> f32 {
+        let x = mip / max_mip;
+
+        let mut lf_boost =
+            (1.0 - (1.0 - x).powf(1.0 / (1.0 - self.lf_boost_curvature))) * self.lf_boost;
+        let high_pass_lq =
+            1.0 - ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0);
+        // let high_pass_hq = 0.5 + 0.5 * ((x - self.high_pass_frequency) / self.high_pass_frequency).clamp(0.0, 1.0).mul(std::f32::consts::PI).cos();
+        let high_pass = high_pass_lq;
+
+        lf_boost *= match self.composite_mode {
+            BloomCompositeMode::EnergyConserving => 1.0 - self.intensity,
+            BloomCompositeMode::Additive => 1.0,
+        };
+
+        (self.intensity + lf_boost) * high_pass
+    }
+}
 
 pub struct BloomPlugin;
 
@@ -48,6 +86,10 @@ impl Plugin for BloomPlugin {
         load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
 
         app.register_type::<BloomSettings>();
+        app.register_type::<BloomPrefilterSettings>();
+        app.register_type::<BloomCompositeMode>();
+        app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
+        app.add_plugin(UniformComponentPlugin::<BloomDownsamplingUniform>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -56,10 +98,16 @@ impl Plugin for BloomPlugin {
 
         render_app
             .init_resource::<BloomPipelines>()
-            .init_resource::<BloomUniforms>()
+            .init_resource::<BloomDownsamplingPipeline>()
+            .init_resource::<BloomUpsamplingPipeline>()
+            .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
+            // .init_resource::<BloomUniforms>()
             .add_system_to_stage(RenderStage::Extract, extract_bloom_settings)
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
-            .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
+            // .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
+            .add_system_to_stage(RenderStage::Prepare, prepare_downsampling_pipeline)
+            .add_system_to_stage(RenderStage::Prepare, prepare_upsampling_pipeline)
             .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
 
         // Add bloom to the 3d render graph
@@ -69,28 +117,22 @@ impl Plugin for BloomPlugin {
             let draw_3d_graph = graph
                 .get_sub_graph_mut(crate::core_3d::graph::NAME)
                 .unwrap();
-            draw_3d_graph.add_node(draw_3d_graph::node::BLOOM, bloom_node);
-            draw_3d_graph
-                .add_slot_edge(
-                    draw_3d_graph.input_node().unwrap().id,
-                    crate::core_3d::graph::input::VIEW_ENTITY,
-                    draw_3d_graph::node::BLOOM,
-                    BloomNode::IN_VIEW,
-                )
-                .unwrap();
+            draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
+            draw_3d_graph.add_slot_edge(
+                draw_3d_graph.input_node().id,
+                crate::core_3d::graph::input::VIEW_ENTITY,
+                core_3d::graph::node::BLOOM,
+                BloomNode::IN_VIEW,
+            );
             // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_3d_graph
-                .add_node_edge(
-                    crate::core_3d::graph::node::MAIN_PASS,
-                    draw_3d_graph::node::BLOOM,
-                )
-                .unwrap();
-            draw_3d_graph
-                .add_node_edge(
-                    draw_3d_graph::node::BLOOM,
-                    crate::core_3d::graph::node::TONEMAPPING,
-                )
-                .unwrap();
+            draw_3d_graph.add_node_edge(
+                crate::core_3d::graph::node::MAIN_PASS,
+                core_3d::graph::node::BLOOM,
+            );
+            draw_3d_graph.add_node_edge(
+                core_3d::graph::node::BLOOM,
+                crate::core_3d::graph::node::TONEMAPPING,
+            );
         }
 
         // Add bloom to the 2d render graph
@@ -100,87 +142,82 @@ impl Plugin for BloomPlugin {
             let draw_2d_graph = graph
                 .get_sub_graph_mut(crate::core_2d::graph::NAME)
                 .unwrap();
-            draw_2d_graph.add_node(draw_2d_graph::node::BLOOM, bloom_node);
-            draw_2d_graph
-                .add_slot_edge(
-                    draw_2d_graph.input_node().unwrap().id,
-                    crate::core_2d::graph::input::VIEW_ENTITY,
-                    draw_2d_graph::node::BLOOM,
-                    BloomNode::IN_VIEW,
-                )
-                .unwrap();
+            draw_2d_graph.add_node(core_2d::graph::node::BLOOM, bloom_node);
+            draw_2d_graph.add_slot_edge(
+                draw_2d_graph.input_node().id,
+                crate::core_2d::graph::input::VIEW_ENTITY,
+                core_2d::graph::node::BLOOM,
+                BloomNode::IN_VIEW,
+            );
             // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_2d_graph
-                .add_node_edge(
-                    crate::core_2d::graph::node::MAIN_PASS,
-                    draw_2d_graph::node::BLOOM,
-                )
-                .unwrap();
-            draw_2d_graph
-                .add_node_edge(
-                    draw_2d_graph::node::BLOOM,
-                    crate::core_2d::graph::node::TONEMAPPING,
-                )
-                .unwrap();
+            draw_2d_graph.add_node_edge(
+                crate::core_2d::graph::node::MAIN_PASS,
+                core_2d::graph::node::BLOOM,
+            );
+            draw_2d_graph.add_node_edge(
+                core_2d::graph::node::BLOOM,
+                crate::core_2d::graph::node::TONEMAPPING,
+            );
         }
     }
 }
 
-/// Applies a bloom effect to a HDR-enabled 2d or 3d camera.
-///
-/// Bloom emulates an effect found in real cameras and the human eye,
-/// causing halos to appear around very bright parts of the scene.
-///
-/// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive`.
-///
-/// Bloom is best used alongside a tonemapping function that desaturates bright colors,
-/// such as ACES Filmic (Bevy's default).
-///
-/// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
-#[derive(Component, Reflect, Clone)]
-pub struct BloomSettings {
-    /// Intensity of the bloom effect (default: 0.04).
-    pub intensity: f32,
+impl ExtractComponent for BloomSettings {
+    type Query = (&'static Self, &'static Camera);
 
-    /// Baseline of the quadratic threshold curve (default: 0.0).
-    ///
-    /// RGB values under the threshold curve will not have bloom applied.
-    /// Using a threshold is not physically accurate, but may fit better with your artistic direction.
-    pub threshold: f32,
+    type Filter = ();
+    type Out = BloomDownsamplingUniform;
 
-    /// Controls how much to blend between the thresholded and non-thresholded colors (default: 0.5).
-    ///
-    /// 0.0 = Abrupt threshold, no blending
-    /// 1.0 = Fully soft threshold
-    ///
-    /// Values outside of the range [0.0, 1.0] will be clamped.
-    pub threshold_softness: f32,
-}
+    fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        if !camera.is_active {
+            return None;
+        }
 
-impl Default for BloomSettings {
-    fn default() -> Self {
-        Self {
-            intensity: 0.04,
-            threshold: 0.0,
-            threshold_softness: 0.5,
+        if let (Some((origin, _)), Some(size), Some(target_size)) = (
+            camera.physical_viewport_rect(),
+            camera.physical_viewport_size(),
+            camera.physical_target_size(),
+        ) {
+            // let min_view = size.x.min(size.y) / 2;
+            // let mip_count = calculate_mip_count(min_view);
+            // let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
+            let pref_sett = &settings.prefilter_settings;
+            let knee = pref_sett.threshold * pref_sett.threshold_softness.clamp(0.0, 1.0);
+
+            Some(BloomDownsamplingUniform {
+                threshold_precomputations: Vec4::new(
+                    pref_sett.threshold,
+                    pref_sett.threshold - knee,
+                    2.0 * knee,
+                    0.25 / (knee + 0.00001),
+                ),
+                viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
+                    / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
+                        .as_vec4(),
+            })
+        } else {
+            None
         }
     }
 }
 
-struct BloomNode {
+pub struct BloomNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
         &'static BloomBindGroups,
-        &'static BloomUniformIndex,
+        &'static DynamicUniformIndex<BloomDownsamplingUniform>,
+        &'static BloomSettings,
+        &'static UpsamplingPipelineIds,
+        &'static BloomDownsamplingPipelineIds,
     )>,
 }
 
 impl BloomNode {
-    const IN_VIEW: &'static str = "view";
+    pub const IN_VIEW: &'static str = "view";
 
-    fn new(world: &mut World) -> Self {
+    pub fn new(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
         }
@@ -196,6 +233,9 @@ impl Node for BloomNode {
         self.view_query.update_archetypes(world);
     }
 
+    // Atypically for a post-processing effect, we do not
+    // use a secondary texture normally provided by view_target.post_process_write(),
+    // instead we write into our own bloom texture and then directly back onto main.
     fn run(
         &self,
         graph: &mut RenderGraphContext,
@@ -206,76 +246,74 @@ impl Node for BloomNode {
         let _bloom_span = info_span!("bloom").entered();
 
         let pipelines = world.resource::<BloomPipelines>();
+        let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let bloom_uniforms = world.resource::<BloomUniforms>();
+        let uniforms = world.resource::<ComponentUniforms<BloomDownsamplingUniform>>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
-            Ok((camera, view_target, bloom_texture, bind_groups, uniform_index)),
+            camera,
+            view_target,
+            bloom_texture,
+            bind_groups,
+            uniform_index,
+            bloom_settings,
+            upsampling_pipeline_ids,
+            downsampling_pipeline_ids,
+        ) = match self.view_query.get_manual(world, view_entity) {
+            Ok(result) => result,
+            _ => return Ok(()),
+        };
+
+        // Downsampling pipelines
+        let (
             Some(downsampling_first_pipeline),
             Some(downsampling_pipeline),
-            Some(upsampling_pipeline),
-            Some(upsampling_final_pipeline),
-            Some(bloom_uniforms),
         ) = (
-            self.view_query.get_manual(world, view_entity),
-            pipeline_cache.get_render_pipeline(pipelines.downsampling_first_pipeline),
-            pipeline_cache.get_render_pipeline(pipelines.downsampling_pipeline),
-            pipeline_cache.get_render_pipeline(pipelines.upsampling_pipeline),
-            pipeline_cache.get_render_pipeline(pipelines.upsampling_final_pipeline),
-            bloom_uniforms.buffer.binding(),
+            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.id_first),
+            pipeline_cache.get_render_pipeline(downsampling_pipeline_ids.id_main),
         ) else {
             return Ok(());
         };
-        let view_target = view_target.post_process_write();
 
-        let downsampling_first_bind_group =
-            render_context
-                .render_device
-                .create_bind_group(&BindGroupDescriptor {
-                    label: Some("bloom_downsampling_first_bind_group"),
-                    layout: &pipelines.main_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(view_target.source),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::Sampler(&pipelines.sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: bloom_uniforms.clone(),
-                        },
-                    ],
-                });
-        let upsampling_final_bind_group =
-            render_context
-                .render_device
-                .create_bind_group(&BindGroupDescriptor {
-                    label: Some("bloom_upsampling_final_bind_group"),
-                    layout: &pipelines.upsampling_final_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(&bloom_texture.view(0)),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::Sampler(&pipelines.sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: bloom_uniforms,
-                        },
-                        BindGroupEntry {
-                            binding: 3,
-                            resource: BindingResource::TextureView(view_target.source),
-                        },
-                    ],
-                });
+        // Upsampling pipleines
+        let (
+            Some(upsampling_pipeline),
+            Some(upsampling_final_pipeline),
+        ) = (
+            pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_main),
+            pipeline_cache.get_render_pipeline(upsampling_pipeline_ids.id_final),
+        ) else {
+            return Ok(());
+        };
 
+        // First downsample pass
         {
+            let downsampling_first_bind_group = {
+                let texture = BindGroupEntry {
+                    binding: 0,
+                    // We read from main texture directly
+                    resource: BindingResource::TextureView(view_target.main_texture()),
+                };
+
+                let sampler = BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Sampler(&pipelines.sampler),
+                };
+
+                let settings = BindGroupEntry {
+                    binding: 2,
+                    resource: uniforms.binding().unwrap().clone(),
+                };
+
+                render_context
+                    .render_device
+                    .create_bind_group(&BindGroupDescriptor {
+                        label: Some("bloom_downsampling_first_bind_group"),
+                        layout: &downsampling_pipeline_res.extended_bind_group_layout,
+                        entries: &[texture, sampler, settings],
+                    })
+            };
+
             let view = &bloom_texture.view(0);
             let mut downsampling_first_pass =
                 TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
@@ -293,14 +331,12 @@ impl Node for BloomNode {
             downsampling_first_pass.set_bind_group(
                 0,
                 &downsampling_first_bind_group,
-                &[uniform_index.0],
+                &[uniform_index.index()],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                downsampling_first_pass.set_camera_viewport(viewport);
-            }
             downsampling_first_pass.draw(0..3, 0..1);
         }
 
+        // Other downsample passes
         for mip in 1..bloom_texture.mip_count {
             let view = &bloom_texture.view(mip);
             let mut downsampling_pass =
@@ -319,14 +355,12 @@ impl Node for BloomNode {
             downsampling_pass.set_bind_group(
                 0,
                 &bind_groups.downsampling_bind_groups[mip as usize - 1],
-                &[uniform_index.0],
+                &[],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                downsampling_pass.set_camera_viewport(viewport);
-            }
             downsampling_pass.draw(0..3, 0..1);
         }
 
+        // Upsample passes except the final one
         for mip in (1..bloom_texture.mip_count).rev() {
             let view = &bloom_texture.view(mip - 1);
             let mut upsampling_pass =
@@ -348,36 +382,45 @@ impl Node for BloomNode {
             upsampling_pass.set_bind_group(
                 0,
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
-                &[uniform_index.0],
+                &[],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                upsampling_pass.set_camera_viewport(viewport);
-            }
+            let blend = bloom_settings
+                .compute_blend_factor((mip) as f32, (bloom_texture.mip_count - 1) as f32);
+            upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_pass.draw(0..3, 0..1);
         }
 
+        // Final upsample pass
+        // This is very similar to the upsampling_pass above with the only difference
+        // being the pipeline (which itself is barely different) and the color attachment.
+        // Too bad.
         {
             let mut upsampling_final_pass =
                 TrackedRenderPass::new(render_context.command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_upsampling_final_pass"),
-                        color_attachments: &[Some(RenderPassColorAttachment {
-                            view: view_target.destination,
-                            resolve_target: None,
-                            ops: Operations::default(),
-                        })],
+                        color_attachments: &[Some(
+                            // We draw directly onto the main texture
+                            view_target.get_unsampled_color_attachment(Operations {
+                                load: LoadOp::Load,
+                                store: true,
+                            }),
+                        )],
                         depth_stencil_attachment: None,
                     },
                 ));
             upsampling_final_pass.set_render_pipeline(upsampling_final_pipeline);
             upsampling_final_pass.set_bind_group(
                 0,
-                &upsampling_final_bind_group,
-                &[uniform_index.0],
+                &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - 1) as usize],
+                &[],
             );
             if let Some(viewport) = camera.viewport.as_ref() {
                 upsampling_final_pass.set_camera_viewport(viewport);
             }
+            let blend =
+                bloom_settings.compute_blend_factor(0.0, (bloom_texture.mip_count - 1) as f32);
+            upsampling_final_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_final_pass.draw(0..3, 0..1);
         }
 
@@ -387,14 +430,6 @@ impl Node for BloomNode {
 
 #[derive(Resource)]
 struct BloomPipelines {
-    downsampling_first_pipeline: CachedRenderPipelineId,
-    downsampling_pipeline: CachedRenderPipelineId,
-    upsampling_pipeline: CachedRenderPipelineId,
-    upsampling_final_pipeline: CachedRenderPipelineId,
-
-    main_bind_group_layout: BindGroupLayout,
-    upsampling_final_bind_group_layout: BindGroupLayout,
-
     sampler: Sampler,
 }
 
@@ -410,188 +445,7 @@ impl FromWorld for BloomPipelines {
             ..Default::default()
         });
 
-        let main_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("bloom_main_bind_group_layout"),
-                entries: &[
-                    // Input texture (higher resolution for downsample, lower resolution for upsample)
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // Sampler
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // Bloom settings
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(BloomUniform::min_size()),
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                ],
-            });
-
-        let upsampling_final_bind_group_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("bloom_upsampling_final_bind_group_layout"),
-                entries: &[
-                    // Main pass texture
-                    BindGroupLayoutEntry {
-                        binding: 0,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // Sampler
-                    BindGroupLayoutEntry {
-                        binding: 1,
-                        ty: BindingType::Sampler(SamplerBindingType::Filtering),
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // Bloom settings
-                    BindGroupLayoutEntry {
-                        binding: 2,
-                        ty: BindingType::Buffer {
-                            ty: BufferBindingType::Uniform,
-                            has_dynamic_offset: true,
-                            min_binding_size: Some(BloomUniform::min_size()),
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                    // Second to last upsample result texture (BloomTexture mip 0)
-                    BindGroupLayoutEntry {
-                        binding: 3,
-                        ty: BindingType::Texture {
-                            sample_type: TextureSampleType::Float { filterable: true },
-                            view_dimension: TextureViewDimension::D2,
-                            multisampled: false,
-                        },
-                        visibility: ShaderStages::FRAGMENT,
-                        count: None,
-                    },
-                ],
-            });
-
-        let mut pipeline_cache = world.resource_mut::<PipelineCache>();
-
-        let downsampling_first_pipeline =
-            pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("bloom_downsampling_first_pipeline".into()),
-                layout: Some(vec![main_bind_group_layout.clone()]),
-                vertex: fullscreen_shader_vertex_state(),
-                fragment: Some(FragmentState {
-                    shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                    shader_defs: vec!["FIRST_DOWNSAMPLE".into()],
-                    entry_point: "downsample_first".into(),
-                    targets: vec![Some(ColorTargetState {
-                        format: TextureFormat::Rg11b10Float,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    })],
-                }),
-                primitive: PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: MultisampleState::default(),
-            });
-
-        let downsampling_pipeline =
-            pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("bloom_downsampling_pipeline".into()),
-                layout: Some(vec![main_bind_group_layout.clone()]),
-                vertex: fullscreen_shader_vertex_state(),
-                fragment: Some(FragmentState {
-                    shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                    shader_defs: vec![],
-                    entry_point: "downsample".into(),
-                    targets: vec![Some(ColorTargetState {
-                        format: TextureFormat::Rg11b10Float,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    })],
-                }),
-                primitive: PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: MultisampleState::default(),
-            });
-
-        let upsampling_pipeline = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-            label: Some("bloom_upsampling_pipeline".into()),
-            layout: Some(vec![main_bind_group_layout.clone()]),
-            vertex: fullscreen_shader_vertex_state(),
-            fragment: Some(FragmentState {
-                shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                shader_defs: vec![],
-                entry_point: "upsample".into(),
-                targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::Rg11b10Float,
-                    blend: Some(BlendState {
-                        color: BlendComponent {
-                            src_factor: BlendFactor::One,
-                            dst_factor: BlendFactor::One,
-                            operation: BlendOperation::Add,
-                        },
-                        alpha: BlendComponent::REPLACE,
-                    }),
-                    write_mask: ColorWrites::ALL,
-                })],
-            }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-        });
-
-        let upsampling_final_pipeline =
-            pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
-                label: Some("bloom_upsampling_final_pipeline".into()),
-                layout: Some(vec![upsampling_final_bind_group_layout.clone()]),
-                vertex: fullscreen_shader_vertex_state(),
-                fragment: Some(FragmentState {
-                    shader: BLOOM_SHADER_HANDLE.typed::<Shader>(),
-                    shader_defs: vec![],
-                    entry_point: "upsample_final".into(),
-                    targets: vec![Some(ColorTargetState {
-                        format: ViewTarget::TEXTURE_FORMAT_HDR,
-                        blend: None,
-                        write_mask: ColorWrites::ALL,
-                    })],
-                }),
-                primitive: PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: MultisampleState::default(),
-            });
-
-        BloomPipelines {
-            downsampling_first_pipeline,
-            downsampling_pipeline,
-            upsampling_pipeline,
-            upsampling_final_pipeline,
-
-            sampler,
-
-            main_bind_group_layout,
-            upsampling_final_bind_group_layout,
-        }
+        BloomPipelines { sampler }
     }
 }
 
@@ -600,7 +454,7 @@ fn extract_bloom_settings(
     cameras: Extract<Query<(Entity, &Camera, &BloomSettings), With<Camera>>>,
 ) {
     for (entity, camera, bloom_settings) in &cameras {
-        if camera.is_active && camera.hdr {
+        if camera.is_active {
             commands.get_or_spawn(entity).insert(bloom_settings.clone());
         }
     }
@@ -627,7 +481,7 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
+    views: Query<(Entity, &ExtractedCamera), With<BloomDownsamplingUniform>>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera) in &views {
@@ -637,8 +491,8 @@ fn prepare_bloom_textures(
         }) = camera.physical_viewport_size
         {
             let min_view = width.min(height) as f32;
-            // How many times we can halve the resolution, minus 3 to avoid tiny mips
-            let mip_count = (min_view.log2().round() as i32 - 3).max(1) as u32;
+            // How many times we can halve the resolution minus one so we don't go unnecessarily low
+            let mip_count = (min_view.log2().floor() as u32 - 1).max(1);
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
@@ -650,7 +504,7 @@ fn prepare_bloom_textures(
                 mip_level_count: mip_count,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rg11b10Float,
+                format: BLOOM_TEXTURE_FORMAT,
                 usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
             };
 
@@ -666,55 +520,6 @@ fn prepare_bloom_textures(
     }
 }
 
-#[derive(ShaderType)]
-struct BloomUniform {
-    intensity: f32,
-    // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
-    threshold_precomputations: Vec4,
-}
-
-#[derive(Resource, Default)]
-struct BloomUniforms {
-    buffer: DynamicUniformBuffer<BloomUniform>,
-}
-
-#[derive(Component)]
-struct BloomUniformIndex(u32);
-
-fn prepare_bloom_uniforms(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut bloom_uniforms: ResMut<BloomUniforms>,
-    bloom_query: Query<(Entity, &BloomSettings)>,
-) {
-    bloom_uniforms.buffer.clear();
-
-    let entities = bloom_query
-        .iter()
-        .map(|(entity, settings)| {
-            let knee = settings.threshold * settings.threshold_softness.clamp(0.0, 1.0);
-            let uniform = BloomUniform {
-                intensity: settings.intensity,
-                threshold_precomputations: Vec4::new(
-                    settings.threshold,
-                    settings.threshold - knee,
-                    2.0 * knee,
-                    0.25 / (knee + 0.00001),
-                ),
-            };
-
-            let index = bloom_uniforms.buffer.push(uniform);
-            (entity, (BloomUniformIndex(index)))
-        })
-        .collect::<Vec<_>>();
-    commands.insert_or_spawn_batch(entities);
-
-    bloom_uniforms
-        .buffer
-        .write_buffer(&render_device, &render_queue);
-}
-
 #[derive(Component)]
 struct BloomBindGroups {
     downsampling_bind_groups: Box<[BindGroup]>,
@@ -725,65 +530,57 @@ fn queue_bloom_bind_groups(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     pipelines: Res<BloomPipelines>,
-    bloom_uniforms: Res<BloomUniforms>,
+    downsampling_pipeline: Res<BloomDownsamplingPipeline>,
+    upsampling_pipeline: Res<BloomUpsamplingPipeline>,
+    // bloom_uniforms: Res<BloomUniforms>,
     views: Query<(Entity, &BloomTexture)>,
 ) {
-    if let Some(bloom_uniforms) = bloom_uniforms.buffer.binding() {
-        for (entity, bloom_texture) in &views {
-            let bind_group_count = bloom_texture.mip_count as usize - 1;
+    for (entity, bloom_texture) in &views {
+        let bind_group_count = bloom_texture.mip_count as usize - 1;
 
-            let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
-            for mip in 1..bloom_texture.mip_count {
-                let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                    label: Some("bloom_downsampling_bind_group"),
-                    layout: &pipelines.main_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(&bloom_texture.view(mip - 1)),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::Sampler(&pipelines.sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: bloom_uniforms.clone(),
-                        },
-                    ],
-                });
-
-                downsampling_bind_groups.push(bind_group);
-            }
-
-            let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
-            for mip in (1..bloom_texture.mip_count).rev() {
-                let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                    label: Some("bloom_upsampling_bind_group"),
-                    layout: &pipelines.main_bind_group_layout,
-                    entries: &[
-                        BindGroupEntry {
-                            binding: 0,
-                            resource: BindingResource::TextureView(&bloom_texture.view(mip)),
-                        },
-                        BindGroupEntry {
-                            binding: 1,
-                            resource: BindingResource::Sampler(&pipelines.sampler),
-                        },
-                        BindGroupEntry {
-                            binding: 2,
-                            resource: bloom_uniforms.clone(),
-                        },
-                    ],
-                });
-
-                upsampling_bind_groups.push(bind_group);
-            }
-
-            commands.entity(entity).insert(BloomBindGroups {
-                downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
-                upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
+        let mut downsampling_bind_groups = Vec::with_capacity(bind_group_count);
+        for mip in 1..bloom_texture.mip_count {
+            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                label: Some("bloom_downsampling_bind_group"),
+                layout: &downsampling_pipeline.bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(&bloom_texture.view(mip - 1)),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(&pipelines.sampler),
+                    },
+                ],
             });
+
+            downsampling_bind_groups.push(bind_group);
         }
+
+        let mut upsampling_bind_groups = Vec::with_capacity(bind_group_count);
+        for mip in (0..bloom_texture.mip_count).rev() {
+            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+                label: Some("bloom_upsampling_bind_group"),
+                layout: &upsampling_pipeline.bind_group_layout,
+                entries: &[
+                    BindGroupEntry {
+                        binding: 0,
+                        resource: BindingResource::TextureView(&bloom_texture.view(mip)),
+                    },
+                    BindGroupEntry {
+                        binding: 1,
+                        resource: BindingResource::Sampler(&pipelines.sampler),
+                    },
+                ],
+            });
+
+            upsampling_bind_groups.push(bind_group);
+        }
+
+        commands.entity(entity).insert(BloomBindGroups {
+            downsampling_bind_groups: downsampling_bind_groups.into_boxed_slice(),
+            upsampling_bind_groups: upsampling_bind_groups.into_boxed_slice(),
+        });
     }
 }

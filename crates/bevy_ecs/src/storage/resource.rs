@@ -1,8 +1,7 @@
 use crate::archetype::ArchetypeComponentId;
-use crate::component::{ComponentId, ComponentTicks, Components};
-use crate::storage::{Column, SparseSet};
+use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
+use crate::storage::{Column, SparseSet, TableRow};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use std::cell::UnsafeCell;
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
@@ -13,6 +12,9 @@ pub struct ResourceData {
 }
 
 impl ResourceData {
+    /// The only row in the underlying column.
+    const ROW: TableRow = TableRow::new(0);
+
     /// Returns true if the resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
@@ -28,24 +30,18 @@ impl ResourceData {
     /// Gets a read-only pointer to the underlying resource, if available.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
-        self.column.get_data(0)
+        self.column.get_data(Self::ROW)
     }
 
     /// Gets a read-only reference to the change ticks of the underlying resource, if available.
     #[inline]
-    pub fn get_ticks(&self) -> Option<&ComponentTicks> {
-        self.column
-            .get_ticks(0)
-            // SAFETY:
-            //  - This borrow's lifetime is bounded by the lifetime on self.
-            //  - A read-only borrow on self can only exist while a mutable borrow doesn't
-            //    exist.
-            .map(|ticks| unsafe { ticks.deref() })
+    pub fn get_ticks(&self) -> Option<ComponentTicks> {
+        self.column.get_ticks(Self::ROW)
     }
 
     #[inline]
-    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, &UnsafeCell<ComponentTicks>)> {
-        self.column.get(0)
+    pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>)> {
+        self.column.get(Self::ROW)
     }
 
     /// Inserts a value into the resource. If a value is already present
@@ -61,7 +57,7 @@ impl ResourceData {
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
-            self.column.replace(0, value, change_tick);
+            self.column.replace(Self::ROW, value, change_tick);
         } else {
             self.column.push(value, ComponentTicks::new(change_tick));
         }
@@ -84,8 +80,12 @@ impl ResourceData {
         change_ticks: ComponentTicks,
     ) {
         if self.is_present() {
-            self.column.replace_untracked(0, value);
-            *self.column.get_ticks_unchecked(0).deref_mut() = change_ticks;
+            self.column.replace_untracked(Self::ROW, value);
+            *self.column.get_added_ticks_unchecked(Self::ROW).deref_mut() = change_ticks.added;
+            *self
+                .column
+                .get_changed_ticks_unchecked(Self::ROW)
+                .deref_mut() = change_ticks.changed;
         } else {
             self.column.push(value, change_ticks);
         }
@@ -103,7 +103,7 @@ impl ResourceData {
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        self.column.swap_remove_and_forget(0)
+        self.column.swap_remove_and_forget(Self::ROW)
     }
 
     /// Removes a value from the resource, if present, and drops it.
