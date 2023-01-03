@@ -14,7 +14,7 @@ pub use task_pool_options::*;
 pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{CorePlugin, Name, TaskPoolOptions};
+    pub use crate::{CorePlugin, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin};
 }
 
 use bevy_app::prelude::*;
@@ -33,29 +33,14 @@ use bevy_tasks::tick_global_task_pools_on_main_thread;
 
 /// Adds core functionality to Apps.
 #[derive(Default)]
-pub struct CorePlugin {
-    /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
-    pub task_pool_options: TaskPoolOptions,
-}
+pub struct CorePlugin {}
 
 impl Plugin for CorePlugin {
     fn build(&self, app: &mut App) {
-        // Setup the default bevy task pools
-        self.task_pool_options.create_default_pools();
-
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_system_to_stage(
-            bevy_app::CoreStage::Last,
-            tick_global_task_pools_on_main_thread.at_end(),
-        );
-
         app.register_type::<Entity>().register_type::<Name>();
 
         register_rust_types(app);
         register_math_types(app);
-
-        app.init_resource::<FrameCount>();
-        app.add_system(update_frame_count);
     }
 }
 
@@ -107,11 +92,42 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Quat>();
 }
 
+/// Provides access to `TaskPools`.
+#[derive(Default)]
+pub struct TaskPoolPlugin {
+    /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
+    pub task_pool_options: TaskPoolOptions,
+}
+
+impl Plugin for TaskPoolPlugin {
+    fn build(&self, app: &mut App) {
+        // Setup the default bevy task pools
+        self.task_pool_options.create_default_pools();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_system_to_stage(
+            bevy_app::CoreStage::Last,
+            tick_global_task_pools_on_main_thread.at_end(),
+        );
+    }
+}
+
 /// Keeps a count of rendered frames since the start of the app
 ///
 /// Wraps to 0 when it reaches the maximum u32 value
 #[derive(Default, Resource, Clone, Copy)]
 pub struct FrameCount(pub u32);
+
+/// Adds frame counting functionality to Apps.
+#[derive(Default)]
+pub struct FrameCountPlugin {}
+
+impl Plugin for FrameCountPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<FrameCount>();
+        app.add_system(update_frame_count);
+    }
+}
 
 fn update_frame_count(mut frame_count: ResMut<FrameCount>) {
     frame_count.0 = frame_count.0.wrapping_add(1);
@@ -125,7 +141,9 @@ mod tests {
     #[test]
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
+        app.add_plugin(TaskPoolPlugin::default());
         app.add_plugin(CorePlugin::default());
+        app.add_plugin(FrameCountPlugin::default());
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()
@@ -158,7 +176,9 @@ mod tests {
     #[test]
     fn frame_counter_update() {
         let mut app = App::new();
+        app.add_plugin(TaskPoolPlugin::default());
         app.add_plugin(CorePlugin::default());
+        app.add_plugin(FrameCountPlugin::default());
         app.update();
 
         let frame_count = app.world.resource::<FrameCount>();
