@@ -12,7 +12,7 @@ use bevy_input::{keyboard::KeyCode, Input};
 ///
 /// [`WindowPlugin`]: crate::WindowPlugin
 pub fn exit_on_all_closed(mut app_exit_events: EventWriter<AppExit>, windows: Query<&Window>) {
-    if windows.iter().count() == 0 {
+    if windows.is_empty() {
         bevy_utils::tracing::info!("No windows are open, exiting");
         app_exit_events.send(AppExit);
     }

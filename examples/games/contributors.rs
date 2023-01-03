@@ -250,14 +250,14 @@ fn collision_system(
 ) {
     let window = windows.single();
 
-    let ceiling = window.resolution.height() / 2.;
-    let ground = -window.resolution.height() / 2.;
+    let ceiling = window.height() / 2.;
+    let ground = -window.height() / 2.;
 
-    let wall_left = -window.resolution.width() / 2.;
-    let wall_right = window.resolution.width() / 2.;
+    let wall_left = -window.width() / 2.;
+    let wall_right = window.width() / 2.;
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.
-    let max_bounce_height = (window.resolution.height() - SPRITE_SIZE * 2.0).max(0.0);
+    let max_bounce_height = (window.height() - SPRITE_SIZE * 2.0).max(0.0);
 
     let mut rng = rand::thread_rng();
 

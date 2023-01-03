@@ -223,8 +223,8 @@ fn movement_system(time: Res<Time>, mut bird_query: Query<(&mut Bird, &mut Trans
 fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
     let window = windows.single();
 
-    let half_width = window.resolution.width() * 0.5;
-    let half_height = window.resolution.height() * 0.5;
+    let half_width = window.width() * 0.5;
+    let half_height = window.height() * 0.5;
 
     for (mut bird, transform) in &mut bird_query {
         let x_vel = bird.velocity.x;

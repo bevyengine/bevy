@@ -25,25 +25,25 @@ impl WinitWindows {
         &mut self,
         event_loop: &winit::event_loop::EventLoopWindowTarget<()>,
         entity: Entity,
-        component: &Window,
+        window: &Window,
     ) -> &winit::window::Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
-        winit_window_builder = match component.mode {
+        winit_window_builder = match window.mode {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
             WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(get_fitting_videomode(
                     &event_loop.primary_monitor().unwrap(),
-                    component.resolution.width() as u32,
-                    component.resolution.height() as u32,
+                    window.width() as u32,
+                    window.height() as u32,
                 )),
             )),
             _ => {
                 if let Some(position) = winit_window_position(
-                    &component.position,
-                    &component.resolution,
+                    &window.position,
+                    &window.resolution,
                     event_loop.available_monitors(),
                     event_loop.primary_monitor(),
                     None,
@@ -52,18 +52,19 @@ impl WinitWindows {
                 }
 
                 winit_window_builder.with_inner_size(
-                    LogicalSize::new(component.resolution.width(), component.resolution.height())
-                        .to_physical::<f64>(component.resolution.scale_factor()),
+                    LogicalSize::new(window.width(), window.height())
+                        .to_physical::<f64>(window.resolution.scale_factor()),
                 )
             }
         };
 
         winit_window_builder = winit_window_builder
-            .with_resizable(component.resizable)
-            .with_decorations(component.decorations)
-            .with_transparent(component.transparent);
+            .with_always_on_top(window.always_on_top)
+            .with_resizable(window.resizable)
+            .with_decorations(window.decorations)
+            .with_transparent(window.transparent);
 
-        let constraints = component.resize_constraints.check_constraints();
+        let constraints = window.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
             width: constraints.min_width,
             height: constraints.min_height,
@@ -83,14 +84,14 @@ impl WinitWindows {
             };
 
         #[allow(unused_mut)]
-        let mut winit_window_builder = winit_window_builder.with_title(component.title.as_str());
+        let mut winit_window_builder = winit_window_builder.with_title(window.title.as_str());
 
         #[cfg(target_arch = "wasm32")]
         {
             use wasm_bindgen::JsCast;
             use winit::platform::web::WindowBuilderExtWebSys;
 
-            if let Some(selector) = &component.canvas {
+            if let Some(selector) = &window.canvas {
                 let window = web_sys::window().unwrap();
                 let document = window.document().unwrap();
                 let canvas = document
@@ -107,24 +108,12 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        match component.cursor.grab_mode {
-            CursorGrabMode::Confined | CursorGrabMode::Locked => {
-                match winit_window
-                    .set_cursor_grab(convert_cursor_grab_mode(component.cursor.grab_mode))
-                {
-                    Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
-                    Err(err) => Err(err).unwrap(),
-                }
-            }
-            _ => {}
-        }
-
         // Do not set the grab mode on window creation if it's none, this can fail on mobile
-        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
-            window.set_cursor_grab_mode(window_descriptor.cursor_grab_mode);
+        if window.cursor.grab_mode != CursorGrabMode::None {
+            attempt_grab(&mut winit_window, window.cursor.grab_mode);
         }
 
-        winit_window.set_cursor_visible(component.cursor.visible);
+        winit_window.set_cursor_visible(window.cursor.visible);
 
         self.entity_to_winit.insert(entity, winit_window.id());
         self.winit_to_entity.insert(winit_window.id(), entity);
@@ -133,7 +122,7 @@ impl WinitWindows {
         {
             use winit::platform::web::WindowExtWebSys;
 
-            if component.canvas.is_none() {
+            if window.canvas.is_none() {
                 let canvas = winit_window.canvas();
 
                 let window = web_sys::window().unwrap();
@@ -223,6 +212,34 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
     });
 
     modes.first().unwrap().clone()
+}
+
+fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode) {
+    let grab_result = match grab_mode {
+        bevy_window::CursorGrabMode::None => {
+            winit_window.set_cursor_grab(winit::window::CursorGrabMode::None)
+        }
+        bevy_window::CursorGrabMode::Confined => winit_window
+            .set_cursor_grab(winit::window::CursorGrabMode::Confined)
+            .or_else(|_e| {
+                winit_window.set_cursor_grab(winit::window::CursorGrabMode::Locked)
+            }),
+        bevy_window::CursorGrabMode::Locked => winit_window
+            .set_cursor_grab(winit::window::CursorGrabMode::Locked)
+            .or_else(|_e| {
+                winit_window.set_cursor_grab(winit::window::CursorGrabMode::Confined)
+            }),
+    };
+
+    if let Err(err) = grab_result {
+        let err_desc = match grab_mode {
+            bevy_window::CursorGrabMode::Confined
+            | bevy_window::CursorGrabMode::Locked => "grab",
+            bevy_window::CursorGrabMode::None => "ungrab",
+        };
+
+        error!("Unable to {} cursor: {}", err_desc, err);
+    }
 }
 
 // Ideally we could generify this across window backends, but we only really have winit atm

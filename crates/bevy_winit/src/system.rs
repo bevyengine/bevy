@@ -125,8 +125,8 @@ pub(crate) fn changed_window(
                     bevy_window::WindowMode::SizedFullscreen => winit_window.set_fullscreen(Some(
                         winit::window::Fullscreen::Exclusive(get_fitting_videomode(
                             &winit_window.current_monitor().unwrap(),
-                            window.resolution.width() as u32,
-                            window.resolution.height() as u32,
+                            window.width() as u32,
+                            window.height() as u32,
                         )),
                     )),
                     bevy_window::WindowMode::Windowed => winit_window.set_fullscreen(None),
@@ -162,31 +162,7 @@ pub(crate) fn changed_window(
             }
 
             if window.cursor.grab_mode != previous.cursor.grab_mode {
-                let grab_result = match window.cursor.grab_mode {
-                    bevy_window::CursorGrabMode::None => {
-                        winit_window.set_cursor_grab(winit::window::CursorGrabMode::None)
-                    }
-                    bevy_window::CursorGrabMode::Confined => winit_window
-                        .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-                        .or_else(|_e| {
-                            winit_window.set_cursor_grab(winit::window::CursorGrabMode::Locked)
-                        }),
-                    bevy_window::CursorGrabMode::Locked => winit_window
-                        .set_cursor_grab(winit::window::CursorGrabMode::Locked)
-                        .or_else(|_e| {
-                            winit_window.set_cursor_grab(winit::window::CursorGrabMode::Confined)
-                        }),
-                };
-
-                if let Err(err) = grab_result {
-                    let err_desc = match window.cursor.grab_mode {
-                        bevy_window::CursorGrabMode::Confined
-                        | bevy_window::CursorGrabMode::Locked => "grab",
-                        bevy_window::CursorGrabMode::None => "ungrab",
-                    };
-
-                    error!("Unable to {} cursor: {}", err_desc, err);
-                }
+                crate::winit_windows::attempt_grab(&winit_window, window.cursor.grab_mode);
             }
 
             if window.cursor.visible != previous.cursor.visible {

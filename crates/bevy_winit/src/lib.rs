@@ -370,8 +370,8 @@ pub fn winit_runner(mut app: App) {
 
                         window_events.window_resized.send(WindowResized {
                             window: window_entity,
-                            width: window.resolution.width(),
-                            height: window.resolution.height(),
+                            width: window.width(),
+                            height: window.height(),
                         });
                     }
                     WindowEvent::CloseRequested => {
@@ -445,7 +445,7 @@ pub fn winit_runner(mut app: App) {
                         // On a mobile window, the start is from the top while on PC/Linux/OSX from
                         // bottom
                         if cfg!(target_os = "android") || cfg!(target_os = "ios") {
-                            location.y = window.resolution.height() as f64 - location.y;
+                            location.y = window.height() as f64 - location.y;
                         }
 
                         // Event
@@ -479,11 +479,9 @@ pub fn winit_runner(mut app: App) {
                             // Otherwise, use the OS suggested size
                             // We have already told the OS about our resize constraints, so
                             // the new_inner_size should take those into account
-                            *new_inner_size = winit::dpi::LogicalSize::new(
-                                window.resolution.width(),
-                                window.resolution.height(),
-                            )
-                            .to_physical::<u32>(forced_factor);
+                            *new_inner_size =
+                                winit::dpi::LogicalSize::new(window.width(), window.height())
+                                    .to_physical::<u32>(forced_factor);
                             // TODO: Should this not trigger a WindowsScaleFactorChanged?
                         } else if approx::relative_ne!(new_factor, prior_factor) {
                             // Trigger a change event if they are approximately different
@@ -497,8 +495,8 @@ pub fn winit_runner(mut app: App) {
 
                         let new_logical_width = (new_inner_size.width as f64 / new_factor) as f32;
                         let new_logical_height = (new_inner_size.height as f64 / new_factor) as f32;
-                        if approx::relative_ne!(window.resolution.width(), new_logical_width)
-                            || approx::relative_ne!(window.resolution.height(), new_logical_height)
+                        if approx::relative_ne!(window.width(), new_logical_width)
+                            || approx::relative_ne!(window.height(), new_logical_height)
                         {
                             window_events.window_resized.send(WindowResized {
                                 window: window_entity,

@@ -314,6 +314,18 @@ impl Window {
     pub fn set_minimized(&mut self, minimized: bool) {
         self.internal.minimize_request = Some(minimized);
     }
+
+    /// The window's client area width in logical pixels.
+    #[inline]
+    pub fn width(&self) -> f32 {
+        self.resolution.width()
+    }
+
+    /// The window's client area height in logical pixels.
+    #[inline]
+    pub fn height(&self) -> f32 {
+        self.resolution.height()
+    }
 }
 
 /// The size limits on a window.
@@ -615,8 +627,8 @@ impl WindowResolution {
 
     /// Set the window's physical resolution.
     ///
-    /// You probably don't want to call this directly unless you are dealing
-    /// with a window manager library.
+    /// This will ignore the scale factor setting, so most of the time you should
+    /// prefer to use [`WindowResolution::set`].
     #[inline]
     pub fn set_physical_resolution(&mut self, width: u32, height: u32) {
         self.physical_width = width;
