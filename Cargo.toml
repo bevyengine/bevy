@@ -12,7 +12,7 @@ readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
+exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
 members = [
   "crates/*",
   "examples/android",
@@ -32,7 +32,13 @@ default = [
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
-  "render",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
   "png",
   "hdr",
   "vorbis",
@@ -42,17 +48,6 @@ default = [
 
 # Force dynamic linking, which improves iterative compile times
 dynamic = ["bevy_dylib"]
-
-# Rendering support
-render = [
-  "bevy_internal/bevy_core_pipeline",
-  "bevy_internal/bevy_pbr",
-  "bevy_internal/bevy_gltf",
-  "bevy_internal/bevy_render",
-  "bevy_internal/bevy_sprite",
-  "bevy_internal/bevy_text",
-  "bevy_internal/bevy_ui",
-]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -1383,7 +1378,7 @@ wasm = true
 # Tools
 [[example]]
 name = "scene_viewer"
-path = "examples/tools/scene_viewer.rs"
+path = "examples/tools/scene_viewer/main.rs"
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -1633,3 +1628,8 @@ inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[profile.stress-test]
+inherits = "release"
+lto = "fat"
+panic = "abort"

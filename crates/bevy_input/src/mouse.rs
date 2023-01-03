@@ -1,5 +1,5 @@
 use crate::{ButtonState, Input};
-use bevy_ecs::{event::EventReader, system::ResMut};
+use bevy_ecs::{change_detection::DetectChanges, event::EventReader, system::ResMut};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect};
 
@@ -132,7 +132,7 @@ pub fn mouse_button_input_system(
     mut mouse_button_input: ResMut<Input<MouseButton>>,
     mut mouse_button_input_events: EventReader<MouseButtonInput>,
 ) {
-    mouse_button_input.clear();
+    mouse_button_input.bypass_change_detection().clear();
     for event in mouse_button_input_events.iter() {
         match event.state {
             ButtonState::Pressed => mouse_button_input.press(event.button),

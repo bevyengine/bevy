@@ -1,21 +1,15 @@
-use crate::render_resource::ShaderDefVal;
+use super::ShaderDefVal;
+use crate::define_atomic_id;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_reflect::{TypeUuid, Uuid};
+use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture};
+
 use once_cell::sync::Lazy;
 use regex::Regex;
 use std::{borrow::Cow, marker::Copy, path::PathBuf, str::FromStr};
 use thiserror::Error;
 
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ShaderId(Uuid);
-
-impl ShaderId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        ShaderId(Uuid::new_v4())
-    }
-}
+define_atomic_id!(ShaderId);
 
 #[derive(Error, Debug)]
 pub enum ShaderReflectError {

@@ -7,7 +7,7 @@ use crate::{
         TickCells,
     },
     entity::{Entities, Entity, EntityLocation},
-    storage::{Column, ComponentSparseSet, SparseSet, Storages, TableRow},
+    storage::{Column, ComponentSparseSet, SparseSet, Storages},
     world::{Mut, World},
 };
 use bevy_ptr::{OwningPtr, Ptr};
@@ -157,6 +157,9 @@ impl<'w> EntityRef<'w> {
             self.location,
         )
         .map(|(value, ticks)| Mut {
+            // SAFETY:
+            // - returned component is of type T
+            // - Caller guarentees that this reference will not alias.
             value: value.assert_unique().deref_mut::<T>(),
             ticks: Ticks::from_tick_cells(ticks, last_change_tick, change_tick),
         })
@@ -371,8 +374,7 @@ impl<'w> EntityMut<'w> {
         );
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         unsafe {
-            self.location =
-                bundle_inserter.insert(self.entity, self.location.archetype_row, bundle);
+            self.location = bundle_inserter.insert(self.entity, self.location, bundle);
         }
 
         self
@@ -408,7 +410,6 @@ impl<'w> EntityMut<'w> {
             return None;
         }
 
-        let old_archetype = &mut archetypes[old_location.archetype_id];
         let mut bundle_components = bundle_info.component_ids.iter().cloned();
         let entity = self.entity;
         // SAFETY: bundle components are iterated in order, which guarantees that the component type
@@ -420,7 +421,6 @@ impl<'w> EntityMut<'w> {
                 take_component(
                     components,
                     storages,
-                    old_archetype,
                     removed_components,
                     component_id,
                     entity,
@@ -702,12 +702,8 @@ fn fetch_table(
     world: &World,
     location: EntityLocation,
     component_id: ComponentId,
-) -> Option<(&Column, TableRow)> {
-    let archetype = &world.archetypes[location.archetype_id];
-    let table = &world.storages.tables[archetype.table_id()];
-    let components = table.get_column(component_id)?;
-    let table_row = archetype.entity_table_row(location.archetype_row);
-    Some((components, table_row))
+) -> Option<&Column> {
+    world.storages.tables[location.table_id].get_column(component_id)
 }
 
 #[inline]
@@ -719,8 +715,8 @@ fn fetch_sparse_set(world: &World, component_id: ComponentId) -> Option<&Compone
 /// Get a raw pointer to a particular [`Component`] on a particular [`Entity`] in the provided [`World`].
 ///
 /// # Safety
-/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
-/// the archetype
+/// - `location` must be within bounds of the given archetype and table and `entity` must exist inside
+///    the archetype and table
 /// - `component_id` must be valid
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 #[inline]
@@ -733,9 +729,9 @@ pub(crate) unsafe fn get_component(
 ) -> Option<Ptr<'_>> {
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = fetch_table(world, location, component_id)?;
+            let components = fetch_table(world, location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_data_unchecked(table_row))
+            Some(components.get_data_unchecked(location.table_row))
         }
         StorageType::SparseSet => fetch_sparse_set(world, component_id)?.get(entity),
     }
@@ -745,9 +741,9 @@ pub(crate) unsafe fn get_component(
 /// Get a raw pointer to the [`ComponentTicks`] of a particular [`Component`] on a particular [`Entity`] in the provided [World].
 ///
 /// # Safety
-/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside
+///  - Caller must ensure that `component_id` is valid
+/// - `location` must be within bounds of the given archetype and `entity` must exist inside
 /// the archetype
-/// - `component_id` must be valid
 /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
 #[inline]
 unsafe fn get_component_and_ticks(
@@ -759,13 +755,13 @@ unsafe fn get_component_and_ticks(
 ) -> Option<(Ptr<'_>, TickCells<'_>)> {
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = fetch_table(world, location, component_id)?;
+            let components = fetch_table(world, location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
             Some((
-                components.get_data_unchecked(table_row),
+                components.get_data_unchecked(location.table_row),
                 TickCells {
-                    added: components.get_added_ticks_unchecked(table_row),
-                    changed: components.get_changed_ticks_unchecked(table_row),
+                    added: components.get_added_ticks_unchecked(location.table_row),
+                    changed: components.get_changed_ticks_unchecked(location.table_row),
                 },
             ))
         }
@@ -787,9 +783,9 @@ unsafe fn get_ticks(
 ) -> Option<ComponentTicks> {
     match storage_type {
         StorageType::Table => {
-            let (components, table_row) = fetch_table(world, location, component_id)?;
+            let components = fetch_table(world, location, component_id)?;
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            Some(components.get_ticks_unchecked(table_row))
+            Some(components.get_ticks_unchecked(location.table_row))
         }
         StorageType::SparseSet => fetch_sparse_set(world, component_id)?.get_ticks(entity),
     }
@@ -803,14 +799,14 @@ unsafe fn get_ticks(
 /// Caller is responsible to drop component data behind returned pointer.
 ///
 /// # Safety
-/// - `entity_location` must be within bounds of the given archetype and `entity` must exist inside the archetype
+/// - `location` must be within bounds of the given archetype and table and `entity` must exist inside the archetype
+///   and table.
 /// - `component_id` must be valid
 /// - The relevant table row **must be removed** by the caller once all components are taken
 #[inline]
 unsafe fn take_component<'a>(
     components: &Components,
     storages: &'a mut Storages,
-    archetype: &Archetype,
     removed_components: &mut SparseSet<ComponentId, Vec<Entity>>,
     component_id: ComponentId,
     entity: Entity,
@@ -821,12 +817,13 @@ unsafe fn take_component<'a>(
     removed_components.push(entity);
     match component_info.storage_type() {
         StorageType::Table => {
-            let table = &mut storages.tables[archetype.table_id()];
+            let table = &mut storages.tables[location.table_id];
             // SAFETY: archetypes will always point to valid columns
             let components = table.get_column_mut(component_id).unwrap();
-            let table_row = archetype.entity_table_row(location.archetype_row);
             // SAFETY: archetypes only store valid table_rows and the stored component type is T
-            components.get_data_unchecked_mut(table_row).promote()
+            components
+                .get_data_unchecked_mut(location.table_row)
+                .promote()
         }
         StorageType::SparseSet => storages
             .sparse_sets

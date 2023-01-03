@@ -151,7 +151,7 @@ where
                 .archetypes
                 .get(location.archetype_id)
                 .debug_checked_unwrap();
-            let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
+            let table = self.tables.get(location.table_id).debug_checked_unwrap();
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -170,12 +170,11 @@ where
                 table,
             );
 
-            let table_row = archetype.entity_table_row(location.archetype_row);
             // SAFETY: set_archetype was called prior.
             // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::filter_fetch(&mut self.filter, entity, table_row) {
+            if F::filter_fetch(&mut self.filter, entity, location.table_row) {
                 // SAFETY: set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
-                return Some(Q::fetch(&mut self.fetch, entity, table_row));
+                return Some(Q::fetch(&mut self.fetch, entity, location.table_row));
             }
         }
         None
