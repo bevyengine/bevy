@@ -1,8 +1,19 @@
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/nested.fail.rs:24:5
+   |
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `MyInner<T>`
+   |
+   = note: `?` operator cannot convert from `incorrect_inner_type::MyInner<T>` to `TheirInner<T>`
+   = note: expected struct `TheirInner<T>`
+              found struct `incorrect_inner_type::MyInner<T>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
   --> tests/reflect_remote/nested.fail.rs:24:5
    |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
              bool
@@ -20,8 +31,8 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
   --> tests/reflect_remote/nested.fail.rs:24:5
    |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
              bool
@@ -39,8 +50,8 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
   --> tests/reflect_remote/nested.fail.rs:24:5
    |
-24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
              bool
@@ -95,8 +106,8 @@ error[E0308]: `?` operator has incompatible types
 error[E0308]: mismatched types
   --> tests/reflect_remote/nested.fail.rs:37:5
    |
-37 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
-   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirOuter<T>`
+37 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirOuter<T>`
 ...
 41 |         pub inner: super::external_crate::TheirInner<T>,
    |                    ------------------------------------ expected due to this

@@ -8,40 +8,40 @@ mod external_crate {
 mod missing_attribute {
     use bevy_reflect::{reflect_remote, Reflect};
 
-    #[reflect_remote(super::external_crate::TheirOuter<T>)]
+    #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
     struct MyOuter<T: Reflect> {
         // Reason: Missing `#[reflect(remote = "...")]` attribute
         pub inner: super::external_crate::TheirInner<T>,
     }
 
-    #[reflect_remote(super::external_crate::TheirInner<T>)]
+    #[reflect_remote(super::external_crate::TheirInner<T>, FromReflect)]
     struct MyInner<T: Reflect>(pub T);
 }
 
 mod incorrect_inner_type {
     use bevy_reflect::{reflect_remote, Reflect};
 
-    #[reflect_remote(super::external_crate::TheirOuter<T>)]
+    #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
     struct MyOuter<T: Reflect> {
         // Reason: Should not use `MyInner<T>` directly
         pub inner: MyInner<T>,
     }
 
-    #[reflect_remote(super::external_crate::TheirInner<T>)]
+    #[reflect_remote(super::external_crate::TheirInner<T>, FromReflect)]
     struct MyInner<T: Reflect>(pub T);
 }
 
 mod mismatched_remote_type {
     use bevy_reflect::{reflect_remote, Reflect};
 
-    #[reflect_remote(super::external_crate::TheirOuter<T>)]
+    #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
     struct MyOuter<T: Reflect> {
         // Reason: Should be `MyInner<T>`
         #[reflect(remote = "MyOuter<T>")]
         pub inner: super::external_crate::TheirInner<T>,
     }
 
-    #[reflect_remote(super::external_crate::TheirInner<T>)]
+    #[reflect_remote(super::external_crate::TheirInner<T>, FromReflect)]
     struct MyInner<T: Reflect>(pub T);
 }
 
