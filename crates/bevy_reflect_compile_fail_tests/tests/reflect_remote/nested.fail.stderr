@@ -104,3 +104,16 @@ error[E0308]: mismatched types
    = note: expected struct `TheirInner<T>`
               found struct `TheirOuter<T>`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/nested.fail.rs:51:5
+   |
+51 |     #[reflect_remote(super::external_crate::TheirOuter<T>, FromReflect)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirInner<bool>`
+52 |     struct MyOuter<T: Reflect> {
+   |                    - this type parameter
+   |
+   = note: `?` operator cannot convert from `TheirInner<bool>` to `TheirInner<T>`
+   = note: expected struct `TheirInner<T>`
+              found struct `TheirInner<bool>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
