@@ -626,13 +626,17 @@ impl WindowResolution {
     /// Set the window's scale factor, this may get overriden by the backend.
     #[inline]
     pub fn set_scale_factor(&mut self, scale_factor: f64) {
+        let (width, height) = (self.width(), self.height());
         self.scale_factor = scale_factor;
+        self.set(width, height);
     }
 
     /// Set the window's scale factor, this will be used over what the backend decides.
     #[inline]
     pub fn set_scale_factor_override(&mut self, scale_factor_override: Option<f64>) {
+        let (width, height) = (self.width(), self.height());
         self.scale_factor_override = scale_factor_override;
+        self.set(width, height);
     }
 }
 
