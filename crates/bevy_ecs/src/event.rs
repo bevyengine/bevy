@@ -5,6 +5,7 @@ use crate::system::{Local, Res, ResMut, Resource, SystemParam};
 use bevy_utils::tracing::trace;
 use std::ops::{Deref, DerefMut};
 use std::{fmt, hash::Hash, iter::Chain, marker::PhantomData, slice::Iter};
+pub use bevy_ecs_macros::Event;
 /// A type that can be stored in an [`Events<E>`] resource
 /// You can conveniently access events using the [`EventReader`] and [`EventWriter`] system parameter.
 ///
