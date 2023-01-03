@@ -8,7 +8,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::RenderPhase,
-    render_resource::{LoadOp, Operations, RenderPassDescriptor},
+    render_resource::{LoadOp, Operations},
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
@@ -61,31 +61,27 @@ impl Node for MainPass2dNode {
                 return Ok(());
             };
         {
-            #[cfg(feature = "trace")]
-            let _main_pass_2d = info_span!("main_pass_2d").entered();
-            let pass_descriptor = RenderPassDescriptor {
-                label: Some("main_pass_2d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: match camera_2d.clear_color {
-                        ClearColorConfig::Default => {
-                            LoadOp::Clear(world.resource::<ClearColor>().0.into())
-                        }
-                        ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
-                        ClearColorConfig::None => LoadOp::Load,
-                    },
-                    store: true,
-                }))],
-                depth_stencil_attachment: None,
+            let color_ops = Operations {
+                load: match camera_2d.clear_color {
+                    ClearColorConfig::Default => {
+                        LoadOp::Clear(world.resource::<ClearColor>().0.into())
+                    }
+                    ClearColorConfig::Custom(color) => LoadOp::Clear(color.into()),
+                    ClearColorConfig::None => LoadOp::Load,
+                },
+                store: true,
             };
 
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass, view_entity);
-
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
-            }
+            let mut render_pass = TrackedRenderPass::create_for_camera(
+                render_context,
+                "main_pass_2d",
+                view_entity,
+                target,
+                color_ops,
+                None,
+                None,
+                &camera.viewport,
+            );
 
             render_pass.render_phase(transparent_phase, world);
         }
@@ -94,20 +90,19 @@ impl Node for MainPass2dNode {
         // reset for the next render pass so add an empty render pass without a custom viewport
         #[cfg(feature = "webgl")]
         if camera.viewport.is_some() {
-            #[cfg(feature = "trace")]
-            let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
-            let pass_descriptor = RenderPassDescriptor {
-                label: Some("reset_viewport_pass_2d"),
-                color_attachments: &[Some(target.get_color_attachment(Operations {
+            let _render_pass = TrackedRenderPass::create_for_camera(
+                render_context,
+                "reset_viewport_pass_2d",
+                view_entity,
+                target,
+                Operations {
                     load: LoadOp::Load,
                     store: true,
-                }))],
-                depth_stencil_attachment: None,
-            };
-
-            render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
+                },
+                None,
+                None,
+                &None,
+            );
         }
 
         Ok(())

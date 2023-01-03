@@ -1,3 +1,5 @@
+use crate::renderer::RenderContext;
+use crate::view::{ViewDepthTexture, ViewTarget};
 use crate::{
     camera::Viewport,
     prelude::Color,
@@ -8,9 +10,13 @@ use crate::{
     },
 };
 use bevy_ecs::prelude::{Entity, World};
+#[cfg(feature = "trace")]
+use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::trace;
 use std::ops::Range;
-use wgpu::{IndexFormat, RenderPass};
+use wgpu::{
+    IndexFormat, Operations, RenderPass, RenderPassDepthStencilAttachment, RenderPassDescriptor,
+};
 
 /// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
@@ -107,6 +113,54 @@ impl<'a> TrackedRenderPass<'a> {
             pass,
             view_entity,
         }
+    }
+
+    pub fn create_for_camera(
+        render_context: &'a mut RenderContext,
+        label: &'static str,
+        view_entity: Entity,
+        view_target: &'a ViewTarget,
+        color_ops: Operations<wgpu::Color>,
+        view_depth: Option<&'a ViewDepthTexture>,
+        depth_ops: Option<Operations<f32>>,
+        viewport: &Option<Viewport>,
+    ) -> Self {
+        #[cfg(feature = "trace")]
+        let _pass_span = info_span!(label).entered();
+
+        // Todo: makes this configurable
+        let stencil_ops = None;
+
+        let color_attachments = &[Some(view_target.get_color_attachment(color_ops))];
+
+        let depth_stencil_attachment = match view_depth {
+            None => None,
+            Some(view_depth) => Some(RenderPassDepthStencilAttachment {
+                view: &view_depth.view,
+                depth_ops,
+                stencil_ops,
+            }),
+        };
+
+        let pass_descriptor = RenderPassDescriptor {
+            label: Some(label),
+            color_attachments,
+            depth_stencil_attachment,
+        };
+
+        let mut pass = Self {
+            state: DrawState::default(),
+            pass: render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor),
+            view_entity,
+        };
+
+        if let Some(viewport) = viewport.as_ref() {
+            pass.set_camera_viewport(viewport);
+        }
+
+        pass
     }
 
     pub fn render_phase<I: PhaseItem>(&mut self, render_phase: &RenderPhase<I>, world: &'a World) {
