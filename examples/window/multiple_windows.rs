@@ -11,7 +11,6 @@ fn main() {
         // By default, a primary window gets spawned by `WindowPlugin`, contained in `DefaultPlugins`
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup_scene)
-        .add_startup_system(setup_extra_windows)
         .add_system(bevy::window::close_on_esc)
         .run();
 }
@@ -33,15 +32,11 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
-}
 
-fn setup_extra_windows(mut commands: Commands) {
     // Spawn a second window
     let second_window = commands
         .spawn(Window {
             title: "Second window".to_owned(),
-            // A window can start minimized.
-            state: WindowState::minimized(),
             ..default()
         })
         .id();
@@ -51,25 +46,6 @@ fn setup_extra_windows(mut commands: Commands) {
         transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         camera: Camera {
             target: RenderTarget::Window(WindowRef::Entity(second_window)),
-            ..default()
-        },
-        ..default()
-    });
-
-    let third_window = commands
-        .spawn(Window {
-            title: "Third window".to_owned(),
-            // ... or start maximized.
-            state: WindowState::maximized(),
-            ..default()
-        })
-        .id();
-
-    // third window camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
-        camera: Camera {
-            target: RenderTarget::Window(WindowRef::Entity(third_window)),
             ..default()
         },
         ..default()
