@@ -2623,31 +2623,38 @@ bevy_reflect::tests::Test {
     fn should_reflect_nested_remote_type() {
         mod external_crate {
             pub struct TheirOuter<T> {
-                pub inner: TheirInner<T>,
+                pub a: TheirInner<T>,
+                pub b: TheirInner<bool>,
             }
             pub struct TheirInner<T>(pub T);
         }
 
         #[reflect_remote(external_crate::TheirOuter<T>)]
-        struct MyOuter<T: FromReflect> {
+        struct MyOuter<T: Reflect> {
             #[reflect(remote = "MyInner<T>")]
-            pub inner: external_crate::TheirInner<T>,
+            pub a: external_crate::TheirInner<T>,
+            #[reflect(remote = "MyInner<bool>")]
+            pub b: external_crate::TheirInner<bool>,
         }
 
         #[reflect_remote(external_crate::TheirInner<T>)]
-        struct MyInner<T: FromReflect>(pub T);
+        struct MyInner<T: Reflect>(pub T);
 
         let mut patch = DynamicStruct::default();
         patch.set_represented_type(Some(MyOuter::<i32>::type_info()));
-        patch.insert("inner", MyInner(external_crate::TheirInner(321)));
+        patch.insert("a", MyInner(external_crate::TheirInner(321_i32)));
+        patch.insert("b", MyInner(external_crate::TheirInner(true)));
 
         let mut data = MyOuter(external_crate::TheirOuter {
-            inner: external_crate::TheirInner(123_i32),
+            a: external_crate::TheirInner(123_i32),
+            b: external_crate::TheirInner(false),
         });
 
-        assert_eq!(123, data.0.inner.0);
+        assert_eq!(123, data.0.a.0);
+        assert!(!data.0.b.0);
         data.apply(&patch);
-        assert_eq!(321, data.0.inner.0);
+        assert_eq!(321, data.0.a.0);
+        assert!(data.0.b.0);
     }
 
     #[test]
