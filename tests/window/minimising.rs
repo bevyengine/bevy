@@ -29,7 +29,7 @@ fn minimise_automatically(
 ) {
     if *frames == 60 {
         let mut window = primary_window.single_mut();
-        window.state.minimize();
+        window.set_minimized(true);
     } else {
         *frames += 1;
     }

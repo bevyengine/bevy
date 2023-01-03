@@ -214,8 +214,6 @@ pub struct Window {
     pub resolution: WindowResolution,
     /// Stores the title of the window.
     pub title: String,
-    /// Should the window start minimized, maximized, normal?
-    pub state: WindowState,
     /// How the alpha channel of textures should be handled while compositing.
     pub composite_alpha_mode: CompositeAlphaMode,
     /// Which size limits to give the window.
@@ -274,6 +272,8 @@ pub struct Window {
     ///
     /// This value has no effect on non-web platforms.
     pub fit_canvas_to_parent: bool,
+    /// Stores internal state that isn't directly accessible.
+    pub internal: InternalWindowState,
 }
 
 impl Default for Window {
@@ -285,7 +285,7 @@ impl Default for Window {
             mode: Default::default(),
             position: Default::default(),
             resolution: Default::default(),
-            state: Default::default(),
+            internal: Default::default(),
             composite_alpha_mode: Default::default(),
             resize_constraints: Default::default(),
             resizable: true,
@@ -297,6 +297,22 @@ impl Default for Window {
             fit_canvas_to_parent: false,
             canvas: None,
         }
+    }
+}
+
+impl Window {
+    /// Setting this to true will attempt to maximize the window.
+    ///
+    /// Setting it to false will attempt to un-maximize the window.
+    pub fn set_maximized(&mut self, maximized: bool) {
+        self.internal.maximize_request = Some(maximized);
+    }
+
+    /// Setting this to true will attempt to maximize the window.
+    ///
+    /// Setting it to false will attempt to un-maximize the window.
+    pub fn set_minimized(&mut self, minimized: bool) {
+        self.internal.minimize_request = Some(minimized);
     }
 }
 
@@ -650,7 +666,7 @@ impl From<bevy_math::DVec2> for WindowResolution {
     }
 }
 
-/// The different states a window can be in.
+/// Stores internal state that isn't directly accessible.
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
     feature = "serialize",
@@ -658,74 +674,22 @@ impl From<bevy_math::DVec2> for WindowResolution {
     reflect(Serialize, Deserialize)
 )]
 #[reflect(Debug, PartialEq, Default)]
-pub struct WindowState {
-    /// Current maximization state of the window.
-    maximized: bool,
+pub struct InternalWindowState {
     /// If this is true then next frame we will ask to minimize the window.
-    request_minimize: bool,
+    minimize_request: Option<bool>,
     /// If this is true then next frame we will ask to maximize/un-maximize the window depending on `maximized`.
-    request_maximize: bool,
+    maximize_request: Option<bool>,
 }
 
-impl WindowState {
-    /// Constructor method for starting a window as minimized.
-    ///
-    /// Note: This may not work on every platform.
-    pub fn minimized() -> Self {
-        let mut state = Self::default();
-        state.minimize();
-        state
+impl InternalWindowState {
+    /// Consumes the current maximize request, if it exists. This should only be called by window backends.
+    pub fn take_maximize_request(&mut self) -> Option<bool> {
+        self.maximize_request.take()
     }
 
-    /// Constructor method for starting a window as maximized.
-    ///
-    /// Note: This may not work on every platform.
-    pub fn maximized() -> Self {
-        let mut state = Self::default();
-        state.set_maximize(true);
-        state
-    }
-
-    /// Setting this to true will attempt to maximize the window.
-    ///
-    /// Setting it to false will attempt to un-maximize the window.
-    pub fn set_maximize(&mut self, maximize: bool) {
-        self.maximized = maximize;
-        self.request_maximize = true;
-    }
-
-    /// Calling this will attempt to minimize the window.
-    pub fn minimize(&mut self) {
-        self.request_minimize = true;
-    }
-
-    /// Returns true if [`WindowState`] is Maximized.
-    pub fn is_maximized(&self) -> bool {
-        self.maximized
-    }
-
-    /// Whether we should try to minimize this frame.
-    pub fn requesting_minimize(&self) -> bool {
-        self.request_minimize
-    }
-
-    /// Whether we should try to (un)maximize this frame.
-    pub fn requesting_maximize(&self) -> bool {
-        self.request_maximize
-    }
-
-    /// Clear requests for minimizing/maximizing.
-    pub fn clear_requests(&mut self) {
-        self.request_maximize = false;
-        self.request_minimize = false;
-    }
-
-    /// Set if the window is actually maximized or not.
-    ///
-    /// You probably don't want this as this is usually done by the
-    /// windowing backend. Instead use [`WindowState::set_maximize`].
-    pub fn set_maximize_by_backend(&mut self, maximized: bool) {
-        self.maximized = maximized;
+    /// Consumes the current minimize request, if it exists. This should only be called by window backends.
+    pub fn take_minimize_request(&mut self) -> Option<bool> {
+        self.minimize_request.take()
     }
 }
 

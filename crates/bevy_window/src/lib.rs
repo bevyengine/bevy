@@ -127,7 +127,7 @@ impl Plugin for WindowPlugin {
             .register_type::<WindowPosition>()
             .register_type::<WindowMode>()
             .register_type::<PresentMode>()
-            .register_type::<WindowState>()
+            .register_type::<InternalWindowState>()
             .register_type::<MonitorSelection>()
             .register_type::<WindowResizeConstraints>();
 

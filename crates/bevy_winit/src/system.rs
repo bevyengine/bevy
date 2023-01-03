@@ -230,16 +230,13 @@ pub(crate) fn changed_window(
                 }
             }
 
-            if window.state.requesting_maximize() {
-                winit_window.set_maximized(window.state.is_maximized());
-            } else if window.state.requesting_minimize() {
-                winit_window.set_minimized(true);
+            if let Some(maximized) = window.internal.take_maximize_request() {
+                winit_window.set_maximized(maximized);
             }
 
-            window
-                .state
-                .set_maximize_by_backend(winit_window.is_maximized());
-            window.state.clear_requests();
+            if let Some(minimized) = window.internal.take_minimize_request() {
+                winit_window.set_minimized(minimized);
+            }
 
             if window.focused != previous.focused && window.focused {
                 winit_window.focus_window();
