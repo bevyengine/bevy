@@ -494,7 +494,7 @@ mod tests {
         struct MyAsset;
         let mut app = App::new();
         app.add_plugin(bevy_core::TaskPoolPlugin::default())
-            .add_plugin(bevy_core::CorePlugin::default())
+            .add_plugin(bevy_core::TypeRegistrationPlugin::default())
             .add_plugin(crate::AssetPlugin::default());
         app.add_asset::<MyAsset>();
         let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();

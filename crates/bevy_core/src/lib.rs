@@ -14,7 +14,9 @@ pub use task_pool_options::*;
 pub mod prelude {
     //! The Bevy Core Prelude.
     #[doc(hidden)]
-    pub use crate::{CorePlugin, FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin};
+    pub use crate::{
+        FrameCountPlugin, Name, TaskPoolOptions, TaskPoolPlugin, TypeRegistrationPlugin,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -31,11 +33,11 @@ use bevy_ecs::schedule::IntoSystemDescriptor;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
-/// Adds core functionality to Apps.
+/// Registration of default types to the `TypeRegistry` reesource.
 #[derive(Default)]
-pub struct CorePlugin {}
+pub struct TypeRegistrationPlugin;
 
-impl Plugin for CorePlugin {
+impl Plugin for TypeRegistrationPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Entity>().register_type::<Name>();
 
@@ -92,7 +94,7 @@ fn register_math_types(app: &mut App) {
         .register_type::<bevy_math::Quat>();
 }
 
-/// Provides access to `TaskPools`.
+/// Setup of default task pools: `AsyncComputeTaskPool`, `ComputeTaskPool`, `IoTaskPool`.
 #[derive(Default)]
 pub struct TaskPoolPlugin {
     /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.
@@ -120,7 +122,7 @@ pub struct FrameCount(pub u32);
 
 /// Adds frame counting functionality to Apps.
 #[derive(Default)]
-pub struct FrameCountPlugin {}
+pub struct FrameCountPlugin;
 
 impl Plugin for FrameCountPlugin {
     fn build(&self, app: &mut App) {
@@ -142,8 +144,7 @@ mod tests {
     fn runs_spawn_local_tasks() {
         let mut app = App::new();
         app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(CorePlugin::default());
-        app.add_plugin(FrameCountPlugin::default());
+        app.add_plugin(TypeRegistrationPlugin::default());
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();
         AsyncComputeTaskPool::get()
@@ -177,7 +178,7 @@ mod tests {
     fn frame_counter_update() {
         let mut app = App::new();
         app.add_plugin(TaskPoolPlugin::default());
-        app.add_plugin(CorePlugin::default());
+        app.add_plugin(TypeRegistrationPlugin::default());
         app.add_plugin(FrameCountPlugin::default());
         app.update();
 
