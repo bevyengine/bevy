@@ -41,9 +41,11 @@ pub struct BloomDownsamplingPipelineKeys {
     first_downsample: bool,
 }
 
-#[derive(ShaderType)]
+/// The uniform struct extracted from [`BloomSettings`] attached to a [`Camera`].
+/// Will be available for use in the Bloom shader in the first downsample pass.
+#[doc(hidden)]
+#[derive(Component, ShaderType, Clone)]
 pub struct BloomDownsamplingUniform {
-    pub viewport: Vec4,
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
 }
@@ -120,7 +122,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
         };
 
         let mut shader_defs = vec![];
-        
+
         if key.first_downsample {
             shader_defs.push("FIRST_DOWNSAMPLE".into());
         }
@@ -129,8 +131,16 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
             shader_defs.push("USE_THRESHOLD".into());
         }
 
+        println!("yay");
+
         RenderPipelineDescriptor {
-            label: Some(format!("bloom_downsampling_pipeline; first ? {}", key.first_downsample).into()),
+            label: Some(
+                format!(
+                    "bloom_downsampling_pipeline; first ? {}",
+                    key.first_downsample
+                )
+                .into(),
+            ),
             layout,
             vertex: fullscreen_shader_vertex_state(),
             fragment: Some(FragmentState {

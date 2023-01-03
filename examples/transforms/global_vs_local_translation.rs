@@ -54,7 +54,11 @@ fn setup(
         .spawn((
             PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-                material: materials.add(Color::YELLOW.into()),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::YELLOW,
+                    alpha_mode: AlphaMode::Blend,
+                    ..Default::default()
+                }),
                 ..default()
             },
             ChangeGlobal,
@@ -69,7 +73,11 @@ fn setup(
             child_builder.spawn((
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                    material: materials.add(Color::RED.into()),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::RED,
+                        alpha_mode: AlphaMode::Blend,
+                        ..Default::default()
+                    }),
                     transform: Transform::from_translation(Vec3::Y - Vec3::Z),
                     ..default()
                 },
@@ -80,7 +88,11 @@ fn setup(
             child_builder.spawn((
                 PbrBundle {
                     mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                    material: materials.add(Color::GREEN.into()),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::GREEN,
+                        alpha_mode: AlphaMode::Blend,
+                        ..Default::default()
+                    }),
                     transform: Transform::from_translation(Vec3::Y + Vec3::Z),
                     ..default()
                 },

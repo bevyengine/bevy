@@ -5,44 +5,36 @@ mod downsampling_pipeline;
 mod upsampling_pipeline;
 use self::{downsampling_pipeline::*, upsampling_pipeline::*};
 
+use crate::{core_2d, core_3d};
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{QueryState, With, QueryItem},
+    query::{QueryItem, QueryState, With},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::{UVec2, UVec4, Vec4};
+use bevy_math::{UVec2, Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
+    extract_component::{
+        ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
+        UniformComponentPlugin,
+    },
     prelude::{Camera, Color},
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, ViewTarget},
-    Extract, RenderApp, RenderStage, extract_component::ExtractComponent,
+    view::ViewTarget,
+    RenderApp, RenderStage, Extract,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
 use std::num::NonZeroU32;
-
-pub mod draw_3d_graph {
-    pub mod node {
-        /// Label for the bloom render node.
-        pub const BLOOM: &str = "bloom_3d";
-    }
-}
-pub mod draw_2d_graph {
-    pub mod node {
-        /// Label for the bloom render node.
-        pub const BLOOM: &str = "bloom_2d";
-    }
-}
 
 const BLOOM_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 929599476923908);
@@ -96,6 +88,8 @@ impl Plugin for BloomPlugin {
         app.register_type::<BloomSettings>();
         app.register_type::<BloomPrefilterSettings>();
         app.register_type::<BloomCompositeMode>();
+        app.add_plugin(ExtractComponentPlugin::<BloomSettings>::default());
+        app.add_plugin(UniformComponentPlugin::<BloomDownsamplingUniform>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
             Ok(render_app) => render_app,
@@ -108,10 +102,10 @@ impl Plugin for BloomPlugin {
             .init_resource::<BloomUpsamplingPipeline>()
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
-            .init_resource::<BloomUniforms>()
+            // .init_resource::<BloomUniforms>()
             .add_system_to_stage(RenderStage::Extract, extract_bloom_settings)
             .add_system_to_stage(RenderStage::Prepare, prepare_bloom_textures)
-            .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
+            // .add_system_to_stage(RenderStage::Prepare, prepare_bloom_uniforms)
             .add_system_to_stage(RenderStage::Prepare, prepare_downsampling_pipeline)
             .add_system_to_stage(RenderStage::Prepare, prepare_upsampling_pipeline)
             .add_system_to_stage(RenderStage::Queue, queue_bloom_bind_groups);
@@ -123,28 +117,22 @@ impl Plugin for BloomPlugin {
             let draw_3d_graph = graph
                 .get_sub_graph_mut(crate::core_3d::graph::NAME)
                 .unwrap();
-            draw_3d_graph.add_node(draw_3d_graph::node::BLOOM, bloom_node);
-            draw_3d_graph
-                .add_slot_edge(
-                    draw_3d_graph.input_node().unwrap().id,
-                    crate::core_3d::graph::input::VIEW_ENTITY,
-                    draw_3d_graph::node::BLOOM,
-                    BloomNode::IN_VIEW,
-                )
-                .unwrap();
+            draw_3d_graph.add_node(core_3d::graph::node::BLOOM, bloom_node);
+            draw_3d_graph.add_slot_edge(
+                draw_3d_graph.input_node().id,
+                crate::core_3d::graph::input::VIEW_ENTITY,
+                core_3d::graph::node::BLOOM,
+                BloomNode::IN_VIEW,
+            );
             // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_3d_graph
-                .add_node_edge(
-                    crate::core_3d::graph::node::MAIN_PASS,
-                    draw_3d_graph::node::BLOOM,
-                )
-                .unwrap();
-            draw_3d_graph
-                .add_node_edge(
-                    draw_3d_graph::node::BLOOM,
-                    crate::core_3d::graph::node::TONEMAPPING,
-                )
-                .unwrap();
+            draw_3d_graph.add_node_edge(
+                crate::core_3d::graph::node::MAIN_PASS,
+                core_3d::graph::node::BLOOM,
+            );
+            draw_3d_graph.add_node_edge(
+                core_3d::graph::node::BLOOM,
+                crate::core_3d::graph::node::TONEMAPPING,
+            );
         }
 
         // Add bloom to the 2d render graph
@@ -154,39 +142,63 @@ impl Plugin for BloomPlugin {
             let draw_2d_graph = graph
                 .get_sub_graph_mut(crate::core_2d::graph::NAME)
                 .unwrap();
-            draw_2d_graph.add_node(draw_2d_graph::node::BLOOM, bloom_node);
-            draw_2d_graph
-                .add_slot_edge(
-                    draw_2d_graph.input_node().unwrap().id,
-                    crate::core_2d::graph::input::VIEW_ENTITY,
-                    draw_2d_graph::node::BLOOM,
-                    BloomNode::IN_VIEW,
-                )
-                .unwrap();
+            draw_2d_graph.add_node(core_2d::graph::node::BLOOM, bloom_node);
+            draw_2d_graph.add_slot_edge(
+                draw_2d_graph.input_node().id,
+                crate::core_2d::graph::input::VIEW_ENTITY,
+                core_2d::graph::node::BLOOM,
+                BloomNode::IN_VIEW,
+            );
             // MAIN_PASS -> BLOOM -> TONEMAPPING
-            draw_2d_graph
-                .add_node_edge(
-                    crate::core_2d::graph::node::MAIN_PASS,
-                    draw_2d_graph::node::BLOOM,
-                )
-                .unwrap();
-            draw_2d_graph
-                .add_node_edge(
-                    draw_2d_graph::node::BLOOM,
-                    crate::core_2d::graph::node::TONEMAPPING,
-                )
-                .unwrap();
+            draw_2d_graph.add_node_edge(
+                crate::core_2d::graph::node::MAIN_PASS,
+                core_2d::graph::node::BLOOM,
+            );
+            draw_2d_graph.add_node_edge(
+                core_2d::graph::node::BLOOM,
+                crate::core_2d::graph::node::TONEMAPPING,
+            );
         }
     }
 }
 
-struct BloomNode {
+impl ExtractComponent for BloomSettings {
+    type Query = (&'static Self, &'static Camera);
+
+    type Filter = ();
+    type Out = BloomDownsamplingUniform;
+
+    fn extract_component((settings, camera): QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        if !camera.is_active {
+            return None;
+        }
+
+        camera.physical_viewport_size().map(|_size| {
+            // let min_view = size.x.min(size.y) / 2;
+            // let mip_count = calculate_mip_count(min_view);
+            // let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
+            let pref_sett = &settings.prefilter_settings;
+            let knee = pref_sett.threshold * pref_sett.threshold_softness.clamp(0.0, 1.0);
+            
+            BloomDownsamplingUniform {
+                threshold_precomputations: Vec4::new(
+                    pref_sett.threshold,
+                    pref_sett.threshold - knee,
+                    2.0 * knee,
+                    0.25 / (knee + 0.00001),
+                ),
+            }
+        })
+    }
+}
+
+pub struct BloomNode {
     view_query: QueryState<(
         &'static ExtractedCamera,
         &'static ViewTarget,
         &'static BloomTexture,
         &'static BloomBindGroups,
-        &'static BloomUniformIndices,
+        &'static DynamicUniformIndex<BloomDownsamplingUniform>,
         &'static BloomSettings,
         &'static UpsamplingPipelineIds,
         &'static BloomDownsamplingPipelineIds,
@@ -194,9 +206,9 @@ struct BloomNode {
 }
 
 impl BloomNode {
-    const IN_VIEW: &'static str = "view";
+    pub const IN_VIEW: &'static str = "view";
 
-    fn new(world: &mut World) -> Self {
+    pub fn new(world: &mut World) -> Self {
         Self {
             view_query: QueryState::new(world),
         }
@@ -227,17 +239,25 @@ impl Node for BloomNode {
         let pipelines = world.resource::<BloomPipelines>();
         let downsampling_pipeline_res = world.resource::<BloomDownsamplingPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let bloom_uniforms = world.resource::<BloomUniforms>();
+        let uniforms = world.resource::<ComponentUniforms<BloomDownsamplingUniform>>();
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let (
-            Ok((camera, view_target, bloom_texture, bind_groups, uniform_index, bloom_settings, upsampling_pipeline_ids, downsampling_pipeline_ids)),
-            Some(bloom_uniforms),
-        ) = (
-            self.view_query.get_manual(world, view_entity),
-            bloom_uniforms.buffer.binding(),
-        ) else {
-            return Ok(());
-        };
+            camera,
+            view_target,
+            bloom_texture,
+            bind_groups,
+            uniform_index,
+            bloom_settings,
+            upsampling_pipeline_ids,
+            downsampling_pipeline_ids
+        ) =
+            match self.view_query.get_manual(world, view_entity) {
+                Ok(result) => result,
+                Err(e) => {
+                    println!("{}", e);
+                    return Ok(());
+                },
+            };
 
         // Downsampling pipelines
         let (
@@ -277,7 +297,7 @@ impl Node for BloomNode {
 
                 let settings = BindGroupEntry {
                     binding: 2,
-                    resource: bloom_uniforms.clone(),
+                    resource: uniforms.binding().unwrap().clone(),
                 };
 
                 render_context
@@ -306,12 +326,12 @@ impl Node for BloomNode {
             downsampling_first_pass.set_bind_group(
                 0,
                 &downsampling_first_bind_group,
-                &[uniform_index.downsampling],
+                &[uniform_index.index()],
             );
 
-            // if let Some(viewport) = camera.viewport.as_ref() {
-            //     downsampling_first_pass.set_camera_viewport(viewport);
-            // }
+            if let Some(viewport) = camera.viewport.as_ref() {
+                downsampling_first_pass.set_camera_viewport(viewport);
+            }
             downsampling_first_pass.draw(0..3, 0..1);
         }
 
@@ -336,9 +356,9 @@ impl Node for BloomNode {
                 &bind_groups.downsampling_bind_groups[mip as usize - 1],
                 &[],
             );
-            // if let Some(viewport) = camera.viewport.as_ref() {
-            //     downsampling_pass.set_camera_viewport(viewport);
-            // }
+            if let Some(viewport) = camera.viewport.as_ref() {
+                downsampling_pass.set_camera_viewport(viewport);
+            }
             downsampling_pass.draw(0..3, 0..1);
         }
 
@@ -366,9 +386,9 @@ impl Node for BloomNode {
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
                 &[],
             );
-            // if let Some(viewport) = camera.viewport.as_ref() {
-            //     upsampling_pass.set_camera_viewport(viewport);
-            // }
+            if let Some(viewport) = camera.viewport.as_ref() {
+                upsampling_pass.set_camera_viewport(viewport);
+            }
             let blend = bloom_settings
                 .compute_blend_factor((mip) as f32, (bloom_texture.mip_count - 1) as f32);
             upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
@@ -466,7 +486,7 @@ fn prepare_bloom_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     render_device: Res<RenderDevice>,
-    views: Query<(Entity, &ExtractedCamera), With<BloomSettings>>,
+    views: Query<(Entity, &ExtractedCamera), With<BloomDownsamplingUniform>>,
 ) {
     let mut textures = HashMap::default();
     for (entity, camera) in &views {
@@ -503,74 +523,6 @@ fn prepare_bloom_textures(
                 .insert(BloomTexture { texture, mip_count });
         }
     }
-}
-
-#[derive(Resource, Default)]
-struct BloomUniforms {
-    buffer: DynamicUniformBuffer<BloomDownsamplingUniform>,
-}
-
-#[derive(Component)]
-struct BloomUniformIndices {
-    downsampling: u32,
-}
-
-fn prepare_bloom_uniforms(
-    mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
-    mut bloom_uniforms: ResMut<BloomUniforms>,
-    bloom_query: Query<(Entity, &BloomSettings, &ExtractedCamera)>,
-) {
-    bloom_uniforms.buffer.clear();
-
-    let entities = bloom_query
-        .iter()
-        .map(|(entity, settings, camera)| {
-            // println!("{}", camera.physical_target_size);
-            let mut viewport = Vec4::ZERO;
-            if let (Some((origin, _)), Some(size), Some(target_size)) = (
-                // camera.physical_viewport_rect,
-                Some((0, 0)), // TODO: this is a hardcoded placeholder for above
-                camera.physical_viewport_size,
-                camera.physical_target_size,
-            ) {
-                // viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
-                viewport = UVec4::new(200, 0, size.x, size.y).as_vec4() // TODO: remove hardcode
-                    / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
-                        .as_vec4();
-                println!("{}", viewport);
-            }
-
-            let knee = settings.prefilter_settings.threshold
-                * settings
-                    .prefilter_settings
-                    .threshold_softness
-                    .clamp(0.0, 1.0);
-
-            let uniform = BloomDownsamplingUniform {
-                viewport,
-                threshold_precomputations: Vec4::new(
-                    settings.prefilter_settings.threshold,
-                    settings.prefilter_settings.threshold - knee,
-                    2.0 * knee,
-                    0.25 / (knee + 0.00001),
-                ),
-            };
-
-            (
-                entity,
-                (BloomUniformIndices {
-                    downsampling: bloom_uniforms.buffer.push(uniform),
-                }),
-            )
-        })
-        .collect::<Vec<_>>();
-    commands.insert_or_spawn_batch(entities);
-
-    bloom_uniforms
-        .buffer
-        .write_buffer(&render_device, &render_queue);
 }
 
 #[derive(Component)]

@@ -215,21 +215,6 @@ pub trait Reflect: Any + Send + Sync {
     }
 }
 
-/// A trait for types which can be constructed from a reflected type.
-///
-/// This trait can be derived on types which implement [`Reflect`]. Some complex
-/// types (such as `Vec<T>`) may only be reflected if their element types
-/// implement this trait.
-///
-/// For structs and tuple structs, fields marked with the `#[reflect(ignore)]`
-/// attribute will be constructed using the `Default` implementation of the
-/// field type, rather than the corresponding field value (if any) of the
-/// reflected value.
-pub trait FromReflect: Reflect + Sized {
-    /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
-}
-
 impl Debug for dyn Reflect {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.debug(f)
@@ -280,6 +265,8 @@ impl dyn Reflect {
     /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
     /// to determine what type they represent. Represented types cannot be downcasted
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    ///
+    /// [`FromReflect`]: crate::FromReflect
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
         self.type_id() == TypeId::of::<T>()

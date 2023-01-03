@@ -18,9 +18,10 @@ pub struct Camera2d {
 impl ExtractComponent for Camera2d {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(item.clone())
     }
 }
 
