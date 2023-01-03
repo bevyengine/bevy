@@ -499,6 +499,17 @@ mod tests {
     }
 
     #[test]
+    fn or_has_filter_with() {
+        fn sys(
+            _: Query<&mut C, Or<(With<A>, With<B>)>>,
+            _: Query<&mut C, (Without<A>, Without<B>)>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     fn or_doesnt_remove_unrelated_filter_with() {
         fn sys(_: Query<&mut B, (Or<(With<A>, With<B>)>, With<A>)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();

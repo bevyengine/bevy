@@ -2,6 +2,7 @@ use crate::storage::SparseSetIndex;
 use bevy_utils::HashSet;
 use core::fmt;
 use fixedbitset::FixedBitSet;
+use smallvec::SmallVec;
 use std::marker::PhantomData;
 
 /// A wrapper struct to make Debug representations of [`FixedBitSet`] easier
@@ -25,6 +26,7 @@ struct FormattedBitSet<'a, T: SparseSetIndex> {
     bit_set: &'a FixedBitSet,
     _marker: PhantomData<T>,
 }
+
 impl<'a, T: SparseSetIndex> FormattedBitSet<'a, T> {
     fn new(bit_set: &'a FixedBitSet) -> Self {
         Self {
@@ -33,10 +35,33 @@ impl<'a, T: SparseSetIndex> FormattedBitSet<'a, T> {
         }
     }
 }
+
 impl<'a, T: SparseSetIndex + fmt::Debug> fmt::Debug for FormattedBitSet<'a, T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_list()
             .entries(self.bit_set.ones().map(T::get_sparse_set_index))
+            .finish()
+    }
+}
+
+struct FormattedExpandedOrWithAccesses<'a, T: SparseSetIndex> {
+    with: &'a ExpandedOrWithAccesses,
+    _marker: PhantomData<T>,
+}
+
+impl<'a, T: SparseSetIndex> FormattedExpandedOrWithAccesses<'a, T> {
+    fn new(with: &'a ExpandedOrWithAccesses) -> Self {
+        Self {
+            with,
+            _marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, T: SparseSetIndex + fmt::Debug> fmt::Debug for FormattedExpandedOrWithAccesses<'a, T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list()
+            .entries(self.with.arr.iter().map(FormattedBitSet::<T>::new))
             .finish()
     }
 }
@@ -69,6 +94,7 @@ impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
             .finish()
     }
 }
+
 impl<T: SparseSetIndex> Default for Access<T> {
     fn default() -> Self {
         Self::new()
@@ -213,20 +239,24 @@ impl<T: SparseSetIndex> Access<T> {
 /// is read/write `T`, read `U`. It must still have a read `U` access otherwise the following
 /// queries would be incorrectly considered disjoint:
 /// - `Query<&mut T>`  read/write `T`
-/// - `Query<Option<&T>` accesses nothing
+/// - `Query<Option<&T>>` accesses nothing
 ///
 /// See comments the `WorldQuery` impls of `AnyOf`/`Option`/`Or` for more information.
 #[derive(Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
-    with: FixedBitSet,
+    with: ExpandedOrWithAccesses,
     without: FixedBitSet,
 }
+
 impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for FilteredAccess<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FilteredAccess")
             .field("access", &self.access)
-            .field("with", &FormattedBitSet::<T>::new(&self.with))
+            .field(
+                "with",
+                &FormattedExpandedOrWithAccesses::<T>::new(&self.with),
+            )
             .field("without", &FormattedBitSet::<T>::new(&self.without))
             .finish()
     }
@@ -277,8 +307,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Retains only combinations where the element given by `index` is also present.
     pub fn add_with(&mut self, index: T) {
-        self.with.grow(index.sparse_set_index() + 1);
-        self.with.insert(index.sparse_set_index());
+        self.with.add(index.sparse_set_index());
     }
 
     /// Retains only combinations where the element given by `index` is not present.
@@ -289,7 +318,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     pub fn extend_intersect_filter(&mut self, other: &FilteredAccess<T>) {
         self.without.intersect_with(&other.without);
-        self.with.intersect_with(&other.with);
+        self.with.extend_with_or(&other.with);
     }
 
     pub fn extend_access(&mut self, other: &FilteredAccess<T>) {
@@ -322,6 +351,57 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
     /// Sets the underlying unfiltered access as having access to all indexed elements.
     pub fn read_all(&mut self) {
         self.access.read_all();
+    }
+}
+
+// A struct to express something like `Or<(With<A>, With<B>)>`.
+// Filters like `(With<A>, Or<(With<B>, With<C>)>` are expanded into `Or<(With<(A, B)>, With<(B, C)>)>`.
+#[derive(Clone, Eq, PartialEq)]
+struct ExpandedOrWithAccesses {
+    arr: SmallVec<[FixedBitSet; 8]>,
+}
+
+impl Default for ExpandedOrWithAccesses {
+    fn default() -> Self {
+        Self {
+            arr: smallvec::smallvec![FixedBitSet::default()],
+        }
+    }
+}
+
+impl ExpandedOrWithAccesses {
+    fn add(&mut self, index: usize) {
+        for with in &mut self.arr {
+            with.grow(index + 1);
+            with.insert(index);
+        }
+    }
+
+    fn extend_with_or(&mut self, other: &ExpandedOrWithAccesses) {
+        self.arr.append(&mut other.arr.clone());
+    }
+
+    fn is_disjoint(&self, without: &FixedBitSet) -> bool {
+        self.arr.iter().any(|with| with.is_disjoint(without))
+    }
+
+    fn union_with(&mut self, other: &Self) {
+        if other.arr.len() == 1 {
+            for with in &mut self.arr {
+                with.union_with(&other.arr[0]);
+            }
+            return;
+        }
+
+        let mut new_with = SmallVec::with_capacity(self.arr.len() * other.arr.len());
+        for with in &self.arr {
+            for other_with in &other.arr {
+                let mut w = with.clone();
+                w.union_with(other_with);
+                new_with.push(w);
+            }
+        }
+        self.arr = new_with;
     }
 }
 
