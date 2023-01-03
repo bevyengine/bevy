@@ -5,16 +5,16 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
-             &'static Path
-             ()
-             (A, B)
-             (A, B, C)
-             (A, B, C, D)
-             (A, B, C, D, E)
-             (A, B, C, D, E, F)
-             (A, B, C, D, E, F, G)
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
-   = note: required for the cast from `TheirInner<T>` to the object type `dyn Reflect`
+   = note: required for the cast from `&TheirInner<T>` to `&dyn Reflect`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
@@ -24,16 +24,16 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
-             &'static Path
-             ()
-             (A, B)
-             (A, B, C)
-             (A, B, C, D)
-             (A, B, C, D, E)
-             (A, B, C, D, E, F)
-             (A, B, C, D, E, F, G)
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
-   = note: required for the cast from `TheirInner<T>` to the object type `(dyn Reflect + 'static)`
+   = note: required for the cast from `&mut TheirInner<T>` to `&mut (dyn Reflect + 'static)`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
@@ -43,13 +43,64 @@ error[E0277]: the trait bound `TheirInner<T>: Reflect` is not satisfied
    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Reflect` is not implemented for `TheirInner<T>`
    |
    = help: the following other types implement trait `Reflect`:
-             &'static Path
-             ()
-             (A, B)
-             (A, B, C)
-             (A, B, C, D)
-             (A, B, C, D, E)
-             (A, B, C, D, E, F)
-             (A, B, C, D, E, F, G)
+             bool
+             char
+             isize
+             i8
+             i16
+             i32
+             i64
+             i128
            and $N others
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `TheirInner<T>: TypePath` is not satisfied
+   --> tests/reflect_remote/nested.fail.rs:24:5
+    |
+24  |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `TypePath` is not implemented for `TheirInner<T>`
+    |
+    = help: the following other types implement trait `TypePath`:
+              bool
+              char
+              isize
+              i8
+              i16
+              i32
+              i64
+              i128
+            and $N others
+    = note: required for `TheirInner<T>` to implement `DynamicTypePath`
+note: required by a bound in `clone_value`
+   --> /home/runner/work/bevy/bevy/crates/bevy_reflect/src/reflect.rs:75:20
+    |
+75  | pub trait Reflect: DynamicTypePath + Any + Send + Sync {
+    |                    ^^^^^^^^^^^^^^^ required by this bound in `Reflect::clone_value`
+...
+190 |     fn clone_value(&self) -> Box<dyn Reflect>;
+    |        ----------- required by a bound in this associated function
+    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: `?` operator has incompatible types
+  --> tests/reflect_remote/nested.fail.rs:24:5
+   |
+24 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `MyInner<T>`
+   |
+   = note: `?` operator cannot convert from `incorrect_inner_type::MyInner<T>` to `TheirInner<T>`
+   = note: expected struct `TheirInner<T>`
+              found struct `incorrect_inner_type::MyInner<T>`
+   = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0308]: mismatched types
+  --> tests/reflect_remote/nested.fail.rs:37:5
+   |
+37 |     #[reflect_remote(super::external_crate::TheirOuter<T>)]
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `TheirInner<T>`, found `TheirOuter<T>`
+...
+41 |         pub inner: super::external_crate::TheirInner<T>,
+   |                    ------------------------------------ expected due to this
+   |
+   = note: expected struct `TheirInner<T>`
+              found struct `TheirOuter<T>`
    = note: this error originates in the attribute macro `reflect_remote` (in Nightly builds, run with -Z macro-backtrace for more info)
