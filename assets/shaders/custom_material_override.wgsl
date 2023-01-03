@@ -9,7 +9,7 @@ fn quantize_steps() -> f32 {
 
 override fn ::point_light (
     world_position: vec3<f32>, 
-    light: ::PointLight, 
+    light: u32, 
     roughness: f32, 
     NdotV: f32, 
     N: vec3<f32>, 

@@ -1,7 +1,7 @@
 //! A shader and a material that uses it.
 
 use bevy::{
-    pbr::MaterialPipelineKey,
+    pbr::{MaterialPipelineKey, StandardMaterialKey},
     prelude::*,
     reflect::TypeUuid,
     render::{
@@ -133,7 +133,7 @@ impl AsBindGroup for CustomMaterial {
         render_device: &RenderDevice,
         images: &bevy::render::render_asset::RenderAssets<bevy::prelude::Image>,
         fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
+    ) -> Result<PreparedBindGroup<StandardMaterialKey>, AsBindGroupError> {
         let inner_prepared =
             self.inner
                 .as_bind_group(layout, render_device, images, fallback_image)?;

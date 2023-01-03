@@ -9,7 +9,7 @@ fn quantize_steps() -> f32 {
 
 override fn bevy_pbr::lighting::point_light(
     world_position: vec3<f32>, 
-    light: bevy_pbr::mesh_view_types::PointLight, 
+    light: u32, 
     roughness: f32, 
     NdotV: f32, 
     N: vec3<f32>, 
@@ -26,7 +26,7 @@ override fn bevy_pbr::lighting::point_light(
 }
 
 override fn bevy_pbr::lighting::directional_light(
-    light: bevy_pbr::mesh_view_types::DirectionalLight, 
+    light: u32, 
     roughness: f32, 
     NdotV: f32, 
     normal: vec3<f32>, 
