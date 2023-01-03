@@ -43,6 +43,7 @@ pub struct BloomDownsamplingPipelineKeys {
 
 #[derive(ShaderType)]
 pub struct BloomDownsamplingUniform {
+    pub viewport: Vec4,
     // Precomputed values used when thresholding, see https://catlikecoding.com/unity/tutorials/advanced-rendering/bloom/#3.4
     pub threshold_precomputations: Vec4,
 }
@@ -106,7 +107,7 @@ impl SpecializedRenderPipeline for BloomDownsamplingPipeline {
     type Key = BloomDownsamplingPipelineKeys;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let layout = if key.prefilter && key.first_downsample {
+        let layout = if key.first_downsample {
             Some(vec![self.extended_bind_group_layout.clone()])
         } else {
             Some(vec![self.bind_group_layout.clone()])

@@ -9,11 +9,11 @@ use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
     prelude::{Component, Entity},
-    query::{QueryState, With},
+    query::{QueryState, With, QueryItem},
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::{UVec2, Vec4};
+use bevy_math::{UVec2, UVec4, Vec4};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -23,8 +23,8 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::ViewTarget,
-    Extract, RenderApp, RenderStage,
+    view::{ExtractedView, ViewTarget},
+    Extract, RenderApp, RenderStage, extract_component::ExtractComponent,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -261,8 +261,8 @@ impl Node for BloomNode {
             return Ok(());
         };
 
+        // First downsample pass
         {
-            let needs_settings = bloom_settings.prefilter_settings.threshold > 0.0;
             let downsampling_first_bind_group = {
                 let texture = BindGroupEntry {
                     binding: 0,
@@ -280,23 +280,13 @@ impl Node for BloomNode {
                     resource: bloom_uniforms.clone(),
                 };
 
-                if needs_settings {
-                    render_context
-                        .render_device
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: Some("bloom_downsampling_first_bind_group"),
-                            layout: &downsampling_pipeline_res.extended_bind_group_layout,
-                            entries: &[texture, sampler, settings],
-                        })
-                } else {
-                    render_context
-                        .render_device
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: Some("bloom_downsampling_first_bind_group"),
-                            layout: &downsampling_pipeline_res.bind_group_layout,
-                            entries: &[texture, sampler],
-                        })
-                }
+                render_context
+                    .render_device
+                    .create_bind_group(&BindGroupDescriptor {
+                        label: Some("bloom_downsampling_first_bind_group"),
+                        layout: &downsampling_pipeline_res.extended_bind_group_layout,
+                        entries: &[texture, sampler, settings],
+                    })
             };
 
             let view = &bloom_texture.view(0);
@@ -313,21 +303,19 @@ impl Node for BloomNode {
                     },
                 ));
             downsampling_first_pass.set_render_pipeline(downsampling_first_pipeline);
-            if needs_settings {
-                downsampling_first_pass.set_bind_group(
-                    0,
-                    &downsampling_first_bind_group,
-                    &[uniform_index.downsampling],
-                );
-            } else {
-                downsampling_first_pass.set_bind_group(0, &downsampling_first_bind_group, &[]);
-            };
-            if let Some(viewport) = camera.viewport.as_ref() {
-                downsampling_first_pass.set_camera_viewport(viewport);
-            }
+            downsampling_first_pass.set_bind_group(
+                0,
+                &downsampling_first_bind_group,
+                &[uniform_index.downsampling],
+            );
+
+            // if let Some(viewport) = camera.viewport.as_ref() {
+            //     downsampling_first_pass.set_camera_viewport(viewport);
+            // }
             downsampling_first_pass.draw(0..3, 0..1);
         }
 
+        // Other downsample passes
         for mip in 1..bloom_texture.mip_count {
             let view = &bloom_texture.view(mip);
             let mut downsampling_pass =
@@ -348,12 +336,13 @@ impl Node for BloomNode {
                 &bind_groups.downsampling_bind_groups[mip as usize - 1],
                 &[],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                downsampling_pass.set_camera_viewport(viewport);
-            }
+            // if let Some(viewport) = camera.viewport.as_ref() {
+            //     downsampling_pass.set_camera_viewport(viewport);
+            // }
             downsampling_pass.draw(0..3, 0..1);
         }
 
+        // Upsample passes except the final one
         for mip in (1..bloom_texture.mip_count).rev() {
             let view = &bloom_texture.view(mip - 1);
             let mut upsampling_pass =
@@ -377,15 +366,16 @@ impl Node for BloomNode {
                 &bind_groups.upsampling_bind_groups[(bloom_texture.mip_count - mip - 1) as usize],
                 &[],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                upsampling_pass.set_camera_viewport(viewport);
-            }
+            // if let Some(viewport) = camera.viewport.as_ref() {
+            //     upsampling_pass.set_camera_viewport(viewport);
+            // }
             let blend = bloom_settings
                 .compute_blend_factor((mip) as f32, (bloom_texture.mip_count - 1) as f32);
             upsampling_pass.set_blend_constant(Color::rgb_linear(blend, blend, blend));
             upsampling_pass.draw(0..3, 0..1);
         }
 
+        // Final upsample pass
         // This is very similar to the upsampling_pass above with the only difference
         // being the pipeline (which itself is barely different) and the color attachment.
         // Too bad.
@@ -525,26 +515,41 @@ struct BloomUniformIndices {
     downsampling: u32,
 }
 
-// TODO: This entire system is not needed if bloom is configured in an
-// energy conserving manner. Because we only change the preflter settings here.
 fn prepare_bloom_uniforms(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut bloom_uniforms: ResMut<BloomUniforms>,
-    bloom_query: Query<(Entity, &BloomSettings)>,
+    bloom_query: Query<(Entity, &BloomSettings, &ExtractedCamera)>,
 ) {
     bloom_uniforms.buffer.clear();
 
     let entities = bloom_query
         .iter()
-        .map(|(entity, settings)| {
+        .map(|(entity, settings, camera)| {
+            // println!("{}", camera.physical_target_size);
+            let mut viewport = Vec4::ZERO;
+            if let (Some((origin, _)), Some(size), Some(target_size)) = (
+                // camera.physical_viewport_rect,
+                Some((0, 0)), // TODO: this is a hardcoded placeholder for above
+                camera.physical_viewport_size,
+                camera.physical_target_size,
+            ) {
+                // viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
+                viewport = UVec4::new(200, 0, size.x, size.y).as_vec4() // TODO: remove hardcode
+                    / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
+                        .as_vec4();
+                println!("{}", viewport);
+            }
+
             let knee = settings.prefilter_settings.threshold
                 * settings
                     .prefilter_settings
                     .threshold_softness
                     .clamp(0.0, 1.0);
+
             let uniform = BloomDownsamplingUniform {
+                viewport,
                 threshold_precomputations: Vec4::new(
                     settings.prefilter_settings.threshold,
                     settings.prefilter_settings.threshold - knee,
