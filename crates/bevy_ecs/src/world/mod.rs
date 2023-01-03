@@ -334,6 +334,8 @@ impl World {
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
+                        table_id: archetype.table_id(),
+                        table_row: archetype_entity.table_row(),
                     };
                     EntityRef::new(self, archetype_entity.entity(), location)
                 })
@@ -1135,7 +1137,7 @@ impl World {
                             if location.archetype_id == archetype =>
                         {
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.archetype_row, bundle) };
+                            unsafe { inserter.insert(entity, location, bundle) };
                         }
                         _ => {
                             let mut inserter = bundle_info.get_bundle_inserter(
@@ -1147,7 +1149,7 @@ impl World {
                                 change_tick,
                             );
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.archetype_row, bundle) };
+                            unsafe { inserter.insert(entity, location, bundle) };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
                         }

@@ -1,10 +1,12 @@
 mod draw;
 mod draw_state;
 
+use bevy_ecs::entity::Entity;
 pub use draw::*;
 pub use draw_state::*;
 
 use bevy_ecs::prelude::{Component, Query};
+use bevy_ecs::world::World;
 
 /// A resource to collect and sort draw requests for specific [`PhaseItems`](PhaseItem).
 #[derive(Component)]
@@ -28,6 +30,21 @@ impl<I: PhaseItem> RenderPhase<I> {
     /// Sorts all of its [`PhaseItems`](PhaseItem).
     pub fn sort(&mut self) {
         I::sort(&mut self.items);
+    }
+
+    pub fn render<'w>(
+        &self,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
+        view: Entity,
+    ) {
+        let draw_functions = world.resource::<DrawFunctions<I>>();
+        let mut draw_functions = draw_functions.write();
+
+        for item in &self.items {
+            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
+            draw_function.draw(world, render_pass, view, item);
+        }
     }
 }
 
