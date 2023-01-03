@@ -253,10 +253,7 @@ impl Node for BloomNode {
         ) =
             match self.view_query.get_manual(world, view_entity) {
                 Ok(result) => result,
-                Err(e) => {
-                    println!("{}", e);
-                    return Ok(());
-                },
+                _ => return Ok(()),
             };
 
         // Downsampling pipelines
