@@ -1809,4 +1809,10 @@ mod tests {
         Res<'w, R>,
         Local<'s, L>,
     );
+
+    #[derive(Resource)]
+    struct PrivateResource;
+
+    #[derive(SystemParam)]
+    pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 }
