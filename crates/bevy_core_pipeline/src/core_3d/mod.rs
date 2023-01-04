@@ -29,13 +29,8 @@ use bevy_render::{
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-<<<<<<< HEAD
         sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
         RenderPhase,
-=======
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
-        PhaseItem, RenderPhase,
->>>>>>> b411da63f (Flatten EntityPhaseItem into PhaseItem)
     },
     render_resource::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,

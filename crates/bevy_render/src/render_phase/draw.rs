@@ -1,36 +1,31 @@
-use crate::{
-    render_phase::{PhaseItem, TrackedRenderPass},
-    render_resource::{CachedRenderPipelineId, PipelineCache},
-};
+use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::App;
 use bevy_ecs::{
     all_tuples,
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyWorldQuery},
-    system::{
-        lifetimeless::SRes, ReadOnlySystemParam, Resource, SystemParam, SystemParamItem,
-        SystemState,
-    },
+    system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
 use bevy_utils::HashMap;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::{any::TypeId, fmt::Debug, hash::Hash};
 
-// Todo: consider renaming this to `DrawFunction`
 /// A draw function used to draw [`PhaseItem`]s.
 ///
-/// Therefore the draw function can retrieve and query the required ECS data from the render world.
+/// The draw function can retrieve and query the required ECS data from the render world.
 ///
-/// This trait can either be implemented directly or implicitly composed out of multiple modular [`RenderCommand`]s.
+/// This trait can either be implemented directly or implicitly composed out of multiple modular
+/// [`RenderCommand`]s. For more details and an example see the [`RenderCommand`] documentation.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Prepares the draw function to be used. This is called once and only once before the phase
-    /// begins. There may be zero or more `draw` calls following a call to this function..
+    /// begins. There may be zero or more `draw` calls following a call to this function.
     /// Implementing this is optional.
     #[allow(unused_variables)]
     fn prepare(&mut self, world: &'_ World) {}
 
-    /// Draws a [`PhaseItem`] by issuing one or more draw calls via the [`TrackedRenderPass`].
+    /// Draws a [`PhaseItem`] by issuing zero or more `draw` calls draw calls via the
+    /// [`TrackedRenderPass`].
     fn draw<'w>(
         &mut self,
         world: &'w World,
@@ -54,7 +49,7 @@ pub struct DrawFunctionsInternal<P: PhaseItem> {
 }
 
 impl<P: PhaseItem> DrawFunctionsInternal<P> {
-    // Todo: add comment
+    /// Prepares all draw function. This is called once and only once before the phase begins.
     pub fn prepare(&mut self, world: &World) {
         for function in &mut self.draw_functions {
             function.prepare(world);
@@ -132,13 +127,19 @@ impl<P: PhaseItem> DrawFunctions<P> {
     }
 }
 
-/// [`RenderCommand`]s are modular standardized pieces of render logic that can be composed into [`Draw`] functions.
+/// [`RenderCommand`]s are modular standardized pieces of render logic that can be composed into
+/// [`Draw`] functions.
 ///
-/// To turn a stateless render command into a usable draw function it has to be wrapped by a [`RenderCommandState`].
-/// This is done automatically when registering a render command as a [`Draw`] function via the [`AddRenderCommand::add_render_command`] method.
+/// To turn a stateless render command into a usable draw function it has to be wrapped by a
+/// [`RenderCommandState`].
+/// This is done automatically when registering a render command as a [`Draw`] function via the
+/// [`AddRenderCommand::add_render_command`] method.
 ///
-/// Compared to the draw function the required ECS data is fetched automatically (by the [`RenderCommandState`]) from the render world.
-/// Therefore the three types [`Param`](RenderCommand::Param), [`ViewWorldQuery`](RenderCommand::ViewWorldQuery) and [`WorldQuery`](RenderCommand::WorldQuery) are used.
+/// Compared to the draw function the required ECS data is fetched automatically
+/// (by the [`RenderCommandState`]) from the render world.
+/// Therefore the three types [`Param`](RenderCommand::Param),
+/// [`ViewWorldQuery`](RenderCommand::ViewWorldQuery) and
+/// [`ItemWorldQuery`](RenderCommand::ItemWorldQuery) are used.
 /// They specify which information is required to execute the render command.
 ///
 /// Multiple render commands can be combined together by wrapping them in a tuple.
@@ -157,15 +158,18 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// );
 /// ```
 pub trait RenderCommand<P: PhaseItem> {
-    /// Specifies all ECS data required by [`RenderCommand::render`].
+    /// Specifies the general ECS data (e.g. resources) required by [`RenderCommand::render`].
     /// All parameters have to be read only.
     type Param: SystemParam + 'static;
-    // Todo: add comment
+    /// Specifies the ECS data of the view required by [`RenderCommand::render`].
+    /// All components have to be accessed read only.
     type ViewWorldQuery: ReadOnlyWorldQuery;
-    // Todo: add comment
+    /// Specifies the ECS data of the item required by [`RenderCommand::render`].
+    /// All components have to be accessed read only.
     type ItemWorldQuery: ReadOnlyWorldQuery;
 
-    /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups, issuing draw calls, etc.) via the [`TrackedRenderPass`].
+    /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups,
+    /// issuing draw calls, etc.) via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
         view: ROQueryItem<'w, Self::ViewWorldQuery>,
@@ -208,7 +212,9 @@ macro_rules! render_command_tuple_impl {
 all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
-/// Therefore the [`RenderCommand::Param`], [`RenderCommand::ViewWorldQuery`] and [`RenderCommand::WorldQuery`] are queried from the ECS and passed to the command.
+///
+/// The [`RenderCommand::Param`], [`RenderCommand::ViewWorldQuery`] and
+/// [`RenderCommand::ItemWorldQuery`] are fetched from the ECS and passed to the command.
 pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
     state: SystemState<C::Param>,
     view: QueryState<C::ViewWorldQuery>,
@@ -230,7 +236,8 @@ impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for Rend
 where
     C::Param: ReadOnlySystemParam,
 {
-    // Todo: add comment
+    /// Prepares the render command to be used. This is called once and only once before the phase
+    /// begins. There may be zero or more `draw` calls following a call to this function.
     fn prepare(&mut self, world: &'_ World) {
         self.view.update_archetypes(world);
         self.entity.update_archetypes(world);
@@ -247,7 +254,7 @@ where
         let param = self.state.get(world);
         let view = self.view.get_manual(world, view).unwrap();
         let entity = self.entity.get_manual(world, item.entity()).unwrap();
-        // Todo: handle/log `RenderCommand` failure
+        // TODO: handle/log `RenderCommand` failure
         C::render(item, view, entity, param, pass);
     }
 }
@@ -283,38 +290,5 @@ impl AddRenderCommand for App {
             });
         draw_functions.write().add_with::<C, _>(draw_function);
         self
-    }
-}
-
-// Todo: If this is always needed, combine this with PhaseItem?
-pub trait CachedRenderPipelinePhaseItem: PhaseItem {
-    fn cached_pipeline(&self) -> CachedRenderPipelineId;
-}
-
-/// A [`RenderCommand`] that sets the pipeline for the `[PhaseItem]`.
-pub struct SetItemPipeline;
-
-impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
-    type Param = SRes<PipelineCache>;
-    type ViewWorldQuery = ();
-    type WorldQuery = ();
-
-    #[inline]
-    fn render<'w>(
-        item: &P,
-        _view: (),
-        _entity: (),
-        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        if let Some(pipeline) = pipeline_cache
-            .into_inner()
-            .get_render_pipeline(item.cached_pipeline())
-        {
-            pass.set_render_pipeline(pipeline);
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
-        }
     }
 }

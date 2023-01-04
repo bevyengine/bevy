@@ -1,31 +1,55 @@
-//! The modular rendering abstractions that queue, prepare, sort and draw entities as part of separate phases.
+//! The modular rendering abstraction responsible for queuing, preparing, sorting and drawing
+//! entities as part of separate render phases.
 //!
-//! To draw an entity, a corresponding [`PhaseItem`] has to be added to one of the renderers multiple [`RenderPhase`]s (e.g. opaque, transparent, shadow, etc).
+//! In Bevy each view (camera, or shadow-casting light, etc.) has one or multiple [`RenderPhase`]s
+//! (e.g. opaque, transparent, shadow, etc).
+//! They are used to queue entities for rendering.
+//! Multiple phases might be required due to different sorting/batching behaviours
+//! (e.g. opaque: front to back, transparent: back to front) or because one phase depends on
+//! the rendered texture of the previous phase (e.g. for screen-space reflections).
+//!
+//! To draw an entity, a corresponding [`PhaseItem`] has to be added to one or multiple of these
+//! render phases for each view that it is visible in.
 //! This must be done in the [`RenderStage::Queue`](crate::RenderStage::Queue).
-//! After that the [`RenderPhase`] sorts them in the [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort).
-//! Finally the [`PhaseItem`]s are rendered using a single [`TrackedRenderPass`], during the [`RenderStage::Render`](crate::RenderStage::Render).
+//! After that the render phase sorts them in the
+//! [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort).
+//! Finally the items are rendered using a single [`TrackedRenderPass`], during the
+//! [`RenderStage::Render`](crate::RenderStage::Render).
 //!
-//! Therefore each [`PhaseItem`] is assigned a [`Draw`] function.
-//! These set up the state of the [`TrackedRenderPass`] (i.e. select the [`RenderPipeline`](crate::render_resource::RenderPipeline), configure the [`BindGroup`](crate::render_resource::BindGroup)s, etc.) and then issue a draw call, for the corresponding [`PhaseItem`].
+//! Therefore each phase item is assigned a [`Draw`] function.
+//! These set up the state of the [`TrackedRenderPass`] (i.e. select the
+//! [`RenderPipeline`](crate::render_resource::RenderPipeline), configure the
+//! [`BindGroup`](crate::render_resource::BindGroup)s, etc.) and then issue a draw call,
+//! for the corresponding item.
 //!
-//! The [`Draw`] function trait can either be implemented directly or such a function can be created by composing multiple [`RenderCommand`]s.
+//! The [`Draw`] function trait can either be implemented directly or such a function can be
+//! created by composing multiple [`RenderCommand`]s.
 
 mod draw;
 mod draw_state;
 mod rangefinder;
 
-use bevy_ecs::entity::Entity;
 pub use draw::*;
 pub use draw_state::*;
 pub use rangefinder::*;
 
-use bevy_ecs::prelude::*;
-use bevy_ecs::world::World;
+use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
+use bevy_ecs::{
+    prelude::*,
+    system::{lifetimeless::SRes, SystemParamItem},
+};
 use std::ops::Range;
 
-/// A render phase sorts and renders all [`PhaseItem`]s (entities) that are assigned to it.
+/// A collection of all rendering instructions, that will be executed by the GPU, for a
+/// single render phase for a single view.
 ///
-/// It corresponds to exactly one [`TrackedRenderPass`] and thus renders all items into the same texture attachments (e.g. color, depth, stencil).
+/// Each view (camera, or shadow-casting light, etc.) can have one or multiple render phases.
+/// They are used to queue entities for rendering.
+/// Multiple phases might be required due to different sorting/batching behaviours
+/// (e.g. opaque: front to back, transparent: back to front) or because one phase depends on
+/// the rendered texture of the previous phase (e.g. for screen-space reflections).
+/// All [`PhaseItem`]s are then rendered using a single [`TrackedRenderPass`].
+/// The render pass might be reused for multiple phases to reduce GPU overhead.
 #[derive(Component)]
 pub struct RenderPhase<I: PhaseItem> {
     pub items: Vec<I>,
@@ -49,6 +73,7 @@ impl<I: PhaseItem> RenderPhase<I> {
         I::sort(&mut self.items);
     }
 
+    /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
     pub fn render<'w>(
         &self,
         render_pass: &mut TrackedRenderPass<'w>,
@@ -93,12 +118,13 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
     }
 }
 
-/// An item (entity) which will be drawn to the screen.
+/// An item (entity) which will be drawn to a texture or the screen, as part of a [`RenderPhase`].
 ///
-/// A phase item has to be queued up for rendering during the [`RenderStage::Queue`](crate::RenderStage::Queue) stage.
+/// A phase item has to be queued up for rendering during the
+/// [`RenderStage::Queue`](crate::RenderStage::Queue).
 /// Afterwards it will be sorted and rendered automatically in the
-/// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) stage and
-/// [`RenderStage::Render`](crate::RenderStage::Render) stage, respectively.
+/// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) and
+/// [`RenderStage::Render`](crate::RenderStage::Render), respectively.
 pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// The type used for ordering the items. The smallest values are drawn first.
     /// This order can be calculated using the [`ViewRangefinder3d`],
@@ -129,6 +155,43 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     #[inline]
     fn sort(items: &mut [Self]) {
         items.sort_unstable_by_key(|item| item.sort_key());
+    }
+}
+
+/// A [`PhaseItem`] item, that automatically sets the appropriate render pipeline,
+/// cached in the [`PipelineCache`].
+///
+/// You can use the [`SetItemPipeline`] render command to set the pipeline for this item.
+pub trait CachedRenderPipelinePhaseItem: PhaseItem {
+    /// The id of the render pipeline, cached in the [`PipelineCache`], that will be used to draw
+    /// this phase item.
+    fn cached_pipeline(&self) -> CachedRenderPipelineId;
+}
+
+/// A [`RenderCommand`] that sets the pipeline for the [`CachedRenderPipelinePhaseItem`].
+pub struct SetItemPipeline;
+
+impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
+    type Param = SRes<PipelineCache>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = ();
+    #[inline]
+    fn render<'w>(
+        item: &P,
+        _view: (),
+        _entity: (),
+        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        if let Some(pipeline) = pipeline_cache
+            .into_inner()
+            .get_render_pipeline(item.cached_pipeline())
+        {
+            pass.set_render_pipeline(pipeline);
+            RenderCommandResult::Success
+        } else {
+            RenderCommandResult::Failure
+        }
     }
 }
 
