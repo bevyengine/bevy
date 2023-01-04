@@ -355,7 +355,7 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 }
 
 // A struct to express something like `Or<(With<A>, With<B>)>`.
-// Filters like `(With<A>, Or<(With<B>, With<C>)>` are expanded into `Or<(With<(A, B)>, With<(B, C)>)>`.
+// Filters like `(With<A>, Or<(With<B>, With<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, With<C>))>`.
 #[derive(Clone, Eq, PartialEq)]
 struct ExpandedOrWithAccesses {
     arr: SmallVec<[FixedBitSet; 8]>,
