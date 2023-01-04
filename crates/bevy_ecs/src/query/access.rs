@@ -521,7 +521,9 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
+    use crate::query::access::ExpandedOrWithAccesses;
     use crate::query::{Access, FilteredAccess, FilteredAccessSet};
+    use fixedbitset::FixedBitSet;
 
     #[test]
     fn read_all_access_conflicts() {
@@ -611,5 +613,32 @@ mod tests {
         expected.add_without(4);
 
         assert!(access_a.eq(&expected));
+    }
+
+    #[test]
+    fn filtered_access_extend_or() {
+        let mut access_a = FilteredAccess::<usize>::default();
+        access_a.add_write(0);
+        access_a.add_write(1);
+
+        let mut access_b = FilteredAccess::<usize>::default();
+        access_b.add_with(3);
+
+        let mut access_c = FilteredAccess::<usize>::default();
+        access_c.add_with(4);
+        access_b.extend_intersect_filter(&access_c);
+        access_a.extend(&access_b);
+
+        let mut expected = FilteredAccess::<usize>::default();
+        expected.add_write(0);
+        expected.add_write(1);
+        expected.with = ExpandedOrWithAccesses {
+            arr: smallvec::smallvec![
+                FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
+                FixedBitSet::with_capacity_and_blocks(5, [0b10011]),
+            ],
+        };
+
+        assert_eq!(access_a, expected);
     }
 }

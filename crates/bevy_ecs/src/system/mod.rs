@@ -484,6 +484,13 @@ mod tests {
     }
 
     #[test]
+    fn any_of_and_without() {
+        fn sys(_: Query<(AnyOf<(&A, &B)>, &mut C)>, _: Query<&mut C, (Without<A>, Without<B>)>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     #[should_panic = "error[B0001]"]
     fn or_has_no_filter_with() {
         fn sys(_: Query<&mut B, Or<(With<A>, With<B>)>>, _: Query<&mut B, Without<A>>) {}
@@ -503,6 +510,36 @@ mod tests {
         fn sys(
             _: Query<&mut C, Or<(With<A>, With<B>)>>,
             _: Query<&mut C, (Without<A>, Without<B>)>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_expanded_with_and_without_common() {
+        fn sys(_: Query<&mut D, (With<A>, Or<(With<B>, With<C>)>)>, _: Query<&mut D, Without<A>>) {}
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_expanded_nested_with_and_without_common() {
+        fn sys(
+            _: Query<&mut E, (Or<((With<B>, With<C>), (With<C>, With<D>))>, With<A>)>,
+            _: Query<&mut E, (Without<B>, Without<D>)>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn or_expanded_nested_with_and_disjoint_without() {
+        fn sys(
+            _: Query<&mut E, (Or<((With<B>, With<C>), (With<C>, With<D>))>, With<A>)>,
+            _: Query<&mut E, Without<D>>,
         ) {
         }
         let mut world = World::default();
