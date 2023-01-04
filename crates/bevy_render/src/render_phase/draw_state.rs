@@ -1,5 +1,3 @@
-use crate::renderer::RenderContext;
-use crate::view::{ViewDepthTexture, ViewTarget};
 use crate::{
     camera::Viewport,
     prelude::Color,
@@ -8,15 +6,18 @@ use crate::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
+    renderer::RenderContext,
+    view::{ViewDepthTexture, ViewTarget},
 };
 use bevy_ecs::prelude::{Entity, World};
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 use bevy_utils::tracing::trace;
 use std::ops::Range;
 use wgpu::{
     IndexFormat, Operations, RenderPass, RenderPassDepthStencilAttachment, RenderPassDescriptor,
 };
+
+// #[cfg(feature = "trace")]
+// use bevy_utils::tracing::info_span;
 
 /// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
@@ -115,6 +116,7 @@ impl<'a> TrackedRenderPass<'a> {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn create_for_camera(
         render_context: &'a mut RenderContext,
         label: &'static str,
@@ -125,22 +127,21 @@ impl<'a> TrackedRenderPass<'a> {
         depth_ops: Option<Operations<f32>>,
         viewport: &Option<Viewport>,
     ) -> Self {
-        #[cfg(feature = "trace")]
-        let _pass_span = info_span!(label).entered();
+        // Todo: info_span has to use a const label
+        // #[cfg(feature = "trace")]
+        // let _pass_span = info_span!(label).entered();
 
         // Todo: makes this configurable
         let stencil_ops = None;
 
         let color_attachments = &[Some(view_target.get_color_attachment(color_ops))];
 
-        let depth_stencil_attachment = match view_depth {
-            None => None,
-            Some(view_depth) => Some(RenderPassDepthStencilAttachment {
+        let depth_stencil_attachment =
+            view_depth.map(|view_depth| RenderPassDepthStencilAttachment {
                 view: &view_depth.view,
                 depth_ops,
                 stencil_ops,
-            }),
-        };
+            });
 
         let pass_descriptor = RenderPassDescriptor {
             label: Some(label),
@@ -166,6 +167,8 @@ impl<'a> TrackedRenderPass<'a> {
     pub fn render_phase<I: PhaseItem>(&mut self, render_phase: &RenderPhase<I>, world: &'a World) {
         let draw_functions = world.resource::<DrawFunctions<I>>();
         let mut draw_functions = draw_functions.write();
+
+        draw_functions.prepare(world);
 
         for item in &render_phase.items {
             let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();

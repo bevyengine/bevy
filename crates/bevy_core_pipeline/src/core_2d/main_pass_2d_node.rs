@@ -12,8 +12,6 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
-#[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
 
 pub struct MainPass2dNode {
     query: QueryState<
