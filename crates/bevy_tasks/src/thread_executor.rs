@@ -7,8 +7,45 @@ use std::{
 use async_executor::{Executor, Task};
 use futures_lite::Future;
 
-/// An executor that can only be ticked on the thread it was instantiated on.
-#[derive(Debug)]
+/// An executor that can only be ticked on the thread it was instantiated on. But
+/// can spawn `Send` tasks from other threads.
+///
+/// # Example
+/// ```rust
+/// # use std::sync::{Arc, atomic::{AtomicI32, Ordering}};
+/// use bevy_tasks::ThreadExecutor;
+///
+/// let thread_executor = ThreadExecutor::new();
+/// let count = Arc::new(AtomicI32::new(0));
+///
+/// // create some owned values that can be moved into another thread
+/// let thread_executor_clone = thread_executor.clone();
+/// let count_clone = count.clone();
+/// let thread_spawner = thread_executor.spawner();
+///
+/// std::thread::scope(|scope| {
+///     scope.spawn(|| {
+///         // we cannot get the ticker from another thread
+///         let not_thread_ticker = thread_executor_clone.ticker();
+///         assert!(not_thread_ticker.is_none());
+///         
+///         // but we can spawn tasks from another thread
+///         thread_spawner.spawn(async move {
+///             count_clone.fetch_add(1, Ordering::Relaxed);
+///         }).detach();
+///     });
+/// });
+///
+/// // the tasks do not make progress unless the executor is manually ticked
+/// assert_eq!(count.load(Ordering::Relaxed), 0);
+///
+/// // tick the ticker until task finishes
+/// let thread_ticker = thread_executor.ticker().unwrap();
+/// thread_ticker.try_tick();
+/// assert_eq!(count.load(Ordering::Relaxed), 1);
+/// ```
+///
+#[derive(Debug, Clone)]
 pub struct ThreadExecutor {
     executor: Arc<Executor<'static>>,
     thread_id: ThreadId,
@@ -24,7 +61,7 @@ impl Default for ThreadExecutor {
 }
 
 impl ThreadExecutor {
-    /// createa a new `[ThreadExecutor]`
+    /// create a new `[ThreadExecutor]`
     pub fn new() -> Self {
         Self::default()
     }
@@ -54,13 +91,15 @@ impl ThreadExecutor {
 #[derive(Debug)]
 pub struct ThreadSpawner<'a>(Arc<Executor<'a>>);
 impl<'a> ThreadSpawner<'a> {
-    /// Spawn a task on the main thread
+    /// Spawn a task on the thread executor
     pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
         self.0.spawn(future)
     }
 }
 
-/// Used to tick the [`ThreadExecutor`]
+/// Used to tick the [`ThreadExecutor`]. The executor does not
+/// make progress unless it is manually ticked on the thread it was
+/// created on.
 #[derive(Debug)]
 pub struct ThreadTicker {
     executor: Arc<Executor<'static>>,
@@ -68,9 +107,7 @@ pub struct ThreadTicker {
     _marker: PhantomData<*const ()>,
 }
 impl ThreadTicker {
-    /// Tick the main thread executor.
-    /// This needs to be called manually on the thread if it is not being used with
-    /// a `[TaskPool::scope]`.
+    /// Tick the thread executor.
     pub fn tick(&self) -> impl Future<Output = ()> + '_ {
         self.executor.tick()
     }
