@@ -102,7 +102,7 @@ impl<'a> TrackedRenderPass<'a> {
     /// Tracks the supplied render pass.
     pub fn new(device: &RenderDevice, pass: RenderPass<'a>) -> Self {
         let limits = device.limits();
-        let max_bind_groups = limits.max_bind_groups.min(MAX_TRACKED_STATE)  as usize;
+        let max_bind_groups = limits.max_bind_groups.min(MAX_TRACKED_STATE) as usize;
         let max_vertex_buffers = limits.max_vertex_buffers.min(MAX_TRACKED_STATE) as usize;
         Self {
             state: DrawState {
