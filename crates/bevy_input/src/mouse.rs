@@ -1,5 +1,9 @@
 use crate::{ButtonState, Input};
-use bevy_ecs::{change_detection::DetectChangesMut, event::EventReader, system::ResMut};
+use bevy_ecs::{
+    change_detection::DetectChangesMut,
+    event::{Event, EventReader},
+    system::ResMut,
+};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect};
 
@@ -14,7 +18,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is read inside of the [`mouse_button_input_system`](crate::mouse::mouse_button_input_system)
 /// to update the [`Input<MouseButton>`](crate::Input<MouseButton>) resource.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -65,7 +69,7 @@ pub enum MouseButton {
 /// However, the event data does not make it possible to distinguish which device it is referring to.
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
@@ -106,7 +110,7 @@ pub enum MouseScrollUnit {
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
 #[reflect(Debug, PartialEq)]
 #[cfg_attr(
     feature = "serialize",
