@@ -321,9 +321,9 @@ impl SpecializedMeshPipeline for ShadowPipeline {
 
         let mut bind_group_layout = vec![self.view_layout.clone()];
         let mut shader_defs = Vec::new();
-        shader_defs.push(ShaderDefVal::Int(
+        shader_defs.push(ShaderDefVal::UInt(
             "MAX_DIRECTIONAL_LIGHTS".to_string(),
-            MAX_DIRECTIONAL_LIGHTS as i32,
+            MAX_DIRECTIONAL_LIGHTS as u32,
         ));
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
@@ -1785,16 +1785,12 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                let draw_functions = world.resource::<DrawFunctions<Shadow>>();
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);
-                let mut draw_functions = draw_functions.write();
-                let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for item in &shadow_phase.items {
-                    let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                    draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
-                }
+                let mut render_pass = TrackedRenderPass::new(render_pass);
+
+                shadow_phase.render(&mut render_pass, world, view_light_entity);
             }
         }
 

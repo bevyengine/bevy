@@ -9,7 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
-  NIGHTLY_TOOLCHAIN: nightly-2022-11-28
+  NIGHTLY_TOOLCHAIN: nightly
 
 jobs:
   build:
@@ -108,6 +108,7 @@ jobs:
             ~/.cargo/git/db/
             target/
             crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
           key: ${{ runner.os }}-cargo-check-compiles-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -159,7 +160,7 @@ jobs:
           #GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   run-examples:
-    runs-on: ubuntu-20.04 # TODO: figure out why latest fails
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - name: Install Bevy dependencies

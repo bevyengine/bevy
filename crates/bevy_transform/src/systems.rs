@@ -46,20 +46,39 @@ pub fn propagate_transforms(
                     actual_parent.get(), entity,
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
                 );
-                propagate_recursive(
-                    &global_transform,
-                    &transform_query,
-                    &parent_query,
-                    &children_query,
-                    child,
-                    changed || parent_changed,
-                );
+                // SAFETY:
+                // - We may operate as if the hierarchy is consistent, since `propagate_recursive` will panic before continuing
+                //   to propagate if it encounters an entity with inconsistent parentage.
+                // - Since each root entity is unique and the hierarchy is consistent and forest-like,
+                //   other root entities' `propagate_recursive` calls will not conflict with this one.
+                // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
+                unsafe {
+                    propagate_recursive(
+                        &global_transform,
+                        &transform_query,
+                        &parent_query,
+                        &children_query,
+                        child,
+                        changed || parent_changed,
+                    );
+                }
             }
         },
     );
 }
 
-fn propagate_recursive(
+/// Recursively propagates the transforms for `entity` and all of its descendants.
+///
+/// # Panics
+///
+/// If `entity` or any of its descendants have a malformed hierarchy.
+/// The panic will occur before propagating the transforms of any malformed entities and their descendants.
+///
+/// # Safety
+///
+/// While this function is running, `unsafe_transform_query` must not have any fetches for `entity`,
+/// nor any of its descendants.
+unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     unsafe_transform_query: &Query<
         (&Transform, Changed<Transform>, &mut GlobalTransform),
@@ -69,7 +88,6 @@ fn propagate_recursive(
     children_query: &Query<&Children, (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
     mut changed: bool,
-    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
 ) {
     let global_matrix = {
         let Ok((transform, transform_changed, mut global_transform)) =
@@ -110,12 +128,15 @@ fn propagate_recursive(
         *global_transform
     };
 
-    if let Ok(children) = children_query.get(entity) {
-        for (child, actual_parent, parent_changed) in parent_query.iter_many(children) {
-            assert_eq!(
-                actual_parent.get(), entity,
-                "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-            );
+    let Ok(children) = children_query.get(entity) else { return };
+    for (child, actual_parent, parent_changed) in parent_query.iter_many(children) {
+        assert_eq!(
+            actual_parent.get(), entity,
+            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+        );
+        // SAFETY: The caller guarantees that `unsafe_transform_query` will not be fetched
+        // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
+        unsafe {
             propagate_recursive(
                 &global_matrix,
                 unsafe_transform_query,
