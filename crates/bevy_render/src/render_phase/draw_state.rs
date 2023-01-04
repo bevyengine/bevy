@@ -11,6 +11,12 @@ use bevy_utils::{default, tracing::trace};
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
 
+// The maximum number of vertex buffers and bind groups tracked by `DrawState`.
+// This is done to avoid over-allocating the Vecs in `DrawState`.
+//
+// Generally these limits are fairly low (16-512) on all modern hardware.
+const MAX_TRACKED_STATE: u32 = 1024;
+
 /// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
 struct DrawState {
@@ -96,10 +102,12 @@ impl<'a> TrackedRenderPass<'a> {
     /// Tracks the supplied render pass.
     pub fn new(device: &RenderDevice, pass: RenderPass<'a>) -> Self {
         let limits = device.limits();
+        let max_bind_groups = limits.max_bind_groups.min(MAX_TRACKED_STATE)  as usize;
+        let max_vertex_buffers = limits.max_vertex_buffers.min(MAX_TRACKED_STATE) as usize;
         Self {
             state: DrawState {
-                bind_groups: vec![(None, Vec::new()); limits.max_bind_groups as usize],
-                vertex_buffers: vec![None; limits.max_vertex_buffers as usize],
+                bind_groups: vec![(None, Vec::new()); max_bind_groups],
+                vertex_buffers: vec![None; max_vertex_buffers],
                 ..default()
             },
             pass,
