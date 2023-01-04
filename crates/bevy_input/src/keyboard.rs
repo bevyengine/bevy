@@ -1,5 +1,9 @@
 use crate::{ButtonState, Input};
-use bevy_ecs::{event::EventReader, system::ResMut};
+use bevy_ecs::{change_detection::DetectChanges, event::EventReader, system::ResMut};
+use bevy_reflect::{FromReflect, Reflect};
+
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A keyboard input event.
 ///
@@ -10,7 +14,13 @@ use bevy_ecs::{event::EventReader, system::ResMut};
 ///
 /// The event is consumed inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system)
 /// to update the [`Input<KeyCode>`](crate::Input<KeyCode>) resource.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[reflect(Debug, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 pub struct KeyboardInput {
     /// The scan code of the key.
     pub scan_code: u32,
@@ -24,24 +34,29 @@ pub struct KeyboardInput {
 ///
 /// ## Differences
 ///
-/// The main difference between the [`KeyboardInput`] event and the [`Input<KeyCode>`] resource is that
-/// the latter has convenient functions like [`Input::pressed`], [`Input::just_pressed`] and [`Input::just_released`].
+/// The main difference between the [`KeyboardInput`] event and the [`Input<KeyCode>`] or [`Input<ScanCode>`] resources is that
+/// the latter have convenient functions such as [`Input::pressed`], [`Input::just_pressed`] and [`Input::just_released`].
 pub fn keyboard_input_system(
-    mut keyboard_input: ResMut<Input<KeyCode>>,
+    mut scan_input: ResMut<Input<ScanCode>>,
+    mut key_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
-    keyboard_input.clear();
+    // Avoid clearing if it's not empty to ensure change detection is not triggered.
+    scan_input.bypass_change_detection().clear();
+    key_input.bypass_change_detection().clear();
     for event in keyboard_input_events.iter() {
-        if let KeyboardInput {
-            key_code: Some(key_code),
-            state,
-            ..
-        } = event
-        {
+        let KeyboardInput {
+            scan_code, state, ..
+        } = event;
+        if let Some(key_code) = event.key_code {
             match state {
-                ButtonState::Pressed => keyboard_input.press(*key_code),
-                ButtonState::Released => keyboard_input.release(*key_code),
+                ButtonState::Pressed => key_input.press(key_code),
+                ButtonState::Released => key_input.release(key_code),
             }
+        }
+        match state {
+            ButtonState::Pressed => scan_input.press(ScanCode(*scan_code)),
+            ButtonState::Released => scan_input.release(ScanCode(*scan_code)),
         }
     }
 }
@@ -51,13 +66,18 @@ pub fn keyboard_input_system(
 /// ## Usage
 ///
 /// It is used as the generic `T` value of an [`Input`](crate::Input) to create a `Res<Input<KeyCode>>`.
-/// The resource stores the data of the buttons of a keyboard and can be accessed inside of a system.
+/// The resource values are mapped to the current layout of the keyboard and correlate to an [`ScanCode`](ScanCode).
 ///
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
 #[repr(u32)]
 pub enum KeyCode {
     /// The `1` key over the letters.
@@ -407,3 +427,22 @@ pub enum KeyCode {
     /// The `Cut` key.
     Cut,
 }
+
+/// The scan code of a [`KeyboardInput`](crate::keyboard::KeyboardInput).
+///
+/// ## Usage
+///
+/// It is used as the generic `<T>` value of an [`Input`](crate::Input) to create a `Res<Input<ScanCode>>`.
+/// The resource values are mapped to the physical location of a key on the keyboard and correlate to an [`KeyCode`](KeyCode)
+///
+/// ## Updating
+///
+/// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
+#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[reflect(Debug, Hash, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct ScanCode(pub u32);

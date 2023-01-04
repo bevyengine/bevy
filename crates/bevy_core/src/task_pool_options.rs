@@ -1,3 +1,4 @@
+use bevy_ecs::prelude::Resource;
 use bevy_tasks::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool, TaskPoolBuilder};
 use bevy_utils::tracing::trace;
 
@@ -31,14 +32,13 @@ impl TaskPoolThreadAssignmentPolicy {
 }
 
 /// Helper for configuring and creating the default task pools. For end-users who want full control,
-/// insert the default task pools into the resource map manually. If the pools are already inserted,
-/// this helper will do nothing.
-#[derive(Clone)]
-pub struct DefaultTaskPoolOptions {
+/// set up [`CorePlugin`](super::CorePlugin)
+#[derive(Clone, Resource)]
+pub struct TaskPoolOptions {
     /// If the number of physical cores is less than min_total_threads, force using
     /// min_total_threads
     pub min_total_threads: usize,
-    /// If the number of physical cores is grater than max_total_threads, force using
+    /// If the number of physical cores is greater than max_total_threads, force using
     /// max_total_threads
     pub max_total_threads: usize,
 
@@ -50,9 +50,9 @@ pub struct DefaultTaskPoolOptions {
     pub compute: TaskPoolThreadAssignmentPolicy,
 }
 
-impl Default for DefaultTaskPoolOptions {
+impl Default for TaskPoolOptions {
     fn default() -> Self {
-        DefaultTaskPoolOptions {
+        TaskPoolOptions {
             // By default, use however many cores are available on the system
             min_total_threads: 1,
             max_total_threads: std::usize::MAX,
@@ -81,10 +81,10 @@ impl Default for DefaultTaskPoolOptions {
     }
 }
 
-impl DefaultTaskPoolOptions {
+impl TaskPoolOptions {
     /// Create a configuration that forces using the given number of threads.
     pub fn with_num_threads(thread_count: usize) -> Self {
-        DefaultTaskPoolOptions {
+        TaskPoolOptions {
             min_total_threads: thread_count,
             max_total_threads: thread_count,
             ..Default::default()
@@ -93,8 +93,8 @@ impl DefaultTaskPoolOptions {
 
     /// Inserts the default thread pools into the given resource map based on the configured values
     pub fn create_default_pools(&self) {
-        let total_threads =
-            bevy_tasks::logical_core_count().clamp(self.min_total_threads, self.max_total_threads);
+        let total_threads = bevy_tasks::available_parallelism()
+            .clamp(self.min_total_threads, self.max_total_threads);
         trace!("Assigning {} cores to default task pools", total_threads);
 
         let mut remaining_threads = total_threads;

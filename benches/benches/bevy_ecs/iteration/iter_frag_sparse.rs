@@ -6,7 +6,7 @@ macro_rules! create_entities {
             #[derive(Component)]
             struct $variants(f32);
             for _ in 0..5 {
-                $world.spawn().insert($variants(0.0));
+                $world.spawn($variants(0.0));
             }
         )*
     };
@@ -21,7 +21,7 @@ impl<'w> Benchmark<'w> {
         let mut world = World::new();
 
         for _ in 0..5 {
-            world.spawn().insert(Data(1.0));
+            world.spawn(Data(1.0));
         }
 
         create_entities!(world; C00, C01, C02, C03, C04, C05, C06, C07, C08, C09);

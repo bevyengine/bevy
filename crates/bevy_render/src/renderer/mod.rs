@@ -1,6 +1,7 @@
 mod graph_runner;
 mod render_device;
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
 pub use graph_runner::*;
 pub use render_device::*;
@@ -14,7 +15,7 @@ use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::{Adapter, AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -28,7 +29,7 @@ pub fn render_system(world: &mut World) {
     if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
-        render_queue,
+        &render_queue.0,
         world,
     ) {
         error!("Error running render graph:");
@@ -43,7 +44,7 @@ pub fn render_system(world: &mut World) {
             }
         }
 
-        panic!("Error running render graph: {}", e);
+        panic!("Error running render graph: {e}");
     }
 
     {
@@ -84,11 +85,28 @@ pub fn render_system(world: &mut World) {
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
-pub type RenderQueue = Arc<Queue>;
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct RenderQueue(pub Arc<Queue>);
+
+/// The handle to the physical device being used for rendering.
+/// See [`wgpu::Adapter`] for more info.
+#[derive(Resource, Clone, Debug, Deref, DerefMut)]
+pub struct RenderAdapter(pub Arc<Adapter>);
 
 /// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
-pub type RenderInstance = Instance;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderInstance(pub Instance);
+
+/// The `AdapterInfo` of the adapter in use by the renderer.
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct RenderAdapterInfo(pub AdapterInfo);
+
+const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
+    "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
+} else {
+    "Unable to find a GPU! Make sure you have installed required drivers!"
+};
 
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
@@ -96,11 +114,11 @@ pub async fn initialize_renderer(
     instance: &Instance,
     options: &WgpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue, AdapterInfo) {
+) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
-        .expect("Unable to find a GPU! Make sure you have installed required drivers!");
+        .expect(GPU_NOT_FOUND_ERROR_MESSAGE);
 
     let adapter_info = adapter.get_info();
     info!("{:?}", adapter_info);
@@ -119,7 +137,7 @@ pub async fn initialize_renderer(
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
-        features = adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        features = adapter.features();
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
@@ -243,9 +261,14 @@ pub async fn initialize_renderer(
         )
         .await
         .unwrap();
-    let device = Arc::new(device);
     let queue = Arc::new(queue);
-    (RenderDevice::from(device), queue, adapter_info)
+    let adapter = Arc::new(adapter);
+    (
+        RenderDevice::from(device),
+        RenderQueue(queue),
+        RenderAdapterInfo(adapter_info),
+        RenderAdapter(adapter),
+    )
 }
 
 /// The context with all information required to interact with the GPU.

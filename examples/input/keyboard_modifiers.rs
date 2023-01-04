@@ -1,9 +1,6 @@
 //! Demonstrates using key modifiers (ctrl, shift).
 
-use bevy::{
-    input::{keyboard::KeyCode, Input},
-    prelude::*,
-};
+use bevy::prelude::*;
 
 fn main() {
     App::new()

@@ -4,6 +4,7 @@
 use bevy::prelude::*;
 use std::io;
 
+#[derive(Resource)]
 struct Input(String);
 
 fn my_runner(mut app: App) {

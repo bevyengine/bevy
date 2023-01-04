@@ -2,6 +2,7 @@
 
 mod array;
 mod fields;
+mod from_reflect;
 mod list;
 mod map;
 mod path;
@@ -15,12 +16,16 @@ mod type_uuid;
 mod impls {
     #[cfg(feature = "glam")]
     mod glam;
+    #[cfg(feature = "bevy_math")]
+    mod rect;
     #[cfg(feature = "smallvec")]
     mod smallvec;
     mod std;
 
     #[cfg(feature = "glam")]
     pub use self::glam::*;
+    #[cfg(feature = "bevy_math")]
+    pub use self::rect::*;
     #[cfg(feature = "smallvec")]
     pub use self::smallvec::*;
     pub use self::std::*;
@@ -35,7 +40,7 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
+        reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
         ReflectSerialize, Struct, TupleStruct,
     };
 }
@@ -43,6 +48,7 @@ pub mod prelude {
 pub use array::*;
 pub use enums::*;
 pub use fields::*;
+pub use from_reflect::*;
 pub use impls::*;
 pub use list::*;
 pub use map::*;
@@ -89,22 +95,23 @@ pub mod __macro_exports {
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name, clippy::approx_constant)]
+#[allow(clippy::disallowed_types, clippy::approx_constant)]
 mod tests {
     #[cfg(feature = "glam")]
     use ::glam::{vec3, Vec3};
-    use ::serde::de::DeserializeSeed;
+    use ::serde::{de::DeserializeSeed, Deserialize, Serialize};
     use bevy_utils::HashMap;
     use ron::{
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
+    use std::any::TypeId;
     use std::fmt::{Debug, Formatter};
 
     use super::prelude::*;
     use super::*;
     use crate as bevy_reflect;
-    use crate::serde::{ReflectDeserializer, ReflectSerializer};
+    use crate::serde::{ReflectSerializer, UntypedReflectDeserializer};
 
     #[test]
     fn reflect_struct() {
@@ -184,7 +191,7 @@ mod tests {
     }
 
     #[test]
-    #[allow(clippy::blacklisted_name)]
+    #[allow(clippy::disallowed_types)]
     fn reflect_unit_struct() {
         #[derive(Reflect)]
         struct Foo(u32, u64);
@@ -238,6 +245,42 @@ mod tests {
             .map(|value| *value.downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
+    }
+
+    #[test]
+    fn should_call_from_reflect_dynamically() {
+        #[derive(Reflect, FromReflect)]
+        #[reflect(FromReflect)]
+        struct MyStruct {
+            foo: usize,
+        }
+
+        // Register
+        let mut registry = TypeRegistry::default();
+        registry.register::<MyStruct>();
+
+        // Get type data
+        let type_id = TypeId::of::<MyStruct>();
+        let rfr = registry
+            .get_type_data::<ReflectFromReflect>(type_id)
+            .expect("the FromReflect trait should be registered");
+
+        // Call from_reflect
+        let mut dynamic_struct = DynamicStruct::default();
+        dynamic_struct.insert("foo", 123usize);
+        let reflected = rfr
+            .from_reflect(&dynamic_struct)
+            .expect("the type should be properly reflected");
+
+        // Assert
+        let expected = MyStruct { foo: 123 };
+        assert!(expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
+        let not_expected = MyStruct { foo: 321 };
+        assert!(!not_expected
+            .reflect_partial_eq(reflected.as_ref())
+            .unwrap_or_default());
     }
 
     #[test]
@@ -451,7 +494,8 @@ mod tests {
             h: [u32; 2],
         }
 
-        #[derive(Reflect)]
+        #[derive(Reflect, Serialize, Deserialize)]
+        #[reflect(Serialize, Deserialize)]
         struct Bar {
             x: u32,
         }
@@ -472,18 +516,23 @@ mod tests {
 
         let mut registry = TypeRegistry::default();
         registry.register::<u32>();
-        registry.register::<isize>();
-        registry.register::<usize>();
-        registry.register::<Bar>();
-        registry.register::<String>();
         registry.register::<i8>();
         registry.register::<i32>();
+        registry.register::<usize>();
+        registry.register::<isize>();
+        registry.register::<Foo>();
+        registry.register::<Bar>();
+        registry.register::<String>();
+        registry.register::<Vec<isize>>();
+        registry.register::<HashMap<usize, i8>>();
+        registry.register::<(i32, Vec<isize>, Bar)>();
+        registry.register::<[u32; 2]>();
 
         let serializer = ReflectSerializer::new(&foo, &registry);
         let serialized = to_string_pretty(&serializer, PrettyConfig::default()).unwrap();
 
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
-        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
@@ -517,6 +566,29 @@ mod tests {
         let foo2: Box<dyn Reflect> = Box::new(foo.clone());
 
         assert_eq!(foo, *foo2.downcast::<Foo>().unwrap());
+    }
+
+    #[test]
+    fn should_drain_fields() {
+        let array_value: Box<dyn Array> = Box::new([123_i32, 321_i32]);
+        let fields = array_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let list_value: Box<dyn List> = Box::new(vec![123_i32, 321_i32]);
+        let fields = list_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let tuple_value: Box<dyn Tuple> = Box::new((123_i32, 321_i32));
+        let fields = tuple_value.drain();
+        assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
+
+        let map_value: Box<dyn Map> = Box::new(HashMap::from([(123_i32, 321_i32)]));
+        let fields = map_value.drain();
+        assert!(fields[0].0.reflect_partial_eq(&123_i32).unwrap_or_default());
+        assert!(fields[0].1.reflect_partial_eq(&321_i32).unwrap_or_default());
     }
 
     #[test]
@@ -802,6 +874,175 @@ mod tests {
         assert!(info.is::<MyDynamic>());
     }
 
+    #[cfg(feature = "documentation")]
+    mod docstrings {
+        use super::*;
+
+        #[test]
+        fn should_not_contain_docs() {
+            // Regular comments do not count as doc comments,
+            // and are therefore not reflected.
+            #[derive(Reflect)]
+            struct SomeStruct;
+
+            let info = <SomeStruct as Typed>::type_info();
+            assert_eq!(None, info.docs());
+
+            /*
+             * Block comments do not count as doc comments,
+             * and are therefore not reflected.
+             */
+            #[derive(Reflect)]
+            struct SomeOtherStruct;
+
+            let info = <SomeOtherStruct as Typed>::type_info();
+            assert_eq!(None, info.docs());
+        }
+
+        #[test]
+        fn should_contain_docs() {
+            /// Some struct.
+            ///
+            /// # Example
+            ///
+            /// ```ignore
+            /// let some_struct = SomeStruct;
+            /// ```
+            #[derive(Reflect)]
+            struct SomeStruct;
+
+            let info = <SomeStruct as Typed>::type_info();
+            assert_eq!(
+                Some(" Some struct.\n\n # Example\n\n ```ignore\n let some_struct = SomeStruct;\n ```"),
+                info.docs()
+            );
+
+            #[doc = "The compiler automatically converts `///`-style comments into `#[doc]` attributes."]
+            #[doc = "Of course, you _could_ use the attribute directly if you wanted to."]
+            #[doc = "Both will be reflected."]
+            #[derive(Reflect)]
+            struct SomeOtherStruct;
+
+            let info = <SomeOtherStruct as Typed>::type_info();
+            assert_eq!(
+                Some("The compiler automatically converts `///`-style comments into `#[doc]` attributes.\nOf course, you _could_ use the attribute directly if you wanted to.\nBoth will be reflected."),
+                info.docs()
+            );
+
+            /// Some tuple struct.
+            #[derive(Reflect)]
+            struct SomeTupleStruct(usize);
+
+            let info = <SomeTupleStruct as Typed>::type_info();
+            assert_eq!(Some(" Some tuple struct."), info.docs());
+
+            /// Some enum.
+            #[derive(Reflect)]
+            enum SomeEnum {
+                Foo,
+            }
+
+            let info = <SomeEnum as Typed>::type_info();
+            assert_eq!(Some(" Some enum."), info.docs());
+
+            #[derive(Clone)]
+            struct SomePrimitive;
+            impl_reflect_value!(
+                /// Some primitive for which we have attributed custom documentation.
+                SomePrimitive
+            );
+
+            let info = <SomePrimitive as Typed>::type_info();
+            assert_eq!(
+                Some(" Some primitive for which we have attributed custom documentation."),
+                info.docs()
+            );
+        }
+
+        #[test]
+        fn fields_should_contain_docs() {
+            #[derive(Reflect)]
+            struct SomeStruct {
+                /// The name
+                name: String,
+                /// The index
+                index: usize,
+                // Not documented...
+                data: Vec<i32>,
+            }
+
+            let info = <SomeStruct as Typed>::type_info();
+            if let TypeInfo::Struct(info) = info {
+                let mut fields = info.iter();
+                assert_eq!(Some(" The name"), fields.next().unwrap().docs());
+                assert_eq!(Some(" The index"), fields.next().unwrap().docs());
+                assert_eq!(None, fields.next().unwrap().docs());
+            } else {
+                panic!("expected struct info");
+            }
+        }
+
+        #[test]
+        fn variants_should_contain_docs() {
+            #[derive(Reflect)]
+            enum SomeEnum {
+                // Not documented...
+                Nothing,
+                /// Option A
+                A(
+                    /// Index
+                    usize,
+                ),
+                /// Option B
+                B {
+                    /// Name
+                    name: String,
+                },
+            }
+
+            let info = <SomeEnum as Typed>::type_info();
+            if let TypeInfo::Enum(info) = info {
+                let mut variants = info.iter();
+                assert_eq!(None, variants.next().unwrap().docs());
+
+                let variant = variants.next().unwrap();
+                assert_eq!(Some(" Option A"), variant.docs());
+                if let VariantInfo::Tuple(variant) = variant {
+                    let field = variant.field_at(0).unwrap();
+                    assert_eq!(Some(" Index"), field.docs());
+                } else {
+                    panic!("expected tuple variant")
+                }
+
+                let variant = variants.next().unwrap();
+                assert_eq!(Some(" Option B"), variant.docs());
+                if let VariantInfo::Struct(variant) = variant {
+                    let field = variant.field_at(0).unwrap();
+                    assert_eq!(Some(" Name"), field.docs());
+                } else {
+                    panic!("expected struct variant")
+                }
+            } else {
+                panic!("expected enum info");
+            }
+        }
+    }
+
+    #[test]
+    fn into_reflect() {
+        trait TestTrait: Reflect {}
+
+        #[derive(Reflect)]
+        struct TestStruct;
+
+        impl TestTrait for TestStruct {}
+
+        let trait_object: Box<dyn TestTrait> = Box::new(TestStruct);
+
+        // Should compile:
+        let _ = trait_object.into_reflect();
+    }
+
     #[test]
     fn as_reflect() {
         trait TestTrait: Reflect {}
@@ -912,7 +1153,49 @@ bevy_reflect::tests::should_reflect_debug::Test {
     custom: Cool debug!,
 }"#;
 
-        assert_eq!(expected, format!("\n{:#?}", reflected));
+        assert_eq!(expected, format!("\n{reflected:#?}"));
+    }
+
+    #[test]
+    fn multiple_reflect_lists() {
+        #[derive(Hash, PartialEq, Reflect)]
+        #[reflect(Debug, Hash)]
+        #[reflect(PartialEq)]
+        struct Foo(i32);
+
+        impl Debug for Foo {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Foo")
+            }
+        }
+
+        let foo = Foo(123);
+        let foo: &dyn Reflect = &foo;
+
+        assert!(foo.reflect_hash().is_some());
+        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
+        assert_eq!("Foo".to_string(), format!("{foo:?}"));
+    }
+
+    #[test]
+    fn multiple_reflect_value_lists() {
+        #[derive(Clone, Hash, PartialEq, Reflect)]
+        #[reflect_value(Debug, Hash)]
+        #[reflect_value(PartialEq)]
+        struct Foo(i32);
+
+        impl Debug for Foo {
+            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+                write!(f, "Foo")
+            }
+        }
+
+        let foo = Foo(123);
+        let foo: &dyn Reflect = &foo;
+
+        assert!(foo.reflect_hash().is_some());
+        assert_eq!(Some(true), foo.reflect_partial_eq(foo));
+        assert_eq!("Foo".to_string(), format!("{foo:?}"));
     }
 
     #[cfg(feature = "glam")]
@@ -929,23 +1212,38 @@ bevy_reflect::tests::should_reflect_debug::Test {
 
             let ser = ReflectSerializer::new(&v, &registry);
 
-            let result = ron::to_string(&ser).expect("Failed to serialize to string");
+            let config = PrettyConfig::default()
+                .new_line(String::from("\n"))
+                .indentor(String::from("    "));
+            let output = to_string_pretty(&ser, config).unwrap();
+            let expected = r#"
+{
+    "glam::f32::vec3::Vec3": (
+        x: 12.0,
+        y: 3.0,
+        z: -6.9,
+    ),
+}"#;
 
-            assert_eq!(
-                result,
-                r#"{"type":"glam::f32::vec3::Vec3","struct":{"x":{"type":"f32","value":12.0},"y":{"type":"f32","value":3.0},"z":{"type":"f32","value":-6.9}}}"#
-            );
+            assert_eq!(expected, format!("\n{output}"));
         }
 
         #[test]
         fn vec3_deserialization() {
-            let data = r#"{"type":"glam::vec3::Vec3","struct":{"x":{"type":"f32","value":12},"y":{"type":"f32","value":3},"z":{"type":"f32","value":-6.9}}}"#;
+            let data = r#"
+{
+    "glam::f32::vec3::Vec3": (
+        x: 12.0,
+        y: 3.0,
+        z: -6.9,
+    ),
+}"#;
 
             let mut registry = TypeRegistry::default();
             registry.add_registration(Vec3::get_type_registration());
             registry.add_registration(f32::get_type_registration());
 
-            let de = ReflectDeserializer::new(&registry);
+            let de = UntypedReflectDeserializer::new(&registry);
 
             let mut deserializer =
                 ron::de::Deserializer::from_str(data).expect("Failed to acquire deserializer");

@@ -4,6 +4,7 @@
 /// This `enum` is simply a copy of a similar `enum` found in [`winit`](https://docs.rs/winit/latest/winit/window/enum.CursorIcon.html).
 /// `winit`, in turn, mostly copied cursor types available in the browser.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub enum CursorIcon {
     /// The platform-dependent default cursor.
     Default,

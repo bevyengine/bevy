@@ -1,17 +1,29 @@
 use std::{
     future::Future,
+    marker::PhantomData,
     mem,
-    pin::Pin,
     sync::Arc,
     thread::{self, JoinHandle},
 };
 
-use futures_lite::{future, pin};
+use async_task::FallibleTask;
+use concurrent_queue::ConcurrentQueue;
+use futures_lite::{future, pin, FutureExt};
 
 use crate::Task;
 
+struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
+
+impl Drop for CallOnDrop {
+    fn drop(&mut self) {
+        if let Some(call) = self.0.as_ref() {
+            call();
+        }
+    }
+}
+
 /// Used to create a [`TaskPool`]
-#[derive(Debug, Default, Clone)]
+#[derive(Default)]
 #[must_use]
 pub struct TaskPoolBuilder {
     /// If set, we'll set up the thread pool to use at most `num_threads` threads.
@@ -22,6 +34,9 @@ pub struct TaskPoolBuilder {
     /// Allows customizing the name of the threads - helpful for debugging. If set, threads will
     /// be named <thread_name> (<thread_index>), i.e. "MyThreadPool (2)"
     thread_name: Option<String>,
+
+    on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+    on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
 }
 
 impl TaskPoolBuilder {
@@ -50,13 +65,27 @@ impl TaskPoolBuilder {
         self
     }
 
+    /// Sets a callback that is invoked once for every created thread as it starts.
+    ///
+    /// This is called on the thread itself and has access to all thread-local storage.
+    /// This will block running async tasks on the thread until the callback completes.
+    pub fn on_thread_spawn(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
+        self.on_thread_spawn = Some(Arc::new(f));
+        self
+    }
+
+    /// Sets a callback that is invoked once for every created thread as it terminates.
+    ///
+    /// This is called on the thread itself and has access to all thread-local storage.
+    /// This will block thread termination until the callback completes.
+    pub fn on_thread_destroy(mut self, f: impl Fn() + Send + Sync + 'static) -> Self {
+        self.on_thread_destroy = Some(Arc::new(f));
+        self
+    }
+
     /// Creates a new [`TaskPool`] based on the current options.
     pub fn build(self) -> TaskPool {
-        TaskPool::new_internal(
-            self.num_threads,
-            self.stack_size,
-            self.thread_name.as_deref(),
-        )
+        TaskPool::new_internal(self)
     }
 }
 
@@ -66,9 +95,9 @@ impl TaskPoolBuilder {
 pub struct TaskPool {
     /// The executor for the pool
     ///
-    /// This has to be separate from TaskPoolInner because we have to create an Arc<Executor> to
+    /// This has to be separate from TaskPoolInner because we have to create an `Arc<Executor>` to
     /// pass into the worker threads, and we must create the worker threads before we can create
-    /// the Vec<Task<T>> contained within TaskPoolInner
+    /// the `Vec<Task<T>>` contained within `TaskPoolInner`
     executor: Arc<async_executor::Executor<'static>>,
 
     /// Inner state of the pool
@@ -86,38 +115,58 @@ impl TaskPool {
         TaskPoolBuilder::new().build()
     }
 
-    fn new_internal(
-        num_threads: Option<usize>,
-        stack_size: Option<usize>,
-        thread_name: Option<&str>,
-    ) -> Self {
+    fn new_internal(builder: TaskPoolBuilder) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
         let executor = Arc::new(async_executor::Executor::new());
 
-        let num_threads = num_threads.unwrap_or_else(num_cpus::get);
+        let num_threads = builder
+            .num_threads
+            .unwrap_or_else(crate::available_parallelism);
 
         let threads = (0..num_threads)
             .map(|i| {
                 let ex = Arc::clone(&executor);
                 let shutdown_rx = shutdown_rx.clone();
 
-                let thread_name = if let Some(thread_name) = thread_name {
-                    format!("{} ({})", thread_name, i)
+                let thread_name = if let Some(thread_name) = builder.thread_name.as_deref() {
+                    format!("{thread_name} ({i})")
                 } else {
-                    format!("TaskPool ({})", i)
+                    format!("TaskPool ({i})")
                 };
                 let mut thread_builder = thread::Builder::new().name(thread_name);
 
-                if let Some(stack_size) = stack_size {
+                if let Some(stack_size) = builder.stack_size {
                     thread_builder = thread_builder.stack_size(stack_size);
                 }
 
+                let on_thread_spawn = builder.on_thread_spawn.clone();
+                let on_thread_destroy = builder.on_thread_destroy.clone();
+
                 thread_builder
                     .spawn(move || {
-                        let shutdown_future = ex.run(shutdown_rx.recv());
-                        // Use unwrap_err because we expect a Closed error
-                        future::block_on(shutdown_future).unwrap_err();
+                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
+                            if let Some(on_thread_spawn) = on_thread_spawn {
+                                on_thread_spawn();
+                                drop(on_thread_spawn);
+                            }
+                            let _destructor = CallOnDrop(on_thread_destroy);
+                            loop {
+                                let res = std::panic::catch_unwind(|| {
+                                    let tick_forever = async move {
+                                        loop {
+                                            local_executor.tick().await;
+                                        }
+                                    };
+                                    future::block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
+                                });
+                                if let Ok(value) = res {
+                                    // Use unwrap_err because we expect a Closed error
+                                    value.unwrap_err();
+                                    break;
+                                }
+                            }
+                        });
                     })
                     .expect("Failed to spawn thread.")
             })
@@ -140,69 +189,141 @@ impl TaskPool {
     /// to spawn tasks. This function will await the completion of all tasks before returning.
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
-    pub fn scope<'scope, F, T>(&self, f: F) -> Vec<T>
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use bevy_tasks::TaskPool;
+    ///
+    /// let pool = TaskPool::new();
+    /// let mut x = 0;
+    /// let results = pool.scope(|s| {
+    ///     s.spawn(async {
+    ///         // you can borrow the spawner inside a task and spawn tasks from within the task
+    ///         s.spawn(async {
+    ///             // borrow x and mutate it.
+    ///             x = 2;
+    ///             // return a value from the task
+    ///             1
+    ///         });
+    ///         // return some other value from the first task
+    ///         0
+    ///     });
+    /// });
+    ///
+    /// // The ordering of results is non-deterministic if you spawn from within tasks as above.
+    /// // If you're doing this, you'll have to write your code to not depend on the ordering.
+    /// assert!(results.contains(&0));
+    /// assert!(results.contains(&1));
+    ///
+    /// // The ordering is deterministic if you only spawn directly from the closure function.
+    /// let results = pool.scope(|s| {
+    ///     s.spawn(async { 0  });
+    ///     s.spawn(async { 1 });
+    /// });
+    /// assert_eq!(&results[..], &[0, 1]);
+    ///
+    /// // You can access x after scope runs, since it was only temporarily borrowed in the scope.
+    /// assert_eq!(x, 2);
+    /// ```
+    ///
+    /// # Lifetimes
+    ///
+    /// The [`Scope`] object takes two lifetimes: `'scope` and `'env`.
+    ///
+    /// The `'scope` lifetime represents the lifetime of the scope. That is the time during
+    /// which the provided closure and tasks that are spawned into the scope are run.
+    ///
+    /// The `'env` lifetime represents the lifetime of whatever is borrowed by the scope.
+    /// Thus this lifetime must outlive `'scope`.
+    ///
+    /// ```compile_fail
+    /// use bevy_tasks::TaskPool;
+    /// fn scope_escapes_closure() {
+    ///     let pool = TaskPool::new();
+    ///     let foo = Box::new(42);
+    ///     pool.scope(|scope| {
+    ///         std::thread::spawn(move || {
+    ///             // UB. This could spawn on the scope after `.scope` returns and the internal Scope is dropped.
+    ///             scope.spawn(async move {
+    ///                 assert_eq!(*foo, 42);
+    ///             });
+    ///         });
+    ///     });
+    /// }
+    /// ```
+    ///
+    /// ```compile_fail
+    /// use bevy_tasks::TaskPool;
+    /// fn cannot_borrow_from_closure() {
+    ///     let pool = TaskPool::new();
+    ///     pool.scope(|scope| {
+    ///         let x = 1;
+    ///         let y = &x;
+    ///         scope.spawn(async move {
+    ///             assert_eq!(*y, 1);
+    ///         });
+    ///     });
+    /// }
+    ///
+    pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: FnOnce(&mut Scope<'scope, T>) + 'scope + Send,
+        F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-            // SAFETY: This function blocks until all futures complete, so this future must return
-            // before this function returns. However, rust has no way of knowing
-            // this so we must convert to 'static here to appease the compiler as it is unable to
-            // validate safety.
-            let executor: &async_executor::Executor = &*self.executor;
-            let executor: &'scope async_executor::Executor = unsafe { mem::transmute(executor) };
-            let local_executor: &'scope async_executor::LocalExecutor =
-                unsafe { mem::transmute(local_executor) };
-            let mut scope = Scope {
-                executor,
-                local_executor,
-                spawned: Vec::new(),
+        // SAFETY: This safety comment applies to all references transmuted to 'env.
+        // Any futures spawned with these references need to return before this function completes.
+        // This is guaranteed because we drive all the futures spawned onto the Scope
+        // to completion in this function. However, rust has no way of knowing this so we
+        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
+        let executor: &async_executor::Executor = &self.executor;
+        let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
+        let task_scope_executor = &async_executor::Executor::default();
+        let task_scope_executor: &'env async_executor::Executor =
+            unsafe { mem::transmute(task_scope_executor) };
+        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
+        let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
+            unsafe { mem::transmute(&spawned) };
+
+        let scope = Scope {
+            executor,
+            task_scope_executor,
+            spawned: spawned_ref,
+            scope: PhantomData,
+            env: PhantomData,
+        };
+
+        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
+
+        f(scope_ref);
+
+        if spawned.is_empty() {
+            Vec::new()
+        } else {
+            let get_results = async {
+                let mut results = Vec::with_capacity(spawned_ref.len());
+                while let Ok(task) = spawned_ref.pop() {
+                    results.push(task.await.unwrap());
+                }
+
+                results
             };
 
-            f(&mut scope);
+            // Pin the futures on the stack.
+            pin!(get_results);
 
-            if scope.spawned.is_empty() {
-                Vec::default()
-            } else if scope.spawned.len() == 1 {
-                vec![future::block_on(&mut scope.spawned[0])]
-            } else {
-                let fut = async move {
-                    let mut results = Vec::with_capacity(scope.spawned.len());
-                    for task in scope.spawned {
-                        results.push(task.await);
-                    }
-
-                    results
+            loop {
+                if let Some(result) = future::block_on(future::poll_once(&mut get_results)) {
+                    break result;
                 };
 
-                // Pin the futures on the stack.
-                pin!(fut);
-
-                // SAFETY: This function blocks until all futures complete, so we do not read/write
-                // the data from futures outside of the 'scope lifetime. However,
-                // rust has no way of knowing this so we must convert to 'static
-                // here to appease the compiler as it is unable to validate safety.
-                let fut: Pin<&mut (dyn Future<Output = Vec<T>>)> = fut;
-                let fut: Pin<&'static mut (dyn Future<Output = Vec<T>> + 'static)> =
-                    unsafe { mem::transmute(fut) };
-
-                // The thread that calls scope() will participate in driving tasks in the pool
-                // forward until the tasks that are spawned by this scope() call
-                // complete. (If the caller of scope() happens to be a thread in
-                // this thread pool, and we only have one thread in the pool, then
-                // simply calling future::block_on(spawned) would deadlock.)
-                let mut spawned = local_executor.spawn(fut);
-                loop {
-                    if let Some(result) = future::block_on(future::poll_once(&mut spawned)) {
-                        break result;
-                    };
-
-                    self.executor.try_tick();
-                    local_executor.try_tick();
-                }
+                std::panic::catch_unwind(|| {
+                    executor.try_tick();
+                    task_scope_executor.try_tick();
+                })
+                .ok();
             }
-        })
+        }
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
@@ -227,6 +348,24 @@ impl TaskPool {
         T: 'static,
     {
         Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
+    }
+
+    /// Runs a function with the local executor. Typically used to tick
+    /// the local executor on the main thread as it needs to share time with
+    /// other things.
+    ///
+    /// ```rust
+    /// use bevy_tasks::TaskPool;
+    ///
+    /// TaskPool::new().with_local_executor(|local_executor| {
+    ///     local_executor.try_tick();
+    /// });
+    /// ```
+    pub fn with_local_executor<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&async_executor::LocalExecutor) -> R,
+    {
+        Self::LOCAL_EXECUTOR.with(f)
     }
 }
 
@@ -254,40 +393,60 @@ impl Drop for TaskPool {
 ///
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
-pub struct Scope<'scope, T> {
+pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
-    local_executor: &'scope async_executor::LocalExecutor<'scope>,
-    spawned: Vec<async_executor::Task<T>>,
+    task_scope_executor: &'scope async_executor::Executor<'scope>,
+    spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
+    // make `Scope` invariant over 'scope and 'env
+    scope: PhantomData<&'scope mut &'scope ()>,
+    env: PhantomData<&'env mut &'env ()>,
 }
 
-impl<'scope, T: Send + 'scope> Scope<'scope, T> {
+impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// Spawns a scoped future onto the thread pool. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
     ///
-    /// If the provided future is non-`Send`, [`Scope::spawn_local`] should be used
+    /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`] should be used
     /// instead.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&mut self, f: Fut) {
-        let task = self.executor.spawn(f);
-        self.spawned.push(task);
+    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+        let task = self.executor.spawn(f).fallible();
+        // ConcurrentQueue only errors when closed or full, but we never
+        // close and use an unbouded queue, so it is safe to unwrap
+        self.spawned.push(task).unwrap();
     }
 
-    /// Spawns a scoped future onto the thread-local executor. The scope *must* outlive
+    /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
-    /// [`Scope::spawn`] instead, unless the provided future is not `Send`.
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
     ///
     /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_local<Fut: Future<Output = T> + 'scope>(&mut self, f: Fut) {
-        let task = self.local_executor.spawn(f);
-        self.spawned.push(task);
+    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
+        let task = self.task_scope_executor.spawn(f).fallible();
+        // ConcurrentQueue only errors when closed or full, but we never
+        // close and use an unbouded queue, so it is safe to unwrap
+        self.spawned.push(task).unwrap();
+    }
+}
+
+impl<'scope, 'env, T> Drop for Scope<'scope, 'env, T>
+where
+    T: 'scope,
+{
+    fn drop(&mut self) {
+        future::block_on(async {
+            while let Ok(task) = self.spawned.pop() {
+                task.cancel().await;
+            }
+        });
     }
 }
 
 #[cfg(test)]
-#[allow(clippy::blacklisted_name)]
+#[allow(clippy::disallowed_types)]
 mod tests {
     use super::*;
     use std::sync::{
@@ -327,7 +486,58 @@ mod tests {
     }
 
     #[test]
-    fn test_mixed_spawn_local_and_spawn() {
+    fn test_thread_callbacks() {
+        let counter = Arc::new(AtomicI32::new(0));
+        let start_counter = counter.clone();
+        {
+            let barrier = Arc::new(Barrier::new(11));
+            let last_barrier = barrier.clone();
+            // Build and immediately drop to terminate
+            let _pool = TaskPoolBuilder::new()
+                .num_threads(10)
+                .on_thread_spawn(move || {
+                    start_counter.fetch_add(1, Ordering::Relaxed);
+                    barrier.clone().wait();
+                })
+                .build();
+            last_barrier.wait();
+            assert_eq!(10, counter.load(Ordering::Relaxed));
+        }
+        assert_eq!(10, counter.load(Ordering::Relaxed));
+        let end_counter = counter.clone();
+        {
+            let _pool = TaskPoolBuilder::new()
+                .num_threads(20)
+                .on_thread_destroy(move || {
+                    end_counter.fetch_sub(1, Ordering::Relaxed);
+                })
+                .build();
+            assert_eq!(10, counter.load(Ordering::Relaxed));
+        }
+        assert_eq!(-10, counter.load(Ordering::Relaxed));
+        let start_counter = counter.clone();
+        let end_counter = counter.clone();
+        {
+            let barrier = Arc::new(Barrier::new(6));
+            let last_barrier = barrier.clone();
+            let _pool = TaskPoolBuilder::new()
+                .num_threads(5)
+                .on_thread_spawn(move || {
+                    start_counter.fetch_add(1, Ordering::Relaxed);
+                    barrier.wait();
+                })
+                .on_thread_destroy(move || {
+                    end_counter.fetch_sub(1, Ordering::Relaxed);
+                })
+                .build();
+            last_barrier.wait();
+            assert_eq!(-5, counter.load(Ordering::Relaxed));
+        }
+        assert_eq!(-10, counter.load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn test_mixed_spawn_on_scope_and_spawn() {
         let pool = TaskPool::new();
 
         let foo = Box::new(42);
@@ -350,7 +560,7 @@ mod tests {
                     });
                 } else {
                     let count_clone = local_count.clone();
-                    scope.spawn_local(async move {
+                    scope.spawn_on_scope(async move {
                         if *foo != 42 {
                             panic!("not 42!?!?")
                         } else {
@@ -391,13 +601,89 @@ mod tests {
                     });
                     let spawner = std::thread::current().id();
                     let inner_count_clone = count_clone.clone();
-                    scope.spawn_local(async move {
+                    scope.spawn_on_scope(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                         if std::thread::current().id() != spawner {
                             // NOTE: This check is using an atomic rather than simply panicing the
                             // thread to avoid deadlocking the barrier on failure
                             inner_thread_check_failed.store(true, Ordering::Release);
                         }
+                    });
+                });
+                inner_barrier.wait();
+            });
+        }
+        barrier.wait();
+        assert!(!thread_check_failed.load(Ordering::Acquire));
+        assert_eq!(count.load(Ordering::Acquire), 200);
+    }
+
+    #[test]
+    fn test_nested_spawn() {
+        let pool = TaskPool::new();
+
+        let foo = Box::new(42);
+        let foo = &*foo;
+
+        let count = Arc::new(AtomicI32::new(0));
+
+        let outputs: Vec<i32> = pool.scope(|scope| {
+            for _ in 0..10 {
+                let count_clone = count.clone();
+                scope.spawn(async move {
+                    for _ in 0..10 {
+                        let count_clone_clone = count_clone.clone();
+                        scope.spawn(async move {
+                            if *foo != 42 {
+                                panic!("not 42!?!?")
+                            } else {
+                                count_clone_clone.fetch_add(1, Ordering::Relaxed);
+                                *foo
+                            }
+                        });
+                    }
+                    *foo
+                });
+            }
+        });
+
+        for output in &outputs {
+            assert_eq!(*output, 42);
+        }
+
+        // the inner loop runs 100 times and the outer one runs 10. 100 + 10
+        assert_eq!(outputs.len(), 110);
+        assert_eq!(count.load(Ordering::Relaxed), 100);
+    }
+
+    #[test]
+    fn test_nested_locality() {
+        let pool = Arc::new(TaskPool::new());
+        let count = Arc::new(AtomicI32::new(0));
+        let barrier = Arc::new(Barrier::new(101));
+        let thread_check_failed = Arc::new(AtomicBool::new(false));
+
+        for _ in 0..100 {
+            let inner_barrier = barrier.clone();
+            let count_clone = count.clone();
+            let inner_pool = pool.clone();
+            let inner_thread_check_failed = thread_check_failed.clone();
+            std::thread::spawn(move || {
+                inner_pool.scope(|scope| {
+                    let spawner = std::thread::current().id();
+                    let inner_count_clone = count_clone.clone();
+                    scope.spawn(async move {
+                        inner_count_clone.fetch_add(1, Ordering::Release);
+
+                        // spawning on the scope from another thread runs the futures on the scope's thread
+                        scope.spawn_on_scope(async move {
+                            inner_count_clone.fetch_add(1, Ordering::Release);
+                            if std::thread::current().id() != spawner {
+                                // NOTE: This check is using an atomic rather than simply panicing the
+                                // thread to avoid deadlocking the barrier on failure
+                                inner_thread_check_failed.store(true, Ordering::Release);
+                            }
+                        });
                     });
                 });
                 inner_barrier.wait();

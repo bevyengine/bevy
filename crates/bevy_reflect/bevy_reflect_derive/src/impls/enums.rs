@@ -1,9 +1,11 @@
-use crate::derive_data::{EnumVariantFields, ReflectEnum, StructField};
+use crate::derive_data::{EnumVariant, EnumVariantFields, ReflectEnum, StructField};
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
+use crate::fq_std::{FQAny, FQBox, FQOption, FQResult};
 use crate::impls::impl_typed;
 use proc_macro::TokenStream;
 use proc_macro2::{Ident, Span};
 use quote::quote;
+use syn::Fields;
 
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -21,6 +23,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         enum_name_at,
         enum_field_len,
         enum_variant_name,
+        enum_variant_index,
         enum_variant_type,
     } = generate_impls(reflect_enum, &ref_index, &ref_name);
 
@@ -35,7 +38,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         .get_hash_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
-                fn reflect_hash(&self) -> Option<u64> {
+                fn reflect_hash(&self) -> #FQOption<u64> {
                     #bevy_reflect_path::enum_hash(self)
                 }
             }
@@ -47,18 +50,35 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         .get_partial_eq_impl(bevy_reflect_path)
         .unwrap_or_else(|| {
             quote! {
-                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> Option<bool> {
+                fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<bool> {
                     #bevy_reflect_path::enum_partial_eq(self, value)
                 }
             }
         });
+
+    let string_name = enum_name.to_string();
+
+    #[cfg(feature = "documentation")]
+    let info_generator = {
+        let doc = reflect_enum.meta().doc();
+        quote! {
+            #bevy_reflect_path::EnumInfo::new::<Self>(#string_name, &variants).with_docs(#doc)
+        }
+    };
+
+    #[cfg(not(feature = "documentation"))]
+    let info_generator = {
+        quote! {
+            #bevy_reflect_path::EnumInfo::new::<Self>(#string_name, &variants)
+        }
+    };
 
     let typed_impl = impl_typed(
         enum_name,
         reflect_enum.meta().generics(),
         quote! {
             let variants = [#(#variant_info),*];
-            let info = #bevy_reflect_path::EnumInfo::new::<Self>(&variants);
+            let info = #info_generator;
             #bevy_reflect_path::TypeInfo::Enum(info)
         },
         bevy_reflect_path,
@@ -74,45 +94,45 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         #typed_impl
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_name #ty_generics #where_clause {
-            fn field(&self, #ref_name: &str) -> Option<&dyn #bevy_reflect_path::Reflect> {
+            fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                  match self {
                     #(#enum_field,)*
-                    _ => None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn field_at(&self, #ref_index: usize) -> Option<&dyn #bevy_reflect_path::Reflect> {
+            fn field_at(&self, #ref_index: usize) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
                 match self {
                     #(#enum_field_at,)*
-                    _ => None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn field_mut(&mut self, #ref_name: &str) -> Option<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_mut(&mut self, #ref_name: &str) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
                  match self {
                     #(#enum_field,)*
-                    _ => None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn field_at_mut(&mut self, #ref_index: usize) -> Option<&mut dyn #bevy_reflect_path::Reflect> {
+            fn field_at_mut(&mut self, #ref_index: usize) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
                 match self {
                     #(#enum_field_at,)*
-                    _ => None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn index_of(&self, #ref_name: &str) -> Option<usize> {
+            fn index_of(&self, #ref_name: &str) -> #FQOption<usize> {
                  match self {
                     #(#enum_index_of,)*
-                    _ => None,
+                    _ => #FQOption::None,
                 }
             }
 
-            fn name_at(&self, #ref_index: usize) -> Option<&str> {
+            fn name_at(&self, #ref_index: usize) -> #FQOption<&str> {
                  match self {
                     #(#enum_name_at,)*
-                    _ => None,
+                    _ => #FQOption::None,
                 }
             }
 
@@ -137,6 +157,14 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
+            fn variant_index(&self) -> usize {
+                 match self {
+                    #(#enum_variant_index,)*
+                    _ => unreachable!(),
+                }
+            }
+
+            #[inline]
             fn variant_type(&self) -> #bevy_reflect_path::VariantType {
                  match self {
                     #(#enum_variant_type,)*
@@ -152,7 +180,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         impl #impl_generics #bevy_reflect_path::Reflect for #enum_name #ty_generics #where_clause {
             #[inline]
             fn type_name(&self) -> &str {
-                std::any::type_name::<Self>()
+                ::core::any::type_name::<Self>()
             }
 
             #[inline]
@@ -161,17 +189,22 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
-            fn into_any(self: Box<Self>) -> Box<dyn std::any::Any> {
+            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
                 self
             }
 
             #[inline]
-            fn as_any(&self) -> &dyn std::any::Any {
+            fn as_any(&self) -> &dyn #FQAny {
                 self
             }
 
             #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
+            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
+                self
+            }
+
+            #[inline]
+            fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
                 self
             }
 
@@ -186,30 +219,30 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
 
             #[inline]
-            fn clone_value(&self) -> Box<dyn #bevy_reflect_path::Reflect> {
-                Box::new(#bevy_reflect_path::Enum::clone_dynamic(self))
+            fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::Reflect> {
+                #FQBox::new(#bevy_reflect_path::Enum::clone_dynamic(self))
             }
 
             #[inline]
-            fn set(&mut self, #ref_value: Box<dyn #bevy_reflect_path::Reflect>) -> Result<(), Box<dyn #bevy_reflect_path::Reflect>> {
-                *self = #ref_value.take()?;
-                Ok(())
+            fn set(&mut self, #ref_value: #FQBox<dyn #bevy_reflect_path::Reflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::Reflect>> {
+                *self = <dyn #bevy_reflect_path::Reflect>::take(#ref_value)?;
+                #FQResult::Ok(())
             }
 
             #[inline]
             fn apply(&mut self, #ref_value: &dyn #bevy_reflect_path::Reflect) {
-                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #ref_value.reflect_ref() {
-                    if #bevy_reflect_path::Enum::variant_name(self) == #ref_value.variant_name() {
+                if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
+                    if #bevy_reflect_path::Enum::variant_name(self) == #bevy_reflect_path::Enum::variant_name(#ref_value) {
                         // Same variant -> just update fields
-                        match #ref_value.variant_type() {
+                        match #bevy_reflect_path::Enum::variant_type(#ref_value) {
                             #bevy_reflect_path::VariantType::Struct => {
-                                for field in #ref_value.iter_fields() {
+                                for field in #bevy_reflect_path::Enum::iter_fields(#ref_value) {
                                     let name = field.name().unwrap();
                                     #bevy_reflect_path::Enum::field_mut(self, name).map(|v| v.apply(field.value()));
                                 }
                             }
                             #bevy_reflect_path::VariantType::Tuple => {
-                                for (index, field) in #ref_value.iter_fields().enumerate() {
+                                for (index, field) in ::core::iter::Iterator::enumerate(#bevy_reflect_path::Enum::iter_fields(#ref_value)) {
                                     #bevy_reflect_path::Enum::field_at_mut(self, index).map(|v| v.apply(field.value()));
                                 }
                             }
@@ -217,15 +250,15 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                         }
                     } else {
                         // New variant -> perform a switch
-                        match #ref_value.variant_name() {
+                        match #bevy_reflect_path::Enum::variant_name(#ref_value) {
                             #(#variant_names => {
                                 *self = #variant_constructors
                             })*
-                            name => panic!("variant with name `{}` does not exist on enum `{}`", name, std::any::type_name::<Self>()),
+                            name => panic!("variant with name `{}` does not exist on enum `{}`", name, ::core::any::type_name::<Self>()),
                         }
                     }
                 } else {
-                    panic!("`{}` is not an enum", #ref_value.type_name());
+                    panic!("`{}` is not an enum", #bevy_reflect_path::Reflect::type_name(#ref_value));
                 }
             }
 
@@ -235,6 +268,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
             fn reflect_mut(&mut self) -> #bevy_reflect_path::ReflectMut {
                 #bevy_reflect_path::ReflectMut::Enum(self)
+            }
+
+            fn reflect_owned(self: #FQBox<Self>) -> #bevy_reflect_path::ReflectOwned {
+                #bevy_reflect_path::ReflectOwned::Enum(self)
             }
 
             #hash_fn
@@ -254,6 +291,7 @@ struct EnumImpls {
     enum_name_at: Vec<proc_macro2::TokenStream>,
     enum_field_len: Vec<proc_macro2::TokenStream>,
     enum_variant_name: Vec<proc_macro2::TokenStream>,
+    enum_variant_index: Vec<proc_macro2::TokenStream>,
     enum_variant_type: Vec<proc_macro2::TokenStream>,
 }
 
@@ -267,85 +305,137 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
     let mut enum_name_at = Vec::new();
     let mut enum_field_len = Vec::new();
     let mut enum_variant_name = Vec::new();
+    let mut enum_variant_index = Vec::new();
     let mut enum_variant_type = Vec::new();
 
-    for variant in reflect_enum.active_variants() {
+    for (variant_index, variant) in reflect_enum.variants().iter().enumerate() {
         let ident = &variant.data.ident;
         let name = ident.to_string();
         let unit = reflect_enum.get_unit(ident);
 
-        fn for_fields(
+        let variant_type_ident = match variant.data.fields {
+            Fields::Unit => Ident::new("Unit", Span::call_site()),
+            Fields::Unnamed(..) => Ident::new("Tuple", Span::call_site()),
+            Fields::Named(..) => Ident::new("Struct", Span::call_site()),
+        };
+
+        let variant_info_ident = match variant.data.fields {
+            Fields::Unit => Ident::new("UnitVariantInfo", Span::call_site()),
+            Fields::Unnamed(..) => Ident::new("TupleVariantInfo", Span::call_site()),
+            Fields::Named(..) => Ident::new("StructVariantInfo", Span::call_site()),
+        };
+
+        enum_variant_name.push(quote! {
+            #unit{..} => #name
+        });
+        enum_variant_index.push(quote! {
+            #unit{..} => #variant_index
+        });
+
+        fn get_field_args(
             fields: &[StructField],
             mut generate_for_field: impl FnMut(usize, usize, &StructField) -> proc_macro2::TokenStream,
-        ) -> (usize, Vec<proc_macro2::TokenStream>) {
+        ) -> Vec<proc_macro2::TokenStream> {
             let mut constructor_argument = Vec::new();
             let mut reflect_idx = 0;
             for field in fields.iter() {
-                if field.attrs.ignore {
+                if field.attrs.ignore.is_ignored() {
                     // Ignored field
                     continue;
                 }
                 constructor_argument.push(generate_for_field(reflect_idx, field.index, field));
                 reflect_idx += 1;
             }
-            (reflect_idx, constructor_argument)
+            constructor_argument
         }
-        let mut add_fields_branch = |variant, info_type, arguments, field_len| {
-            let variant = Ident::new(variant, Span::call_site());
-            let info_type = Ident::new(info_type, Span::call_site());
-            variant_info.push(quote! {
-                #bevy_reflect_path::VariantInfo::#variant(
-                    #bevy_reflect_path::#info_type::new(#arguments)
-                )
-            });
-            enum_field_len.push(quote! {
-                #unit{..} => #field_len
-            });
-            enum_variant_name.push(quote! {
-                #unit{..} => #name
-            });
-            enum_variant_type.push(quote! {
-                #unit{..} => #bevy_reflect_path::VariantType::#variant
-            });
-        };
+
+        let mut push_variant =
+            |_variant: &EnumVariant, arguments: proc_macro2::TokenStream, field_len: usize| {
+                #[cfg(feature = "documentation")]
+                let with_docs = {
+                    let doc = quote::ToTokens::to_token_stream(&_variant.doc);
+                    Some(quote!(.with_docs(#doc)))
+                };
+                #[cfg(not(feature = "documentation"))]
+                let with_docs: Option<proc_macro2::TokenStream> = None;
+
+                variant_info.push(quote! {
+                    #bevy_reflect_path::VariantInfo::#variant_type_ident(
+                        #bevy_reflect_path::#variant_info_ident::new(#arguments)
+                        #with_docs
+                    )
+                });
+                enum_field_len.push(quote! {
+                    #unit{..} => #field_len
+                });
+                enum_variant_type.push(quote! {
+                    #unit{..} => #bevy_reflect_path::VariantType::#variant_type_ident
+                });
+            };
+
         match &variant.fields {
             EnumVariantFields::Unit => {
-                add_fields_branch("Unit", "UnitVariantInfo", quote!(#name), 0usize);
+                push_variant(variant, quote!(#name), 0);
             }
             EnumVariantFields::Unnamed(fields) => {
-                let (field_len, argument) = for_fields(fields, |reflect_idx, declar, field| {
-                    let declar_field = syn::Index::from(declar);
+                let args = get_field_args(fields, |reflect_idx, declaration_index, field| {
+                    let declar_field = syn::Index::from(declaration_index);
                     enum_field_at.push(quote! {
-                        #unit { #declar_field : value, .. } if #ref_index == #reflect_idx => Some(value)
+                        #unit { #declar_field : value, .. } if #ref_index == #reflect_idx => #FQOption::Some(value)
                     });
+
+                    #[cfg(feature = "documentation")]
+                    let with_docs = {
+                        let doc = quote::ToTokens::to_token_stream(&field.doc);
+                        Some(quote!(.with_docs(#doc)))
+                    };
+                    #[cfg(not(feature = "documentation"))]
+                    let with_docs: Option<proc_macro2::TokenStream> = None;
+
                     let field_ty = &field.data.ty;
-                    quote! { #bevy_reflect_path::UnnamedField::new::<#field_ty>(#reflect_idx) }
+                    quote! {
+                        #bevy_reflect_path::UnnamedField::new::<#field_ty>(#reflect_idx)
+                        #with_docs
+                    }
                 });
-                let arguments = quote!(#name, &[ #(#argument),* ]);
-                add_fields_branch("Tuple", "TupleVariantInfo", arguments, field_len);
+
+                let field_len = args.len();
+                push_variant(variant, quote!(#name, &[ #(#args),* ]), field_len);
             }
             EnumVariantFields::Named(fields) => {
-                let (field_len, argument) = for_fields(fields, |reflect_idx, _, field| {
+                let args = get_field_args(fields, |reflect_idx, _, field| {
                     let field_ident = field.data.ident.as_ref().unwrap();
                     let field_name = field_ident.to_string();
                     enum_field.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_name == #field_name => Some(#field_ident)
+                        #unit{ #field_ident, .. } if #ref_name == #field_name => #FQOption::Some(#field_ident)
                     });
                     enum_field_at.push(quote! {
-                        #unit{ #field_ident, .. } if #ref_index == #reflect_idx => Some(#field_ident)
+                        #unit{ #field_ident, .. } if #ref_index == #reflect_idx => #FQOption::Some(#field_ident)
                     });
                     enum_index_of.push(quote! {
-                        #unit{ .. } if #ref_name == #field_name => Some(#reflect_idx)
+                        #unit{ .. } if #ref_name == #field_name => #FQOption::Some(#reflect_idx)
                     });
                     enum_name_at.push(quote! {
-                        #unit{ .. } if #ref_index == #reflect_idx => Some(#field_name)
+                        #unit{ .. } if #ref_index == #reflect_idx => #FQOption::Some(#field_name)
                     });
 
+                    #[cfg(feature = "documentation")]
+                    let with_docs = {
+                        let doc = quote::ToTokens::to_token_stream(&field.doc);
+                        Some(quote!(.with_docs(#doc)))
+                    };
+                    #[cfg(not(feature = "documentation"))]
+                    let with_docs: Option<proc_macro2::TokenStream> = None;
+
                     let field_ty = &field.data.ty;
-                    quote! { #bevy_reflect_path::NamedField::new::<#field_ty, _>(#field_name) }
+                    quote! {
+                        #bevy_reflect_path::NamedField::new::<#field_ty>(#field_name)
+                        #with_docs
+                    }
                 });
-                let arguments = quote!(#name, &[ #(#argument),* ]);
-                add_fields_branch("Struct", "StructVariantInfo", arguments, field_len);
+
+                let field_len = args.len();
+                push_variant(variant, quote!(#name, &[ #(#args),* ]), field_len);
             }
         };
     }
@@ -358,6 +448,7 @@ fn generate_impls(reflect_enum: &ReflectEnum, ref_index: &Ident, ref_name: &Iden
         enum_name_at,
         enum_field_len,
         enum_variant_name,
+        enum_variant_index,
         enum_variant_type,
     }
 }

@@ -358,6 +358,13 @@ impl Color {
         self
     }
 
+    /// Returns this color with red set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_r(mut self, r: f32) -> Self {
+        self.set_r(r);
+        self
+    }
+
     /// Set green in sRGB colorspace.
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba();
@@ -365,6 +372,13 @@ impl Color {
             Color::Rgba { green, .. } => *green = g,
             _ => unreachable!(),
         }
+        self
+    }
+
+    /// Returns this color with green set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_g(mut self, g: f32) -> Self {
+        self.set_g(g);
         self
     }
 
@@ -378,7 +392,15 @@ impl Color {
         self
     }
 
+    /// Returns this color with blue set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_b(mut self, b: f32) -> Self {
+        self.set_b(b);
+        self
+    }
+
     /// Get alpha.
+    #[inline(always)]
     pub fn a(&self) -> f32 {
         match self {
             Color::Rgba { alpha, .. }
@@ -396,6 +418,13 @@ impl Color {
                 *alpha = a;
             }
         }
+        self
+    }
+
+    /// Returns this color with a new alpha value.
+    #[must_use]
+    pub fn with_a(mut self, a: f32) -> Self {
+        self.set_a(a);
         self
     }
 
@@ -744,7 +773,7 @@ impl AddAssign<Color> for Color {
                 lightness,
                 alpha,
             } => {
-                let rhs = rhs.as_linear_rgba_f32();
+                let rhs = rhs.as_hsla_f32();
                 *hue += rhs[0];
                 *saturation += rhs[1];
                 *lightness += rhs[2];
@@ -793,7 +822,7 @@ impl Add<Color> for Color {
                 lightness,
                 alpha,
             } => {
-                let rhs = rhs.as_linear_rgba_f32();
+                let rhs = rhs.as_hsla_f32();
                 Color::Hsla {
                     hue: hue + rhs[0],
                     saturation: saturation + rhs[1],

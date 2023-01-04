@@ -7,18 +7,17 @@ use rand::random;
 struct Velocity(Vec2);
 
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
     let texture = asset_server.load("branding/icon.png");
     for _ in 0..128 {
-        commands
-            .spawn_bundle(SpriteBundle {
+        commands.spawn((
+            SpriteBundle {
                 texture: texture.clone(),
                 transform: Transform::from_scale(Vec3::splat(0.1)),
                 ..default()
-            })
-            .insert(Velocity(
-                20.0 * Vec2::new(random::<f32>() - 0.5, random::<f32>() - 0.5),
-            ));
+            },
+            Velocity(20.0 * Vec2::new(random::<f32>() - 0.5, random::<f32>() - 0.5)),
+        ));
     }
 }
 

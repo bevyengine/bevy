@@ -1,6 +1,6 @@
 use crate::{render_resource::*, texture::DefaultImageSampler};
 use bevy_derive::Deref;
-use bevy_ecs::prelude::FromWorld;
+use bevy_ecs::{prelude::FromWorld, system::Resource};
 use bevy_math::Vec2;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
@@ -14,7 +14,7 @@ use crate::{
 /// which can be used in situations where an image was not explicitly defined. The most common
 /// use case is [`AsBindGroup`] implementations (such as materials) that support optional textures.
 /// [`FallbackImage`] defaults to a 1x1 fully white texture, making blending colors with it a no-op.
-#[derive(Deref)]
+#[derive(Resource, Deref)]
 pub struct FallbackImage(GpuImage);
 
 impl FromWorld for FallbackImage {

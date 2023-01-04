@@ -4,15 +4,18 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
-use bevy_core_pipeline::core_3d::{AlphaMask3d, Opaque3d, Transparent3d};
+use bevy_core_pipeline::{
+    core_3d::{AlphaMask3d, Opaque3d, Transparent3d},
+    tonemapping::Tonemapping,
+};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity,
     event::EventReader,
     prelude::World,
-    schedule::ParallelSystemDescriptorCoercion,
+    schedule::IntoSystemDescriptor,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
-        Commands, Local, Query, Res, ResMut, SystemParamItem,
+        lifetimeless::{Read, SRes},
+        Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,
 };
@@ -23,8 +26,8 @@ use bevy_render::{
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-        SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
@@ -84,7 +87,7 @@ use std::marker::PhantomData;
 ///
 /// // Spawn an entity using `CustomMaterial`.
 /// fn setup(mut commands: Commands, mut materials: ResMut<Assets<CustomMaterial>>, asset_server: Res<AssetServer>) {
-///     commands.spawn_bundle(MaterialMeshBundle {
+///     commands.spawn(MaterialMeshBundle {
 ///         material: materials.add(CustomMaterial {
 ///             color: Color::RED,
 ///             color_texture: asset_server.load("some_image.png"),
@@ -96,12 +99,8 @@ use std::marker::PhantomData;
 /// In WGSL shaders, the material's binding would look like this:
 ///
 /// ```wgsl
-/// struct CustomMaterial {
-///     color: vec4<f32>,
-/// };
-///
 /// @group(1) @binding(0)
-/// var<uniform> material: CustomMaterial;
+/// var<uniform> color: vec4<f32>;
 /// @group(1) @binding(1)
 /// var color_texture: texture_2d<f32>;
 /// @group(1) @binding(2)
@@ -224,6 +223,7 @@ where
 }
 
 /// Render pipeline data for a given [`Material`].
+#[derive(Resource)]
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
     pub material_layout: BindGroupLayout,
@@ -295,15 +295,19 @@ type DrawMaterial<M> = (
 
 /// Sets the bind group for a given [`Material`] at the configured `I` index.
 pub struct SetMaterialBindGroup<M: Material, const I: usize>(PhantomData<M>);
-impl<M: Material, const I: usize> EntityRenderCommand for SetMaterialBindGroup<M, I> {
-    type Param = (SRes<RenderMaterials<M>>, SQuery<Read<Handle<M>>>);
+impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterialBindGroup<M, I> {
+    type Param = SRes<RenderMaterials<M>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<M>>;
+
+    #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (materials, query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        material_handle: &'_ Handle<M>,
+        materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material_handle = query.get(item).unwrap();
         let material = materials.into_inner().get(material_handle).unwrap();
         pass.set_bind_group(I, &material.bind_group, &[]);
         RenderCommandResult::Success
@@ -325,6 +329,7 @@ pub fn queue_material_meshes<M: Material>(
     mut views: Query<(
         &ExtractedView,
         &VisibleEntities,
+        Option<&Tonemapping>,
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
@@ -332,24 +337,32 @@ pub fn queue_material_meshes<M: Material>(
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
-    for (view, visible_entities, mut opaque_phase, mut alpha_mask_phase, mut transparent_phase) in
-        &mut views
+    for (
+        view,
+        visible_entities,
+        tonemapping,
+        mut opaque_phase,
+        mut alpha_mask_phase,
+        mut transparent_phase,
+    ) in &mut views
     {
-        let draw_opaque_pbr = opaque_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
-        let draw_alpha_mask_pbr = alpha_mask_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
-        let draw_transparent_pbr = transparent_draw_functions
-            .read()
-            .get_id::<DrawMaterial<M>>()
-            .unwrap();
+        let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
+        let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
+        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
 
+        let mut view_key =
+            MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
+
+        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+            if !view.hdr {
+                view_key |= MeshPipelineKey::TONEMAP_IN_SHADER;
+
+                if *deband_dither {
+                    view_key |= MeshPipelineKey::DEBAND_DITHER;
+                }
+            }
+        }
         let rangefinder = view.rangefinder3d();
-        let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
         for visible_entity in &visible_entities.entities {
             if let Ok((material_handle, mesh_handle, mesh_uniform)) =
@@ -359,7 +372,7 @@ pub fn queue_material_meshes<M: Material>(
                     if let Some(mesh) = render_meshes.get(mesh_handle) {
                         let mut mesh_key =
                             MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                                | msaa_key;
+                                | view_key;
                         let alpha_mode = material.properties.alpha_mode;
                         if let AlphaMode::Blend = alpha_mode {
                             mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
@@ -434,6 +447,7 @@ pub struct PreparedMaterial<T: Material> {
     pub properties: MaterialProperties,
 }
 
+#[derive(Resource)]
 struct ExtractedMaterials<M: Material> {
     extracted: Vec<(Handle<M>, M)>,
     removed: Vec<Handle<M>>,
@@ -449,7 +463,14 @@ impl<M: Material> Default for ExtractedMaterials<M> {
 }
 
 /// Stores all prepared representations of [`Material`] assets for as long as they exist.
-pub type RenderMaterials<T> = HashMap<Handle<T>, PreparedMaterial<T>>;
+#[derive(Resource, Deref, DerefMut)]
+pub struct RenderMaterials<T: Material>(pub HashMap<Handle<T>, PreparedMaterial<T>>);
+
+impl<T: Material> Default for RenderMaterials<T> {
+    fn default() -> Self {
+        Self(Default::default())
+    }
+}
 
 /// This system extracts all created or modified assets of the corresponding [`Material`] type
 /// into the "render world".
@@ -509,8 +530,8 @@ fn prepare_materials<M: Material>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
 ) {
-    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.drain(..) {
+    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, material) in queued_assets.into_iter() {
         match prepare_material(
             &material,
             &render_device,

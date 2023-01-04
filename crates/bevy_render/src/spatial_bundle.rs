@@ -33,22 +33,23 @@ impl SpatialBundle {
     pub const fn from_transform(transform: Transform) -> Self {
         SpatialBundle {
             transform,
-            // Note: `..Default::default()` cannot be used here, because it isn't const
-            ..Self::visible_identity()
+            ..Self::INHERITED_IDENTITY
         }
     }
 
-    /// Creates a new identity [`SpatialBundle`], with no translation, rotation, and a scale of 1
-    /// on all axes.
-    #[inline]
-    pub const fn visible_identity() -> Self {
-        SpatialBundle {
-            transform: Transform::identity(),
-            global_transform: GlobalTransform::identity(),
-            visibility: Visibility::visible(),
-            computed: ComputedVisibility::not_visible(),
-        }
-    }
+    /// A visible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
+    pub const INHERITED_IDENTITY: Self = SpatialBundle {
+        visibility: Visibility::Inherited,
+        computed: ComputedVisibility::HIDDEN,
+        transform: Transform::IDENTITY,
+        global_transform: GlobalTransform::IDENTITY,
+    };
+
+    /// An invisible [`SpatialBundle`], with no translation, rotation, and a scale of 1 on all axes.
+    pub const HIDDEN_IDENTITY: Self = SpatialBundle {
+        visibility: Visibility::Hidden,
+        ..Self::INHERITED_IDENTITY
+    };
 }
 
 impl From<Transform> for SpatialBundle {

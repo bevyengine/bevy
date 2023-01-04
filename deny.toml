@@ -6,7 +6,7 @@ unmaintained = "deny"
 yanked = "deny"
 notice = "deny"
 ignore = [
-    "RUSTSEC-2020-0056", # from gilrs v0.8.1 - unmaintained - https://github.com/koute/stdweb/issues/403
+    "RUSTSEC-2020-0056", # from cpal v0.14.1 - unmaintained - https://github.com/koute/stdweb/issues/403
 ]
 
 [licenses]
@@ -34,19 +34,24 @@ wildcards = "deny"
 highlight = "all"
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    { name = "cfg-if", version = "0.1" },               # from winit v0.26.0
-    { name = "core-foundation", version = "0.7" },      # from winit v0.26.0
-    { name = "core-foundation-sys", version = "0.7" },  # from winit v0.26.0
-    { name = "core-graphics", version = "0.19" },       # from winit v0.26.0
-    { name = "hashbrown", version = "0.11" },           # from wgpu v0.12 - https://github.com/zakarumych/gpu-descriptor/pull/21
-    { name = "mio", version = "0.7" },                  # from notify v5.0.0-pre.11
-    { name = "ndk", version = "0.5" },                  # from winit v0.26.1
-    { name = "ndk-glue", version = "0.5" },             # from winit v0.26.1
-    { name = "ndk-sys", version = "0.2" },              # from winit v0.26.1
-    { name = "parking_lot", version = "0.11" },         # from rodio v0.15.0
-    { name = "parking_lot_core", version = "0.8" },     # from rodio v0.15.0
-    { name = "stdweb", version = "0.1" },               # from rodio v0.15.0
-    { name = "nix", version = "0.23.1" },               # from alsa v0.6.0
+    { name = "ndk-sys", version = "0.3" },               # from rodio v0.16.0
+    { name = "ndk", version = "0.6" },                   # from rodio v0.16.0
+    { name = "raw-window-handle", version = "0.4" },     # from winit v0.27.4
+    { name = "nix", version = "0.23" },                  # from cpal v0.14.1
+    { name = "rustc_version", version = "0.2" },         # from postcard v1.0.2
+    { name = "semver", version = "0.9" },                # from postcard v1.0.2
+    { name = "windows_aarch64_msvc", version = "0.36" }, # from notify v5.0.0
+    { name = "windows_i686_gnu", version = "0.36" },     # from notify v5.0.0
+    { name = "windows_i686_msvc", version = "0.36" },    # from notify v5.0.0
+    { name = "windows_x86_64_gnu", version = "0.36" },   # from notify v5.0.0
+    { name = "windows_x86_64_msvc", version = "0.36" },  # from notify v5.0.0
+    { name = "windows-sys", version = "0.36" },          # from notify v5.0.0
+    { name = "windows", version = "0.37" },              # from rodio v0.16.0
+    { name = "windows_aarch64_msvc", version = "0.37" }, # from rodio v0.16.0
+    { name = "windows_i686_gnu", version = "0.37" },     # from rodio v0.16.0
+    { name = "windows_i686_msvc", version = "0.37" },    # from rodio v0.16.0
+    { name = "windows_x86_64_gnu", version = "0.37" },   # from rodio v0.16.0
+    { name = "windows_x86_64_msvc", version = "0.37" },  # from rodio v0.16.0
 ]
 
 [sources]

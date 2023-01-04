@@ -46,14 +46,13 @@ fn setup(
     let half_y = (map_size.y / 2.0) as i32;
 
     let texture_handle = assets.load("textures/rpg/chars/gabe/gabe-idle-run.png");
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1);
+    let texture_atlas =
+        TextureAtlas::from_grid(texture_handle, Vec2::new(24.0, 24.0), 7, 1, None, None);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     // Spawns the camera
-    commands
-        .spawn()
-        .insert_bundle(Camera2dBundle::default())
-        .insert(Transform::from_xyz(0.0, 0.0, 1000.0));
+
+    commands.spawn(Camera2dBundle::default());
 
     // Builds and spawns the sprites
     for y in -half_y..half_y {
@@ -62,11 +61,11 @@ fn setup(
             let translation = (position * tile_size).extend(rng.gen::<f32>());
             let rotation = Quat::from_rotation_z(rng.gen::<f32>());
             let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
-            let mut timer = Timer::from_seconds(0.1, true);
+            let mut timer = Timer::from_seconds(0.1, TimerMode::Repeating);
             timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
 
-            commands
-                .spawn_bundle(SpriteSheetBundle {
+            commands.spawn((
+                SpriteSheetBundle {
                     texture_atlas: texture_atlas_handle.clone(),
                     transform: Transform {
                         translation,
@@ -78,8 +77,9 @@ fn setup(
                         ..default()
                     },
                     ..default()
-                })
-                .insert(AnimationTimer(timer));
+                },
+                AnimationTimer(timer),
+            ));
         }
     }
 }
@@ -118,7 +118,7 @@ struct PrintingTimer(Timer);
 
 impl Default for PrintingTimer {
     fn default() -> Self {
-        Self(Timer::from_seconds(1.0, true))
+        Self(Timer::from_seconds(1.0, TimerMode::Repeating))
     }
 }
 

@@ -46,7 +46,7 @@ fn main() {
         .run();
 }
 
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct State {
     handle: Handle<CustomAsset>,
     printed: bool,

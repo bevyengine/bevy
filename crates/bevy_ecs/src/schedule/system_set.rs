@@ -1,6 +1,6 @@
 use crate::schedule::{
-    AmbiguitySetLabel, AmbiguitySetLabelId, IntoRunCriteria, IntoSystemDescriptor,
-    RunCriteriaDescriptorOrLabel, State, StateData, SystemDescriptor, SystemLabel, SystemLabelId,
+    IntoRunCriteria, IntoSystemDescriptor, RunCriteriaDescriptorOrLabel, State, StateData,
+    SystemDescriptor, SystemLabel, SystemLabelId,
 };
 use crate::system::AsSystemLabel;
 
@@ -12,7 +12,6 @@ pub struct SystemSet {
     pub(crate) labels: Vec<SystemLabelId>,
     pub(crate) before: Vec<SystemLabelId>,
     pub(crate) after: Vec<SystemLabelId>,
-    pub(crate) ambiguity_sets: Vec<AmbiguitySetLabelId>,
 }
 
 impl SystemSet {
@@ -70,12 +69,6 @@ impl SystemSet {
     }
 
     #[must_use]
-    pub fn in_ambiguity_set(mut self, set: impl AmbiguitySetLabel) -> Self {
-        self.ambiguity_sets.push(set.as_label());
-        self
-    }
-
-    #[must_use]
     pub fn with_system<Params>(mut self, system: impl IntoSystemDescriptor<Params>) -> Self {
         self.systems.push(system.into_descriptor());
         self
@@ -112,27 +105,11 @@ impl SystemSet {
             labels,
             before,
             after,
-            ambiguity_sets,
         } = self;
         for descriptor in &mut systems {
-            match descriptor {
-                SystemDescriptor::Parallel(descriptor) => {
-                    descriptor.labels.extend(labels.iter().cloned());
-                    descriptor.before.extend(before.iter().cloned());
-                    descriptor.after.extend(after.iter().cloned());
-                    descriptor
-                        .ambiguity_sets
-                        .extend(ambiguity_sets.iter().cloned());
-                }
-                SystemDescriptor::Exclusive(descriptor) => {
-                    descriptor.labels.extend(labels.iter().cloned());
-                    descriptor.before.extend(before.iter().cloned());
-                    descriptor.after.extend(after.iter().cloned());
-                    descriptor
-                        .ambiguity_sets
-                        .extend(ambiguity_sets.iter().cloned());
-                }
-            }
+            descriptor.labels.extend(labels.iter().cloned());
+            descriptor.before.extend(before.iter().cloned());
+            descriptor.after.extend(after.iter().cloned());
         }
         (run_criteria, systems)
     }

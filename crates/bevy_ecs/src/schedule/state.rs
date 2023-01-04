@@ -3,13 +3,15 @@ use crate::{
         RunCriteriaDescriptor, RunCriteriaDescriptorCoercion, RunCriteriaLabel, ShouldRun,
         SystemSet,
     },
-    system::{In, IntoChainSystem, Local, Res, ResMut},
+    system::{In, IntoPipeSystem, Local, Res, ResMut, Resource},
 };
 use std::{
     any::TypeId,
     fmt::{self, Debug},
     hash::Hash,
 };
+// Required for derive macros
+use crate as bevy_ecs;
 
 pub trait StateData: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
 impl<T> StateData for T where T: Send + Sync + Clone + Eq + Debug + Hash + 'static {}
@@ -21,7 +23,7 @@ impl<T> StateData for T where T: Send + Sync + Clone + Eq + Debug + Hash + 'stat
 /// * Pop removes the current state, and unpauses the last paused state
 /// * Set replaces the active state with a new one
 /// * Replace unwinds the state stack, and replaces the entire stack with a single new state
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct State<T: StateData> {
     transition: Option<StateTransition<T>>,
     /// The current states in the stack.
@@ -77,7 +79,7 @@ where
         (move |state: Res<State<T>>| {
             state.stack.last().unwrap() == &pred && state.transition.is_none()
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -93,7 +95,7 @@ where
             Some(_) => false,
             None => *is_inactive,
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -116,7 +118,7 @@ where
             Some(_) => false,
             None => *is_in_stack,
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -131,7 +133,7 @@ where
                     _ => false,
                 })
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -146,7 +148,7 @@ where
                     _ => false,
                 })
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -160,7 +162,7 @@ where
                     _ => false,
                 })
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -174,7 +176,7 @@ where
                     _ => false,
                 })
         })
-        .chain(should_run_adapter::<T>)
+        .pipe(should_run_adapter::<T>)
         .after(DriverLabel::of::<T>())
     }
 
@@ -489,94 +491,103 @@ mod test {
 
     #[test]
     fn state_test() {
+        #[derive(Resource, Default)]
+        struct NameList(Vec<&'static str>);
+
         let mut world = World::default();
 
-        world.insert_resource(Vec::<&'static str>::new());
+        world.init_resource::<NameList>();
         world.insert_resource(State::new(MyState::S1));
 
         let mut stage = SystemStage::parallel();
+
+        #[derive(SystemLabel)]
+        enum Inactive {
+            S4,
+            S5,
+        }
 
         stage.add_system_set(State::<MyState>::get_driver());
         stage
             .add_system_set(
                 State::on_enter_set(MyState::S1)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("startup")),
+                    .with_system(|mut r: ResMut<NameList>| r.0.push("startup")),
             )
             .add_system_set(State::on_update_set(MyState::S1).with_system(
-                |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                    r.push("update S1");
+                |mut r: ResMut<NameList>, mut s: ResMut<State<MyState>>| {
+                    r.0.push("update S1");
                     s.overwrite_replace(MyState::S2).unwrap();
                 },
             ))
             .add_system_set(
                 State::on_enter_set(MyState::S2)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("enter S2")),
+                    .with_system(|mut r: ResMut<NameList>| r.0.push("enter S2")),
             )
             .add_system_set(State::on_update_set(MyState::S2).with_system(
-                |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                    r.push("update S2");
+                |mut r: ResMut<NameList>, mut s: ResMut<State<MyState>>| {
+                    r.0.push("update S2");
                     s.overwrite_replace(MyState::S3).unwrap();
                 },
             ))
             .add_system_set(
                 State::on_exit_set(MyState::S2)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("exit S2")),
+                    .with_system(|mut r: ResMut<NameList>| r.0.push("exit S2")),
             )
             .add_system_set(
                 State::on_enter_set(MyState::S3)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("enter S3")),
+                    .with_system(|mut r: ResMut<NameList>| r.0.push("enter S3")),
             )
             .add_system_set(State::on_update_set(MyState::S3).with_system(
-                |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                    r.push("update S3");
+                |mut r: ResMut<NameList>, mut s: ResMut<State<MyState>>| {
+                    r.0.push("update S3");
                     s.overwrite_push(MyState::S4).unwrap();
                 },
             ))
             .add_system_set(
                 State::on_pause_set(MyState::S3)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("pause S3")),
+                    .with_system(|mut r: ResMut<NameList>| r.0.push("pause S3")),
             )
             .add_system_set(State::on_update_set(MyState::S4).with_system(
-                |mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                    r.push("update S4");
+                |mut r: ResMut<NameList>, mut s: ResMut<State<MyState>>| {
+                    r.0.push("update S4");
                     s.overwrite_push(MyState::S5).unwrap();
                 },
             ))
             .add_system_set(State::on_inactive_update_set(MyState::S4).with_system(
-                (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S4")).label("inactive s4"),
+                (|mut r: ResMut<NameList>| r.0.push("inactive S4")).label(Inactive::S4),
             ))
             .add_system_set(
                 State::on_update_set(MyState::S5).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S5");
+                    (|mut r: ResMut<NameList>, mut s: ResMut<State<MyState>>| {
+                        r.0.push("update S5");
                         s.overwrite_push(MyState::S6).unwrap();
                     })
-                    .after("inactive s4"),
+                    .after(Inactive::S4),
                 ),
             )
             .add_system_set(
                 State::on_inactive_update_set(MyState::S5).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>| r.push("inactive S5"))
-                        .label("inactive s5")
-                        .after("inactive s4"),
+                    (|mut r: ResMut<NameList>| r.0.push("inactive S5"))
+                        .label(Inactive::S5)
+                        .after(Inactive::S4),
                 ),
             )
             .add_system_set(
                 State::on_update_set(MyState::S6).with_system(
-                    (|mut r: ResMut<Vec<&'static str>>, mut s: ResMut<State<MyState>>| {
-                        r.push("update S6");
+                    (|mut r: ResMut<NameList>, mut s: ResMut<State<MyState>>| {
+                        r.0.push("update S6");
                         s.overwrite_push(MyState::Final).unwrap();
                     })
-                    .after("inactive s5"),
+                    .after(Inactive::S5),
                 ),
             )
             .add_system_set(
                 State::on_resume_set(MyState::S4)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("resume S4")),
+                    .with_system(|mut r: ResMut<NameList>| r.0.push("resume S4")),
             )
             .add_system_set(
                 State::on_exit_set(MyState::S5)
-                    .with_system(|mut r: ResMut<Vec<&'static str>>| r.push("exit S4")),
+                    .with_system(|mut r: ResMut<NameList>| r.0.push("exit S4")),
             );
 
         const EXPECTED: &[&str] = &[
@@ -606,9 +617,9 @@ mod test {
         ];
 
         stage.run(&mut world);
-        let mut collected = world.resource_mut::<Vec<&'static str>>();
+        let mut collected = world.resource_mut::<NameList>();
         let mut count = 0;
-        for (found, expected) in collected.drain(..).zip(EXPECTED) {
+        for (found, expected) in collected.0.drain(..).zip(EXPECTED) {
             assert_eq!(found, *expected);
             count += 1;
         }
@@ -627,26 +638,32 @@ mod test {
             Main,
         }
 
-        fn should_run_once(mut flag: ResMut<bool>, test_name: Res<&'static str>) {
-            assert!(!*flag, "{:?}", *test_name);
-            *flag = true;
+        #[derive(Resource)]
+        struct Flag(bool);
+
+        #[derive(Resource)]
+        struct Name(&'static str);
+
+        fn should_run_once(mut flag: ResMut<Flag>, test_name: Res<Name>) {
+            assert!(!flag.0, "{:?}", test_name.0);
+            flag.0 = true;
         }
 
         let mut world = World::new();
         world.insert_resource(State::new(AppState::Main));
-        world.insert_resource(false);
-        world.insert_resource("control");
+        world.insert_resource(Flag(false));
+        world.insert_resource(Name("control"));
         let mut stage = SystemStage::parallel().with_system(should_run_once);
         stage.run(&mut world);
-        assert!(*world.resource::<bool>(), "after control");
+        assert!(world.resource::<Flag>().0, "after control");
 
-        world.insert_resource(false);
-        world.insert_resource("test");
+        world.insert_resource(Flag(false));
+        world.insert_resource(Name("test"));
         let mut stage = SystemStage::parallel()
             .with_system_set(State::<AppState>::get_driver())
             .with_system(should_run_once);
         stage.run(&mut world);
-        assert!(*world.resource::<bool>(), "after test");
+        assert!(world.resource::<Flag>().0, "after test");
     }
 
     #[test]
@@ -664,8 +681,11 @@ mod test {
             EnterFinish,
         }
 
+        #[derive(Resource, Default)]
+        struct LoadStatusStack(Vec<LoadStatus>);
+
         let mut world = World::new();
-        world.insert_resource(Vec::<LoadStatus>::new());
+        world.init_resource::<LoadStatusStack>();
         world.insert_resource(State::new(LoadState::Load));
 
         let mut stage = SystemStage::parallel();
@@ -675,15 +695,16 @@ mod test {
         stage
             .add_system_set(
                 State::on_enter_set(LoadState::Load)
-                    .with_system(|mut r: ResMut<Vec<LoadStatus>>| r.push(LoadStatus::EnterLoad)),
+                    .with_system(|mut r: ResMut<LoadStatusStack>| r.0.push(LoadStatus::EnterLoad)),
             )
             .add_system_set(
                 State::on_exit_set(LoadState::Load)
-                    .with_system(|mut r: ResMut<Vec<LoadStatus>>| r.push(LoadStatus::ExitLoad)),
+                    .with_system(|mut r: ResMut<LoadStatusStack>| r.0.push(LoadStatus::ExitLoad)),
             )
             .add_system_set(
-                State::on_enter_set(LoadState::Finish)
-                    .with_system(|mut r: ResMut<Vec<LoadStatus>>| r.push(LoadStatus::EnterFinish)),
+                State::on_enter_set(LoadState::Finish).with_system(
+                    |mut r: ResMut<LoadStatusStack>| r.0.push(LoadStatus::EnterFinish),
+                ),
             );
 
         stage.run(&mut world);
@@ -720,9 +741,9 @@ mod test {
             LoadStatus::EnterFinish,
         ];
 
-        let mut collected = world.resource_mut::<Vec<LoadStatus>>();
+        let mut collected = world.resource_mut::<LoadStatusStack>();
         let mut count = 0;
-        for (found, expected) in collected.drain(..).zip(EXPECTED) {
+        for (found, expected) in collected.0.drain(..).zip(EXPECTED) {
             assert_eq!(found, *expected);
             count += 1;
         }

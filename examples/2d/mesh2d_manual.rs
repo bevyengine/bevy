@@ -3,6 +3,8 @@
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 
+use std::f32::consts::PI;
+
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
     prelude::*,
@@ -18,7 +20,7 @@ use bevy::{
             TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         texture::BevyDefault,
-        view::VisibleEntities,
+        view::{ExtractedView, ViewTarget, VisibleEntities},
         Extract, RenderApp, RenderStage,
     },
     sprite::{
@@ -59,15 +61,15 @@ fn star(
     //        6
     //   7        5
     //
-    // These vertices are specificed in 3D space.
+    // These vertices are specified in 3D space.
     let mut v_pos = vec![[0.0, 0.0, 0.0]];
     for i in 0..10 {
-        // Angle of each vertex is 1/10 of TAU, plus PI/2 for positioning vertex 0
-        let a = std::f32::consts::FRAC_PI_2 - i as f32 * std::f32::consts::TAU / 10.0;
-        // Radius of internal vertices (2, 4, 6, 8, 10) is 100, it's 200 for external
+        // The angle between each vertex is 1/10 of a full rotation.
+        let a = i as f32 * PI / 5.0;
+        // The radius of inner vertices (even indices) is 100. For outer vertices (odd indices) it's 200.
         let r = (1 - i % 2) as f32 * 100.0 + 100.0;
-        // Add the vertex coordinates
-        v_pos.push([r * a.cos(), r * a.sin(), 0.0]);
+        // Add the vertex position.
+        v_pos.push([r * a.sin(), r * a.cos(), 0.0]);
     }
     // Set the position attribute
     star.insert_attribute(Mesh::ATTRIBUTE_POSITION, v_pos);
@@ -95,20 +97,17 @@ fn star(
     star.set_indices(Some(Indices::U32(indices)));
 
     // We can now spawn the entities for the star and the camera
-    commands.spawn_bundle((
+    commands.spawn((
         // We use a marker component to identify the custom colored meshes
         ColoredMesh2d::default(),
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
-        // These other components are needed for 2d meshes to be rendered
-        Transform::default(),
-        GlobalTransform::default(),
-        Visibility::default(),
-        ComputedVisibility::default(),
+        // This bundle's components are needed for something to be rendered
+        SpatialBundle::INHERITED_IDENTITY,
     ));
-    commands
-        // And use an orthographic projection
-        .spawn_bundle(Camera2dBundle::default());
+
+    // Spawn the camera
+    commands.spawn(Camera2dBundle::default());
 }
 
 /// A marker component for colored 2d meshes
@@ -116,6 +115,7 @@ fn star(
 pub struct ColoredMesh2d;
 
 /// Custom pipeline for 2d meshes with vertex colors
+#[derive(Resource)]
 pub struct ColoredMesh2dPipeline {
     /// this pipeline wraps the standard [`Mesh2dPipeline`]
     mesh2d_pipeline: Mesh2dPipeline,
@@ -146,6 +146,11 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, formats);
 
+        let format = match key.contains(Mesh2dPipelineKey::HDR) {
+            true => ViewTarget::TEXTURE_FORMAT_HDR,
+            false => TextureFormat::bevy_default(),
+        };
+
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
@@ -161,7 +166,7 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
                 shader_defs: Vec::new(),
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
@@ -272,8 +277,8 @@ impl Plugin for ColoredMesh2dPlugin {
         );
 
         // Register our custom draw function and pipeline, and add our render systems
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-        render_app
+        app.get_sub_app_mut(RenderApp)
+            .unwrap()
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<ColoredMesh2dPipeline>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
@@ -291,11 +296,11 @@ pub fn extract_colored_mesh2d(
     query: Extract<Query<(Entity, &ComputedVisibility), With<ColoredMesh2d>>>,
 ) {
     let mut values = Vec::with_capacity(*previous_len);
-    for (entity, computed_visibility) in query.iter() {
+    for (entity, computed_visibility) in &query {
         if !computed_visibility.is_visible() {
             continue;
         }
-        values.push((entity, (ColoredMesh2d,)));
+        values.push((entity, ColoredMesh2d));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -311,19 +316,21 @@ pub fn queue_colored_mesh2d(
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     colored_mesh2d: Query<(&Mesh2dHandle, &Mesh2dUniform), With<ColoredMesh2d>>,
-    mut views: Query<(&VisibleEntities, &mut RenderPhase<Transparent2d>)>,
+    mut views: Query<(
+        &VisibleEntities,
+        &mut RenderPhase<Transparent2d>,
+        &ExtractedView,
+    )>,
 ) {
     if colored_mesh2d.is_empty() {
         return;
     }
     // Iterate each view (a camera is a view)
-    for (visible_entities, mut transparent_phase) in &mut views {
-        let draw_colored_mesh2d = transparent_draw_functions
-            .read()
-            .get_id::<DrawColoredMesh2d>()
-            .unwrap();
+    for (visible_entities, mut transparent_phase, view) in &mut views {
+        let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
-        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples);
+        let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
 
         // Queue all entities visible to that view
         for visible_entity in &visible_entities.entities {

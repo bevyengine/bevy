@@ -29,12 +29,13 @@ impl Plugin for PrintMessagePlugin {
     fn build(&self, app: &mut App) {
         let state = PrintMessageState {
             message: self.message.clone(),
-            timer: Timer::new(self.wait_duration, true),
+            timer: Timer::new(self.wait_duration, TimerMode::Repeating),
         };
         app.insert_resource(state).add_system(print_message_system);
     }
 }
 
+#[derive(Resource)]
 struct PrintMessageState {
     message: String,
     timer: Timer,

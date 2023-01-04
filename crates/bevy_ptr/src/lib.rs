@@ -2,7 +2,10 @@
 #![no_std]
 #![warn(missing_docs)]
 
-use core::{cell::UnsafeCell, marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use core::fmt::{self, Formatter, Pointer};
+use core::{
+    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
+};
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
@@ -92,10 +95,20 @@ macro_rules! impl_ptr {
                 Self(inner, PhantomData)
             }
         }
+
+        impl Pointer for $ptr<'_> {
+            #[inline]
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                Pointer::fmt(&self.0, f)
+            }
+        }
     };
 }
 
 impl_ptr!(Ptr);
+impl_ptr!(PtrMut);
+impl_ptr!(OwningPtr);
+
 impl<'a> Ptr<'a> {
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
@@ -125,7 +138,16 @@ impl<'a> Ptr<'a> {
         self.0.as_ptr()
     }
 }
-impl_ptr!(PtrMut);
+
+impl<'a, T> From<&'a T> for Ptr<'a> {
+    #[inline]
+    fn from(val: &'a T) -> Self {
+        // SAFETY: The returned pointer has the same lifetime as the passed reference.
+        // Access is immutable.
+        unsafe { Self::new(NonNull::from(val).cast()) }
+    }
+}
+
 impl<'a> PtrMut<'a> {
     /// Transforms this [`PtrMut`] into an [`OwningPtr`]
     ///
@@ -154,16 +176,39 @@ impl<'a> PtrMut<'a> {
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
+
+    /// Gets a `PtrMut` from this with a smaller lifetime.
+    #[inline]
+    pub fn reborrow(&mut self) -> PtrMut<'_> {
+        // SAFE: the ptrmut we're borrowing from is assumed to be valid
+        unsafe { PtrMut::new(self.0) }
+    }
+
+    /// Gets an immutable reference from this mutable reference
+    #[inline]
+    pub fn as_ref(&self) -> Ptr<'_> {
+        // SAFE: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        unsafe { Ptr::new(self.0) }
+    }
 }
-impl_ptr!(OwningPtr);
+
+impl<'a, T> From<&'a mut T> for PtrMut<'a> {
+    #[inline]
+    fn from(val: &'a mut T) -> Self {
+        // SAFETY: The returned pointer has the same lifetime as the passed reference.
+        // The reference is mutable, and thus will not alias.
+        unsafe { Self::new(NonNull::from(val).cast()) }
+    }
+}
+
 impl<'a> OwningPtr<'a> {
     /// Consumes a value and creates an [`OwningPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<T, F: FnOnce(OwningPtr<'_>) -> R, R>(val: T, f: F) -> R {
-        let mut temp = MaybeUninit::new(val);
-        // SAFETY: `temp.as_mut_ptr()` is a reference to a local value on the stack, so it cannot be null
-        let ptr = unsafe { NonNull::new_unchecked(temp.as_mut_ptr().cast::<u8>()) };
-        f(Self(ptr, PhantomData))
+        let mut temp = ManuallyDrop::new(val);
+        // SAFETY: The value behind the pointer will not get dropped or observed later,
+        // so it's safe to promote it to an owning pointer.
+        f(unsafe { PtrMut::from(&mut *temp).promote() })
     }
 
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
@@ -192,6 +237,20 @@ impl<'a> OwningPtr<'a> {
     #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
+    }
+
+    /// Gets an immutable pointer from this owned pointer.
+    #[inline]
+    pub fn as_ref(&self) -> Ptr<'_> {
+        // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        unsafe { Ptr::new(self.0) }
+    }
+
+    /// Gets a mutable pointer from this owned pointer.
+    #[inline]
+    pub fn as_mut(&mut self) -> PtrMut<'_> {
+        // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        unsafe { PtrMut::new(self.0) }
     }
 }
 
@@ -241,6 +300,14 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
             _marker: PhantomData,
         }
     }
+}
+
+/// Creates a dangling pointer with specified alignment.
+/// See [`NonNull::dangling`].
+pub fn dangling_with_align(align: NonZeroUsize) -> NonNull<u8> {
+    // SAFETY: The pointer will not be null, since it was created
+    // from the address of a `NonZeroUsize`.
+    unsafe { NonNull::new_unchecked(align.get() as *mut u8) }
 }
 
 mod private {

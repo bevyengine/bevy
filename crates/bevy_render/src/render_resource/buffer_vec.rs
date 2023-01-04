@@ -3,7 +3,6 @@ use crate::{
     renderer::{RenderDevice, RenderQueue},
 };
 use bevy_core::{cast_slice, Pod};
-use copyless::VecHelper;
 use wgpu::BufferUsages;
 
 /// A structure for storing raw bytes that have already been properly formatted
@@ -72,7 +71,7 @@ impl<T: Pod> BufferVec<T> {
 
     pub fn push(&mut self, value: T) -> usize {
         let index = self.values.len();
-        self.values.alloc().init(value);
+        self.values.push(value);
         index
     }
 
@@ -132,7 +131,18 @@ impl<T: Pod> BufferVec<T> {
         }
     }
 
+    pub fn truncate(&mut self, len: usize) {
+        self.values.truncate(len);
+    }
+
     pub fn clear(&mut self) {
         self.values.clear();
+    }
+}
+
+impl<T: Pod> Extend<T> for BufferVec<T> {
+    #[inline]
+    fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
+        self.values.extend(iter);
     }
 }

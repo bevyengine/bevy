@@ -8,7 +8,7 @@ use std::{
 };
 
 /// Represents a path to an asset in the file system.
-#[derive(Debug, Hash, Clone, Serialize, Deserialize)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Serialize, Deserialize)]
 pub struct AssetPath<'a> {
     path: Cow<'a, Path>,
     label: Option<Cow<'a, str>>,
@@ -154,7 +154,7 @@ impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
 
 impl<'a> From<&'a str> for AssetPath<'a> {
     fn from(asset_path: &'a str) -> Self {
-        let mut parts = asset_path.split('#');
+        let mut parts = asset_path.splitn(2, '#');
         let path = Path::new(parts.next().expect("Path must be set."));
         let label = parts.next();
         AssetPath {
@@ -184,6 +184,18 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
         AssetPath {
             path: Cow::Owned(path),
             label: None,
+        }
+    }
+}
+
+impl<'a> From<String> for AssetPath<'a> {
+    fn from(asset_path: String) -> Self {
+        let mut parts = asset_path.splitn(2, '#');
+        let path = PathBuf::from(parts.next().expect("Path must be set."));
+        let label = parts.next().map(String::from);
+        AssetPath {
+            path: Cow::Owned(path),
+            label: label.map(Cow::Owned),
         }
     }
 }

@@ -6,7 +6,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::{
     event::Events,
     schedule::SystemLabel,
-    system::{NonSendMut, Res, ResMut, SystemState},
+    system::{NonSendMut, Res, ResMut, Resource, SystemState},
 };
 use bevy_tasks::{IoTaskPool, TaskPoolBuilder};
 use bevy_utils::HashMap;
@@ -16,8 +16,7 @@ use std::{
 };
 
 use crate::{
-    Asset, AssetEvent, AssetPlugin, AssetServer, AssetServerSettings, Assets, FileAssetIo, Handle,
-    HandleUntyped,
+    Asset, AssetEvent, AssetPlugin, AssetServer, Assets, FileAssetIo, Handle, HandleUntyped,
 };
 
 /// A helper [`App`] used for hot reloading internal assets, which are compiled-in to Bevy plugins.
@@ -52,6 +51,7 @@ pub struct DebugAssetServerPlugin;
 
 /// A collection that maps internal assets in a [`DebugAssetApp`]'s asset server to their mirrors in
 /// the main [`App`].
+#[derive(Resource)]
 pub struct HandleMap<T: Asset> {
     /// The collection of asset handles.
     pub handles: HashMap<Handle<T>, Handle<T>>,
@@ -74,12 +74,10 @@ impl Plugin for DebugAssetServerPlugin {
                 .build()
         });
         let mut debug_asset_app = App::new();
-        debug_asset_app
-            .insert_resource(AssetServerSettings {
-                asset_folder: "crates".to_string(),
-                watch_for_changes: true,
-            })
-            .add_plugin(AssetPlugin);
+        debug_asset_app.add_plugin(AssetPlugin {
+            asset_folder: "crates".to_string(),
+            watch_for_changes: true,
+        });
         app.insert_non_send_resource(DebugAssetApp(debug_asset_app));
         app.add_system(run_debug_asset_app);
     }

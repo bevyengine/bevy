@@ -1,4 +1,5 @@
 use bevy_utils::tracing::warn;
+use core::fmt::Debug;
 
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
@@ -31,6 +32,10 @@ pub trait System: Send + Sync + 'static {
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
     /// Returns true if the system is [`Send`].
     fn is_send(&self) -> bool;
+
+    /// Returns true if the system must be run exclusively.
+    fn is_exclusive(&self) -> bool;
+
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// takes a shared reference to [`World`] and may therefore break Rust's aliasing rules, making
     /// it unsafe to call.
@@ -59,6 +64,14 @@ pub trait System: Send + Sync + 'static {
     fn default_labels(&self) -> Vec<SystemLabelId> {
         Vec::new()
     }
+    /// Gets the system's last change tick
+    fn get_last_change_tick(&self) -> u32;
+    /// Sets the system's last change tick
+    /// # Warning
+    /// This is a complex and error-prone operation, that can have unexpected consequences on any system relying on this code.
+    /// However, it can be an essential escape hatch when, for example,
+    /// you are trying to synchronize representations using change detection and need to avoid infinite recursion.
+    fn set_last_change_tick(&mut self, last_change_tick: u32);
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.
@@ -81,5 +94,23 @@ pub(crate) fn check_system_change_tick(
             MAX_CHANGE_AGE - 1,
         );
         *last_change_tick = change_tick.wrapping_sub(MAX_CHANGE_AGE);
+    }
+}
+
+impl Debug for dyn System<In = (), Out = ()> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "System {}: {{{}}}", self.name(), {
+            if self.is_send() {
+                if self.is_exclusive() {
+                    "is_send is_exclusive"
+                } else {
+                    "is_send"
+                }
+            } else if self.is_exclusive() {
+                "is_exclusive"
+            } else {
+                ""
+            }
+        },)
     }
 }

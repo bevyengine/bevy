@@ -22,7 +22,7 @@ fn setup(system_count: usize) -> (World, SystemStage) {
 /// create `count` entities with distinct archetypes
 fn add_archetypes(world: &mut World, count: u16) {
     for i in 0..count {
-        let mut e = world.spawn();
+        let mut e = world.spawn_empty();
         if i & 1 << 0 != 0 {
             e.insert(A::<0>(1.0));
         }

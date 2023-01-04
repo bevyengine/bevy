@@ -45,13 +45,30 @@ pub enum ReflectMut<'a> {
     Value(&'a mut dyn Reflect),
 }
 
+/// An owned enumeration of "kinds" of reflected type.
+///
+/// Each variant contains a trait object with methods specific to a kind of
+/// type.
+///
+/// A `ReflectOwned` is obtained via [`Reflect::reflect_owned`].
+pub enum ReflectOwned {
+    Struct(Box<dyn Struct>),
+    TupleStruct(Box<dyn TupleStruct>),
+    Tuple(Box<dyn Tuple>),
+    List(Box<dyn List>),
+    Array(Box<dyn Array>),
+    Map(Box<dyn Map>),
+    Enum(Box<dyn Enum>),
+    Value(Box<dyn Reflect>),
+}
+
 /// A reflected Rust type.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`List`], [`Map`],
-/// [`Struct`], [`TupleStruct`], and [`Tuple`] subtraits.
+/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
+/// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
 ///
-/// When using `#[derive(Reflect)]` with a struct or tuple struct, the suitable subtrait for that
-/// type (`Struct` or `TupleStruct`) is derived automatically.
+/// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
+/// type (`Struct`, `TupleStruct` or `Enum`) is derived automatically.
 pub trait Reflect: Any + Send + Sync {
     /// Returns the [type name][std::any::type_name] of the underlying type.
     fn type_name(&self) -> &str;
@@ -75,10 +92,13 @@ pub trait Reflect: Any + Send + Sync {
     /// Returns the value as a [`&mut dyn Any`][std::any::Any].
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
-    /// Casts this type to a reflected value
+    /// Casts this type to a boxed reflected value.
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect>;
+
+    /// Casts this type to a reflected value.
     fn as_reflect(&self) -> &dyn Reflect;
 
-    /// Casts this type to a mutable reflected value
+    /// Casts this type to a mutable reflected value.
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 
     /// Applies a reflected value to this value.
@@ -91,8 +111,12 @@ pub trait Reflect: Any + Send + Sync {
     /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each
     ///   numbered field is applied to the corresponding numbered field of
     ///   `self.` Fields which are not present in both values are ignored.
-    /// - If `T` is a [`List`], then each element of `value` is applied to the
-    ///   corresponding element of `self`. Up to `self.len()` items are applied,
+    /// - If `T` is an [`Enum`], then the variant of `self` is `updated` to match
+    ///   the variant of `value`. The corresponding fields of that variant are
+    ///   applied from `value` onto `self`. Fields which are not present in both
+    ///   values are ignored.
+    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied
+    ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
     ///   and excess elements in `value` are appended to `self`.
     /// - If `T` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
@@ -102,7 +126,7 @@ pub trait Reflect: Any + Send + Sync {
     ///
     /// Note that `Reflect` must be implemented manually for [`List`]s and
     /// [`Map`]s in order to achieve the correct semantics, as derived
-    /// implementations will have the semantics for [`Struct`], [`TupleStruct`]
+    /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
     /// or none of the above depending on the kind of type. For lists and maps, use the
     /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
     ///
@@ -135,13 +159,18 @@ pub trait Reflect: Any + Send + Sync {
     /// See [`ReflectMut`].
     fn reflect_mut(&mut self) -> ReflectMut;
 
+    /// Returns an owned enumeration of "kinds" of type.
+    ///
+    /// See [`ReflectOwned`].
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned;
+
     /// Clones the value as a `Reflect` trait object.
     ///
-    /// When deriving `Reflect` for a struct or struct tuple, the value is
-    /// cloned via [`Struct::clone_dynamic`] (resp.
-    /// [`TupleStruct::clone_dynamic`]). Implementors of other `Reflect`
-    /// subtraits (e.g. [`List`], [`Map`]) should use those subtraits'
-    /// respective `clone_dynamic` methods.
+    /// When deriving `Reflect` for a struct, tuple struct or enum, the value is
+    /// cloned via [`Struct::clone_dynamic`], [`TupleStruct::clone_dynamic`],
+    /// or [`Enum::clone_dynamic`], respectively.
+    /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
+    /// use those subtraits' respective `clone_dynamic` methods.
     fn clone_value(&self) -> Box<dyn Reflect>;
 
     /// Returns a hash of the value (which includes the type).
@@ -184,21 +213,6 @@ pub trait Reflect: Any + Send + Sync {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
-}
-
-/// A trait for types which can be constructed from a reflected type.
-///
-/// This trait can be derived on types which implement [`Reflect`]. Some complex
-/// types (such as `Vec<T>`) may only be reflected if their element types
-/// implement this trait.
-///
-/// For structs and tuple structs, fields marked with the `#[reflect(ignore)]`
-/// attribute will be constructed using the `Default` implementation of the
-/// field type, rather than the corresponding field value (if any) of the
-/// reflected value.
-pub trait FromReflect: Reflect + Sized {
-    /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
 }
 
 impl Debug for dyn Reflect {
@@ -251,6 +265,8 @@ impl dyn Reflect {
     /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
     /// to determine what type they represent. Represented types cannot be downcasted
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
+    ///
+    /// [`FromReflect`]: crate::FromReflect
     #[inline]
     pub fn is<T: Reflect>(&self) -> bool {
         self.type_id() == TypeId::of::<T>()

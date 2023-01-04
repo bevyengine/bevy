@@ -55,57 +55,62 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let enemy_b_handle = asset_server.load("textures/simplespace/enemy_B.png");
 
     // 2D orthographic camera
-    commands.spawn_bundle(Camera2dBundle::default());
+    commands.spawn(Camera2dBundle::default());
 
     let horizontal_margin = BOUNDS.x / 4.0;
     let vertical_margin = BOUNDS.y / 4.0;
 
     // player controlled ship
-    commands
-        .spawn_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             texture: ship_handle,
             ..default()
-        })
-        .insert(Player {
+        },
+        Player {
             movement_speed: 500.0,                  // metres per second
             rotation_speed: f32::to_radians(360.0), // degrees per second
-        });
+        },
+    ));
 
     // enemy that snaps to face the player spawns on the bottom and left
-    commands
-        .spawn_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             texture: enemy_a_handle.clone(),
             transform: Transform::from_xyz(0.0 - horizontal_margin, 0.0, 0.0),
             ..default()
-        })
-        .insert(SnapToPlayer);
-    commands
-        .spawn_bundle(SpriteBundle {
+        },
+        SnapToPlayer,
+    ));
+    commands.spawn((
+        SpriteBundle {
             texture: enemy_a_handle,
             transform: Transform::from_xyz(0.0, 0.0 - vertical_margin, 0.0),
             ..default()
-        })
-        .insert(SnapToPlayer);
+        },
+        SnapToPlayer,
+    ));
 
     // enemy that rotates to face the player enemy spawns on the top and right
-    commands
-        .spawn_bundle(SpriteBundle {
+    commands.spawn((
+        SpriteBundle {
             texture: enemy_b_handle.clone(),
             transform: Transform::from_xyz(0.0 + horizontal_margin, 0.0, 0.0),
             ..default()
-        })
-        .insert(RotateToPlayer {
+        },
+        RotateToPlayer {
             rotation_speed: f32::to_radians(45.0), // degrees per second
-        });
-    commands
-        .spawn_bundle(SpriteBundle {
+        },
+    ));
+    commands.spawn((
+        SpriteBundle {
             texture: enemy_b_handle,
             transform: Transform::from_xyz(0.0, 0.0 + vertical_margin, 0.0),
             ..default()
-        })
-        .insert(RotateToPlayer {
+        },
+        RotateToPlayer {
             rotation_speed: f32::to_radians(90.0), // degrees per second
-        });
+        },
+    ));
 }
 
 /// Demonstrates applying rotation and movement based on keyboard input.

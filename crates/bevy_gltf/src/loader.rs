@@ -465,15 +465,13 @@ async fn load_gltf<'a, 'b>(
         let mut entity_to_skin_index_map = HashMap::new();
 
         world
-            .spawn()
-            .insert_bundle(SpatialBundle::visible_identity())
+            .spawn(SpatialBundle::INHERITED_IDENTITY)
             .with_children(|parent| {
                 for node in scene.nodes() {
                     let result = load_node(
                         &node,
                         parent,
                         load_context,
-                        &buffer_data,
                         &mut node_index_to_entity_map,
                         &mut entity_to_skin_index_map,
                         &mut active_camera_found,
@@ -580,8 +578,8 @@ async fn load_texture<'a>(
     let is_srgb = !linear_textures.contains(&gltf_texture.index());
     let mut texture = match gltf_texture.source().source() {
         gltf::image::Source::View { view, mime_type } => {
-            let start = view.offset() as usize;
-            let end = (view.offset() + view.length()) as usize;
+            let start = view.offset();
+            let end = view.offset() + view.length();
             let buffer = &buffer_data[view.buffer().index()][start..end];
             Image::from_buffer(
                 buffer,
@@ -671,7 +669,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
     load_context.set_labeled_asset(
         &material_label,
         LoadedAsset::new(StandardMaterial {
-            base_color: Color::rgba(color[0], color[1], color[2], color[3]),
+            base_color: Color::rgba_linear(color[0], color[1], color[2], color[3]),
             base_color_texture,
             perceptual_roughness: pbr.roughness_factor(),
             metallic: pbr.metallic_factor(),
@@ -684,7 +682,7 @@ fn load_material(material: &Material, load_context: &mut LoadContext) -> Handle<
                 Some(Face::Back)
             },
             occlusion_texture,
-            emissive: Color::rgba(emissive[0], emissive[1], emissive[2], 1.0),
+            emissive: Color::rgb_linear(emissive[0], emissive[1], emissive[2]),
             emissive_texture,
             unlit: material.unlit(),
             alpha_mode: alpha_mode(material),
@@ -698,14 +696,13 @@ fn load_node(
     gltf_node: &gltf::Node,
     world_builder: &mut WorldChildBuilder,
     load_context: &mut LoadContext,
-    buffer_data: &[Vec<u8>],
     node_index_to_entity_map: &mut HashMap<usize, Entity>,
     entity_to_skin_index_map: &mut HashMap<Entity, usize>,
     active_camera_found: &mut bool,
 ) -> Result<(), GltfError> {
     let transform = gltf_node.transform();
     let mut gltf_error = None;
-    let mut node = world_builder.spawn_bundle(SpatialBundle::from(Transform::from_matrix(
+    let mut node = world_builder.spawn(SpatialBundle::from(Transform::from_matrix(
         Mat4::from_cols_array_2d(&transform.matrix()),
     )));
 
@@ -748,7 +745,7 @@ fn load_node(
             }
         };
 
-        node.insert_bundle((
+        node.insert((
             projection,
             Camera {
                 is_active: !*active_camera_found,
@@ -787,7 +784,7 @@ fn load_node(
                 let material_asset_path =
                     AssetPath::new_ref(load_context.path(), Some(&material_label));
 
-                let mut mesh_entity = parent.spawn_bundle(PbrBundle {
+                let mut mesh_entity = parent.spawn(PbrBundle {
                     mesh: load_context.get_handle(mesh_asset_path),
                     material: load_context.get_handle(material_asset_path),
                     ..Default::default()
@@ -815,7 +812,7 @@ fn load_node(
         if let Some(light) = gltf_node.light() {
             match light.kind() {
                 gltf::khr_lights_punctual::Kind::Directional => {
-                    let mut entity = parent.spawn_bundle(DirectionalLightBundle {
+                    let mut entity = parent.spawn(DirectionalLightBundle {
                         directional_light: DirectionalLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for directional
@@ -835,7 +832,7 @@ fn load_node(
                     }
                 }
                 gltf::khr_lights_punctual::Kind::Point => {
-                    let mut entity = parent.spawn_bundle(PointLightBundle {
+                    let mut entity = parent.spawn(PointLightBundle {
                         point_light: PointLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for point lights in
@@ -861,7 +858,7 @@ fn load_node(
                     inner_cone_angle,
                     outer_cone_angle,
                 } => {
-                    let mut entity = parent.spawn_bundle(SpotLightBundle {
+                    let mut entity = parent.spawn(SpotLightBundle {
                         spot_light: SpotLight {
                             color: Color::from(light.color()),
                             // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
@@ -894,7 +891,6 @@ fn load_node(
                 &child,
                 parent,
                 load_context,
-                buffer_data,
                 node_index_to_entity_map,
                 entity_to_skin_index_map,
                 active_camera_found,
@@ -924,7 +920,7 @@ fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 /// Returns the label for the `material`.
 fn material_label(material: &gltf::Material) -> String {
     if let Some(index) = material.index() {
-        format!("Material{}", index)
+        format!("Material{index}")
     } else {
         "MaterialDefault".to_string()
     }
@@ -1169,7 +1165,7 @@ mod test {
             GltfNode {
                 children: vec![],
                 mesh: None,
-                transform: bevy_transform::prelude::Transform::identity(),
+                transform: bevy_transform::prelude::Transform::IDENTITY,
             }
         }
     }

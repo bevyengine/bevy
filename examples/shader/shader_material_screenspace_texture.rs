@@ -25,17 +25,17 @@ fn setup(
     mut custom_materials: ResMut<Assets<CustomMaterial>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
         material: standard_materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
         ..default()
     });
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 8.0, 4.0),
         ..default()
     });
 
-    commands.spawn().insert_bundle(MaterialMeshBundle {
+    commands.spawn(MaterialMeshBundle {
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         transform: Transform::from_xyz(0.0, 0.5, 0.0),
         material: custom_materials.add(CustomMaterial {
@@ -47,12 +47,13 @@ fn setup(
     });
 
     // camera
-    commands
-        .spawn_bundle(Camera3dBundle {
+    commands.spawn((
+        Camera3dBundle {
             transform: Transform::from_xyz(4.0, 2.5, 4.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        })
-        .insert(MainCamera);
+        },
+        MainCamera,
+    ));
 }
 
 fn rotate_camera(mut camera: Query<&mut Transform, With<MainCamera>>, time: Res<Time>) {

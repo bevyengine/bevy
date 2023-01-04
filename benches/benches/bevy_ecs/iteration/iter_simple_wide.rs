@@ -35,7 +35,7 @@ impl<'w> Benchmark<'w> {
 
         // TODO: batch this
         for _ in 0..10_000 {
-            world.spawn().insert_bundle((
+            world.spawn((
                 Transform(Mat4::from_scale(Vec3::ONE)),
                 Rotation(Vec3::X),
                 Position::<0>(Vec3::X),
