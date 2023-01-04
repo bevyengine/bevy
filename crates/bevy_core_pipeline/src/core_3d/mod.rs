@@ -29,8 +29,8 @@ use bevy_render::{
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
-        EntityPhaseItem, PhaseItem, RenderPhase,
+        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        RenderPhase,
     },
     render_resource::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
@@ -125,6 +125,11 @@ impl PhaseItem for Opaque3d {
     type SortKey = Reverse<FloatOrd>;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         Reverse(FloatOrd(self.distance))
     }
@@ -138,13 +143,6 @@ impl PhaseItem for Opaque3d {
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
-    }
-}
-
-impl EntityPhaseItem for Opaque3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -167,6 +165,11 @@ impl PhaseItem for AlphaMask3d {
     type SortKey = Reverse<FloatOrd>;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         Reverse(FloatOrd(self.distance))
     }
@@ -180,13 +183,6 @@ impl PhaseItem for AlphaMask3d {
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
-    }
-}
-
-impl EntityPhaseItem for AlphaMask3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -209,6 +205,11 @@ impl PhaseItem for Transparent3d {
     type SortKey = FloatOrd;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
     }
@@ -221,13 +222,6 @@ impl PhaseItem for Transparent3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for Transparent3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 

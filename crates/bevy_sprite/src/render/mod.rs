@@ -16,7 +16,7 @@ use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
     render_phase::{
-        BatchedPhaseItem, DrawFunctions, EntityRenderCommand, RenderCommand, RenderCommandResult,
+        BatchedPhaseItem, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
@@ -696,16 +696,18 @@ pub type DrawSprite = (
 );
 
 pub struct SetSpriteViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
-    type Param = (SRes<SpriteMeta>, SQuery<Read<ViewUniformOffset>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I> {
+    type Param = SRes<SpriteMeta>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemWorldQuery = ();
 
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (sprite_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        view_uniform: &'_ ViewUniformOffset,
+        _entity: (),
+        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             sprite_meta.into_inner().view_bind_group.as_ref().unwrap(),
@@ -715,16 +717,18 @@ impl<const I: usize> EntityRenderCommand for SetSpriteViewBindGroup<I> {
     }
 }
 pub struct SetSpriteTextureBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
-    type Param = (SRes<ImageBindGroups>, SQuery<Read<SpriteBatch>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
+    type Param = SRes<ImageBindGroups>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (image_bind_groups, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        sprite_batch: &'_ SpriteBatch,
+        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
 
         pass.set_bind_group(
@@ -741,15 +745,17 @@ impl<const I: usize> EntityRenderCommand for SetSpriteTextureBindGroup<I> {
 
 pub struct DrawSpriteBatch;
 impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
-    type Param = (SRes<SpriteMeta>, SQuery<Read<SpriteBatch>>);
+    type Param = SRes<SpriteMeta>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<SpriteBatch>;
 
     fn render<'w>(
-        _view: Entity,
         item: &P,
-        (sprite_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        _view: (),
+        sprite_batch: &'_ SpriteBatch,
+        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let sprite_batch = query_batch.get(item.entity()).unwrap();
         let sprite_meta = sprite_meta.into_inner();
         if sprite_batch.colored {
             pass.set_vertex_buffer(0, sprite_meta.colored_vertices.buffer().unwrap().slice(..));

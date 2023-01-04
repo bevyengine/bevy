@@ -40,6 +40,7 @@ impl<I: PhaseItem> RenderPhase<I> {
     ) {
         let draw_functions = world.resource::<DrawFunctions<I>>();
         let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
 
         for item in &self.items {
             let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
@@ -107,15 +108,14 @@ mod tests {
         impl PhaseItem for TestPhaseItem {
             type SortKey = ();
 
+            fn entity(&self) -> bevy_ecs::entity::Entity {
+                self.entity
+            }
+
             fn sort_key(&self) -> Self::SortKey {}
 
             fn draw_function(&self) -> DrawFunctionId {
                 unimplemented!();
-            }
-        }
-        impl EntityPhaseItem for TestPhaseItem {
-            fn entity(&self) -> bevy_ecs::entity::Entity {
-                self.entity
             }
         }
         impl BatchedPhaseItem for TestPhaseItem {
