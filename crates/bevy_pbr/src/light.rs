@@ -981,7 +981,12 @@ pub(crate) fn assign_lights_to_clusters(
         let mut requested_cluster_dimensions = config.dimensions_for_screen_size(screen_size);
 
         let view_transform = camera_transform.compute_matrix();
-        let view_inv_scale = 1.0 / camera_transform.compute_transform().scale.x;
+        let view_inv_scale = camera_transform
+            .compute_transform()
+            .scale
+            .abs()
+            .min_element()
+            .recip();
         let inverse_view_transform = view_transform.inverse();
         let is_orthographic = camera.projection_matrix().w_axis.w == 1.0;
 
