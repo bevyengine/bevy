@@ -570,6 +570,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
+    /// # #[derive(Event)]
     /// # struct MyEvent;
     /// # let mut app = App::new();
     /// #
