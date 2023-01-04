@@ -1009,7 +1009,7 @@ fn run_once(mut app: App) {
 /// If you don't require access to other components or resources, consider implementing the [`Drop`]
 /// trait on components/resources for code that runs on exit. That saves you from worrying about
 /// system schedule ordering, and is idiomatic Rust.
-#[derive(Debug, Clone, Default)]
+#[derive(Event, Debug, Clone, Default)]
 pub struct AppExit;
 
 #[cfg(test)]
