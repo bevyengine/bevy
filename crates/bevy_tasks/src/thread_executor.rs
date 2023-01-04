@@ -44,7 +44,6 @@ use futures_lite::Future;
 /// thread_ticker.try_tick();
 /// assert_eq!(count.load(Ordering::Relaxed), 1);
 /// ```
-///
 #[derive(Debug, Clone)]
 pub struct ThreadExecutor {
     executor: Arc<Executor<'static>>,
@@ -67,7 +66,7 @@ impl ThreadExecutor {
     }
 
     /// Gets the `[ThreadSpawner]` for the thread executor.
-    /// Use this to spawn tasks that run on the thread this was instatiated on.
+    /// Use this to spawn tasks that run on the thread this was instantiated on.
     pub fn spawner(&self) -> ThreadSpawner<'static> {
         ThreadSpawner(self.executor.clone())
     }
@@ -88,7 +87,7 @@ impl ThreadExecutor {
 }
 
 /// Used to spawn on the [`ThreadExecutor`]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ThreadSpawner<'a>(Arc<Executor<'a>>);
 impl<'a> ThreadSpawner<'a> {
     /// Spawn a task on the thread executor
