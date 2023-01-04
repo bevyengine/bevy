@@ -4,10 +4,7 @@ mod draw_state;
 use bevy_ecs::entity::Entity;
 pub use draw::*;
 pub use draw_state::*;
-use wgpu::RenderPassDescriptor;
 
-use crate::camera::Viewport;
-use crate::renderer::RenderContext;
 use bevy_ecs::prelude::{Component, Query};
 use bevy_ecs::world::World;
 
@@ -35,26 +32,19 @@ impl<I: PhaseItem> RenderPhase<I> {
         I::sort(&mut self.items);
     }
 
-    pub fn render(
+    pub fn render<'w>(
         &self,
-        world: &World,
-        render_context: &mut RenderContext,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
         view: Entity,
-        viewport: Option<&Viewport>,
-        pass_descriptor: RenderPassDescriptor,
     ) {
-        let mut render_pass = render_context.begin_tracked_render_pass(pass_descriptor);
-
-        if let Some(viewport) = viewport {
-            render_pass.set_camera_viewport(viewport);
-        }
-
         let draw_functions = world.resource::<DrawFunctions<I>>();
         let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
 
         for item in &self.items {
             let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-            draw_function.draw(world, &mut render_pass, view, item);
+            draw_function.draw(world, render_pass, view, item);
         }
     }
 }
@@ -118,15 +108,14 @@ mod tests {
         impl PhaseItem for TestPhaseItem {
             type SortKey = ();
 
+            fn entity(&self) -> bevy_ecs::entity::Entity {
+                self.entity
+            }
+
             fn sort_key(&self) -> Self::SortKey {}
 
             fn draw_function(&self) -> DrawFunctionId {
                 unimplemented!();
-            }
-        }
-        impl EntityPhaseItem for TestPhaseItem {
-            fn entity(&self) -> bevy_ecs::entity::Entity {
-                self.entity
             }
         }
         impl BatchedPhaseItem for TestPhaseItem {
