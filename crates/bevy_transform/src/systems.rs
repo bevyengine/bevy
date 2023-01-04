@@ -27,9 +27,8 @@ pub fn propagate_transforms(
         ),
         Without<Parent>,
     >,
-    transform_query: Query<(&Transform, Changed<Transform>, &mut GlobalTransform), With<Parent>>,
+    transform_query: Query<(&Transform, Changed<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
     parent_query: Query<(Entity, &Parent, Changed<Parent>)>,
-    children_query: Query<&Children, (With<Parent>, With<GlobalTransform>)>,
 ) {
     root_query.par_for_each_mut(
         // The differing depths and sizes of hierarchy trees causes the work for each root to be
@@ -47,8 +46,8 @@ pub fn propagate_transforms(
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
                 );
                 // SAFETY:
-                // - We may operate as if the hierarchy is consistent, since `propagate_recursive` will panic before continuing
-                //   to propagate if it encounters an entity with inconsistent parentage.
+                // - We may operate as if the hierarchy is consistent, since the above assertion will panic before 
+                //   continuing to propagate if it encounters an entity with inconsistent parentage.
                 // - Since each root entity is unique and the hierarchy is consistent and forest-like,
                 //   other root entities' `propagate_recursive` calls will not conflict with this one.
                 // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
@@ -57,7 +56,6 @@ pub fn propagate_transforms(
                         &global_transform,
                         &transform_query,
                         &parent_query,
-                        &children_query,
                         child,
                         changed || parent_changed,
                     );
@@ -77,23 +75,23 @@ pub fn propagate_transforms(
 /// # Safety
 ///
 /// While this function is running, `unsafe_transform_query` must not have any fetches for `entity`,
-/// nor any of its descendants.
+/// nor any of its descendants. The caller also must ensure that the hierarchy leading to `entity`
+/// is not malformed and must remain as a tree or a forest. An entity must not have more than one parent.
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     unsafe_transform_query: &Query<
-        (&Transform, Changed<Transform>, &mut GlobalTransform),
+        (&Transform, Changed<Transform>, &mut GlobalTransform, Option<&Children>),
         With<Parent>,
     >,
     parent_query: &Query<(Entity, &Parent, Changed<Parent>)>,
-    children_query: &Query<&Children, (With<Parent>, With<GlobalTransform>)>,
     entity: Entity,
     mut changed: bool,
 ) {
-    let global_matrix = {
-        let Ok((transform, transform_changed, mut global_transform)) =
+    let (global_matrix, children) = {
+        let Ok((transform, transform_changed, mut global_transform, children)) =
             // SAFETY: This call cannot create aliased mutable references.
             //   - The top level iteration parallelizes on the roots of the hierarchy.
-            //   - The above assertion ensures that each child has one and only one unique parent throughout the entire
+            //   - The caller ensures that each child has one and only one unique parent throughout the entire
             //     hierarchy.
             //
             // For example, consider the following malformed hierarchy:
@@ -125,10 +123,10 @@ unsafe fn propagate_recursive(
         if changed {
             *global_transform = parent.mul_transform(*transform);
         }
-        *global_transform
+        (*global_transform, children)
     };
 
-    let Ok(children) = children_query.get(entity) else { return };
+    let Some(children) = children else { return };
     for (child, actual_parent, parent_changed) in parent_query.iter_many(children) {
         assert_eq!(
             actual_parent.get(), entity,
@@ -136,12 +134,14 @@ unsafe fn propagate_recursive(
         );
         // SAFETY: The caller guarantees that `unsafe_transform_query` will not be fetched
         // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
+        // 
+        // The above assertion ensures that each child has one and only one unique parent throughout the 
+        // entire hierarchy.
         unsafe {
             propagate_recursive(
                 &global_matrix,
                 unsafe_transform_query,
                 parent_query,
-                children_query,
                 child,
                 changed || parent_changed,
             );
