@@ -671,7 +671,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Event, Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
     }
@@ -774,7 +774,7 @@ mod tests {
         reader.iter(events).cloned().collect::<Vec<E>>()
     }
 
-    #[derive(PartialEq, Eq, Debug)]
+    #[derive(Event, PartialEq, Eq, Debug)]
     struct E(usize);
 
     fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<E>)) {
@@ -981,7 +981,7 @@ mod tests {
         assert!(last.is_none(), "EventReader should be empty");
     }
 
-    #[derive(Clone, PartialEq, Debug, Default)]
+    #[derive(Event, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
     #[test]
