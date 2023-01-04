@@ -25,7 +25,7 @@ fn setup(
 ) {
     // ground plane
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 10.0 })),
+        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
         material: materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
@@ -103,9 +103,10 @@ fn setup(
             // transform: Transform::from_xyz(5.0, 8.0, 2.0),
             transform: Transform::from_xyz(1.0, 2.0, 0.0),
             point_light: PointLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+                intensity: 160.0,
                 color: Color::RED,
                 shadows_enabled: true,
+                range: 5.0,
                 ..default()
             },
             ..default()
@@ -126,89 +127,89 @@ fn setup(
         });
 
     // green spot light
-    commands
-        .spawn(SpotLightBundle {
-            transform: Transform::from_xyz(-1.0, 2.0, 0.0)
-                .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
-            spot_light: SpotLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
-                color: Color::GREEN,
-                shadows_enabled: true,
-                inner_angle: 0.6,
-                outer_angle: 0.8,
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|builder| {
-            builder.spawn(PbrBundle {
-                transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
-                mesh: meshes.add(Mesh::from(shape::Capsule {
-                    depth: 0.125,
-                    radius: 0.1,
-                    ..default()
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::GREEN,
-                    emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
-                    ..default()
-                }),
-                ..default()
-            });
-        });
+    // commands
+    //     .spawn(SpotLightBundle {
+    //         transform: Transform::from_xyz(-1.0, 2.0, 0.0)
+    //             .looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
+    //         spot_light: SpotLight {
+    //             intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+    //             color: Color::GREEN,
+    //             shadows_enabled: true,
+    //             inner_angle: 0.6,
+    //             outer_angle: 0.8,
+    //             ..default()
+    //         },
+    //         ..default()
+    //     })
+    //     .with_children(|builder| {
+    //         builder.spawn(PbrBundle {
+    //             transform: Transform::from_rotation(Quat::from_rotation_x(PI / 2.0)),
+    //             mesh: meshes.add(Mesh::from(shape::Capsule {
+    //                 depth: 0.125,
+    //                 radius: 0.1,
+    //                 ..default()
+    //             })),
+    //             material: materials.add(StandardMaterial {
+    //                 base_color: Color::GREEN,
+    //                 emissive: Color::rgba_linear(0.0, 100.0, 0.0, 0.0),
+    //                 ..default()
+    //             }),
+    //             ..default()
+    //         });
+    //     });
 
     // blue point light
-    commands
-        .spawn(PointLightBundle {
-            // transform: Transform::from_xyz(5.0, 8.0, 2.0),
-            transform: Transform::from_xyz(0.0, 4.0, 0.0),
-            point_light: PointLight {
-                intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
-                color: Color::BLUE,
-                shadows_enabled: true,
-                ..default()
-            },
-            ..default()
-        })
-        .with_children(|builder| {
-            builder.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::UVSphere {
-                    radius: 0.1,
-                    ..default()
-                })),
-                material: materials.add(StandardMaterial {
-                    base_color: Color::BLUE,
-                    emissive: Color::rgba_linear(0.0, 0.0, 100.0, 0.0),
-                    ..default()
-                }),
-                ..default()
-            });
-        });
+    // commands
+    //     .spawn(PointLightBundle {
+    //         // transform: Transform::from_xyz(5.0, 8.0, 2.0),
+    //         transform: Transform::from_xyz(0.0, 4.0, 0.0),
+    //         point_light: PointLight {
+    //             intensity: 1600.0, // lumens - roughly a 100W non-halogen incandescent bulb
+    //             color: Color::BLUE,
+    //             shadows_enabled: true,
+    //             ..default()
+    //         },
+    //         ..default()
+    //     })
+    //     .with_children(|builder| {
+    //         builder.spawn(PbrBundle {
+    //             mesh: meshes.add(Mesh::from(shape::UVSphere {
+    //                 radius: 0.1,
+    //                 ..default()
+    //             })),
+    //             material: materials.add(StandardMaterial {
+    //                 base_color: Color::BLUE,
+    //                 emissive: Color::rgba_linear(0.0, 0.0, 100.0, 0.0),
+    //                 ..default()
+    //             }),
+    //             ..default()
+    //         });
+    //     });
 
-    // directional 'sun' light
-    const HALF_SIZE: f32 = 10.0;
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            // Configure the projection to better fit the scene
-            shadow_projection: OrthographicProjection {
-                left: -HALF_SIZE,
-                right: HALF_SIZE,
-                bottom: -HALF_SIZE,
-                top: HALF_SIZE,
-                near: -10.0 * HALF_SIZE,
-                far: 10.0 * HALF_SIZE,
-                ..default()
-            },
-            shadows_enabled: true,
-            ..default()
-        },
-        transform: Transform {
-            translation: Vec3::new(0.0, 2.0, 0.0),
-            rotation: Quat::from_rotation_x(-PI / 4.),
-            ..default()
-        },
-        ..default()
-    });
+    // // directional 'sun' light
+    // const HALF_SIZE: f32 = 10.0;
+    // commands.spawn(DirectionalLightBundle {
+    //     directional_light: DirectionalLight {
+    //         // Configure the projection to better fit the scene
+    //         shadow_projection: OrthographicProjection {
+    //             left: -HALF_SIZE,
+    //             right: HALF_SIZE,
+    //             bottom: -HALF_SIZE,
+    //             top: HALF_SIZE,
+    //             near: -10.0 * HALF_SIZE,
+    //             far: 10.0 * HALF_SIZE,
+    //             ..default()
+    //         },
+    //         shadows_enabled: true,
+    //         ..default()
+    //     },
+    //     transform: Transform {
+    //         translation: Vec3::new(0.0, 2.0, 0.0),
+    //         rotation: Quat::from_rotation_x(-PI / 4.),
+    //         ..default()
+    //     },
+    //     ..default()
+    // });
 
     // camera
     commands.spawn(Camera3dBundle {
@@ -230,6 +231,7 @@ fn movement(
     input: Res<Input<KeyCode>>,
     time: Res<Time>,
     mut query: Query<&mut Transform, With<Movable>>,
+    mut cam: Query<&mut Transform, (With<Camera3d>, Without<Movable>)>,
 ) {
     for mut transform in &mut query {
         let mut direction = Vec3::ZERO;
@@ -244,6 +246,42 @@ fn movement(
         }
         if input.pressed(KeyCode::Right) {
             direction.x += 1.0;
+        }
+
+        if input.just_pressed(KeyCode::O) {
+            cam.single_mut().scale.x -= 0.1;
+            println!("{}", cam.single().scale);
+        }
+        if input.just_pressed(KeyCode::P) {
+            cam.single_mut().scale.x += 0.1;
+            println!("{}", cam.single().scale);
+        }
+        if input.just_pressed(KeyCode::K) {
+            cam.single_mut().scale.y -= 0.1;
+            println!("{}", cam.single().scale);
+        }
+        if input.just_pressed(KeyCode::I) {
+            cam.single_mut().scale.y += 0.1;
+            println!("{}", cam.single().scale);
+        }
+        if input.just_pressed(KeyCode::U) {
+            cam.single_mut().scale.z -= 0.1;
+            println!("{}", cam.single().scale);
+        }
+        if input.just_pressed(KeyCode::J) {
+            cam.single_mut().scale.z += 0.1;
+            println!("{}", cam.single().scale);
+        }
+
+        if input.pressed(KeyCode::S) {
+            let mut t = cam.single_mut();
+            let new_t = t.translation + t.rotation * Vec3::Z * 0.05;
+            t.translation = new_t;
+        }
+        if input.pressed(KeyCode::W) {
+            let mut t = cam.single_mut();
+            let new_t = t.translation + t.rotation * Vec3::Z * -0.05;
+            t.translation = new_t;
         }
 
         transform.translation += time.delta_seconds() * 2.0 * direction;
