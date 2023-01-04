@@ -9,7 +9,7 @@ use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{
     change_detection::DetectChanges,
-    entity::Entity,
+    entity::{Entity, MapEntities},
     prelude::Component,
     reflect::ReflectComponent,
     schedule::IntoSystemDescriptor,
@@ -63,17 +63,22 @@ pub struct EntityPath {
 #[derive(Reflect, FromReflect, Clone, TypeUuid, Debug, Default)]
 #[uuid = "d81b7179-0448-4eb0-89fe-c067222725bf"]
 pub struct AnimationClip {
-    curves: HashMap<EntityPath, Vec<VariableCurve>>,
+    paths: HashMap<EntityPath, usize>,
+    path_curves: Vec<PathCurves>,
     duration: f32,
 }
 
-impl AnimationClip {
-    #[inline]
-    /// Hashmap of the [`VariableCurve`]s per [`EntityPath`].
-    pub fn curves(&self) -> &HashMap<EntityPath, Vec<VariableCurve>> {
-        &self.curves
-    }
+#[derive(Reflect, FromReflect, Clone, Debug, Default)]
+struct PathCurves {
+    /// Keyframes for rotation.
+    rotation: Vec<(f32, Quat)>,
+    /// Keyframes for translation.
+    translation: Vec<(f32, Vec3)>,
+    /// Keyframes for scale.
+    scale: Vec<(f32, Vec3)>,
+}
 
+impl AnimationClip {
     /// Duration of the clip, represented in seconds
     #[inline]
     pub fn duration(&self) -> f32 {
@@ -83,10 +88,32 @@ impl AnimationClip {
     /// Add a [`VariableCurve`] to an [`EntityPath`].
     pub fn add_curve_to_path(&mut self, path: EntityPath, curve: VariableCurve) {
         // Update the duration of the animation by this curve duration if it's longer
-        self.duration = self
-            .duration
-            .max(*curve.keyframe_timestamps.last().unwrap_or(&0.0));
-        self.curves.entry(path).or_default().push(curve);
+        self.duration = self.duration.max(
+            (curve.keyframe_timestamps.last())
+                .copied()
+                .unwrap_or_default(),
+        );
+        let curves_len = self.path_curves.len();
+        let curve_index = *self.paths.entry(path).or_insert_with(|| {
+            self.path_curves.push(PathCurves {
+                rotation: vec![],
+                translation: vec![],
+                scale: vec![],
+            });
+            curves_len
+        });
+        let timestamps = curve.keyframe_timestamps.into_iter();
+        match curve.keyframes {
+            Keyframes::Rotation(r) => self.path_curves[curve_index]
+                .rotation
+                .extend(timestamps.zip(r)),
+            Keyframes::Translation(t) => self.path_curves[curve_index]
+                .translation
+                .extend(timestamps.zip(t)),
+            Keyframes::Scale(s) => self.path_curves[curve_index]
+                .scale
+                .extend(timestamps.zip(s)),
+        }
     }
 }
 
@@ -99,6 +126,8 @@ pub struct AnimationPlayer {
     speed: f32,
     elapsed: f32,
     animation_clip: Handle<AnimationClip>,
+    #[reflect(ignore)]
+    memoize: AnimationPlayerMemoize,
 }
 
 impl Default for AnimationPlayer {
@@ -109,15 +138,81 @@ impl Default for AnimationPlayer {
             speed: 1.0,
             elapsed: 0.0,
             animation_clip: Default::default(),
+            memoize: Default::default(),
         }
+    }
+}
+
+#[derive(Default)]
+struct AnimationPlayerMemoize {
+    path_entities: HashMap<EntityPath, Entity>,
+    curve_state: HashMap<usize, CurveState>,
+}
+impl AnimationPlayerMemoize {
+    fn is_empty(&self) -> bool {
+        self.curve_state.is_empty()
+    }
+
+    fn get_entity(
+        &mut self,
+        root_entity: Entity,
+        names: &Query<&Name>,
+        children: &Query<&Children>,
+        path: &EntityPath,
+    ) -> Option<Entity> {
+        if let Some(current_entity) = self.path_entities.get(path) {
+            return Some(*current_entity);
+        }
+
+        let mut entity = root_entity;
+        // Ignore the first name, it is the root node which we already have
+        for part in path.parts.iter().skip(1) {
+            let mut children = children.get(entity).ok()?.deref().into_iter();
+            entity = *children.find(|child| names.get(**child) == Ok(part))?;
+        }
+
+        self.path_entities.insert(path.clone(), entity);
+
+        Some(entity)
+    }
+}
+
+struct CurveState {
+    entity: Entity,
+    rotation_keyframe_hint: Option<usize>,
+    translation_keyframe_hint: Option<usize>,
+    scale_keyframe_hint: Option<usize>,
+}
+
+impl MapEntities for AnimationPlayer {
+    fn map_entities(
+        &mut self,
+        entity_map: &bevy_ecs::entity::EntityMap,
+    ) -> Result<(), bevy_ecs::entity::MapEntitiesError> {
+        let AnimationPlayerMemoize {
+            path_entities,
+            curve_state,
+        } = &mut self.memoize;
+        for entity in path_entities.values_mut() {
+            *entity = entity_map.get(*entity)?;
+        }
+        for state in curve_state.values_mut() {
+            state.entity = entity_map.get(state.entity)?;
+        }
+        Ok(())
     }
 }
 
 impl AnimationPlayer {
     /// Start playing an animation, resetting state of the player
     pub fn start(&mut self, handle: Handle<AnimationClip>) -> &mut Self {
+        let path_entities = std::mem::take(&mut self.memoize.path_entities);
         *self = Self {
             animation_clip: handle,
+            memoize: AnimationPlayerMemoize {
+                path_entities,
+                ..Default::default()
+            },
             ..Default::default()
         };
         self
@@ -177,6 +272,11 @@ impl AnimationPlayer {
     /// Seek to a specific time in the animation
     pub fn set_elapsed(&mut self, elapsed: f32) -> &mut Self {
         self.elapsed = elapsed;
+        for curve_state in self.memoize.curve_state.values_mut() {
+            curve_state.rotation_keyframe_hint = None;
+            curve_state.translation_keyframe_hint = None;
+            curve_state.scale_keyframe_hint = None;
+        }
         self
     }
 }
@@ -193,6 +293,27 @@ pub fn animation_player(
 ) {
     for (entity, mut player) in &mut animation_players {
         if let Some(animation_clip) = animations.get(&player.animation_clip) {
+            // This is only done once when when the animation is started.
+            if player.memoize.is_empty() {
+                for (path, curve_index) in animation_clip.paths.iter() {
+                    if let Some(entity) =
+                        (player.memoize).get_entity(entity, &names, &children, path)
+                    {
+                        player.memoize.curve_state.insert(
+                            *curve_index,
+                            CurveState {
+                                entity,
+                                rotation_keyframe_hint: None,
+                                translation_keyframe_hint: None,
+                                scale_keyframe_hint: None,
+                            },
+                        );
+                    } else {
+                        warn!("Entity not found for path {:?}", path);
+                    }
+                }
+            }
+
             // Continue if paused unless the `AnimationPlayer` was changed
             // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
             if player.paused && !player.is_changed() {
@@ -208,86 +329,119 @@ pub fn animation_player(
             if elapsed < 0.0 {
                 elapsed += animation_clip.duration;
             }
-            'entity: for (path, curves) in &animation_clip.curves {
-                // PERF: finding the target entity can be optimised
-                let mut current_entity = entity;
-                // Ignore the first name, it is the root node which we already have
-                for part in path.parts.iter().skip(1) {
-                    let mut found = false;
-                    if let Ok(children) = children.get(current_entity) {
-                        for child in children.deref() {
-                            if let Ok(name) = names.get(*child) {
-                                if name == part {
-                                    // Found a children with the right name, continue to the next part
-                                    current_entity = *child;
-                                    found = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    if !found {
-                        warn!("Entity not found for path {:?} on part {:?}", path, part);
-                        continue 'entity;
+            for (idx, path_curves) in animation_clip.path_curves.iter().enumerate() {
+                let CurveState {
+                    entity: current_entity,
+                    ref mut rotation_keyframe_hint,
+                    ref mut translation_keyframe_hint,
+                    ref mut scale_keyframe_hint,
+                } = *if let Some(state) = player.memoize.curve_state.get_mut(&idx) {
+                    state
+                } else {
+                    continue;
+                };
+
+                let mut transform = if let Ok(t) = transforms.get_mut(current_entity) {
+                    t
+                } else {
+                    continue;
+                };
+
+                #[cold]
+                fn search_range<T>(elapsed: f32, keyframes: &[(f32, T)]) -> (usize, usize) {
+                    debug_assert!(!keyframes.is_empty());
+
+                    let len = keyframes.len();
+                    match keyframes.binary_search_by(|(k, _)| k.partial_cmp(&elapsed).unwrap()) {
+                        Ok(idx) => (idx, (idx + 1) % len),
+                        Err(idx) => (idx.max(1) - 1, idx),
                     }
                 }
-                if let Ok(mut transform) = transforms.get_mut(current_entity) {
-                    for curve in curves {
-                        // Some curves have only one keyframe used to set a transform
-                        if curve.keyframe_timestamps.len() == 1 {
-                            match &curve.keyframes {
-                                Keyframes::Rotation(keyframes) => transform.rotation = keyframes[0],
-                                Keyframes::Translation(keyframes) => {
-                                    transform.translation = keyframes[0];
-                                }
-                                Keyframes::Scale(keyframes) => transform.scale = keyframes[0],
-                            }
-                            continue;
-                        }
 
-                        // Find the current keyframe
-                        // PERF: finding the current keyframe can be optimised
-                        let step_start = match curve
-                            .keyframe_timestamps
-                            .binary_search_by(|probe| probe.partial_cmp(&elapsed).unwrap())
-                        {
-                            Ok(n) if n >= curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                            Ok(i) => i,
-                            Err(0) => continue, // this curve isn't started yet
-                            Err(n) if n > curve.keyframe_timestamps.len() - 1 => continue, // this curve is finished
-                            Err(i) => i - 1,
-                        };
-                        let ts_start = curve.keyframe_timestamps[step_start];
-                        let ts_end = curve.keyframe_timestamps[step_start + 1];
-                        let lerp = (elapsed - ts_start) / (ts_end - ts_start);
+                fn interpolate<T: Copy>(
+                    elapsed: f32,
+                    hint: &mut Option<usize>,
+                    keyframes: &[(f32, T)],
+                    apply: impl FnOnce(f32, T, T) -> T,
+                ) -> T {
+                    debug_assert!(!keyframes.is_empty());
 
-                        // Apply the keyframe
-                        match &curve.keyframes {
-                            Keyframes::Rotation(keyframes) => {
-                                let rot_start = keyframes[step_start];
-                                let mut rot_end = keyframes[step_start + 1];
-                                // Choose the smallest angle for the rotation
-                                if rot_end.dot(rot_start) < 0.0 {
-                                    rot_end = -rot_end;
-                                }
-                                // Rotations are using a spherical linear interpolation
-                                transform.rotation =
-                                    rot_start.normalize().slerp(rot_end.normalize(), lerp);
-                            }
-                            Keyframes::Translation(keyframes) => {
-                                let translation_start = keyframes[step_start];
-                                let translation_end = keyframes[step_start + 1];
-                                let result = translation_start.lerp(translation_end, lerp);
-                                transform.translation = result;
-                            }
-                            Keyframes::Scale(keyframes) => {
-                                let scale_start = keyframes[step_start];
-                                let scale_end = keyframes[step_start + 1];
-                                let result = scale_start.lerp(scale_end, lerp);
-                                transform.scale = result;
-                            }
+                    let (idx, next_idx) = if let Some(hint_idx) = hint.take() {
+                        const BINARY_MIN: usize = 3;
+                        let linear_end = (hint_idx + BINARY_MIN + 1).min(keyframes.len() - 1);
+
+                        if elapsed < keyframes[hint_idx].0 {
+                            search_range(elapsed, &keyframes[..=hint_idx])
+                        } else if keyframes[linear_end].0 < elapsed {
+                            let ids = search_range(elapsed, &keyframes[linear_end..]);
+                            (linear_end + ids.0, linear_end + ids.1)
+                        } else {
+                            // It's most likely in the next few values, so assume a linear search over those.
+                            let next_idx = (keyframes[(hint_idx + 1)..linear_end].iter())
+                                .position(|(t, _)| elapsed < *t)
+                                .map(|idx| idx + hint_idx + 1)
+                                .unwrap_or(linear_end);
+                            let idx = next_idx - 1;
+                            *hint = Some(idx);
+                            (idx, next_idx)
                         }
-                    }
+                    } else {
+                        search_range(elapsed, keyframes)
+                    };
+
+                    *hint = Some(idx);
+                    let kf = &keyframes[idx];
+                    let kf_next = &keyframes[next_idx];
+                    let delta = if kf.0 < kf_next.0 {
+                        (elapsed - kf.0) / (kf_next.0 - kf.0)
+                    } else {
+                        // TODO: Does this need to wrap?
+                        0.0
+                    };
+
+                    apply(delta, kf.1, kf_next.1)
+                }
+
+                // Update the rotation.
+                if !path_curves.rotation.is_empty() {
+                    let rotation = interpolate(
+                        elapsed,
+                        rotation_keyframe_hint,
+                        &path_curves.rotation,
+                        |lerp, rot_start, mut rot_end| {
+                            // Choose the smallest angle for the rotation
+                            if rot_end.dot(rot_start) < 0.0 {
+                                rot_end = -rot_end;
+                            }
+                            // Rotations are using a spherical linear interpolation
+                            rot_start.normalize().slerp(rot_end.normalize(), lerp)
+                        },
+                    );
+                    transform.rotation = rotation;
+                }
+
+                // Update the translation.
+                if !path_curves.translation.is_empty() {
+                    let translation = interpolate(
+                        elapsed,
+                        translation_keyframe_hint,
+                        &path_curves.translation,
+                        |lerp, translation_start, translation_end| {
+                            translation_start.lerp(translation_end, lerp)
+                        },
+                    );
+                    transform.translation = translation;
+                }
+
+                // Update the scale.
+                if !path_curves.scale.is_empty() {
+                    let scale = interpolate(
+                        elapsed,
+                        scale_keyframe_hint,
+                        &path_curves.scale,
+                        |lerp, scale_start, scale_end| scale_start.lerp(scale_end, lerp),
+                    );
+                    transform.scale = scale;
                 }
             }
         }
