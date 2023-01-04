@@ -92,7 +92,7 @@ pub enum RenderStage {
     Cleanup,
 }
 
-/// Resource for holding the extract stage of the rendering schedule
+/// Resource for holding the extract stage of the rendering schedule.
 #[derive(Resource)]
 pub struct ExtractStage(pub SystemStage);
 

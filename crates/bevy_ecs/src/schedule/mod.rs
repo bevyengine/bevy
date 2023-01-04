@@ -361,7 +361,7 @@ impl Schedule {
             .and_then(|stage| stage.downcast_mut::<T>())
     }
 
-    /// Remove a [`Stage`] from the schedule
+    /// Removes a [`Stage`] from the schedule.
     pub fn remove_stage(&mut self, stage_label: impl StageLabel) -> Option<Box<dyn Stage>> {
         let label = stage_label.as_label();
 

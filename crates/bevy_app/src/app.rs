@@ -94,13 +94,13 @@ struct SubApp {
 }
 
 impl SubApp {
-    /// run the `SubApp`'s schedule
+    /// Runs the `SubApp`'s schedule.
     pub fn run(&mut self) {
         self.app.schedule.run(&mut self.app.world);
         self.app.world.clear_trackers();
     }
 
-    /// extract data from main world to sub app
+    /// Extracts data from main world to this sub-app.
     pub fn extract(&mut self, main_world: &mut World) {
         (self.extract)(main_world, &mut self.app);
     }
