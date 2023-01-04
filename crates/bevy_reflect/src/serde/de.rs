@@ -12,6 +12,7 @@ use serde::de::{
 };
 use serde::Deserialize;
 use std::any::TypeId;
+use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::slice::Iter;
@@ -210,6 +211,13 @@ impl<'de> Visitor<'de> for U32Visitor {
     }
 }
 
+/// Helper struct for deserializing strings without allocating (when possible).
+///
+/// Based on [this comment](https://github.com/bevyengine/bevy/pull/6894#discussion_r1045069010).
+#[derive(Deserialize)]
+#[serde(transparent)]
+struct BorrowableCowStr<'a>(#[serde(borrow)] Cow<'a, str>);
+
 /// A general purpose deserializer for reflected types.
 ///
 /// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
@@ -273,8 +281,9 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
         A: MapAccess<'de>,
     {
         let type_name = map
-            .next_key::<String>()?
-            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
+            .next_key::<BorrowableCowStr>()?
+            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?
+            .0;
 
         let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
             Error::custom(format_args!("No registration found for `{type_name}`"))
@@ -1536,10 +1545,11 @@ mod tests {
             108, 101, 144, 146, 100, 145, 101,
         ];
 
-        let deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut reader = std::io::BufReader::new(input.as_slice());
 
+        let deserializer = UntypedReflectDeserializer::new(&registry);
         let dynamic_output = deserializer
-            .deserialize(&mut rmp_serde::Deserializer::new(input.as_slice()))
+            .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();
