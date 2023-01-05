@@ -460,6 +460,9 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let state_struct_visibility = &ast.vis;
 
     TokenStream::from(quote! {
+        // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
+        // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
+        // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             #[doc(hidden)]
             #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*> {
