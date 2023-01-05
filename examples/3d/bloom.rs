@@ -149,7 +149,7 @@ fn update_bloom_settings(
                 bloom_settings.prefilter_settings.threshold
             ));
             text.push_str(&format!(
-                "(U/J) Threshld softness: {}\n",
+                "(U/J) Threshold softness: {}\n",
                 bloom_settings.prefilter_settings.threshold_softness
             ));
 
