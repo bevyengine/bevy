@@ -1,11 +1,13 @@
 use crate::converter::{convert_axis, convert_button, convert_gamepad_id};
 use bevy_ecs::event::EventWriter;
-use bevy_ecs::system::{NonSend, NonSendMut};
-use bevy_input::gamepad::GamepadInfo;
+use bevy_ecs::system::{NonSend, NonSendMut, Res};
 use bevy_input::gamepad::{
-    GamepadConnection, GamepadConnectionEvent, RawGamepadAxisChangedEvent,
-    RawGamepadButtonChangedEvent,
+    GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadConnection, GamepadConnectionEvent,
+    GamepadSettings,
 };
+use bevy_input::gamepad::{GamepadEvent, GamepadInfo};
+use bevy_input::prelude::{GamepadAxis, GamepadButton};
+use bevy_input::Axis;
 use gilrs::{ev::filter::axis_dpad_to_button, EventType, Filter, Gilrs};
 
 pub fn gilrs_event_startup_system(
@@ -26,9 +28,10 @@ pub fn gilrs_event_startup_system(
 
 pub fn gilrs_event_system(
     mut gilrs: NonSendMut<Gilrs>,
-    mut axis_events: EventWriter<RawGamepadAxisChangedEvent>,
-    mut button_events: EventWriter<RawGamepadButtonChangedEvent>,
-    mut connection_events: EventWriter<GamepadConnectionEvent>,
+    mut events: EventWriter<GamepadEvent>,
+    gamepad_axis: Res<Axis<GamepadAxis>>,
+    gamepad_buttons: Res<Axis<GamepadButton>>,
+    gamepad_settings: Res<GamepadSettings>,
 ) {
     while let Some(gilrs_event) = gilrs
         .next_event()
@@ -44,27 +47,39 @@ pub fn gilrs_event_system(
                     name: pad.name().into(),
                 };
 
-                connection_events.send(GamepadConnectionEvent {
-                    gamepad,
-                    connection: GamepadConnection::Connected(info),
-                });
+                events.send(
+                    GamepadConnectionEvent::new(gamepad, GamepadConnection::Connected(info)).into(),
+                );
             }
-            EventType::Disconnected => connection_events.send(GamepadConnectionEvent {
-                gamepad,
-                connection: GamepadConnection::Disconnected,
-            }),
-            EventType::ButtonChanged(gilrs_button, value, _) => {
+            EventType::Disconnected => events
+                .send(GamepadConnectionEvent::new(gamepad, GamepadConnection::Disconnected).into()),
+            EventType::ButtonChanged(gilrs_button, raw_value, _) => {
                 if let Some(button_type) = convert_button(gilrs_button) {
-                    button_events.send(RawGamepadButtonChangedEvent::new(
-                        gamepad,
-                        button_type,
-                        value,
-                    ));
+                    let button = GamepadButton::new(gamepad, button_type);
+                    let old_value = gamepad_buttons.get(button);
+                    let button_settings = gamepad_settings.get_button_axis_settings(button);
+
+                    // Only send events that pass the user-defined change threshold
+                    if let Some(filtered_value) = button_settings.filter(raw_value, old_value) {
+                        events.send(
+                            GamepadButtonChangedEvent::new(gamepad, button_type, filtered_value)
+                                .into(),
+                        );
+                    }
                 }
             }
-            EventType::AxisChanged(gilrs_axis, value, _) => {
+            EventType::AxisChanged(gilrs_axis, raw_value, _) => {
                 if let Some(axis_type) = convert_axis(gilrs_axis) {
-                    axis_events.send(RawGamepadAxisChangedEvent::new(gamepad, axis_type, value));
+                    let axis = GamepadAxis::new(gamepad, axis_type);
+                    let old_value = gamepad_axis.get(axis);
+                    let axis_settings = gamepad_settings.get_axis_settings(axis);
+
+                    // Only send events that pass the user-defined change threshold
+                    if let Some(filtered_value) = axis_settings.filter(raw_value, old_value) {
+                        events.send(
+                            GamepadAxisChangedEvent::new(gamepad, axis_type, filtered_value).into(),
+                        );
+                    }
                 }
             }
             _ => (),

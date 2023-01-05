@@ -32,11 +32,11 @@ use mouse::{
 use touch::{touch_screen_input_system, ForceTouch, TouchInput, TouchPhase, Touches};
 
 use gamepad::{
-    gamepad_connection_system, gamepad_raw_axis_event_system, gamepad_raw_button_event_system,
-    AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis,
+    gamepad_axis_event_system, gamepad_button_event_system, gamepad_connection_system,
+    gamepad_event_system, AxisSettings, ButtonAxisSettings, ButtonSettings, Gamepad, GamepadAxis,
     GamepadAxisChangedEvent, GamepadAxisType, GamepadButton, GamepadButtonChangedEvent,
-    GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadSettings, Gamepads,
-    RawGamepadAxisChangedEvent, RawGamepadButtonChangedEvent,
+    GamepadButtonType, GamepadConnection, GamepadConnectionEvent, GamepadEvent, GamepadSettings,
+    Gamepads,
 };
 
 #[cfg(feature = "serialize")]
@@ -70,11 +70,10 @@ impl Plugin for InputPlugin {
                 mouse_button_input_system.label(InputSystem),
             )
             // gamepad
-            .add_event::<RawGamepadAxisChangedEvent>()
-            .add_event::<RawGamepadButtonChangedEvent>()
             .add_event::<GamepadConnectionEvent>()
             .add_event::<GamepadButtonChangedEvent>()
             .add_event::<GamepadAxisChangedEvent>()
+            .add_event::<GamepadEvent>()
             .init_resource::<GamepadSettings>()
             .init_resource::<Gamepads>()
             .init_resource::<Input<GamepadButton>>()
@@ -83,9 +82,10 @@ impl Plugin for InputPlugin {
             .add_system_set_to_stage(
                 CoreStage::PreUpdate,
                 SystemSet::new()
-                    .with_system(gamepad_raw_button_event_system)
-                    .with_system(gamepad_raw_axis_event_system)
-                    .with_system(gamepad_connection_system)
+                    .with_system(gamepad_event_system)
+                    .with_system(gamepad_button_event_system.after(gamepad_event_system))
+                    .with_system(gamepad_axis_event_system.after(gamepad_event_system))
+                    .with_system(gamepad_connection_system.after(gamepad_event_system))
                     .label(InputSystem),
             )
             // touch
