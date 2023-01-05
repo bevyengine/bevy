@@ -471,7 +471,7 @@ impl BloomTexture {
     fn view(&self, base_mip_level: u32) -> TextureView {
         self.texture.texture.create_view(&TextureViewDescriptor {
             base_mip_level,
-            mip_level_count: Some(unsafe { NonZeroU32::new_unchecked(1) }),
+            mip_level_count: NonZeroU32::new(1),
             ..Default::default()
         })
     }
