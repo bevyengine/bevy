@@ -81,7 +81,7 @@ impl Plugin for WinitPlugin {
 
         // And for ios and macos, we should not create window early, all ui related code should be executed inside
         // UIApplicationMain/NSApplicationMain.
-        //#[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
+        #[cfg(not(any(target_os = "android", target_os = "ios", target_os = "macos")))]
         {
             #[cfg(not(target_arch = "wasm32"))]
             let (commands, event_loop, new_windows, event_writer, winit_windows) =
