@@ -5,7 +5,7 @@ use thread_local::ThreadLocal;
 use crate::{
     entity::Entities,
     prelude::World,
-    system::{SystemParam, SystemParamFetch, SystemParamState},
+    system::{SystemMeta, SystemParam, SystemParamState},
 };
 
 use super::{CommandQueue, Commands};
@@ -49,34 +49,36 @@ pub struct ParallelCommands<'w, 's> {
 }
 
 impl SystemParam for ParallelCommands<'_, '_> {
-    type Fetch = ParallelCommandsState;
+    type State = ParallelCommandsState;
 }
 
-impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
-    type Item = ParallelCommands<'w, 's>;
-
-    unsafe fn get_param(
-        state: &'s mut Self,
-        _: &crate::system::SystemMeta,
-        world: &'w World,
-        _: u32,
-    ) -> Self::Item {
-        ParallelCommands {
-            state,
-            entities: world.entities(),
-        }
-    }
-}
-
-// SAFE: no component or resource access to report
+// SAFETY: no component or resource access to report
 unsafe impl SystemParamState for ParallelCommandsState {
+    type Item<'w, 's> = ParallelCommands<'w, 's>;
+
     fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self {
         Self::default()
     }
 
-    fn apply(&mut self, world: &mut World) {
-        for cq in self.thread_local_storage.iter_mut() {
+    fn apply(&mut self, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span =
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+                .entered();
+        for cq in &mut self.thread_local_storage {
             cq.get_mut().apply(world);
+        }
+    }
+
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self,
+        _: &crate::system::SystemMeta,
+        world: &'w World,
+        _: u32,
+    ) -> Self::Item<'w, 's> {
+        ParallelCommands {
+            state,
+            entities: world.entities(),
         }
     }
 }

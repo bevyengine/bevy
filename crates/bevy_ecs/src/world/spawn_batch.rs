@@ -67,7 +67,7 @@ where
 
     fn next(&mut self) -> Option<Entity> {
         let bundle = self.inner.next()?;
-        // SAFE: bundle matches spawner type
+        // SAFETY: bundle matches spawner type
         unsafe { Some(self.spawner.spawn(bundle)) }
     }
 

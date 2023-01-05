@@ -30,17 +30,19 @@ fn main() {
     update.add_system(remove_old_entities.after(SimulationSystem::Age));
     update.add_system(print_changed_entities.after(SimulationSystem::Age));
     // Add the Stage with our systems to the Schedule
-    schedule.add_stage("update", update);
+    #[derive(StageLabel)]
+    struct Update;
+    schedule.add_stage(Update, update);
 
     // Simulate 10 frames in our world
     for iteration in 1..=10 {
-        println!("Simulating frame {}/10", iteration);
+        println!("Simulating frame {iteration}/10");
         schedule.run(&mut world);
     }
 }
 
 // This struct will be used as a Resource keeping track of the total amount of spawned entities
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 struct EntityCounter {
     pub value: i32,
 }
@@ -63,8 +65,8 @@ enum SimulationSystem {
 // If an entity gets spawned, we increase the counter in the EntityCounter resource
 fn spawn_entities(mut commands: Commands, mut entity_counter: ResMut<EntityCounter>) {
     if rand::thread_rng().gen_bool(0.6) {
-        let entity_id = commands.spawn().insert(Age::default()).id();
-        println!("    spawning {:?}", entity_id);
+        let entity_id = commands.spawn(Age::default()).id();
+        println!("    spawning {entity_id:?}");
         entity_counter.value += 1;
     }
 }
@@ -79,26 +81,26 @@ fn print_changed_entities(
     entity_with_added_component: Query<Entity, Added<Age>>,
     entity_with_mutated_component: Query<(Entity, &Age), Changed<Age>>,
 ) {
-    for entity in entity_with_added_component.iter() {
-        println!("    {:?} has it's first birthday!", entity);
+    for entity in &entity_with_added_component {
+        println!("    {entity:?} has it's first birthday!");
     }
-    for (entity, value) in entity_with_mutated_component.iter() {
-        println!("    {:?} is now {:?} frames old", entity, value);
+    for (entity, value) in &entity_with_mutated_component {
+        println!("    {entity:?} is now {value:?} frames old");
     }
 }
 
 // This system iterates over all entities and increases their age in every frame
 fn age_all_entities(mut entities: Query<&mut Age>) {
-    for mut age in entities.iter_mut() {
+    for mut age in &mut entities {
         age.frames += 1;
     }
 }
 
 // This system iterates over all entities in every frame and despawns entities older than 2 frames
 fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) {
-    for (entity, age) in entities.iter() {
+    for (entity, age) in &entities {
         if age.frames > 2 {
-            println!("    despawning {:?} due to age > 2", entity);
+            println!("    despawning {entity:?} due to age > 2");
             commands.entity(entity).despawn();
         }
     }

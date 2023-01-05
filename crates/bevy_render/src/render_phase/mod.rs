@@ -1,14 +1,14 @@
 mod draw;
 mod draw_state;
 
+use bevy_ecs::entity::Entity;
 pub use draw::*;
 pub use draw_state::*;
 
 use bevy_ecs::prelude::{Component, Query};
+use bevy_ecs::world::World;
 use std::cell::Cell;
 use thread_local::ThreadLocal;
-
-use copyless::VecHelper;
 
 pub struct RenderPhaseScope<'a, I: PhaseItem> {
     phase_queue: &'a mut Vec<I>,
@@ -18,7 +18,7 @@ impl<'a, I: PhaseItem> RenderPhaseScope<'a, I> {
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
     pub fn add(&mut self, item: I) {
-        self.phase_queue.alloc().init(item);
+        self.phase_queue.push(item);
     }
 }
 
@@ -66,14 +66,29 @@ impl<I: PhaseItem> RenderPhase<I> {
         }
         I::sort(&mut self.sorted);
     }
+
+    pub fn render<'w>(
+        &self,
+        render_pass: &mut TrackedRenderPass<'w>,
+        world: &'w World,
+        view: Entity,
+    ) {
+        let draw_functions = world.resource::<DrawFunctions<I>>();
+        let mut draw_functions = draw_functions.write();
+        draw_functions.prepare(world);
+
+        for item in &self.sorted {
+            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
+            draw_function.draw(world, render_pass, view, item);
+        }
+    }
 }
 
 impl<I: BatchedPhaseItem> RenderPhase<I> {
     /// Batches the compatible [`BatchedPhaseItem`]s of this render phase
     pub fn batch(&mut self) {
         // TODO: this could be done in-place
-        let mut items = std::mem::take(&mut self.sorted);
-        let mut items = items.drain(..);
+        let mut items = std::mem::take(&mut self.sorted).into_iter();
 
         self.sorted.reserve(items.len());
 
@@ -98,14 +113,14 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
 
 /// This system sorts all [`RenderPhases`](RenderPhase) for the [`PhaseItem`] type.
 pub fn sort_phase_system<I: PhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
-    for mut phase in render_phases.iter_mut() {
+    for mut phase in &mut render_phases {
         phase.sort();
     }
 }
 
 /// This system batches the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
 pub fn batch_phase_system<I: BatchedPhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
-    for mut phase in render_phases.iter_mut() {
+    for mut phase in &mut render_phases {
         phase.batch();
     }
 }
@@ -128,15 +143,14 @@ mod tests {
         impl PhaseItem for TestPhaseItem {
             type SortKey = ();
 
+            fn entity(&self) -> bevy_ecs::entity::Entity {
+                self.entity
+            }
+
             fn sort_key(&self) -> Self::SortKey {}
 
             fn draw_function(&self) -> DrawFunctionId {
                 unimplemented!();
-            }
-        }
-        impl EntityPhaseItem for TestPhaseItem {
-            fn entity(&self) -> bevy_ecs::entity::Entity {
-                self.entity
             }
         }
         impl BatchedPhaseItem for TestPhaseItem {

@@ -10,7 +10,7 @@ pub fn parse_attrs(ast: &DeriveInput, attr_name: Symbol) -> syn::Result<Vec<syn:
             other => {
                 return Err(syn::Error::new_spanned(
                     other,
-                    format!("expected #[{}(...)]", attr_name),
+                    format!("expected #[{attr_name}(...)]"),
                 ))
             }
         }
@@ -26,6 +26,20 @@ pub fn get_lit_str(attr_name: Symbol, lit: &syn::Lit) -> syn::Result<&syn::LitSt
             lit,
             format!(
                 "expected {} attribute to be a string: `{} = \"...\"`",
+                attr_name, attr_name
+            ),
+        ))
+    }
+}
+
+pub fn get_lit_bool(attr_name: Symbol, lit: &syn::Lit) -> syn::Result<bool> {
+    if let syn::Lit::Bool(lit) = lit {
+        Ok(lit.value())
+    } else {
+        Err(syn::Error::new_spanned(
+            lit,
+            format!(
+                "expected {} attribute to be a bool value, `true` or `false`: `{} = ...`",
                 attr_name, attr_name
             ),
         ))

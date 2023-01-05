@@ -20,17 +20,17 @@ fn setup(
     mut create_window_events: EventWriter<CreateWindow>,
 ) {
     // add entities to the world
-    commands.spawn_bundle(SceneBundle {
+    commands.spawn(SceneBundle {
         scene: asset_server.load("models/monkey/Monkey.gltf#Scene0"),
         ..default()
     });
     // light
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_xyz(4.0, 5.0, 4.0),
         ..default()
     });
     // main camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 0.0, 6.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
@@ -43,14 +43,14 @@ fn setup(
         descriptor: WindowDescriptor {
             width: 800.,
             height: 600.,
-            present_mode: PresentMode::Immediate,
+            present_mode: PresentMode::AutoNoVsync,
             title: "Second window".to_string(),
             ..default()
         },
     });
 
     // second window camera
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(6.0, 0.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         camera: Camera {
             target: RenderTarget::Window(window_id),

@@ -1,9 +1,6 @@
 //! Demonstrates handling a key press/release.
 
-use bevy::{
-    input::{keyboard::KeyCode, Input},
-    prelude::*,
-};
+use bevy::prelude::*;
 
 fn main() {
     App::new()

@@ -14,35 +14,35 @@ use thiserror::Error;
 pub enum Color {
     /// sRGBA color
     Rgba {
-        /// Red component. [0.0, 1.0]
+        /// Red channel. [0.0, 1.0]
         red: f32,
-        /// Green component. [0.0, 1.0]
+        /// Green channel. [0.0, 1.0]
         green: f32,
-        /// Blue component. [0.0, 1.0]
+        /// Blue channel. [0.0, 1.0]
         blue: f32,
-        /// Alpha component. [0.0, 1.0]
+        /// Alpha channel. [0.0, 1.0]
         alpha: f32,
     },
     /// RGBA color in the Linear sRGB colorspace (often colloquially referred to as "linear", "RGB", or "linear RGB").
     RgbaLinear {
-        /// Red component. [0.0, 1.0]
+        /// Red channel. [0.0, 1.0]
         red: f32,
-        /// Green component. [0.0, 1.0]
+        /// Green channel. [0.0, 1.0]
         green: f32,
-        /// Blue component. [0.0, 1.0]
+        /// Blue channel. [0.0, 1.0]
         blue: f32,
-        /// Alpha component. [0.0, 1.0]
+        /// Alpha channel. [0.0, 1.0]
         alpha: f32,
     },
     /// HSL (hue, saturation, lightness) color with an alpha channel
     Hsla {
-        /// Hue component. [0.0, 360.0]
+        /// Hue channel. [0.0, 360.0]
         hue: f32,
-        /// Saturation component. [0.0, 1.0]
+        /// Saturation channel. [0.0, 1.0]
         saturation: f32,
-        /// Lightness component. [0.0, 1.0]
+        /// Lightness channel. [0.0, 1.0]
         lightness: f32,
-        /// Alpha component. [0.0, 1.0]
+        /// Alpha channel. [0.0, 1.0]
         alpha: f32,
     },
 }
@@ -126,6 +126,15 @@ impl Color {
     pub const YELLOW_GREEN: Color = Color::rgb(0.6, 0.8, 0.2);
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red channel. [0.0, 1.0]
+    /// * `g` - Green channel. [0.0, 1.0]
+    /// * `b` - Blue channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
+    ///
     pub const fn rgb(r: f32, g: f32, b: f32) -> Color {
         Color::Rgba {
             red: r,
@@ -136,6 +145,16 @@ impl Color {
     }
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red channel. [0.0, 1.0]
+    /// * `g` - Green channel. [0.0, 1.0]
+    /// * `b` - Blue channel. [0.0, 1.0]
+    /// * `a` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
+    ///
     pub const fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color::Rgba {
             red: r,
@@ -146,6 +165,15 @@ impl Color {
     }
 
     /// New `Color` from linear RGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red channel. [0.0, 1.0]
+    /// * `g` - Green channel. [0.0, 1.0]
+    /// * `b` - Blue channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::rgb`], [`Color::rgba_linear`].
+    ///
     pub const fn rgb_linear(r: f32, g: f32, b: f32) -> Color {
         Color::RgbaLinear {
             red: r,
@@ -156,6 +184,16 @@ impl Color {
     }
 
     /// New `Color` from linear RGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red channel. [0.0, 1.0]
+    /// * `g` - Green channel. [0.0, 1.0]
+    /// * `b` - Blue channel. [0.0, 1.0]
+    /// * `a` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::rgba`], [`Color::rgb_linear`].
+    ///
     pub const fn rgba_linear(r: f32, g: f32, b: f32, a: f32) -> Color {
         Color::RgbaLinear {
             red: r,
@@ -166,6 +204,15 @@ impl Color {
     }
 
     /// New `Color` with HSL representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::hsla`].
+    ///
     pub const fn hsl(hue: f32, saturation: f32, lightness: f32) -> Color {
         Color::Hsla {
             hue,
@@ -176,6 +223,16 @@ impl Color {
     }
 
     /// New `Color` with HSL representation in sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `hue` - Hue channel. [0.0, 360.0]
+    /// * `saturation` - Saturation channel. [0.0, 1.0]
+    /// * `lightness` - Lightness channel. [0.0, 1.0]
+    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    ///
+    /// See also [`Color::hsl`].
+    ///
     pub const fn hsla(hue: f32, saturation: f32, lightness: f32, alpha: f32) -> Color {
         Color::Hsla {
             hue,
@@ -186,8 +243,21 @@ impl Color {
     }
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_render::color::Color;
+    /// let color = Color::hex("FF00FF").unwrap(); // fuchsia
+    /// let color = Color::hex("FF00FF7F").unwrap(); // partially transparent fuchsia
+    ///
+    /// // A standard hex color notation is also available
+    /// assert_eq!(Color::hex("#FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
+    /// ```
+    ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
         let hex = hex.as_ref();
+        let hex = hex.strip_prefix('#').unwrap_or(hex);
 
         // RGB
         if hex.len() == 3 {
@@ -223,6 +293,15 @@ impl Color {
     }
 
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red channel. [0, 255]
+    /// * `g` - Green channel. [0, 255]
+    /// * `b` - Blue channel. [0, 255]
+    ///
+    /// See also [`Color::rgb`], [`Color::rgba_u8`], [`Color::hex`].
+    ///
     pub fn rgb_u8(r: u8, g: u8, b: u8) -> Color {
         Color::rgba_u8(r, g, b, u8::MAX)
     }
@@ -230,6 +309,16 @@ impl Color {
     // Float operations in const fn are not stable yet
     // see https://github.com/rust-lang/rust/issues/57241
     /// New `Color` from sRGB colorspace.
+    ///
+    /// # Arguments
+    ///
+    /// * `r` - Red channel. [0, 255]
+    /// * `g` - Green channel. [0, 255]
+    /// * `b` - Blue channel. [0, 255]
+    /// * `a` - Alpha channel. [0, 255]
+    ///
+    /// See also [`Color::rgba`], [`Color::rgb_u8`], [`Color::hex`].
+    ///
     pub fn rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Color {
         Color::rgba(
             r as f32 / u8::MAX as f32,
@@ -273,6 +362,13 @@ impl Color {
         self
     }
 
+    /// Returns this color with red set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_r(mut self, r: f32) -> Self {
+        self.set_r(r);
+        self
+    }
+
     /// Set green in sRGB colorspace.
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba();
@@ -280,6 +376,13 @@ impl Color {
             Color::Rgba { green, .. } => *green = g,
             _ => unreachable!(),
         }
+        self
+    }
+
+    /// Returns this color with green set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_g(mut self, g: f32) -> Self {
+        self.set_g(g);
         self
     }
 
@@ -293,7 +396,15 @@ impl Color {
         self
     }
 
+    /// Returns this color with blue set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_b(mut self, b: f32) -> Self {
+        self.set_b(b);
+        self
+    }
+
     /// Get alpha.
+    #[inline(always)]
     pub fn a(&self) -> f32 {
         match self {
             Color::Rgba { alpha, .. }
@@ -311,6 +422,13 @@ impl Color {
                 *alpha = a;
             }
         }
+        self
+    }
+
+    /// Returns this color with a new alpha value.
+    #[must_use]
+    pub fn with_a(mut self, a: f32) -> Self {
+        self.set_a(a);
         self
     }
 
@@ -527,10 +645,10 @@ impl Color {
         }
     }
 
-    /// Converts Color to a u32 from sRGB colorspace.
+    /// Converts `Color` to a `u32` from sRGB colorspace.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
-    /// A will be the most significant byte and R the least significant.
+    /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_rgba_u32(self: Color) -> u32 {
         match self {
             Color::Rgba {
@@ -576,7 +694,7 @@ impl Color {
     /// Converts Color to a u32 from linear RGB colorspace.
     ///
     /// Maps the RGBA channels in RGBA order to a little-endian byte array (GPUs are little-endian).
-    /// A will be the most significant byte and R the least significant.
+    /// `A` will be the most significant byte and `R` the least significant.
     pub fn as_linear_rgba_u32(self: Color) -> u32 {
         match self {
             Color::Rgba {
@@ -659,7 +777,7 @@ impl AddAssign<Color> for Color {
                 lightness,
                 alpha,
             } => {
-                let rhs = rhs.as_linear_rgba_f32();
+                let rhs = rhs.as_hsla_f32();
                 *hue += rhs[0];
                 *saturation += rhs[1];
                 *lightness += rhs[2];
@@ -708,7 +826,7 @@ impl Add<Color> for Color {
                 lightness,
                 alpha,
             } => {
-                let rhs = rhs.as_linear_rgba_f32();
+                let rhs = rhs.as_hsla_f32();
                 Color::Hsla {
                     hue: hue + rhs[0],
                     saturation: saturation + rhs[1],
@@ -1148,6 +1266,75 @@ impl MulAssign<[f32; 3]> for Color {
         }
     }
 }
+
+impl encase::ShaderType for Color {
+    type ExtraMetadata = ();
+
+    const METADATA: encase::private::Metadata<Self::ExtraMetadata> = {
+        let size =
+            encase::private::SizeValue::from(<f32 as encase::private::ShaderSize>::SHADER_SIZE)
+                .mul(4);
+        let alignment = encase::private::AlignmentValue::from_next_power_of_two_size(size);
+
+        encase::private::Metadata {
+            alignment,
+            has_uniform_min_alignment: false,
+            min_size: size,
+            extra: (),
+        }
+    };
+
+    const UNIFORM_COMPAT_ASSERT: fn() = || {};
+}
+
+impl encase::private::WriteInto for Color {
+    fn write_into<B: encase::private::BufferMut>(&self, writer: &mut encase::private::Writer<B>) {
+        let linear = self.as_linear_rgba_f32();
+        for el in &linear {
+            encase::private::WriteInto::write_into(el, writer);
+        }
+    }
+}
+
+impl encase::private::ReadFrom for Color {
+    fn read_from<B: encase::private::BufferRef>(
+        &mut self,
+        reader: &mut encase::private::Reader<B>,
+    ) {
+        let mut buffer = [0.0f32; 4];
+        for el in &mut buffer {
+            encase::private::ReadFrom::read_from(el, reader);
+        }
+
+        *self = Color::RgbaLinear {
+            red: buffer[0],
+            green: buffer[1],
+            blue: buffer[2],
+            alpha: buffer[3],
+        }
+    }
+}
+impl encase::private::CreateFrom for Color {
+    fn create_from<B>(reader: &mut encase::private::Reader<B>) -> Self
+    where
+        B: encase::private::BufferRef,
+    {
+        // These are intentionally not inlined in the constructor to make this
+        // resilient to internal Color refactors / implicit type changes.
+        let red: f32 = encase::private::CreateFrom::create_from(reader);
+        let green: f32 = encase::private::CreateFrom::create_from(reader);
+        let blue: f32 = encase::private::CreateFrom::create_from(reader);
+        let alpha: f32 = encase::private::CreateFrom::create_from(reader);
+        Color::RgbaLinear {
+            red,
+            green,
+            blue,
+            alpha,
+        }
+    }
+}
+
+impl encase::ShaderSize for Color {}
 
 #[derive(Debug, Error)]
 pub enum HexColorError {

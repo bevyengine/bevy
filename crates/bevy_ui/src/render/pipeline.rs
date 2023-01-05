@@ -1,8 +1,12 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
+    render_resource::*,
+    renderer::RenderDevice,
+    texture::BevyDefault,
+    view::{ViewTarget, ViewUniform},
 };
 
+#[derive(Resource)]
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
@@ -10,7 +14,6 @@ pub struct UiPipeline {
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
-        let world = world.cell();
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -57,12 +60,14 @@ impl FromWorld for UiPipeline {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiPipelineKey {}
+pub struct UiPipelineKey {
+    pub hdr: bool,
+}
 
 impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
-    /// FIXME: there are no specialization for now, should this be removed?
-    fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Vertex,
             vec![
@@ -87,11 +92,15 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader: super::UI_SHADER_HANDLE.typed::<Shader>(),
                 shader_defs,
                 entry_point: "fragment".into(),
-                targets: vec![ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                targets: vec![Some(ColorTargetState {
+                    format: if key.hdr {
+                        ViewTarget::TEXTURE_FORMAT_HDR
+                    } else {
+                        TextureFormat::bevy_default()
+                    },
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
-                }],
+                })],
             }),
             layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
             primitive: PrimitiveState {

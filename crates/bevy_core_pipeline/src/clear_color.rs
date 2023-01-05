@@ -4,25 +4,21 @@ use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
 use bevy_render::{color::Color, extract_resource::ExtractResource};
 use serde::{Deserialize, Serialize};
 
-#[derive(Reflect, Serialize, Deserialize, Clone, Debug)]
-#[reflect_value(Serialize, Deserialize)]
+#[derive(Reflect, Serialize, Deserialize, Clone, Debug, Default)]
+#[reflect(Serialize, Deserialize)]
 pub enum ClearColorConfig {
+    #[default]
     Default,
     Custom(Color),
     None,
 }
 
-impl Default for ClearColorConfig {
-    fn default() -> Self {
-        ClearColorConfig::Default
-    }
-}
-
-/// When used as a resource, sets the color that is used to clear the screen between frames.
+/// A [`Resource`] that stores the color that is used to clear the screen between frames.
 ///
-/// This color appears as the "background" color for simple apps, when
-/// there are portions of the screen with nothing rendered.
-#[derive(Component, Clone, Debug, Deref, DerefMut, ExtractResource)]
+/// This color appears as the "background" color for simple apps,
+/// when there are portions of the screen with nothing rendered.
+#[derive(Resource, Clone, Debug, Deref, DerefMut, ExtractResource, Reflect)]
+#[reflect(Resource)]
 pub struct ClearColor(pub Color);
 
 impl Default for ClearColor {

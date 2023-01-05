@@ -20,8 +20,11 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        bundle::{DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle},
-        light::{AmbientLight, DirectionalLight, PointLight},
+        bundle::{
+            DirectionalLightBundle, MaterialMeshBundle, PbrBundle, PointLightBundle,
+            SpotLightBundle,
+        },
+        light::{AmbientLight, DirectionalLight, PointLight, SpotLight},
         material::{Material, MaterialPlugin},
         pbr_material::StandardMaterial,
     };
@@ -35,7 +38,7 @@ pub mod draw_3d_graph {
 }
 
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
@@ -123,6 +126,14 @@ impl Plugin for PbrPlugin {
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
             .register_type::<PointLight>()
+            .register_type::<SpotLight>()
+            .register_asset_reflect::<StandardMaterial>()
+            .register_type::<AmbientLight>()
+            .register_type::<DirectionalLightShadowMap>()
+            .register_type::<ClusterConfig>()
+            .register_type::<ClusterZConfig>()
+            .register_type::<ClusterFarZMode>()
+            .register_type::<PointLightShadowMap>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
             .init_resource::<AmbientLight>()
@@ -135,7 +146,7 @@ impl Plugin for PbrPlugin {
                 // NOTE: Clusters need to have been added before update_clusters is run so
                 // add as an exclusive system
                 add_clusters
-                    .exclusive_system()
+                    .at_start()
                     .label(SimulationLightSystems::AddClusters),
             )
             .add_system_to_stage(
@@ -143,19 +154,33 @@ impl Plugin for PbrPlugin {
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
+                    .after(VisibilitySystems::CheckVisibility)
                     .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_directional_light_frusta
-                    .label(SimulationLightSystems::UpdateDirectionalLightFrusta)
-                    .after(TransformSystem::TransformPropagate),
+                    .label(SimulationLightSystems::UpdateLightFrusta)
+                    // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
+                    .after(VisibilitySystems::CheckVisibility)
+                    .after(TransformSystem::TransformPropagate)
+                    // We assume that no entity will be both a directional light and a spot light,
+                    // so these systems will run indepdently of one another.
+                    // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
+                    .ambiguous_with(update_spot_light_frusta),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 update_point_light_frusta
-                    .label(SimulationLightSystems::UpdatePointLightFrusta)
+                    .label(SimulationLightSystems::UpdateLightFrusta)
+                    .after(TransformSystem::TransformPropagate)
+                    .after(SimulationLightSystems::AssignLightsToClusters),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                update_spot_light_frusta
+                    .label(SimulationLightSystems::UpdateLightFrusta)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
@@ -165,8 +190,7 @@ impl Plugin for PbrPlugin {
                     .label(SimulationLightSystems::CheckLightVisibility)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CalculateBounds)
-                    .after(SimulationLightSystems::UpdateDirectionalLightFrusta)
-                    .after(SimulationLightSystems::UpdatePointLightFrusta)
+                    .after(SimulationLightSystems::UpdateLightFrusta)
                     // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                     // because that resets entity ComputedVisibility for the first view
                     // which would override any results from this otherwise
@@ -203,7 +227,7 @@ impl Plugin for PbrPlugin {
                 // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
                 // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
                 render::prepare_lights
-                    .exclusive_system()
+                    .at_start()
                     .label(RenderLightSystems::PrepareLights),
             )
             .add_system_to_stage(
@@ -232,19 +256,15 @@ impl Plugin for PbrPlugin {
             .get_sub_graph_mut(bevy_core_pipeline::core_3d::graph::NAME)
             .unwrap();
         draw_3d_graph.add_node(draw_3d_graph::node::SHADOW_PASS, shadow_pass_node);
-        draw_3d_graph
-            .add_node_edge(
-                draw_3d_graph::node::SHADOW_PASS,
-                bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                draw_3d_graph.input_node().unwrap().id,
-                bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
-                draw_3d_graph::node::SHADOW_PASS,
-                ShadowPassNode::IN_VIEW,
-            )
-            .unwrap();
+        draw_3d_graph.add_node_edge(
+            draw_3d_graph::node::SHADOW_PASS,
+            bevy_core_pipeline::core_3d::graph::node::MAIN_PASS,
+        );
+        draw_3d_graph.add_slot_edge(
+            draw_3d_graph.input_node().id,
+            bevy_core_pipeline::core_3d::graph::input::VIEW_ENTITY,
+            draw_3d_graph::node::SHADOW_PASS,
+            ShadowPassNode::IN_VIEW,
+        );
     }
 }

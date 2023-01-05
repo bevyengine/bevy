@@ -5,27 +5,26 @@ use crate::{
 
 pub fn from_rect(
     scale_factor: f64,
-    rect: UiRect<Val>,
+    rect: UiRect,
 ) -> taffy::geometry::Rect<taffy::style::Dimension> {
     taffy::geometry::Rect {
-        start: from_val(scale_factor, rect.left),
-        end: from_val(scale_factor, rect.right),
-        // NOTE: top and bottom are intentionally flipped. stretch has a flipped y-axis
-        top: from_val(scale_factor, rect.bottom),
-        bottom: from_val(scale_factor, rect.top),
+        left: from_val(scale_factor, rect.left),
+        right: from_val(scale_factor, rect.right),
+        top: from_val(scale_factor, rect.top),
+        bottom: from_val(scale_factor, rect.bottom),
     }
 }
 
-pub fn from_f32_size(scale_factor: f64, size: Size<f32>) -> taffy::geometry::Size<f32> {
+pub fn from_f32_size(scale_factor: f64, size: Size) -> taffy::geometry::Size<f32> {
     taffy::geometry::Size {
-        width: (scale_factor * size.width as f64) as f32,
-        height: (scale_factor * size.height as f64) as f32,
+        width: val_to_f32(scale_factor, size.width),
+        height: val_to_f32(scale_factor, size.height),
     }
 }
 
 pub fn from_val_size(
     scale_factor: f64,
-    size: Size<Val>,
+    size: Size,
 ) -> taffy::geometry::Size<taffy::style::Dimension> {
     taffy::geometry::Size {
         width: from_val(scale_factor, size.width),
@@ -53,10 +52,17 @@ pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
         size: from_val_size(scale_factor, value.size),
         min_size: from_val_size(scale_factor, value.min_size),
         max_size: from_val_size(scale_factor, value.max_size),
-        aspect_ratio: match value.aspect_ratio {
-            Some(value) => taffy::number::Number::Defined(value),
-            None => taffy::number::Number::Undefined,
-        },
+        aspect_ratio: value.aspect_ratio,
+        gap: from_val_size(scale_factor, value.gap),
+    }
+}
+
+/// Converts a [`Val`] to a [`f32`] while respecting the scale factor.
+pub fn val_to_f32(scale_factor: f64, val: Val) -> f32 {
+    match val {
+        Val::Undefined | Val::Auto => 0.0,
+        Val::Px(value) => (scale_factor * value as f64) as f32,
+        Val::Percent(value) => value / 100.0,
     }
 }
 

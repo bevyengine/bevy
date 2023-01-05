@@ -1,10 +1,12 @@
 use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_ecs::system::{Commands, Res, Resource};
+#[cfg(debug_assertions)]
+use bevy_ecs::system::Local;
+use bevy_ecs::system::{Commands, Res, ResMut, Resource};
 pub use bevy_render_macros::ExtractResource;
 
-use crate::{RenderApp, RenderStage};
+use crate::{Extract, RenderApp, RenderStage};
 
 /// Describes how a resource gets extracted for rendering.
 ///
@@ -38,9 +40,26 @@ impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
 }
 
 /// This system extracts the resource of the corresponding [`Resource`] type
-/// by cloning it.
-pub fn extract_resource<R: ExtractResource>(mut commands: Commands, resource: Res<R::Source>) {
-    if resource.is_changed() {
-        commands.insert_resource(R::extract_resource(resource.into_inner()));
+pub fn extract_resource<R: ExtractResource>(
+    mut commands: Commands,
+    main_resource: Extract<Res<R::Source>>,
+    target_resource: Option<ResMut<R>>,
+    #[cfg(debug_assertions)] mut has_warned_on_remove: Local<bool>,
+) {
+    if let Some(mut target_resource) = target_resource {
+        if main_resource.is_changed() {
+            *target_resource = R::extract_resource(&main_resource);
+        }
+    } else {
+        #[cfg(debug_assertions)]
+        if !main_resource.is_added() && !*has_warned_on_remove {
+            *has_warned_on_remove = true;
+            bevy_log::warn!(
+                "Removing resource {} from render world not expected, adding using `Commands`.
+                This may decrease performance",
+                std::any::type_name::<R>()
+            );
+        }
+        commands.insert_resource(R::extract_resource(&main_resource));
     }
 }

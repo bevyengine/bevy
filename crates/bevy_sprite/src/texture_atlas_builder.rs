@@ -1,6 +1,6 @@
 use bevy_asset::{Assets, Handle};
 use bevy_log::{debug, error, warn};
-use bevy_math::Vec2;
+use bevy_math::{Rect, Vec2};
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::{Image, TextureFormatPixelInfo},
@@ -12,7 +12,7 @@ use rectangle_pack::{
 };
 use thiserror::Error;
 
-use crate::{texture_atlas::TextureAtlas, Rect};
+use crate::texture_atlas::TextureAtlas;
 
 #[derive(Debug, Error)]
 pub enum TextureAtlasBuilderError {

@@ -8,8 +8,15 @@ pub mod graph {
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
+        pub const BLOOM: &str = "bloom";
+        pub const TONEMAPPING: &str = "tonemapping";
+        pub const FXAA: &str = "fxaa";
+        pub const UPSCALING: &str = "upscaling";
+        pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
     }
 }
+
+use std::cmp::Reverse;
 
 pub use camera_3d::*;
 pub use main_pass_3d_node::*;
@@ -20,10 +27,10 @@ use bevy_render::{
     camera::{Camera, ExtractedCamera},
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
-    render_graph::{RenderGraph, SlotInfo, SlotType},
+    render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
-        EntityPhaseItem, PhaseItem, RenderPhase,
+        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        RenderPhase,
     },
     render_resource::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
@@ -32,15 +39,18 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::TextureCache,
     view::ViewDepthTexture,
-    RenderApp, RenderStage,
+    Extract, RenderApp, RenderStage,
 };
 use bevy_utils::{FloatOrd, HashMap};
+
+use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
 pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<Camera3d>()
+            .register_type::<Camera3dDepthLoadOp>()
             .add_plugin(ExtractComponentPlugin::<Camera3d>::default());
 
         let render_app = match app.get_sub_app_mut(RenderApp) {
@@ -59,22 +69,46 @@ impl Plugin for Core3dPlugin {
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
 
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
+        let tonemapping = TonemappingNode::new(&mut render_app.world);
+        let upscaling = UpscalingNode::new(&mut render_app.world);
         let mut graph = render_app.world.resource_mut::<RenderGraph>();
 
         let mut draw_3d_graph = RenderGraph::default();
         draw_3d_graph.add_node(graph::node::MAIN_PASS, pass_node_3d);
+        draw_3d_graph.add_node(graph::node::TONEMAPPING, tonemapping);
+        draw_3d_graph.add_node(graph::node::END_MAIN_PASS_POST_PROCESSING, EmptyNode);
+        draw_3d_graph.add_node(graph::node::UPSCALING, upscaling);
         let input_node_id = draw_3d_graph.set_input(vec![SlotInfo::new(
             graph::input::VIEW_ENTITY,
             SlotType::Entity,
         )]);
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
-            )
-            .unwrap();
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::MAIN_PASS,
+            MainPass3dNode::IN_VIEW,
+        );
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::TONEMAPPING,
+            TonemappingNode::IN_VIEW,
+        );
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::UPSCALING,
+            UpscalingNode::IN_VIEW,
+        );
+        draw_3d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
+        draw_3d_graph.add_node_edge(
+            graph::node::TONEMAPPING,
+            graph::node::END_MAIN_PASS_POST_PROCESSING,
+        );
+        draw_3d_graph.add_node_edge(
+            graph::node::END_MAIN_PASS_POST_PROCESSING,
+            graph::node::UPSCALING,
+        );
         graph.add_sub_graph(graph::NAME, draw_3d_graph);
     }
 }
@@ -87,11 +121,17 @@ pub struct Opaque3d {
 }
 
 impl PhaseItem for Opaque3d {
-    type SortKey = FloatOrd;
+    // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
+
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
@@ -101,14 +141,8 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for Opaque3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
@@ -127,11 +161,17 @@ pub struct AlphaMask3d {
 }
 
 impl PhaseItem for AlphaMask3d {
-    type SortKey = FloatOrd;
+    // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
+    type SortKey = Reverse<FloatOrd>;
+
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        Reverse(FloatOrd(self.distance))
     }
 
     #[inline]
@@ -141,14 +181,8 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort(items: &mut [Self]) {
-        radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for AlphaMask3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
+        // Key negated to match reversed SortKey ordering
+        radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
@@ -167,7 +201,13 @@ pub struct Transparent3d {
 }
 
 impl PhaseItem for Transparent3d {
+    // NOTE: Values increase towards the camera. Back-to-front ordering for transparent means we need an ascending sort.
     type SortKey = FloatOrd;
+
+    #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
@@ -185,13 +225,6 @@ impl PhaseItem for Transparent3d {
     }
 }
 
-impl EntityPhaseItem for Transparent3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
-    }
-}
-
 impl CachedRenderPipelinePhaseItem for Transparent3d {
     #[inline]
     fn cached_pipeline(&self) -> CachedRenderPipelineId {
@@ -201,11 +234,11 @@ impl CachedRenderPipelinePhaseItem for Transparent3d {
 
 pub fn extract_core_3d_camera_phases(
     mut commands: Commands,
-    cameras_3d: Query<(Entity, &Camera), With<Camera3d>>,
+    cameras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
 ) {
-    for (entity, camera) in cameras_3d.iter() {
+    for (entity, camera) in &cameras_3d {
         if camera.is_active {
-            commands.get_or_spawn(entity).insert_bundle((
+            commands.get_or_spawn(entity).insert((
                 RenderPhase::<Opaque3d>::default(),
                 RenderPhase::<AlphaMask3d>::default(),
                 RenderPhase::<Transparent3d>::default(),
@@ -229,7 +262,7 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera) in views_3d.iter() {
+    for (entity, camera) in &views_3d {
         if let Some(physical_target_size) = camera.physical_target_size {
             let cached_texture = textures
                 .entry(camera.target.clone())

@@ -1,7 +1,7 @@
 use basis_universal::{
     BasisTextureType, DecodeFlags, TranscodeParameters, Transcoder, TranscoderTextureFormat,
 };
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
+use wgpu::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
 
 use super::{CompressedImageFormats, Image, TextureError};
 
@@ -20,9 +20,7 @@ pub fn basis_buffer_to_image(
         return Err(TextureError::InvalidData("Invalid header".to_string()));
     }
 
-    let image0_info = if let Some(image_info) = transcoder.image_info(buffer, 0) {
-        image_info
-    } else {
+    let Some(image0_info) = transcoder.image_info(buffer, 0) else {
         return Err(TextureError::InvalidData(
             "Failed to get image info".to_string(),
         ));
@@ -139,10 +137,13 @@ pub fn get_transcoded_formats(
     if supported_compressed_formats.contains(CompressedImageFormats::ASTC_LDR) {
         (
             TranscoderTextureFormat::ASTC_4x4_RGBA,
-            if is_srgb {
-                TextureFormat::Astc4x4RgbaUnormSrgb
-            } else {
-                TextureFormat::Astc4x4RgbaUnorm
+            TextureFormat::Astc {
+                block: AstcBlock::B4x4,
+                channel: if is_srgb {
+                    AstcChannel::UnormSrgb
+                } else {
+                    AstcChannel::Unorm
+                },
             },
         )
     } else if supported_compressed_formats.contains(CompressedImageFormats::BC) {

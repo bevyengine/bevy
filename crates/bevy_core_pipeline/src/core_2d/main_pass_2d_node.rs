@@ -3,10 +3,11 @@ use crate::{
     core_2d::{camera_2d::Camera2d, Transparent2d},
 };
 use bevy_ecs::prelude::*;
+use bevy_render::render_phase::TrackedRenderPass;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
@@ -64,7 +65,7 @@ impl Node for MainPass2dNode {
             let _main_pass_2d = info_span!("main_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_pass_2d"),
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: match camera_2d.clear_color {
                         ClearColorConfig::Default => {
                             LoadOp::Clear(world.resource::<ClearColor>().0.into())
@@ -73,25 +74,20 @@ impl Node for MainPass2dNode {
                         ClearColorConfig::None => LoadOp::Load,
                     },
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: None,
             };
-
-            let draw_functions = world.resource::<DrawFunctions<Transparent2d>>();
 
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
+            let mut render_pass = TrackedRenderPass::new(render_pass);
 
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                render_pass.set_camera_viewport(viewport);
             }
-            for item in &transparent_phase.sorted {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+
+            transparent_phase.render(&mut render_pass, world, view_entity);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
@@ -102,10 +98,10 @@ impl Node for MainPass2dNode {
             let _reset_viewport_pass_2d = info_span!("reset_viewport_pass_2d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_2d"),
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: None,
             };
 

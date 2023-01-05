@@ -1,8 +1,14 @@
-use bevy_math::IVec2;
+use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
-use bevy_window::{Window, WindowDescriptor, WindowId, WindowMode};
-use raw_window_handle::HasRawWindowHandle;
-use winit::dpi::LogicalSize;
+use bevy_window::{
+    CursorGrabMode, MonitorSelection, RawHandleWrapper, Window, WindowDescriptor, WindowId,
+    WindowMode,
+};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use winit::{
+    dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
+    window::Fullscreen,
+};
 
 #[derive(Debug, Default)]
 pub struct WinitWindows {
@@ -24,61 +30,52 @@ impl WinitWindows {
     ) -> Window {
         let mut winit_window_builder = winit::window::WindowBuilder::new();
 
+        let &WindowDescriptor {
+            width,
+            height,
+            position,
+            monitor,
+            scale_factor_override,
+            ..
+        } = window_descriptor;
+
+        let logical_size = LogicalSize::new(width, height);
+
+        let monitor = match monitor {
+            MonitorSelection::Current => None,
+            MonitorSelection::Primary => event_loop.primary_monitor(),
+            MonitorSelection::Index(i) => event_loop.available_monitors().nth(i),
+        };
+
+        let selected_or_primary_monitor = monitor.clone().or_else(|| event_loop.primary_monitor());
+
         winit_window_builder = match window_descriptor.mode {
-            WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
+            WindowMode::BorderlessFullscreen => winit_window_builder
+                .with_fullscreen(Some(Fullscreen::Borderless(selected_or_primary_monitor))),
+            WindowMode::Fullscreen => winit_window_builder.with_fullscreen(Some(
+                Fullscreen::Exclusive(get_best_videomode(&selected_or_primary_monitor.unwrap())),
             )),
-            WindowMode::Fullscreen => {
-                winit_window_builder.with_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                    get_best_videomode(&event_loop.primary_monitor().unwrap()),
-                )))
-            }
             WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
-                winit::window::Fullscreen::Exclusive(get_fitting_videomode(
-                    &event_loop.primary_monitor().unwrap(),
+                Fullscreen::Exclusive(get_fitting_videomode(
+                    &selected_or_primary_monitor.unwrap(),
                     window_descriptor.width as u32,
                     window_descriptor.height as u32,
                 )),
             )),
-            _ => {
-                let WindowDescriptor {
-                    width,
-                    height,
-                    position,
-                    scale_factor_override,
-                    ..
-                } = window_descriptor;
-
-                if let Some(position) = position {
-                    if let Some(sf) = scale_factor_override {
-                        winit_window_builder = winit_window_builder.with_position(
-                            winit::dpi::LogicalPosition::new(
-                                position[0] as f64,
-                                position[1] as f64,
-                            )
-                            .to_physical::<f64>(*sf),
-                        );
-                    } else {
-                        winit_window_builder =
-                            winit_window_builder.with_position(winit::dpi::LogicalPosition::new(
-                                position[0] as f64,
-                                position[1] as f64,
-                            ));
-                    }
-                }
+            WindowMode::Windowed => {
                 if let Some(sf) = scale_factor_override {
-                    winit_window_builder.with_inner_size(
-                        winit::dpi::LogicalSize::new(*width, *height).to_physical::<f64>(*sf),
-                    )
+                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
                 } else {
-                    winit_window_builder
-                        .with_inner_size(winit::dpi::LogicalSize::new(*width, *height))
+                    winit_window_builder.with_inner_size(logical_size)
                 }
             }
+        };
+
+        winit_window_builder = winit_window_builder
             .with_resizable(window_descriptor.resizable)
             .with_decorations(window_descriptor.decorations)
-            .with_transparent(window_descriptor.transparent),
-        };
+            .with_transparent(window_descriptor.transparent)
+            .with_always_on_top(window_descriptor.always_on_top);
 
         let constraints = window_descriptor.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
@@ -124,10 +121,46 @@ impl WinitWindows {
 
         let winit_window = winit_window_builder.build(event_loop).unwrap();
 
-        if window_descriptor.cursor_locked {
-            match winit_window.set_cursor_grab(true) {
-                Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
-                Err(err) => Err(err).unwrap(),
+        if window_descriptor.mode == WindowMode::Windowed {
+            use bevy_window::WindowPosition::*;
+            match position {
+                Automatic => {
+                    if let Some(monitor) = monitor {
+                        winit_window.set_outer_position(monitor.position());
+                    }
+                }
+                Centered => {
+                    if let Some(monitor) = monitor.or_else(|| winit_window.current_monitor()) {
+                        let monitor_position = monitor.position().cast::<f64>();
+                        let size = monitor.size();
+
+                        // Logical to physical window size
+                        let PhysicalSize::<u32> { width, height } =
+                            logical_size.to_physical(monitor.scale_factor());
+
+                        let position = PhysicalPosition {
+                            x: size.width.saturating_sub(width) as f64 / 2. + monitor_position.x,
+                            y: size.height.saturating_sub(height) as f64 / 2. + monitor_position.y,
+                        };
+
+                        winit_window.set_outer_position(position);
+                    }
+                }
+                At(position) => {
+                    if let Some(monitor) = monitor.or_else(|| winit_window.current_monitor()) {
+                        let monitor_position = DVec2::from(<(_, _)>::from(monitor.position()));
+                        let position = monitor_position + position.as_dvec2();
+
+                        if let Some(sf) = scale_factor_override {
+                            winit_window.set_outer_position(
+                                LogicalPosition::new(position.x, position.y).to_physical::<f64>(sf),
+                            );
+                        } else {
+                            winit_window
+                                .set_outer_position(LogicalPosition::new(position.x, position.y));
+                        }
+                    }
+                }
             }
         }
 
@@ -158,17 +191,25 @@ impl WinitWindows {
             .map(|position| IVec2::new(position.x, position.y));
         let inner_size = winit_window.inner_size();
         let scale_factor = winit_window.scale_factor();
-        let raw_window_handle = winit_window.raw_window_handle();
+        let raw_handle = RawHandleWrapper {
+            window_handle: winit_window.raw_window_handle(),
+            display_handle: winit_window.raw_display_handle(),
+        };
         self.windows.insert(winit_window.id(), winit_window);
-        Window::new(
+        let mut window = Window::new(
             window_id,
             window_descriptor,
             inner_size.width,
             inner_size.height,
             scale_factor,
             position,
-            raw_window_handle,
-        )
+            Some(raw_handle),
+        );
+        // Do not set the grab mode on window creation if it's none, this can fail on mobile
+        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
+            window.set_cursor_grab_mode(window_descriptor.cursor_grab_mode);
+        }
+        window
     }
 
     pub fn get_window(&self, id: WindowId) -> Option<&winit::window::Window> {
@@ -207,7 +248,9 @@ pub fn get_fitting_videomode(
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
                 match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
-                    Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                    Equal => b
+                        .refresh_rate_millihertz()
+                        .cmp(&a.refresh_rate_millihertz()),
                     default => default,
                 }
             }
@@ -224,7 +267,9 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
         use std::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
-                Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                Equal => b
+                    .refresh_rate_millihertz()
+                    .cmp(&a.refresh_rate_millihertz()),
                 default => default,
             },
             default => default,
@@ -233,9 +278,3 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
 
     modes.first().unwrap().clone()
 }
-
-// WARNING: this only works under the assumption that wasm runtime is single threaded
-#[cfg(target_arch = "wasm32")]
-unsafe impl Send for WinitWindows {}
-#[cfg(target_arch = "wasm32")]
-unsafe impl Sync for WinitWindows {}

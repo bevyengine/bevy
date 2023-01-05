@@ -51,42 +51,37 @@ struct CustomAssetIoPlugin;
 
 impl Plugin for CustomAssetIoPlugin {
     fn build(&self, app: &mut App) {
-        let asset_io = {
-            // the platform default asset io requires a reference to the app
-            // builder to find its configuration
+        let default_io = AssetPlugin::default().create_platform_default_asset_io();
 
-            let default_io = bevy::asset::create_platform_default_asset_io(app);
-
-            // create the custom asset io instance
-
-            CustomAssetIo(default_io)
-        };
+        // create the custom asset io instance
+        let asset_io = CustomAssetIo(default_io);
 
         // the asset server is constructed and added the resource manager
-
         app.insert_resource(AssetServer::new(asset_io));
     }
 }
 
 fn main() {
     App::new()
-        .add_plugins_with(DefaultPlugins, |group| {
-            // the custom asset io plugin must be inserted in-between the
-            // `CorePlugin' and `AssetPlugin`. It needs to be after the
-            // CorePlugin, so that the IO task pool has already been constructed.
-            // And it must be before the `AssetPlugin` so that the asset plugin
-            // doesn't create another instance of an asset server. In general,
-            // the AssetPlugin should still run so that other aspects of the
-            // asset system are initialized correctly.
-            group.add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin)
-        })
+        .add_plugins(
+            DefaultPlugins
+                .build()
+                // the custom asset io plugin must be inserted in-between the
+                // `CorePlugin' and `AssetPlugin`. It needs to be after the
+                // CorePlugin, so that the IO task pool has already been constructed.
+                // And it must be before the `AssetPlugin` so that the asset plugin
+                // doesn't create another instance of an asset server. In general,
+                // the AssetPlugin should still run so that other aspects of the
+                // asset system are initialized correctly.
+                .add_before::<bevy::asset::AssetPlugin, _>(CustomAssetIoPlugin),
+        )
         .add_startup_system(setup)
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn_bundle(Camera2dBundle::default());
-    commands.spawn_bundle(SpriteBundle {
+    commands.spawn(Camera2dBundle::default());
+    commands.spawn(SpriteBundle {
         texture: asset_server.load("branding/icon.png"),
         ..default()
     });

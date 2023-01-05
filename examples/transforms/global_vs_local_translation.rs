@@ -1,7 +1,7 @@
 //! Illustrates the difference between direction of a translation in respect to local object or
 //! global object Transform.
 
-use bevy::prelude::*;
+use bevy::{math::Vec3A, prelude::*};
 
 // Define a marker for entities that should be changed via their global transform.
 #[derive(Component)]
@@ -16,7 +16,7 @@ struct ChangeLocal;
 struct Move;
 
 // Define a resource for the current movement direction;
-#[derive(Default)]
+#[derive(Resource, Default)]
 struct Direction(Vec3);
 
 // Define component to decide when an entity should be ignored by the movement systems.
@@ -50,76 +50,83 @@ fn setup(
     // This example focuses on translation only to clearly demonstrate the differences.
 
     // Spawn a basic cube to have an entity as reference.
-    let mut main_entity = commands.spawn();
-    main_entity
-        .insert_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-            material: materials.add(Color::YELLOW.into()),
-            ..default()
-        })
-        .insert(ChangeGlobal)
-        .insert(Move)
-        .insert(ToggledBy(KeyCode::Key1));
-
-    // Spawn two entities as children above the original main entity.
-    // The red entity spawned here will be changed via its global transform
-    // where the green one will be changed via its local transform.
-    main_entity.with_children(|child_builder| {
-        // also see parenting example
-        child_builder
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::RED.into()),
-                transform: Transform::from_translation(Vec3::Y - Vec3::Z),
+    commands
+        .spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::YELLOW,
+                    alpha_mode: AlphaMode::Blend,
+                    ..Default::default()
+                }),
                 ..default()
-            })
-            .insert(ChangeGlobal)
-            .insert(Move)
-            .insert(ToggledBy(KeyCode::Key2));
-        child_builder
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-                material: materials.add(Color::GREEN.into()),
-                transform: Transform::from_translation(Vec3::Y + Vec3::Z),
-                ..default()
-            })
-            .insert(ChangeLocal)
-            .insert(Move)
-            .insert(ToggledBy(KeyCode::Key3));
-    });
+            },
+            ChangeGlobal,
+            Move,
+            ToggledBy(KeyCode::Key1),
+        ))
+        // Spawn two entities as children above the original main entity.
+        // The red entity spawned here will be changed via its global transform
+        // where the green one will be changed via its local transform.
+        .with_children(|child_builder| {
+            // also see parenting example
+            child_builder.spawn((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::RED,
+                        alpha_mode: AlphaMode::Blend,
+                        ..Default::default()
+                    }),
+                    transform: Transform::from_translation(Vec3::Y - Vec3::Z),
+                    ..default()
+                },
+                ChangeGlobal,
+                Move,
+                ToggledBy(KeyCode::Key2),
+            ));
+            child_builder.spawn((
+                PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
+                    material: materials.add(StandardMaterial {
+                        base_color: Color::GREEN,
+                        alpha_mode: AlphaMode::Blend,
+                        ..Default::default()
+                    }),
+                    transform: Transform::from_translation(Vec3::Y + Vec3::Z),
+                    ..default()
+                },
+                ChangeLocal,
+                Move,
+                ToggledBy(KeyCode::Key3),
+            ));
+        });
 
     // Spawn a camera looking at the entities to show what's happening in this example.
-    commands.spawn_bundle(Camera3dBundle {
+    commands.spawn(Camera3dBundle {
         transform: Transform::from_xyz(0.0, 10.0, 20.0).looking_at(Vec3::ZERO, Vec3::Y),
         ..default()
     });
 
     // Add a light source for better 3d visibility.
-    commands.spawn_bundle(PointLightBundle {
+    commands.spawn(PointLightBundle {
         transform: Transform::from_translation(Vec3::splat(3.0)),
         ..default()
     });
 
     // Add text to explain inputs and what is happening.
-    commands.spawn_bundle(TextBundle {
-        text: Text::with_section(
-            "Press the arrow keys to move the cubes. Toggle movement for yellow (1), red (2) and green (3) cubes via number keys.
+    commands.spawn(TextBundle::from_section(
+        "Press the arrow keys to move the cubes. Toggle movement for yellow (1), red (2) and green (3) cubes via number keys.
 
 Notice how the green cube will translate further in respect to the yellow in contrast to the red cube.
 This is due to the use of its LocalTransform that is relative to the yellow cubes transform instead of the GlobalTransform as in the case of the red cube.
 The red cube is moved through its GlobalTransform and thus is unaffected by the yellows transform.",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 22.0,
-                color: Color::WHITE,
-            },
-            TextAlignment {
-                horizontal: HorizontalAlign::Left,
-                ..default()
-            },
-        ),
-        ..default()
-    });
+        TextStyle {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 22.0,
+            color: Color::WHITE,
+        },
+    ));
 }
 
 // This system will move all cubes that are marked as ChangeGlobal according to their global transform.
@@ -128,8 +135,8 @@ fn move_cubes_according_to_global_transform(
     direction: Res<Direction>,
     timer: Res<Time>,
 ) {
-    for mut global_transform in cubes.iter_mut() {
-        global_transform.translation += direction.0 * timer.delta_seconds();
+    for mut global_transform in &mut cubes {
+        *global_transform.translation_mut() += Vec3A::from(direction.0) * timer.delta_seconds();
     }
 }
 
@@ -139,7 +146,7 @@ fn move_cubes_according_to_local_transform(
     direction: Res<Direction>,
     timer: Res<Time>,
 ) {
-    for mut transform in cubes.iter_mut() {
+    for mut transform in &mut cubes {
         transform.translation += direction.0 * timer.delta_seconds();
     }
 }
@@ -166,7 +173,7 @@ fn toggle_movement(
 ) {
     // Update the currently movable entities and remove their Move component if the assigned key was pressed to disable their movement.
     // This will also make them transparent so they can be identified as 'disabled' in the scene.
-    for (entity, material_handle, toggled_by) in movable_entities.iter() {
+    for (entity, material_handle, toggled_by) in &movable_entities {
         if keyboard_input.just_pressed(toggled_by.0) {
             materials
                 .get_mut(material_handle)
@@ -178,7 +185,7 @@ fn toggle_movement(
     }
     // Update the currently non-movable entities and add a Move component if the assigned key was pressed to enable their movement.
     // This will also make them opaque so they can be identified as 'enabled' in the scene.
-    for (entity, material_handle, toggled_by) in static_entities.iter() {
+    for (entity, material_handle, toggled_by) in &static_entities {
         if keyboard_input.just_pressed(toggled_by.0) {
             materials
                 .get_mut(material_handle)

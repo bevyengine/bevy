@@ -1,5 +1,8 @@
+use bevy_utils::tracing::error;
+
 use crate::{
     archetype::ArchetypeComponentId,
+    event::{Event, Events},
     storage::SparseSet,
     system::Resource,
     world::{Mut, World},
@@ -85,21 +88,22 @@ pub struct WorldBorrow<'w, T> {
 }
 
 impl<'w, T> WorldBorrow<'w, T> {
-    fn new(
-        value: &'w T,
+    fn try_new(
+        value: impl FnOnce() -> Option<&'w T>,
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
-    ) -> Self {
+    ) -> Option<Self> {
         assert!(
             access.borrow_mut().read(archetype_component_id),
             "Attempted to immutably access {}, but it is already mutably borrowed",
             std::any::type_name::<T>(),
         );
-        Self {
+        let value = value()?;
+        Some(Self {
             value,
             archetype_component_id,
             access,
-        }
+        })
     }
 }
 
@@ -126,21 +130,22 @@ pub struct WorldBorrowMut<'w, T> {
 }
 
 impl<'w, T> WorldBorrowMut<'w, T> {
-    fn new(
-        value: Mut<'w, T>,
+    fn try_new(
+        value: impl FnOnce() -> Option<Mut<'w, T>>,
         archetype_component_id: ArchetypeComponentId,
         access: Rc<RefCell<ArchetypeComponentAccess>>,
-    ) -> Self {
+    ) -> Option<Self> {
         assert!(
             access.borrow_mut().write(archetype_component_id),
             "Attempted to mutably access {}, but it is already mutably borrowed",
             std::any::type_name::<T>(),
         );
-        Self {
+        let value = value()?;
+        Some(Self {
             value,
             archetype_component_id,
             access,
-        }
+        })
     }
 }
 
@@ -155,7 +160,7 @@ impl<'w, T> Deref for WorldBorrowMut<'w, T> {
 
 impl<'w, T> DerefMut for WorldBorrowMut<'w, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut *self.value
+        &mut self.value
     }
 }
 
@@ -183,14 +188,15 @@ impl<'w> WorldCell<'w> {
     /// Gets a reference to the resource of the given type
     pub fn get_resource<T: Resource>(&self) -> Option<WorldBorrow<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
-        Some(WorldBorrow::new(
-            // SAFE: ComponentId matches TypeId
-            unsafe { self.world.get_resource_with_id(component_id)? },
+        let archetype_component_id = self
+            .world
+            .get_resource_archetype_component_id(component_id)?;
+        WorldBorrow::try_new(
+            // SAFETY: ComponentId matches TypeId
+            || unsafe { self.world.get_resource_with_id(component_id) },
             archetype_component_id,
             self.access.clone(),
-        ))
+        )
     }
 
     /// Gets a reference to the resource of the given type
@@ -204,7 +210,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<T>()
@@ -215,17 +221,15 @@ impl<'w> WorldCell<'w> {
     /// Gets a mutable reference to the resource of the given type
     pub fn get_resource_mut<T: Resource>(&self) -> Option<WorldBorrowMut<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
-        Some(WorldBorrowMut::new(
-            // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            unsafe {
-                self.world
-                    .get_resource_unchecked_mut_with_id(component_id)?
-            },
+        let archetype_component_id = self
+            .world
+            .get_resource_archetype_component_id(component_id)?;
+        WorldBorrowMut::try_new(
+            // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
+            || unsafe { self.world.get_resource_unchecked_mut_with_id(component_id) },
             archetype_component_id,
             self.access.clone(),
-        ))
+        )
     }
 
     /// Gets a mutable reference to the resource of the given type
@@ -239,7 +243,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_resource` / `app.init_resource`? 
+                Did you forget to add it using `app.insert_resource` / `app.init_resource`? 
                 Resources are also implicitly added via `app.add_event`,
                 and can be added by plugins.",
                 std::any::type_name::<T>()
@@ -250,14 +254,15 @@ impl<'w> WorldCell<'w> {
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
     pub fn get_non_send_resource<T: 'static>(&self) -> Option<WorldBorrow<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
-        Some(WorldBorrow::new(
-            // SAFE: ComponentId matches TypeId
-            unsafe { self.world.get_non_send_with_id(component_id)? },
+        let archetype_component_id = self
+            .world
+            .get_resource_archetype_component_id(component_id)?;
+        WorldBorrow::try_new(
+            // SAFETY: ComponentId matches TypeId
+            || unsafe { self.world.get_non_send_with_id(component_id) },
             archetype_component_id,
             self.access.clone(),
-        ))
+        )
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -272,7 +277,7 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<T>()
             ),
@@ -282,17 +287,15 @@ impl<'w> WorldCell<'w> {
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
     pub fn get_non_send_resource_mut<T: 'static>(&self) -> Option<WorldBorrowMut<'_, T>> {
         let component_id = self.world.components.get_resource_id(TypeId::of::<T>())?;
-        let resource_archetype = self.world.archetypes.resource();
-        let archetype_component_id = resource_archetype.get_archetype_component_id(component_id)?;
-        Some(WorldBorrowMut::new(
-            // SAFE: ComponentId matches TypeId and access is checked by WorldBorrowMut
-            unsafe {
-                self.world
-                    .get_non_send_unchecked_mut_with_id(component_id)?
-            },
+        let archetype_component_id = self
+            .world
+            .get_resource_archetype_component_id(component_id)?;
+        WorldBorrowMut::try_new(
+            // SAFETY: ComponentId matches TypeId and access is checked by WorldBorrowMut
+            || unsafe { self.world.get_non_send_unchecked_mut_with_id(component_id) },
             archetype_component_id,
             self.access.clone(),
-        ))
+        )
     }
 
     /// Gets a mutable reference to the non-send resource of the given type, if it exists.
@@ -307,10 +310,34 @@ impl<'w> WorldCell<'w> {
             Some(x) => x,
             None => panic!(
                 "Requested non-send resource {} does not exist in the `World`. 
-                Did you forget to add it using `app.add_non_send_resource` / `app.init_non_send_resource`? 
+                Did you forget to add it using `app.insert_non_send_resource` / `app.init_non_send_resource`? 
                 Non-send resources can also be be added by plugins.",
                 std::any::type_name::<T>()
             ),
+        }
+    }
+
+    /// Sends an [`Event`](crate::event::Event).
+    #[inline]
+    pub fn send_event<E: Event>(&self, event: E) {
+        self.send_event_batch(std::iter::once(event));
+    }
+
+    /// Sends the default value of the [`Event`](crate::event::Event) of type `E`.
+    #[inline]
+    pub fn send_event_default<E: Event + Default>(&self) {
+        self.send_event_batch(std::iter::once(E::default()));
+    }
+
+    /// Sends a batch of [`Event`](crate::event::Event)s from an iterator.
+    #[inline]
+    pub fn send_event_batch<E: Event>(&self, events: impl Iterator<Item = E>) {
+        match self.get_resource_mut::<Events<E>>() {
+            Some(mut events_resource) => events_resource.extend(events),
+            None => error!(
+                    "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
+                    std::any::type_name::<E>()
+                ),
         }
     }
 }
@@ -318,40 +345,47 @@ impl<'w> WorldCell<'w> {
 #[cfg(test)]
 mod tests {
     use super::BASE_ACCESS;
-    use crate::{archetype::ArchetypeId, world::World};
+    use crate as bevy_ecs;
+    use crate::{system::Resource, world::World};
     use std::any::TypeId;
+
+    #[derive(Resource)]
+    struct A(u32);
+
+    #[derive(Resource)]
+    struct B(u64);
 
     #[test]
     fn world_cell() {
         let mut world = World::default();
-        world.insert_resource(1u32);
-        world.insert_resource(1u64);
+        world.insert_resource(A(1));
+        world.insert_resource(B(1));
         let cell = world.cell();
         {
-            let mut a = cell.resource_mut::<u32>();
-            assert_eq!(1, *a);
-            *a = 2;
+            let mut a = cell.resource_mut::<A>();
+            assert_eq!(1, a.0);
+            a.0 = 2;
         }
         {
-            let a = cell.resource::<u32>();
-            assert_eq!(2, *a, "ensure access is dropped");
+            let a = cell.resource::<A>();
+            assert_eq!(2, a.0, "ensure access is dropped");
 
-            let b = cell.resource::<u32>();
+            let a2 = cell.resource::<A>();
             assert_eq!(
-                2, *b,
+                2, a2.0,
                 "ensure multiple immutable accesses can occur at the same time"
             );
         }
         {
-            let a = cell.resource_mut::<u32>();
+            let a = cell.resource_mut::<A>();
             assert_eq!(
-                2, *a,
+                2, a.0,
                 "ensure both immutable accesses are dropped, enabling a new mutable access"
             );
 
-            let b = cell.resource::<u64>();
+            let b = cell.resource::<B>();
             assert_eq!(
-                1, *b,
+                1, b.0,
                 "ensure multiple non-conflicting mutable accesses can occur at the same time"
             );
         }
@@ -360,23 +394,19 @@ mod tests {
     #[test]
     fn world_access_reused() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         {
             let cell = world.cell();
             {
-                let mut a = cell.resource_mut::<u32>();
-                assert_eq!(1, *a);
-                *a = 2;
+                let mut a = cell.resource_mut::<A>();
+                assert_eq!(1, a.0);
+                a.0 = 2;
             }
         }
 
-        let u32_component_id = world
-            .components
-            .get_resource_id(TypeId::of::<u32>())
-            .unwrap();
-        let resource_archetype = world.archetypes.get(ArchetypeId::RESOURCE).unwrap();
-        let u32_archetype_component_id = resource_archetype
-            .get_archetype_component_id(u32_component_id)
+        let u32_component_id = world.components.get_resource_id(TypeId::of::<A>()).unwrap();
+        let u32_archetype_component_id = world
+            .get_resource_archetype_component_id(u32_component_id)
             .unwrap();
         assert_eq!(world.archetype_component_access.access.len(), 1);
         assert_eq!(
@@ -393,38 +423,38 @@ mod tests {
     #[should_panic]
     fn world_cell_double_mut() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<u32>();
-        let _value_b = cell.resource_mut::<u32>();
+        let _value_a = cell.resource_mut::<A>();
+        let _value_b = cell.resource_mut::<A>();
     }
 
     #[test]
     #[should_panic]
     fn world_cell_ref_and_mut() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource::<u32>();
-        let _value_b = cell.resource_mut::<u32>();
+        let _value_a = cell.resource::<A>();
+        let _value_b = cell.resource_mut::<A>();
     }
 
     #[test]
     #[should_panic]
     fn world_cell_mut_and_ref() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource_mut::<u32>();
-        let _value_b = cell.resource::<u32>();
+        let _value_a = cell.resource_mut::<A>();
+        let _value_b = cell.resource::<A>();
     }
 
     #[test]
     fn world_cell_ref_and_ref() {
         let mut world = World::default();
-        world.insert_resource(1u32);
+        world.insert_resource(A(1));
         let cell = world.cell();
-        let _value_a = cell.resource::<u32>();
-        let _value_b = cell.resource::<u32>();
+        let _value_a = cell.resource::<A>();
+        let _value_b = cell.resource::<A>();
     }
 }

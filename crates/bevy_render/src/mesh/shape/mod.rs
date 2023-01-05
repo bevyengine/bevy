@@ -49,6 +49,20 @@ impl Box {
             min_z: -z_length / 2.0,
         }
     }
+
+    /// Creates a new box given the coordinates of two opposing corners.
+    pub fn from_corners(a: Vec3, b: Vec3) -> Box {
+        let max = a.max(b);
+        let min = a.min(b);
+        Box {
+            max_x: max.x,
+            min_x: min.x,
+            max_y: max.y,
+            min_y: min.y,
+            max_z: max.z,
+            min_z: min.z,
+        }
+    }
 }
 
 impl Default for Box {
@@ -59,13 +73,14 @@ impl Default for Box {
 
 impl From<Box> for Mesh {
     fn from(sp: Box) -> Self {
+        // suppose Y-up right hand, and camera look from +z to -z
         let vertices = &[
-            // Top
+            // Front
             ([sp.min_x, sp.min_y, sp.max_z], [0., 0., 1.0], [0., 0.]),
             ([sp.max_x, sp.min_y, sp.max_z], [0., 0., 1.0], [1.0, 0.]),
             ([sp.max_x, sp.max_y, sp.max_z], [0., 0., 1.0], [1.0, 1.0]),
             ([sp.min_x, sp.max_y, sp.max_z], [0., 0., 1.0], [0., 1.0]),
-            // Bottom
+            // Back
             ([sp.min_x, sp.max_y, sp.min_z], [0., 0., -1.0], [1.0, 0.]),
             ([sp.max_x, sp.max_y, sp.min_z], [0., 0., -1.0], [0., 0.]),
             ([sp.max_x, sp.min_y, sp.min_z], [0., 0., -1.0], [0., 1.0]),
@@ -80,35 +95,29 @@ impl From<Box> for Mesh {
             ([sp.min_x, sp.max_y, sp.max_z], [-1.0, 0., 0.], [0., 0.]),
             ([sp.min_x, sp.max_y, sp.min_z], [-1.0, 0., 0.], [0., 1.0]),
             ([sp.min_x, sp.min_y, sp.min_z], [-1.0, 0., 0.], [1.0, 1.0]),
-            // Front
+            // Top
             ([sp.max_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [1.0, 0.]),
             ([sp.min_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [0., 0.]),
             ([sp.min_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [0., 1.0]),
             ([sp.max_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [1.0, 1.0]),
-            // Back
+            // Bottom
             ([sp.max_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [0., 0.]),
             ([sp.min_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [1.0, 0.]),
             ([sp.min_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [1.0, 1.0]),
             ([sp.max_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [0., 1.0]),
         ];
 
-        let mut positions = Vec::with_capacity(24);
-        let mut normals = Vec::with_capacity(24);
-        let mut uvs = Vec::with_capacity(24);
-
-        for (position, normal, uv) in vertices.iter() {
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(*uv);
-        }
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let indices = Indices::U32(vec![
-            0, 1, 2, 2, 3, 0, // top
-            4, 5, 6, 6, 7, 4, // bottom
+            0, 1, 2, 2, 3, 0, // front
+            4, 5, 6, 6, 7, 4, // back
             8, 9, 10, 10, 11, 8, // right
             12, 13, 14, 14, 15, 12, // left
-            16, 17, 18, 18, 19, 16, // front
-            20, 21, 22, 22, 23, 20, // back
+            16, 17, 18, 18, 19, 16, // top
+            20, 21, 22, 22, 23, 20, // bottom
         ]);
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
@@ -120,7 +129,7 @@ impl From<Box> for Mesh {
     }
 }
 
-/// A rectangle on the XY plane centered at the origin.
+/// A rectangle on the `XY` plane centered at the origin.
 #[derive(Debug, Copy, Clone)]
 pub struct Quad {
     /// Full width and height of the rectangle.
@@ -160,14 +169,9 @@ impl From<Quad> for Mesh {
 
         let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
-        let mut positions = Vec::<[f32; 3]>::new();
-        let mut normals = Vec::<[f32; 3]>::new();
-        let mut uvs = Vec::<[f32; 2]>::new();
-        for (position, normal, uv) in &vertices {
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(*uv);
-        }
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
@@ -178,7 +182,7 @@ impl From<Quad> for Mesh {
     }
 }
 
-/// A square on the XZ plane centered at the origin.
+/// A square on the `XZ` plane centered at the origin.
 #[derive(Debug, Copy, Clone)]
 pub struct Plane {
     /// The total side length of the square.
@@ -204,14 +208,9 @@ impl From<Plane> for Mesh {
 
         let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
 
-        let mut positions = Vec::new();
-        let mut normals = Vec::new();
-        let mut uvs = Vec::new();
-        for (position, normal, uv) in &vertices {
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(*uv);
-        }
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(indices));
@@ -223,12 +222,14 @@ impl From<Plane> for Mesh {
 }
 
 mod capsule;
+mod cylinder;
 mod icosphere;
 mod regular_polygon;
 mod torus;
 mod uvsphere;
 
 pub use capsule::{Capsule, CapsuleUvProfile};
+pub use cylinder::Cylinder;
 pub use icosphere::Icosphere;
 pub use regular_polygon::{Circle, RegularPolygon};
 pub use torus::Torus;

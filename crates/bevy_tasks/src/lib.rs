@@ -18,6 +18,8 @@ mod single_threaded_task_pool;
 pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
 
 mod usages;
+#[cfg(not(target_arch = "wasm32"))]
+pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 mod iter;
@@ -33,5 +35,16 @@ pub mod prelude {
     };
 }
 
-pub use num_cpus::get as logical_core_count;
-pub use num_cpus::get_physical as physical_core_count;
+use std::num::NonZeroUsize;
+
+/// Gets the logical CPU core count available to the current process.
+///
+/// This is identical to [`std::thread::available_parallelism`], except
+/// it will return a default value of 1 if it internally errors out.
+///
+/// This will always return at least 1.
+pub fn available_parallelism() -> usize {
+    std::thread::available_parallelism()
+        .map(NonZeroUsize::get)
+        .unwrap_or(1)
+}

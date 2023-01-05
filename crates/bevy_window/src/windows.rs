@@ -1,8 +1,9 @@
 use super::{Window, WindowId};
+use bevy_ecs::prelude::Resource;
 use bevy_utils::HashMap;
 
 /// A collection of [`Window`]s with unique [`WindowId`]s.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct Windows {
     windows: HashMap<WindowId, Window>,
 }
@@ -50,6 +51,16 @@ impl Windows {
     pub fn primary_mut(&mut self) -> &mut Window {
         self.get_primary_mut()
             .expect("Primary window does not exist")
+    }
+
+    /// Get a reference to the focused [`Window`].
+    pub fn get_focused(&self) -> Option<&Window> {
+        self.windows.values().find(|window| window.is_focused())
+    }
+
+    /// Get a mutable reference to the focused [`Window`].
+    pub fn get_focused_mut(&mut self) -> Option<&mut Window> {
+        self.windows.values_mut().find(|window| window.is_focused())
     }
 
     /// Returns the scale factor for the [`Window`] of `id`, or `1.0` if the window does not exist.

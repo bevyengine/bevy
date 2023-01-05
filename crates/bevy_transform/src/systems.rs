@@ -2,74 +2,135 @@ use crate::components::{GlobalTransform, Transform};
 use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
 use bevy_hierarchy::{Children, Parent};
 
+/// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
+pub fn sync_simple_transforms(
+    mut query: Query<
+        (&Transform, &mut GlobalTransform),
+        (Changed<Transform>, Without<Parent>, Without<Children>),
+    >,
+) {
+    query.par_for_each_mut(1024, |(transform, mut global_transform)| {
+        *global_transform = GlobalTransform::from(*transform);
+    });
+}
+
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
-pub fn transform_propagate_system(
+pub fn propagate_transforms(
     mut root_query: Query<
         (
-            Option<(&Children, Changed<Children>)>,
+            Entity,
+            &Children,
             &Transform,
             Changed<Transform>,
+            Changed<Children>,
             &mut GlobalTransform,
-            Entity,
         ),
         Without<Parent>,
     >,
-    mut transform_query: Query<(
-        &Transform,
-        Changed<Transform>,
-        &mut GlobalTransform,
-        &Parent,
-    )>,
+    transform_query: Query<(&Transform, Changed<Transform>, &mut GlobalTransform), With<Parent>>,
+    parent_query: Query<&Parent>,
     children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
 ) {
-    for (children, transform, transform_changed, mut global_transform, entity) in
-        root_query.iter_mut()
-    {
-        let mut changed = transform_changed;
-        if transform_changed {
-            *global_transform = GlobalTransform::from(*transform);
-        }
-
-        if let Some((children, changed_children)) = children {
-            // If our `Children` has changed, we need to recalculate everything below us
-            changed |= changed_children;
-            for child in children.iter() {
-                let _ = propagate_recursive(
-                    &global_transform,
-                    &mut transform_query,
-                    &children_query,
-                    *child,
-                    entity,
-                    changed,
-                );
+    root_query.par_for_each_mut(
+        // The differing depths and sizes of hierarchy trees causes the work for each root to be
+        // different. A batch size of 1 ensures that each tree gets it's own task and multiple
+        // large trees are not clumped together.
+        1,
+        |(entity, children, transform, mut changed, children_changed, mut global_transform)| {
+            if changed {
+                *global_transform = GlobalTransform::from(*transform);
             }
-        }
-    }
+
+            // If our `Children` has changed, we need to recalculate everything below us
+            changed |= children_changed;
+
+            for child in children.iter() {
+                // SAFETY:
+                // - We may operate as if the hierarchy is consistent, since `propagate_recursive` will panic before continuing
+                //   to propagate if it encounters an entity with inconsistent parentage.
+                // - Since each root entity is unique and the hierarchy is consistent and forest-like,
+                //   other root entities' `propagate_recursive` calls will not conflict with this one.
+                // - Since this is the only place where `transform_query` gets used, there will be no conflicting fetches elsewhere.
+                unsafe {
+                    propagate_recursive(
+                        &global_transform,
+                        &transform_query,
+                        &parent_query,
+                        &children_query,
+                        entity,
+                        *child,
+                        changed,
+                    );
+                }
+            }
+        },
+    );
 }
 
-fn propagate_recursive(
+/// Recursively propagates the transforms for `entity` and all of its descendants.
+///
+/// # Panics
+///
+/// If `entity` or any of its descendants have a malformed hierarchy.
+/// The panic will occur before propagating the transforms of any malformed entities and their descendants.
+///
+/// # Safety
+///
+/// While this function is running, `unsafe_transform_query` must not have any fetches for `entity`,
+/// nor any of its descendants.
+unsafe fn propagate_recursive(
     parent: &GlobalTransform,
-    transform_query: &mut Query<(
-        &Transform,
-        Changed<Transform>,
-        &mut GlobalTransform,
-        &Parent,
-    )>,
+    unsafe_transform_query: &Query<
+        (&Transform, Changed<Transform>, &mut GlobalTransform),
+        With<Parent>,
+    >,
+    parent_query: &Query<&Parent>,
     children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
-    entity: Entity,
     expected_parent: Entity,
+    entity: Entity,
     mut changed: bool,
-    // We use a result here to use the `?` operator. Ideally we'd use a try block instead
-) -> Result<(), ()> {
+) {
+    let Ok(actual_parent) = parent_query.get(entity) else {
+        panic!("Propagated child for {:?} has no Parent component!", entity);
+    };
+    assert_eq!(
+        actual_parent.get(), expected_parent,
+        "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
+    );
+
     let global_matrix = {
-        let (transform, transform_changed, mut global_transform, child_parent) =
-            transform_query.get_mut(entity).map_err(drop)?;
-        // Note that for parallelising, this check cannot occur here, since there is an `&mut GlobalTransform` (in global_transform)
-        assert_eq!(
-            child_parent.0, expected_parent,
-            "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
-        );
+        let Ok((transform, transform_changed, mut global_transform)) =
+            // SAFETY: This call cannot create aliased mutable references.
+            //   - The top level iteration parallelizes on the roots of the hierarchy.
+            //   - The above assertion ensures that each child has one and only one unique parent throughout the entire
+            //     hierarchy.
+            //
+            // For example, consider the following malformed hierarchy:
+            //
+            //     A
+            //   /   \
+            //  B     C
+            //   \   /
+            //     D
+            //
+            // D has two parents, B and C. If the propagation passes through C, but the Parent component on D points to B,
+            // the above check will panic as the origin parent does match the recorded parent.
+            //
+            // Also consider the following case, where A and B are roots:
+            //
+            //  A       B
+            //   \     /
+            //    C   D
+            //     \ /
+            //      E
+            //
+            // Even if these A and B start two separate tasks running in parallel, one of them will panic before attempting
+            // to mutably access E.
+            (unsafe { unsafe_transform_query.get_unchecked(entity) }) else {
+                return;
+            };
+
         changed |= transform_changed;
         if changed {
             *global_transform = parent.mul_transform(*transform);
@@ -77,20 +138,26 @@ fn propagate_recursive(
         *global_transform
     };
 
-    let (children, changed_children) = children_query.get(entity).map_err(drop)?;
+    let Ok((children, changed_children)) = children_query.get(entity) else {
+        return
+    };
     // If our `Children` has changed, we need to recalculate everything below us
     changed |= changed_children;
-    for child in children.iter() {
-        let _ = propagate_recursive(
-            &global_matrix,
-            transform_query,
-            children_query,
-            *child,
-            entity,
-            changed,
-        );
+    for child in children {
+        // SAFETY: The caller guarantees that `unsafe_transform_query` will not be fetched
+        // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
+        unsafe {
+            propagate_recursive(
+                &global_matrix,
+                unsafe_transform_query,
+                parent_query,
+                children_query,
+                entity,
+                *child,
+                changed,
+            );
+        }
     }
-    Ok(())
 }
 
 #[cfg(test)]
@@ -99,43 +166,43 @@ mod test {
     use bevy_ecs::prelude::*;
     use bevy_ecs::system::CommandQueue;
     use bevy_math::vec3;
+    use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::components::{GlobalTransform, Transform};
-    use crate::systems::transform_propagate_system;
+    use crate::systems::*;
     use crate::TransformBundle;
-    use bevy_hierarchy::{
-        parent_update_system, BuildChildren, BuildWorldChildren, Children, Parent,
-    };
+    use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
+
+    #[derive(StageLabel)]
+    struct Update;
 
     #[test]
     fn did_propagate() {
+        ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system.after(parent_update_system));
+        update_stage.add_system(sync_simple_transforms);
+        update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Root entity
-        world
-            .spawn()
-            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
+        world.spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)));
 
         let mut children = Vec::new();
         world
-            .spawn()
-            .insert_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.)))
                         .id(),
                 );
             });
@@ -157,27 +224,27 @@ mod test {
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system.after(parent_update_system));
+        update_stage.add_system(sync_simple_transforms);
+        update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Root entity
         let mut queue = CommandQueue::default();
         let mut commands = Commands::new(&mut queue, &world);
         let mut children = Vec::new();
         commands
-            .spawn_bundle(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
+            .spawn(TransformBundle::from(Transform::from_xyz(1.0, 0.0, 0.0)))
             .with_children(|parent| {
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 2.0, 0.0)))
                         .id(),
                 );
                 children.push(
                     parent
-                        .spawn_bundle(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
+                        .spawn(TransformBundle::from(Transform::from_xyz(0.0, 0.0, 3.0)))
                         .id(),
                 );
             });
@@ -197,39 +264,30 @@ mod test {
 
     #[test]
     fn correct_children() {
+        ComputeTaskPool::init(TaskPool::default);
         let mut world = World::default();
 
         let mut update_stage = SystemStage::parallel();
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system.after(parent_update_system));
+        update_stage.add_system(sync_simple_transforms);
+        update_stage.add_system(propagate_transforms);
 
         let mut schedule = Schedule::default();
-        schedule.add_stage("update", update_stage);
+        schedule.add_stage(Update, update_stage);
 
         // Add parent entities
-        let mut command_queue = CommandQueue::default();
-        let mut commands = Commands::new(&mut command_queue, &world);
         let mut children = Vec::new();
-        let parent = commands
-            .spawn()
-            .insert(Transform::from_xyz(1.0, 0.0, 0.0))
-            .id();
-        commands.entity(parent).with_children(|parent| {
-            children.push(
-                parent
-                    .spawn()
-                    .insert(Transform::from_xyz(0.0, 2.0, 0.0))
-                    .id(),
-            );
-            children.push(
-                parent
-                    .spawn()
-                    .insert(Transform::from_xyz(0.0, 3.0, 0.0))
-                    .id(),
-            );
-        });
-        command_queue.apply(&mut world);
-        schedule.run(&mut world);
+        let parent = {
+            let mut command_queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut command_queue, &world);
+            let parent = commands.spawn(Transform::from_xyz(1.0, 0.0, 0.0)).id();
+            commands.entity(parent).with_children(|parent| {
+                children.push(parent.spawn(Transform::from_xyz(0.0, 2.0, 0.0)).id());
+                children.push(parent.spawn(Transform::from_xyz(0.0, 3.0, 0.0)).id());
+            });
+            command_queue.apply(&mut world);
+            schedule.run(&mut world);
+            parent
+        };
 
         assert_eq!(
             world
@@ -242,9 +300,13 @@ mod test {
         );
 
         // Parent `e1` to `e2`.
-        (*world.get_mut::<Parent>(children[0]).unwrap()).0 = children[1];
-
-        schedule.run(&mut world);
+        {
+            let mut command_queue = CommandQueue::default();
+            let mut commands = Commands::new(&mut command_queue, &world);
+            commands.entity(children[1]).add_child(children[0]);
+            command_queue.apply(&mut world);
+            schedule.run(&mut world);
+        }
 
         assert_eq!(
             world
@@ -284,37 +346,30 @@ mod test {
     #[test]
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
+        ComputeTaskPool::init(TaskPool::default);
 
-        app.add_system(parent_update_system);
-        app.add_system(transform_propagate_system.after(parent_update_system));
+        app.add_system(sync_simple_transforms);
+        app.add_system(propagate_transforms);
 
         let translation = vec3(1.0, 0.0, 0.0);
 
+        // These will be overwritten.
+        let mut child = Entity::from_raw(0);
+        let mut grandchild = Entity::from_raw(1);
         let parent = app
             .world
-            .spawn()
-            .insert(Transform::from_translation(translation))
-            .insert(GlobalTransform::default())
-            .id();
-
-        let child = app
-            .world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(parent),
+            .spawn((
+                Transform::from_translation(translation),
+                GlobalTransform::IDENTITY,
             ))
-            .id();
-
-        let grandchild = app
-            .world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(child),
-            ))
+            .with_children(|builder| {
+                child = builder
+                    .spawn(TransformBundle::IDENTITY)
+                    .with_children(|builder| {
+                        grandchild = builder.spawn(TransformBundle::IDENTITY).id();
+                    })
+                    .id();
+            })
             .id();
 
         app.update();
@@ -327,46 +382,47 @@ mod test {
 
         let mut state = app.world.query::<&GlobalTransform>();
         for global in state.iter(&app.world) {
-            assert_eq!(
-                global,
-                &GlobalTransform {
-                    translation,
-                    ..Default::default()
-                },
-            );
+            assert_eq!(global, &GlobalTransform::from_translation(translation));
         }
     }
+
     #[test]
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
-        let mut world = World::default();
-        // This test is run on a single thread in order to avoid breaking the global task pool by panicking
-        // This fixes the flaky tests reported in https://github.com/bevyengine/bevy/issues/4996
-        let mut update_stage = SystemStage::single_threaded();
+        ComputeTaskPool::init(TaskPool::default);
+        // We cannot directly edit Parent and Children, so we use a temp world to break
+        // the hierarchy's invariants.
+        let mut temp = World::new();
+        let mut app = App::new();
 
-        update_stage.add_system(parent_update_system);
-        update_stage.add_system(transform_propagate_system.after(parent_update_system));
+        app.add_system(propagate_transforms)
+            .add_system(sync_simple_transforms);
 
-        let child = world
-            .spawn()
-            .insert_bundle((Transform::identity(), GlobalTransform::default()))
-            .id();
+        fn setup_world(world: &mut World) -> (Entity, Entity) {
+            let mut grandchild = Entity::from_raw(0);
+            let child = world
+                .spawn(TransformBundle::IDENTITY)
+                .with_children(|builder| {
+                    grandchild = builder.spawn(TransformBundle::IDENTITY).id();
+                })
+                .id();
+            (child, grandchild)
+        }
 
-        let grandchild = world
-            .spawn()
-            .insert_bundle((
-                Transform::identity(),
-                GlobalTransform::default(),
-                Parent(child),
-            ))
-            .id();
-        world.spawn().insert_bundle((
-            Transform::default(),
-            GlobalTransform::default(),
-            Children::with(&[child]),
-        ));
-        world.entity_mut(child).insert(Parent(grandchild));
+        let (temp_child, temp_grandchild) = setup_world(&mut temp);
+        let (child, grandchild) = setup_world(&mut app.world);
 
-        update_stage.run(&mut world);
+        assert_eq!(temp_child, child);
+        assert_eq!(temp_grandchild, grandchild);
+
+        app.world
+            .spawn(TransformBundle::IDENTITY)
+            .push_children(&[child]);
+        std::mem::swap(
+            &mut *app.world.get_mut::<Parent>(child).unwrap(),
+            &mut *temp.get_mut::<Parent>(grandchild).unwrap(),
+        );
+
+        app.update();
     }
 }

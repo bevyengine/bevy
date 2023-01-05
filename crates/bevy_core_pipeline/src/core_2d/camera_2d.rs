@@ -1,10 +1,8 @@
-use crate::clear_color::ClearColorConfig;
+use crate::{clear_color::ClearColorConfig, tonemapping::Tonemapping};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_reflect::Reflect;
 use bevy_render::{
-    camera::{
-        Camera, CameraProjection, CameraRenderGraph, DepthCalculation, OrthographicProjection,
-    },
+    camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
     extract_component::ExtractComponent,
     primitives::Frustum,
     view::VisibleEntities,
@@ -20,9 +18,10 @@ pub struct Camera2d {
 impl ExtractComponent for Camera2d {
     type Query = &'static Self;
     type Filter = With<Camera>;
+    type Out = Self;
 
-    fn extract_component(item: QueryItem<Self::Query>) -> Self {
-        item.clone()
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(item.clone())
     }
 }
 
@@ -36,6 +35,7 @@ pub struct Camera2dBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub camera_2d: Camera2d,
+    pub tonemapping: Tonemapping,
 }
 
 impl Default for Camera2dBundle {
@@ -45,7 +45,7 @@ impl Default for Camera2dBundle {
 }
 
 impl Camera2dBundle {
-    /// Create an orthographic projection camera with a custom Z position.
+    /// Create an orthographic projection camera with a custom `Z` position.
     ///
     /// The camera is placed at `Z=far-0.1`, looking toward the world origin `(0,0,0)`.
     /// Its orthographic projection extends from `0.0` to `-far` in camera view space,
@@ -56,7 +56,6 @@ impl Camera2dBundle {
         // the camera's translation by far and use a right handed coordinate system
         let projection = OrthographicProjection {
             far,
-            depth_calculation: DepthCalculation::ZDifference,
             ..Default::default()
         };
         let transform = Transform::from_xyz(0.0, 0.0, far - 0.1);
@@ -77,6 +76,7 @@ impl Camera2dBundle {
             global_transform: Default::default(),
             camera: Camera::default(),
             camera_2d: Camera2d::default(),
+            tonemapping: Tonemapping::Disabled,
         }
     }
 }

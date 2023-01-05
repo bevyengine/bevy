@@ -3,10 +3,11 @@ use crate::{
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
 };
 use bevy_ecs::prelude::*;
+use bevy_render::render_phase::TrackedRenderPass;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
-    render_phase::{DrawFunctions, RenderPhase, TrackedRenderPass},
+    render_phase::RenderPhase,
     render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
@@ -73,7 +74,7 @@ impl Node for MainPass3dNode {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: match camera_3d.clear_color {
                         ClearColorConfig::Default => {
                             LoadOp::Clear(world.resource::<ClearColor>().0.into())
@@ -82,7 +83,7 @@ impl Node for MainPass3dNode {
                         ClearColorConfig::None => LoadOp::Load,
                     },
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The opaque main pass loads the depth buffer and possibly overwrites it
@@ -95,20 +96,16 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.resource::<DrawFunctions<Opaque3d>>();
-
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            let mut render_pass = TrackedRenderPass::new(render_pass);
+
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                render_pass.set_camera_viewport(viewport);
             }
-            for item in &opaque_phase.sorted {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+
+            opaque_phase.render(&mut render_pass, world, view_entity);
         }
 
         if !alpha_mask_phase.sorted.is_empty() {
@@ -119,10 +116,10 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The alpha mask pass loads the depth buffer and possibly overwrites it
@@ -134,20 +131,16 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.resource::<DrawFunctions<AlphaMask3d>>();
-
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            let mut render_pass = TrackedRenderPass::new(render_pass);
+
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                render_pass.set_camera_viewport(viewport);
             }
-            for item in &alpha_mask_phase.sorted {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+
+            alpha_mask_phase.render(&mut render_pass, world, view_entity);
         }
 
         if !transparent_phase.sorted.is_empty() {
@@ -158,10 +151,10 @@ impl Node for MainPass3dNode {
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer. There should be no
@@ -178,20 +171,16 @@ impl Node for MainPass3dNode {
                 }),
             };
 
-            let draw_functions = world.resource::<DrawFunctions<Transparent3d>>();
-
             let render_pass = render_context
                 .command_encoder
                 .begin_render_pass(&pass_descriptor);
-            let mut draw_functions = draw_functions.write();
-            let mut tracked_pass = TrackedRenderPass::new(render_pass);
+            let mut render_pass = TrackedRenderPass::new(render_pass);
+
             if let Some(viewport) = camera.viewport.as_ref() {
-                tracked_pass.set_camera_viewport(viewport);
+                render_pass.set_camera_viewport(viewport);
             }
-            for item in &transparent_phase.sorted {
-                let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                draw_function.draw(world, &mut tracked_pass, view_entity, item);
-            }
+
+            transparent_phase.render(&mut render_pass, world, view_entity);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't
@@ -202,10 +191,10 @@ impl Node for MainPass3dNode {
             let _reset_viewport_pass_3d = info_span!("reset_viewport_pass_3d").entered();
             let pass_descriptor = RenderPassDescriptor {
                 label: Some("reset_viewport_pass_3d"),
-                color_attachments: &[target.get_color_attachment(Operations {
+                color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: LoadOp::Load,
                     store: true,
-                })],
+                }))],
                 depth_stencil_attachment: None,
             };
 

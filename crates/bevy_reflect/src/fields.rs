@@ -1,28 +1,37 @@
 use crate::Reflect;
 use std::any::{Any, TypeId};
-use std::borrow::Cow;
 
 /// The named field of a reflected struct.
 #[derive(Clone, Debug)]
 pub struct NamedField {
-    name: Cow<'static, str>,
+    name: &'static str,
     type_name: &'static str,
     type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect, TName: Into<Cow<'static, str>>>(name: TName) -> Self {
+    pub fn new<T: Reflect>(name: &'static str) -> Self {
         Self {
-            name: name.into(),
+            name,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
     }
 
+    /// Sets the docstring for this field.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
+    }
+
     /// The name of the field.
-    pub fn name(&self) -> &Cow<'static, str> {
-        &self.name
+    pub fn name(&self) -> &'static str {
+        self.name
     }
 
     /// The [type name] of the field.
@@ -41,6 +50,12 @@ impl NamedField {
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
     }
+
+    /// The docstring of this field, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
+    }
 }
 
 /// The unnamed field of a reflected tuple or tuple struct.
@@ -49,6 +64,8 @@ pub struct UnnamedField {
     index: usize,
     type_name: &'static str,
     type_id: TypeId,
+    #[cfg(feature = "documentation")]
+    docs: Option<&'static str>,
 }
 
 impl UnnamedField {
@@ -57,7 +74,15 @@ impl UnnamedField {
             index,
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "documentation")]
+            docs: None,
         }
+    }
+
+    /// Sets the docstring for this field.
+    #[cfg(feature = "documentation")]
+    pub fn with_docs(self, docs: Option<&'static str>) -> Self {
+        Self { docs, ..self }
     }
 
     /// Returns the index of the field.
@@ -80,5 +105,11 @@ impl UnnamedField {
     /// Check if the given type matches the field type.
     pub fn is<T: Any>(&self) -> bool {
         TypeId::of::<T>() == self.type_id
+    }
+
+    /// The docstring of this field, if any.
+    #[cfg(feature = "documentation")]
+    pub fn docs(&self) -> Option<&'static str> {
+        self.docs
     }
 }

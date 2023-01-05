@@ -8,7 +8,15 @@ use std::{io::Cursor, sync::Arc};
 #[derive(Debug, Clone, TypeUuid)]
 #[uuid = "7a14806a-672b-443b-8d16-4f18afefa463"]
 pub struct AudioSource {
-    /// Raw data of the audio source
+    /// Raw data of the audio source.
+    ///
+    /// The data must be one of the file formats supported by Bevy (`wav`, `ogg`, `flac`, or `mp3`).
+    /// It is decoded using [`rodio::decoder::Decoder`](https://docs.rs/rodio/latest/rodio/decoder/struct.Decoder.html).
+    ///
+    /// The decoder has conditionally compiled methods
+    /// depending on the features enabled.
+    /// If the format used is not enabled,
+    /// then this will panic with an `UnrecognizedFormat` error.
     pub bytes: Arc<[u8]>,
 }
 
@@ -57,8 +65,8 @@ impl AssetLoader for AudioLoader {
 
 /// A type implementing this trait can be decoded as a rodio source
 pub trait Decodable: Send + Sync + 'static {
-    /// The decoder that can decode the implemeting type
-    type Decoder: rodio::Source + Send + Sync + Iterator<Item = Self::DecoderItem>;
+    /// The decoder that can decode the implementing type
+    type Decoder: rodio::Source + Send + Iterator<Item = Self::DecoderItem>;
     /// A single value given by the decoder
     type DecoderItem: rodio::Sample + Send + Sync;
 
