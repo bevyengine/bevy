@@ -12,18 +12,33 @@ use std::{
     ops::{Index, IndexMut},
 };
 
+/// An opaque unique ID for a [`Table`] within a [`World`].
+///
+/// Can be used with [`Tables::get`] to fetch the corresponding
+/// table.
+///
+/// Each [`Archetype`] always points to a table via [`Archetype::table_id`].
+/// Multiple archetypes can point to the same table so long as the components
+/// stored in the table are identical, but do not share the same sparse set
+/// components.
+///
+/// [`World`]: crate::world::World
+/// [`Archetype`]: crate::archetype::Archetype
+/// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TableId(usize);
+pub struct TableId(u32);
 
 impl TableId {
+    pub(crate) const INVALID: TableId = TableId(u32::MAX);
+
     #[inline]
     pub fn new(index: usize) -> Self {
-        TableId(index)
+        TableId(index as u32)
     }
 
     #[inline]
     pub fn index(self) -> usize {
-        self.0
+        self.0 as usize
     }
 
     #[inline]
@@ -49,19 +64,21 @@ impl TableId {
 /// [`Archetype::table_id`]: crate::archetype::Archetype::table_id
 /// [`Entity`]: crate::entity::Entity
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct TableRow(usize);
+pub struct TableRow(u32);
 
 impl TableRow {
+    pub const INVALID: TableRow = TableRow(u32::MAX);
+
     /// Creates a `TableRow`.
     #[inline]
     pub const fn new(index: usize) -> Self {
-        Self(index)
+        Self(index as u32)
     }
 
     /// Gets the index of the row.
     #[inline]
     pub const fn index(self) -> usize {
-        self.0
+        self.0 as usize
     }
 }
 
@@ -568,7 +585,7 @@ impl Table {
             column.added_ticks.push(UnsafeCell::new(Tick::new(0)));
             column.changed_ticks.push(UnsafeCell::new(Tick::new(0)));
         }
-        TableRow(index)
+        TableRow::new(index)
     }
 
     #[inline]
@@ -677,7 +694,7 @@ impl Tables {
                     table.add_column(components.get_info_unchecked(*component_id));
                 }
                 tables.push(table.build());
-                (component_ids.to_vec(), TableId(tables.len() - 1))
+                (component_ids.to_vec(), TableId::new(tables.len() - 1))
             });
 
         *value

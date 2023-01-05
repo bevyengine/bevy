@@ -18,9 +18,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, EntityPhaseItem,
-        EntityRenderCommand, PhaseItem, RenderCommandResult, RenderPhase, SetItemPipeline,
-        TrackedRenderPass,
+        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
+        RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -1700,6 +1699,11 @@ impl PhaseItem for Shadow {
     type SortKey = FloatOrd;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
     }
@@ -1712,12 +1716,6 @@ impl PhaseItem for Shadow {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for Shadow {
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -1785,16 +1783,12 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                let draw_functions = world.resource::<DrawFunctions<Shadow>>();
                 let render_pass = render_context
                     .command_encoder
                     .begin_render_pass(&pass_descriptor);
-                let mut draw_functions = draw_functions.write();
-                let mut tracked_pass = TrackedRenderPass::new(render_pass);
-                for item in &shadow_phase.items {
-                    let draw_function = draw_functions.get_mut(item.draw_function).unwrap();
-                    draw_function.draw(world, &mut tracked_pass, view_light_entity, item);
-                }
+                let mut render_pass = TrackedRenderPass::new(render_pass);
+
+                shadow_phase.render(&mut render_pass, world, view_light_entity);
             }
         }
 
@@ -1810,16 +1804,19 @@ pub type DrawShadowMesh = (
 );
 
 pub struct SetShadowViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetShadowViewBindGroup<I> {
-    type Param = (SRes<LightMeta>, SQuery<Read<ViewUniformOffset>>);
+impl<const I: usize> RenderCommand<Shadow> for SetShadowViewBindGroup<I> {
+    type Param = SRes<LightMeta>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (light_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &Shadow,
+        view_uniform_offset: &'_ ViewUniformOffset,
+        _entity: (),
+        light_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform_offset = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             light_meta

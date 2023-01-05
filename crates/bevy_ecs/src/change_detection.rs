@@ -5,7 +5,7 @@ use crate::{
     ptr::PtrMut,
     system::Resource,
 };
-use bevy_ptr::UnsafeCellDeref;
+use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -421,12 +421,28 @@ pub struct MutUntyped<'a> {
 }
 
 impl<'a> MutUntyped<'a> {
-    /// Returns the pointer to the value, without marking it as changed.
+    /// Returns the pointer to the value, marking it as changed.
     ///
-    /// In order to mark the value as changed, you need to call [`set_changed`](DetectChanges::set_changed) manually.
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
     #[inline]
-    pub fn into_inner(self) -> PtrMut<'a> {
+    pub fn into_inner(mut self) -> PtrMut<'a> {
+        self.set_changed();
         self.value
+    }
+
+    /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
+    ///
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
+    #[inline]
+    pub fn as_mut(&mut self) -> PtrMut<'_> {
+        self.set_changed();
+        self.value.reborrow()
+    }
+
+    /// Returns an immutable pointer to the value without taking ownership.
+    #[inline]
+    pub fn as_ref(&self) -> Ptr<'_> {
+        self.value.as_ref()
     }
 }
 
