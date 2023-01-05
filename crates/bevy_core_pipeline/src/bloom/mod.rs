@@ -42,7 +42,7 @@ const BLOOM_SHADER_HANDLE: HandleUntyped =
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
 
 impl BloomSettings {
-    /// Calculates blend intesnities of blur pyramid levels
+    /// Calculates blend intensities of blur pyramid levels
     /// during the upsampling+compositing stage.
     ///
     /// The function assumes all pyramid levels are upsampled and
