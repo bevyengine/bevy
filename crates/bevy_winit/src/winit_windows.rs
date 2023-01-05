@@ -220,20 +220,15 @@ pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: Curs
         }
         bevy_window::CursorGrabMode::Confined => winit_window
             .set_cursor_grab(winit::window::CursorGrabMode::Confined)
-            .or_else(|_e| {
-                winit_window.set_cursor_grab(winit::window::CursorGrabMode::Locked)
-            }),
+            .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Locked)),
         bevy_window::CursorGrabMode::Locked => winit_window
             .set_cursor_grab(winit::window::CursorGrabMode::Locked)
-            .or_else(|_e| {
-                winit_window.set_cursor_grab(winit::window::CursorGrabMode::Confined)
-            }),
+            .or_else(|_e| winit_window.set_cursor_grab(winit::window::CursorGrabMode::Confined)),
     };
 
     if let Err(err) = grab_result {
         let err_desc = match grab_mode {
-            bevy_window::CursorGrabMode::Confined
-            | bevy_window::CursorGrabMode::Locked => "grab",
+            bevy_window::CursorGrabMode::Confined | bevy_window::CursorGrabMode::Locked => "grab",
             bevy_window::CursorGrabMode::None => "ungrab",
         };
 
