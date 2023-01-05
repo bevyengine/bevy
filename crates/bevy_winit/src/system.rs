@@ -169,6 +169,16 @@ pub(crate) fn changed_window(
                 winit_window.set_cursor_visible(window.cursor.visible);
             }
 
+            if window.cursor.hit_test != previous.cursor.hit_test {
+                if let Err(err) = winit_window.set_cursor_hittest(window.cursor.hit_test) {
+                    window.cursor.hit_test = previous.cursor.hit_test;
+                    warn!(
+                        "Could not set cursor hit test for window {:?}: {:?}",
+                        window.title, err
+                    );
+                }
+            }
+
             if window.decorations != previous.decorations {
                 winit_window.set_decorations(window.decorations);
             }
@@ -220,16 +230,6 @@ pub(crate) fn changed_window(
 
             if window.always_on_top != previous.always_on_top {
                 winit_window.set_always_on_top(window.always_on_top);
-            }
-
-            if window.hit_test != previous.hit_test {
-                if let Err(err) = winit_window.set_cursor_hittest(window.hit_test) {
-                    window.hit_test = previous.hit_test;
-                    warn!(
-                        "Could not set cursor hit test for window {:?}: {:?}",
-                        window.title, err
-                    );
-                }
             }
 
             // Currently unsupported changes

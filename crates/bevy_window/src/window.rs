@@ -250,12 +250,6 @@ pub struct Window {
     ///
     /// - iOS / Android / Web / Wayland: Unsupported.
     pub always_on_top: bool,
-    /// Set whether or not mouse events within *this* window are captured or fall through to the Window below.
-    ///
-    /// ## Platform-specific
-    ///
-    /// - iOS / Android / Web / X11: Unsupported.
-    pub hit_test: bool,
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
@@ -293,7 +287,6 @@ impl Default for Window {
             transparent: false,
             focused: true,
             always_on_top: false,
-            hit_test: true,
             fit_canvas_to_parent: false,
             canvas: None,
         }
@@ -434,6 +427,13 @@ pub struct Cursor {
     /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub grab_mode: CursorGrabMode,
 
+    /// Set whether or not mouse events within *this* window are captured or fall through to the Window below.
+    ///
+    /// ## Platform-specific
+    ///
+    /// - iOS / Android / Web / X11: Unsupported.
+    pub hit_test: bool,
+
     /// The position of this window's cursor.
     pub position: Option<DVec2>,
 }
@@ -444,6 +444,7 @@ impl Default for Cursor {
             icon: CursorIcon::Default,
             visible: true,
             grab_mode: CursorGrabMode::None,
+            hit_test: true,
             position: None,
         }
     }

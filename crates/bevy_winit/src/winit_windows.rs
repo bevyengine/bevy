@@ -1,4 +1,3 @@
-use crate::converters::convert_cursor_grab_mode;
 use bevy_ecs::entity::Entity;
 
 use bevy_utils::{tracing::warn, HashMap};
@@ -110,7 +109,7 @@ impl WinitWindows {
 
         // Do not set the grab mode on window creation if it's none, this can fail on mobile
         if window.cursor.grab_mode != CursorGrabMode::None {
-            attempt_grab(&mut winit_window, window.cursor.grab_mode);
+            attempt_grab(&winit_window, window.cursor.grab_mode);
         }
 
         winit_window.set_cursor_visible(window.cursor.visible);
@@ -214,7 +213,7 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
     modes.first().unwrap().clone()
 }
 
-fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode) {
+pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode) {
     let grab_result = match grab_mode {
         bevy_window::CursorGrabMode::None => {
             winit_window.set_cursor_grab(winit::window::CursorGrabMode::None)
@@ -238,7 +237,7 @@ fn attempt_grab(winit_window: &winit::window::Window, grab_mode: CursorGrabMode)
             bevy_window::CursorGrabMode::None => "ungrab",
         };
 
-        error!("Unable to {} cursor: {}", err_desc, err);
+        bevy_utils::tracing::error!("Unable to {} cursor: {}", err_desc, err);
     }
 }
 
