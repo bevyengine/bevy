@@ -233,7 +233,7 @@ impl Node for BloomNode {
         self.view_query.update_archetypes(world);
     }
 
-    // Atypically for a post-processing effect, we do not
+    // Atypically for a post-processing effect, we do not need to
     // use a secondary texture normally provided by view_target.post_process_write(),
     // instead we write into our own bloom texture and then directly back onto main.
     fn run(
