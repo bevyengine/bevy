@@ -130,15 +130,14 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 mod tests {
     use std::any::TypeId;
 
-    use crate::prelude::StageLabel;
-
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
+        change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
-        prelude::AnyOf,
+        prelude::{AnyOf, StageLabel},
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
