@@ -2,6 +2,7 @@
 #![no_std]
 #![warn(missing_docs)]
 
+use core::fmt::{self, Formatter, Pointer};
 use core::{
     cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
 };
@@ -94,6 +95,13 @@ macro_rules! impl_ptr {
                 Self(inner, PhantomData)
             }
         }
+
+        impl Pointer for $ptr<'_> {
+            #[inline]
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                Pointer::fmt(&self.0, f)
+            }
+        }
     };
 }
 
@@ -168,6 +176,20 @@ impl<'a> PtrMut<'a> {
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
     }
+
+    /// Gets a `PtrMut` from this with a smaller lifetime.
+    #[inline]
+    pub fn reborrow(&mut self) -> PtrMut<'_> {
+        // SAFE: the ptrmut we're borrowing from is assumed to be valid
+        unsafe { PtrMut::new(self.0) }
+    }
+
+    /// Gets an immutable reference from this mutable reference
+    #[inline]
+    pub fn as_ref(&self) -> Ptr<'_> {
+        // SAFE: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        unsafe { Ptr::new(self.0) }
+    }
 }
 
 impl<'a, T> From<&'a mut T> for PtrMut<'a> {
@@ -215,6 +237,20 @@ impl<'a> OwningPtr<'a> {
     #[allow(clippy::wrong_self_convention)]
     pub fn as_ptr(&self) -> *mut u8 {
         self.0.as_ptr()
+    }
+
+    /// Gets an immutable pointer from this owned pointer.
+    #[inline]
+    pub fn as_ref(&self) -> Ptr<'_> {
+        // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        unsafe { Ptr::new(self.0) }
+    }
+
+    /// Gets a mutable pointer from this owned pointer.
+    #[inline]
+    pub fn as_mut(&mut self) -> PtrMut<'_> {
+        // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
+        unsafe { PtrMut::new(self.0) }
     }
 }
 

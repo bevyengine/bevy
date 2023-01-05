@@ -1,23 +1,18 @@
-pub use bevy_render_macros::AsBindGroup;
-use encase::ShaderType;
-
 use crate::{
+    define_atomic_id,
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
+    render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
     texture::FallbackImage,
 };
-use bevy_reflect::Uuid;
+pub use bevy_render_macros::AsBindGroup;
+use encase::ShaderType;
 use std::ops::Deref;
 use wgpu::BindingResource;
 
-use crate::render_resource::resource_macros::*;
+define_atomic_id!(BindGroupId);
 render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
-
-/// A [`BindGroup`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BindGroupId(Uuid);
 
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
@@ -42,7 +37,7 @@ impl BindGroup {
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
-            id: BindGroupId(Uuid::new_v4()),
+            id: BindGroupId::new(),
             value: ErasedBindGroup::new(value),
         }
     }
@@ -253,7 +248,7 @@ impl Deref for BindGroup {
 ///     }
 /// }
 /// ```
-pub trait AsBindGroup: Sized {
+pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
     type Data: Send + Sync;
 
@@ -264,10 +259,12 @@ pub trait AsBindGroup: Sized {
         render_device: &RenderDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError>;
+    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    where
+        Self: Sized;
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
@@ -277,10 +274,10 @@ pub enum AsBindGroupError {
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
-pub struct PreparedBindGroup<T: AsBindGroup> {
+pub struct PreparedBindGroup<T> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
-    pub data: T::Data,
+    pub data: T,
 }
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).
