@@ -47,7 +47,7 @@ pub struct Fxaa {
 
     /// Use lower sensitivity for a sharper, faster, result.
     /// Use higher sensitivity for a slower, smoother, result.
-    /// Ultra and Turbo settings can result in significant smearing and loss of detail.
+    /// Ultra and Extreme settings can result in significant smearing and loss of detail.
 
     /// The minimum amount of local contrast required to apply algorithm.
     pub edge_threshold: Sensitivity,
