@@ -279,7 +279,7 @@ fn assert_component_access_compatibility(
 /// # bad_system_system.run((), &mut world);
 /// ```
 ///
-/// Conflicing `SystemParam`s like these can be placed in a `ParamSet`,
+/// Conflicting `SystemParam`s like these can be placed in a `ParamSet`,
 /// which leverages the borrow checker to ensure that only one of the contained parameters are accessed at a given time.
 ///
 /// ```

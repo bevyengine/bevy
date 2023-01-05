@@ -157,7 +157,7 @@ impl Val {
     /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
     /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
-    /// **Note:** If a [`Val::Px`] is evaluated, it's innver value returned unchanged.
+    /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
     pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(size * value / 100.0),
@@ -554,7 +554,7 @@ impl Default for FlexWrap {
 pub struct CalculatedSize {
     /// The size of the node
     pub size: Size,
-    /// Whether to attempt to preserve the aspect ratio when determing the layout for this item
+    /// Whether to attempt to preserve the aspect ratio when determining the layout for this item
     pub preserve_aspect_ratio: bool,
 }
 

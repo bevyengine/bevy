@@ -625,7 +625,7 @@ impl Archetypes {
         self.archetypes.len()
     }
 
-    /// Fetches an immutable reference to the archetype without any compoennts.
+    /// Fetches an immutable reference to the archetype without any components.
     ///
     /// Shorthand for `archetypes.get(ArchetypeId::EMPTY).unwrap()`
     #[inline]
@@ -634,7 +634,7 @@ impl Archetypes {
         unsafe { self.archetypes.get_unchecked(ArchetypeId::EMPTY.index()) }
     }
 
-    /// Fetches an mutable reference to the archetype without any compoennts.
+    /// Fetches an mutable reference to the archetype without any components.
     #[inline]
     pub(crate) fn empty_mut(&mut self) -> &mut Archetype {
         // SAFETY: empty archetype always exists

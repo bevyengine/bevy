@@ -33,7 +33,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 ///
 /// To ensure that changes are only triggered when the value actually differs,
 /// check if the value would change before assignment, such as by checking that `new != old`.
-/// You must be *sure* that you are not mutably derefencing in this process.
+/// You must be *sure* that you are not mutably dereferencing in this process.
 ///
 /// [`set_if_neq`](DetectChanges::set_if_neq) is a helper
 /// method for this common functionality.
