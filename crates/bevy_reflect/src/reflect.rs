@@ -1,7 +1,7 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    enum_debug, list_debug, map_debug, sequence_debug, serde::Serializable, struct_debug,
+    tuple_debug, tuple_struct_debug, Enum, List, Map, Sequence, Struct, Tuple, TupleStruct,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -22,7 +22,7 @@ pub enum ReflectRef<'a> {
     TupleStruct(&'a dyn TupleStruct),
     Tuple(&'a dyn Tuple),
     List(&'a dyn List),
-    Array(&'a dyn Array),
+    Sequence(&'a dyn Sequence),
     Map(&'a dyn Map),
     Enum(&'a dyn Enum),
     Value(&'a dyn Reflect),
@@ -39,7 +39,7 @@ pub enum ReflectMut<'a> {
     TupleStruct(&'a mut dyn TupleStruct),
     Tuple(&'a mut dyn Tuple),
     List(&'a mut dyn List),
-    Array(&'a mut dyn Array),
+    Sequence(&'a mut dyn Sequence),
     Map(&'a mut dyn Map),
     Enum(&'a mut dyn Enum),
     Value(&'a mut dyn Reflect),
@@ -56,7 +56,7 @@ pub enum ReflectOwned {
     TupleStruct(Box<dyn TupleStruct>),
     Tuple(Box<dyn Tuple>),
     List(Box<dyn List>),
-    Array(Box<dyn Array>),
+    Sequence(Box<dyn Sequence>),
     Map(Box<dyn Map>),
     Enum(Box<dyn Enum>),
     Value(Box<dyn Reflect>),
@@ -64,7 +64,7 @@ pub enum ReflectOwned {
 
 /// A reflected Rust type.
 ///
-/// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
+/// Methods for working with particular kinds of Rust type are available using the [`Sequence`], [`List`],
 /// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
 ///
 /// When using `#[derive(Reflect)]` on a struct, tuple struct or enum, the suitable subtrait for that
@@ -115,7 +115,7 @@ pub trait Reflect: Any + Send + Sync {
     ///   the variant of `value`. The corresponding fields of that variant are
     ///   applied from `value` onto `self`. Fields which are not present in both
     ///   values are ignored.
-    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied
+    /// - If `T` is a [`List`] or [`Sequence`], then each element of `value` is applied
     ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
     ///   and excess elements in `value` are appended to `self`.
     /// - If `T` is a [`Map`], then for each key in `value`, the associated
@@ -200,7 +200,7 @@ pub trait Reflect: Any + Send + Sync {
             ReflectRef::TupleStruct(dyn_tuple_struct) => tuple_struct_debug(dyn_tuple_struct, f),
             ReflectRef::Tuple(dyn_tuple) => tuple_debug(dyn_tuple, f),
             ReflectRef::List(dyn_list) => list_debug(dyn_list, f),
-            ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
+            ReflectRef::Sequence(dyn_sequence) => sequence_debug(dyn_sequence, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
             _ => write!(f, "Reflect({})", self.type_name()),

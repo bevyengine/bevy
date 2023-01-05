@@ -1,12 +1,12 @@
 #![doc = include_str!("../README.md")]
 
-mod array;
 mod fields;
 mod from_reflect;
 mod list;
 mod map;
 mod path;
 mod reflect;
+mod sequence;
 mod struct_trait;
 mod tuple;
 mod tuple_struct;
@@ -45,7 +45,6 @@ pub mod prelude {
     };
 }
 
-pub use array::*;
 pub use enums::*;
 pub use fields::*;
 pub use from_reflect::*;
@@ -54,6 +53,7 @@ pub use list::*;
 pub use map::*;
 pub use path::*;
 pub use reflect::*;
+pub use sequence::*;
 pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
@@ -432,8 +432,8 @@ mod tests {
         });
         foo_patch.insert("g", composite);
 
-        let array = DynamicArray::from_vec(vec![2u32, 2u32]);
-        foo_patch.insert("h", array);
+        let sequence = DynamicSequence::from_vec(vec![2u32, 2u32]);
+        foo_patch.insert("h", sequence);
 
         foo.apply(&foo_patch);
 
@@ -570,8 +570,8 @@ mod tests {
 
     #[test]
     fn should_drain_fields() {
-        let array_value: Box<dyn Array> = Box::new([123_i32, 321_i32]);
-        let fields = array_value.drain();
+        let sequence_value: Box<dyn Sequence> = Box::new([123_i32, 321_i32]);
+        let fields = sequence_value.drain();
         assert!(fields[0].reflect_partial_eq(&123_i32).unwrap_or_default());
         assert!(fields[1].reflect_partial_eq(&321_i32).unwrap_or_default());
 
@@ -610,9 +610,9 @@ mod tests {
         let dyn_list = List::clone_dynamic(&list);
         assert_eq!(dyn_list.type_name(), std::any::type_name::<Vec<usize>>());
 
-        let array = [b'0'; 4];
-        let dyn_array = Array::clone_dynamic(&array);
-        assert_eq!(dyn_array.type_name(), std::any::type_name::<[u8; 4]>());
+        let sequence = [b'0'; 4];
+        let dyn_sequence = Sequence::clone_dynamic(&sequence);
+        assert_eq!(dyn_sequence.type_name(), std::any::type_name::<[u8; 4]>());
 
         let map = HashMap::<usize, String>::default();
         let dyn_map = map.clone_dynamic();
@@ -810,7 +810,7 @@ mod tests {
         type MyArray = [usize; 3];
 
         let info = MyArray::type_info();
-        if let TypeInfo::Array(info) = info {
+        if let TypeInfo::Sequence(info) = info {
             assert!(info.is::<MyArray>());
             assert!(info.item_is::<usize>());
             assert_eq!(std::any::type_name::<MyArray>(), info.type_name());
@@ -1064,7 +1064,7 @@ mod tests {
         struct Test {
             value: usize,
             list: Vec<String>,
-            array: [f32; 3],
+            sequence: [f32; 3],
             map: HashMap<i32, f32>,
             a_struct: SomeStruct,
             a_tuple_struct: SomeTupleStruct,
@@ -1107,7 +1107,7 @@ mod tests {
         let test = Test {
             value: 123,
             list: vec![String::from("A"), String::from("B"), String::from("C")],
-            array: [1.0, 2.0, 3.0],
+            sequence: [1.0, 2.0, 3.0],
             map,
             a_struct: SomeStruct {
                 foo: String::from("A Struct!"),
@@ -1129,7 +1129,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         "B",
         "C",
     ],
-    array: [
+    sequence: [
         1.0,
         2.0,
         3.0,

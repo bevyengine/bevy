@@ -1,11 +1,11 @@
 use crate::std_traits::ReflectDefault;
 use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
 use crate::{
-    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
-    EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
-    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TupleVariantInfo,
-    TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
-    VariantInfo, VariantType,
+    map_apply, map_partial_eq, DynamicEnum, DynamicMap, Enum, EnumInfo, FromReflect, FromType,
+    GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter, Reflect, ReflectDeserialize,
+    ReflectMut, ReflectRef, ReflectSerialize, Sequence, SequenceInfo, SequenceIter,
+    TupleVariantInfo, TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo,
+    VariantFieldIter, VariantInfo, VariantType,
 };
 
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
@@ -180,7 +180,7 @@ impl_from_reflect_value!(NonZeroI8);
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:ty, $push:expr, $pop:expr, $sub:ty) => {
-        impl<T: FromReflect> Array for $ty {
+        impl<T: FromReflect> Sequence for $ty {
             #[inline]
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
                 <$sub>::get(self, index).map(|value| value as &dyn Reflect)
@@ -197,9 +197,9 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             #[inline]
-            fn iter(&self) -> ArrayIter {
-                ArrayIter {
-                    array: self,
+            fn iter(&self) -> SequenceIter {
+                SequenceIter {
+                    sequence: self,
                     index: 0,
                 }
             }
@@ -289,7 +289,7 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn reflect_hash(&self) -> Option<u64> {
-                crate::array_hash(self)
+                crate::sequence_hash(self)
             }
 
             fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
@@ -522,7 +522,7 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
     }
 }
 
-impl<T: Reflect, const N: usize> Array for [T; N] {
+impl<T: Reflect, const N: usize> Sequence for [T; N] {
     #[inline]
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         <[T]>::get(self, index).map(|value| value as &dyn Reflect)
@@ -539,9 +539,9 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
     }
 
     #[inline]
-    fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
+    fn iter(&self) -> SequenceIter {
+        SequenceIter {
+            sequence: self,
             index: 0,
         }
     }
@@ -596,7 +596,7 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn apply(&mut self, value: &dyn Reflect) {
-        crate::array_apply(self, value);
+        crate::sequence_apply(self, value);
     }
 
     #[inline]
@@ -607,17 +607,17 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn reflect_ref(&self) -> ReflectRef {
-        ReflectRef::Array(self)
+        ReflectRef::Sequence(self)
     }
 
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
-        ReflectMut::Array(self)
+        ReflectMut::Sequence(self)
     }
 
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
-        ReflectOwned::Array(self)
+        ReflectOwned::Sequence(self)
     }
 
     #[inline]
@@ -627,20 +627,20 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
 
     #[inline]
     fn reflect_hash(&self) -> Option<u64> {
-        crate::array_hash(self)
+        crate::sequence_hash(self)
     }
 
     #[inline]
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        crate::array_partial_eq(self, value)
+        crate::sequence_partial_eq(self, value)
     }
 }
 
 impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
-        if let ReflectRef::Array(ref_array) = reflect.reflect_ref() {
-            let mut temp_vec = Vec::with_capacity(ref_array.len());
-            for field in ref_array.iter() {
+        if let ReflectRef::Sequence(ref_sequence) = reflect.reflect_ref() {
+            let mut temp_vec = Vec::with_capacity(ref_sequence.len());
+            for field in ref_sequence.iter() {
                 temp_vec.push(T::from_reflect(field)?);
             }
             temp_vec.try_into().ok()
@@ -653,16 +653,16 @@ impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
 impl<T: Reflect, const N: usize> Typed for [T; N] {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
-        CELL.get_or_insert::<Self, _>(|| TypeInfo::Array(ArrayInfo::new::<Self, T>(N)))
+        CELL.get_or_insert::<Self, _>(|| TypeInfo::Sequence(SequenceInfo::new::<Self, T>(N)))
     }
 }
 
 // TODO:
 // `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
-// Currently serde only supports `Deserialize<'de>` for arrays up to size 32.
-// This can be changed to use const generics once serde utilizes const generics for arrays.
+// Currently serde only supports `Deserialize<'de>` for sequences up to size 32.
+// This can be changed to use const generics once serde utilizes const generics for sequences.
 // Tracking issue: https://github.com/serde-rs/serde/issues/1937
-macro_rules! impl_array_get_type_registration {
+macro_rules! impl_sequence_get_type_registration {
     ($($N:expr)+) => {
         $(
             impl<T: Reflect > GetTypeRegistration for [T; $N] {
@@ -674,7 +674,7 @@ macro_rules! impl_array_get_type_registration {
     };
 }
 
-impl_array_get_type_registration! {
+impl_sequence_get_type_registration! {
      0  1  2  3  4  5  6  7  8  9
     10 11 12 13 14 15 16 17 18 19
     20 21 22 23 24 25 26 27 28 29

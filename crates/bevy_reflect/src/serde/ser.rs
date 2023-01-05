@@ -1,5 +1,5 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
+    Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Sequence, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
@@ -141,8 +141,8 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
                 registry: self.registry,
             }
             .serialize(serializer),
-            ReflectRef::Array(value) => ArraySerializer {
-                array: value,
+            ReflectRef::Sequence(value) => SequenceSerializer {
+                sequence: value,
                 registry: self.registry,
             }
             .serialize(serializer),
@@ -448,18 +448,18 @@ impl<'a> Serialize for ListSerializer<'a> {
     }
 }
 
-pub struct ArraySerializer<'a> {
-    pub array: &'a dyn Array,
+pub struct SequenceSerializer<'a> {
+    pub sequence: &'a dyn Sequence,
     pub registry: &'a TypeRegistry,
 }
 
-impl<'a> Serialize for ArraySerializer<'a> {
+impl<'a> Serialize for SequenceSerializer<'a> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
     {
-        let mut state = serializer.serialize_tuple(self.array.len())?;
-        for value in self.array.iter() {
+        let mut state = serializer.serialize_tuple(self.sequence.len())?;
+        for value in self.sequence.iter() {
             state.serialize_element(&TypedReflectSerializer::new(value, self.registry))?;
         }
         state.end()
@@ -484,7 +484,7 @@ mod tests {
         option_value_complex: Option<SomeStruct>,
         tuple_value: (f32, usize),
         list_value: Vec<i32>,
-        array_value: [i32; 5],
+        sequence_value: [i32; 5],
         map_value: HashMap<u8, usize>,
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
@@ -583,7 +583,7 @@ mod tests {
             option_value_complex: Some(SomeStruct { foo: 123 }),
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
+            sequence_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
@@ -629,7 +629,7 @@ mod tests {
             1,
             2,
         ],
-        array_value: (-2, -1, 0, 1, 2),
+        sequence_value: (-2, -1, 0, 1, 2),
         map_value: {
             64: 32,
         },
@@ -783,7 +783,7 @@ mod tests {
             option_value_complex: Some(SomeStruct { foo: 123 }),
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
+            sequence_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
@@ -841,7 +841,7 @@ mod tests {
             option_value_complex: Some(SomeStruct { foo: 123 }),
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
+            sequence_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),

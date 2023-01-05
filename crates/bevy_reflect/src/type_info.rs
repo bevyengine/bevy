@@ -1,5 +1,5 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+    EnumInfo, ListInfo, MapInfo, Reflect, SequenceInfo, StructInfo, TupleInfo, TupleStructInfo,
 };
 use std::any::{Any, TypeId};
 
@@ -101,7 +101,7 @@ pub enum TypeInfo {
     TupleStruct(TupleStructInfo),
     Tuple(TupleInfo),
     List(ListInfo),
-    Array(ArrayInfo),
+    Sequence(SequenceInfo),
     Map(MapInfo),
     Enum(EnumInfo),
     Value(ValueInfo),
@@ -119,7 +119,7 @@ impl TypeInfo {
             Self::TupleStruct(info) => info.type_id(),
             Self::Tuple(info) => info.type_id(),
             Self::List(info) => info.type_id(),
-            Self::Array(info) => info.type_id(),
+            Self::Sequence(info) => info.type_id(),
             Self::Map(info) => info.type_id(),
             Self::Enum(info) => info.type_id(),
             Self::Value(info) => info.type_id(),
@@ -136,7 +136,7 @@ impl TypeInfo {
             Self::TupleStruct(info) => info.type_name(),
             Self::Tuple(info) => info.type_name(),
             Self::List(info) => info.type_name(),
-            Self::Array(info) => info.type_name(),
+            Self::Sequence(info) => info.type_name(),
             Self::Map(info) => info.type_name(),
             Self::Enum(info) => info.type_name(),
             Self::Value(info) => info.type_name(),
@@ -157,7 +157,7 @@ impl TypeInfo {
             Self::TupleStruct(info) => info.docs(),
             Self::Tuple(info) => info.docs(),
             Self::List(info) => info.docs(),
-            Self::Array(info) => info.docs(),
+            Self::Sequence(info) => info.docs(),
             Self::Map(info) => info.docs(),
             Self::Enum(info) => info.docs(),
             Self::Value(info) => info.docs(),

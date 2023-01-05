@@ -97,10 +97,10 @@ fn setup() {
         // This exposes "list" operations on your type, such as insertion. `List` is automatically
         // implemented for relevant core types like Vec<T>.
         ReflectRef::List(_) => {}
-        // `Array` is a special trait that can be manually implemented (instead of deriving Reflect).
-        // This exposes "array" operations on your type, such as indexing. `Array`
+        // `Sequence` is a special trait that can be manually implemented (instead of deriving Reflect).
+        // This exposes "Sequence" operations on your type, such as indexing. `Sequence`
         // is automatically implemented for relevant core types like [T; N].
-        ReflectRef::Array(_) => {}
+        ReflectRef::Sequence(_) => {}
         // `Map` is a special trait that can be manually implemented (instead of deriving Reflect).
         // This exposes "map" operations on your type, such as getting / inserting by key.
         // Map is automatically implemented for relevant core types like HashMap<K, V>

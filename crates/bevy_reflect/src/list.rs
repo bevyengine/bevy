@@ -3,19 +3,19 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, Typed,
+    DynamicInfo, DynamicSequence, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    Sequence, SequenceIter, TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 ///
-/// This is a sub-trait of [`Array`] as it implements a [`push`](List::push) function, allowing
+/// This is a sub-trait of [`Sequence`] as it implements a [`push`](List::push) function, allowing
 /// it's internal size to grow.
 ///
 /// This trait expects index 0 to contain the _front_ element.
 /// The _back_ element must refer to the element with the largest index.
 /// These two rules above should be upheld by manual implementors.
-pub trait List: Reflect + Array {
+pub trait List: Reflect + Sequence {
     /// Appends an element to the _back_ of the list.
     fn push(&mut self, value: Box<dyn Reflect>);
 
@@ -137,7 +137,7 @@ impl DynamicList {
     }
 }
 
-impl Array for DynamicList {
+impl Sequence for DynamicList {
     fn get(&self, index: usize) -> Option<&dyn Reflect> {
         self.values.get(index).map(|value| &**value)
     }
@@ -150,9 +150,9 @@ impl Array for DynamicList {
         self.values.len()
     }
 
-    fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
+    fn iter(&self) -> SequenceIter {
+        SequenceIter {
+            sequence: self,
             index: 0,
         }
     }
@@ -161,8 +161,8 @@ impl Array for DynamicList {
         self.values
     }
 
-    fn clone_dynamic(&self) -> DynamicArray {
-        DynamicArray {
+    fn clone_dynamic(&self) -> DynamicSequence {
+        DynamicSequence {
             name: self.name.clone(),
             values: self
                 .values
@@ -267,7 +267,7 @@ impl Reflect for DynamicList {
 
     #[inline]
     fn reflect_hash(&self) -> Option<u64> {
-        crate::array_hash(self)
+        crate::sequence_hash(self)
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {

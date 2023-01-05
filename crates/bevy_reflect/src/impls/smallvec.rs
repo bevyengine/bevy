@@ -3,11 +3,12 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect, ReflectFromPtr,
+    ReflectMut, ReflectOwned, ReflectRef, Sequence, SequenceIter, TypeInfo, TypeRegistration,
+    Typed,
 };
 
-impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> Sequence for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -31,9 +32,9 @@ where
         <SmallVec<T>>::len(self)
     }
 
-    fn iter(&self) -> ArrayIter {
-        ArrayIter {
-            array: self,
+    fn iter(&self) -> SequenceIter {
+        SequenceIter {
+            sequence: self,
             index: 0,
         }
     }

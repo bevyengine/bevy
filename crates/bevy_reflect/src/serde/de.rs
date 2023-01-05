@@ -1,8 +1,8 @@
 use crate::serde::SerializationData;
 use crate::{
-    ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
+    DynamicEnum, DynamicList, DynamicMap, DynamicSequence, DynamicStruct, DynamicTuple,
     DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
-    ReflectDeserialize, StructInfo, StructVariantInfo, Tuple, TupleInfo, TupleStruct,
+    ReflectDeserialize, SequenceInfo, StructInfo, StructVariantInfo, Tuple, TupleInfo, TupleStruct,
     TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField,
     VariantInfo,
 };
@@ -378,16 +378,16 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
                 dynamic_list.set_name(list_info.type_name().to_string());
                 Ok(Box::new(dynamic_list))
             }
-            TypeInfo::Array(array_info) => {
-                let mut dynamic_array = deserializer.deserialize_tuple(
-                    array_info.capacity(),
-                    ArrayVisitor {
-                        array_info,
+            TypeInfo::Sequence(sequence_info) => {
+                let mut dynamic_sequence = deserializer.deserialize_tuple(
+                    sequence_info.capacity(),
+                    SequenceVisitor {
+                        sequence_info,
                         registry: self.registry,
                     },
                 )?;
-                dynamic_array.set_name(array_info.type_name().to_string());
-                Ok(Box::new(dynamic_array))
+                dynamic_sequence.set_name(sequence_info.type_name().to_string());
+                Ok(Box::new(dynamic_sequence))
             }
             TypeInfo::Map(map_info) => {
                 let mut dynamic_map = deserializer.deserialize_map(MapVisitor {
@@ -598,16 +598,16 @@ impl<'a, 'de> Visitor<'de> for TupleVisitor<'a> {
     }
 }
 
-struct ArrayVisitor<'a> {
-    array_info: &'static ArrayInfo,
+struct SequenceVisitor<'a> {
+    sequence_info: &'static SequenceInfo,
     registry: &'a TypeRegistry,
 }
 
-impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
-    type Value = DynamicArray;
+impl<'a, 'de> Visitor<'de> for SequenceVisitor<'a> {
+    type Value = DynamicSequence;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
-        formatter.write_str("reflected array value")
+        formatter.write_str("reflected sequence value")
     }
 
     fn visit_seq<V>(self, mut seq: V) -> Result<Self::Value, V::Error>
@@ -616,8 +616,8 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
     {
         let mut vec = Vec::with_capacity(seq.size_hint().unwrap_or_default());
         let registration = get_registration(
-            self.array_info.item_type_id(),
-            self.array_info.item_type_name(),
+            self.sequence_info.item_type_id(),
+            self.sequence_info.item_type_name(),
             self.registry,
         )?;
         while let Some(value) = seq.next_element_seed(TypedReflectDeserializer {
@@ -627,14 +627,14 @@ impl<'a, 'de> Visitor<'de> for ArrayVisitor<'a> {
             vec.push(value);
         }
 
-        if vec.len() != self.array_info.capacity() {
+        if vec.len() != self.sequence_info.capacity() {
             return Err(Error::invalid_length(
                 vec.len(),
-                &self.array_info.capacity().to_string().as_str(),
+                &self.sequence_info.capacity().to_string().as_str(),
             ));
         }
 
-        Ok(DynamicArray::new(vec.into_boxed_slice()))
+        Ok(DynamicSequence::new(vec.into_boxed_slice()))
     }
 }
 
@@ -1075,7 +1075,7 @@ mod tests {
         option_value_complex: Option<SomeStruct>,
         tuple_value: (f32, usize),
         list_value: Vec<i32>,
-        array_value: [i32; 5],
+        sequence_value: [i32; 5],
         map_value: HashMap<u8, usize>,
         struct_value: SomeStruct,
         tuple_struct_value: SomeTupleStruct,
@@ -1184,7 +1184,7 @@ mod tests {
             option_value_complex: Some(SomeStruct { foo: 123 }),
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
+            sequence_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
@@ -1222,7 +1222,7 @@ mod tests {
                     1,
                     2,
                 ],
-                array_value: (-2, -1, 0, 1, 2),
+                sequence_value: (-2, -1, 0, 1, 2),
                 map_value: {
                     64: 32,
                 },
@@ -1443,7 +1443,7 @@ mod tests {
             option_value_complex: Some(SomeStruct { foo: 123 }),
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
+            sequence_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
@@ -1506,7 +1506,7 @@ mod tests {
             option_value_complex: Some(SomeStruct { foo: 123 }),
             tuple_value: (PI, 1337),
             list_value: vec![-2, -1, 0, 1, 2],
-            array_value: [-2, -1, 0, 1, 2],
+            sequence_value: [-2, -1, 0, 1, 2],
             map_value: map,
             struct_value: SomeStruct { foo: 999999999 },
             tuple_struct_value: SomeTupleStruct(String::from("Tuple Struct")),
