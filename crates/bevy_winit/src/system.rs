@@ -135,10 +135,15 @@ pub(crate) fn changed_window(
 
             if window.resolution != previous.resolution {
                 let physical_size = PhysicalSize::new(
-                    window.resolution.physical_width() as f64,
-                    window.resolution.physical_height() as f64,
+                    window.resolution.physical_width(),
+                    window.resolution.physical_height(),
                 );
-                winit_window.set_inner_size(physical_size);
+
+                // Precaution so we don't accidentally step on the window managers
+                // toes regarding maximizing/minimizing/etc.
+                if winit_window.inner_size() != physical_size {
+                    winit_window.set_inner_size(physical_size);
+                }
             }
 
             if window.cursor.position != previous.cursor.position {
@@ -212,7 +217,14 @@ pub(crate) fn changed_window(
                     winit_window.primary_monitor(),
                     winit_window.current_monitor(),
                 ) {
-                    winit_window.set_outer_position(position);
+                    let should_set = match winit_window.outer_position() {
+                        Ok(current_position) => current_position != position,
+                        _ => true,
+                    };
+
+                    if should_set {
+                        winit_window.set_outer_position(position);
+                    }
                 }
             }
 

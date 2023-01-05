@@ -244,7 +244,7 @@ pub fn winit_window_position(
     mut available_monitors: impl Iterator<Item = MonitorHandle>,
     primary_monitor: Option<MonitorHandle>,
     current_monitor: Option<MonitorHandle>,
-) -> Option<PhysicalPosition<f64>> {
+) -> Option<PhysicalPosition<i32>> {
     match position {
         WindowPosition::Automatic => {
             /* Window manager will handle position */
@@ -281,7 +281,7 @@ pub fn winit_window_position(
                         + monitor.position().y as f64,
                 };
 
-                Some(position)
+                Some(position.cast::<i32>())
             } else {
                 warn!("Couldn't get monitor selected with: {monitor_selection:?}");
                 None
@@ -289,7 +289,8 @@ pub fn winit_window_position(
         }
         WindowPosition::At(position) => Some(
             LogicalPosition::new(position[0] as f64, position[1] as f64)
-                .to_physical::<f64>(resolution.base_scale_factor()),
+                .to_physical::<f64>(resolution.base_scale_factor())
+                .cast::<i32>(),
         ),
     }
 }
