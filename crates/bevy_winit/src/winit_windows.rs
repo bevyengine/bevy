@@ -238,10 +238,6 @@ pub(crate) fn attempt_grab(winit_window: &winit::window::Window, grab_mode: Curs
 
 // Ideally we could generify this across window backends, but we only really have winit atm
 // so whatever.
-//
-// Also ends up bringing to question the standardization of physical/logical position/sizes
-// into specific types so we don't run into weird cross bugs where we use a logical position
-// in a physical context.
 pub fn winit_window_position(
     position: &WindowPosition,
     resolution: &WindowResolution,
