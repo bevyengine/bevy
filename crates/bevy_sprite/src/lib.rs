@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 mod bundle;
 mod dynamic_texture_atlas_builder;
 mod mesh2d;

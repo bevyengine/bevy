@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 pub mod bloom;
 pub mod clear_color;
 pub mod core_2d;

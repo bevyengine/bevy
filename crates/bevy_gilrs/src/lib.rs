@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 mod converter;
 mod gilrs_system;
 

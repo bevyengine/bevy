@@ -1,4 +1,3 @@
-#![allow(clippy::type_complexity)]
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 

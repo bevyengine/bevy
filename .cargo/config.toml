@@ -1,0 +1,2 @@
+[target.'cfg(all())']
+rustflags = ["-Aclippy::type_complexity"]

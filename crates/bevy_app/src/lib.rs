@@ -1,6 +1,5 @@
 //! This crate is about everything concerning the highest-level, application layer of a Bevy app.
 
-#![allow(clippy::type_complexity)]
 #![warn(missing_docs)]
 
 mod app;

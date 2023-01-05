@@ -1,5 +1,3 @@
-#![allow(clippy::type_complexity)]
-
 mod axis;
 pub mod gamepad;
 mod input;

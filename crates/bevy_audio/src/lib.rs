@@ -19,7 +19,6 @@
 //! }
 //! ```
 
-#![allow(clippy::type_complexity)]
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
