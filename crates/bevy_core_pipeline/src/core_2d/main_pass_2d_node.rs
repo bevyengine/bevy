@@ -3,6 +3,7 @@ use crate::{
     core_2d::{camera_2d::Camera2d, Transparent2d},
 };
 use bevy_ecs::prelude::*;
+use bevy_render::render_phase::TrackedRenderPass;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -77,13 +78,16 @@ impl Node for MainPass2dNode {
                 depth_stencil_attachment: None,
             };
 
-            transparent_phase.render(
-                world,
-                render_context,
-                view_entity,
-                camera.viewport.as_ref(),
-                pass_descriptor,
-            );
+            let render_pass = render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor);
+            let mut render_pass = TrackedRenderPass::new(render_pass);
+
+            if let Some(viewport) = camera.viewport.as_ref() {
+                render_pass.set_camera_viewport(viewport);
+            }
+
+            transparent_phase.render(&mut render_pass, world, view_entity);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't

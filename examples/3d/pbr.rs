@@ -30,7 +30,7 @@ fn setup(
                     .unwrap(),
                 ),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::hex("ffd891").unwrap(),
+                    base_color: Color::hex("#ffd891").unwrap(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
@@ -51,7 +51,7 @@ fn setup(
             .unwrap(),
         ),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("ffd891").unwrap(),
+            base_color: Color::hex("#ffd891").unwrap(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
             ..default()

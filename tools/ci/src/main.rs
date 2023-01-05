@@ -88,12 +88,24 @@ fn main() {
     }
 
     if what_to_run.contains(Check::COMPILE_FAIL) {
-        // Run UI tests (they do not get executed with the workspace tests)
-        // - See crates/bevy_ecs_compile_fail_tests/README.md
-        let _subdir = sh.push_dir("crates/bevy_ecs_compile_fail_tests");
-        cmd!(sh, "cargo test --target-dir ../../target")
-            .run()
-            .expect("Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+        {
+            // ECS Compile Fail Tests
+            // Run UI tests (they do not get executed with the workspace tests)
+            // - See crates/bevy_ecs_compile_fail_tests/README.md
+            let _subdir = sh.push_dir("crates/bevy_ecs_compile_fail_tests");
+            cmd!(sh, "cargo test --target-dir ../../target")
+                .run()
+                .expect("Compiler errors of the ECS compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+        }
+        {
+            // Reflect Compile Fail Tests
+            // Run tests (they do not get executed with the workspace tests)
+            // - See crates/bevy_reflect_compile_fail_tests/README.md
+            let _subdir = sh.push_dir("crates/bevy_reflect_compile_fail_tests");
+            cmd!(sh, "cargo test --target-dir ../../target")
+                .run()
+                .expect("Compiler errors of the Reflect compile fail tests seem to be different than expected! Check locally and compare rust versions.");
+        }
     }
 
     if what_to_run.contains(Check::TEST) {
@@ -121,7 +133,7 @@ fn main() {
         .expect("Please fix doc warnings in output above.");
     }
 
-    if what_to_run.contains(Check::COMPILE_FAIL) {
+    if what_to_run.contains(Check::BENCH_CHECK) {
         let _subdir = sh.push_dir("benches");
         // Check that benches are building
         cmd!(sh, "cargo check --benches --target-dir ../target")
