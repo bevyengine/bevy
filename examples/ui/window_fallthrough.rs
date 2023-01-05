@@ -52,6 +52,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn toggle_mouse_passthrough(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
     if keyboard_input.just_pressed(KeyCode::P) {
         let mut window = windows.single_mut();
-        window.hit_test = !window.hit_test;
+        window.cursor.hit_test = !window.cursor.hit_test;
     }
 }
