@@ -134,19 +134,20 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             for component_id in self.original_world.entity(entity).archetype().components() {
-                let reflect_component = self
-                    .original_world
-                    .components()
-                    .get_info(component_id)
-                    .and_then(|info| type_registry.get(info.type_id().unwrap()))
-                    .and_then(|registration| registration.data::<ReflectComponent>());
-
-                if let Some(reflect_component) = reflect_component {
-                    if let Some(component) = reflect_component.reflect(self.original_world, entity)
-                    {
-                        entry.components.push(component.clone_value());
-                    }
-                }
+                let mut extract_and_push = || {
+                    let type_id = self
+                        .original_world
+                        .components()
+                        .get_info(component_id)?
+                        .type_id()?;
+                    let component = type_registry
+                        .get(type_id)?
+                        .data::<ReflectComponent>()?
+                        .reflect(self.original_world, entity)?;
+                    entry.components.push(component.clone_value());
+                    Some(())
+                };
+                extract_and_push();
             }
             self.extracted_scene.insert(index, entry);
         }
@@ -178,17 +179,20 @@ impl<'w> DynamicSceneBuilder<'w> {
     pub fn extract_resources(&mut self) -> &mut Self {
         let type_registry = self.type_registry.read();
         for (component_id, _) in self.original_world.storages().resources.iter() {
-            if let Some(resource) = self
-                .original_world
-                .components()
-                .get_info(component_id)
-                .and_then(|info| info.type_id())
-                .and_then(|type_id| type_registry.get(type_id))
-                .and_then(|registration| registration.data::<ReflectResource>())
-                .and_then(|reflect_resource| reflect_resource.reflect(self.original_world))
-            {
+            let mut extract_and_push = || {
+                let type_id = self
+                    .original_world
+                    .components()
+                    .get_info(component_id)?
+                    .type_id()?;
+                let resource = type_registry
+                    .get(type_id)?
+                    .data::<ReflectResource>()?
+                    .reflect(self.original_world)?;
                 self.resources.push(resource.clone_value());
-            }
+                Some(())
+            };
+            extract_and_push();
         }
 
         drop(type_registry);
@@ -211,9 +215,11 @@ mod tests {
     #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
     #[reflect(Component)]
     struct ComponentA;
+
     #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
     #[reflect(Component)]
     struct ComponentB;
+
     #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
     #[reflect(Resource)]
     struct ResourceA;

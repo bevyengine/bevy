@@ -375,7 +375,7 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
     type Value = Vec<Box<dyn Reflect>>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-        formatter.write_str("map of impl reflect")
+        formatter.write_str("map of reflect types")
     }
 
     fn visit_map<A>(self, mut map: A) -> std::result::Result<Self::Value, A::Error>
@@ -383,10 +383,10 @@ impl<'a, 'de> Visitor<'de> for SceneMapVisitor<'a> {
         A: MapAccess<'de>,
     {
         let mut added = HashSet::new();
-        let mut components = Vec::new();
+        let mut entries = Vec::new();
         while let Some(BorrowableCowStr(key)) = map.next_key()? {
             if !added.insert(key.clone()) {
-                return Err(Error::custom(format!("duplicate component: `{key}`")));
+                return Err(Error::custom(format!("duplicate reflect type: `{key}`")));
             }
 
             let registration = self
@@ -659,11 +659,11 @@ mod tests {
 
         assert_eq!(
             vec![
-                145, 129, 0, 145, 129, 217, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58,
-                58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67,
-                111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2, 3, 146, 202, 63, 166, 102,
-                102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112, 108, 101, 172, 72, 101, 108,
-                108, 111, 32, 87, 111, 114, 108, 100, 33
+                146, 128, 129, 0, 145, 129, 217, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101,
+                58, 58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121,
+                67, 111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2, 3, 146, 202, 63, 166,
+                102, 102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112, 108, 101, 172, 72, 101,
+                108, 108, 111, 32, 87, 111, 114, 108, 100, 33
             ],
             buf
         );
