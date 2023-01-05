@@ -1,7 +1,6 @@
 use crate::{
     camera::{ExtractedCamera, RenderTarget},
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
-    renderer::GpuContext,
+    render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotValue},
     view::ExtractedWindows,
 };
 use bevy_ecs::{entity::Entity, prelude::QueryState, world::World};
@@ -27,7 +26,7 @@ impl Node for CameraDriverNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GpuContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let mut sorted_cameras = self
@@ -97,7 +96,7 @@ impl Node for CameraDriverNode {
                 depth_stencil_attachment: None,
             };
 
-            gpu_context
+            render_context
                 .gpu_command_encoder
                 .begin_render_pass(&pass_descriptor);
         }

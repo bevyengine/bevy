@@ -4,13 +4,12 @@ use crate::tonemapping::{TonemappingPipeline, ViewTonemappingPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
-    renderer::GpuContext,
     view::{ExtractedView, ViewTarget},
 };
 
@@ -42,7 +41,7 @@ impl Node for TonemappingNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GpuContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -71,26 +70,27 @@ impl Node for TonemappingNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
-                let sampler = gpu_context
+                let sampler = render_context
                     .gpu_device
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group = gpu_context
-                    .gpu_device
-                    .create_bind_group(&BindGroupDescriptor {
-                        label: None,
-                        layout: &tonemapping_pipeline.texture_bind_group,
-                        entries: &[
-                            BindGroupEntry {
-                                binding: 0,
-                                resource: BindingResource::TextureView(source),
-                            },
-                            BindGroupEntry {
-                                binding: 1,
-                                resource: BindingResource::Sampler(&sampler),
-                            },
-                        ],
-                    });
+                let bind_group =
+                    render_context
+                        .gpu_device
+                        .create_bind_group(&BindGroupDescriptor {
+                            label: None,
+                            layout: &tonemapping_pipeline.texture_bind_group,
+                            entries: &[
+                                BindGroupEntry {
+                                    binding: 0,
+                                    resource: BindingResource::TextureView(source),
+                                },
+                                BindGroupEntry {
+                                    binding: 1,
+                                    resource: BindingResource::Sampler(&sampler),
+                                },
+                            ],
+                        });
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group
@@ -110,7 +110,7 @@ impl Node for TonemappingNode {
             depth_stencil_attachment: None,
         };
 
-        let mut render_pass = gpu_context
+        let mut render_pass = render_context
             .gpu_command_encoder
             .begin_render_pass(&pass_descriptor);
 

@@ -16,13 +16,13 @@ use bevy_render::{
     color::Color,
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
         RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{GpuContext, GpuDevice, GpuQueue},
+    renderer::{GpuDevice, GpuQueue},
     texture::*,
     view::{
         ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -1755,7 +1755,7 @@ impl Node for ShadowPassNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GpuContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -1783,7 +1783,7 @@ impl Node for ShadowPassNode {
                     }),
                 };
 
-                let render_pass = gpu_context
+                let render_pass = render_context
                     .gpu_command_encoder
                     .begin_render_pass(&pass_descriptor);
                 let mut render_pass = TrackedRenderPass::new(render_pass);

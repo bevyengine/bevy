@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
-        settings::{WgpuSettings, WgpuSettingsPriority},
+        settings::{GpuSettings, GpuSettingsPriority},
         RenderPlugin,
     },
 };
@@ -13,8 +13,8 @@ fn main() {
         .add_plugins(DefaultPlugins.set(RenderPlugin {
             // This configures the app to use the most compatible rendering settings.
             // They help with compatibility with as many devices as possible.
-            wgpu_settings: WgpuSettings {
-                priority: WgpuSettingsPriority::Compatibility,
+            gpu_settings: GpuSettings {
+                priority: GpuSettingsPriority::Compatibility,
                 ..default()
             },
         }))

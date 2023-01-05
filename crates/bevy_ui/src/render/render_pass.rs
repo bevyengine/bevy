@@ -8,7 +8,6 @@ use bevy_render::{
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
-    renderer::*,
     view::*,
 };
 use bevy_utils::FloatOrd;
@@ -49,7 +48,7 @@ impl Node for UiPassNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GpuContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let input_view_entity = graph.get_input_entity(Self::IN_VIEW)?;
@@ -85,7 +84,7 @@ impl Node for UiPassNode {
             depth_stencil_attachment: None,
         };
 
-        let render_pass = gpu_context
+        let render_pass = render_context
             .gpu_command_encoder
             .begin_render_pass(&pass_descriptor);
         let mut render_pass = TrackedRenderPass::new(render_pass);

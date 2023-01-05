@@ -8,9 +8,9 @@ use bevy::{
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
-        render_graph::{self, RenderGraph},
+        render_graph::{self, RenderContext, RenderGraph},
         render_resource::*,
-        renderer::{GpuContext, GpuDevice},
+        renderer::GpuDevice,
         RenderApp, RenderStage,
     },
 };
@@ -207,14 +207,14 @@ impl render_graph::Node for GameOfLifeNode {
     fn run(
         &self,
         _graph: &mut render_graph::RenderGraphContext,
-        gpu_context: &mut GpuContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), render_graph::NodeRunError> {
         let texture_bind_group = &world.resource::<GameOfLifeImageBindGroup>().0;
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<GameOfLifePipeline>();
 
-        let mut pass = gpu_context
+        let mut pass = render_context
             .gpu_command_encoder
             .begin_compute_pass(&ComputePassDescriptor::default());
 

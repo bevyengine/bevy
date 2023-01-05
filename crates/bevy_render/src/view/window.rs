@@ -154,8 +154,8 @@ pub struct WindowSurfaces {
 /// - GPU workload is more than your current GPU can manage
 /// - Error / performance bug in your custom shaders
 /// - wgpu was unable to detect a proper GPU hardware-accelerated device given the chosen
-///   [`Backends`](crate::settings::Backends), [`WgpuLimits`](crate::settings::WgpuLimits),
-///   and/or [`WgpuFeatures`](crate::settings::WgpuFeatures). For example, on Windows currently
+///   [`Backends`](crate::settings::Backends), [`GpuLimits`](crate::settings::GpuLimits),
+///   and/or [`GpuFeatures`](crate::settings::GpuFeatures). For example, on Windows currently
 ///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
 ///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
 ///   will be chosen and performance will be very poor. This is visible in a log message that is

@@ -46,7 +46,7 @@ use crate::{
     mesh::MeshPlugin,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, GpuInstance},
-    settings::WgpuSettings,
+    settings::GpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -61,7 +61,7 @@ use std::{
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
 pub struct RenderPlugin {
-    pub wgpu_settings: WgpuSettings,
+    pub gpu_settings: GpuSettings,
 }
 
 /// The labels of the default App rendering stages.
@@ -135,7 +135,7 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        if let Some(backends) = self.wgpu_settings.backends {
+        if let Some(backends) = self.gpu_settings.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
 
@@ -148,14 +148,14 @@ impl Plugin for RenderPlugin {
                 });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: self.wgpu_settings.power_preference,
+                power_preference: self.gpu_settings.power_preference,
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
             let (gpu_device, gpu_queue, gpu_adapter_info, gpu_adapter) =
                 futures_lite::future::block_on(renderer::initialize_renderer(
                     &instance,
-                    &self.wgpu_settings,
+                    &self.gpu_settings,
                     &request_adapter_options,
                 ));
             debug!("Configured wgpu adapter Limits: {:#?}", gpu_device.limits());

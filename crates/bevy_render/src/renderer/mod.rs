@@ -8,14 +8,14 @@ pub use graph_runner::*;
 
 use crate::{
     render_graph::RenderGraph,
-    settings::{WgpuSettings, WgpuSettingsPriority},
+    settings::{GpuSettings, GpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{Adapter, AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::{Adapter, AdapterInfo, Instance, Queue, RequestAdapterOptions};
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -102,14 +102,6 @@ pub struct GpuInstance(pub Instance);
 #[derive(Resource, Clone, Deref, DerefMut)]
 pub struct GpuAdapterInfo(pub AdapterInfo);
 
-/// Encodes a series of GPU operations.
-///
-/// A command encoder can record [`RenderPass`](crate::render_resource::RenderPass)es,
-/// [`ComputePass`](crate::render_resource::ComputePass)es, and transfer operations between
-/// driver-managed resources like [`Buffer`](crate::render_resource::Buffer)s and
-/// [`Texture`](crate::render_resource::Texture)s.
-pub type GpuCommandEncoder = CommandEncoder;
-
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
 } else {
@@ -120,7 +112,7 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 /// for the specified backend.
 pub async fn initialize_renderer(
     instance: &Instance,
-    options: &WgpuSettings,
+    settings: &GpuSettings,
     request_adapter_options: &RequestAdapterOptions<'_>,
 ) -> (GpuDevice, GpuQueue, GpuAdapterInfo, GpuAdapter) {
     let adapter = instance
@@ -143,8 +135,8 @@ pub async fn initialize_renderer(
 
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
-    let mut limits = options.limits.clone();
-    if matches!(options.priority, WgpuSettingsPriority::Functionality) {
+    let mut limits = settings.limits.clone();
+    if matches!(settings.priority, GpuSettingsPriority::Functionality) {
         features = adapter.features();
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
@@ -157,14 +149,14 @@ pub async fn initialize_renderer(
     }
 
     // Enforce the disabled features
-    if let Some(disabled_features) = options.disabled_features {
+    if let Some(disabled_features) = settings.disabled_features {
         features -= disabled_features;
     }
     // NOTE: |= is used here to ensure that any explicitly-enabled features are respected.
-    features |= options.features;
+    features |= settings.features;
 
     // Enforce the limit constraints
-    if let Some(constrained_limits) = options.constrained_limits.as_ref() {
+    if let Some(constrained_limits) = settings.constrained_limits.as_ref() {
         // NOTE: Respect the configured limits as an 'upper bound'. This means for 'max' limits, we
         // take the minimum of the calculated limits according to the adapter/backend and the
         // specified max_limits. For 'min' limits, take the maximum instead. This is intended to
@@ -261,7 +253,7 @@ pub async fn initialize_renderer(
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                label: settings.device_label.as_ref().map(|a| a.as_ref()),
                 features,
                 limits,
             },
@@ -277,13 +269,4 @@ pub async fn initialize_renderer(
         GpuAdapterInfo(adapter_info),
         GpuAdapter(adapter),
     )
-}
-
-/// The context with all information required to interact with the GPU.
-///
-/// The [`GpuDevice`] is used to create gpu resources (buffers, bind groups, pipelines, etc.) and
-/// the [`GpuCommandEncoder`] is used to record a series of GPU operations.
-pub struct GpuContext {
-    pub gpu_device: GpuDevice,
-    pub gpu_command_encoder: GpuCommandEncoder,
 }

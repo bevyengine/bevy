@@ -9,6 +9,7 @@ use bevy_ecs::{
 };
 use bevy_math::UVec2;
 use bevy_reflect::{Reflect, TypeUuid};
+use bevy_render::render_graph::RenderContext;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{
@@ -19,7 +20,7 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::*,
-    renderer::{GpuContext, GpuDevice},
+    renderer::GpuDevice,
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     RenderApp, RenderStage,
@@ -200,7 +201,7 @@ impl Node for BloomNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GpuContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError> {
         #[cfg(feature = "trace")]
@@ -232,7 +233,7 @@ impl Node for BloomNode {
         {
             let view = &BloomTextures::texture_view(&textures.texture_a, 0);
             let mut prefilter_pass =
-                TrackedRenderPass::new(gpu_context.gpu_command_encoder.begin_render_pass(
+                TrackedRenderPass::new(render_context.gpu_command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_prefilter_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
@@ -258,7 +259,7 @@ impl Node for BloomNode {
         for mip in 1..textures.mip_count {
             let view = &BloomTextures::texture_view(&textures.texture_a, mip);
             let mut downsampling_pass =
-                TrackedRenderPass::new(gpu_context.gpu_command_encoder.begin_render_pass(
+                TrackedRenderPass::new(render_context.gpu_command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_downsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
@@ -284,7 +285,7 @@ impl Node for BloomNode {
         for mip in (1..textures.mip_count).rev() {
             let view = &BloomTextures::texture_view(&textures.texture_b, mip - 1);
             let mut upsampling_pass =
-                TrackedRenderPass::new(gpu_context.gpu_command_encoder.begin_render_pass(
+                TrackedRenderPass::new(render_context.gpu_command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_upsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
@@ -309,7 +310,7 @@ impl Node for BloomNode {
 
         {
             let mut upsampling_final_pass =
-                TrackedRenderPass::new(gpu_context.gpu_command_encoder.begin_render_pass(
+                TrackedRenderPass::new(render_context.gpu_command_encoder.begin_render_pass(
                     &RenderPassDescriptor {
                         label: Some("bloom_upsampling_final_pass"),
                         color_attachments: &[Some(view_target.get_unsampled_color_attachment(

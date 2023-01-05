@@ -1,10 +1,9 @@
 use crate::{
     define_atomic_id,
     render_graph::{
-        Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
+        Edge, InputSlotError, OutputSlotError, RenderContext, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos, SlotType, SlotValue,
     },
-    renderer::GpuContext,
 };
 use bevy_ecs::world::World;
 use downcast_rs::{impl_downcast, Downcast};
@@ -47,7 +46,7 @@ pub trait Node: Downcast + Send + Sync + 'static {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        gpu_context: &mut GpuContext,
+        render_context: &mut RenderContext,
         world: &World,
     ) -> Result<(), NodeRunError>;
 }
@@ -309,7 +308,7 @@ impl Node for EmptyNode {
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        _gpu_context: &mut GpuContext,
+        _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         Ok(())
@@ -338,7 +337,7 @@ impl Node for RunGraphOnViewNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        _gpu_context: &mut GpuContext,
+        _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;

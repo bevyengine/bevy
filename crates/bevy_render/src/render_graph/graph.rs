@@ -1,9 +1,6 @@
-use crate::{
-    render_graph::{
-        Edge, Node, NodeId, NodeLabel, NodeRunError, NodeState, RenderGraphContext,
-        RenderGraphError, SlotInfo, SlotLabel,
-    },
-    renderer::GpuContext,
+use crate::render_graph::{
+    Edge, Node, NodeId, NodeLabel, NodeRunError, NodeState, RenderContext, RenderGraphContext,
+    RenderGraphError, SlotInfo, SlotLabel,
 };
 use bevy_ecs::{prelude::World, system::Resource};
 use bevy_utils::HashMap;
@@ -32,13 +29,12 @@ use super::EdgeExistence;
 /// ```
 /// # use bevy_app::prelude::*;
 /// # use bevy_ecs::prelude::World;
-/// # use bevy_render::render_graph::{RenderGraph, Node, RenderGraphContext, NodeRunError};
-/// # use bevy_render::renderer::GpuContext;
+/// # use bevy_render::render_graph::{RenderGraph, RenderContext, Node, RenderGraphContext, NodeRunError};
 /// #
 /// # struct MyNode;
 /// #
 /// # impl Node for MyNode {
-/// #     fn run(&self, graph: &mut RenderGraphContext, gpu_context: &mut GpuContext, world: &World) -> Result<(), NodeRunError> {
+/// #     fn run(&self, graph: &mut RenderGraphContext, render_context: &mut RenderContext, world: &World) -> Result<(), NodeRunError> {
 /// #         unimplemented!()
 /// #     }
 /// # }
@@ -615,7 +611,7 @@ impl Node for GraphInputNode {
     fn run(
         &self,
         graph: &mut RenderGraphContext,
-        _gpu_context: &mut GpuContext,
+        _render_context: &mut RenderContext,
         _world: &World,
     ) -> Result<(), NodeRunError> {
         for i in 0..graph.inputs().len() {
@@ -628,12 +624,9 @@ impl Node for GraphInputNode {
 
 #[cfg(test)]
 mod tests {
-    use crate::{
-        render_graph::{
-            Edge, Node, NodeId, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
-            SlotInfo, SlotType,
-        },
-        renderer::GpuContext,
+    use crate::render_graph::{
+        Edge, Node, NodeId, NodeRunError, RenderContext, RenderGraph, RenderGraphContext,
+        RenderGraphError, SlotInfo, SlotType,
     };
     use bevy_ecs::world::World;
     use bevy_utils::HashSet;
@@ -669,7 +662,7 @@ mod tests {
         fn run(
             &self,
             _: &mut RenderGraphContext,
-            _: &mut GpuContext,
+            _: &mut RenderContext,
             _: &World,
         ) -> Result<(), NodeRunError> {
             Ok(())
@@ -742,7 +735,7 @@ mod tests {
             fn run(
                 &self,
                 _: &mut RenderGraphContext,
-                _: &mut GpuContext,
+                _: &mut RenderContext,
                 _: &World,
             ) -> Result<(), NodeRunError> {
                 Ok(())
