@@ -25,7 +25,7 @@ pub(crate) trait DebugCheckedUnwrap {
     unsafe fn debug_checked_unwrap(self) -> Self::Item;
 }
 
-// Thes two impls are explicitly split to ensure that the unreachable! macro
+// These two impls are explicitly split to ensure that the unreachable! macro
 // does not cause inlining to fail when compiling in release mode.
 #[cfg(debug_assertions)]
 impl<T> DebugCheckedUnwrap for Option<T> {

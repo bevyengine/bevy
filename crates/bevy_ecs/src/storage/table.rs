@@ -49,14 +49,14 @@ impl TableId {
 
 /// A opaque newtype for rows in [`Table`]s. Specifies a single row in a specific table.
 ///
-/// Values of this type are retreivable from [`Archetype::entity_table_row`] and can be
+/// Values of this type are retrievable from [`Archetype::entity_table_row`] and can be
 /// used alongside [`Archetype::table_id`] to fetch the exact table and row where an
 /// [`Entity`]'s
 ///
 /// Values of this type are only valid so long as entities have not moved around.
 /// Adding and removing components from an entity, or despawning it will invalidate
 /// potentially any table row in the table the entity was previously stored in. Users
-/// should *always* fetch the approripate row from the entity's [`Archetype`] before
+/// should *always* fetch the appropriate row from the entity's [`Archetype`] before
 /// fetching the entity's components.
 ///
 /// [`Archetype`]: crate::archetype::Archetype
