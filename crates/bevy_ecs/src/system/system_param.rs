@@ -799,7 +799,7 @@ unsafe impl SystemParamState for WorldState {
 /// A local may only be accessed by the system itself and is therefore not visible to other systems.
 /// If two or more systems specify the same local type each will have their own unique local.
 /// If multiple [`SystemParam`]s within the same system each specify the same local type
-/// each will get their own local.
+/// each will get their own distinct data storage.
 ///
 /// The supplied lifetime parameter is the [`SystemParam`]s `'s` lifetime.
 ///
