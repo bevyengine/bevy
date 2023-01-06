@@ -29,8 +29,6 @@ use std::{
 pub struct TableId(u32);
 
 impl TableId {
-    pub(crate) const INVALID: TableId = TableId(u32::MAX);
-
     #[inline]
     pub fn new(index: usize) -> Self {
         TableId(index as u32)

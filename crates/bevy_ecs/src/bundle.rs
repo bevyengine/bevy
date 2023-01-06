@@ -15,7 +15,7 @@ use crate::{
 };
 use bevy_ecs_macros::all_tuples;
 use bevy_ptr::OwningPtr;
-use std::{any::TypeId, collections::HashMap, num::NonZeroU32};
+use std::{any::TypeId, collections::HashMap};
 
 /// The `Bundle` trait enables insertion and removal of [`Component`]s from an entity.
 ///
@@ -238,41 +238,26 @@ macro_rules! tuple_impl {
 all_tuples!(tuple_impl, 0, 15, B);
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct BundleId(NonZeroU32);
+pub struct BundleId(usize);
 
 impl BundleId {
-    /// Creates a new [`BundleId`] from an index without checking for the
-    /// type's invariants.
-    ///
-    /// # Safety
-    /// `value` must be less than [`u32::MAX`].
-    #[inline]
-    pub(crate) const unsafe fn new_unchecked(value: usize) -> Self {
-        Self(NonZeroU32::new_unchecked(value as u32))
-    }
-
     /// Creates a new [`BundleId`] from an index.
     ///
     /// # Panic
     /// This function will panic if `value` is greater than or equal to [`u32::MAX`].
     #[inline]
     pub(crate) const fn new(value: usize) -> Self {
-        assert!(
-            value > 0 && value <= u32::MAX as usize,
-            "BundleID cannot be u32::MAX or greater"
-        );
-        // SAFETY: The above assertion will fail if the value is not valid.
-        unsafe { Self::new_unchecked(value) }
+        Self(value)
     }
 
     #[inline]
     pub(crate) fn index(self) -> usize {
-        self.0.get() as usize
+        self.0
     }
 }
 
 impl SparseSetIndex for BundleId {
-    type Repr = NonZeroU32;
+    type Repr = usize;
     const MAX_SIZE: usize = (u32::MAX - 1) as usize;
 
     #[inline]
@@ -287,17 +272,12 @@ impl SparseSetIndex for BundleId {
 
     #[inline]
     unsafe fn repr_from_index(index: usize) -> Self::Repr {
-        debug_assert!(index < Self::MAX_SIZE);
-        // SAFETY: Caller guarentees that `index` does not exceed `u32::MAX - 1`.
-        // This addition cannot overflow under these guarentees.
-        //
-        // Created index cannot be zero as it's being incremented by one.
-        unsafe { NonZeroU32::new_unchecked((index + 1) as u32) }
+        index
     }
 
     #[inline]
     fn repr_to_index(repr: &Self::Repr) -> usize {
-        repr.get() as usize
+        *repr
     }
 }
 
@@ -596,10 +576,10 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             InsertBundleResult::NewArchetypeSameTable { new_archetype } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.set(swapped_entity.index(), Some(location));
+                    self.entities.set(swapped_entity.index(), location);
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
-                self.entities.set(entity.index(), Some(new_location));
+                self.entities.set(entity.index(), new_location);
 
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
                 let add_bundle = self
@@ -624,7 +604,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
             } => {
                 let result = self.archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
-                    self.entities.set(swapped_entity.index(), Some(location));
+                    self.entities.set(swapped_entity.index(), location);
                 }
                 // PERF: store "non bundle" components in edge, then just move those to avoid
                 // redundant copies
@@ -632,7 +612,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     .table
                     .move_to_superset_unchecked(result.table_row, new_table);
                 let new_location = new_archetype.allocate(entity, move_result.new_row);
-                self.entities.set(entity.index(), Some(new_location));
+                self.entities.set(entity.index(), new_location);
 
                 // if an entity was moved into this entity's table spot, update its table row
                 if let Some(swapped_entity) = move_result.swapped_entity {
@@ -707,7 +687,7 @@ impl<'a, 'b> BundleSpawner<'a, 'b> {
             self.change_tick,
             bundle,
         );
-        self.entities.set(entity.index(), Some(location));
+        self.entities.set(entity.index(), location);
 
         location
     }
@@ -767,7 +747,6 @@ impl Default for Bundles {
             bundle_infos: vec![BundleInfo {
                 id: BundleId::new(1),
                 component_ids: Vec::new(),
-                storage_types: Vec::new(),
             }],
             bundle_ids: Default::default(),
         }
