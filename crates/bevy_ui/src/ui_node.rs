@@ -1,6 +1,5 @@
 use crate::{Size, UiRect};
 use bevy_asset::Handle;
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::prelude::*;
@@ -13,7 +12,7 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 use thiserror::Error;
 
 /// Describes the size of a UI node
-#[derive(Component, Debug, Clone, Default, Reflect)]
+#[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Default)]
 pub struct Node {
     /// The size of the node as width and height in pixels
@@ -29,12 +28,23 @@ impl Node {
     }
 }
 
+impl Node {
+    pub const DEFAULT: Self = Self {
+        calculated_size: Vec2::ZERO,
+    };
+}
+
+impl Default for Node {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// An enum that describes possible types of value in flexbox layout options
-#[derive(Copy, Clone, PartialEq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Val {
     /// No value defined
-    #[default]
     Undefined,
     /// Automatically determine this value
     Auto,
@@ -42,6 +52,16 @@ pub enum Val {
     Px(f32),
     /// Set this value in percent
     Percent(f32),
+}
+
+impl Val {
+    pub const DEFAULT: Self = Self::Undefined;
+}
+
+impl Default for Val {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 impl Mul<f32> for Val {
@@ -137,7 +157,7 @@ impl Val {
     /// Returns a [`ValArithmeticError::NonEvaluateable`] if the [`Val`] is impossible to evaluate into [`Val::Px`].
     /// Otherwise it returns an [`f32`] containing the evaluated value in pixels.
     ///
-    /// **Note:** If a [`Val::Px`] is evaluated, it's innver value returned unchanged.
+    /// **Note:** If a [`Val::Px`] is evaluated, it's inner value returned unchanged.
     pub fn evaluate(&self, size: f32) -> Result<f32, ValArithmeticError> {
         match self {
             Val::Percent(value) => Ok(size * value / 100.0),
@@ -190,9 +210,6 @@ impl Val {
 /// Describes the style of a UI node
 ///
 /// It uses the [Flexbox](https://cssreference.io/flexbox/) system.
-///
-/// **Note:** Bevy's UI is upside down compared to how Flexbox normally works, to stay consistent with engine paradigms about layouting from
-/// the upper left corner of the display
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Component, Default, PartialEq)]
 pub struct Style {
@@ -241,38 +258,47 @@ pub struct Style {
     pub aspect_ratio: Option<f32>,
     /// How to handle overflow
     pub overflow: Overflow,
+    /// The size of the gutters between the rows and columns of the flexbox layout
+    ///
+    /// Values of `Size::UNDEFINED` and `Size::AUTO` are treated as zero.
+    pub gap: Size,
+}
+
+impl Style {
+    pub const DEFAULT: Self = Self {
+        display: Display::DEFAULT,
+        position_type: PositionType::DEFAULT,
+        direction: Direction::DEFAULT,
+        flex_direction: FlexDirection::DEFAULT,
+        flex_wrap: FlexWrap::DEFAULT,
+        align_items: AlignItems::DEFAULT,
+        align_self: AlignSelf::DEFAULT,
+        align_content: AlignContent::DEFAULT,
+        justify_content: JustifyContent::DEFAULT,
+        position: UiRect::DEFAULT,
+        margin: UiRect::DEFAULT,
+        padding: UiRect::DEFAULT,
+        border: UiRect::DEFAULT,
+        flex_grow: 0.0,
+        flex_shrink: 1.0,
+        flex_basis: Val::Auto,
+        size: Size::AUTO,
+        min_size: Size::AUTO,
+        max_size: Size::AUTO,
+        aspect_ratio: None,
+        overflow: Overflow::DEFAULT,
+        gap: Size::UNDEFINED,
+    };
 }
 
 impl Default for Style {
     fn default() -> Self {
-        Self {
-            display: Default::default(),
-            position_type: Default::default(),
-            direction: Default::default(),
-            flex_direction: Default::default(),
-            flex_wrap: Default::default(),
-            align_items: Default::default(),
-            align_self: Default::default(),
-            align_content: Default::default(),
-            justify_content: Default::default(),
-            position: Default::default(),
-            margin: Default::default(),
-            padding: Default::default(),
-            border: Default::default(),
-            flex_grow: 0.0,
-            flex_shrink: 1.0,
-            flex_basis: Val::Auto,
-            size: Size::AUTO,
-            min_size: Size::AUTO,
-            max_size: Size::AUTO,
-            aspect_ratio: Default::default(),
-            overflow: Default::default(),
-        }
+        Self::DEFAULT
     }
 }
 
 /// How items are aligned according to the cross axis
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignItems {
     /// Items are aligned at the start
@@ -284,16 +310,24 @@ pub enum AlignItems {
     /// Items are aligned at the baseline
     Baseline,
     /// Items are stretched across the whole cross axis
-    #[default]
     Stretch,
 }
 
+impl AlignItems {
+    pub const DEFAULT: Self = Self::Stretch;
+}
+
+impl Default for AlignItems {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Works like [`AlignItems`] but applies only to a single item
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignSelf {
     /// Use the value of [`AlignItems`]
-    #[default]
     Auto,
     /// If the parent has [`AlignItems::Center`] only this item will be at the start
     FlexStart,
@@ -307,10 +341,20 @@ pub enum AlignSelf {
     Stretch,
 }
 
+impl AlignSelf {
+    pub const DEFAULT: Self = Self::Auto;
+}
+
+impl Default for AlignSelf {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Defines how each line is aligned within the flexbox.
 ///
 /// It only applies if [`FlexWrap::Wrap`] is present and if there are multiple lines of items.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum AlignContent {
     /// Each line moves towards the start of the cross axis
@@ -320,7 +364,6 @@ pub enum AlignContent {
     /// Each line moves towards the center of the cross axis
     Center,
     /// Each line will stretch to fill the remaining space
-    #[default]
     Stretch,
     /// Each line fills the space it needs, putting the remaining space, if any
     /// inbetween the lines
@@ -330,14 +373,23 @@ pub enum AlignContent {
     SpaceAround,
 }
 
+impl AlignContent {
+    pub const DEFAULT: Self = Self::Stretch;
+}
+
+impl Default for AlignContent {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Defines the text direction
 ///
 /// For example English is written LTR (left-to-right) while Arabic is written RTL (right-to-left).
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Direction {
     /// Inherit from parent node
-    #[default]
     Inherit,
     /// Text is written left to right
     LeftToRight,
@@ -345,14 +397,23 @@ pub enum Direction {
     RightToLeft,
 }
 
+impl Direction {
+    pub const DEFAULT: Self = Self::Inherit;
+}
+
+impl Default for Direction {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Whether to use a Flexbox layout model.
 ///
 /// Part of the [`Style`] component.
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Display {
     /// Use Flexbox layout model to determine the position of this [`Node`].
-    #[default]
     Flex,
     /// Use no layout, don't render this node and its children.
     ///
@@ -361,12 +422,21 @@ pub enum Display {
     None,
 }
 
+impl Display {
+    pub const DEFAULT: Self = Self::Flex;
+}
+
+impl Default for Display {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Defines how flexbox items are ordered within a flexbox
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum FlexDirection {
     /// Same way as text direction along the main axis
-    #[default]
     Row,
     /// Flex from top to bottom
     Column,
@@ -376,12 +446,21 @@ pub enum FlexDirection {
     ColumnReverse,
 }
 
+impl FlexDirection {
+    pub const DEFAULT: Self = Self::Row;
+}
+
+impl Default for FlexDirection {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Defines how items are aligned according to the main axis
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum JustifyContent {
     /// Pushed towards the start
-    #[default]
     FlexStart,
     /// Pushed towards the end
     FlexEnd,
@@ -395,23 +474,41 @@ pub enum JustifyContent {
     SpaceEvenly,
 }
 
+impl JustifyContent {
+    pub const DEFAULT: Self = Self::FlexStart;
+}
+
+impl Default for JustifyContent {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Whether to show or hide overflowing items
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Reflect, Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum Overflow {
     /// Show overflowing items
-    #[default]
     Visible,
     /// Hide overflowing items
     Hidden,
 }
 
+impl Overflow {
+    pub const DEFAULT: Self = Self::Visible;
+}
+
+impl Default for Overflow {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// The strategy used to position this node
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum PositionType {
     /// Relative to all other nodes with the [`PositionType::Relative`] value
-    #[default]
     Relative,
     /// Independent of all other nodes
     ///
@@ -419,12 +516,21 @@ pub enum PositionType {
     Absolute,
 }
 
+impl PositionType {
+    const DEFAULT: Self = Self::Relative;
+}
+
+impl Default for PositionType {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Defines if flexbox items appear on a single line or on multiple lines
-#[derive(Copy, Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize, Reflect)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Serialize, Deserialize, Reflect)]
 #[reflect(PartialEq, Serialize, Deserialize)]
 pub enum FlexWrap {
     /// Single line, will overflow if needed
-    #[default]
     NoWrap,
     /// Multiple lines, if needed
     Wrap,
@@ -432,21 +538,56 @@ pub enum FlexWrap {
     WrapReverse,
 }
 
+impl FlexWrap {
+    const DEFAULT: Self = Self::NoWrap;
+}
+
+impl Default for FlexWrap {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// The calculated size of the node
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component)]
 pub struct CalculatedSize {
     /// The size of the node
     pub size: Size,
+    /// Whether to attempt to preserve the aspect ratio when determining the layout for this item
+    pub preserve_aspect_ratio: bool,
+}
+
+impl CalculatedSize {
+    const DEFAULT: Self = Self {
+        size: Size::DEFAULT,
+        preserve_aspect_ratio: false,
+    };
+}
+
+impl Default for CalculatedSize {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 /// The background color of the node
 ///
 /// This serves as the "fill" color.
 /// When combined with [`UiImage`], tints the provided texture.
-#[derive(Component, Default, Copy, Clone, Debug, Reflect)]
+#[derive(Component, Copy, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
 pub struct BackgroundColor(pub Color);
+
+impl BackgroundColor {
+    pub const DEFAULT: Self = Self(Color::WHITE);
+}
+
+impl Default for BackgroundColor {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
 
 impl From<Color> for BackgroundColor {
     fn from(color: Color) -> Self {
@@ -455,19 +596,39 @@ impl From<Color> for BackgroundColor {
 }
 
 /// The 2D texture displayed for this UI node
-#[derive(Component, Clone, Debug, Reflect, Deref, DerefMut)]
+#[derive(Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default)]
-pub struct UiImage(pub Handle<Image>);
+pub struct UiImage {
+    /// Handle to the texture
+    pub texture: Handle<Image>,
+    /// Whether the image should be flipped along its x-axis
+    pub flip_x: bool,
+    /// Whether the image should be flipped along its y-axis
+    pub flip_y: bool,
+}
 
 impl Default for UiImage {
-    fn default() -> Self {
-        Self(DEFAULT_IMAGE_HANDLE.typed())
+    fn default() -> UiImage {
+        UiImage {
+            texture: DEFAULT_IMAGE_HANDLE.typed(),
+            flip_x: false,
+            flip_y: false,
+        }
+    }
+}
+
+impl UiImage {
+    pub fn new(texture: Handle<Image>) -> Self {
+        Self {
+            texture,
+            ..Default::default()
+        }
     }
 }
 
 impl From<Handle<Image>> for UiImage {
-    fn from(handle: Handle<Image>) -> Self {
-        Self(handle)
+    fn from(texture: Handle<Image>) -> Self {
+        Self::new(texture)
     }
 }
 
@@ -477,6 +638,34 @@ impl From<Handle<Image>> for UiImage {
 pub struct CalculatedClip {
     /// The rect of the clip
     pub clip: Rect,
+}
+
+/// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
+/// by its location in the UI hierarchy. A node with a higher z-index will appear on top
+/// of other nodes with a lower z-index.
+///
+/// UI nodes that have the same z-index will appear according to the order in which they
+/// appear in the UI hierarchy. In such a case, the last node to be added to its parent
+/// will appear in front of this parent's other children.
+///
+/// Internally, nodes with a global z-index share the stacking context of root UI nodes
+/// (nodes that have no parent). Because of this, there is no difference between using
+/// [`ZIndex::Local(n)`] and [`ZIndex::Global(n)`] for root nodes.
+///
+/// Nodes without this component will be treated as if they had a value of [`ZIndex::Local(0)`].
+#[derive(Component, Copy, Clone, Debug, Reflect)]
+pub enum ZIndex {
+    /// Indicates the order in which this node should be rendered relative to its siblings.
+    Local(i32),
+    /// Indicates the order in which this node should be rendered relative to root nodes and
+    /// all other nodes that have a global z-index.
+    Global(i32),
+}
+
+impl Default for ZIndex {
+    fn default() -> Self {
+        Self::Local(0)
+    }
 }
 
 #[cfg(test)]

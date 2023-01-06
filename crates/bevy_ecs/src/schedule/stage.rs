@@ -29,9 +29,9 @@ pub trait Stage: Downcast + Send + Sync {
 impl Debug for dyn Stage {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(as_systemstage) = self.as_any().downcast_ref::<SystemStage>() {
-            write!(f, "{:?}", as_systemstage)
+            write!(f, "{as_systemstage:?}")
         } else if let Some(as_schedule) = self.as_any().downcast_ref::<Schedule>() {
-            write!(f, "{:?}", as_schedule)
+            write!(f, "{as_schedule:?}")
         } else {
             write!(f, "Unknown dyn Stage")
         }
@@ -132,11 +132,11 @@ impl SystemStage {
     }
 
     pub fn single_threaded() -> Self {
-        Self::new(Box::new(SingleThreadedExecutor::default()))
+        Self::new(Box::<SingleThreadedExecutor>::default())
     }
 
     pub fn parallel() -> Self {
-        Self::new(Box::new(ParallelExecutor::default()))
+        Self::new(Box::<ParallelExecutor>::default())
     }
 
     pub fn get_executor<T: ParallelSystemExecutor>(&self) -> Option<&T> {
@@ -229,12 +229,10 @@ impl SystemStage {
     }
 
     pub fn apply_buffers(&mut self, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("stage::apply_buffers").entered();
         for container in &mut self.parallel {
-            let system = container.system_mut();
-            #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name())
-                .entered();
-            system.apply_buffers(world);
+            container.system_mut().apply_buffers(world);
         }
     }
 
@@ -309,7 +307,7 @@ impl SystemStage {
                 }
             }
         });
-        for system in systems.drain(..) {
+        for system in systems {
             self.add_system_inner(system, set_run_criteria_index);
         }
         self
@@ -455,7 +453,7 @@ impl SystemStage {
                 Ok(output) => output,
                 Err(DependencyGraphError::GraphCycles(cycle)) => {
                     use std::fmt::Write;
-                    let mut message = format!("Found a dependency cycle in {}:", nodes_description);
+                    let mut message = format!("Found a dependency cycle in {nodes_description}:");
                     writeln!(message).unwrap();
                     for (index, labels) in &cycle {
                         writeln!(message, " - {}", nodes[*index].name()).unwrap();
@@ -604,15 +602,15 @@ impl SystemStage {
         v: &Vec<SystemContainer>,
         f: &mut std::fmt::Formatter<'_>,
     ) -> std::fmt::Result {
-        write!(f, "{}: ", name)?;
+        write!(f, "{name}: ")?;
         if v.len() > 1 {
             writeln!(f, "[")?;
             for sc in v.iter() {
-                writeln!(f, "{:?},", sc)?;
+                writeln!(f, "{sc:?},")?;
             }
             write!(f, "], ")
         } else {
-            write!(f, "{:?}, ", v)
+            write!(f, "{v:?}, ")
         }
     }
 }
@@ -671,7 +669,7 @@ fn process_systems(
         if let Some(index) = container.run_criteria_label().map(|label| {
             *run_criteria_labels
                 .get(label)
-                .unwrap_or_else(|| panic!("No run criteria with label {:?} found.", label))
+                .unwrap_or_else(|| panic!("No run criteria with label {label:?} found."))
         }) {
             container.set_run_criteria(index);
         }
@@ -781,15 +779,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 
@@ -813,15 +803,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 
@@ -829,12 +811,6 @@ impl Stage for SystemStage {
                 if self.apply_buffers {
                     for container in &mut self.parallel {
                         if container.should_run {
-                            #[cfg(feature = "trace")]
-                            let _span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
                             container.system_mut().apply_buffers(world);
                         }
                     }
@@ -852,15 +828,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 
@@ -961,7 +929,7 @@ mod tests {
             .with_system(make_exclusive(3).at_end());
         stage.run(&mut world);
         assert_eq!(world.resource_mut::<EntityCount>().0, vec![0, 1, 2, 3]);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -976,7 +944,7 @@ mod tests {
             .with_system(make_exclusive(0).at_start());
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 3]);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -991,7 +959,7 @@ mod tests {
             .with_system(make_parallel(0).at_start());
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 3]);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1021,7 +989,7 @@ mod tests {
             .with_system(make_exclusive(2).after(L1))
             .with_system(make_exclusive(0).label(L0));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
     }
@@ -1035,7 +1003,7 @@ mod tests {
             .with_system(make_exclusive(2).label(L2))
             .with_system(make_exclusive(0).before(L1));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
     }
@@ -1051,7 +1019,7 @@ mod tests {
             .with_system(make_exclusive(4).label(L4))
             .with_system(make_exclusive(3).after(L2).before(L4));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1068,7 +1036,7 @@ mod tests {
             .with_system(make_exclusive(2).after(First))
             .with_system(make_exclusive(0).label(First).label(L0));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
 
@@ -1080,7 +1048,7 @@ mod tests {
             .with_system(make_exclusive(4).label(L4))
             .with_system(make_exclusive(3).after(L2).before(L4));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1095,7 +1063,7 @@ mod tests {
             .with_system(make_exclusive(4).label(L234).label(L4))
             .with_system(make_exclusive(3).label(L234).after(L2).before(L4));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1114,7 +1082,7 @@ mod tests {
             .with_system(make_exclusive(4).label(L4).after(L3))
             .with_system(make_exclusive(3).label(L3).after(L2).before(L4));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1136,7 +1104,7 @@ mod tests {
             )
             .with_system(make_exclusive(1).after(L0).before(L2));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1158,7 +1126,7 @@ mod tests {
             .with_system(make_exclusive(2).after(L1));
         stage.run(&mut world);
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
@@ -1208,7 +1176,7 @@ mod tests {
             .with_system(make_parallel(2).after(L1))
             .with_system(make_parallel(0).label(L0));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
     }
@@ -1222,7 +1190,7 @@ mod tests {
             .with_system(make_parallel(2).label(L2))
             .with_system(make_parallel(0).before(L1));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
     }
@@ -1238,7 +1206,7 @@ mod tests {
             .with_system(make_parallel(4).label(L4))
             .with_system(make_parallel(3).after(L2).before(L4));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1255,7 +1223,7 @@ mod tests {
             .with_system(make_parallel(2).after(First))
             .with_system(make_parallel(0).label(First).label(L0));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 2, 0, 1, 2]);
 
@@ -1267,7 +1235,7 @@ mod tests {
             .with_system(make_parallel(4).label(L4))
             .with_system(make_parallel(3).after(L2).before(L4));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1282,7 +1250,7 @@ mod tests {
             .with_system(make_parallel(4).label(L234).label(L4))
             .with_system(make_parallel(3).label(L234).after(L2).before(L4));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1304,7 +1272,7 @@ mod tests {
         for container in &stage.parallel {
             assert!(container.dependencies().len() <= 1);
         }
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1326,7 +1294,7 @@ mod tests {
             )
             .with_system(make_parallel(1).after(L0).before(L2));
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         assert_eq!(
             world.resource::<EntityCount>().0,
@@ -1351,7 +1319,7 @@ mod tests {
             .with_system(make_parallel(1).after(L0));
         stage.run(&mut world);
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(world.resource::<EntityCount>().0, vec![0, 1, 1, 0, 1, 1]);
@@ -1367,7 +1335,7 @@ mod tests {
             .with_system(make_parallel(2).after(L1));
         stage.run(&mut world);
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
@@ -1390,7 +1358,7 @@ mod tests {
             .with_system(make_parallel(3).after(L2));
         stage.run(&mut world);
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(
@@ -1436,7 +1404,7 @@ mod tests {
         for _ in 0..4 {
             stage.run(&mut world);
         }
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         for _ in 0..5 {
             stage.run(&mut world);
         }
@@ -1464,7 +1432,8 @@ mod tests {
             .with_system(make_parallel(3).after(L2));
         stage.run(&mut world);
         stage.run(&mut world);
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        // false positive, `Box::default` cannot coerce `SingleThreadedExecutor` to `dyn ParallelSystemExectutor`
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
         stage.run(&mut world);
         assert_eq!(

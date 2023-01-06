@@ -13,10 +13,10 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
 };
 
-use super::{UpscalingPipeline, UpscalingTarget};
+use super::{UpscalingPipeline, ViewUpscalingPipeline};
 
 pub struct UpscalingNode {
-    query: QueryState<(&'static ViewTarget, &'static UpscalingTarget), With<ExtractedView>>,
+    query: QueryState<(&'static ViewTarget, &'static ViewUpscalingPipeline), With<ExtractedView>>,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
@@ -56,10 +56,7 @@ impl Node for UpscalingNode {
             Err(_) => return Ok(()),
         };
 
-        let upscaled_texture = match &target.main_texture {
-            bevy_render::view::ViewMainTexture::Hdr { ldr_texture, .. } => ldr_texture,
-            bevy_render::view::ViewMainTexture::Sdr { texture, .. } => texture,
-        };
+        let upscaled_texture = target.main_texture();
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
@@ -74,7 +71,7 @@ impl Node for UpscalingNode {
                         .render_device
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
-                            layout: &upscaling_pipeline.ldr_texture_bind_group,
+                            layout: &upscaling_pipeline.texture_bind_group,
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,
@@ -92,7 +89,7 @@ impl Node for UpscalingNode {
             }
         };
 
-        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.pipeline) {
+        let pipeline = match pipeline_cache.get_render_pipeline(upscaling_target.0) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
         };
@@ -100,10 +97,10 @@ impl Node for UpscalingNode {
         let pass_descriptor = RenderPassDescriptor {
             label: Some("upscaling_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                view: &target.out_texture,
+                view: target.out_texture(),
                 resolve_target: None,
                 ops: Operations {
-                    load: LoadOp::Clear(Default::default()), // TODO dont_care
+                    load: LoadOp::Clear(Default::default()),
                     store: true,
                 },
             })],

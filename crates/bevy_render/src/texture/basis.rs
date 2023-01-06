@@ -20,9 +20,7 @@ pub fn basis_buffer_to_image(
         return Err(TextureError::InvalidData("Invalid header".to_string()));
     }
 
-    let image0_info = if let Some(image_info) = transcoder.image_info(buffer, 0) {
-        image_info
-    } else {
+    let Some(image0_info) = transcoder.image_info(buffer, 0) else {
         return Err(TextureError::InvalidData(
             "Failed to get image info".to_string(),
         ));

@@ -24,9 +24,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
 
     let mut uuid = None;
     for attribute in ast.attrs.iter().filter_map(|attr| attr.parse_meta().ok()) {
-        let name_value = if let Meta::NameValue(name_value) = attribute {
-            name_value
-        } else {
+        let Meta::NameValue(name_value) = attribute else {
             continue;
         };
 
@@ -55,7 +53,7 @@ pub(crate) fn type_uuid_derive(input: proc_macro::TokenStream) -> proc_macro::To
     let bytes = uuid
         .as_bytes()
         .iter()
-        .map(|byte| format!("{:#X}", byte))
+        .map(|byte| format!("{byte:#X}"))
         .map(|byte_str| syn::parse_str::<LitInt>(&byte_str).unwrap());
 
     let base = quote! { #bevy_reflect_path::Uuid::from_bytes([#( #bytes ),*]) };

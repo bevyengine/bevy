@@ -1,5 +1,5 @@
 use crate::{ButtonState, Input};
-use bevy_ecs::{event::EventReader, system::ResMut};
+use bevy_ecs::{change_detection::DetectChanges, event::EventReader, system::ResMut};
 use bevy_reflect::{FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -41,8 +41,9 @@ pub fn keyboard_input_system(
     mut key_input: ResMut<Input<KeyCode>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
 ) {
-    scan_input.clear();
-    key_input.clear();
+    // Avoid clearing if it's not empty to ensure change detection is not triggered.
+    scan_input.bypass_change_detection().clear();
+    key_input.bypass_change_detection().clear();
     for event in keyboard_input_events.iter() {
         let KeyboardInput {
             scan_code, state, ..
@@ -431,7 +432,7 @@ pub enum KeyCode {
 ///
 /// ## Usage
 ///
-/// It is used as the generic <T> value of an [`Input`](crate::Input) to create a `Res<Input<ScanCode>>`.
+/// It is used as the generic `<T>` value of an [`Input`](crate::Input) to create a `Res<Input<ScanCode>>`.
 /// The resource values are mapped to the physical location of a key on the keyboard and correlate to an [`KeyCode`](KeyCode)
 ///
 /// ## Updating

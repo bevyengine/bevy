@@ -3,12 +3,12 @@ use bevy_asset::{AddAsset, AssetEvent, AssetServer, Assets, Handle};
 use bevy_core_pipeline::{core_2d::Transparent2d, tonemapping::Tonemapping};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::Entity,
     event::EventReader,
     prelude::{Bundle, World},
+    query::ROQueryItem,
     schedule::IntoSystemDescriptor,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
+        lifetimeless::{Read, SRes},
         Commands, Local, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::FromWorld,
@@ -21,8 +21,8 @@ use bevy_render::{
     prelude::Image,
     render_asset::{PrepareAssetLabel, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-        SetItemPipeline, TrackedRenderPass,
+        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupLayout, OwnedBindingResource,
@@ -281,15 +281,21 @@ type DrawMaterial2d<M> = (
 );
 
 pub struct SetMaterial2dBindGroup<M: Material2d, const I: usize>(PhantomData<M>);
-impl<M: Material2d, const I: usize> EntityRenderCommand for SetMaterial2dBindGroup<M, I> {
-    type Param = (SRes<RenderMaterials2d<M>>, SQuery<Read<Handle<M>>>);
+impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
+    for SetMaterial2dBindGroup<M, I>
+{
+    type Param = SRes<RenderMaterials2d<M>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Handle<M>>;
+
+    #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (materials, query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        material2d_handle: ROQueryItem<'_, Self::ItemWorldQuery>,
+        materials: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let material2d_handle = query.get(item).unwrap();
         let material2d = materials.into_inner().get(material2d_handle).unwrap();
         pass.set_bind_group(I, &material2d.bind_group, &[]);
         RenderCommandResult::Success
@@ -320,17 +326,18 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 
     for (view, visible_entities, tonemapping, mut transparent_phase) in &mut views {
-        let draw_transparent_pbr = transparent_draw_functions
-            .read()
-            .get_id::<DrawMaterial2d<M>>()
-            .unwrap();
+        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
             | Mesh2dPipelineKey::from_hdr(view.hdr);
 
-        if let Some(tonemapping) = tonemapping {
-            if tonemapping.is_enabled && !view.hdr {
+        if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
+            if !view.hdr {
                 view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+
+                if *deband_dither {
+                    view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
+                }
             }
         }
 
@@ -471,8 +478,8 @@ fn prepare_materials_2d<M: Material2d>(
     fallback_image: Res<FallbackImage>,
     pipeline: Res<Material2dPipeline<M>>,
 ) {
-    let mut queued_assets = std::mem::take(&mut prepare_next_frame.assets);
-    for (handle, material) in queued_assets.drain(..) {
+    let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
+    for (handle, material) in queued_assets {
         match prepare_material2d(
             &material,
             &render_device,

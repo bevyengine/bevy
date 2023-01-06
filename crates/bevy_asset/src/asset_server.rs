@@ -147,10 +147,7 @@ impl AssetServer {
             .server
             .asset_lifecycles
             .write()
-            .insert(
-                T::TYPE_UUID,
-                Box::new(AssetLifecycleChannel::<T>::default()),
-            )
+            .insert(T::TYPE_UUID, Box::<AssetLifecycleChannel<T>>::default())
             .is_some()
         {
             panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
@@ -390,7 +387,7 @@ impl AssetServer {
             return Err(err);
         }
 
-        // if version has changed since we loaded and grabbed a lock, return. theres is a newer
+        // if version has changed since we loaded and grabbed a lock, return. there is a newer
         // version being loaded
         let mut asset_sources = self.server.asset_sources.write();
         let source_info = asset_sources

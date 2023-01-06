@@ -113,7 +113,7 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                SpatialBundle::VISIBLE_IDENTITY,
+                SpatialBundle::INHERITED_IDENTITY,
                 ring_direction,
                 Ring { radius },
             ))
@@ -131,7 +131,7 @@ fn setup(
             commands.entity(ring_parent).with_children(|builder| {
                 builder.spawn(SceneBundle {
                     scene: fox_handle.clone(),
-                    transform: Transform::from_xyz(x as f32, 0.0, z as f32)
+                    transform: Transform::from_xyz(x, 0.0, z)
                         .with_scale(Vec3::splat(0.01))
                         .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
                     ..default()

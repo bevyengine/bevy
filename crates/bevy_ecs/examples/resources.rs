@@ -27,7 +27,7 @@ fn main() {
     schedule.add_stage(Update, update);
 
     for iteration in 1..=10 {
-        println!("Simulating frame {}/10", iteration);
+        println!("Simulating frame {iteration}/10");
         schedule.run(&mut world);
     }
 }

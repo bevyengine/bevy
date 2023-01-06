@@ -1,6 +1,6 @@
 [package]
 name = "bevy_render"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 description = "Provides rendering functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -28,22 +28,22 @@ webgl = ["wgpu/webgl"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.9.0-dev" }
-bevy_core = { path = "../bevy_core", version = "0.9.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.9.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
-bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.9.0-dev" }
-bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.9.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.9.0-dev" }
-bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.9.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"] }
-bevy_render_macros = { path = "macros", version = "0.9.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.9.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.9.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.9.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.9.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.9.0" }
+bevy_core = { path = "../bevy_core", version = "0.9.0" }
+bevy_derive = { path = "../bevy_derive", version = "0.9.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
+bevy_encase_derive = { path = "../bevy_encase_derive", version = "0.9.0" }
+bevy_hierarchy = { path = "../bevy_hierarchy", version = "0.9.0" }
+bevy_log = { path = "../bevy_log", version = "0.9.0" }
+bevy_math = { path = "../bevy_math", version = "0.9.0" }
+bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.9.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
+bevy_render_macros = { path = "macros", version = "0.9.0" }
+bevy_time = { path = "../bevy_time", version = "0.9.0" }
+bevy_transform = { path = "../bevy_transform", version = "0.9.0" }
+bevy_window = { path = "../bevy_window", version = "0.9.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
 # rendering
 image = { version = "0.24", default-features = false }
@@ -62,7 +62,7 @@ thiserror = "1.0"
 futures-lite = "1.4.0"
 anyhow = "1.0"
 hex = "0.4.2"
-hexasphere = "7.2"
+hexasphere = "8.0"
 parking_lot = "0.12.1"
 regex = "1.5"
 ddsfile = { version = "0.5.0", optional = true }
@@ -72,6 +72,6 @@ flate2 = { version = "1.0.22", optional = true }
 ruzstd = { version = "0.2.4", optional = true }
 # For transcoding of UASTC/ETC1S universal formats, and for .basis file support
 basis-universal = { version = "0.2.0", optional = true }
-encase = { version = "0.3", features = ["glam"] }
+encase = { version = "0.4", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = ["profile-with-tracing"], optional = true }

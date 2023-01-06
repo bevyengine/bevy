@@ -23,14 +23,14 @@ struct Args {
 
 fn main() {
     let cli = Args::parse();
-    eprintln!("{:?}", cli);
+    eprintln!("{cli:?}");
 
     assert!(!cli.examples.is_empty(), "must have at least one example");
 
     let mut bevy_ci_testing = vec![];
     if let Some(frames) = cli.frames {
         let mut file = File::create("ci_testing_config.ron").unwrap();
-        file.write_fmt(format_args!("(exit_after: Some({}))", frames))
+        file.write_fmt(format_args!("(exit_after: Some({frames}))"))
             .unwrap();
         bevy_ci_testing = vec!["--features", "bevy_ci_testing"];
     }

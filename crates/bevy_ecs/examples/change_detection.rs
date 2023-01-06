@@ -36,7 +36,7 @@ fn main() {
 
     // Simulate 10 frames in our world
     for iteration in 1..=10 {
-        println!("Simulating frame {}/10", iteration);
+        println!("Simulating frame {iteration}/10");
         schedule.run(&mut world);
     }
 }
@@ -66,7 +66,7 @@ enum SimulationSystem {
 fn spawn_entities(mut commands: Commands, mut entity_counter: ResMut<EntityCounter>) {
     if rand::thread_rng().gen_bool(0.6) {
         let entity_id = commands.spawn(Age::default()).id();
-        println!("    spawning {:?}", entity_id);
+        println!("    spawning {entity_id:?}");
         entity_counter.value += 1;
     }
 }
@@ -82,10 +82,10 @@ fn print_changed_entities(
     entity_with_mutated_component: Query<(Entity, &Age), Changed<Age>>,
 ) {
     for entity in &entity_with_added_component {
-        println!("    {:?} has it's first birthday!", entity);
+        println!("    {entity:?} has it's first birthday!");
     }
     for (entity, value) in &entity_with_mutated_component {
-        println!("    {:?} is now {:?} frames old", entity, value);
+        println!("    {entity:?} is now {value:?} frames old");
     }
 }
 
@@ -100,7 +100,7 @@ fn age_all_entities(mut entities: Query<&mut Age>) {
 fn remove_old_entities(mut commands: Commands, entities: Query<(Entity, &Age)>) {
     for (entity, age) in &entities {
         if age.frames > 2 {
-            println!("    despawning {:?} due to age > 2", entity);
+            println!("    despawning {entity:?} due to age > 2");
             commands.entity(entity).despawn();
         }
     }

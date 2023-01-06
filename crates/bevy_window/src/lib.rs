@@ -23,10 +23,8 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::{
-    event::Events,
-    schedule::{IntoSystemDescriptor, SystemLabel},
-};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use std::path::PathBuf;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -54,7 +52,7 @@ pub struct WindowPlugin {
     /// create 'headless' processes (processes without windows), which may
     /// surprise your users. It is recommended to leave this setting as `true`.
     ///
-    /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::Update`].
+    /// If true, this plugin will add [`exit_on_all_closed`] to [`CoreStage::PostUpdate`].
     pub exit_on_all_closed: bool,
     /// Whether to close windows when they are requested to be closed (i.e.
     /// when the close button is pressed).
@@ -85,8 +83,7 @@ impl Plugin for WindowPlugin {
             .init_resource::<Windows>();
 
         if self.add_primary_window {
-            let mut create_window_event = app.world.resource_mut::<Events<CreateWindow>>();
-            create_window_event.send(CreateWindow {
+            app.world.send_event(CreateWindow {
                 id: WindowId::primary(),
                 descriptor: self.window.clone(),
             });
@@ -101,6 +98,35 @@ impl Plugin for WindowPlugin {
         if self.close_when_requested {
             app.add_system(close_when_requested);
         }
+
+        // Register event types
+        app.register_type::<WindowResized>()
+            .register_type::<CreateWindow>()
+            .register_type::<RequestRedraw>()
+            .register_type::<WindowCreated>()
+            .register_type::<WindowCloseRequested>()
+            .register_type::<WindowClosed>()
+            .register_type::<CursorMoved>()
+            .register_type::<CursorEntered>()
+            .register_type::<CursorLeft>()
+            .register_type::<ReceivedCharacter>()
+            .register_type::<WindowFocused>()
+            .register_type::<WindowScaleFactorChanged>()
+            .register_type::<WindowBackendScaleFactorChanged>()
+            .register_type::<FileDragAndDrop>()
+            .register_type::<WindowMoved>();
+
+        // Register window descriptor and related types
+        app.register_type::<WindowId>()
+            .register_type::<PresentMode>()
+            .register_type::<WindowResizeConstraints>()
+            .register_type::<WindowMode>()
+            .register_type::<WindowPosition>()
+            .register_type::<MonitorSelection>()
+            .register_type::<WindowDescriptor>();
+
+        // Register `PathBuf` as it's used by `FileDragAndDrop`
+        app.register_type::<PathBuf>();
     }
 }
 

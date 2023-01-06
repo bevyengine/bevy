@@ -120,7 +120,7 @@ impl Time {
     ///     world.insert_resource(time);
     ///     world.insert_resource(Health { health_value: 0.2 });
     ///
-    ///     let mut update_stage = SystemStage::single_threaded();
+    ///     let mut update_stage = SystemStage::parallel();
     ///     update_stage.add_system(health_system);
     ///
     ///     // Simulate that 30 ms have passed

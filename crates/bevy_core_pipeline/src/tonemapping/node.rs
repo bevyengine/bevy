@@ -1,6 +1,6 @@
 use std::sync::Mutex;
 
-use crate::tonemapping::{Tonemapping, TonemappingPipeline};
+use crate::tonemapping::{TonemappingPipeline, ViewTonemappingPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
@@ -11,11 +11,11 @@ use bevy_render::{
         TextureViewId,
     },
     renderer::RenderContext,
-    view::{ExtractedView, ViewMainTexture, ViewTarget},
+    view::{ExtractedView, ViewTarget},
 };
 
 pub struct TonemappingNode {
-    query: QueryState<(&'static ViewTarget, Option<&'static Tonemapping>), With<ExtractedView>>,
+    query: QueryState<(&'static ViewTarget, &'static ViewTonemappingPipeline), With<ExtractedView>>,
     cached_texture_bind_group: Mutex<Option<(TextureViewId, BindGroup)>>,
 }
 
@@ -54,31 +54,22 @@ impl Node for TonemappingNode {
             Err(_) => return Ok(()),
         };
 
-        let ldr_texture = match &target.main_texture {
-            ViewMainTexture::Hdr { ldr_texture, .. } => ldr_texture,
-            ViewMainTexture::Sdr { .. } => {
-                // non-hdr does tone mapping in the main pass node
-                return Ok(());
-            }
-        };
+        if !target.is_hdr() {
+            return Ok(());
+        }
 
-        let tonemapping_enabled = tonemapping.map_or(false, |t| t.is_enabled);
-        let pipeline_id = if tonemapping_enabled {
-            tonemapping_pipeline.tonemapping_pipeline_id
-        } else {
-            tonemapping_pipeline.blit_pipeline_id
-        };
-
-        let pipeline = match pipeline_cache.get_render_pipeline(pipeline_id) {
+        let pipeline = match pipeline_cache.get_render_pipeline(tonemapping.0) {
             Some(pipeline) => pipeline,
             None => return Ok(()),
         };
 
-        let main_texture = target.main_texture.texture();
+        let post_process = target.post_process_write();
+        let source = post_process.source;
+        let destination = post_process.destination;
 
         let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
         let bind_group = match &mut *cached_bind_group {
-            Some((id, bind_group)) if main_texture.id() == *id => bind_group,
+            Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
                     .render_device
@@ -89,11 +80,11 @@ impl Node for TonemappingNode {
                         .render_device
                         .create_bind_group(&BindGroupDescriptor {
                             label: None,
-                            layout: &tonemapping_pipeline.hdr_texture_bind_group,
+                            layout: &tonemapping_pipeline.texture_bind_group,
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,
-                                    resource: BindingResource::TextureView(main_texture),
+                                    resource: BindingResource::TextureView(source),
                                 },
                                 BindGroupEntry {
                                     binding: 1,
@@ -102,7 +93,7 @@ impl Node for TonemappingNode {
                             ],
                         });
 
-                let (_, bind_group) = cached_bind_group.insert((main_texture.id(), bind_group));
+                let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group
             }
         };
@@ -110,7 +101,7 @@ impl Node for TonemappingNode {
         let pass_descriptor = RenderPassDescriptor {
             label: Some("tonemapping_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                view: ldr_texture,
+                view: destination,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared

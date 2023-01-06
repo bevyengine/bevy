@@ -1,7 +1,6 @@
 (
-  entities: [
-    (
-      entity: 0,
+  entities: {
+    0: (
       components: {
         "bevy_transform::components::transform::Transform": (
           translation: (
@@ -25,8 +24,7 @@
         ),
       },
     ),
-    (
-      entity: 1,
+    1: (
       components: {
         "scene::ComponentA": (
           x: 3.0,
@@ -34,5 +32,5 @@
         ),
       },
     ),
-  ]
+  }
 )

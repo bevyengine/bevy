@@ -103,7 +103,7 @@ fn star(
         // The `Handle<Mesh>` needs to be wrapped in a `Mesh2dHandle` to use 2d rendering instead of 3d
         Mesh2dHandle(meshes.add(star)),
         // This bundle's components are needed for something to be rendered
-        SpatialBundle::VISIBLE_IDENTITY,
+        SpatialBundle::INHERITED_IDENTITY,
     ));
 
     // Spawn the camera
@@ -300,7 +300,7 @@ pub fn extract_colored_mesh2d(
         if !computed_visibility.is_visible() {
             continue;
         }
-        values.push((entity, (ColoredMesh2d,)));
+        values.push((entity, ColoredMesh2d));
     }
     *previous_len = values.len();
     commands.insert_or_spawn_batch(values);
@@ -327,10 +327,7 @@ pub fn queue_colored_mesh2d(
     }
     // Iterate each view (a camera is a view)
     for (visible_entities, mut transparent_phase, view) in &mut views {
-        let draw_colored_mesh2d = transparent_draw_functions
-            .read()
-            .get_id::<DrawColoredMesh2d>()
-            .unwrap();
+        let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples)
             | Mesh2dPipelineKey::from_hdr(view.hdr);
