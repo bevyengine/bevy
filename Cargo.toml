@@ -12,7 +12,7 @@ readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
+exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
 members = [
   "crates/*",
   "examples/android",

@@ -411,7 +411,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         }
     }
 
-    let (_impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
     let lifetimeless_generics: Vec<_> = generics
         .params
@@ -440,12 +440,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             GenericParam::Const(_) => {}
         }
     }
-
-    let mut punctuated_type_generic_idents = Punctuated::<_, Token![,]>::new();
-    punctuated_type_generic_idents.extend(lifetimeless_generics.iter().filter_map(|g| match g {
-        GenericParam::Type(g) => Some(&g.ident),
-        _ => None,
-    }));
 
     let mut punctuated_generic_idents = Punctuated::<_, Token![,]>::new();
     punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
@@ -485,24 +479,21 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
-            impl<'w, 's, #punctuated_generics> #path::system::SystemParam for #struct_name #ty_generics #where_clause {
-                type State = State<'w, 's, #punctuated_generic_idents>;
+            impl #impl_generics #path::system::SystemParam for #struct_name #ty_generics #where_clause {
+                type State = FetchState<'static, 'static, #punctuated_generic_idents>;
             }
 
             #[doc(hidden)]
-            type State<'w, 's, #punctuated_generics_no_bounds> = FetchState<
-                (#(<#tuple_types as #path::system::SystemParam>::State,)*),
-                #punctuated_generic_idents
-            >;
-
-            #[doc(hidden)]
-            #state_struct_visibility struct FetchState <TSystemParamState, #punctuated_generics> {
-                state: TSystemParamState,
-                marker: std::marker::PhantomData<fn()->(#punctuated_type_generic_idents)>
+            #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*> {
+                state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
+                marker: std::marker::PhantomData<(
+                    <#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::State,
+                    #(fn() -> #ignored_field_types,)*
+                )>,
             }
 
-            unsafe impl<'__w, '__s, #punctuated_generics> #path::system::SystemParamState for
-                State<'__w, '__s, #punctuated_generic_idents>
+            unsafe impl<#punctuated_generics> #path::system::SystemParamState for
+                FetchState<'static, 'static, #punctuated_generic_idents>
             #where_clause {
                 type Item<'w, 's> = #struct_name #ty_generics;
 

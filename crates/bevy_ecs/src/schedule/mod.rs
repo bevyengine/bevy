@@ -220,7 +220,7 @@ impl Schedule {
         stage_label: impl StageLabel,
         system: impl IntoSystemDescriptor<Params>,
     ) -> &mut Self {
-        // Use a function instead of a closure to ensure that it is codegend inside bevy_ecs instead
+        // Use a function instead of a closure to ensure that it is codegened inside bevy_ecs instead
         // of the game. Closures inherit generic parameters from their enclosing function.
         #[cold]
         fn stage_not_found(stage_label: &dyn Debug) -> ! {
