@@ -224,7 +224,7 @@ macro_rules! impl_methods {
             ///     for transform in &mut transforms {
             ///         // We pinky promise not to modify `t` within the closure.
             ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
-            ///         let translation = transform.map_unchanged(|t| &mut t.translation);
+            ///         let mut translation = transform.map_unchanged(|t| &mut t.translation);
             ///         // Only reset the translation if it isn't already zero;
             ///         translation.set_if_neq(Vec2::ZERO);
             ///     }
