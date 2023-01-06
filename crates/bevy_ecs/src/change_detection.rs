@@ -444,6 +444,18 @@ impl<'a> MutUntyped<'a> {
     pub fn as_ref(&self) -> Ptr<'_> {
         self.value.as_ref()
     }
+
+    /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
+    ///
+    /// # Safety
+    ///
+    /// Must point to a valid `T`.
+    pub unsafe fn with_type<T>(self) -> Mut<'a, T> {
+        Mut {
+            value: self.value.deref_mut(),
+            ticks: self.ticks,
+        }
+    }
 }
 
 impl<'a> DetectChanges for MutUntyped<'a> {
