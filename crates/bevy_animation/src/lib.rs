@@ -282,7 +282,7 @@ pub fn animation_player(
     parents: Query<(Option<With<AnimationPlayer>>, Option<&Parent>)>,
     mut animation_players: Query<(Entity, Option<&Parent>, &mut AnimationPlayer)>,
 ) {
-    animation_players.par_for_each_mut(10, |(root, maybe_parent, mut player)| {
+    animation_players.par_iter_mut().for_each_mut(|(root, maybe_parent, mut player)| {
         let Some(animation_clip) = animations.get(&player.animation_clip) else { return };
         // Continue if paused unless the `AnimationPlayer` was changed
         // This allow the animation to still be updated if the player.elapsed field was manually updated in pause
