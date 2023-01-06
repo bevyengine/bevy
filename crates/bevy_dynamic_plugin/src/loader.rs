@@ -117,7 +117,7 @@ impl Plugin for DynamicPlugin {
 /// [`load_plugin`]: DynamicPluginExt::load_plugin
 #[derive(Resource)]
 pub struct DynamicPluginLibraries {
-    libraries: HashMap<OsString, DynamicLibraryAllocation>,
+    dummy_allocations: HashMap<OsString, DynamicLibraryAllocation>,
 }
 
 impl DynamicPluginLibraries {
@@ -126,8 +126,7 @@ impl DynamicPluginLibraries {
     ///
     /// The dynamic library would otherwise be left leaking until the program is terminated.
     /// After calling `mark_for_unloading`, the library will then be dropped and unloaded
-    /// when its associated plugin is or when the `DynamicPluginLibraries` resource is dropped,
-    /// whichever happens last.
+    /// when its associated plugin is or when this method is called, whichever happens last.
     ///
     /// # Safety
     ///
@@ -146,20 +145,20 @@ impl DynamicPluginLibraries {
     /// use bevy_dynamic_plugin::{DynamicPluginLibraries, DynamicPluginExt};
     /// use bevy_app::App;
     ///
-    /// const LIB_NAME: &str = "./libmy_dyn_plugin.so";
+    /// const LIB_PATH: &str = "./libmy_dyn_plugin.so";
     ///
     /// let mut app = App::new();
-    /// unsafe { app.load_plugin(LIB_NAME) };
+    /// unsafe { app.load_plugin(LIB_PATH) };
     /// app.add_system(remove_library);
     ///
     /// fn remove_library(libs: ResMut<DynamicPluginLibraries>) {
-    ///     unsafe { libs.mark_for_unloading(LIB_NAME) };
+    ///     unsafe { libs.mark_for_unloading(LIB_PATH) };
     ///     // Library is still loaded at this point.
     /// }
     /// ```
     pub unsafe fn mark_for_unloading<P: AsRef<OsStr>>(&mut self, name: P) {
         let name = name.as_ref().to_owned();
-        if let Some(allocation) = self.libraries.remove(&name) {
+        if let Some(allocation) = self.dummy_allocations.remove(&name) {
             allocation.drop();
         }
     }
@@ -170,7 +169,7 @@ pub trait DynamicPluginExt {
     ///
     /// The dynamic library is never dropped
     /// and exists in memory until the program is terminated,
-    /// unless ``
+    /// unless [`mark_for_unloading`](DynamicPluginLibraries::mark_for_unloading) is called.
     ///
     /// # Safety
     ///
@@ -192,12 +191,12 @@ pub trait DynamicPluginExt {
     /// use bevy_dynamic_plugin::{DynamicPluginLibraries, DynamicPluginExt};
     /// use bevy_app::App;
     ///
-    /// const LIB_NAME: &str = "./libmy_dyn_plugin.so";
+    /// const LIB_PATH: &str = "./libmy_dyn_plugin.so";
     ///
     /// let mut app = App::new();
-    /// unsafe { app.load_plugin(LIB_NAME) };
+    /// unsafe { app.load_plugin(LIB_PATH) };
     ///
-    /// unsafe { app.mark_plugin_for_unloading(LIB_NAME) };
+    /// unsafe { app.mark_plugin_for_unloading(LIB_PATH) };
     ///
     /// // The library is unloaded here where the app is dropped, not when `mark_plugin_for_unloading` is called.
     /// ```
@@ -212,12 +211,12 @@ impl DynamicPluginExt for App {
         let mut libs = self
             .world
             .get_resource_or_insert_with(|| DynamicPluginLibraries {
-                libraries: HashMap::new(),
+                dummy_allocations: HashMap::new(),
             });
 
         // Move the `DynamicLibraryAllocation` into `DynamicPluginLibraries`
         // so it may be dropped with `mark_for_unloading`.
-        libs.libraries
+        libs.dummy_allocations
             .entry(path.to_owned())
             .or_insert_with(|| plugin.dummy_allocation.take().unwrap());
 
