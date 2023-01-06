@@ -39,13 +39,13 @@
 |flac|FLAC audio format support. It's included in bevy_audio feature.|
 |mp3|MP3 audio format support.|
 |wav|WAV audio format support.|
-|symphonia-aac|AAC audio format support by Symphonia.|
-|symphonia-all|AAC, FLAC, MP4, MP3, Vorbis, WAV support by Symphonia.|
-|symphonia-flac|FLAC audio format support by Symphonia.|
-|symphonia-isomp4|MP4 audio format support by Symphonia.|
-|symphonia-mp3|MP3 audio format support by Symphonia.|
-|symphonia-vorbis|Vorbis audio format support by Symphonia.|
-|symphonia-wav|WAV audio format support by Symphonia.|
+|symphonia-aac|AAC audio format support by Symphonia. More details see symphonia-all.|
+|symphonia-all|AAC, FLAC, MP4, MP3, Vorbis, WAV support by Symphonia. Supports parsing of multiple file formats in a crate instead of compiling different crates. Disable other audio features if enable this feature to avoid redundancies. [Docs](https://docs.rs/symphonia/latest/symphonia/) and [more info](https://github.com/bevyengine/bevy/pull/6388#discussion_r1009622883) |
+|symphonia-flac|FLAC audio format support by Symphonia. More details see symphonia-all.|
+|symphonia-isomp4|MP4 audio format support by Symphonia. More details see symphonia-all.|
+|symphonia-mp3|MP3 audio format support by Symphonia. More details see symphonia-all.|
+|symphonia-vorbis|Vorbis audio format support by Symphonia. More details see symphonia-all.|
+|symphonia-wav|WAV audio format support by Symphonia. More details see symphonia-all.|
 |serialize|Enables serialization of `bevy_input` types.|
 |wayland|Enable this to use Wayland display server protocol other than X11.|
 |subpixel_glyph_atlas|Enable this to cache glyphs using subpixel accuracy. This increases texture memory usage as each position requires a separate sprite in the glyph atlas, but provide more accurate character spacing.|
