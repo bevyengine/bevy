@@ -1,3 +1,6 @@
+#[cfg(target_pointer_width = "16")]
+compile_error!("bevy_render cannot compile for a 16-bit platform.");
+
 extern crate core;
 
 pub mod camera;
@@ -43,6 +46,7 @@ use crate::{
     mesh::MeshPlugin,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
+    settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -56,7 +60,9 @@ use std::{
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
-pub struct RenderPlugin;
+pub struct RenderPlugin {
+    pub wgpu_settings: WgpuSettings,
+}
 
 /// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -124,18 +130,12 @@ pub struct RenderApp;
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let options = app
-            .world
-            .get_resource::<settings::WgpuSettings>()
-            .cloned()
-            .unwrap_or_default();
-
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        if let Some(backends) = options.backends {
+        if let Some(backends) = self.wgpu_settings.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
 
@@ -148,13 +148,16 @@ impl Plugin for RenderPlugin {
                 });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: options.power_preference,
+                power_preference: self.wgpu_settings.power_preference,
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue, adapter_info, render_adapter) = futures_lite::future::block_on(
-                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
-            );
+            let (device, queue, adapter_info, render_adapter) =
+                futures_lite::future::block_on(renderer::initialize_renderer(
+                    &instance,
+                    &self.wgpu_settings,
+                    &request_adapter_options,
+                ));
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
@@ -220,7 +223,7 @@ impl Plugin for RenderPlugin {
 
                     // reserve all existing app entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let meta_len = app_world.entities().meta_len();
+                    let total_count = app_world.entities().total_count();
 
                     assert_eq!(
                         render_app.world.entities().len(),
@@ -233,7 +236,7 @@ impl Plugin for RenderPlugin {
                         render_app
                             .world
                             .entities_mut()
-                            .flush_and_reserve_invalid_assuming_no_entities(meta_len);
+                            .flush_and_reserve_invalid_assuming_no_entities(total_count);
                     }
                 }
 

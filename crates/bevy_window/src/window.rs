@@ -1,11 +1,18 @@
 use bevy_math::{DVec2, IVec2, UVec2, Vec2};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 use bevy_utils::{tracing::warn, Uuid};
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
-#[reflect_value(PartialEq, Hash)]
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+
 /// A unique ID for a [`Window`].
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Reflect, FromReflect)]
+#[reflect_value(Debug, PartialEq, Hash, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect_value(Serialize, Deserialize)
+)]
 pub struct WindowId(Uuid);
 
 /// Presentation mode for a window.
@@ -24,8 +31,13 @@ pub struct WindowId(Uuid);
 /// The presentation mode may be declared in the [`WindowDescriptor`](WindowDescriptor) using [`WindowDescriptor::present_mode`](WindowDescriptor::present_mode)
 /// or updated on a [`Window`](Window) using [`set_present_mode`](Window::set_present_mode).
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Hash)]
 #[doc(alias = "vsync")]
 pub enum PresentMode {
     /// Chooses FifoRelaxed -> Fifo based on availability.
@@ -58,8 +70,13 @@ pub enum PresentMode {
 
 /// Specifies how the alpha channel of the textures should be handled during compositing.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Hash)]
 pub enum CompositeAlphaMode {
     /// Chooses either `Opaque` or `Inherit` automatically，depending on the
     /// `alpha_mode` that the current surface can support.
@@ -125,8 +142,13 @@ impl Default for WindowId {
 /// Please note that if the window is resizable, then when the window is
 /// maximized it may have a size outside of these limits. The functionality
 /// required to disable maximizing is not yet exposed by winit.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowResizeConstraints {
     pub min_width: f32,
     pub min_height: f32,
@@ -385,8 +407,13 @@ pub enum WindowCommand {
 /// Defines if and how the cursor is grabbed.
 ///
 /// Use this enum with [`Window::set_cursor_grab_mode`] to grab the cursor.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
 pub enum CursorGrabMode {
     /// The cursor can freely leave the window.
     None,
@@ -397,8 +424,13 @@ pub enum CursorGrabMode {
 }
 
 /// Defines the way a window is displayed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowMode {
     /// Creates a window that uses the given size.
     Windowed,
@@ -711,8 +743,11 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor grab, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
+    ///
+    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, it's possible the value returned here is not the same as the one actually sent to winit.
     #[inline]
     pub fn cursor_grab_mode(&self) -> CursorGrabMode {
         self.cursor_grab_mode
@@ -723,8 +758,11 @@ impl Window {
     ///
     /// ## Platform-specific
     ///
-    /// - **`macOS`** doesn't support cursor grab, but most windowing plugins can emulate it. See [issue #4875](https://github.com/bevyengine/bevy/issues/4875#issuecomment-1153977546) for more information.
+    /// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+    /// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
     /// - **`iOS/Android`** don't have cursors.
+    ///
+    /// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
     pub fn set_cursor_grab_mode(&mut self, grab_mode: CursorGrabMode) {
         self.cursor_grab_mode = grab_mode;
         self.command_queue
@@ -834,12 +872,12 @@ impl Window {
             .push(WindowCommand::SetAlwaysOnTop { always_on_top });
     }
     /// Close the operating system window corresponding to this [`Window`].
-    ///  
+    ///
     /// This will also lead to this [`Window`] being removed from the
     /// [`Windows`] resource.
     ///
     /// If the default [`WindowPlugin`] is used, when no windows are
-    /// open, the [app will exit](bevy_app::AppExit).  
+    /// open, the [app will exit](bevy_app::AppExit).
     /// To disable this behaviour, set `exit_on_all_closed` on the [`WindowPlugin`]
     /// to `false`
     ///
@@ -869,7 +907,7 @@ impl Window {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
@@ -892,8 +930,13 @@ impl Window {
 }
 
 /// Defines where window should be placed at on creation.
-#[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
 pub enum WindowPosition {
     /// The position will be set by the window manager.
     Automatic,
@@ -910,8 +953,13 @@ pub enum WindowPosition {
 }
 
 /// Defines which monitor to use.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
 pub enum MonitorSelection {
     /// Uses current monitor of the window.
     ///
@@ -931,8 +979,13 @@ pub enum MonitorSelection {
 /// See [`examples/window/window_settings.rs`] for usage.
 ///
 /// [`examples/window/window_settings.rs`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
 pub struct WindowDescriptor {
     /// The requested logical width of the window's client area.
     ///
@@ -996,7 +1049,7 @@ pub struct WindowDescriptor {
     /// The "html canvas" element selector.
     ///
     /// If set, this selector will be used to find a matching html canvas element,
-    /// rather than creating a new one.   
+    /// rather than creating a new one.
     /// Uses the [CSS selector format](https://developer.mozilla.org/en-US/docs/Web/API/Document/querySelector).
     ///
     /// This value has no effect on non-web platforms.
