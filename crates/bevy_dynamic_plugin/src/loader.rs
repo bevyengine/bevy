@@ -1,11 +1,6 @@
 use std::{
-    mem::{self, ManuallyDrop},
-    sync::{
-        self,
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    }, ffi::{OsStr, OsString},
-    ops::DerefMut,
+    mem::ManuallyDrop,
+    sync::Arc, ffi::{OsStr, OsString},
 };
 
 use libloading::{Library, Symbol};
