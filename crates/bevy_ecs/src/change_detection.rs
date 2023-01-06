@@ -447,6 +447,24 @@ impl<'a> MutUntyped<'a> {
         self.value
     }
 
+    /// Returns a [`MutUntyped`] with a smaller lifetime.
+    /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
+    ///
+    /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
+    /// will not affect the original.
+    #[inline]
+    pub fn reborrow(&mut self) -> MutUntyped {
+        MutUntyped {
+            value: self.value.reborrow(),
+            ticks: Ticks {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                last_change_tick: self.ticks.last_change_tick,
+                change_tick: self.ticks.change_tick,
+            },
+        }
+    }
+
     /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
     ///
     /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
