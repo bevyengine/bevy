@@ -798,6 +798,10 @@ unsafe impl SystemParamState for WorldState {
 ///
 /// A local may only be accessed by the system itself and is therefore not visible to other systems.
 /// If two or more systems specify the same local type each will have their own unique local.
+/// If multiple [`SystemParam`]s within the same system each specify the same local type
+/// each will get their own distinct data storage.
+///
+/// The supplied lifetime parameter is the [`SystemParam`]s `'s` lifetime.
 ///
 /// # Examples
 ///
@@ -837,12 +841,12 @@ unsafe impl SystemParamState for WorldState {
 /// // .add_system(reset_to_system(my_config))
 /// # assert_is_system(reset_to_system(Config(10)));
 /// ```
-pub struct Local<'a, T: FromWorld + Send + 'static>(pub(crate) &'a mut T);
+pub struct Local<'s, T: FromWorld + Send + 'static>(pub(crate) &'s mut T);
 
 // SAFETY: Local only accesses internal state
-unsafe impl<'a, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'a, T> {}
+unsafe impl<'s, T: FromWorld + Send + 'static> ReadOnlySystemParam for Local<'s, T> {}
 
-impl<'a, T: FromWorld + Send + Sync + 'static> Debug for Local<'a, T>
+impl<'s, T: FromWorld + Send + Sync + 'static> Debug for Local<'s, T>
 where
     T: Debug,
 {
@@ -851,7 +855,7 @@ where
     }
 }
 
-impl<'a, T: FromWorld + Send + Sync + 'static> Deref for Local<'a, T> {
+impl<'s, T: FromWorld + Send + Sync + 'static> Deref for Local<'s, T> {
     type Target = T;
 
     #[inline]
@@ -860,14 +864,14 @@ impl<'a, T: FromWorld + Send + Sync + 'static> Deref for Local<'a, T> {
     }
 }
 
-impl<'a, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'a, T> {
+impl<'s, T: FromWorld + Send + Sync + 'static> DerefMut for Local<'s, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
     }
 }
 
-impl<'w, 'a, T: FromWorld + Send + 'static> IntoIterator for &'a Local<'w, T>
+impl<'s, 'a, T: FromWorld + Send + 'static> IntoIterator for &'a Local<'s, T>
 where
     &'a T: IntoIterator,
 {
@@ -879,7 +883,7 @@ where
     }
 }
 
-impl<'w, 'a, T: FromWorld + Send + 'static> IntoIterator for &'a mut Local<'w, T>
+impl<'s, 'a, T: FromWorld + Send + 'static> IntoIterator for &'a mut Local<'s, T>
 where
     &'a mut T: IntoIterator,
 {
@@ -895,7 +899,7 @@ where
 #[doc(hidden)]
 pub struct LocalState<T: Send + 'static>(pub(crate) SyncCell<T>);
 
-impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
+impl<'s, T: FromWorld + Send + 'static> SystemParam for Local<'s, T> {
     type State = LocalState<T>;
 }
 
