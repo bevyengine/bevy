@@ -1,6 +1,7 @@
 use std::{
+    ffi::{OsStr, OsString},
     mem::ManuallyDrop,
-    sync::Arc, ffi::{OsStr, OsString},
+    sync::Arc,
 };
 
 use libloading::{Library, Symbol};
