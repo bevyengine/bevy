@@ -144,6 +144,7 @@ impl DynamicPluginLibraries {
     /// ```no_run
     /// use bevy_dynamic_plugin::{DynamicPluginLibraries, DynamicPluginExt};
     /// use bevy_app::App;
+    /// use bevy_ecs::system::ResMut;
     ///
     /// const LIB_PATH: &str = "./libmy_dyn_plugin.so";
     ///
@@ -151,7 +152,7 @@ impl DynamicPluginLibraries {
     /// unsafe { app.load_plugin(LIB_PATH) };
     /// app.add_system(remove_library);
     ///
-    /// fn remove_library(libs: ResMut<DynamicPluginLibraries>) {
+    /// fn remove_library(mut libs: ResMut<DynamicPluginLibraries>) {
     ///     unsafe { libs.mark_for_unloading(LIB_PATH) };
     ///     // Library is still loaded at this point.
     /// }
