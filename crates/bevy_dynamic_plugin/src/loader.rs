@@ -5,6 +5,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     }, ffi::{OsStr, OsString},
+    ops::DerefMut,
 };
 
 use libloading::{Library, Symbol};
@@ -33,42 +34,75 @@ pub enum DynamicPluginLoadError {
 /// by deriving `DynamicPlugin` on a unit struct implementing [`Plugin`].
 pub unsafe fn dynamically_load_plugin<P: AsRef<OsStr>>(
     path: P,
-) -> Result<LeakingDynamicPlugin, DynamicPluginLoadError> {
+) -> Result<DynamicPlugin, DynamicPluginLoadError> {
     let lib = Library::new(path).map_err(DynamicPluginLoadError::Library)?;
     let func: Symbol<CreatePlugin> = lib
         .get(b"_bevy_create_plugin")
         .map_err(DynamicPluginLoadError::Plugin)?;
     let plugin = Box::from_raw(func());
-    Ok(LeakingDynamicPlugin::from_raw_parts(plugin, lib))
+    Ok(DynamicPlugin::from_raw_parts(plugin, lib))
 }
 
-/// Wraps a dynamically loaded plugin and its associated library so that they can be dropped correctly.
+/// Wraps an `Arc<Library>` so that the strong count may only be decremented
+/// (and the [`Library`] only be dropped) with unsafe code.
 ///
-/// This struct leaks the library and so its memory is not freed until the program is terminated.
-pub struct LeakingDynamicPlugin {
-    plugin: Box<dyn Plugin>,
-    lib: ManuallyDrop<Library>,
+/// This wrapper does not provide read-only or mutable access to the contained [`Library`].
+struct DynamicLibraryAllocation(ManuallyDrop<Arc<Library>>);
+
+impl DynamicLibraryAllocation {
+    fn new(lib: Arc<Library>) -> Self {
+        DynamicLibraryAllocation(ManuallyDrop::new(lib))
+    }
+
+    unsafe fn drop(self) {
+        let _ = ManuallyDrop::into_inner(self.0);
+        // The `Arc` is dropped here, decrementing the strong count within the `Arc<Library>`
+        // and allowing it to be dropped.
+    }
 }
 
-impl LeakingDynamicPlugin {
-    /// Coverts this dynamic plugin into its raw [`Box<dyn Plugin>`] and [`Library`].
+/// Wraps a dynamically-loaded plugin and its associated library so that they can be dropped correctly.
+///
+/// The library can be unloaded with [`DynamicPluginLibraries::mark_for_unloading`],
+/// or [`App::mark_plugin_for_unloading`].
+pub struct DynamicPlugin {
+    plugin: Box<dyn Plugin>,
+    lib: Arc<Library>,
+    dummy_allocation: Option<DynamicLibraryAllocation>,
+}
+
+impl DynamicPlugin {
+    /// Coverts this dynamic plugin into its raw [`Box<dyn Plugin>`]
+    /// and an [`Arc<Library>`](Library).
+    ///
+    /// The raw [`Library`] can be retrieved with [`Arc::try_unwrap`].
     ///
     /// # Safety
     ///
-    /// The general safety concerns from [`Library::new`] apply here.
-    /// Additionally, the concerns from [`DynamicPluginLibraries::mark_for_deallocation`] also apply.
-    pub unsafe fn into_raw_parts(self) -> (Box<dyn Plugin>, Library) {
-        (self.plugin, ManuallyDrop::into_inner(self.lib))
+    /// See [`DynamicPluginLibraries::mark_for_unloading`].
+    /// Importantly, the library returned *must not* be unloaded (by dropping) before the plugin.
+    pub unsafe fn into_raw_parts(mut self) -> (Box<dyn Plugin>, Arc<Library>) {
+        // Ensure (if we can) that there is only one reference to the library (`self.lib`).
+        if let Some(allocation) = self.dummy_allocation.take() {
+            allocation.drop();
+        }
+
+        (self.plugin, self.lib)
     }
 
-    /// Creates a leaky dynamic plugin from its raw [`Box<dyn Plugin>`] and [`Library`].
+    /// Creates a dynamic plugin from its raw [`Box<dyn Plugin>`] and [`Library`].
     pub fn from_raw_parts(plugin: Box<dyn Plugin>, lib: Library) -> Self {
-        let lib = ManuallyDrop::new(lib);
-        Self { plugin, lib }
+        let lib = Arc::new(lib);
+        let dummy_allocation = DynamicLibraryAllocation::new(Arc::clone(&lib));
+        Self {
+            plugin,
+            lib,
+            dummy_allocation: Some(dummy_allocation),
+        }
     }
 }
 
-impl Plugin for LeakingDynamicPlugin {
+impl Plugin for DynamicPlugin {
     fn name(&self) -> &str {
         self.plugin.name()
     }
@@ -82,83 +116,22 @@ impl Plugin for LeakingDynamicPlugin {
     }
 }
 
-/// Wraps a dynamically loaded plugin and its associated library so that they can be dropped correctly.
-///
-/// The library can be marked for deallocation with [`DynamicPluginLibraries::mark_for_deallocation`],
-/// or [`App::mark_plugin_for_deallocation`].
-pub struct DynamicPlugin {
-    leaking: ManuallyDrop<LeakingDynamicPlugin>,
-    should_drop: Arc<AtomicBool>,
-}
-
-impl DynamicPlugin {
-    /// Coverts this dynamic plugin into its raw [`Box<dyn Plugin>`] and [`Library`].
-    ///
-    /// # Safety
-    ///
-    /// The general safety concerns from [`Library::new`] apply here.
-    /// Additionally, the concerns from [`DynamicPluginLibraries::mark_for_deallocation`] also apply.
-    pub fn into_leaking(mut self) -> LeakingDynamicPlugin {
-        self.should_drop.store(false, Ordering::Release);
-        // SAFETY: value is immediately dropped
-        // and not read during the drop impl because `should_drop` is false.
-        unsafe { ManuallyDrop::take(&mut self.leaking) }
-    }
-
-    /// Creates a leaky dynamic plugin from its raw [`Box<dyn Plugin>`] and [`Library`].
-    pub fn from_leaking(leaking: LeakingDynamicPlugin) -> Self {
-        // This is sound because the value of `should_drop` can only be changed with unsafe code.
-        Self {
-            leaking: ManuallyDrop::new(leaking),
-            should_drop: Arc::new(AtomicBool::new(false)),
-        }
-    }
-
-    pub fn should_drop(&self) -> bool {
-        self.should_drop.load(Ordering::Acquire)
-    }
-}
-
-impl Drop for DynamicPlugin {
-    fn drop(&mut self) {
-        if self.should_drop() {
-            // SAFETY: value is never read after taking because this is a drop impl.
-            let leaking = unsafe { ManuallyDrop::take(&mut self.leaking) };
-            // SAFETY: library is dropped after plugin
-            // and caller of `mark_for_deallocation` ensures the invariants.
-            let (plugin, _lib) = unsafe { leaking.into_raw_parts() };
-            mem::drop(plugin); // explicitly drop plugin before library.
-        }
-    }
-}
-
-impl Plugin for DynamicPlugin {
-    fn name(&self) -> &str {
-        self.leaking.plugin.name()
-    }
-
-    fn is_unique(&self) -> bool {
-        self.leaking.plugin.is_unique()
-    }
-
-    fn build(&self, app: &mut App) {
-        self.leaking.plugin.build(app);
-    }
-}
-
-/// Stores all dynamic libraries loaded by [`load_plugin`] so they can be manually deallocated.
+/// Stores all dynamic libraries loaded by [`load_plugin`] so they can be manually unloaded.
 ///
 /// [`load_plugin`]: DynamicPluginExt::load_plugin
 #[derive(Resource)]
 pub struct DynamicPluginLibraries {
-    should_drop: HashMap<OsString, sync::Weak<AtomicBool>>,
+    libraries: HashMap<OsString, DynamicLibraryAllocation>,
 }
 
 impl DynamicPluginLibraries {
-    /// Explcitly marks a dynamically-loaded library for deallocation.
+    /// Explcitly marks a dynamically-loaded library to be unloaded.
+    /// The library is specified by the path used to load it.
     ///
     /// The dynamic library would otherwise be left leaking until the program is terminated.
-    /// The library will be deallocated when its associated plugin is.
+    /// After calling `mark_for_unloading`, the library will then be dropped and unloaded
+    /// when its associated plugin is or when the `DynamicPluginLibraries` resource is dropped,
+    /// whichever happens last.
     ///
     /// # Safety
     ///
@@ -166,9 +139,14 @@ impl DynamicPluginLibraries {
     /// are dropped before the library is unloaded.
     /// This includes all `dyn Trait`, `impl Trait` and `fn(...)` definitions and and types containing these.
     ///
+    /// Additionally, the termination routines in the library can impose arbitrary safety
+    /// restrictions on unloading the library. Calling `mark_for_unloading` implies that they are safe.
+    ///
     /// # Examples
     ///
-    /// ```ignore
+    /// Using a system to unload a library. The library is still loaded until the app is dropped.
+    ///
+    /// ```no_run
     /// use bevy_dynamic_plugin::{DynamicPluginLibraries, DynamicPluginExt};
     /// use bevy_app::App;
     ///
@@ -176,16 +154,17 @@ impl DynamicPluginLibraries {
     ///
     /// let mut app = App::new();
     /// unsafe { app.load_plugin(LIB_NAME) };
+    /// app.add_system(remove_library);
     ///
-    /// let mut libs = app.world.remove_resource::<DynamicPluginLibraries>().unwrap();
-    /// unsafe { libs.mark_for_deallocation(LIB_NAME) };
+    /// fn remove_library(libs: ResMut<DynamicPluginLibraries>) {
+    ///     unsafe { libs.mark_for_unloading(LIB_NAME) };
+    ///     // Library is still loaded at this point.
+    /// }
     /// ```
-    pub unsafe fn mark_for_deallocation<P: AsRef<OsStr>>(&mut self, name: P) {
-        let name = &name.as_ref().to_owned();
-        if let Some(weak) = self.should_drop.remove(name) {
-            if let Some(atomic) = weak.upgrade() {
-                atomic.store(true, Ordering::Release);
-            }
+    pub unsafe fn mark_for_unloading<P: AsRef<OsStr>>(&mut self, name: P) {
+        let name = name.as_ref().to_owned();
+        if let Some(allocation) = self.libraries.remove(&name) {
+            allocation.drop();
         }
     }
 }
@@ -194,46 +173,65 @@ pub trait DynamicPluginExt {
     /// Dynamically links and builds a plugin at the given path.
     ///
     /// The dynamic library is never dropped
-    /// and exists in memory until the program is terminated.
+    /// and exists in memory until the program is terminated,
+    /// unless ``
     ///
     /// # Safety
     ///
     /// Same as [`dynamically_load_plugin`].
     unsafe fn load_plugin<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self;
 
-    /// Explcitly deallocates a dynamically-loaded library.
+    /// Explcitly marks a dynamically-loaded library to be unloaded.
+    /// The library is specified by the path used to load it.
     ///
-    /// The dynamic library would otherwise be left leaking until the program is terminated.
+    /// See [`DynamicPluginLibraries::mark_for_unloading`] for a more detailed explanation.
     ///
     /// # Safety
     ///
-    /// Same as [`DynamicPluginLibraries::mark_for_deallocation`].
-    unsafe fn mark_plugin_for_deallocation<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self;
+    /// See [`DynamicPluginLibraries::mark_for_unloading`].
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use bevy_dynamic_plugin::{DynamicPluginLibraries, DynamicPluginExt};
+    /// use bevy_app::App;
+    ///
+    /// const LIB_NAME: &str = "./libmy_dyn_plugin.so";
+    ///
+    /// let mut app = App::new();
+    /// unsafe { app.load_plugin(LIB_NAME) };
+    ///
+    /// unsafe { app.mark_plugin_for_unloading(LIB_NAME) };
+    ///
+    /// // The library is unloaded here where the app is dropped, not when `mark_plugin_for_unloading` is called.
+    /// ```
+    unsafe fn mark_plugin_for_unloading<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self;
 }
 
 impl DynamicPluginExt for App {
     unsafe fn load_plugin<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self {
         let path = path.as_ref();
-        let plugin = dynamically_load_plugin(path).unwrap();
-        let plugin = DynamicPlugin::from_leaking(plugin);
+        let mut plugin = dynamically_load_plugin(path).unwrap();
 
         let mut libs = self
             .world
             .get_resource_or_insert_with(|| DynamicPluginLibraries {
-                should_drop: HashMap::new(),
+                libraries: HashMap::new(),
             });
 
-        libs.should_drop
+        // Move the `DynamicLibraryAllocation` into `DynamicPluginLibraries`
+        // so it may be dropped with `mark_for_unloading`.
+        libs.libraries
             .entry(path.to_owned())
-            .or_insert_with(|| Arc::downgrade(&plugin.should_drop));
+            .or_insert_with(|| plugin.dummy_allocation.take().unwrap());
 
         plugin.build(self);
         self
     }
 
-    unsafe fn mark_plugin_for_deallocation<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self {
+    unsafe fn mark_plugin_for_unloading<P: AsRef<OsStr>>(&mut self, path: P) -> &mut Self {
         if let Some(mut libs) = self.world.get_resource_mut::<DynamicPluginLibraries>() {
-            libs.mark_for_deallocation(path);
+            libs.mark_for_unloading(path);
         }
         self
     }
