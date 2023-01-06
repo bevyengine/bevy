@@ -285,82 +285,79 @@ fn prepare_view_targets(
 ) {
     let mut textures = HashMap::default();
     for (entity, camera, view) in cameras.iter() {
-        if let Some(target_size) = camera.physical_target_size {
-            if let (Some(out_texture_view), Some(out_texture_format)) = (
-                camera.target.get_texture_view(&windows, &images),
-                camera.target.get_texture_format(&windows, &images),
-            ) {
-                let size = Extent3d {
-                    width: target_size.x,
-                    height: target_size.y,
-                    depth_or_array_layers: 1,
+        let Some(target_size) = camera.physical_target_size else { continue };
+        let (Some(out_texture_view), Some(out_texture_format)) = (
+            camera.target.get_texture_view(&windows, &images),
+            camera.target.get_texture_format(&windows, &images),
+        ) else { continue };
+        let size = Extent3d {
+            width: target_size.x,
+            height: target_size.y,
+            depth_or_array_layers: 1,
+        };
+
+        let main_texture_format = if view.hdr {
+            ViewTarget::TEXTURE_FORMAT_HDR
+        } else {
+            TextureFormat::bevy_default()
+        };
+
+        let main_textures = textures
+            .entry((camera.target.clone(), view.hdr))
+            .or_insert_with(|| {
+                let descriptor = TextureDescriptor {
+                    label: None,
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: TextureDimension::D2,
+                    format: main_texture_format,
+                    usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 };
+                MainTargetTextures {
+                    a: texture_cache
+                        .get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("main_texture_a"),
+                                ..descriptor
+                            },
+                        )
+                        .default_view,
+                    b: texture_cache
+                        .get(
+                            &render_device,
+                            TextureDescriptor {
+                                label: Some("main_texture_b"),
+                                ..descriptor
+                            },
+                        )
+                        .default_view,
+                    sampled: (msaa.samples > 1).then(|| {
+                        texture_cache
+                            .get(
+                                &render_device,
+                                TextureDescriptor {
+                                    label: Some("main_texture_sampled"),
+                                    size,
+                                    mip_level_count: 1,
+                                    sample_count: msaa.samples,
+                                    dimension: TextureDimension::D2,
+                                    format: main_texture_format,
+                                    usage: TextureUsages::RENDER_ATTACHMENT,
+                                },
+                            )
+                            .default_view
+                    }),
+                }
+            });
 
-                let main_texture_format = if view.hdr {
-                    ViewTarget::TEXTURE_FORMAT_HDR
-                } else {
-                    TextureFormat::bevy_default()
-                };
-
-                let main_textures = textures
-                    .entry((camera.target.clone(), view.hdr))
-                    .or_insert_with(|| {
-                        let descriptor = TextureDescriptor {
-                            label: None,
-                            size,
-                            mip_level_count: 1,
-                            sample_count: 1,
-                            dimension: TextureDimension::D2,
-                            format: main_texture_format,
-                            usage: TextureUsages::RENDER_ATTACHMENT
-                                | TextureUsages::TEXTURE_BINDING,
-                        };
-                        MainTargetTextures {
-                            a: texture_cache
-                                .get(
-                                    &render_device,
-                                    TextureDescriptor {
-                                        label: Some("main_texture_a"),
-                                        ..descriptor
-                                    },
-                                )
-                                .default_view,
-                            b: texture_cache
-                                .get(
-                                    &render_device,
-                                    TextureDescriptor {
-                                        label: Some("main_texture_b"),
-                                        ..descriptor
-                                    },
-                                )
-                                .default_view,
-                            sampled: (msaa.samples > 1).then(|| {
-                                texture_cache
-                                    .get(
-                                        &render_device,
-                                        TextureDescriptor {
-                                            label: Some("main_texture_sampled"),
-                                            size,
-                                            mip_level_count: 1,
-                                            sample_count: msaa.samples,
-                                            dimension: TextureDimension::D2,
-                                            format: main_texture_format,
-                                            usage: TextureUsages::RENDER_ATTACHMENT,
-                                        },
-                                    )
-                                    .default_view
-                            }),
-                        }
-                    });
-
-                commands.entity(entity).insert(ViewTarget {
-                    main_textures: main_textures.clone(),
-                    main_texture_format,
-                    main_texture: AtomicUsize::new(0),
-                    out_texture: out_texture_view.clone(),
-                    out_texture_format,
-                });
-            }
-        }
+        commands.entity(entity).insert(ViewTarget {
+            main_textures: main_textures.clone(),
+            main_texture_format,
+            main_texture: AtomicUsize::new(0),
+            out_texture: out_texture_view.clone(),
+            out_texture_format,
+        });
     }
 }

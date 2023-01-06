@@ -106,48 +106,49 @@ impl GlyphBrush {
             let glyph_position = glyph.position;
             let adjust = GlyphPlacementAdjuster::new(&mut glyph);
             let section_data = sections_data[sg.section_index];
-            if let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) {
-                let bounds = outlined_glyph.px_bounds();
-                let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.cast_weak();
-                let font_atlas_set = font_atlas_set_storage
-                    .get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
-                let atlas_info = font_atlas_set
-                    .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
-                    .map(Ok)
-                    .unwrap_or_else(|| {
-                        font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
-                    })?;
+            let Some(outlined_glyph) = section_data.1.font.outline_glyph(glyph) else { continue };
 
-                if !text_settings.allow_dynamic_font_size
-                    && !font_atlas_warning.warned
-                    && font_atlas_set.num_font_atlases() > text_settings.max_font_atlases.get()
-                {
-                    warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.max_font_atlases.get());
-                    font_atlas_warning.warned = true;
-                }
+            let bounds = outlined_glyph.px_bounds();
+            let handle_font_atlas: Handle<FontAtlasSet> = section_data.0.cast_weak();
+            let font_atlas_set =
+                font_atlas_set_storage.get_or_insert_with(handle_font_atlas, FontAtlasSet::default);
 
-                let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
-                let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
-                let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+            let atlas_info = font_atlas_set
+                .get_glyph_atlas_info(section_data.2, glyph_id, glyph_position)
+                .map(Ok)
+                .unwrap_or_else(|| {
+                    font_atlas_set.add_glyph_to_atlas(texture_atlases, textures, outlined_glyph)
+                })?;
 
-                let x = bounds.min.x + size.x / 2.0 - min_x;
-
-                let y = match y_axis_orientation {
-                    YAxisOrientation::BottomToTop => max_y - bounds.max.y + size.y / 2.0,
-                    YAxisOrientation::TopToBottom => bounds.min.y + size.y / 2.0 - min_y,
-                };
-
-                let position = adjust.position(Vec2::new(x, y));
-
-                positioned_glyphs.push(PositionedGlyph {
-                    position,
-                    size,
-                    atlas_info,
-                    section_index: sg.section_index,
-                    byte_index,
-                });
+            if !text_settings.allow_dynamic_font_size
+                && !font_atlas_warning.warned
+                && font_atlas_set.num_font_atlases() > text_settings.max_font_atlases.get()
+            {
+                warn!("warning[B0005]: Number of font atlases has exceeded the maximum of {}. Performance and memory usage may suffer.", text_settings.max_font_atlases.get());
+                font_atlas_warning.warned = true;
             }
+
+            let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+            let glyph_rect = texture_atlas.textures[atlas_info.glyph_index];
+            let size = Vec2::new(glyph_rect.width(), glyph_rect.height());
+
+            let x = bounds.min.x + size.x / 2.0 - min_x;
+
+            let y = match y_axis_orientation {
+                YAxisOrientation::BottomToTop => max_y - bounds.max.y + size.y / 2.0,
+                YAxisOrientation::TopToBottom => bounds.min.y + size.y / 2.0 - min_y,
+            };
+
+            let position = adjust.position(Vec2::new(x, y));
+
+            positioned_glyphs.push(PositionedGlyph {
+                position,
+                size,
+                atlas_info,
+                section_index: sg.section_index,
+                byte_index,
+            });
         }
         Ok(positioned_glyphs)
     }

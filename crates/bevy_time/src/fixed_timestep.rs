@@ -208,16 +208,15 @@ impl System for FixedTimestep {
             self.state.clone(),
         )));
         self.internal_system.initialize(world);
-        if let Some(ref label) = self.state.label {
-            let mut fixed_timesteps = world.resource_mut::<FixedTimesteps>();
-            fixed_timesteps.fixed_timesteps.insert(
-                label.clone(),
-                FixedTimestepState {
-                    accumulator: 0.0,
-                    step: self.state.step,
-                },
-            );
-        }
+        let Some(ref label) = self.state.label else { return };
+        let mut fixed_timesteps = world.resource_mut::<FixedTimesteps>();
+        fixed_timesteps.fixed_timesteps.insert(
+            label.clone(),
+            FixedTimestepState {
+                accumulator: 0.0,
+                step: self.state.step,
+            },
+        );
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {

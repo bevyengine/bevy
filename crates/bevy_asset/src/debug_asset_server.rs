@@ -103,11 +103,9 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
             AssetEvent::Created { handle } | AssetEvent::Modified { handle } => handle,
             AssetEvent::Removed { .. } => continue,
         };
-        if let Some(handle) = handle_map.handles.get(debug_handle) {
-            if let Some(debug_asset) = debug_assets.get(debug_handle) {
-                assets.set_untracked(handle, debug_asset.clone());
-            }
-        }
+        let Some(handle) = handle_map.handles.get(debug_handle) else { continue };
+        let Some(debug_asset) = debug_assets.get(debug_handle) else { continue };
+        assets.set_untracked(handle, debug_asset.clone());
     }
 }
 

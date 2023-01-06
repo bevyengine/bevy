@@ -126,41 +126,39 @@ impl RenderGraph {
         name: impl Into<Cow<'static, str>>,
     ) -> Result<(), RenderGraphError> {
         let name = name.into();
-        if let Some(id) = self.node_names.remove(&name) {
-            if let Some(node_state) = self.nodes.remove(&id) {
-                // Remove all edges from other nodes to this one. Note that as we're removing this
-                // node, we don't need to remove its input edges
-                for input_edge in node_state.edges.input_edges().iter() {
-                    match input_edge {
-                        Edge::SlotEdge { output_node, .. }
-                        | Edge::NodeEdge {
-                            input_node: _,
-                            output_node,
-                        } => {
-                            if let Ok(output_node) = self.get_node_state_mut(*output_node) {
-                                output_node.edges.remove_output_edge(input_edge.clone())?;
-                            }
-                        }
+        let Some(id) = self.node_names.remove(&name) else { return Ok(()) };
+        let Some(node_state) = self.nodes.remove(&id) else { return Ok(()) };
+        // Remove all edges from other nodes to this one. Note that as we're removing this
+        // node, we don't need to remove its input edges
+        for input_edge in node_state.edges.input_edges().iter() {
+            match input_edge {
+                Edge::SlotEdge { output_node, .. }
+                | Edge::NodeEdge {
+                    input_node: _,
+                    output_node,
+                } => {
+                    if let Ok(output_node) = self.get_node_state_mut(*output_node) {
+                        output_node.edges.remove_output_edge(input_edge.clone())?;
                     }
                 }
-                // Remove all edges from this node to other nodes. Note that as we're removing this
-                // node, we don't need to remove its output edges
-                for output_edge in node_state.edges.output_edges().iter() {
-                    match output_edge {
-                        Edge::SlotEdge {
-                            output_node: _,
-                            output_index: _,
-                            input_node,
-                            input_index: _,
-                        }
-                        | Edge::NodeEdge {
-                            output_node: _,
-                            input_node,
-                        } => {
-                            if let Ok(input_node) = self.get_node_state_mut(*input_node) {
-                                input_node.edges.remove_input_edge(output_edge.clone())?;
-                            }
-                        }
+            }
+        }
+        // Remove all edges from this node to other nodes. Note that as we're removing this
+        // node, we don't need to remove its output edges
+        for output_edge in node_state.edges.output_edges().iter() {
+            match output_edge {
+                Edge::SlotEdge {
+                    output_node: _,
+                    output_index: _,
+                    input_node,
+                    input_index: _,
+                }
+                | Edge::NodeEdge {
+                    output_node: _,
+                    input_node,
+                } => {
+                    if let Ok(input_node) = self.get_node_state_mut(*input_node) {
+                        input_node.edges.remove_input_edge(output_edge.clone())?;
                     }
                 }
             }

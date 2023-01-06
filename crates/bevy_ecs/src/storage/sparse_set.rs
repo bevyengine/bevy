@@ -271,26 +271,23 @@ impl ComponentSparseSet {
     }
 
     pub(crate) fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(dense_index) = self.sparse.remove(entity.index()) {
-            let dense_index = dense_index as usize;
+        let Some(dense_index) = self.sparse.remove(entity.index()) else { return false };
+        let dense_index = dense_index as usize;
+        #[cfg(debug_assertions)]
+        assert_eq!(entity, self.entities[dense_index]);
+        self.entities.swap_remove(dense_index);
+        let is_last = dense_index == self.dense.len() - 1;
+        // SAFETY: if the sparse index points to something in the dense vec, it exists
+        unsafe { self.dense.swap_remove_unchecked(TableRow::new(dense_index)) }
+        if !is_last {
+            let swapped_entity = self.entities[dense_index];
+            #[cfg(not(debug_assertions))]
+            let index = swapped_entity;
             #[cfg(debug_assertions)]
-            assert_eq!(entity, self.entities[dense_index]);
-            self.entities.swap_remove(dense_index);
-            let is_last = dense_index == self.dense.len() - 1;
-            // SAFETY: if the sparse index points to something in the dense vec, it exists
-            unsafe { self.dense.swap_remove_unchecked(TableRow::new(dense_index)) }
-            if !is_last {
-                let swapped_entity = self.entities[dense_index];
-                #[cfg(not(debug_assertions))]
-                let index = swapped_entity;
-                #[cfg(debug_assertions)]
-                let index = swapped_entity.index();
-                *self.sparse.get_mut(index).unwrap() = dense_index as u32;
-            }
-            true
-        } else {
-            false
+            let index = swapped_entity.index();
+            *self.sparse.get_mut(index).unwrap() = dense_index as u32;
         }
+        true
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {

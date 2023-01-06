@@ -263,11 +263,8 @@ fn verify_no_ancestor_player(
         if maybe_player.is_some() {
             return false;
         }
-        if let Some(parent) = parent {
-            current = parent.get();
-        } else {
-            return true;
-        }
+        let Some(parent) = parent else { return true };
+        current = parent.get();
     }
 }
 

@@ -124,29 +124,28 @@ fn queue_wireframes(
         let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
-                if let Some(mesh) = render_meshes.get(mesh_handle) {
-                    let key = view_key
-                        | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                    let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
-                        &wireframe_pipeline,
-                        key,
-                        &mesh.layout,
-                    );
-                    let pipeline_id = match pipeline_id {
-                        Ok(id) => id,
-                        Err(err) => {
-                            error!("{}", err);
-                            return;
-                        }
-                    };
-                    opaque_phase.add(Opaque3d {
-                        entity,
-                        pipeline: pipeline_id,
-                        draw_function: draw_custom,
-                        distance: rangefinder.distance(&mesh_uniform.transform),
-                    });
-                }
+                let Some(mesh) = render_meshes.get(mesh_handle) else { return };
+                let key =
+                    view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let pipeline_id = pipelines.specialize(
+                    &mut pipeline_cache,
+                    &wireframe_pipeline,
+                    key,
+                    &mesh.layout,
+                );
+                let pipeline_id = match pipeline_id {
+                    Ok(id) => id,
+                    Err(err) => {
+                        error!("{}", err);
+                        return;
+                    }
+                };
+                opaque_phase.add(Opaque3d {
+                    entity,
+                    pipeline: pipeline_id,
+                    draw_function: draw_custom,
+                    distance: rangefinder.distance(&mesh_uniform.transform),
+                });
             };
 
         if wireframe_config.global {

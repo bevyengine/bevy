@@ -464,24 +464,22 @@ impl InnerMeshVertexBufferLayout {
     ) -> Result<VertexBufferLayout, MissingVertexAttributeError> {
         let mut attributes = Vec::with_capacity(attribute_descriptors.len());
         for attribute_descriptor in attribute_descriptors {
-            if let Some(index) = self
+            let Some(index) = self
                 .attribute_ids
                 .iter()
-                .position(|id| *id == attribute_descriptor.id)
-            {
-                let layout_attribute = &self.layout.attributes[index];
-                attributes.push(VertexAttribute {
-                    format: layout_attribute.format,
-                    offset: layout_attribute.offset,
-                    shader_location: attribute_descriptor.shader_location,
-                });
-            } else {
+                .position(|id| *id == attribute_descriptor.id) else {
                 return Err(MissingVertexAttributeError {
                     id: attribute_descriptor.id,
                     name: attribute_descriptor.name,
                     pipeline_type: None,
                 });
-            }
+            };
+            let layout_attribute = &self.layout.attributes[index];
+            attributes.push(VertexAttribute {
+                format: layout_attribute.format,
+                offset: layout_attribute.offset,
+                shader_location: attribute_descriptor.shader_location,
+            });
         }
 
         Ok(VertexBufferLayout {

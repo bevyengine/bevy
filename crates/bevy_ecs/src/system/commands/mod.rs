@@ -914,11 +914,11 @@ where
     T: Bundle + 'static,
 {
     fn write(self, world: &mut World) {
-        if let Some(mut entity) = world.get_entity_mut(self.entity) {
-            entity.insert(self.bundle);
-        } else {
-            panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
-        }
+        world.get_entity_mut(self.entity)
+            .unwrap_or_else(|| {
+                panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {:?} because it doesn't exist in this World.", std::any::type_name::<T>(), self.entity);
+            })
+            .insert(self.bundle);
     }
 }
 
@@ -933,11 +933,10 @@ where
     T: Bundle,
 {
     fn write(self, world: &mut World) {
-        if let Some(mut entity_mut) = world.get_entity_mut(self.entity) {
-            // remove intersection to gracefully handle components that were removed before running
-            // this command
-            entity_mut.remove_intersection::<T>();
-        }
+        let Some(mut entity_mut) = world.get_entity_mut(self.entity) else { return };
+        // remove intersection to gracefully handle components that were removed before running
+        // this command
+        entity_mut.remove_intersection::<T>();
     }
 }
 

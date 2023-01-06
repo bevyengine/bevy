@@ -53,31 +53,30 @@ impl LogDiagnosticsPlugin {
     }
 
     fn log_diagnostic(diagnostic: &Diagnostic) {
-        if let Some(value) = diagnostic.smoothed() {
-            if diagnostic.get_max_history_length() > 1 {
-                if let Some(average) = diagnostic.average() {
-                    info!(
-                        target: "bevy diagnostic",
-                        // Suffix is only used for 's' or 'ms' currently,
-                        // so we reserve two columns for it; however,
-                        // Do not reserve columns for the suffix in the average
-                        // The ) hugging the value is more aesthetically pleasing
-                        "{name:<name_width$}: {value:>11.6}{suffix:2} (avg {average:>.6}{suffix:})",
-                        name = diagnostic.name,
-                        suffix = diagnostic.suffix,
-                        name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-                    );
-                    return;
-                }
+        let Some(value) = diagnostic.smoothed() else { return };
+        if diagnostic.get_max_history_length() > 1 {
+            if let Some(average) = diagnostic.average() {
+                info!(
+                    target: "bevy diagnostic",
+                    // Suffix is only used for 's' or 'ms' currently,
+                    // so we reserve two columns for it; however,
+                    // Do not reserve columns for the suffix in the average
+                    // The ) hugging the value is more aesthetically pleasing
+                    "{name:<name_width$}: {value:>11.6}{suffix:2} (avg {average:>.6}{suffix:})",
+                    name = diagnostic.name,
+                    suffix = diagnostic.suffix,
+                    name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+                );
+                return;
             }
-            info!(
-                target: "bevy diagnostic",
-                "{name:<name_width$}: {value:>.6}{suffix:}",
-                name = diagnostic.name,
-                suffix = diagnostic.suffix,
-                name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
-            );
         }
+        info!(
+            target: "bevy diagnostic",
+            "{name:<name_width$}: {value:>.6}{suffix:}",
+            name = diagnostic.name,
+            suffix = diagnostic.suffix,
+            name_width = crate::MAX_DIAGNOSTIC_NAME_WIDTH,
+        );
     }
 
     fn log_diagnostics_system(

@@ -21,27 +21,23 @@ macro_rules! render_resource_wrapper {
             }
 
             pub fn try_unwrap(mut self) -> Option<$wgpu_type> {
-                let inner = self.0.take();
-                if let Some(inner) = inner {
-                    match std::sync::Arc::try_unwrap(inner) {
-                        Ok(untyped_box) => {
-                            let typed_box = unsafe {
-                                std::mem::transmute::<Box<()>, Box<$wgpu_type>>(untyped_box)
-                            };
-                            Some(*typed_box)
-                        }
-                        Err(inner) => {
-                            let _ = unsafe {
-                                std::mem::transmute::<
-                                    std::sync::Arc<Box<()>>,
-                                    std::sync::Arc<Box<$wgpu_type>>,
-                                >(inner)
-                            };
-                            None
-                        }
+                let inner = self.0.take()?;
+                match std::sync::Arc::try_unwrap(inner) {
+                    Ok(untyped_box) => {
+                        let typed_box = unsafe {
+                            std::mem::transmute::<Box<()>, Box<$wgpu_type>>(untyped_box)
+                        };
+                        Some(*typed_box)
                     }
-                } else {
-                    None
+                    Err(inner) => {
+                        let _ = unsafe {
+                            std::mem::transmute::<
+                                std::sync::Arc<Box<()>>,
+                                std::sync::Arc<Box<$wgpu_type>>,
+                            >(inner)
+                        };
+                        None
+                    }
                 }
             }
         }
@@ -64,8 +60,7 @@ macro_rules! render_resource_wrapper {
 
         impl Drop for $wrapper_type {
             fn drop(&mut self) {
-                let inner = self.0.take();
-                if let Some(inner) = inner {
+                if let Some(inner) = self.0.take() {
                     let _ = unsafe {
                         std::mem::transmute::<
                             std::sync::Arc<Box<()>>,

@@ -102,11 +102,9 @@ fn filter_by_threshold(span_stats: &SpanStats, threshold: f32) -> bool {
 }
 
 fn filter_by_pattern(name: &str, pattern: Option<&Regex>) -> bool {
-    if let Some(pattern) = pattern {
-        pattern.is_match(name)
-    } else {
-        true
-    }
+    pattern
+        .map(|pattern| pattern.is_match(name))
+        .unwrap_or(true)
 }
 
 #[derive(Debug)]

@@ -125,18 +125,15 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             for component_id in self.original_world.entity(entity).archetype().components() {
-                let reflect_component = self
+                let Some(reflect_component) = self
                     .original_world
                     .components()
                     .get_info(component_id)
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
-                    .and_then(|registration| registration.data::<ReflectComponent>());
+                    .and_then(|registration| registration.data::<ReflectComponent>()) else { continue };
 
-                if let Some(reflect_component) = reflect_component {
-                    if let Some(component) = reflect_component.reflect(self.original_world, entity)
-                    {
-                        entry.components.push(component.clone_value());
-                    }
+                if let Some(component) = reflect_component.reflect(self.original_world, entity) {
+                    entry.components.push(component.clone_value());
                 }
             }
             self.extracted_scene.insert(index, entry);

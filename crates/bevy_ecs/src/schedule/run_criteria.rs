@@ -81,17 +81,14 @@ impl BoxedRunCriteria {
     }
 
     pub(crate) fn should_run(&mut self, world: &mut World) -> ShouldRun {
-        if let Some(ref mut run_criteria) = self.criteria_system {
-            if !self.initialized {
-                run_criteria.initialize(world);
-                self.initialized = true;
-            }
-            let should_run = run_criteria.run((), world);
-            run_criteria.apply_buffers(world);
-            should_run
-        } else {
-            ShouldRun::Yes
+        let Some(ref mut run_criteria) = self.criteria_system else { return ShouldRun::Yes };
+        if !self.initialized {
+            run_criteria.initialize(world);
+            self.initialized = true;
         }
+        let should_run = run_criteria.run((), world);
+        run_criteria.apply_buffers(world);
+        should_run
     }
 }
 
@@ -153,11 +150,10 @@ impl GraphNode for RunCriteriaContainer {
     }
 
     fn labels(&self) -> &[RunCriteriaLabelId] {
-        if let Some(ref label) = self.label {
-            std::slice::from_ref(label)
-        } else {
-            &[]
-        }
+        self.label
+            .as_ref()
+            .map(|label| std::slice::from_ref(label))
+            .unwrap_or(&[])
     }
 
     fn before(&self) -> &[RunCriteriaLabelId] {

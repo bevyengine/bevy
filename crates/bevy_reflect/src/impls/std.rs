@@ -961,12 +961,11 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            *self = value.clone();
-        } else {
-            panic!("Value is not a {}.", std::any::type_name::<Self>());
-        }
+        *self = value
+            .as_any()
+            .downcast_ref::<Self>()
+            .unwrap_or_else(|| panic!("Value is not a {}.", std::any::type_name::<Self>()))
+            .clone();
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -998,12 +997,11 @@ impl Reflect for Cow<'static, str> {
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
-        } else {
-            Some(false)
-        }
+        value
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|value| std::cmp::PartialEq::eq(self, value))
+            .or(Some(false))
     }
 }
 
@@ -1069,12 +1067,10 @@ impl Reflect for &'static Path {
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
-        let value = value.as_any();
-        if let Some(&value) = value.downcast_ref::<Self>() {
-            *self = value;
-        } else {
-            panic!("Value is not a {}.", std::any::type_name::<Self>());
-        }
+        *self = value
+            .as_any()
+            .downcast_ref::<Self>()
+            .unwrap_or_else(|| panic!("Value is not a {}.", std::any::type_name::<Self>()));
     }
 
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
@@ -1106,12 +1102,11 @@ impl Reflect for &'static Path {
     }
 
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
-        let value = value.as_any();
-        if let Some(value) = value.downcast_ref::<Self>() {
-            Some(std::cmp::PartialEq::eq(self, value))
-        } else {
-            Some(false)
-        }
+        value
+            .as_any()
+            .downcast_ref::<Self>()
+            .map(|value| std::cmp::PartialEq::eq(self, value))
+            .or(Some(false))
     }
 }
 

@@ -37,31 +37,29 @@ fn atlas_render_system(
     font_atlas_sets: Res<Assets<FontAtlasSet>>,
     texture_atlases: Res<Assets<TextureAtlas>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle.cast_weak::<FontAtlasSet>()) {
-        if let Some((_size, font_atlas)) = set.iter().next() {
-            let x_offset = state.atlas_count as f32;
-            if state.atlas_count == font_atlas.len() as u32 {
-                return;
-            }
-            let texture_atlas = texture_atlases
-                .get(&font_atlas[state.atlas_count as usize].texture_atlas)
-                .unwrap();
-            state.atlas_count += 1;
-            commands.spawn(ImageBundle {
-                image: texture_atlas.texture.clone().into(),
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
-                        top: Val::Px(0.0),
-                        left: Val::Px(512.0 * x_offset),
-                        ..default()
-                    },
-                    ..default()
-                },
-                ..default()
-            });
-        }
+    let Some(set) = font_atlas_sets.get(&state.handle.cast_weak::<FontAtlasSet>()) else { return };
+    let Some((_size, font_atlas)) = set.iter().next() else { return };
+    let x_offset = state.atlas_count as f32;
+    if state.atlas_count == font_atlas.len() as u32 {
+        return;
     }
+    let texture_atlas = texture_atlases
+        .get(&font_atlas[state.atlas_count as usize].texture_atlas)
+        .unwrap();
+    state.atlas_count += 1;
+    commands.spawn(ImageBundle {
+        image: texture_atlas.texture.clone().into(),
+        style: Style {
+            position_type: PositionType::Absolute,
+            position: UiRect {
+                top: Val::Px(0.0),
+                left: Val::Px(512.0 * x_offset),
+                ..default()
+            },
+            ..default()
+        },
+        ..default()
+    });
 }
 
 fn text_update_system(mut state: ResMut<State>, time: Res<Time>, mut query: Query<&mut Text>) {

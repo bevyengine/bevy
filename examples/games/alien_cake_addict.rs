@@ -353,13 +353,11 @@ fn spawn_bonus(
 
 // let the cake turn on itself
 fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
-    if let Some(entity) = game.bonus.entity {
-        if let Ok(mut cake_transform) = transforms.get_mut(entity) {
-            cake_transform.rotate_y(time.delta_seconds());
-            cake_transform.scale =
-                Vec3::splat(1.0 + (game.score as f32 / 10.0 * time.elapsed_seconds().sin()).abs());
-        }
-    }
+    let Some(entity) = game.bonus.entity else { return } ;
+    let Ok(mut cake_transform) = transforms.get_mut(entity) else { return };
+    cake_transform.rotate_y(time.delta_seconds());
+    cake_transform.scale =
+        Vec3::splat(1.0 + (game.score as f32 / 10.0 * time.elapsed_seconds().sin()).abs());
 }
 
 // update the score displayed during the game

@@ -345,9 +345,8 @@ impl Reflect for DynamicTupleStruct {
     fn apply(&mut self, value: &dyn Reflect) {
         if let ReflectRef::TupleStruct(tuple_struct) = value.reflect_ref() {
             for (i, value) in tuple_struct.iter_fields().enumerate() {
-                if let Some(v) = self.field_mut(i) {
-                    v.apply(value);
-                }
+                let Some(v) = self.field_mut(i) else { continue };
+                v.apply(value);
             }
         } else {
             panic!("Attempted to apply non-TupleStruct type to TupleStruct type.");

@@ -329,11 +329,9 @@ impl Struct for DynamicStruct {
 
     #[inline]
     fn field_mut(&mut self, name: &str) -> Option<&mut dyn Reflect> {
-        if let Some(index) = self.field_indices.get(name) {
-            Some(&mut *self.fields[*index])
-        } else {
-            None
-        }
+        self.field_indices
+            .get(name)
+            .map(|index| &mut *self.fields[*index])
     }
 
     #[inline]
@@ -443,9 +441,8 @@ impl Reflect for DynamicStruct {
         if let ReflectRef::Struct(struct_value) = value.reflect_ref() {
             for (i, value) in struct_value.iter_fields().enumerate() {
                 let name = struct_value.name_at(i).unwrap();
-                if let Some(v) = self.field_mut(name) {
-                    v.apply(value);
-                }
+                let Some(v) = self.field_mut(name) else { continue };
+                v.apply(value);
             }
         } else {
             panic!("Attempted to apply non-struct type to struct type.");

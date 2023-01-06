@@ -92,11 +92,9 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut Text, With<ColorText
 
 fn text_update_system(diagnostics: Res<Diagnostics>, mut query: Query<&mut Text, With<FpsText>>) {
     for mut text in &mut query {
-        if let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(value) = fps.smoothed() {
-                // Update the value of the second section
-                text.sections[1].value = format!("{value:.2}");
-            }
-        }
+        let Some(fps) = diagnostics.get(FrameTimeDiagnosticsPlugin::FPS) else { continue };
+        let Some(value) = fps.smoothed() else { continue };
+        // Update the value of the second section
+        text.sections[1].value = format!("{value:.2}");
     }
 }

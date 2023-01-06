@@ -69,10 +69,9 @@ impl Documentation {
 
 impl ToTokens for Documentation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        if let Some(doc) = self.doc_string() {
-            quote!(#FQOption::Some(#doc)).to_tokens(tokens);
-        } else {
-            quote!(#FQOption::None).to_tokens(tokens);
+        match self.doc_string() {
+            Some(doc) => quote!(#FQOption::Some(#doc)).to_tokens(tokens),
+            None => quote!(#FQOption::None).to_tokens(tokens),
         }
     }
 }

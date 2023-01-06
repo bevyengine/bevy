@@ -58,21 +58,20 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
         self.items.reserve(items.len());
 
         // Start the first batch from the first item
-        if let Some(mut current_batch) = items.next() {
-            // Batch following items until we find an incompatible item
-            for next_item in items {
-                if matches!(
-                    current_batch.add_to_batch(&next_item),
-                    BatchResult::IncompatibleItems
-                ) {
-                    // Store the completed batch, and start a new one from the incompatible item
-                    self.items.push(current_batch);
-                    current_batch = next_item;
-                }
+        let Some(mut current_batch) = items.next() else { return };
+        // Batch following items until we find an incompatible item
+        for next_item in items {
+            if matches!(
+                current_batch.add_to_batch(&next_item),
+                BatchResult::IncompatibleItems
+            ) {
+                // Store the completed batch, and start a new one from the incompatible item
+                self.items.push(current_batch);
+                current_batch = next_item;
             }
-            // Store the last batch
-            self.items.push(current_batch);
         }
+        // Store the last batch
+        self.items.push(current_batch);
     }
 }
 

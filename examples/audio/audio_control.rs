@@ -53,11 +53,10 @@ fn volume(
     audio_sinks: Res<Assets<AudioSink>>,
     music_controller: Res<MusicController>,
 ) {
-    if let Some(sink) = audio_sinks.get(&music_controller.0) {
-        if keyboard_input.just_pressed(KeyCode::Plus) {
-            sink.set_volume(sink.volume() + 0.1);
-        } else if keyboard_input.just_pressed(KeyCode::Minus) {
-            sink.set_volume(sink.volume() - 0.1);
-        }
+    let Some(sink) = audio_sinks.get(&music_controller.0) else { return };
+    if keyboard_input.just_pressed(KeyCode::Plus) {
+        sink.set_volume(sink.volume() + 0.1);
+    } else if keyboard_input.just_pressed(KeyCode::Minus) {
+        sink.set_volume(sink.volume() - 0.1);
     }
 }

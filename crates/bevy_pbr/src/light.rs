@@ -1327,65 +1327,63 @@ pub(crate) fn assign_lights_to_clusters(
                             * clusters.dimensions.z
                             + z) as usize;
 
-                        if let Some((view_light_direction, angle_sin, angle_cos)) =
+                        let Some((view_light_direction, angle_sin, angle_cos)) =
                             spot_light_dir_sin_cos
-                        {
-                            for x in min_x..=max_x {
-                                // further culling for spot lights
-                                // get or initialize cluster bounding sphere
-                                let cluster_aabb_sphere = &mut cluster_aabb_spheres[cluster_index];
-                                let cluster_aabb_sphere = if let Some(sphere) = cluster_aabb_sphere
-                                {
-                                    &*sphere
-                                } else {
-                                    let aabb = compute_aabb_for_cluster(
-                                        first_slice_depth,
-                                        far_z,
-                                        clusters.tile_size.as_vec2(),
-                                        screen_size.as_vec2(),
-                                        inverse_projection,
-                                        is_orthographic,
-                                        clusters.dimensions,
-                                        UVec3::new(x, y, z),
-                                    );
-                                    let sphere = Sphere {
-                                        center: aabb.center,
-                                        radius: aabb.half_extents.length(),
-                                    };
-                                    *cluster_aabb_sphere = Some(sphere);
-                                    cluster_aabb_sphere.as_ref().unwrap()
-                                };
-
-                                // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
-                                let spot_light_offset = Vec3::from(
-                                    view_light_sphere.center - cluster_aabb_sphere.center,
-                                );
-                                let spot_light_dist_sq = spot_light_offset.length_squared();
-                                let v1_len = spot_light_offset.dot(view_light_direction);
-
-                                let distance_closest_point = (angle_cos
-                                    * (spot_light_dist_sq - v1_len * v1_len).sqrt())
-                                    - v1_len * angle_sin;
-                                let angle_cull =
-                                    distance_closest_point > cluster_aabb_sphere.radius;
-
-                                let front_cull = v1_len > cluster_aabb_sphere.radius + light.range;
-                                let back_cull = v1_len < -cluster_aabb_sphere.radius;
-
-                                if !angle_cull && !front_cull && !back_cull {
-                                    // this cluster is affected by the spot light
+                            else {
+                                for _ in min_x..=max_x {
+                                    // all clusters within range are affected by point lights
                                     clusters.lights[cluster_index].entities.push(light.entity);
-                                    clusters.lights[cluster_index].spot_light_count += 1;
+                                    clusters.lights[cluster_index].point_light_count += 1;
+                                    cluster_index += clusters.dimensions.z as usize;
                                 }
-                                cluster_index += clusters.dimensions.z as usize;
-                            }
-                        } else {
-                            for _ in min_x..=max_x {
-                                // all clusters within range are affected by point lights
+                                continue;
+                            };
+
+                        for x in min_x..=max_x {
+                            // further culling for spot lights
+                            // get or initialize cluster bounding sphere
+                            let cluster_aabb_sphere = &mut cluster_aabb_spheres[cluster_index];
+                            let cluster_aabb_sphere = if let Some(sphere) = cluster_aabb_sphere {
+                                &*sphere
+                            } else {
+                                let aabb = compute_aabb_for_cluster(
+                                    first_slice_depth,
+                                    far_z,
+                                    clusters.tile_size.as_vec2(),
+                                    screen_size.as_vec2(),
+                                    inverse_projection,
+                                    is_orthographic,
+                                    clusters.dimensions,
+                                    UVec3::new(x, y, z),
+                                );
+                                let sphere = Sphere {
+                                    center: aabb.center,
+                                    radius: aabb.half_extents.length(),
+                                };
+                                *cluster_aabb_sphere = Some(sphere);
+                                cluster_aabb_sphere.as_ref().unwrap()
+                            };
+
+                            // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
+                            let spot_light_offset =
+                                Vec3::from(view_light_sphere.center - cluster_aabb_sphere.center);
+                            let spot_light_dist_sq = spot_light_offset.length_squared();
+                            let v1_len = spot_light_offset.dot(view_light_direction);
+
+                            let distance_closest_point = (angle_cos
+                                * (spot_light_dist_sq - v1_len * v1_len).sqrt())
+                                - v1_len * angle_sin;
+                            let angle_cull = distance_closest_point > cluster_aabb_sphere.radius;
+
+                            let front_cull = v1_len > cluster_aabb_sphere.radius + light.range;
+                            let back_cull = v1_len < -cluster_aabb_sphere.radius;
+
+                            if !angle_cull && !front_cull && !back_cull {
+                                // this cluster is affected by the spot light
                                 clusters.lights[cluster_index].entities.push(light.entity);
-                                clusters.lights[cluster_index].point_light_count += 1;
-                                cluster_index += clusters.dimensions.z as usize;
+                                clusters.lights[cluster_index].spot_light_count += 1;
                             }
+                            cluster_index += clusters.dimensions.z as usize;
                         }
                     }
                 }

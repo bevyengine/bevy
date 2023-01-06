@@ -365,65 +365,60 @@ pub fn queue_material_meshes<M: Material>(
         let rangefinder = view.rangefinder3d();
 
         for visible_entity in &visible_entities.entities {
-            if let Ok((material_handle, mesh_handle, mesh_uniform)) =
-                material_meshes.get(*visible_entity)
-            {
-                if let Some(material) = render_materials.get(material_handle) {
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        let mut mesh_key =
-                            MeshPipelineKey::from_primitive_topology(mesh.primitive_topology)
-                                | view_key;
-                        let alpha_mode = material.properties.alpha_mode;
-                        if let AlphaMode::Blend = alpha_mode {
-                            mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
-                        }
+            let Ok((material_handle, mesh_handle, mesh_uniform)) =
+                material_meshes.get(*visible_entity) else { continue };
+            let Some(material) = render_materials.get(material_handle) else { continue };
+            let Some(mesh) = render_meshes.get(mesh_handle) else { continue };
+            let mut mesh_key =
+                MeshPipelineKey::from_primitive_topology(mesh.primitive_topology) | view_key;
+            let alpha_mode = material.properties.alpha_mode;
+            if let AlphaMode::Blend = alpha_mode {
+                mesh_key |= MeshPipelineKey::TRANSPARENT_MAIN_PASS;
+            }
 
-                        let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
-                            &material_pipeline,
-                            MaterialPipelineKey {
-                                mesh_key,
-                                bind_group_data: material.key.clone(),
-                            },
-                            &mesh.layout,
-                        );
-                        let pipeline_id = match pipeline_id {
-                            Ok(id) => id,
-                            Err(err) => {
-                                error!("{}", err);
-                                continue;
-                            }
-                        };
+            let pipeline_id = pipelines.specialize(
+                &mut pipeline_cache,
+                &material_pipeline,
+                MaterialPipelineKey {
+                    mesh_key,
+                    bind_group_data: material.key.clone(),
+                },
+                &mesh.layout,
+            );
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
+                }
+            };
 
-                        let distance = rangefinder.distance(&mesh_uniform.transform)
-                            + material.properties.depth_bias;
-                        match alpha_mode {
-                            AlphaMode::Opaque => {
-                                opaque_phase.add(Opaque3d {
-                                    entity: *visible_entity,
-                                    draw_function: draw_opaque_pbr,
-                                    pipeline: pipeline_id,
-                                    distance,
-                                });
-                            }
-                            AlphaMode::Mask(_) => {
-                                alpha_mask_phase.add(AlphaMask3d {
-                                    entity: *visible_entity,
-                                    draw_function: draw_alpha_mask_pbr,
-                                    pipeline: pipeline_id,
-                                    distance,
-                                });
-                            }
-                            AlphaMode::Blend => {
-                                transparent_phase.add(Transparent3d {
-                                    entity: *visible_entity,
-                                    draw_function: draw_transparent_pbr,
-                                    pipeline: pipeline_id,
-                                    distance,
-                                });
-                            }
-                        }
-                    }
+            let distance =
+                rangefinder.distance(&mesh_uniform.transform) + material.properties.depth_bias;
+            match alpha_mode {
+                AlphaMode::Opaque => {
+                    opaque_phase.add(Opaque3d {
+                        entity: *visible_entity,
+                        draw_function: draw_opaque_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                    });
+                }
+                AlphaMode::Mask(_) => {
+                    alpha_mask_phase.add(AlphaMask3d {
+                        entity: *visible_entity,
+                        draw_function: draw_alpha_mask_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                    });
+                }
+                AlphaMode::Blend => {
+                    transparent_phase.add(Transparent3d {
+                        entity: *visible_entity,
+                        draw_function: draw_transparent_pbr,
+                        pipeline: pipeline_id,
+                        distance,
+                    });
                 }
             }
         }

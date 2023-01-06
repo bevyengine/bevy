@@ -42,11 +42,10 @@ fn update_parent(world: &mut World, child: Entity, new_parent: Entity) -> Option
 /// Removes the [`Children`] component from the parent if it's empty.
 fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
     let mut parent = world.entity_mut(parent);
-    if let Some(mut children) = parent.get_mut::<Children>() {
-        children.0.retain(|x| *x != child);
-        if children.is_empty() {
-            parent.remove::<Children>();
-        }
+    let Some(mut children) = parent.get_mut::<Children>() else { return };
+    children.0.retain(|x| *x != child);
+    if children.is_empty() {
+        parent.remove::<Children>();
     }
 }
 
@@ -60,24 +59,25 @@ fn remove_from_children(world: &mut World, parent: Entity, child: Entity) {
 /// Sends [`HierarchyEvent`]'s.
 fn update_old_parent(world: &mut World, child: Entity, parent: Entity) {
     let previous = update_parent(world, child, parent);
-    if let Some(previous_parent) = previous {
-        // Do nothing if the child was already parented to this entity.
-        if previous_parent == parent {
-            return;
-        }
-        remove_from_children(world, previous_parent, child);
-
-        push_events(
-            world,
-            [HierarchyEvent::ChildMoved {
-                child,
-                previous_parent,
-                new_parent: parent,
-            }],
-        );
-    } else {
+    let Some(previous_parent) = previous else {
         push_events(world, [HierarchyEvent::ChildAdded { child, parent }]);
+        return;
+    };
+
+    // Do nothing if the child was already parented to this entity.
+    if previous_parent == parent {
+        return;
     }
+    remove_from_children(world, previous_parent, child);
+
+    push_events(
+        world,
+        [HierarchyEvent::ChildMoved {
+            child,
+            previous_parent,
+            new_parent: parent,
+        }],
+    );
 }
 
 /// Update the [`Parent`] components of the `children`.
@@ -91,36 +91,35 @@ fn update_old_parent(world: &mut World, child: Entity, parent: Entity) {
 fn update_old_parents(world: &mut World, parent: Entity, children: &[Entity]) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::with_capacity(children.len());
     for &child in children {
-        if let Some(previous) = update_parent(world, child, parent) {
-            // Do nothing if the entity already has the correct parent.
-            if parent == previous {
-                continue;
-            }
-
-            remove_from_children(world, previous, child);
-            events.push(HierarchyEvent::ChildMoved {
-                child,
-                previous_parent: previous,
-                new_parent: parent,
-            });
-        } else {
+        let Some(previous) = update_parent(world, child, parent) else {
             events.push(HierarchyEvent::ChildAdded { child, parent });
+            continue;
+        };
+
+        // Do nothing if the entity already has the correct parent.
+        if parent == previous {
+            continue;
         }
+
+        remove_from_children(world, previous, child);
+        events.push(HierarchyEvent::ChildMoved {
+            child,
+            previous_parent: previous,
+            new_parent: parent,
+        });
     }
     push_events(world, events);
 }
 
 fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
-    if let Some(parent_children) = world.get::<Children>(parent) {
-        for &child in children {
-            if parent_children.contains(&child) {
-                events.push(HierarchyEvent::ChildRemoved { child, parent });
-            }
+    let Some(parent_children) = world.get::<Children>(parent) else { return };
+    for &child in children {
+        if parent_children.contains(&child) {
+            events.push(HierarchyEvent::ChildRemoved { child, parent });
         }
-    } else {
-        return;
     }
+
     for event in &events {
         if let &HierarchyEvent::ChildRemoved { child, .. } = event {
             world.entity_mut(child).remove::<Parent>();
@@ -129,14 +128,13 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
     push_events(world, events);
 
     let mut parent = world.entity_mut(parent);
-    if let Some(mut parent_children) = parent.get_mut::<Children>() {
-        parent_children
-            .0
-            .retain(|parent_child| !children.contains(parent_child));
+    let Some(mut parent_children) = parent.get_mut::<Children>() else { return };
+    parent_children
+        .0
+        .retain(|parent_child| !children.contains(parent_child));
 
-        if parent_children.is_empty() {
-            parent.remove::<Children>();
-        }
+    if parent_children.is_empty() {
+        parent.remove::<Children>();
     }
 }
 

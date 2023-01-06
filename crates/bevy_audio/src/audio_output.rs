@@ -100,9 +100,8 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
     mut audio: ResMut<Audio<Source>>,
     mut sinks: ResMut<Assets<AudioSink>>,
 ) {
-    if let Some(audio_sources) = audio_sources {
-        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks);
-    };
+    let Some(audio_sources) = audio_sources else { return };
+    audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks);
 }
 
 /// Asset controlling the playback of a sound

@@ -79,12 +79,11 @@ pub(crate) fn parse_field_attrs(attrs: &[Attribute]) -> Result<ReflectFieldAttr,
         .filter(|a| a.path.is_ident(REFLECT_ATTRIBUTE_NAME));
     for attr in attrs {
         let meta = attr.parse_meta()?;
-        if let Err(err) = parse_meta(&mut args, &meta) {
-            if let Some(ref mut error) = errors {
-                error.combine(err);
-            } else {
-                errors = Some(err);
-            }
+        let Err(err) = parse_meta(&mut args, &meta) else { continue };
+        if let Some(ref mut error) = errors {
+            error.combine(err);
+        } else {
+            errors = Some(err);
         }
     }
 

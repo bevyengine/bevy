@@ -62,11 +62,9 @@ pub fn render_system(world: &mut World) {
 
         let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
-            if let Some(texture_view) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = texture_view.take_surface_texture() {
-                    surface_texture.present();
-                }
-            }
+            let Some(texture_view) = window.swap_chain_texture.take() else { continue };
+            let Some(surface_texture) = texture_view.take_surface_texture() else { continue };
+            surface_texture.present();
         }
 
         #[cfg(feature = "tracing-tracy")]

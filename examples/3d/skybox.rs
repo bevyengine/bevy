@@ -168,10 +168,9 @@ fn asset_loaded(
         // spawn cube
         let mut updated = false;
         for handle in cubes.iter() {
-            if let Some(material) = cubemap_materials.get_mut(handle) {
-                updated = true;
-                material.base_color_texture = Some(cubemap.image_handle.clone_weak());
-            }
+            let Some(material) = cubemap_materials.get_mut(handle) else { continue };
+            updated = true;
+            material.base_color_texture = Some(cubemap.image_handle.clone_weak());
         }
         if !updated {
             commands.spawn(MaterialMeshBundle::<CubemapMaterial> {

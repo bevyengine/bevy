@@ -238,11 +238,10 @@ impl ShaderCache {
         let mut shaders_to_clear = vec![handle.clone_weak()];
         let mut pipelines_to_queue = Vec::new();
         while let Some(handle) = shaders_to_clear.pop() {
-            if let Some(data) = self.data.get_mut(&handle) {
-                data.processed_shaders.clear();
-                pipelines_to_queue.extend(data.pipelines.iter().cloned());
-                shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
-            }
+            let Some(data) = self.data.get_mut(&handle) else { continue };
+            data.processed_shaders.clear();
+            pipelines_to_queue.extend(data.pipelines.iter().cloned());
+            shaders_to_clear.extend(data.dependents.iter().map(|h| h.clone_weak()));
         }
 
         pipelines_to_queue
@@ -267,18 +266,18 @@ impl ShaderCache {
         }
 
         for import in shader.imports() {
-            if let Some(import_handle) = self.import_path_shaders.get(import) {
-                // resolve import because it is currently available
-                let data = self.data.entry(handle.clone_weak()).or_default();
-                data.resolved_imports
-                    .insert(import.clone(), import_handle.clone_weak());
-                // add this shader as a dependent of the import
-                let data = self.data.entry(import_handle.clone_weak()).or_default();
-                data.dependents.insert(handle.clone_weak());
-            } else {
+            let Some(import_handle) = self.import_path_shaders.get(import) else {
                 let waiting = self.waiting_on_import.entry(import.clone()).or_default();
                 waiting.push(handle.clone_weak());
-            }
+                continue;
+            };
+            // resolve import because it is currently available
+            let data = self.data.entry(handle.clone_weak()).or_default();
+            data.resolved_imports
+                .insert(import.clone(), import_handle.clone_weak());
+            // add this shader as a dependent of the import
+            let data = self.data.entry(import_handle.clone_weak()).or_default();
+            data.dependents.insert(handle.clone_weak());
         }
 
         self.shaders.insert(handle.clone_weak(), shader);
@@ -558,17 +557,14 @@ impl PipelineCache {
             })
             .collect::<Vec<_>>();
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
-            None
-        };
-
         let descriptor = RawRenderPipelineDescriptor {
             multiview: None,
             depth_stencil: descriptor.depth_stencil.clone(),
             label: descriptor.label.as_deref(),
-            layout,
+            layout: descriptor
+                .layout
+                .as_ref()
+                .map(|layout| self.layout_cache.get(&self.device, layout)),
             multisample: descriptor.multisample,
             primitive: descriptor.primitive,
             vertex: RawVertexState {
@@ -607,15 +603,12 @@ impl PipelineCache {
             }
         };
 
-        let layout = if let Some(layout) = &descriptor.layout {
-            Some(self.layout_cache.get(&self.device, layout))
-        } else {
-            None
-        };
-
         let descriptor = RawComputePipelineDescriptor {
             label: descriptor.label.as_deref(),
-            layout,
+            layout: descriptor
+                .layout
+                .as_ref()
+                .map(|layout| self.layout_cache.get(&self.device, layout)),
             module: &compute_module,
             entry_point: descriptor.entry_point.as_ref(),
         };

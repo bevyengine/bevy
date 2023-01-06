@@ -1574,18 +1574,16 @@ pub fn prepare_clusters(
 
                     if !indices_full {
                         for entity in cluster_lights.iter() {
-                            if let Some(light_index) = global_light_meta.entity_to_index.get(entity)
+                            let Some(light_index) = global_light_meta.entity_to_index.get(entity) else { continue };
+                            if view_clusters_bindings.n_indices()
+                                >= ViewClusterBindings::MAX_INDICES
+                                && !supports_storage_buffers
                             {
-                                if view_clusters_bindings.n_indices()
-                                    >= ViewClusterBindings::MAX_INDICES
-                                    && !supports_storage_buffers
-                                {
-                                    warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
-                                    indices_full = true;
-                                    break;
-                                }
-                                view_clusters_bindings.push_index(*light_index);
+                                warn!("Cluster light index lists is full! The PointLights in the view are affecting too many clusters.");
+                                indices_full = true;
+                                break;
                             }
+                            view_clusters_bindings.push_index(*light_index);
                         }
                     }
 
@@ -1606,17 +1604,16 @@ pub fn queue_shadow_view_bind_group(
     mut light_meta: ResMut<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
 ) {
-    if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        light_meta.shadow_view_bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding,
-                }],
-                label: Some("shadow_view_bind_group"),
-                layout: &shadow_pipeline.view_layout,
-            }));
-    }
+    let Some(view_binding) = view_uniforms.uniforms.binding() else { return };
+    light_meta.shadow_view_bind_group =
+        Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: view_binding,
+            }],
+            label: Some("shadow_view_bind_group"),
+            layout: &shadow_pipeline.view_layout,
+        }));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1656,33 +1653,26 @@ pub fn queue_shadows(
             // NOTE: Lights with shadow mapping disabled will have no visible entities
             // so no meshes will be queued
             for entity in visible_entities.iter().copied() {
-                if let Ok(mesh_handle) = casting_meshes.get(entity) {
-                    if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        let key =
-                            ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
-                        let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
-                            &shadow_pipeline,
-                            key,
-                            &mesh.layout,
-                        );
+                let Ok(mesh_handle) = casting_meshes.get(entity) else { continue };
+                let Some(mesh) = render_meshes.get(mesh_handle) else { continue };
+                let key = ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                let pipeline_id =
+                    pipelines.specialize(&mut pipeline_cache, &shadow_pipeline, key, &mesh.layout);
 
-                        let pipeline_id = match pipeline_id {
-                            Ok(id) => id,
-                            Err(err) => {
-                                error!("{}", err);
-                                continue;
-                            }
-                        };
-
-                        shadow_phase.add(Shadow {
-                            draw_function: draw_shadow_mesh,
-                            pipeline: pipeline_id,
-                            entity,
-                            distance: 0.0, // TODO: sort back-to-front
-                        });
+                let pipeline_id = match pipeline_id {
+                    Ok(id) => id,
+                    Err(err) => {
+                        error!("{}", err);
+                        continue;
                     }
-                }
+                };
+
+                shadow_phase.add(Shadow {
+                    draw_function: draw_shadow_mesh,
+                    pipeline: pipeline_id,
+                    entity,
+                    distance: 0.0, // TODO: sort back-to-front
+                });
             }
         }
     }

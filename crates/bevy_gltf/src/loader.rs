@@ -919,11 +919,10 @@ fn primitive_label(mesh: &gltf::Mesh, primitive: &Primitive) -> String {
 
 /// Returns the label for the `material`.
 fn material_label(material: &gltf::Material) -> String {
-    if let Some(index) = material.index() {
-        format!("Material{index}")
-    } else {
-        "MaterialDefault".to_string()
-    }
+    material
+        .index()
+        .map(|index| format!("Material{index}"))
+        .unwrap_or_else(|| "MaterialDefault".to_string())
 }
 
 /// Returns the label for the `texture`.
@@ -1049,11 +1048,8 @@ async fn load_buffers(
                 buffer_data.push(buffer_bytes);
             }
             gltf::buffer::Source::Bin => {
-                if let Some(blob) = gltf.blob.as_deref() {
-                    buffer_data.push(blob.into());
-                } else {
-                    return Err(GltfError::MissingBlob);
-                }
+                let blob = gltf.blob.as_deref().ok_or(GltfError::MissingBlob)?;
+                buffer_data.push(blob.into());
             }
         }
     }
@@ -1092,17 +1088,15 @@ fn resolve_node_hierarchy(
         let (label, node, children) = unprocessed_nodes.remove(&index).unwrap();
         assert!(children.is_empty());
         nodes.insert(index, (label, node));
-        if let Some(parent_index) = parents[index] {
-            let (_, parent_node, parent_children) =
-                unprocessed_nodes.get_mut(&parent_index).unwrap();
+        let Some(parent_index) = parents[index] else { continue };
+        let (_, parent_node, parent_children) = unprocessed_nodes.get_mut(&parent_index).unwrap();
 
-            assert!(parent_children.remove(&index));
-            if let Some((_, child_node)) = nodes.get(&index) {
-                parent_node.children.push(child_node.clone());
-            }
-            if parent_children.is_empty() {
-                empty_children.push_back(parent_index);
-            }
+        assert!(parent_children.remove(&index));
+        if let Some((_, child_node)) = nodes.get(&index) {
+            parent_node.children.push(child_node.clone());
+        }
+        if parent_children.is_empty() {
+            empty_children.push_back(parent_index);
         }
     }
     if !unprocessed_nodes.is_empty() {

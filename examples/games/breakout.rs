@@ -360,45 +360,43 @@ fn check_for_collisions(
 
     // check collision with walls
     for (collider_entity, transform, maybe_brick) in &collider_query {
-        let collision = collide(
+        let Some(collision) = collide(
             ball_transform.translation,
             ball_size,
             transform.translation,
             transform.scale.truncate(),
-        );
-        if let Some(collision) = collision {
-            // Sends a collision event so that other systems can react to the collision
-            collision_events.send_default();
+        ) else { continue };
+        // Sends a collision event so that other systems can react to the collision
+        collision_events.send_default();
 
-            // Bricks should be despawned and increment the scoreboard on collision
-            if maybe_brick.is_some() {
-                scoreboard.score += 1;
-                commands.entity(collider_entity).despawn();
-            }
+        // Bricks should be despawned and increment the scoreboard on collision
+        if maybe_brick.is_some() {
+            scoreboard.score += 1;
+            commands.entity(collider_entity).despawn();
+        }
 
-            // reflect the ball when it collides
-            let mut reflect_x = false;
-            let mut reflect_y = false;
+        // reflect the ball when it collides
+        let mut reflect_x = false;
+        let mut reflect_y = false;
 
-            // only reflect if the ball's velocity is going in the opposite direction of the
-            // collision
-            match collision {
-                Collision::Left => reflect_x = ball_velocity.x > 0.0,
-                Collision::Right => reflect_x = ball_velocity.x < 0.0,
-                Collision::Top => reflect_y = ball_velocity.y < 0.0,
-                Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
-                Collision::Inside => { /* do nothing */ }
-            }
+        // only reflect if the ball's velocity is going in the opposite direction of the
+        // collision
+        match collision {
+            Collision::Left => reflect_x = ball_velocity.x > 0.0,
+            Collision::Right => reflect_x = ball_velocity.x < 0.0,
+            Collision::Top => reflect_y = ball_velocity.y < 0.0,
+            Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
+            Collision::Inside => { /* do nothing */ }
+        }
 
-            // reflect velocity on the x-axis if we hit something on the x-axis
-            if reflect_x {
-                ball_velocity.x = -ball_velocity.x;
-            }
+        // reflect velocity on the x-axis if we hit something on the x-axis
+        if reflect_x {
+            ball_velocity.x = -ball_velocity.x;
+        }
 
-            // reflect velocity on the y-axis if we hit something on the y-axis
-            if reflect_y {
-                ball_velocity.y = -ball_velocity.y;
-            }
+        // reflect velocity on the y-axis if we hit something on the y-axis
+        if reflect_y {
+            ball_velocity.y = -ball_velocity.y;
         }
     }
 }

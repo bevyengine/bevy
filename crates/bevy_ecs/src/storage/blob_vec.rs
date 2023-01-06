@@ -303,16 +303,15 @@ impl BlobVec {
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
         // accidentally drop elements twice in the event of a drop impl panicking.
         self.len = 0;
-        if let Some(drop) = self.drop {
-            let layout_size = self.item_layout.size();
-            for i in 0..len {
-                // SAFETY: `i * layout_size` is inbounds for the allocation, and the item is left unreachable so it can be safely promoted to an `OwningPtr`
-                unsafe {
-                    // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
-                    // will panic here due to self.len being set to 0
-                    let ptr = self.get_ptr_mut().byte_add(i * layout_size).promote();
-                    (drop)(ptr);
-                }
+        let Some(drop) = self.drop else { return };
+        let layout_size = self.item_layout.size();
+        for i in 0..len {
+            // SAFETY: `i * layout_size` is inbounds for the allocation, and the item is left unreachable so it can be safely promoted to an `OwningPtr`
+            unsafe {
+                // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
+                // will panic here due to self.len being set to 0
+                let ptr = self.get_ptr_mut().byte_add(i * layout_size).promote();
+                (drop)(ptr);
             }
         }
     }

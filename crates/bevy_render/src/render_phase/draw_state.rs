@@ -40,11 +40,12 @@ impl DrawState {
         bind_group: BindGroupId,
         dynamic_indices: &[u32],
     ) -> bool {
-        if let Some(current_bind_group) = self.bind_groups.get(index) {
-            current_bind_group.0 == Some(bind_group) && dynamic_indices == current_bind_group.1
-        } else {
-            false
-        }
+        self.bind_groups
+            .get(index)
+            .map(|current_bind_group| {
+                current_bind_group.0 == Some(bind_group) && dynamic_indices == current_bind_group.1
+            })
+            .unwrap_or(false)
     }
 
     pub fn set_vertex_buffer(&mut self, index: usize, buffer: BufferId, offset: u64) {
@@ -55,11 +56,10 @@ impl DrawState {
     }
 
     pub fn is_vertex_buffer_set(&self, index: usize, buffer: BufferId, offset: u64) -> bool {
-        if let Some(current) = self.vertex_buffers.get(index) {
-            *current == Some((buffer, offset))
-        } else {
-            false
-        }
+        self.vertex_buffers
+            .get(index)
+            .map(|current| *current == Some((buffer, offset)))
+            .unwrap_or(false)
     }
 
     pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {

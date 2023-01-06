@@ -27,10 +27,11 @@ where
     }
 
     fn dyn_eq(&self, other: &dyn DynEq) -> bool {
-        if let Some(other) = other.as_any().downcast_ref::<T>() {
-            return self == other;
-        }
-        false
+        other
+            .as_any()
+            .downcast_ref::<T>()
+            .map(|other| self == other)
+            .unwrap_or(false)
     }
 }
 

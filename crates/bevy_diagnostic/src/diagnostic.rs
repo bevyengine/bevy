@@ -169,10 +169,8 @@ impl Diagnostic {
             return None;
         }
 
-        if let Some(newest) = self.history.back() {
-            if let Some(oldest) = self.history.front() {
-                return Some(newest.time.duration_since(oldest.time));
-            }
+        if let (Some(newest), Some(oldest)) = (self.history.back(), self.history.front()) {
+            return Some(newest.time.duration_since(oldest.time));
         }
 
         None

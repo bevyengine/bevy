@@ -234,12 +234,11 @@ pub fn extract_skinned_meshes(
             continue;
         }
         // PERF: This can be expensive, can we move this to prepare?
-        if let Some(skinned_joints) =
+        let Some(skinned_joints) =
             SkinnedMeshJoints::build(skin, &inverse_bindposes, &joint_query, &mut uniform.buffer)
-        {
-            last_start = last_start.max(skinned_joints.index as usize);
-            values.push((entity, skinned_joints.to_buffer_index()));
-        }
+            else { continue };
+        last_start = last_start.max(skinned_joints.index as usize);
+        values.push((entity, skinned_joints.to_buffer_index()));
     }
 
     // Pad out the buffer to ensure that there's enough space for bindings
@@ -717,41 +716,40 @@ pub fn queue_mesh_bind_group(
     mesh_uniforms: Res<ComponentUniforms<MeshUniform>>,
     skinned_mesh_uniform: Res<SkinnedMeshUniform>,
 ) {
-    if let Some(mesh_binding) = mesh_uniforms.uniforms().binding() {
-        let mut mesh_bind_group = MeshBindGroup {
-            normal: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: mesh_binding.clone(),
-                }],
-                label: Some("mesh_bind_group"),
-                layout: &mesh_pipeline.mesh_layout,
-            }),
-            skinned: None,
-        };
+    let Some(mesh_binding) = mesh_uniforms.uniforms().binding() else { return };
+    let mut mesh_bind_group = MeshBindGroup {
+        normal: render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: mesh_binding.clone(),
+            }],
+            label: Some("mesh_bind_group"),
+            layout: &mesh_pipeline.mesh_layout,
+        }),
+        skinned: None,
+    };
 
-        if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
-            mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: mesh_binding,
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: BindingResource::Buffer(BufferBinding {
-                            buffer: skinned_joints_buffer,
-                            offset: 0,
-                            size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
-                        }),
-                    },
-                ],
-                label: Some("skinned_mesh_bind_group"),
-                layout: &mesh_pipeline.skinned_mesh_layout,
-            }));
-        }
-        commands.insert_resource(mesh_bind_group);
+    if let Some(skinned_joints_buffer) = skinned_mesh_uniform.buffer.buffer() {
+        mesh_bind_group.skinned = Some(render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[
+                BindGroupEntry {
+                    binding: 0,
+                    resource: mesh_binding,
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: BindingResource::Buffer(BufferBinding {
+                        buffer: skinned_joints_buffer,
+                        offset: 0,
+                        size: Some(NonZeroU64::new(JOINT_BUFFER_SIZE as u64).unwrap()),
+                    }),
+                },
+            ],
+            label: Some("skinned_mesh_bind_group"),
+            layout: &mesh_pipeline.skinned_mesh_layout,
+        }));
     }
+    commands.insert_resource(mesh_bind_group);
 }
 
 // NOTE: This is using BufferVec because it is using a trick to allow a fixed-size array
@@ -947,25 +945,22 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
-            pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
-            match &gpu_mesh.buffer_info {
-                GpuBufferInfo::Indexed {
-                    buffer,
-                    index_format,
-                    count,
-                } => {
-                    pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                    pass.draw_indexed(0..*count, 0, 0..1);
-                }
-                GpuBufferInfo::NonIndexed { vertex_count } => {
-                    pass.draw(0..*vertex_count, 0..1);
-                }
+        let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) else { return RenderCommandResult::Failure };
+        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        match &gpu_mesh.buffer_info {
+            GpuBufferInfo::Indexed {
+                buffer,
+                index_format,
+                count,
+            } => {
+                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
+                pass.draw_indexed(0..*count, 0, 0..1);
             }
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
+            GpuBufferInfo::NonIndexed { vertex_count } => {
+                pass.draw(0..*vertex_count, 0..1);
+            }
         }
+        RenderCommandResult::Success
     }
 }
 

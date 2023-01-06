@@ -93,15 +93,13 @@ impl FontAtlas {
         texture: &Image,
     ) -> bool {
         let texture_atlas = texture_atlases.get_mut(&self.texture_atlas).unwrap();
-        if let Some(index) =
-            self.dynamic_texture_atlas_builder
-                .add_texture(texture_atlas, textures, texture)
-        {
-            self.glyph_to_atlas_index
-                .insert((glyph_id, subpixel_offset), index);
-            true
-        } else {
-            false
-        }
+        self.dynamic_texture_atlas_builder
+            .add_texture(texture_atlas, textures, texture)
+            .map(|index| {
+                self.glyph_to_atlas_index
+                    .insert((glyph_id, subpixel_offset), index);
+                true
+            })
+            .unwrap_or(false)
     }
 }

@@ -342,48 +342,44 @@ pub fn queue_material2d_meshes<M: Material2d>(
         }
 
         for visible_entity in &visible_entities.entities {
-            if let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
-                material2d_meshes.get(*visible_entity)
-            {
-                if let Some(material2d) = render_materials.get(material2d_handle) {
-                    if let Some(mesh) = render_meshes.get(&mesh2d_handle.0) {
-                        let mesh_key = view_key
-                            | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
+            let Ok((material2d_handle, mesh2d_handle, mesh2d_uniform)) =
+            material2d_meshes.get(*visible_entity) else { continue };
+            let Some(material2d) = render_materials.get(material2d_handle) else { continue };
+            let Some(mesh) = render_meshes.get(&mesh2d_handle.0) else { continue };
+            let mesh_key =
+                view_key | Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology);
 
-                        let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
-                            &material2d_pipeline,
-                            Material2dKey {
-                                mesh_key,
-                                bind_group_data: material2d.key.clone(),
-                            },
-                            &mesh.layout,
-                        );
+            let pipeline_id = pipelines.specialize(
+                &mut pipeline_cache,
+                &material2d_pipeline,
+                Material2dKey {
+                    mesh_key,
+                    bind_group_data: material2d.key.clone(),
+                },
+                &mesh.layout,
+            );
 
-                        let pipeline_id = match pipeline_id {
-                            Ok(id) => id,
-                            Err(err) => {
-                                error!("{}", err);
-                                continue;
-                            }
-                        };
-
-                        let mesh_z = mesh2d_uniform.transform.w_axis.z;
-                        transparent_phase.add(Transparent2d {
-                            entity: *visible_entity,
-                            draw_function: draw_transparent_pbr,
-                            pipeline: pipeline_id,
-                            // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
-                            // lowest sort key and getting closer should increase. As we have
-                            // -z in front of the camera, the largest distance is -far with values increasing toward the
-                            // camera. As such we can just use mesh_z as the distance
-                            sort_key: FloatOrd(mesh_z),
-                            // This material is not batched
-                            batch_range: None,
-                        });
-                    }
+            let pipeline_id = match pipeline_id {
+                Ok(id) => id,
+                Err(err) => {
+                    error!("{}", err);
+                    continue;
                 }
-            }
+            };
+
+            let mesh_z = mesh2d_uniform.transform.w_axis.z;
+            transparent_phase.add(Transparent2d {
+                entity: *visible_entity,
+                draw_function: draw_transparent_pbr,
+                pipeline: pipeline_id,
+                // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
+                // lowest sort key and getting closer should increase. As we have
+                // -z in front of the camera, the largest distance is -far with values increasing toward the
+                // camera. As such we can just use mesh_z as the distance
+                sort_key: FloatOrd(mesh_z),
+                // This material is not batched
+                batch_range: None,
+            });
         }
     }
 }

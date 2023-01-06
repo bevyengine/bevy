@@ -441,18 +441,17 @@ pub fn queue_mesh2d_bind_group(
     render_device: Res<RenderDevice>,
     mesh2d_uniforms: Res<ComponentUniforms<Mesh2dUniform>>,
 ) {
-    if let Some(binding) = mesh2d_uniforms.uniforms().binding() {
-        commands.insert_resource(Mesh2dBindGroup {
-            value: render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: binding,
-                }],
-                label: Some("mesh2d_bind_group"),
-                layout: &mesh2d_pipeline.mesh_layout,
-            }),
-        });
-    }
+    let Some(binding) = mesh2d_uniforms.uniforms().binding() else { return };
+    commands.insert_resource(Mesh2dBindGroup {
+        value: render_device.create_bind_group(&BindGroupDescriptor {
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: binding,
+            }],
+            label: Some("mesh2d_bind_group"),
+            layout: &mesh2d_pipeline.mesh_layout,
+        }),
+    });
 }
 
 #[derive(Component)]

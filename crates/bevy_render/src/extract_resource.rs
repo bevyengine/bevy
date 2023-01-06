@@ -46,11 +46,7 @@ pub fn extract_resource<R: ExtractResource>(
     target_resource: Option<ResMut<R>>,
     #[cfg(debug_assertions)] mut has_warned_on_remove: Local<bool>,
 ) {
-    if let Some(mut target_resource) = target_resource {
-        if main_resource.is_changed() {
-            *target_resource = R::extract_resource(&main_resource);
-        }
-    } else {
+    let Some(mut target_resource) = target_resource else {
         #[cfg(debug_assertions)]
         if !main_resource.is_added() && !*has_warned_on_remove {
             *has_warned_on_remove = true;
@@ -61,5 +57,9 @@ pub fn extract_resource<R: ExtractResource>(
             );
         }
         commands.insert_resource(R::extract_resource(&main_resource));
+        return;
+    };
+    if main_resource.is_changed() {
+        *target_resource = R::extract_resource(&main_resource);
     }
 }

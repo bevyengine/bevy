@@ -149,14 +149,13 @@ fn start_animation(
     mut done: Local<bool>,
     scene_handle: Res<SceneHandle>,
 ) {
-    if !*done {
-        if let Ok(mut player) = player.get_single_mut() {
-            if let Some(animation) = scene_handle.animations.first() {
-                player.play(animation.clone_weak()).repeat();
-                *done = true;
-            }
-        }
-    }
+    if *done {
+        return;
+    };
+    let Ok(mut player) = player.get_single_mut() else { return };
+    let Some(animation) = scene_handle.animations.first() else { return };
+    player.play(animation.clone_weak()).repeat();
+    *done = true;
 }
 
 #[cfg(feature = "animation")]

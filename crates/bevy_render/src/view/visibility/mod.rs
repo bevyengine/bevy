@@ -268,11 +268,9 @@ pub fn calculate_bounds(
     without_aabb: Query<(Entity, &Handle<Mesh>), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).insert(aabb);
-            }
-        }
+        let Some(mesh) = meshes.get(mesh_handle) else { continue };
+        let Some(aabb) = mesh.compute_aabb() else { continue };
+        commands.entity(entity).insert(aabb);
     }
 }
 
@@ -308,16 +306,15 @@ fn visibility_propagate_system(
         // reset "view" visibility here ... if this entity should be drawn a future system should set this to true
         computed_visibility
             .reset(visibility == Visibility::Inherited || visibility == Visibility::Visible);
-        if let Some(children) = children {
-            for child in children.iter() {
-                let _ = propagate_recursive(
-                    computed_visibility.is_visible_in_hierarchy(),
-                    &mut visibility_query,
-                    &children_query,
-                    *child,
-                    entity,
-                );
-            }
+        let Some(children) = children else { continue };
+        for child in children.iter() {
+            let _ = propagate_recursive(
+                computed_visibility.is_visible_in_hierarchy(),
+                &mut visibility_query,
+                &children_query,
+                *child,
+                entity,
+            );
         }
     }
 }

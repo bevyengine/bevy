@@ -124,11 +124,10 @@ impl<T: Pod> BufferVec<T> {
             return;
         }
         self.reserve(self.values.len(), device);
-        if let Some(buffer) = &self.buffer {
-            let range = 0..self.item_size * self.values.len();
-            let bytes: &[u8] = cast_slice(&self.values);
-            queue.write_buffer(buffer, 0, &bytes[range]);
-        }
+        let Some(buffer) = &self.buffer else { return };
+        let range = 0..self.item_size * self.values.len();
+        let bytes: &[u8] = cast_slice(&self.values);
+        queue.write_buffer(buffer, 0, &bytes[range]);
     }
 
     pub fn truncate(&mut self, len: usize) {

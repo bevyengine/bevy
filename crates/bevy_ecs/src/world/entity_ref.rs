@@ -609,11 +609,10 @@ impl<'w> EntityMut<'w> {
             };
         };
 
-        if let Some(moved_entity) = moved_entity {
-            let moved_location = world.entities.get(moved_entity).unwrap();
-            world.archetypes[moved_location.archetype_id]
-                .set_entity_table_row(moved_location.archetype_row, table_row);
-        }
+        let Some(moved_entity) = moved_entity else { return };
+        let moved_location = world.entities.get(moved_entity).unwrap();
+        world.archetypes[moved_location.archetype_id]
+            .set_entity_table_row(moved_location.archetype_row, table_row);
     }
 
     #[inline]
@@ -905,11 +904,11 @@ unsafe fn get_ticks_with_type(
 }
 
 fn contains_component_with_type(world: &World, type_id: TypeId, location: EntityLocation) -> bool {
-    if let Some(component_id) = world.components.get_id(type_id) {
-        contains_component_with_id(world, component_id, location)
-    } else {
-        false
-    }
+    world
+        .components
+        .get_id(type_id)
+        .map(|component_id| contains_component_with_id(world, component_id, location))
+        .unwrap_or(false)
 }
 
 fn contains_component_with_id(
@@ -950,7 +949,6 @@ unsafe fn remove_bundle_from_archetype(
         }
     };
     let result = if let Some(result) = remove_bundle_result {
-        // this Bundle removal result is cached. just return that!
         result
     } else {
         let mut next_table_components;

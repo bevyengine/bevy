@@ -58,19 +58,16 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
         let mut new_debug_record = StringRecorder::new();
         attrs.record(&mut new_debug_record);
 
-        if let Some(span_ref) = ctx.span(id) {
-            span_ref
-                .extensions_mut()
-                .insert::<StringRecorder>(new_debug_record);
-        }
+        let Some(span_ref) = ctx.span(id) else { return };
+        span_ref
+            .extensions_mut()
+            .insert::<StringRecorder>(new_debug_record);
     }
 
     fn on_record(&self, id: &Id, values: &Record<'_>, ctx: Context<'_, S>) {
-        if let Some(span_ref) = ctx.span(id) {
-            if let Some(debug_record) = span_ref.extensions_mut().get_mut::<StringRecorder>() {
-                values.record(debug_record);
-            }
-        }
+        let Some(span_ref) = ctx.span(id) else { return };
+        let Some(debug_record) = span_ref.extensions_mut().get_mut::<StringRecorder>() else { return };
+        values.record(debug_record);
     }
 
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {

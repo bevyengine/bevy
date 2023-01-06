@@ -190,16 +190,10 @@ impl SceneSpawner {
         scene_handles: &[Handle<DynamicScene>],
     ) -> Result<(), SceneSpawnError> {
         for scene_handle in scene_handles {
-            if let Some(spawned_instances) = self.spawned_dynamic_scenes.get(scene_handle) {
-                for instance_id in spawned_instances {
-                    if let Some(instance_info) = self.spawned_instances.get_mut(instance_id) {
-                        Self::spawn_dynamic_internal(
-                            world,
-                            scene_handle,
-                            &mut instance_info.entity_map,
-                        )?;
-                    }
-                }
+            let Some(spawned_instances) = self.spawned_dynamic_scenes.get(scene_handle) else { continue };
+            for instance_id in spawned_instances {
+                let Some(instance_info) = self.spawned_instances.get_mut(instance_id) else { continue };
+                Self::spawn_dynamic_internal(world, scene_handle, &mut instance_info.entity_map)?;
             }
         }
         Ok(())
@@ -265,28 +259,28 @@ impl SceneSpawner {
         let scenes_with_parent = std::mem::take(&mut self.scenes_with_parent);
 
         for (instance_id, parent) in scenes_with_parent {
-            if let Some(instance) = self.spawned_instances.get(&instance_id) {
-                for entity in instance.entity_map.values() {
-                    // Add the `Parent` component to the scene root, and update the `Children` component of
-                    // the scene parent
-                    if !world
-                        .get_entity(entity)
-                        // This will filter only the scene root entity, as all other from the
-                        // scene have a parent
-                        .map(|entity| entity.contains::<Parent>())
-                        // Default is true so that it won't run on an entity that wouldn't exist anymore
-                        // this case shouldn't happen anyway
-                        .unwrap_or(true)
-                    {
-                        AddChild {
-                            parent,
-                            child: entity,
-                        }
-                        .write(world);
-                    }
-                }
-            } else {
+            let Some(instance) = self.spawned_instances.get(&instance_id) else {
                 self.scenes_with_parent.push((instance_id, parent));
+                continue;
+            };
+            for entity in instance.entity_map.values() {
+                // Add the `Parent` component to the scene root, and update the `Children` component of
+                // the scene parent
+                if !world
+                    .get_entity(entity)
+                    // This will filter only the scene root entity, as all other from the
+                    // scene have a parent
+                    .map(|entity| entity.contains::<Parent>())
+                    // Default is true so that it won't run on an entity that wouldn't exist anymore
+                    // this case shouldn't happen anyway
+                    .unwrap_or(true)
+                {
+                    AddChild {
+                        parent,
+                        child: entity,
+                    }
+                    .write(world);
+                }
             }
         }
     }

@@ -114,10 +114,9 @@ pub fn ui_focus_system(
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for node in node_query.iter_mut() {
-            if let Some(mut interaction) = node.interaction {
-                if *interaction == Interaction::Clicked {
-                    *interaction = Interaction::None;
-                }
+            let Some(mut interaction) = node.interaction else { continue };
+            if *interaction == Interaction::Clicked {
+                *interaction = Interaction::None;
             }
         }
     }
@@ -239,11 +238,10 @@ pub fn ui_focus_system(
     // `moused_over_nodes` after the previous loop is exited.
     let mut iter = node_query.iter_many_mut(moused_over_nodes);
     while let Some(node) = iter.fetch_next() {
-        if let Some(mut interaction) = node.interaction {
-            // don't reset clicked nodes because they're handled separately
-            if *interaction != Interaction::Clicked {
-                interaction.set_if_neq(Interaction::None);
-            }
+        let Some(mut interaction) = node.interaction else { continue };
+        // don't reset clicked nodes because they're handled separately
+        if *interaction != Interaction::Clicked {
+            interaction.set_if_neq(Interaction::None);
         }
     }
 }

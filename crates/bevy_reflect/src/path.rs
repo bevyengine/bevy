@@ -110,42 +110,40 @@ impl GetPath for dyn Reflect {
             let current_index = index;
             match token {
                 Token::Dot => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        current = read_field(current, value, current_index)?;
-                    } else {
+                    let Some(Token::Ident(value)) = next_token(path, &mut index) else {
                         return Err(ReflectPathError::ExpectedIdent {
                             index: current_index,
                         });
-                    }
+                    };
+                    current = read_field(current, value, current_index)?;
                 }
                 Token::OpenBracket => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        match current.reflect_ref() {
-                            ReflectRef::List(reflect_list) => {
-                                current = read_array_entry(reflect_list, value, current_index)?;
-                            }
-                            ReflectRef::Array(reflect_arr) => {
-                                current = read_array_entry(reflect_arr, value, current_index)?;
-                            }
-                            _ => {
-                                return Err(ReflectPathError::ExpectedList {
-                                    index: current_index,
-                                })
-                            }
-                        }
-                    } else {
+                    let Some(Token::Ident(value)) = next_token(path, &mut index) else {
                         return Err(ReflectPathError::ExpectedIdent {
                             index: current_index,
                         });
+                    };
+
+                    match current.reflect_ref() {
+                        ReflectRef::List(reflect_list) => {
+                            current = read_array_entry(reflect_list, value, current_index)?;
+                        }
+                        ReflectRef::Array(reflect_arr) => {
+                            current = read_array_entry(reflect_arr, value, current_index)?;
+                        }
+                        _ => {
+                            return Err(ReflectPathError::ExpectedList {
+                                index: current_index,
+                            })
+                        }
                     }
 
-                    if let Some(Token::CloseBracket) = next_token(path, &mut index) {
-                    } else {
+                    let Some(Token::CloseBracket) = next_token(path, &mut index) else {
                         return Err(ReflectPathError::ExpectedToken {
                             index: current_index,
                             token: "]",
                         });
-                    }
+                    };
                 }
                 Token::CloseBracket => {
                     return Err(ReflectPathError::UnexpectedToken {
@@ -172,42 +170,40 @@ impl GetPath for dyn Reflect {
             let current_index = index;
             match token {
                 Token::Dot => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        current = read_field_mut(current, value, current_index)?;
-                    } else {
+                    let Some(Token::Ident(value)) = next_token(path, &mut index) else {
                         return Err(ReflectPathError::ExpectedIdent {
                             index: current_index,
                         });
-                    }
+                    };
+                    current = read_field_mut(current, value, current_index)?;
                 }
                 Token::OpenBracket => {
-                    if let Some(Token::Ident(value)) = next_token(path, &mut index) {
-                        match current.reflect_mut() {
-                            ReflectMut::List(reflect_list) => {
-                                current = read_array_entry_mut(reflect_list, value, current_index)?;
-                            }
-                            ReflectMut::Array(reflect_arr) => {
-                                current = read_array_entry_mut(reflect_arr, value, current_index)?;
-                            }
-                            _ => {
-                                return Err(ReflectPathError::ExpectedStruct {
-                                    index: current_index,
-                                })
-                            }
-                        }
-                    } else {
+                    let Some(Token::Ident(value)) = next_token(path, &mut index) else {
                         return Err(ReflectPathError::ExpectedIdent {
                             index: current_index,
                         });
+                    };
+
+                    match current.reflect_mut() {
+                        ReflectMut::List(reflect_list) => {
+                            current = read_array_entry_mut(reflect_list, value, current_index)?;
+                        }
+                        ReflectMut::Array(reflect_arr) => {
+                            current = read_array_entry_mut(reflect_arr, value, current_index)?;
+                        }
+                        _ => {
+                            return Err(ReflectPathError::ExpectedStruct {
+                                index: current_index,
+                            })
+                        }
                     }
 
-                    if let Some(Token::CloseBracket) = next_token(path, &mut index) {
-                    } else {
+                    let Some(Token::CloseBracket) = next_token(path, &mut index) else {
                         return Err(ReflectPathError::ExpectedToken {
                             index: current_index,
                             token: "]",
                         });
-                    }
+                    };
                 }
                 Token::CloseBracket => {
                     return Err(ReflectPathError::UnexpectedToken {

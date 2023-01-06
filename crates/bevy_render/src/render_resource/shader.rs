@@ -536,21 +536,19 @@ impl ShaderProcessor {
                     let mut line_with_defs = line.to_string();
                     for capture in self.def_regex.captures_iter(line) {
                         let def = capture.get(1).unwrap();
-                        if let Some(def) = shader_defs_unique.get(def.as_str()) {
-                            line_with_defs = self
-                                .def_regex
-                                .replace(&line_with_defs, def.value_as_string())
-                                .to_string();
-                        }
+                        let Some(def) = shader_defs_unique.get(def.as_str()) else { continue };
+                        line_with_defs = self
+                            .def_regex
+                            .replace(&line_with_defs, def.value_as_string())
+                            .to_string();
                     }
                     for capture in self.def_regex_delimited.captures_iter(line) {
                         let def = capture.get(1).unwrap();
-                        if let Some(def) = shader_defs_unique.get(def.as_str()) {
-                            line_with_defs = self
-                                .def_regex_delimited
-                                .replace(&line_with_defs, def.value_as_string())
-                                .to_string();
-                        }
+                        let Some(def) = shader_defs_unique.get(def.as_str()) else  { continue };
+                        line_with_defs = self
+                            .def_regex_delimited
+                            .replace(&line_with_defs, def.value_as_string())
+                            .to_string();
                     }
                     final_string.push_str(&line_with_defs);
                     final_string.push('\n');
