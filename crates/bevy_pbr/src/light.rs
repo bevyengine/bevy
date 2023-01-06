@@ -9,7 +9,7 @@ use bevy_render::{
     extract_resource::ExtractResource,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
-    renderer::GpuDevice,
+    renderer::Device,
     view::{ComputedVisibility, RenderLayers, VisibleEntities},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
@@ -863,10 +863,10 @@ pub(crate) fn assign_lights_to_clusters(
     mut lights: Local<Vec<PointLightAssignmentData>>,
     mut cluster_aabb_spheres: Local<Vec<Option<Sphere>>>,
     mut max_point_lights_warning_emitted: Local<bool>,
-    gpu_device: Option<Res<GpuDevice>>,
+    device: Option<Res<Device>>,
 ) {
-    let gpu_device = match gpu_device {
-        Some(gpu_device) => gpu_device,
+    let device = match device {
+        Some(device) => device,
         None => return,
     };
 
@@ -903,7 +903,7 @@ pub(crate) fn assign_lights_to_clusters(
     );
 
     let clustered_forward_buffer_binding_type =
-        gpu_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
+        device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
     let supports_storage_buffers = matches!(
         clustered_forward_buffer_binding_type,
         BufferBindingType::Storage { .. }

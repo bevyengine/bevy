@@ -77,7 +77,7 @@ impl Node for MainPass2dNode {
             };
 
             let render_pass = render_context
-                .gpu_command_encoder
+                .command_encoder
                 .begin_render_pass(&pass_descriptor);
             let mut render_pass = TrackedRenderPass::new(render_pass);
 
@@ -104,7 +104,7 @@ impl Node for MainPass2dNode {
             };
 
             render_context
-                .gpu_command_encoder
+                .command_encoder
                 .begin_render_pass(&pass_descriptor);
         }
 

@@ -10,7 +10,7 @@ use bevy::{
         render_asset::RenderAssets,
         render_graph::{self, RenderContext, RenderGraph},
         render_resource::*,
-        renderer::GpuDevice,
+        renderer::Device,
         RenderApp, RenderStage,
     },
 };
@@ -95,10 +95,10 @@ fn queue_bind_group(
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<Image>>,
     game_of_life_image: Res<GameOfLifeImage>,
-    gpu_device: Res<GpuDevice>,
+    device: Res<Device>,
 ) {
     let view = &gpu_images[&game_of_life_image.0];
-    let bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
+    let bind_group = device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &pipeline.texture_bind_group_layout,
         entries: &[BindGroupEntry {
@@ -120,7 +120,7 @@ impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
         let texture_bind_group_layout =
             world
-                .resource::<GpuDevice>()
+                .resource::<Device>()
                 .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     label: None,
                     entries: &[BindGroupLayoutEntry {
@@ -215,7 +215,7 @@ impl render_graph::Node for GameOfLifeNode {
         let pipeline = world.resource::<GameOfLifePipeline>();
 
         let mut pass = render_context
-            .gpu_command_encoder
+            .command_encoder
             .begin_compute_pass(&ComputePassDescriptor::default());
 
         pass.set_bind_group(0, texture_bind_group, &[]);

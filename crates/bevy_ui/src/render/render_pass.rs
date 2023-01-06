@@ -85,7 +85,7 @@ impl Node for UiPassNode {
         };
 
         let render_pass = render_context
-            .gpu_command_encoder
+            .command_encoder
             .begin_render_pass(&pass_descriptor);
         let mut render_pass = TrackedRenderPass::new(render_pass);
 

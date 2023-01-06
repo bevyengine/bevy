@@ -1,21 +1,21 @@
-mod gpu_device;
+mod device;
 mod graph_runner;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
-pub use gpu_device::*;
+pub use device::*;
 pub use graph_runner::*;
 
 use crate::{
     render_graph::RenderGraph,
-    settings::{GpuSettings, GpuSettingsPriority},
+    settings::{Settings, SettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{Adapter, AdapterInfo, Instance, Queue, RequestAdapterOptions};
+use wgpu::RequestAdapterOptions;
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -23,13 +23,13 @@ pub fn render_system(world: &mut World) {
         graph.update(world);
     });
     let graph = world.resource::<RenderGraph>();
-    let gpu_device = world.resource::<GpuDevice>();
-    let gpu_queue = world.resource::<GpuQueue>();
+    let device = world.resource::<Device>();
+    let queue = world.resource::<Queue>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
-        gpu_device.clone(), // TODO: is this clone really necessary?
-        &gpu_queue.0,
+        device.clone(), // TODO: is this clone really necessary?
+        &queue.0,
         world,
     ) {
         error!("Error running render graph:");
@@ -86,21 +86,21 @@ pub fn render_system(world: &mut World) {
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct GpuQueue(pub Arc<Queue>);
+pub struct Queue(pub Arc<wgpu::Queue>);
 
 /// The handle to the physical device being used for rendering.
 /// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct GpuAdapter(pub Arc<Adapter>);
+pub struct Adapter(pub Arc<wgpu::Adapter>);
 
-/// The GPU instance is used to initialize the [`GpuQueue`] and [`GpuDevice`],
+/// The GPU instance is used to initialize the [`Queue`] and [`Device`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Deref, DerefMut)]
-pub struct GpuInstance(pub Instance);
+pub struct Instance(pub wgpu::Instance);
 
 /// The `AdapterInfo` of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct GpuAdapterInfo(pub AdapterInfo);
+pub struct AdapterInfo(pub wgpu::AdapterInfo);
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -111,10 +111,10 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
-    instance: &Instance,
-    settings: &GpuSettings,
+    instance: &wgpu::Instance,
+    settings: &Settings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (GpuDevice, GpuQueue, GpuAdapterInfo, GpuAdapter) {
+) -> (Device, Queue, AdapterInfo, Adapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -136,7 +136,7 @@ pub async fn initialize_renderer(
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
     let mut limits = settings.limits.clone();
-    if matches!(settings.priority, GpuSettingsPriority::Functionality) {
+    if matches!(settings.priority, SettingsPriority::Functionality) {
         features = adapter.features();
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
@@ -264,9 +264,9 @@ pub async fn initialize_renderer(
     let queue = Arc::new(queue);
     let adapter = Arc::new(adapter);
     (
-        GpuDevice::from(device),
-        GpuQueue(queue),
-        GpuAdapterInfo(adapter_info),
-        GpuAdapter(adapter),
+        Device::from(device),
+        Queue(queue),
+        AdapterInfo(adapter_info),
+        Adapter(adapter),
     )
 }

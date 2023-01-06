@@ -18,7 +18,7 @@ use bevy::{
             ShaderRef, ShaderStages, SpecializedMeshPipelineError, TextureSampleType,
             TextureViewDescriptor, TextureViewDimension,
         },
-        renderer::GpuDevice,
+        renderer::Device,
         texture::{CompressedImageFormats, FallbackImage},
     },
 };
@@ -105,7 +105,7 @@ fn cycle_cubemap_asset(
     mut next_swap: Local<f32>,
     mut cubemap: ResMut<Cubemap>,
     asset_server: Res<AssetServer>,
-    gpu_device: Res<GpuDevice>,
+    device: Res<Device>,
 ) {
     let now = time.elapsed_seconds();
     if *next_swap == 0.0 {
@@ -116,7 +116,7 @@ fn cycle_cubemap_asset(
     }
     *next_swap += CUBEMAP_SWAP_DELAY;
 
-    let supported_compressed_formats = CompressedImageFormats::from_features(gpu_device.features());
+    let supported_compressed_formats = CompressedImageFormats::from_features(device.features());
 
     let mut new_index = cubemap.index;
     for _ in 0..CUBEMAPS.len() {
@@ -223,7 +223,7 @@ impl AsBindGroup for CubemapMaterial {
     fn as_bind_group(
         &self,
         layout: &BindGroupLayout,
-        gpu_device: &GpuDevice,
+        device: &Device,
         images: &RenderAssets<Image>,
         _fallback_image: &FallbackImage,
     ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
@@ -234,7 +234,7 @@ impl AsBindGroup for CubemapMaterial {
         let image = images
             .get(base_color_texture)
             .ok_or(AsBindGroupError::RetryNextUpdate)?;
-        let bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
+        let bind_group = device.create_bind_group(&BindGroupDescriptor {
             entries: &[
                 BindGroupEntry {
                     binding: 0,
@@ -259,8 +259,8 @@ impl AsBindGroup for CubemapMaterial {
         })
     }
 
-    fn bind_group_layout(gpu_device: &GpuDevice) -> BindGroupLayout {
-        gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+    fn bind_group_layout(device: &Device) -> BindGroupLayout {
+        device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // Cubemap Base Color Texture
                 BindGroupLayoutEntry {

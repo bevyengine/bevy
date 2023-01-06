@@ -28,21 +28,19 @@ pub use wgpu::{
     util::BufferInitDescriptor, AddressMode, BindGroupDescriptor, BindGroupEntry,
     BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType, BlendComponent,
     BlendFactor, BlendOperation, BlendState, BufferAddress, BufferBinding, BufferBindingType,
-    BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites,
+    BufferDescriptor, BufferSize, BufferUsages, ColorTargetState, ColorWrites, CommandEncoder,
     CommandEncoderDescriptor, CompareFunction, ComputePass, ComputePassDescriptor, DepthBiasState,
-    DepthStencilState, Extent3d, Face, FilterMode, FrontFace, ImageCopyBuffer, ImageCopyBufferBase,
-    ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout, ImageSubresourceRange, IndexFormat,
-    LoadOp, MapMode, MultisampleState, Operations, Origin3d, PipelineLayout,
-    PipelineLayoutDescriptor, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPass,
-    RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-    SamplerBindingType, SamplerDescriptor, ShaderModule, ShaderModuleDescriptor, ShaderSource,
-    ShaderStages, StencilFaceState, StencilOperation, StencilState, StorageTextureAccess,
-    TextureAspect, TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType,
-    TextureUsages, TextureViewDescriptor, TextureViewDimension, VertexAttribute, VertexFormat,
-    VertexStepMode,
+    DepthStencilState, Extent3d, Face, Features, FilterMode, FrontFace, ImageCopyBuffer,
+    ImageCopyBufferBase, ImageCopyTexture, ImageCopyTextureBase, ImageDataLayout,
+    ImageSubresourceRange, IndexFormat, Limits, LoadOp, MapMode, MultisampleState, Operations,
+    Origin3d, PipelineLayout, PipelineLayoutDescriptor, PolygonMode, PrimitiveState,
+    PrimitiveTopology, RenderPass, RenderPassColorAttachment, RenderPassDepthStencilAttachment,
+    RenderPassDescriptor, SamplerBindingType, SamplerDescriptor, ShaderModule,
+    ShaderModuleDescriptor, ShaderSource, ShaderStages, StencilFaceState, StencilOperation,
+    StencilState, StorageTextureAccess, TextureAspect, TextureDescriptor, TextureDimension,
+    TextureFormat, TextureSampleType, TextureUsages, TextureViewDescriptor, TextureViewDimension,
+    VertexAttribute, VertexFormat, VertexStepMode,
 };
-
-pub use wgpu::{CommandEncoder as GpuCommandEncoder, Features as GpuFeatures, Limits as GpuLimits};
 
 pub use wgpu::{
     ComputePipelineDescriptor as RawComputePipelineDescriptor, FragmentState as RawFragmentState,

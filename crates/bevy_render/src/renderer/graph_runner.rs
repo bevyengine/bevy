@@ -13,7 +13,7 @@ use crate::{
         Edge, NodeId, NodeRunError, NodeState, RenderContext, RenderGraph, RenderGraphContext,
         SlotLabel, SlotType, SlotValue,
     },
-    renderer::GpuDevice,
+    renderer::Device,
 };
 
 pub(crate) struct RenderGraphRunner;
@@ -54,22 +54,22 @@ pub enum RenderGraphRunnerError {
 impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
-        gpu_device: GpuDevice,
+        device: Device,
         queue: &wgpu::Queue,
         world: &World,
     ) -> Result<(), RenderGraphRunnerError> {
-        let gpu_command_encoder =
-            gpu_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+        let command_encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         let mut render_context = RenderContext {
-            gpu_device,
-            gpu_command_encoder,
+            device,
+            command_encoder,
         };
 
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
         {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-            queue.submit(vec![render_context.gpu_command_encoder.finish()]);
+            queue.submit(vec![render_context.command_encoder.finish()]);
         }
         Ok(())
     }

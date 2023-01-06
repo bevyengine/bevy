@@ -10,17 +10,16 @@ pub use graph::*;
 pub use node::*;
 pub use node_slot::*;
 
-use crate::renderer::GpuDevice;
+use crate::{render_resource::CommandEncoder, renderer::Device};
 use thiserror::Error;
-use wgpu::CommandEncoder as GpuCommandEncoder;
 
 /// The context with all information required to interact with the GPU during the [`RenderStage::Render`](crate::RenderStage::Render`).
 ///
-/// The [`GpuDevice`] is used to create gpu resources (buffers, bind groups, pipelines, etc.) and
-/// the [`GpuCommandEncoder`] is used to record a series of GPU operations.
+/// The [`Device`] is used to create gpu resources (buffers, bind groups, pipelines, etc.) and
+/// the [`CommandEncoder`] is used to record a series of GPU operations.
 pub struct RenderContext {
-    pub gpu_device: GpuDevice,
-    pub gpu_command_encoder: GpuCommandEncoder,
+    pub device: Device,
+    pub command_encoder: CommandEncoder,
 }
 
 #[derive(Error, Debug, Eq, PartialEq)]

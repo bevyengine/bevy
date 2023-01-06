@@ -25,7 +25,7 @@ use bevy_render::{
     prelude::SpatialBundle,
     primitives::{Aabb, Frustum},
     render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
-    renderer::GpuDevice,
+    renderer::Device,
     texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
     view::VisibleEntities,
 };
@@ -93,8 +93,8 @@ impl AssetLoader for GltfLoader {
 
 impl FromWorld for GltfLoader {
     fn from_world(world: &mut World) -> Self {
-        let supported_compressed_formats = match world.get_resource::<GpuDevice>() {
-            Some(gpu_device) => CompressedImageFormats::from_features(gpu_device.features()),
+        let supported_compressed_formats = match world.get_resource::<Device>() {
+            Some(device) => CompressedImageFormats::from_features(device.features()),
 
             None => CompressedImageFormats::all(),
         };

@@ -71,26 +71,25 @@ impl Node for TonemappingNode {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
-                    .gpu_device
+                    .device
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group =
-                    render_context
-                        .gpu_device
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &tonemapping_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context
+                    .device
+                    .create_bind_group(&BindGroupDescriptor {
+                        label: None,
+                        layout: &tonemapping_pipeline.texture_bind_group,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(source),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&sampler),
+                            },
+                        ],
+                    });
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group
@@ -111,7 +110,7 @@ impl Node for TonemappingNode {
         };
 
         let mut render_pass = render_context
-            .gpu_command_encoder
+            .command_encoder
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);

@@ -1,6 +1,6 @@
 use crate::{
     render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
-    renderer::{GpuDevice, GpuQueue},
+    renderer::{Device, Queue},
     view::ComputedVisibility,
     Extract, RenderApp, RenderStage,
 };
@@ -120,8 +120,8 @@ impl<C: Component + ShaderType> Default for ComponentUniforms<C> {
 /// They are transformed into uniforms and stored in the [`ComponentUniforms`] resource.
 fn prepare_uniform_components<C: Component>(
     mut commands: Commands,
-    gpu_device: Res<GpuDevice>,
-    gpu_queue: Res<GpuQueue>,
+    device: Res<Device>,
+    queue: Res<Queue>,
     mut component_uniforms: ResMut<ComponentUniforms<C>>,
     components: Query<(Entity, &C)>,
 ) where
@@ -142,9 +142,7 @@ fn prepare_uniform_components<C: Component>(
         .collect::<Vec<_>>();
     commands.insert_or_spawn_batch(entities);
 
-    component_uniforms
-        .uniforms
-        .write_buffer(&gpu_device, &gpu_queue);
+    component_uniforms.uniforms.write_buffer(&device, &queue);
 }
 
 /// This plugin extracts the components into the "render world".

@@ -1,6 +1,6 @@
 use crate::{
     render_resource::TextureView,
-    renderer::{GpuAdapter, GpuDevice, GpuInstance},
+    renderer::{Adapter, Device, Instance},
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -154,8 +154,8 @@ pub struct WindowSurfaces {
 /// - GPU workload is more than your current GPU can manage
 /// - Error / performance bug in your custom shaders
 /// - wgpu was unable to detect a proper GPU hardware-accelerated device given the chosen
-///   [`Backends`](crate::settings::Backends), [`GpuLimits`](crate::settings::GpuLimits),
-///   and/or [`GpuFeatures`](crate::settings::GpuFeatures). For example, on Windows currently
+///   [`Backends`](crate::settings::Backends), [`Limits`](crate::settings::Limits),
+///   and/or [`Features`](crate::settings::Features). For example, on Windows currently
 ///   `DirectX 11` is not supported by wgpu 0.12 and so if your GPU/drivers do not support Vulkan,
 ///   it may be that a software renderer called "Microsoft Basic Render Driver" using `DirectX 12`
 ///   will be chosen and performance will be very poor. This is visible in a log message that is
@@ -169,9 +169,9 @@ pub fn prepare_windows(
     _marker: NonSend<NonSendMarker>,
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
-    gpu_device: Res<GpuDevice>,
-    gpu_instance: Res<GpuInstance>,
-    gpu_adapter: Res<GpuAdapter>,
+    device: Res<Device>,
+    instance: Res<Instance>,
+    adapter: Res<Adapter>,
 ) {
     for window in windows
         .windows
@@ -186,14 +186,14 @@ pub fn prepare_windows(
             .or_insert_with(|| unsafe {
                 // NOTE: On some OSes this MUST be called from the main thread.
                 let surface =
-                    gpu_instance.create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
+                    instance.create_surface(&window.raw_handle.as_ref().unwrap().get_handle());
                 let format = *surface
-                    .get_supported_formats(&gpu_adapter)
+                    .get_supported_formats(&adapter)
                     .get(0)
                     .unwrap_or_else(|| {
                         panic!(
                             "No supported formats found for surface {:?} on adapter {:?}",
-                            surface, gpu_adapter
+                            surface, adapter
                         )
                     });
                 SurfaceData { surface, format }
@@ -229,7 +229,7 @@ pub fn prepare_windows(
         // and https://github.com/gfx-rs/wgpu/issues/1218
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
-            gpu_instance
+            instance
                 .enumerate_adapters(wgpu::Backends::VULKAN)
                 .any(|adapter| {
                     let name = adapter.get_info().name;
@@ -241,7 +241,7 @@ pub fn prepare_windows(
 
         let surface = &surface_data.surface;
         if not_already_configured || window.size_changed || window.present_mode_changed {
-            gpu_device.configure_surface(surface, &surface_configuration);
+            device.configure_surface(surface, &surface_configuration);
             let frame = surface
                 .get_current_texture()
                 .expect("Error configuring surface");
@@ -252,7 +252,7 @@ pub fn prepare_windows(
                     window.swap_chain_texture = Some(TextureView::from(frame));
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
-                    gpu_device.configure_surface(surface, &surface_configuration);
+                    device.configure_surface(surface, &surface_configuration);
                     let frame = surface
                         .get_current_texture()
                         .expect("Error reconfiguring surface");

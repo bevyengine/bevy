@@ -62,26 +62,25 @@ impl Node for UpscalingNode {
             Some((id, bind_group)) if upscaled_texture.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
-                    .gpu_device
+                    .device
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group =
-                    render_context
-                        .gpu_device
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &upscaling_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(upscaled_texture),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context
+                    .device
+                    .create_bind_group(&BindGroupDescriptor {
+                        label: None,
+                        layout: &upscaling_pipeline.texture_bind_group,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(upscaled_texture),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&sampler),
+                            },
+                        ],
+                    });
 
                 let (_, bind_group) = cached_bind_group.insert((upscaled_texture.id(), bind_group));
                 bind_group
@@ -107,7 +106,7 @@ impl Node for UpscalingNode {
         };
 
         let mut render_pass = render_context
-            .gpu_command_encoder
+            .command_encoder
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);

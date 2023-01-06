@@ -6,7 +6,7 @@ use crate::{
     primitives::Aabb,
     render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{Buffer, VertexBufferLayout},
-    renderer::GpuDevice,
+    renderer::Device,
 };
 use bevy_core::cast_slice;
 use bevy_derive::EnumVariantMeta;
@@ -831,7 +831,7 @@ pub enum GpuBufferInfo {
 impl RenderAsset for Mesh {
     type ExtractedAsset = Mesh;
     type PreparedAsset = GpuMesh;
-    type Param = SRes<GpuDevice>;
+    type Param = SRes<Device>;
 
     /// Clones the mesh.
     fn extract_asset(&self) -> Self::ExtractedAsset {
@@ -841,10 +841,10 @@ impl RenderAsset for Mesh {
     /// Converts the extracted mesh a into [`GpuMesh`].
     fn prepare_asset(
         mesh: Self::ExtractedAsset,
-        gpu_device: &mut SystemParamItem<Self::Param>,
+        device: &mut SystemParamItem<Self::Param>,
     ) -> Result<Self::PreparedAsset, PrepareAssetError<Self::ExtractedAsset>> {
         let vertex_buffer_data = mesh.get_vertex_buffer_data();
-        let vertex_buffer = gpu_device.create_buffer_with_data(&BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::VERTEX,
             label: Some("Mesh Vertex Buffer"),
             contents: &vertex_buffer_data,
@@ -855,7 +855,7 @@ impl RenderAsset for Mesh {
                 vertex_count: mesh.count_vertices() as u32,
             },
             |data| GpuBufferInfo::Indexed {
-                buffer: gpu_device.create_buffer_with_data(&BufferInitDescriptor {
+                buffer: device.create_buffer_with_data(&BufferInitDescriptor {
                     usage: BufferUsages::INDEX,
                     contents: data,
                     label: Some("Mesh Index Buffer"),

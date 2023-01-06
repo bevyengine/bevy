@@ -76,32 +76,29 @@ impl Node for FxaaNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
-                let sampler = render_context
-                    .gpu_device
-                    .create_sampler(&SamplerDescriptor {
-                        mipmap_filter: FilterMode::Linear,
-                        mag_filter: FilterMode::Linear,
-                        min_filter: FilterMode::Linear,
-                        ..default()
-                    });
+                let sampler = render_context.device.create_sampler(&SamplerDescriptor {
+                    mipmap_filter: FilterMode::Linear,
+                    mag_filter: FilterMode::Linear,
+                    min_filter: FilterMode::Linear,
+                    ..default()
+                });
 
-                let bind_group =
-                    render_context
-                        .gpu_device
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &fxaa_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context
+                    .device
+                    .create_bind_group(&BindGroupDescriptor {
+                        label: None,
+                        layout: &fxaa_pipeline.texture_bind_group,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(source),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&sampler),
+                            },
+                        ],
+                    });
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group
@@ -119,7 +116,7 @@ impl Node for FxaaNode {
         };
 
         let mut render_pass = render_context
-            .gpu_command_encoder
+            .command_encoder
             .begin_render_pass(&pass_descriptor);
 
         render_pass.set_pipeline(pipeline);

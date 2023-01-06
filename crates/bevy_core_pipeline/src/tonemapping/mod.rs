@@ -6,7 +6,7 @@ use bevy_ecs::query::QueryItem;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
-use bevy_render::renderer::GpuDevice;
+use bevy_render::renderer::Device;
 use bevy_render::view::ViewTarget;
 use bevy_render::{render_resource::*, RenderApp, RenderStage};
 
@@ -92,7 +92,7 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
 impl FromWorld for TonemappingPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let tonemap_texture_bind_group = render_world
-            .resource::<GpuDevice>()
+            .resource::<Device>()
             .create_bind_group_layout(&BindGroupLayoutDescriptor {
                 label: Some("tonemapping_hdr_texture_bind_group_layout"),
                 entries: &[

@@ -14,7 +14,7 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
-    renderer::{GpuDevice, GpuQueue},
+    renderer::{Device, Queue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
@@ -162,10 +162,10 @@ pub struct Mesh2dPipeline {
 
 impl FromWorld for Mesh2dPipeline {
     fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(Res<GpuDevice>, Res<DefaultImageSampler>)> =
+        let mut system_state: SystemState<(Res<Device>, Res<DefaultImageSampler>)> =
             SystemState::new(world);
-        let (gpu_device, default_sampler) = system_state.get_mut(world);
-        let view_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let (device, default_sampler) = system_state.get_mut(world);
+        let view_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
                 BindGroupLayoutEntry {
@@ -192,7 +192,7 @@ impl FromWorld for Mesh2dPipeline {
             label: Some("mesh2d_view_layout"),
         });
 
-        let mesh_layout = gpu_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let mesh_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
@@ -213,15 +213,15 @@ impl FromWorld for Mesh2dPipeline {
                 &[255u8; 4],
                 TextureFormat::bevy_default(),
             );
-            let texture = gpu_device.create_texture(&image.texture_descriptor);
+            let texture = device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => gpu_device.create_sampler(&descriptor),
+                ImageSampler::Descriptor(descriptor) => device.create_sampler(&descriptor),
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            let gpu_queue = world.resource_mut::<GpuQueue>();
-            gpu_queue.write_texture(
+            let queue = world.resource_mut::<Queue>();
+            queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
                     mip_level: 0,
@@ -438,12 +438,12 @@ pub struct Mesh2dBindGroup {
 pub fn queue_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
-    gpu_device: Res<GpuDevice>,
+    device: Res<Device>,
     mesh2d_uniforms: Res<ComponentUniforms<Mesh2dUniform>>,
 ) {
     if let Some(binding) = mesh2d_uniforms.uniforms().binding() {
         commands.insert_resource(Mesh2dBindGroup {
-            value: gpu_device.create_bind_group(&BindGroupDescriptor {
+            value: device.create_bind_group(&BindGroupDescriptor {
                 entries: &[BindGroupEntry {
                     binding: 0,
                     resource: binding,
@@ -462,7 +462,7 @@ pub struct Mesh2dViewBindGroup {
 
 pub fn queue_mesh2d_view_bind_groups(
     mut commands: Commands,
-    gpu_device: Res<GpuDevice>,
+    device: Res<Device>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<Entity, With<ExtractedView>>,
@@ -473,7 +473,7 @@ pub fn queue_mesh2d_view_bind_groups(
         globals_buffer.buffer.binding(),
     ) {
         for entity in &views {
-            let view_bind_group = gpu_device.create_bind_group(&BindGroupDescriptor {
+            let view_bind_group = device.create_bind_group(&BindGroupDescriptor {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,

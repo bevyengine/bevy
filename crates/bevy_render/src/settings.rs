@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
-pub use wgpu::{Backends, Features as GpuFeatures, Limits as GpuLimits, PowerPreference};
+pub use wgpu::{Backends, Features, Limits, PowerPreference};
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]
-pub enum GpuSettingsPriority {
+pub enum SettingsPriority {
     /// WebGPU default features and limits
     Compatibility,
     /// The maximum supported features and limits of the adapter and backend
@@ -13,8 +13,8 @@ pub enum GpuSettingsPriority {
     WebGL2,
 }
 
-/// Provides configuration for renderer initialization. Use [`GpuDevice::features`](crate::renderer::GpuDevice::features),
-/// [`GpuDevice::limits`](crate::renderer::GpuDevice::limits), and the [`GpuAdapterInfo`](crate::renderer::GpuAdapterInfo)
+/// Provides configuration for renderer initialization. Use [`Device::features`](crate::renderer::Device::features),
+/// [`Device::limits`](crate::renderer::Device::limits), and the [`AdapterInfo`](crate::renderer::AdapterInfo)
 /// resource to get runtime information about the actual adapter, backend, features, and limits.
 /// NOTE: [`Backends::DX12`](Backends::DX12), [`Backends::METAL`](Backends::METAL), and
 /// [`Backends::VULKAN`](Backends::VULKAN) are enabled by default for non-web and the best choice
@@ -23,23 +23,23 @@ pub enum GpuSettingsPriority {
 /// use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle). This is because wgpu requires EGL to
 /// create a GL context without a window and only ANGLE supports that.
 #[derive(Clone)]
-pub struct GpuSettings {
+pub struct Settings {
     pub device_label: Option<Cow<'static, str>>,
     pub backends: Option<Backends>,
     pub power_preference: PowerPreference,
-    pub priority: GpuSettingsPriority,
+    pub priority: SettingsPriority,
     /// The features to ensure are enabled regardless of what the adapter/backend supports.
     /// Setting these explicitly may cause renderer initialization to fail.
-    pub features: GpuFeatures,
+    pub features: Features,
     /// The features to ensure are disabled regardless of what the adapter/backend supports
-    pub disabled_features: Option<GpuFeatures>,
+    pub disabled_features: Option<Features>,
     /// The imposed limits.
-    pub limits: GpuLimits,
+    pub limits: Limits,
     /// The constraints on limits allowed regardless of what the adapter/backend supports
-    pub constrained_limits: Option<GpuLimits>,
+    pub constrained_limits: Option<Limits>,
 }
 
-impl Default for GpuSettings {
+impl Default for Settings {
     fn default() -> Self {
         let default_backends = if cfg!(feature = "webgl") {
             Backends::GL
@@ -49,9 +49,9 @@ impl Default for GpuSettings {
 
         let backends = Some(wgpu::util::backend_bits_from_env().unwrap_or(default_backends));
 
-        let priority = settings_priority_from_env().unwrap_or(GpuSettingsPriority::Functionality);
+        let priority = settings_priority_from_env().unwrap_or(SettingsPriority::Functionality);
 
-        let limits = if cfg!(feature = "webgl") || matches!(priority, GpuSettingsPriority::WebGL2) {
+        let limits = if cfg!(feature = "webgl") || matches!(priority, SettingsPriority::WebGL2) {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
             #[allow(unused_mut)]
@@ -78,16 +78,16 @@ impl Default for GpuSettings {
 }
 
 /// Get a features/limits priority from the environment variable `WGPU_SETTINGS_PRIO`
-pub fn settings_priority_from_env() -> Option<GpuSettingsPriority> {
+pub fn settings_priority_from_env() -> Option<SettingsPriority> {
     Some(
         match std::env::var("WGPU_SETTINGS_PRIO")
             .as_deref()
             .map(str::to_lowercase)
             .as_deref()
         {
-            Ok("compatibility") => GpuSettingsPriority::Compatibility,
-            Ok("functionality") => GpuSettingsPriority::Functionality,
-            Ok("webgl2") => GpuSettingsPriority::WebGL2,
+            Ok("compatibility") => SettingsPriority::Compatibility,
+            Ok("functionality") => SettingsPriority::Functionality,
+            Ok("webgl2") => SettingsPriority::WebGL2,
             _ => return None,
         },
     )

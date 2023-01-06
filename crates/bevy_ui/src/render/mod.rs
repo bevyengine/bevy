@@ -19,7 +19,7 @@ use bevy_render::{
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
     render_resource::*,
-    renderer::{GpuDevice, GpuQueue},
+    renderer::{Device, Queue},
     texture::Image,
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
     Extract, RenderApp, RenderStage,
@@ -412,8 +412,8 @@ pub struct UiBatch {
 
 pub fn prepare_uinodes(
     mut commands: Commands,
-    gpu_device: Res<GpuDevice>,
-    gpu_queue: Res<GpuQueue>,
+    device: Res<Device>,
+    queue: Res<Queue>,
     mut ui_meta: ResMut<UiMeta>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
 ) {
@@ -546,7 +546,7 @@ pub fn prepare_uinodes(
         });
     }
 
-    ui_meta.vertices.write_buffer(&gpu_device, &gpu_queue);
+    ui_meta.vertices.write_buffer(&device, &queue);
 }
 
 #[derive(Resource, Default)]
@@ -557,7 +557,7 @@ pub struct UiImageBindGroups {
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
     draw_functions: Res<DrawFunctions<TransparentUi>>,
-    gpu_device: Res<GpuDevice>,
+    device: Res<Device>,
     mut ui_meta: ResMut<UiMeta>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
@@ -580,7 +580,7 @@ pub fn queue_uinodes(
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        ui_meta.view_bind_group = Some(gpu_device.create_bind_group(&BindGroupDescriptor {
+        ui_meta.view_bind_group = Some(device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
                 binding: 0,
                 resource: view_binding,
@@ -601,7 +601,7 @@ pub fn queue_uinodes(
                     .entry(batch.image.clone_weak())
                     .or_insert_with(|| {
                         let gpu_image = gpu_images.get(&batch.image).unwrap();
-                        gpu_device.create_bind_group(&BindGroupDescriptor {
+                        device.create_bind_group(&BindGroupDescriptor {
                             entries: &[
                                 BindGroupEntry {
                                     binding: 0,
