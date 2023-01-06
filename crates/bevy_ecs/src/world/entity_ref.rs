@@ -159,7 +159,7 @@ impl<'w> EntityRef<'w> {
         .map(|(value, ticks)| Mut {
             // SAFETY:
             // - returned component is of type T
-            // - Caller guarentees that this reference will not alias.
+            // - Caller guarantees that this reference will not alias.
             value: value.assert_unique().deref_mut::<T>(),
             ticks: Ticks::from_tick_cells(ticks, last_change_tick, change_tick),
         })
