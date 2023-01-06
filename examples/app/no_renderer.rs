@@ -4,10 +4,7 @@
 //!
 //! See also the `headless` example which does not display a window.
 
-use bevy::{
-    prelude::*,
-    render::{settings::Settings, RenderPlugin},
-};
+use bevy::{gpu::Settings, prelude::*, render::RenderPlugin};
 
 fn main() {
     App::new()

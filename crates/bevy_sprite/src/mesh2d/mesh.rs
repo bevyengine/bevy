@@ -5,16 +5,25 @@ use bevy_ecs::{
     query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
+use bevy_gpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType, ColorTargetState,
+    ColorWrites, Device, Extent3d, Face, FragmentState, FrontFace, ImageCopyTexture,
+    ImageDataLayout, MultisampleState, Origin3d, PolygonMode, PrimitiveState, PrimitiveTopology,
+    Queue, RenderPipelineDescriptor, Sampler, Shader, ShaderStages, ShaderType, TextureAspect,
+    TextureDimension, TextureFormat, TextureView, TextureViewDescriptor, VertexState,
+};
 use bevy_math::{Mat4, Vec2};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
+    mesh::{
+        GpuBufferInfo, Mesh, MeshVertexBufferLayout, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
+    },
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
-    render_resource::*,
-    renderer::{Device, Queue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },

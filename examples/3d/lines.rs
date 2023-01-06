@@ -1,15 +1,13 @@
 //! Create a custom material to draw basic lines in 3D
 
 use bevy::{
+    gpu::{PolygonMode, PrimitiveTopology, RenderPipelineDescriptor, ShaderRef},
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::{MeshVertexBufferLayout, PrimitiveTopology},
-        render_resource::{
-            AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
-            SpecializedMeshPipelineError,
-        },
+        as_bind_group::AsBindGroup,
+        mesh::{MeshVertexBufferLayout, SpecializedMeshPipelineError},
     },
 };
 

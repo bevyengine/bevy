@@ -1,15 +1,13 @@
 //! A shader that reads a mesh's custom vertex attribute.
 
 use bevy::{
+    gpu::{RenderPipelineDescriptor, ShaderRef, VertexFormat},
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::{MeshVertexAttribute, MeshVertexBufferLayout},
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-            VertexFormat,
-        },
+        mesh::{MeshVertexAttribute, MeshVertexBufferLayout, SpecializedMeshPipelineError},
+        AsBindGroup,
     },
 };
 

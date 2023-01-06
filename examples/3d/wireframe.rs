@@ -1,9 +1,10 @@
 //! Showcases wireframe rendering.
 
 use bevy::{
+    gpu::{Features, Settings},
     pbr::wireframe::{Wireframe, WireframeConfig, WireframePlugin},
     prelude::*,
-    render::{render_resource::Features, settings::Settings, RenderPlugin},
+    render::RenderPlugin,
 };
 
 fn main() {

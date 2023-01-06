@@ -1,12 +1,8 @@
-use crate::{
-    extract_resource::ExtractResource,
-    render_resource::{ShaderType, UniformBuffer},
-    renderer::{Device, Queue},
-    Extract, RenderApp, RenderStage,
-};
+use crate::{extract_resource::ExtractResource, Extract, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_core::FrameCount;
 use bevy_ecs::prelude::*;
+use bevy_gpu::{Device, Queue, ShaderType, UniformBuffer};
 use bevy_reflect::Reflect;
 use bevy_time::Time;
 

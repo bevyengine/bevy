@@ -4,14 +4,9 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
+    gpu::{Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     prelude::*,
-    render::{
-        camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-        view::RenderLayers,
-    },
+    render::{camera::RenderTarget, view::RenderLayers},
 };
 
 fn main() {

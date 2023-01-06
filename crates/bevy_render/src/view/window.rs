@@ -1,16 +1,15 @@
-use crate::{
-    render_resource::TextureView,
-    renderer::{Adapter, Device, Instance},
-    Extract, RenderApp, RenderStage,
-};
+use crate::{Extract, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
+use bevy_gpu::{
+    Adapter, Device, Instance, RawCompositeAlphaMode, RawPresentMode, Surface,
+    SurfaceConfiguration, SurfaceError, TextureFormat, TextureUsages, TextureView,
+};
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use bevy_window::{
     CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
 };
 use std::ops::{Deref, DerefMut};
-use wgpu::TextureFormat;
 
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
@@ -131,7 +130,7 @@ fn extract_windows(
 }
 
 struct SurfaceData {
-    surface: wgpu::Surface,
+    surface: Surface,
     format: TextureFormat,
 }
 
@@ -199,28 +198,28 @@ pub fn prepare_windows(
                 SurfaceData { surface, format }
             });
 
-        let surface_configuration = wgpu::SurfaceConfiguration {
+        let surface_configuration = SurfaceConfiguration {
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            usage: TextureUsages::RENDER_ATTACHMENT,
             present_mode: match window.present_mode {
-                PresentMode::Fifo => wgpu::PresentMode::Fifo,
-                PresentMode::Mailbox => wgpu::PresentMode::Mailbox,
-                PresentMode::Immediate => wgpu::PresentMode::Immediate,
-                PresentMode::AutoVsync => wgpu::PresentMode::AutoVsync,
-                PresentMode::AutoNoVsync => wgpu::PresentMode::AutoNoVsync,
+                PresentMode::Fifo => RawPresentMode::Fifo,
+                PresentMode::Mailbox => RawPresentMode::Mailbox,
+                PresentMode::Immediate => RawPresentMode::Immediate,
+                PresentMode::AutoVsync => RawPresentMode::AutoVsync,
+                PresentMode::AutoNoVsync => RawPresentMode::AutoNoVsync,
             },
             alpha_mode: match window.alpha_mode {
-                CompositeAlphaMode::Auto => wgpu::CompositeAlphaMode::Auto,
-                CompositeAlphaMode::Opaque => wgpu::CompositeAlphaMode::Opaque,
-                CompositeAlphaMode::PreMultiplied => wgpu::CompositeAlphaMode::PreMultiplied,
-                CompositeAlphaMode::PostMultiplied => wgpu::CompositeAlphaMode::PostMultiplied,
-                CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
+                CompositeAlphaMode::Auto => RawCompositeAlphaMode::Auto,
+                CompositeAlphaMode::Opaque => RawCompositeAlphaMode::Opaque,
+                CompositeAlphaMode::PreMultiplied => RawCompositeAlphaMode::PreMultiplied,
+                CompositeAlphaMode::PostMultiplied => RawCompositeAlphaMode::PostMultiplied,
+                CompositeAlphaMode::Inherit => RawCompositeAlphaMode::Inherit,
             },
         };
 
-        // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
+        // A recurring issue is hitting `SurfaceError::Timeout` on certain Linux
         // mesa driver implementations. This seems to be a quirk of some drivers.
         // We'd rather keep panicking when not on Linux mesa, because in those case,
         // the `Timeout` is still probably the symptom of a degraded unrecoverable
@@ -230,7 +229,7 @@ pub fn prepare_windows(
         #[cfg(target_os = "linux")]
         let may_erroneously_timeout = || {
             instance
-                .enumerate_adapters(wgpu::Backends::VULKAN)
+                .enumerate_adapters(Backends::VULKAN)
                 .any(|adapter| {
                     let name = adapter.get_info().name;
                     name.starts_with("AMD") || name.starts_with("Intel")
@@ -251,7 +250,7 @@ pub fn prepare_windows(
                 Ok(frame) => {
                     window.swap_chain_texture = Some(TextureView::from(frame));
                 }
-                Err(wgpu::SurfaceError::Outdated) => {
+                Err(SurfaceError::Outdated) => {
                     device.configure_surface(surface, &surface_configuration);
                     let frame = surface
                         .get_current_texture()
@@ -259,7 +258,7 @@ pub fn prepare_windows(
                     window.swap_chain_texture = Some(TextureView::from(frame));
                 }
                 #[cfg(target_os = "linux")]
-                Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
+                Err(SurfaceError::Timeout) if may_erroneously_timeout() => {
                     bevy_utils::tracing::trace!(
                         "Couldn't get swap chain texture. This is probably a quirk \
                         of your Linux GPU driver, so it can be safely ignored."

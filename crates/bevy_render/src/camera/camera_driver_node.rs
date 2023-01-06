@@ -4,8 +4,8 @@ use crate::{
     view::ExtractedWindows,
 };
 use bevy_ecs::{entity::Entity, prelude::QueryState, world::World};
+use bevy_gpu::{LoadOp, Operations, RawColor, RenderPassColorAttachment, RenderPassDescriptor};
 use bevy_utils::{tracing::warn, HashSet};
-use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
 
 pub struct CameraDriverNode {
     cameras: QueryState<(Entity, &'static ExtractedCamera)>,
@@ -89,7 +89,7 @@ impl Node for CameraDriverNode {
                     view: swap_chain_texture,
                     resolve_target: None,
                     ops: Operations {
-                        load: LoadOp::Clear(wgpu::Color::BLACK),
+                        load: LoadOp::Clear(RawColor::BLACK),
                         store: true,
                     },
                 })],

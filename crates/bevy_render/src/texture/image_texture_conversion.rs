@@ -1,7 +1,7 @@
 use crate::texture::{Image, TextureFormatPixelInfo};
 use anyhow::anyhow;
+use bevy_gpu::{Extent3d, TextureDimension, TextureFormat};
 use image::{DynamicImage, ImageBuffer};
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 impl Image {
     /// Converts a [`DynamicImage`] to an [`Image`].

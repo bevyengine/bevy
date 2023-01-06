@@ -3,11 +3,11 @@ use crate::{
     core_2d::{camera_2d::Camera2d, Transparent2d},
 };
 use bevy_ecs::prelude::*;
+use bevy_gpu::{LoadOp, Operations, RenderPassDescriptor};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{RenderPhase, TrackedRenderPass},
-    render_resource::{LoadOp, Operations, RenderPassDescriptor},
     view::{ExtractedView, ViewTarget},
 };
 #[cfg(feature = "trace")]

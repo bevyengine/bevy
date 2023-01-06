@@ -24,8 +24,6 @@ use bevy_render::{
     },
     prelude::SpatialBundle,
     primitives::{Aabb, Frustum},
-    render_resource::{AddressMode, Face, FilterMode, PrimitiveTopology, SamplerDescriptor},
-    renderer::Device,
     texture::{CompressedImageFormats, Image, ImageSampler, ImageType, TextureError},
     view::VisibleEntities,
 };
@@ -34,6 +32,7 @@ use bevy_scene::Scene;
 use bevy_tasks::IoTaskPool;
 use bevy_transform::components::Transform;
 
+use bevy_gpu::{AddressMode, Device, Face, FilterMode, PrimitiveTopology, SamplerDescriptor};
 use bevy_utils::{HashMap, HashSet};
 use gltf::{
     mesh::Mode,

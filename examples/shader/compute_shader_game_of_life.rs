@@ -4,13 +4,18 @@
 //! is rendered to the screen.
 
 use bevy::{
+    gpu::{
+        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingResource, BindingType, CachedComputePipelineId,
+        CachedPipelineState, ComputePassDescriptor, ComputePipelineDescriptor, Device, Extent3d,
+        PipelineCache, ShaderStages, StorageTextureAccess, TextureDimension, TextureFormat,
+        TextureUsages, TextureViewDimension,
+    },
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_graph::{self, RenderContext, RenderGraph},
-        render_resource::*,
-        renderer::Device,
         RenderApp, RenderStage,
     },
 };

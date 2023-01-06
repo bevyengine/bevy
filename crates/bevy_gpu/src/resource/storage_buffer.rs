@@ -1,7 +1,6 @@
 #![allow(clippy::doc_markdown)]
 
-use super::Buffer;
-use crate::renderer::{Device, Queue};
+use crate::{Buffer, Device, Queue};
 use encase::{
     internal::WriteInto, DynamicStorageBuffer as DynamicStorageBufferWrapper, ShaderType,
     StorageBuffer as StorageBufferWrapper,

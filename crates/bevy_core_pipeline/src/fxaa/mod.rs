@@ -3,13 +3,18 @@ use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_gpu::{
+    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+    CachedRenderPipelineId, ColorTargetState, ColorWrites, Device, FragmentState, MultisampleState,
+    PipelineCache, PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader,
+    ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
+    TextureSampleType, TextureViewDimension,
+};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     prelude::Camera,
     render_graph::RenderGraph,
-    render_resource::*,
-    renderer::Device,
     texture::BevyDefault,
     view::{ExtractedView, ViewTarget},
     RenderApp, RenderStage,

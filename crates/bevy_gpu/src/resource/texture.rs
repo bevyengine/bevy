@@ -1,10 +1,8 @@
-use crate::define_atomic_id;
+use crate::{define_atomic_id, gpu_resource_wrapper};
 use std::ops::Deref;
 
-use crate::render_resource::resource_macros::*;
-
 define_atomic_id!(TextureId);
-render_resource_wrapper!(ErasedTexture, wgpu::Texture);
+gpu_resource_wrapper!(ErasedTexture, wgpu::Texture);
 
 /// A GPU-accessible texture.
 ///
@@ -48,8 +46,8 @@ impl Deref for Texture {
 }
 
 define_atomic_id!(TextureViewId);
-render_resource_wrapper!(ErasedTextureView, wgpu::TextureView);
-render_resource_wrapper!(ErasedSurfaceTexture, wgpu::SurfaceTexture);
+gpu_resource_wrapper!(ErasedTextureView, wgpu::TextureView);
+gpu_resource_wrapper!(ErasedSurfaceTexture, wgpu::SurfaceTexture);
 
 /// This type combines wgpu's [`TextureView`](wgpu::TextureView) and
 /// [`SurfaceTexture`](wgpu::SurfaceTexture) into the same interface.
@@ -129,7 +127,7 @@ impl Deref for TextureView {
 }
 
 define_atomic_id!(SamplerId);
-render_resource_wrapper!(ErasedSampler, wgpu::Sampler);
+gpu_resource_wrapper!(ErasedSampler, wgpu::Sampler);
 
 /// A Sampler defines how a pipeline will sample from a [`TextureView`].
 /// They define image filters (including anisotropy) and address (wrapping) modes, among other things.

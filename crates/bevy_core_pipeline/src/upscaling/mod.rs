@@ -2,10 +2,15 @@ use crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state;
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::prelude::*;
+use bevy_gpu::{
+    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+    CachedRenderPipelineId, ColorTargetState, ColorWrites, Device, FragmentState, MultisampleState,
+    PipelineCache, PrimitiveState, RenderPipelineDescriptor, SamplerBindingType, Shader,
+    ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat,
+    TextureSampleType, TextureViewDimension,
+};
 use bevy_reflect::TypeUuid;
-use bevy_render::renderer::Device;
-use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, RenderApp, RenderStage};
+use bevy_render::{view::ViewTarget, RenderApp, RenderStage};
 
 mod node;
 

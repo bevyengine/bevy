@@ -1,9 +1,13 @@
 use crate::{AlphaMode, Material, MaterialPipeline, MaterialPipelineKey, PBR_SHADER_HANDLE};
 use bevy_asset::Handle;
+use bevy_gpu::{Face, RenderPipelineDescriptor, ShaderRef, ShaderType, TextureFormat};
 use bevy_math::Vec4;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect, TypeUuid};
 use bevy_render::{
-    color::Color, mesh::MeshVertexBufferLayout, render_asset::RenderAssets, render_resource::*,
+    as_bind_group::{AsBindGroup, AsBindGroupShaderType},
+    color::Color,
+    mesh::{MeshVertexBufferLayout, SpecializedMeshPipelineError},
+    render_asset::RenderAssets,
     texture::Image,
 };
 

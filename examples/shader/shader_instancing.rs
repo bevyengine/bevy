@@ -6,18 +6,24 @@ use bevy::{
         query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
+    gpu::{
+        Buffer, BufferInitDescriptor, BufferUsages, Device, PipelineCache,
+        RenderPipelineDescriptor, Shader, VertexAttribute, VertexBufferLayout, VertexFormat,
+        VertexStepMode,
+    },
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{GpuBufferInfo, MeshVertexBufferLayout},
+        mesh::{
+            GpuBufferInfo, MeshVertexBufferLayout, SpecializedMeshPipeline,
+            SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        },
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
             RenderPhase, SetItemPipeline, TrackedRenderPass,
         },
-        render_resource::*,
-        renderer::Device,
         view::{ExtractedView, NoFrustumCulling},
         RenderApp, RenderStage,
     },

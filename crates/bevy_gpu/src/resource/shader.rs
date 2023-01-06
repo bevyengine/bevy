@@ -1,5 +1,4 @@
-use super::ShaderDefVal;
-use crate::define_atomic_id;
+use crate::{define_atomic_id, ShaderDefVal};
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
 use bevy_reflect::TypeUuid;
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
@@ -643,14 +642,12 @@ impl From<&'static str> for ShaderRef {
 
 #[cfg(test)]
 mod tests {
+    use crate::{ProcessShaderError, Shader, ShaderDefVal, ShaderImport, ShaderProcessor};
     use bevy_asset::{Handle, HandleUntyped};
     use bevy_reflect::TypeUuid;
     use bevy_utils::HashMap;
     use naga::ShaderStage;
 
-    use crate::render_resource::{
-        ProcessShaderError, Shader, ShaderDefVal, ShaderImport, ShaderProcessor,
-    };
     #[rustfmt::skip]
 const WGSL: &str = r"
 struct View {

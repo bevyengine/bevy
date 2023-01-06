@@ -7,18 +7,20 @@ use super::ktx2::*;
 
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset},
-    render_resource::{Sampler, Texture, TextureView},
-    renderer::{Device, Queue},
     texture::BevyDefault,
 };
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{lifetimeless::SRes, Resource, SystemParamItem};
+use bevy_gpu::{
+    Device, Extent3d, Features, FilterMode, Queue, Sampler, SamplerDescriptor, Texture,
+    TextureDescriptor, TextureDimension, TextureFormat, TextureUsages, TextureView,
+    TextureViewDescriptor,
+};
 use bevy_math::Vec2;
 use bevy_reflect::{FromReflect, Reflect, TypeUuid};
 use std::hash::Hash;
 use thiserror::Error;
-use wgpu::{Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor};
 
 pub const TEXTURE_ASSET_INDEX: u64 = 0;
 pub const SAMPLER_ASSET_INDEX: u64 = 1;
@@ -104,10 +106,10 @@ impl ImageFormat {
 pub struct Image {
     pub data: Vec<u8>,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors
-    pub texture_descriptor: wgpu::TextureDescriptor<'static>,
+    pub texture_descriptor: TextureDescriptor<'static>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler_descriptor: ImageSampler,
-    pub texture_view_descriptor: Option<wgpu::TextureViewDescriptor<'static>>,
+    pub texture_view_descriptor: Option<TextureViewDescriptor<'static>>,
 }
 
 /// Used in [`Image`], this determines what image sampler to use when rendering. The default setting,
@@ -119,7 +121,7 @@ pub enum ImageSampler {
     #[default]
     Default,
     /// Custom sampler for this image which will override global default.
-    Descriptor(wgpu::SamplerDescriptor<'static>),
+    Descriptor(SamplerDescriptor<'static>),
 }
 
 impl ImageSampler {
@@ -137,22 +139,22 @@ impl ImageSampler {
 
     /// Returns a sampler descriptor with `Linear` min and mag filters
     #[inline]
-    pub fn linear_descriptor() -> wgpu::SamplerDescriptor<'static> {
-        wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Linear,
-            min_filter: wgpu::FilterMode::Linear,
-            mipmap_filter: wgpu::FilterMode::Linear,
+    pub fn linear_descriptor() -> SamplerDescriptor<'static> {
+        SamplerDescriptor {
+            mag_filter: FilterMode::Linear,
+            min_filter: FilterMode::Linear,
+            mipmap_filter: FilterMode::Linear,
             ..Default::default()
         }
     }
 
     /// Returns a sampler descriptor with `Nearest` min and mag filters
     #[inline]
-    pub fn nearest_descriptor() -> wgpu::SamplerDescriptor<'static> {
-        wgpu::SamplerDescriptor {
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
-            mipmap_filter: wgpu::FilterMode::Nearest,
+    pub fn nearest_descriptor() -> SamplerDescriptor<'static> {
+        SamplerDescriptor {
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            mipmap_filter: FilterMode::Nearest,
             ..Default::default()
         }
     }
@@ -168,22 +170,22 @@ pub struct DefaultImageSampler(pub(crate) Sampler);
 
 impl Default for Image {
     fn default() -> Self {
-        let format = wgpu::TextureFormat::bevy_default();
+        let format = TextureFormat::bevy_default();
         let data = vec![255; format.pixel_size()];
         Image {
             data,
-            texture_descriptor: wgpu::TextureDescriptor {
-                size: wgpu::Extent3d {
+            texture_descriptor: TextureDescriptor {
+                size: Extent3d {
                     width: 1,
                     height: 1,
                     depth_or_array_layers: 1,
                 },
                 format,
-                dimension: wgpu::TextureDimension::D2,
+                dimension: TextureDimension::D2,
                 label: None,
                 mip_level_count: 1,
                 sample_count: 1,
-                usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::COPY_DST,
             },
             sampler_descriptor: ImageSampler::Default,
             texture_view_descriptor: None,
@@ -383,13 +385,13 @@ impl Image {
         let format_description = self.texture_descriptor.format.describe();
         format_description
             .required_features
-            .contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR)
+            .contains(Features::TEXTURE_COMPRESSION_ASTC_LDR)
             || format_description
                 .required_features
-                .contains(wgpu::Features::TEXTURE_COMPRESSION_BC)
+                .contains(Features::TEXTURE_COMPRESSION_BC)
             || format_description
                 .required_features
-                .contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2)
+                .contains(Features::TEXTURE_COMPRESSION_ETC2)
     }
 }
 
@@ -547,15 +549,15 @@ bitflags::bitflags! {
 }
 
 impl CompressedImageFormats {
-    pub fn from_features(features: wgpu::Features) -> Self {
+    pub fn from_features(features: Features) -> Self {
         let mut supported_compressed_formats = Self::default();
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ASTC_LDR) {
+        if features.contains(Features::TEXTURE_COMPRESSION_ASTC_LDR) {
             supported_compressed_formats |= Self::ASTC_LDR;
         }
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_BC) {
+        if features.contains(Features::TEXTURE_COMPRESSION_BC) {
             supported_compressed_formats |= Self::BC;
         }
-        if features.contains(wgpu::Features::TEXTURE_COMPRESSION_ETC2) {
+        if features.contains(Features::TEXTURE_COMPRESSION_ETC2) {
             supported_compressed_formats |= Self::ETC2;
         }
         supported_compressed_formats

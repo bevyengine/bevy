@@ -3,22 +3,20 @@
 //! It doesn't use the [`Material2d`] abstraction, but changes the vertex buffer to include vertex color.
 //! Check out the "mesh2d" example for simpler / higher level 2d meshes.
 
-use std::f32::consts::PI;
-
 use bevy::{
     core_pipeline::core_2d::Transparent2d,
+    gpu::{
+        BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
+        MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
+        RenderPipelineDescriptor, Shader, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+    },
     prelude::*,
     reflect::TypeUuid,
     render::{
         mesh::{Indices, MeshVertexAttribute},
         render_asset::RenderAssets,
         render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
-        render_resource::{
-            BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
-            RenderPipelineDescriptor, SpecializedRenderPipeline, SpecializedRenderPipelines,
-            TextureFormat, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
-        },
         texture::BevyDefault,
         view::{ExtractedView, ViewTarget, VisibleEntities},
         Extract, RenderApp, RenderStage,
@@ -29,6 +27,7 @@ use bevy::{
     },
     utils::FloatOrd,
 };
+use std::f32::consts::PI;
 
 fn main() {
     App::new()

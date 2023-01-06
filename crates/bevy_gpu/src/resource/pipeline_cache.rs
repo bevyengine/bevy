@@ -1,17 +1,12 @@
 use crate::{
-    render_resource::{
-        AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId, ComputePipeline,
-        ComputePipelineDescriptor, ProcessShaderError, ProcessedShader,
-        RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor,
-        RawVertexState, RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport,
-        ShaderProcessor, ShaderReflectError,
-    },
-    renderer::Device,
-    Extract,
+    gpu_resource_wrapper, AsModuleDescriptorError, BindGroupLayout, BindGroupLayoutId,
+    ComputePipeline, ComputePipelineDescriptor, Device, ProcessShaderError, ProcessedShader,
+    RawComputePipelineDescriptor, RawFragmentState, RawRenderPipelineDescriptor, RawVertexState,
+    RenderPipeline, RenderPipelineDescriptor, Shader, ShaderImport, ShaderProcessor,
+    ShaderReflectError,
 };
-use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::system::{Res, ResMut};
-use bevy_ecs::{event::EventReader, system::Resource};
+use bevy_asset::Handle;
+use bevy_ecs::system::Resource;
 use bevy_utils::{
     default,
     tracing::{debug, error},
@@ -21,10 +16,8 @@ use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
 use wgpu::{PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout};
 
-use crate::render_resource::resource_macros::*;
-
-render_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
-render_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
+gpu_resource_wrapper!(ErasedShaderModule, wgpu::ShaderModule);
+gpu_resource_wrapper!(ErasedPipelineLayout, wgpu::PipelineLayout);
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -489,7 +482,7 @@ impl PipelineCache {
         id
     }
 
-    fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
+    pub fn set_shader(&mut self, handle: &Handle<Shader>, shader: &Shader) {
         let pipelines_to_queue = self.shader_cache.set_shader(handle, shader.clone());
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -497,7 +490,7 @@ impl PipelineCache {
         }
     }
 
-    fn remove_shader(&mut self, shader: &Handle<Shader>) {
+    pub fn remove_shader(&mut self, shader: &Handle<Shader>) {
         let pipelines_to_queue = self.shader_cache.remove(shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
@@ -671,27 +664,6 @@ impl PipelineCache {
         }
 
         self.pipelines = pipelines;
-    }
-
-    pub(crate) fn process_pipeline_queue_system(mut cache: ResMut<Self>) {
-        cache.process_queue();
-    }
-
-    pub(crate) fn extract_shaders(
-        mut cache: ResMut<Self>,
-        shaders: Extract<Res<Assets<Shader>>>,
-        mut events: Extract<EventReader<AssetEvent<Shader>>>,
-    ) {
-        for event in events.iter() {
-            match event {
-                AssetEvent::Created { handle } | AssetEvent::Modified { handle } => {
-                    if let Some(shader) = shaders.get(handle) {
-                        cache.set_shader(handle, shader);
-                    }
-                }
-                AssetEvent::Removed { handle } => cache.remove_shader(handle),
-            }
-        }
     }
 }
 

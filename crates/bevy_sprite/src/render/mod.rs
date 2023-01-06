@@ -10,6 +10,17 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
+use bevy_gpu::{
+    BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+    BindGroupLayoutEntry, BindingResource, BindingType, BlendState, BufferBindingType,
+    BufferUsages, BufferVec, ColorTargetState, ColorWrites, Device, Extent3d, FragmentState,
+    FrontFace, ImageCopyTexture, ImageDataLayout, MultisampleState, Origin3d, PipelineCache,
+    PolygonMode, PrimitiveState, PrimitiveTopology, Queue, RenderPipelineDescriptor,
+    SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+    SpecializedRenderPipelines, TextureAspect, TextureDimension, TextureFormat, TextureSampleType,
+    TextureViewDescriptor, TextureViewDimension, VertexBufferLayout, VertexFormat, VertexState,
+    VertexStepMode,
+};
 use bevy_math::{Rect, Vec2};
 use bevy_reflect::Uuid;
 use bevy_render::{
@@ -19,8 +30,6 @@ use bevy_render::{
         BatchedPhaseItem, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
-    render_resource::*,
-    renderer::{Device, Queue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },

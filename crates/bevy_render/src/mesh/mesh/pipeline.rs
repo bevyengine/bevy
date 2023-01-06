@@ -1,78 +1,15 @@
-use crate::render_resource::CachedComputePipelineId;
-use crate::{
-    mesh::{InnerMeshVertexBufferLayout, MeshVertexBufferLayout, MissingVertexAttributeError},
-    render_resource::{
-        CachedRenderPipelineId, ComputePipelineDescriptor, PipelineCache, RenderPipelineDescriptor,
-        VertexBufferLayout,
-    },
+use crate::mesh::{
+    InnerMeshVertexBufferLayout, MeshVertexBufferLayout, MissingVertexAttributeError,
 };
 use bevy_ecs::system::Resource;
+use bevy_gpu::{
+    CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor, VertexBufferLayout,
+};
 use bevy_utils::{
-    default, hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap,
-    PreHashMapExt,
+    hashbrown::hash_map::RawEntryMut, tracing::error, Entry, HashMap, PreHashMap, PreHashMapExt,
 };
 use std::{fmt::Debug, hash::Hash};
 use thiserror::Error;
-
-pub trait SpecializedRenderPipeline {
-    type Key: Clone + Hash + PartialEq + Eq;
-    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor;
-}
-
-#[derive(Resource)]
-pub struct SpecializedRenderPipelines<S: SpecializedRenderPipeline> {
-    cache: HashMap<S::Key, CachedRenderPipelineId>,
-}
-
-impl<S: SpecializedRenderPipeline> Default for SpecializedRenderPipelines<S> {
-    fn default() -> Self {
-        Self { cache: default() }
-    }
-}
-
-impl<S: SpecializedRenderPipeline> SpecializedRenderPipelines<S> {
-    pub fn specialize(
-        &mut self,
-        cache: &mut PipelineCache,
-        specialize_pipeline: &S,
-        key: S::Key,
-    ) -> CachedRenderPipelineId {
-        *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
-            cache.queue_render_pipeline(descriptor)
-        })
-    }
-}
-
-pub trait SpecializedComputePipeline {
-    type Key: Clone + Hash + PartialEq + Eq;
-    fn specialize(&self, key: Self::Key) -> ComputePipelineDescriptor;
-}
-
-#[derive(Resource)]
-pub struct SpecializedComputePipelines<S: SpecializedComputePipeline> {
-    cache: HashMap<S::Key, CachedComputePipelineId>,
-}
-
-impl<S: SpecializedComputePipeline> Default for SpecializedComputePipelines<S> {
-    fn default() -> Self {
-        Self { cache: default() }
-    }
-}
-
-impl<S: SpecializedComputePipeline> SpecializedComputePipelines<S> {
-    pub fn specialize(
-        &mut self,
-        cache: &mut PipelineCache,
-        specialize_pipeline: &S,
-        key: S::Key,
-    ) -> CachedComputePipelineId {
-        *self.cache.entry(key.clone()).or_insert_with(|| {
-            let descriptor = specialize_pipeline.specialize(key);
-            cache.queue_compute_pipeline(descriptor)
-        })
-    }
-}
 
 pub trait SpecializedMeshPipeline {
     type Key: Clone + Hash + PartialEq + Eq;

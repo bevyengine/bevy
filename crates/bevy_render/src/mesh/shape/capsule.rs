@@ -1,6 +1,6 @@
 use crate::mesh::{Indices, Mesh};
+use bevy_gpu::PrimitiveTopology;
 use bevy_math::{Vec2, Vec3};
-use wgpu::PrimitiveTopology;
 
 /// A cylinder with hemispheres at the top and bottom
 #[derive(Debug, Copy, Clone)]

@@ -1,9 +1,10 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
+use bevy_gpu::{Shader, ShaderRef, ShaderType};
 use bevy_math::Vec4;
 use bevy_reflect::{prelude::*, TypeUuid};
 use bevy_render::{
-    color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*, texture::Image,
+    color::Color, render_asset::RenderAssets, texture::Image, AsBindGroup, AsBindGroupShaderType,
 };
 
 use crate::{Material2d, Material2dPlugin, MaterialMesh2dBundle};

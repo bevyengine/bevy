@@ -1,8 +1,6 @@
 use bevy::{
-    asset::LoadState,
-    prelude::*,
-    reflect::TypeUuid,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    asset::LoadState, gpu::ShaderRef, prelude::*, reflect::TypeUuid,
+    render::as_bind_group::AsBindGroup,
 };
 
 /// This example illustrates how to create a texture for use with a `texture_2d_array<f32>` shader

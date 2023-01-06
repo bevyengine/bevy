@@ -1,9 +1,7 @@
 use bevy::{
+    gpu::{Settings, SettingsPriority},
     prelude::*,
-    render::{
-        settings::{Settings, SettingsPriority},
-        RenderPlugin,
-    },
+    render::RenderPlugin,
 };
 
 // the `bevy_main` proc_macro generates the required android boilerplate

@@ -7,9 +7,19 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_gpu::{
+    encase::ShaderType, AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry,
+    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
+    BlendComponent, BlendFactor, BlendOperation, BlendState, BufferBindingType,
+    CachedRenderPipelineId, ColorTargetState, ColorWrites, Device, Extent3d, FilterMode,
+    FragmentState, LoadOp, MultisampleState, Operations, PipelineCache, PrimitiveState,
+    RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+    SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, TextureDescriptor,
+    TextureDimension, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
+    TextureViewDimension,
+};
 use bevy_math::UVec2;
 use bevy_reflect::{Reflect, TypeUuid};
-use bevy_render::render_graph::RenderContext;
 use bevy_render::{
     camera::ExtractedCamera,
     extract_component::{
@@ -17,10 +27,10 @@ use bevy_render::{
         UniformComponentPlugin,
     },
     prelude::Camera,
-    render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{
+        Node, NodeRunError, RenderContext, RenderGraph, RenderGraphContext, SlotInfo, SlotType,
+    },
     render_phase::TrackedRenderPass,
-    render_resource::*,
-    renderer::Device,
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
     RenderApp, RenderStage,

@@ -1,9 +1,5 @@
-use crate::{
-    render_resource::Buffer,
-    renderer::{Device, Queue},
-};
+use crate::{Buffer, BufferUsages, Device, Queue};
 use bevy_core::{cast_slice, Pod};
-use wgpu::BufferUsages;
 
 /// A structure for storing raw bytes that have already been properly formatted
 /// for use by the GPU.

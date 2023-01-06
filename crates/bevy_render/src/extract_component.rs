@@ -1,9 +1,4 @@
-use crate::{
-    render_resource::{encase::internal::WriteInto, DynamicUniformBuffer, ShaderType},
-    renderer::{Device, Queue},
-    view::ComputedVisibility,
-    Extract, RenderApp, RenderStage,
-};
+use crate::{view::ComputedVisibility, Extract, RenderApp, RenderStage};
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Handle};
 use bevy_ecs::{
@@ -12,6 +7,9 @@ use bevy_ecs::{
     query::{QueryItem, ReadOnlyWorldQuery, WorldQuery},
     system::lifetimeless::Read,
 };
+use bevy_gpu::encase::internal::WriteInto;
+use bevy_gpu::encase::ShaderType;
+use bevy_gpu::{Device, DynamicUniformBuffer, Queue};
 use std::{marker::PhantomData, ops::Deref};
 
 /// Stores the index of a uniform inside of [`ComponentUniforms`].

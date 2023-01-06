@@ -1,7 +1,7 @@
 use crate::mesh::{Indices, Mesh};
+use bevy_gpu::PrimitiveTopology;
 use hexasphere::shapes::IcoSphere;
 use thiserror::Error;
-use wgpu::PrimitiveTopology;
 
 /// A sphere made from a subdivided Icosahedron.
 #[derive(Debug, Clone, Copy)]

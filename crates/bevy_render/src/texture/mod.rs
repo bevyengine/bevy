@@ -28,17 +28,17 @@ pub use texture_cache::*;
 
 use crate::{
     render_asset::{PrepareAssetLabel, RenderAssetPlugin},
-    renderer::Device,
     RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets};
+use bevy_gpu::{Device, SamplerDescriptor, TextureFormat};
 
 // TODO: replace Texture names with Image names?
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin {
     /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
-    pub default_sampler: wgpu::SamplerDescriptor<'static>,
+    pub default_sampler: SamplerDescriptor<'static>,
 }
 
 impl Default for ImagePlugin {
@@ -111,8 +111,8 @@ pub trait BevyDefault {
     fn bevy_default() -> Self;
 }
 
-impl BevyDefault for wgpu::TextureFormat {
+impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
-        wgpu::TextureFormat::Rgba8UnormSrgb
+        TextureFormat::Rgba8UnormSrgb
     }
 }

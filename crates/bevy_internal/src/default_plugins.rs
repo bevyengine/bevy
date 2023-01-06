@@ -60,6 +60,7 @@ impl PluginGroup for DefaultPlugins {
         #[cfg(feature = "bevy_render")]
         {
             group = group
+                .add(bevy_gpu::GpuPlugin::default())
                 .add(bevy_render::RenderPlugin::default())
                 // NOTE: Load this after renderer initialization so that it knows about the supported
                 // compressed texture formats

@@ -1,27 +1,25 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-use std::f32::consts::PI;
-
 use bevy::{
     asset::LoadState,
+    gpu::{
+        BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
+        BindGroupLayoutEntry, BindingResource, BindingType, Device, RenderPipelineDescriptor,
+        SamplerBindingType, ShaderRef, ShaderStages, TextureSampleType, TextureViewDescriptor,
+        TextureViewDimension,
+    },
     input::mouse::MouseMotion,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::MeshVertexBufferLayout,
+        mesh::{MeshVertexBufferLayout, SpecializedMeshPipelineError},
         render_asset::RenderAssets,
-        render_resource::{
-            AsBindGroup, AsBindGroupError, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
-            BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
-            OwnedBindingResource, PreparedBindGroup, RenderPipelineDescriptor, SamplerBindingType,
-            ShaderRef, ShaderStages, SpecializedMeshPipelineError, TextureSampleType,
-            TextureViewDescriptor, TextureViewDimension,
-        },
-        renderer::Device,
         texture::{CompressedImageFormats, FallbackImage},
+        AsBindGroup, AsBindGroupError, OwnedBindingResource, PreparedBindGroup,
     },
 };
+use std::f32::consts::PI;
 
 const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
     (

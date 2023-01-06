@@ -3,11 +3,11 @@ use crate::{
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
 };
 use bevy_ecs::prelude::*;
+use bevy_gpu::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor};
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{RenderPhase, TrackedRenderPass},
-    render_resource::{LoadOp, Operations, RenderPassDepthStencilAttachment, RenderPassDescriptor},
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
 #[cfg(feature = "trace")]

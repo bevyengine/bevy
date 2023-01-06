@@ -1,8 +1,8 @@
-use crate::{define_atomic_id, render_resource::resource_macros::*};
+use crate::{define_atomic_id, gpu_resource_wrapper};
 use std::ops::Deref;
 
 define_atomic_id!(BindGroupLayoutId);
-render_resource_wrapper!(ErasedBindGroupLayout, wgpu::BindGroupLayout);
+gpu_resource_wrapper!(ErasedBindGroupLayout, wgpu::BindGroupLayout);
 
 #[derive(Clone, Debug)]
 pub struct BindGroupLayout {

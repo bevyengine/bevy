@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use bevy_ecs::prelude::*;
+use bevy_gpu::{BufferBindingType, Device};
 use bevy_math::{Mat4, UVec2, UVec3, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_reflect::prelude::*;
 use bevy_render::{
@@ -8,8 +9,6 @@ use bevy_render::{
     color::Color,
     extract_resource::ExtractResource,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
-    render_resource::BufferBindingType,
-    renderer::Device,
     view::{ComputedVisibility, RenderLayers, VisibleEntities},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};

@@ -1,6 +1,5 @@
+use crate::{Backends, Features, Limits, PowerPreference};
 use std::borrow::Cow;
-
-pub use wgpu::{Backends, Features, Limits, PowerPreference};
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]

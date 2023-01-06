@@ -1,7 +1,13 @@
 use bevy_ecs::prelude::*;
+use bevy_gpu::{
+    BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType, BlendState,
+    BufferBindingType, ColorTargetState, ColorWrites, Device, FragmentState, FrontFace,
+    MultisampleState, PolygonMode, PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor,
+    SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline, TextureFormat,
+    TextureSampleType, TextureViewDimension, VertexBufferLayout, VertexFormat, VertexState,
+    VertexStepMode,
+};
 use bevy_render::{
-    render_resource::*,
-    renderer::Device,
     texture::BevyDefault,
     view::{ViewTarget, ViewUniform},
 };

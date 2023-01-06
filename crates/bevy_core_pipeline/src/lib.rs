@@ -28,7 +28,8 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::load_internal_asset;
-use bevy_render::{extract_resource::ExtractResourcePlugin, prelude::Shader};
+use bevy_gpu::Shader;
+use bevy_render::extract_resource::ExtractResourcePlugin;
 
 #[derive(Default)]
 pub struct CorePipelinePlugin;

@@ -4,11 +4,12 @@
 use std::f32::consts::*;
 
 use bevy::{
+    gpu::PrimitiveTopology,
     pbr::AmbientLight,
     prelude::*,
     render::mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-        Indices, PrimitiveTopology, VertexAttributeValues,
+        Indices, VertexAttributeValues,
     },
 };
 use rand::Rng;

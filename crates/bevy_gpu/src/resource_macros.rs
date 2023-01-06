@@ -1,12 +1,12 @@
 // structs containing wgpu types take a long time to compile. this is particularly bad for generic
 // structs containing wgpu structs. we avoid that in debug builds (and for cargo check and rust analyzer)
-// by boxing and type-erasing with the `render_resource_wrapper` macro.
+// by boxing and type-erasing with the `gpu_resource_wrapper` macro.
 // analysis from https://github.com/bevyengine/bevy/pull/5950#issuecomment-1243473071 indicates this is
 // due to `evaluate_obligations`. we should check if this can be removed after a fix lands for
 // https://github.com/rust-lang/rust/issues/99188 (and after other `evaluate_obligations`-related changes).
 #[cfg(debug_assertions)]
 #[macro_export]
-macro_rules! render_resource_wrapper {
+macro_rules! gpu_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
         #[derive(Clone, Debug)]
         pub struct $wrapper_type(Option<std::sync::Arc<Box<()>>>);
@@ -53,7 +53,7 @@ macro_rules! render_resource_wrapper {
                 let untyped_box = self
                     .0
                     .as_ref()
-                    .expect("render_resource_wrapper inner value has already been taken (via drop or try_unwrap")
+                    .expect("gpu_resource_wrapper inner value has already been taken (via drop or try_unwrap")
                     .as_ref();
 
                 let typed_box =
@@ -90,7 +90,7 @@ macro_rules! render_resource_wrapper {
 
 #[cfg(not(debug_assertions))]
 #[macro_export]
-macro_rules! render_resource_wrapper {
+macro_rules! gpu_resource_wrapper {
     ($wrapper_type:ident, $wgpu_type:ty) => {
         #[derive(Clone, Debug)]
         pub struct $wrapper_type(std::sync::Arc<$wgpu_type>);
@@ -147,5 +147,3 @@ macro_rules! define_atomic_id {
         }
     };
 }
-
-pub use render_resource_wrapper;

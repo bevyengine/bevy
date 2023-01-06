@@ -1,14 +1,10 @@
-use crate::{
-    camera::Viewport,
-    prelude::Color,
-    render_resource::{
-        BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
-        ShaderStages,
-    },
+use crate::{camera::Viewport, prelude::Color};
+use bevy_gpu::{
+    BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, IndexFormat, RawColor, RenderPass,
+    RenderPipeline, RenderPipelineId, ShaderStages,
 };
 use bevy_utils::tracing::trace;
 use std::ops::Range;
-use wgpu::{IndexFormat, RenderPass};
 
 /// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
@@ -563,6 +559,6 @@ impl<'a> TrackedRenderPass<'a> {
 
     pub fn set_blend_constant(&mut self, color: Color) {
         trace!("set blend constant: {:?}", color);
-        self.pass.set_blend_constant(wgpu::Color::from(color));
+        self.pass.set_blend_constant(RawColor::from(color));
     }
 }

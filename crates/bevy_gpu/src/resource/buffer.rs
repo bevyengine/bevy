@@ -1,8 +1,8 @@
-use crate::{define_atomic_id, render_resource::resource_macros::render_resource_wrapper};
+use crate::{define_atomic_id, gpu_resource_wrapper};
 use std::ops::{Bound, Deref, RangeBounds};
 
 define_atomic_id!(BufferId);
-render_resource_wrapper!(ErasedBuffer, wgpu::Buffer);
+gpu_resource_wrapper!(ErasedBuffer, wgpu::Buffer);
 
 #[derive(Clone, Debug)]
 pub struct Buffer {

@@ -4,11 +4,9 @@ use std::f32::consts::PI;
 
 use bevy::{
     core_pipeline::fxaa::{Fxaa, Sensitivity},
+    gpu::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
     prelude::*,
-    render::{
-        render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
-        texture::ImageSampler,
-    },
+    render::texture::ImageSampler,
 };
 
 fn main() {

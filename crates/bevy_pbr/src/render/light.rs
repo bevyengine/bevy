@@ -10,19 +10,32 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_gpu::{
+    AddressMode, BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout,
+    BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingResource, BindingType,
+    BufferBindingType, CachedRenderPipelineId, CompareFunction, DepthBiasState, DepthStencilState,
+    Device, DynamicUniformBuffer, Extent3d, FilterMode, FrontFace, LoadOp, MultisampleState,
+    Operations, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology, Queue,
+    RenderPassDepthStencilAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
+    SamplerDescriptor, Shader, ShaderDefVal, ShaderSize, ShaderStages, ShaderType,
+    StencilFaceState, StencilState, StorageBuffer, Texture, TextureAspect, TextureDescriptor,
+    TextureDimension, TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
+    TextureViewDimension, UniformBuffer, VertexState,
+};
 use bevy_math::{Mat4, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_render::{
     camera::{Camera, CameraProjection},
     color::Color,
-    mesh::{Mesh, MeshVertexBufferLayout},
+    mesh::{
+        Mesh, MeshVertexBufferLayout, SpecializedMeshPipeline, SpecializedMeshPipelineError,
+        SpecializedMeshPipelines,
+    },
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
         RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
-    render_resource::*,
-    renderer::{Device, Queue},
     texture::*,
     view::{
         ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,

@@ -1,7 +1,7 @@
 use basis_universal::{
     BasisTextureType, DecodeFlags, TranscodeParameters, Transcoder, TranscoderTextureFormat,
 };
-use wgpu::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
+use bevy_gpu::{AstcBlock, AstcChannel, Extent3d, TextureDimension, TextureFormat};
 
 use super::{CompressedImageFormats, Image, TextureError};
 

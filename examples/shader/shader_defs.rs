@@ -1,14 +1,13 @@
 //! A shader that uses "shaders defs", which selectively toggle parts of a shader.
 
 use bevy::{
+    gpu::{RenderPipelineDescriptor, ShaderRef},
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypeUuid,
     render::{
-        mesh::MeshVertexBufferLayout,
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-        },
+        mesh::{MeshVertexBufferLayout, SpecializedMeshPipelineError},
+        AsBindGroup,
     },
 };
 

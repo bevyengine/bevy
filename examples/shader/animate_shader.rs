@@ -1,7 +1,7 @@
 //! A shader that uses dynamic data like the time since startup.
 //! The time data is in the globals binding which is part of the `mesh_view_bindings` shader import.
 
-use bevy::{prelude::*, reflect::TypeUuid, render::render_resource::*};
+use bevy::{gpu::ShaderRef, prelude::*, reflect::TypeUuid, render::as_bind_group::AsBindGroup};
 
 fn main() {
     App::new()

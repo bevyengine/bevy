@@ -1,7 +1,4 @@
-use crate::{
-    render_resource::Buffer,
-    renderer::{Device, Queue},
-};
+use crate::{Buffer, Device, Queue};
 use encase::{
     internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
     UniformBuffer as UniformBufferWrapper,

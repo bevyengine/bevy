@@ -1,87 +1,222 @@
-mod device;
-mod graph_runner;
-
-use bevy_derive::{Deref, DerefMut};
-use bevy_utils::tracing::{error, info, info_span};
-pub use device::*;
-pub use graph_runner::*;
-
 use crate::{
-    render_graph::RenderGraph,
-    settings::{Settings, SettingsPriority},
-    view::{ExtractedWindows, ViewTarget},
+    gpu_resource_wrapper, settings::Settings, Backends, BindGroup, BindGroupLayout, Buffer,
+    BufferBindingType, ComputePipeline, RawRenderPipelineDescriptor, RenderPipeline, Sampler,
+    SettingsPriority, Texture,
 };
-use bevy_ecs::prelude::*;
-use bevy_time::TimeSender;
-use bevy_utils::Instant;
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::system::Resource;
+use bevy_log::info;
 use std::sync::Arc;
-use wgpu::RequestAdapterOptions;
+use wgpu::{util::DeviceExt, BufferAsyncError, RequestAdapterOptions};
 
-/// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
-pub fn render_system(world: &mut World) {
-    world.resource_scope(|world, mut graph: Mut<RenderGraph>| {
-        graph.update(world);
-    });
-    let graph = world.resource::<RenderGraph>();
-    let device = world.resource::<Device>();
-    let queue = world.resource::<Queue>();
+gpu_resource_wrapper!(ErasedDevice, wgpu::Device);
 
-    if let Err(e) = RenderGraphRunner::run(
-        graph,
-        device.clone(), // TODO: is this clone really necessary?
-        &queue.0,
-        world,
+/// The GPU instance is used to initialize the [`Queue`] and [`Device`],
+/// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
+#[derive(Resource, Clone, Deref, DerefMut)]
+pub struct Instance(pub Arc<wgpu::Instance>);
+
+impl Instance {
+    /// Create an new instance of the wgpu API.
+    ///
+    /// # Arguments
+    ///
+    /// - `backends` - Controls from which [backends][Backends] wgpu will choose
+    ///   during instantiation.
+    pub fn new(backends: Backends) -> Self {
+        Self(Arc::new(wgpu::Instance::new(backends)))
+    }
+}
+
+/// This GPU device is responsible for the creation of most rendering and compute resources.
+#[derive(Resource, Clone)]
+pub struct Device {
+    device: ErasedDevice,
+}
+
+impl From<wgpu::Device> for Device {
+    fn from(device: wgpu::Device) -> Self {
+        Self {
+            device: ErasedDevice::new(device),
+        }
+    }
+}
+
+impl Device {
+    /// List all [`Features`](wgpu::Features) that may be used with this device.
+    ///
+    /// Functions may panic if you use unsupported features.
+    #[inline]
+    pub fn features(&self) -> wgpu::Features {
+        self.device.features()
+    }
+
+    /// List all [`Limits`](wgpu::Limits) that were requested of this device.
+    ///
+    /// If any of these limits are exceeded, functions may panic.
+    #[inline]
+    pub fn limits(&self) -> wgpu::Limits {
+        self.device.limits()
+    }
+
+    /// Creates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
+    #[inline]
+    pub fn create_shader_module(&self, desc: wgpu::ShaderModuleDescriptor) -> wgpu::ShaderModule {
+        self.device.create_shader_module(desc)
+    }
+
+    /// Check for resource cleanups and mapping callbacks.
+    ///
+    /// no-op on the web, device is automatically polled.
+    #[inline]
+    pub fn poll(&self, maintain: wgpu::Maintain) {
+        self.device.poll(maintain);
+    }
+
+    /// Creates an empty [`CommandEncoder`](wgpu::CommandEncoder).
+    #[inline]
+    pub fn create_command_encoder(
+        &self,
+        desc: &wgpu::CommandEncoderDescriptor,
+    ) -> wgpu::CommandEncoder {
+        self.device.create_command_encoder(desc)
+    }
+
+    /// Creates an empty [`RenderBundleEncoder`](wgpu::RenderBundleEncoder).
+    #[inline]
+    pub fn create_render_bundle_encoder(
+        &self,
+        desc: &wgpu::RenderBundleEncoderDescriptor,
+    ) -> wgpu::RenderBundleEncoder {
+        self.device.create_render_bundle_encoder(desc)
+    }
+
+    /// Creates a new [`BindGroup`](wgpu::BindGroup).
+    #[inline]
+    pub fn create_bind_group(&self, desc: &wgpu::BindGroupDescriptor) -> BindGroup {
+        let wgpu_bind_group = self.device.create_bind_group(desc);
+        BindGroup::from(wgpu_bind_group)
+    }
+
+    /// Creates a [`BindGroupLayout`](wgpu::BindGroupLayout).
+    #[inline]
+    pub fn create_bind_group_layout(
+        &self,
+        desc: &wgpu::BindGroupLayoutDescriptor,
+    ) -> BindGroupLayout {
+        BindGroupLayout::from(self.device.create_bind_group_layout(desc))
+    }
+
+    /// Creates a [`PipelineLayout`](wgpu::PipelineLayout).
+    #[inline]
+    pub fn create_pipeline_layout(
+        &self,
+        desc: &wgpu::PipelineLayoutDescriptor,
+    ) -> wgpu::PipelineLayout {
+        self.device.create_pipeline_layout(desc)
+    }
+
+    /// Creates a [`RenderPipeline`].
+    #[inline]
+    pub fn create_render_pipeline(&self, desc: &RawRenderPipelineDescriptor) -> RenderPipeline {
+        let wgpu_render_pipeline = self.device.create_render_pipeline(desc);
+        RenderPipeline::from(wgpu_render_pipeline)
+    }
+
+    /// Creates a [`ComputePipeline`].
+    #[inline]
+    pub fn create_compute_pipeline(
+        &self,
+        desc: &wgpu::ComputePipelineDescriptor,
+    ) -> ComputePipeline {
+        let wgpu_compute_pipeline = self.device.create_compute_pipeline(desc);
+        ComputePipeline::from(wgpu_compute_pipeline)
+    }
+
+    /// Creates a [`Buffer`].
+    pub fn create_buffer(&self, desc: &wgpu::BufferDescriptor) -> Buffer {
+        let wgpu_buffer = self.device.create_buffer(desc);
+        Buffer::from(wgpu_buffer)
+    }
+
+    /// Creates a [`Buffer`] and initializes it with the specified data.
+    pub fn create_buffer_with_data(&self, desc: &wgpu::util::BufferInitDescriptor) -> Buffer {
+        let wgpu_buffer = self.device.create_buffer_init(desc);
+        Buffer::from(wgpu_buffer)
+    }
+
+    /// Creates a new [`Texture`] and initializes it with the specified data.
+    ///
+    /// `desc` specifies the general format of the texture.
+    /// `data` is the raw data.
+    pub fn create_texture_with_data(
+        &self,
+        queue: &Queue,
+        desc: &wgpu::TextureDescriptor,
+        data: &[u8],
+    ) -> Texture {
+        let wgpu_texture = self
+            .device
+            .create_texture_with_data(queue.as_ref(), desc, data);
+        Texture::from(wgpu_texture)
+    }
+
+    /// Creates a new [`Texture`].
+    ///
+    /// `desc` specifies the general format of the texture.
+    pub fn create_texture(&self, desc: &wgpu::TextureDescriptor) -> Texture {
+        let wgpu_texture = self.device.create_texture(desc);
+        Texture::from(wgpu_texture)
+    }
+
+    /// Creates a new [`Sampler`].
+    ///
+    /// `desc` specifies the behavior of the sampler.
+    pub fn create_sampler(&self, desc: &wgpu::SamplerDescriptor) -> Sampler {
+        let wgpu_sampler = self.device.create_sampler(desc);
+        Sampler::from(wgpu_sampler)
+    }
+
+    /// Initializes [`Surface`](wgpu::Surface) for presentation.
+    ///
+    /// # Panics
+    ///
+    /// - A old [`SurfaceTexture`](wgpu::SurfaceTexture) is still alive referencing an old surface.
+    /// - Texture format requested is unsupported on the surface.
+    pub fn configure_surface(&self, surface: &wgpu::Surface, config: &wgpu::SurfaceConfiguration) {
+        surface.configure(&self.device, config);
+    }
+
+    /// Returns the wgpu [`Device`](wgpu::Device).
+    pub fn wdevice(&self) -> &wgpu::Device {
+        &self.device
+    }
+
+    pub fn map_buffer(
+        &self,
+        buffer: &wgpu::BufferSlice,
+        map_mode: wgpu::MapMode,
+        callback: impl FnOnce(Result<(), BufferAsyncError>) + Send + 'static,
     ) {
-        error!("Error running render graph:");
-        {
-            let mut src: &dyn std::error::Error = &e;
-            loop {
-                error!("> {}", src);
-                match src.source() {
-                    Some(s) => src = s,
-                    None => break,
-                }
-            }
-        }
-
-        panic!("Error running render graph: {e}");
+        buffer.map_async(map_mode, callback);
     }
 
-    {
-        let _span = info_span!("present_frames").entered();
-
-        // Remove ViewTarget components to ensure swap chain TextureViews are dropped.
-        // If all TextureViews aren't dropped before present, acquiring the next swap chain texture will fail.
-        let view_entities = world
-            .query_filtered::<Entity, With<ViewTarget>>()
-            .iter(world)
-            .collect::<Vec<_>>();
-        for view_entity in view_entities {
-            world.entity_mut(view_entity).remove::<ViewTarget>();
-        }
-
-        let mut windows = world.resource_mut::<ExtractedWindows>();
-        for window in windows.values_mut() {
-            if let Some(texture_view) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = texture_view.take_surface_texture() {
-                    surface_texture.present();
-                }
-            }
-        }
-
-        #[cfg(feature = "tracing-tracy")]
-        bevy_utils::tracing::event!(
-            bevy_utils::tracing::Level::INFO,
-            message = "finished frame",
-            tracy.frame_mark = true
-        );
+    pub fn align_copy_bytes_per_row(row_bytes: usize) -> usize {
+        let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+        let padded_bytes_per_row_padding = (align - row_bytes % align) % align;
+        row_bytes + padded_bytes_per_row_padding
     }
 
-    // update the time and send it to the app world
-    let time_sender = world.resource::<TimeSender>();
-    time_sender.0.try_send(Instant::now()).expect(
-        "The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",
-    );
+    pub fn get_supported_read_only_binding_type(
+        &self,
+        buffers_per_shader_stage: u32,
+    ) -> BufferBindingType {
+        if self.limits().max_storage_buffers_per_shader_stage >= buffers_per_shader_stage {
+            BufferBindingType::Storage { read_only: true }
+        } else {
+            BufferBindingType::Uniform
+        }
+    }
 }
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
@@ -92,11 +227,6 @@ pub struct Queue(pub Arc<wgpu::Queue>);
 /// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
 pub struct Adapter(pub Arc<wgpu::Adapter>);
-
-/// The GPU instance is used to initialize the [`Queue`] and [`Device`],
-/// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
-#[derive(Resource, Deref, DerefMut)]
-pub struct Instance(pub wgpu::Instance);
 
 /// The `AdapterInfo` of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
@@ -110,11 +240,11 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
-pub async fn initialize_renderer(
-    instance: &wgpu::Instance,
+pub async fn initialize_gpu(
+    instance: &Instance,
     settings: &Settings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (Device, Queue, AdapterInfo, Adapter) {
+) -> (Device, Queue, Adapter, AdapterInfo) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -263,10 +393,11 @@ pub async fn initialize_renderer(
         .unwrap();
     let queue = Arc::new(queue);
     let adapter = Arc::new(adapter);
+
     (
         Device::from(device),
         Queue(queue),
-        AdapterInfo(adapter_info),
         Adapter(adapter),
+        AdapterInfo(adapter_info),
     )
 }

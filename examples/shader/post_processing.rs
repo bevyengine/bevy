@@ -5,17 +5,10 @@
 
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
+    gpu::{Extent3d, ShaderRef, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages},
     prelude::*,
     reflect::TypeUuid,
-    render::{
-        camera::RenderTarget,
-        render_resource::{
-            AsBindGroup, Extent3d, ShaderRef, TextureDescriptor, TextureDimension, TextureFormat,
-            TextureUsages,
-        },
-        texture::BevyDefault,
-        view::RenderLayers,
-    },
+    render::{camera::RenderTarget, texture::BevyDefault, view::RenderLayers, AsBindGroup},
     sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
 };
 

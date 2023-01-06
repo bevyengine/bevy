@@ -1,6 +1,6 @@
+use bevy_gpu::{Extent3d, TextureDimension, TextureFormat};
 use ddsfile::{D3DFormat, Dds, DxgiFormat};
 use std::io::Cursor;
-use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 use super::{CompressedImageFormats, Image, TextureError};
 
