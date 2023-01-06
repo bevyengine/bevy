@@ -351,7 +351,7 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let mut added = HashSet::new();
+        let mut added = HashSet::default();
         let mut components = Vec::new();
         while let Some(BorrowableCowStr(key)) = map.next_key()? {
             if !added.insert(key.clone()) {

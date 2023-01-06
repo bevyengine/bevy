@@ -9,7 +9,7 @@ use std::{
 };
 
 use crate::utility::NonGenericTypeInfoCell;
-pub use bevy_utils::AHasher as ReflectHasher;
+pub use bevy_utils::FxHasher as ReflectHasher;
 
 /// An immutable enumeration of "kinds" of reflected type.
 ///

@@ -1,5 +1,5 @@
 use bevy_reflect::{Reflect, ReflectDeserialize, ReflectSerialize};
-use bevy_utils::AHasher;
+use bevy_utils::FxHasher;
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::Cow,
@@ -87,7 +87,7 @@ pub struct LabelId(u64);
 
 impl<'a> From<&'a Path> for SourcePathId {
     fn from(value: &'a Path) -> Self {
-        let mut hasher = get_hasher();
+        let mut hasher = FxHasher::default();
         value.hash(&mut hasher);
         SourcePathId(hasher.finish())
     }
@@ -107,7 +107,7 @@ impl<'a> From<AssetPath<'a>> for SourcePathId {
 
 impl<'a> From<Option<&'a str>> for LabelId {
     fn from(value: Option<&'a str>) -> Self {
-        let mut hasher = get_hasher();
+        let mut hasher = FxHasher::default();
         value.hash(&mut hasher);
         LabelId(hasher.finish())
     }
@@ -123,11 +123,6 @@ impl AssetPathId {
     pub fn label_id(&self) -> LabelId {
         self.1
     }
-}
-
-/// this hasher provides consistent results across runs
-pub(crate) fn get_hasher() -> AHasher {
-    AHasher::new_with_keys(42, 23)
 }
 
 impl<'a, T> From<T> for AssetPathId

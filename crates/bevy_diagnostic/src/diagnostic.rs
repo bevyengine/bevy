@@ -1,6 +1,6 @@
 use bevy_ecs::system::Resource;
 use bevy_log::warn;
-use bevy_utils::{Duration, Instant, StableHashMap, Uuid};
+use bevy_utils::{Duration, HashMap, Instant, Uuid};
 use std::{borrow::Cow, collections::VecDeque};
 
 use crate::MAX_DIAGNOSTIC_NAME_WIDTH;
@@ -200,9 +200,9 @@ impl Diagnostic {
 /// A collection of [Diagnostic]s
 #[derive(Debug, Default, Resource)]
 pub struct Diagnostics {
-    // This uses a [`StableHashMap`] to ensure that the iteration order is deterministic between
+    // This uses a [`HashMap`] to ensure that the iteration order is deterministic between
     // runs when all diagnostics are inserted in the same order.
-    diagnostics: StableHashMap<DiagnosticId, Diagnostic>,
+    diagnostics: HashMap<DiagnosticId, Diagnostic>,
 }
 
 impl Diagnostics {

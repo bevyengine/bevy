@@ -40,9 +40,9 @@ impl Node for CameraDriverNode {
             std::cmp::Ordering::Equal => t1.cmp(t2),
             ord => ord,
         });
-        let mut camera_windows = HashSet::new();
+        let mut camera_windows = HashSet::default();
         let mut previous_order_target = None;
-        let mut ambiguities = HashSet::new();
+        let mut ambiguities = HashSet::default();
         for (entity, order, target) in sorted_cameras {
             let new_order_target = (order, target);
             if let Some(previous_order_target) = previous_order_target {

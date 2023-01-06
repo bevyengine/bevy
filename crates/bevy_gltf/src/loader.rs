@@ -138,7 +138,7 @@ async fn load_gltf<'a, 'b>(
 
     #[cfg(feature = "bevy_animation")]
     let paths = {
-        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::new();
+        let mut paths = HashMap::<usize, (usize, Vec<Name>)>::default();
         for scene in gltf.scenes() {
             for node in scene.nodes() {
                 let root_index = node.index();
@@ -461,8 +461,8 @@ async fn load_gltf<'a, 'b>(
     for scene in gltf.scenes() {
         let mut err = None;
         let mut world = World::default();
-        let mut node_index_to_entity_map = HashMap::new();
-        let mut entity_to_skin_index_map = HashMap::new();
+        let mut node_index_to_entity_map = HashMap::default();
+        let mut entity_to_skin_index_map = HashMap::default();
 
         world
             .spawn(SpatialBundle::INHERITED_IDENTITY)

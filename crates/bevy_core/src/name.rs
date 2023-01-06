@@ -1,7 +1,7 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
-use bevy_utils::AHasher;
+use bevy_utils::FxHasher;
 use std::{
     borrow::Cow,
     hash::{Hash, Hasher},
@@ -63,7 +63,7 @@ impl Name {
     }
 
     fn update_hash(&mut self) {
-        let mut hasher = AHasher::default();
+        let mut hasher = FxHasher::default();
         self.name.hash(&mut hasher);
         self.hash = hasher.finish();
     }

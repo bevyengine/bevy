@@ -374,7 +374,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     /// Returns a vector of elements that this set and `other` cannot access at the same time.
     pub fn get_conflicts(&self, other: &FilteredAccessSet<T>) -> Vec<T> {
         // if the unfiltered access is incompatible, must check each pair
-        let mut conflicts = HashSet::new();
+        let mut conflicts = HashSet::default();
         if !self.combined_access.is_compatible(other.combined_access()) {
             for filtered in &self.filtered_accesses {
                 for other_filtered in &other.filtered_accesses {
@@ -388,7 +388,7 @@ impl<T: SparseSetIndex> FilteredAccessSet<T> {
     /// Returns a vector of elements that this set and `other` cannot access at the same time.
     pub fn get_conflicts_single(&self, filtered_access: &FilteredAccess<T>) -> Vec<T> {
         // if the unfiltered access is incompatible, must check each pair
-        let mut conflicts = HashSet::new();
+        let mut conflicts = HashSet::default();
         if !self.combined_access.is_compatible(filtered_access.access()) {
             for filtered in &self.filtered_accesses {
                 conflicts.extend(filtered.get_conflicts(filtered_access).into_iter());

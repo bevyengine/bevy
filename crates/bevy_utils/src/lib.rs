@@ -19,15 +19,14 @@ pub mod synccell;
 mod default;
 mod float_ord;
 
-pub use ahash::AHasher;
 pub use default::default;
 pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};
+pub use rustc_hash::FxHasher;
 pub use tracing;
 pub use uuid::Uuid;
 
-use ahash::RandomState;
 use hashbrown::hash_map::RawEntryMut;
 use std::{
     fmt::Debug,
@@ -46,53 +45,42 @@ pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 pub type BoxedFuture<'a, T> = Pin<Box<dyn Future<Output = T> + 'a>>;
 
 /// A shortcut alias for [`hashbrown::hash_map::Entry`].
-pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, RandomState>;
+pub type Entry<'a, K, V> = hashbrown::hash_map::Entry<'a, K, V, FixedState>;
 
 /// A hasher builder that will create a fixed hasher.
 #[derive(Debug, Clone, Default)]
 pub struct FixedState;
 
 impl std::hash::BuildHasher for FixedState {
-    type Hasher = AHasher;
+    type Hasher = FxHasher;
 
     #[inline]
-    fn build_hasher(&self) -> AHasher {
-        AHasher::new_with_keys(
-            0b1001010111101110000001001100010000000011001001101011001001111000,
-            0b1100111101101011011110001011010100000100001111100011010011010101,
-        )
+    fn build_hasher(&self) -> Self::Hasher {
+        FxHasher::default()
     }
 }
 
 /// A [`HashMap`][hashbrown::HashMap] implementing aHash, a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
-/// aHash is designed for performance and is NOT cryptographically secure.
-pub type HashMap<K, V> = hashbrown::HashMap<K, V, RandomState>;
+/// FxHash is designed for performance and is NOT cryptographically secure.
+/// It is also not [`HashDOS`] resistant, so exposing these maps to external
+/// untrusted inputs is strongly discouraged.
+///
+/// As the initialization state is always the same, the iteration order only
+/// depends on the order of insertionts and deletions and not a random source.
+pub type HashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 
-/// A stable hash map implementing aHash, a high speed keyed hashing algorithm
-/// intended for use in in-memory hashmaps.
+/// A [`HashSet`][hashbrown::HashSet] implementing FxHash, a high
+/// speed hashing algorithm intended for use in in-memory hashmaps.
 ///
-/// Unlike [`HashMap`] this has an iteration order that only depends on the order
-/// of insertions and deletions and not a random source.
+/// FxHash is designed for performance and is NOT cryptographically secure.
+/// It is also not [`HashDOS`] resistant, so exposing these sets to external
+/// untrusted inputs is strongly discouraged.
 ///
-/// aHash is designed for performance and is NOT cryptographically secure.
-pub type StableHashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
-
-/// A [`HashSet`][hashbrown::HashSet] implementing aHash, a high
-/// speed keyed hashing algorithm intended for use in in-memory hashmaps.
-///
-/// aHash is designed for performance and is NOT cryptographically secure.
-pub type HashSet<K> = hashbrown::HashSet<K, RandomState>;
-
-/// A stable hash set implementing aHash, a high speed keyed hashing algorithm
-/// intended for use in in-memory hashmaps.
-///
-/// Unlike [`HashSet`] this has an iteration order that only depends on the order
-/// of insertions and deletions and not a random source.
-///
-/// aHash is designed for performance and is NOT cryptographically secure.
-pub type StableHashSet<K> = hashbrown::HashSet<K, FixedState>;
+/// As the initialization state is always the same, the iteration order only
+/// depends on the order of insertionts and deletions and not a random source.
+pub type HashSet<K> = hashbrown::HashSet<K, FixedState>;
 
 /// A pre-hashed value of a specific type. Pre-hashing enables memoization of hashes that are expensive to compute.
 /// It also enables faster [`PartialEq`] comparisons by short circuiting on hash equality.

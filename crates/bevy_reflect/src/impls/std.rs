@@ -11,7 +11,7 @@ use crate::{
 use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
-use bevy_utils::{HashMap, HashSet};
+use bevy_utils::{FixedState, HashMap, HashSet};
 use std::{
     any::Any,
     borrow::Cow,
@@ -509,7 +509,7 @@ where
 impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
-            let mut new_map = Self::with_capacity(ref_map.len());
+            let mut new_map = Self::with_capacity_and_hasher(ref_map.len(), FixedState);
             for (key, value) in ref_map.iter() {
                 let new_key = K::from_reflect(key)?;
                 let new_value = V::from_reflect(value)?;

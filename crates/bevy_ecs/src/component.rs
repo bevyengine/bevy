@@ -7,6 +7,7 @@ use crate::{
 };
 pub use bevy_ecs_macros::Component;
 use bevy_ptr::{OwningPtr, UnsafeCellDeref};
+use bevy_utils::HashMap;
 use std::cell::UnsafeCell;
 use std::{
     alloc::Layout,
@@ -398,8 +399,8 @@ impl ComponentDescriptor {
 #[derive(Debug, Default)]
 pub struct Components {
     components: Vec<ComponentInfo>,
-    indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
-    resource_indices: std::collections::HashMap<TypeId, usize, fxhash::FxBuildHasher>,
+    indices: HashMap<TypeId, usize>,
+    resource_indices: HashMap<TypeId, usize>,
 }
 
 impl Components {
