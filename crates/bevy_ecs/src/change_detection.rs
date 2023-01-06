@@ -216,20 +216,17 @@ macro_rules! impl_methods {
             ///
             /// ```rust
             /// # use bevy_ecs::prelude::*;
-            /// # pub struct Vec2;
+            /// # #[derive(PartialEq)] pub struct Vec2;
             /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
-            /// # mod my_utils {
-            /// #   pub fn set_if_not_equal<T>(x: bevy_ecs::prelude::Mut<T>, val: T) { unimplemented!() }
-            /// # }
             /// // When run, zeroes the translation of every entity.
             /// fn reset_positions(mut transforms: Query<&mut Transform>) {
             ///     for transform in &mut transforms {
             ///         // We pinky promise not to modify `t` within the closure.
             ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
-            ///         let translation = transform.map_unchanged(|t| &mut t.translation);
+            ///         let mut translation = transform.map_unchanged(|t| &mut t.translation);
             ///         // Only reset the translation if it isn't already zero;
-            ///         my_utils::set_if_not_equal(translation, Vec2::ZERO);
+            ///         translation.set_if_neq(Vec2::ZERO);
             ///     }
             /// }
             /// # bevy_ecs::system::assert_is_system(reset_positions);
