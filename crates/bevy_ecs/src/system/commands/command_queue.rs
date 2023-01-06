@@ -47,7 +47,7 @@ impl CommandQueue {
 
         // SAFETY: After adding the metadata, we correctly write the corresponding `command`
         // of type `C` into `self.bytes`. Zero-sized commands do not get written into the buffer,
-        // but dangling pointers to zero-sized types are valid.
+        // so we'll just use a dangling pointer, which is always valid for zero-sized types.
         self.metas.push(CommandMeta {
             offset: old_len,
             write_command: |command, world| {
@@ -76,7 +76,8 @@ impl CommandQueue {
             // this is guaranteed to fit in the vector's capacity.
             unsafe { self.bytes.set_len(old_len + size) };
         } else {
-            // Forget the command, so it doesn't get double-dropped when the queue gets applied.
+            // Instead of writing zero-sized types into the buffer, we'll just use a dangling pointer.
+            // We must forget the command so it doesn't get double-dropped when the queue gets applied.
             std::mem::forget(command);
         }
     }
