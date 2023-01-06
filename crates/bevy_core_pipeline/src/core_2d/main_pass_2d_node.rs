@@ -53,13 +53,10 @@ impl Node for MainPass2dNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (camera, transparent_phase, target, camera_2d) =
-            if let Ok(result) = self.query.get_manual(world, view_entity) {
-                result
-            } else {
-                // no target
-                return Ok(());
-            };
+        let Ok((camera, transparent_phase, target, camera_2d)) = self.query.get_manual(world, view_entity) else {
+            // no target
+            return Ok(());
+        };
         {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_pass_2d").entered();

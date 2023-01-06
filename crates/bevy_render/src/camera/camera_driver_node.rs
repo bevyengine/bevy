@@ -51,13 +51,11 @@ impl Node for CameraDriverNode {
                 }
             }
             previous_order_target = Some(new_order_target);
-            if let Ok((_, camera)) = self.cameras.get_manual(world, entity) {
-                if let RenderTarget::Window(id) = camera.target {
-                    camera_windows.insert(id);
-                }
-                graph
-                    .run_sub_graph(camera.render_graph.clone(), vec![SlotValue::Entity(entity)])?;
+            let Ok((_, camera)) = self.cameras.get_manual(world, entity) else { continue };
+            if let RenderTarget::Window(id) = camera.target {
+                camera_windows.insert(id);
             }
+            graph.run_sub_graph(camera.render_graph.clone(), vec![SlotValue::Entity(entity)])?;
         }
 
         if !ambiguities.is_empty() {

@@ -15,14 +15,13 @@ pub struct GlobalsPlugin;
 impl Plugin for GlobalsPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<GlobalsUniform>();
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<GlobalsBuffer>()
-                .init_resource::<Time>()
-                .add_system_to_stage(RenderStage::Extract, extract_frame_count)
-                .add_system_to_stage(RenderStage::Extract, extract_time)
-                .add_system_to_stage(RenderStage::Prepare, prepare_globals_buffer);
-        }
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app
+            .init_resource::<GlobalsBuffer>()
+            .init_resource::<Time>()
+            .add_system_to_stage(RenderStage::Extract, extract_frame_count)
+            .add_system_to_stage(RenderStage::Extract, extract_time)
+            .add_system_to_stage(RenderStage::Prepare, prepare_globals_buffer);
     }
 }
 

@@ -76,12 +76,12 @@ fn setup_scene_once_loaded(
     mut player: Query<&mut AnimationPlayer>,
     mut done: Local<bool>,
 ) {
-    if !*done {
-        if let Ok(mut player) = player.get_single_mut() {
-            player.play(animations.0[0].clone_weak()).repeat();
-            *done = true;
-        }
+    if *done {
+        return;
     }
+    let Ok(mut player) = player.get_single_mut() else { return };
+    player.play(animations.0[0].clone_weak()).repeat();
+    *done = true;
 }
 
 fn keyboard_animation_control(
@@ -90,40 +90,39 @@ fn keyboard_animation_control(
     animations: Res<Animations>,
     mut current_animation: Local<usize>,
 ) {
-    if let Ok(mut player) = animation_player.get_single_mut() {
-        if keyboard_input.just_pressed(KeyCode::Space) {
-            if player.is_paused() {
-                player.resume();
-            } else {
-                player.pause();
-            }
+    let Ok(mut player) = animation_player.get_single_mut() else { return };
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        if player.is_paused() {
+            player.resume();
+        } else {
+            player.pause();
         }
+    }
 
-        if keyboard_input.just_pressed(KeyCode::Up) {
-            let speed = player.speed();
-            player.set_speed(speed * 1.2);
-        }
+    if keyboard_input.just_pressed(KeyCode::Up) {
+        let speed = player.speed();
+        player.set_speed(speed * 1.2);
+    }
 
-        if keyboard_input.just_pressed(KeyCode::Down) {
-            let speed = player.speed();
-            player.set_speed(speed * 0.8);
-        }
+    if keyboard_input.just_pressed(KeyCode::Down) {
+        let speed = player.speed();
+        player.set_speed(speed * 0.8);
+    }
 
-        if keyboard_input.just_pressed(KeyCode::Left) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed - 0.1);
-        }
+    if keyboard_input.just_pressed(KeyCode::Left) {
+        let elapsed = player.elapsed();
+        player.set_elapsed(elapsed - 0.1);
+    }
 
-        if keyboard_input.just_pressed(KeyCode::Right) {
-            let elapsed = player.elapsed();
-            player.set_elapsed(elapsed + 0.1);
-        }
+    if keyboard_input.just_pressed(KeyCode::Right) {
+        let elapsed = player.elapsed();
+        player.set_elapsed(elapsed + 0.1);
+    }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
-            *current_animation = (*current_animation + 1) % animations.0.len();
-            player
-                .play(animations.0[*current_animation].clone_weak())
-                .repeat();
-        }
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        *current_animation = (*current_animation + 1) % animations.0.len();
+        player
+            .play(animations.0[*current_animation].clone_weak())
+            .repeat();
     }
 }

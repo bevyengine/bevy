@@ -64,9 +64,8 @@ fn update_clipping(
         }
     };
 
-    if let Ok(children) = children_query.get(entity) {
-        for child in children.iter().cloned() {
-            update_clipping(commands, children_query, node_query, child, children_clip);
-        }
+    let Ok(children) = children_query.get(entity) else { return };
+    for child in children.iter().cloned() {
+        update_clipping(commands, children_query, node_query, child, children_clip);
     }
 }

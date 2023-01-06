@@ -25,12 +25,11 @@ impl Plugin for UpscalingPlugin {
             Shader::from_wgsl
         );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<UpscalingPipeline>()
-                .init_resource::<SpecializedRenderPipelines<UpscalingPipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue_view_upscaling_pipelines);
-        }
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app
+            .init_resource::<UpscalingPipeline>()
+            .init_resource::<SpecializedRenderPipelines<UpscalingPipeline>>()
+            .add_system_to_stage(RenderStage::Queue, queue_view_upscaling_pipelines);
     }
 }
 

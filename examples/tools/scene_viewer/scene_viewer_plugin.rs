@@ -170,30 +170,30 @@ fn keyboard_animation_control(
         return;
     }
 
-    if let Ok(mut player) = animation_player.get_single_mut() {
-        if keyboard_input.just_pressed(KeyCode::Space) {
-            if player.is_paused() {
-                player.resume();
-            } else {
-                player.pause();
-            }
-        }
+    let Ok(mut player) = animation_player.get_single_mut() else { return };
 
-        if *changing {
-            // change the animation the frame after return was pressed
-            *current_animation = (*current_animation + 1) % scene_handle.animations.len();
-            player
-                .play(scene_handle.animations[*current_animation].clone_weak())
-                .repeat();
-            *changing = false;
+    if keyboard_input.just_pressed(KeyCode::Space) {
+        if player.is_paused() {
+            player.resume();
+        } else {
+            player.pause();
         }
+    }
 
-        if keyboard_input.just_pressed(KeyCode::Return) {
-            // delay the animation change for one frame
-            *changing = true;
-            // set the current animation to its start and pause it to reset to its starting state
-            player.set_elapsed(0.0).pause();
-        }
+    if *changing {
+        // change the animation the frame after return was pressed
+        *current_animation = (*current_animation + 1) % scene_handle.animations.len();
+        player
+            .play(scene_handle.animations[*current_animation].clone_weak())
+            .repeat();
+        *changing = false;
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        // delay the animation change for one frame
+        *changing = true;
+        // set the current animation to its start and pause it to reset to its starting state
+        player.set_elapsed(0.0).pause();
     }
 }
 

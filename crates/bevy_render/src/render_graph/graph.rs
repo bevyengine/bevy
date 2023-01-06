@@ -491,12 +491,11 @@ impl RenderGraph {
     pub fn has_edge(&self, edge: &Edge) -> bool {
         let output_node_state = self.get_node_state(edge.get_output_node());
         let input_node_state = self.get_node_state(edge.get_input_node());
-        if let Ok(output_node_state) = output_node_state {
-            if output_node_state.edges.output_edges().contains(edge) {
-                if let Ok(input_node_state) = input_node_state {
-                    if input_node_state.edges.input_edges().contains(edge) {
-                        return true;
-                    }
+        let Ok(output_node_state) = output_node_state else { return false };
+        if output_node_state.edges.output_edges().contains(edge) {
+            if let Ok(input_node_state) = input_node_state {
+                if input_node_state.edges.input_edges().contains(edge) {
+                    return true;
                 }
             }
         }

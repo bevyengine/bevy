@@ -63,17 +63,17 @@ impl FileAssetIo {
     /// If the `CARGO_MANIFEST_DIR` environment variable is set, then its value will be used
     /// instead. It's set by cargo when running with `cargo run`.
     pub fn get_base_path() -> PathBuf {
-        if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
-            PathBuf::from(manifest_dir)
-        } else {
-            env::current_exe()
-                .map(|path| {
-                    path.parent()
-                        .map(|exe_parent_path| exe_parent_path.to_owned())
-                        .unwrap()
-                })
-                .unwrap()
-        }
+        env::var("CARGO_MANIFEST_DIR")
+            .map(|manifest_dir| PathBuf::from(manifest_dir))
+            .unwrap_or_else(|_| {
+                env::current_exe()
+                    .map(|path| {
+                        path.parent()
+                            .map(|exe_parent_path| exe_parent_path.to_owned())
+                            .unwrap()
+                    })
+                    .unwrap()
+            })
     }
 
     /// Returns the root directory where assets are loaded from.

@@ -153,20 +153,19 @@ where
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
-                .init_resource::<Material2dPipeline<M>>()
-                .init_resource::<ExtractedMaterials2d<M>>()
-                .init_resource::<RenderMaterials2d<M>>()
-                .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_system_to_stage(RenderStage::Extract, extract_materials_2d::<M>)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_materials_2d::<M>.after(PrepareAssetLabel::PreAssetPrepare),
-                )
-                .add_system_to_stage(RenderStage::Queue, queue_material2d_meshes::<M>);
-        }
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app
+            .add_render_command::<Transparent2d, DrawMaterial2d<M>>()
+            .init_resource::<Material2dPipeline<M>>()
+            .init_resource::<ExtractedMaterials2d<M>>()
+            .init_resource::<RenderMaterials2d<M>>()
+            .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
+            .add_system_to_stage(RenderStage::Extract, extract_materials_2d::<M>)
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                prepare_materials_2d::<M>.after(PrepareAssetLabel::PreAssetPrepare),
+            )
+            .add_system_to_stage(RenderStage::Queue, queue_material2d_meshes::<M>);
     }
 }
 

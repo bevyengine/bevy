@@ -156,51 +156,48 @@ pub fn ui_focus_system(
         // reverse the iterator to traverse the tree from closest nodes to furthest
         .rev()
         .filter_map(|entity| {
-            if let Ok(node) = node_query.get_mut(*entity) {
-                // Nodes that are not rendered should not be interactable
-                if let Some(computed_visibility) = node.computed_visibility {
-                    if !computed_visibility.is_visible() {
-                        // Reset their interaction to None to avoid strange stuck state
-                        if let Some(mut interaction) = node.interaction {
-                            // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
-                            if *interaction != Interaction::None {
-                                *interaction = Interaction::None;
-                            }
-                        }
-
-                        return None;
-                    }
-                }
-
-                let position = node.global_transform.translation();
-                let ui_position = position.truncate();
-                let extents = node.node.size() / 2.0;
-                let mut min = ui_position - extents;
-                let mut max = ui_position + extents;
-                if let Some(clip) = node.calculated_clip {
-                    min = Vec2::max(min, clip.clip.min);
-                    max = Vec2::min(max, clip.clip.max);
-                }
-                // if the current cursor position is within the bounds of the node, consider it for
-                // clicking
-                let contains_cursor = if let Some(cursor_position) = cursor_position {
-                    (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&cursor_position.y)
-                } else {
-                    false
-                };
-
-                if contains_cursor {
-                    Some(*entity)
-                } else {
+            let node = node_query.get_mut(*entity).ok()?;
+            // Nodes that are not rendered should not be interactable
+            if let Some(computed_visibility) = node.computed_visibility {
+                if !computed_visibility.is_visible() {
+                    // Reset their interaction to None to avoid strange stuck state
                     if let Some(mut interaction) = node.interaction {
-                        if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
-                            interaction.set_if_neq(Interaction::None);
+                        // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
+                        if *interaction != Interaction::None {
+                            *interaction = Interaction::None;
                         }
                     }
-                    None
+
+                    return None;
                 }
+            }
+
+            let position = node.global_transform.translation();
+            let ui_position = position.truncate();
+            let extents = node.node.size() / 2.0;
+            let mut min = ui_position - extents;
+            let mut max = ui_position + extents;
+            if let Some(clip) = node.calculated_clip {
+                min = Vec2::max(min, clip.clip.min);
+                max = Vec2::min(max, clip.clip.max);
+            }
+            // if the current cursor position is within the bounds of the node, consider it for
+            // clicking
+            let contains_cursor = if let Some(cursor_position) = cursor_position {
+                (min.x..max.x).contains(&cursor_position.x)
+                    && (min.y..max.y).contains(&cursor_position.y)
             } else {
+                false
+            };
+
+            if contains_cursor {
+                Some(*entity)
+            } else {
+                if let Some(mut interaction) = node.interaction {
+                    if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
+                        interaction.set_if_neq(Interaction::None);
+                    }
+                }
                 None
             }
         })

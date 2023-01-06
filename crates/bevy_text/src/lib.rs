@@ -95,11 +95,10 @@ impl Plugin for TextPlugin {
                     .ambiguous_with(CameraUpdateSystem),
             );
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(
-                RenderStage::Extract,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
-            );
-        }
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app.add_system_to_stage(
+            RenderStage::Extract,
+            extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+        );
     }
 }

@@ -235,20 +235,19 @@ impl_downcast!(AssetLifecycle);
 
 impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     fn create_asset(&self, id: HandleId, asset: Box<dyn AssetDynamic>, version: usize) {
-        if let Ok(asset) = asset.downcast::<T>() {
-            self.sender
-                .send(AssetLifecycleEvent::Create(AssetResult {
-                    asset,
-                    id,
-                    version,
-                }))
-                .unwrap();
-        } else {
+        let asset = asset.downcast::<T>().unwrap_or_else(|_| {
             panic!(
                 "Failed to downcast asset to {}.",
                 std::any::type_name::<T>()
-            );
-        }
+            )
+        });
+        self.sender
+            .send(AssetLifecycleEvent::Create(AssetResult {
+                asset,
+                id,
+                version,
+            }))
+            .unwrap();
     }
 
     fn free_asset(&self, id: HandleId) {

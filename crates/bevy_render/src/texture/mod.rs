@@ -93,17 +93,16 @@ impl Plugin for ImagePlugin {
             .resource_mut::<Assets<Image>>()
             .set_untracked(DEFAULT_IMAGE_HANDLE, Image::default());
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let default_sampler = {
-                let device = render_app.world.resource::<RenderDevice>();
-                device.create_sampler(&self.default_sampler.clone())
-            };
-            render_app
-                .insert_resource(DefaultImageSampler(default_sampler))
-                .init_resource::<TextureCache>()
-                .init_resource::<FallbackImage>()
-                .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
-        }
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        let default_sampler = {
+            let device = render_app.world.resource::<RenderDevice>();
+            device.create_sampler(&self.default_sampler.clone())
+        };
+        render_app
+            .insert_resource(DefaultImageSampler(default_sampler))
+            .init_resource::<TextureCache>()
+            .init_resource::<FallbackImage>()
+            .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
     }
 }
 

@@ -164,22 +164,21 @@ where
     fn build(&self, app: &mut App) {
         app.add_asset::<M>()
             .add_plugin(ExtractComponentPlugin::<Handle<M>>::extract_visible());
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .add_render_command::<Transparent3d, DrawMaterial<M>>()
-                .add_render_command::<Opaque3d, DrawMaterial<M>>()
-                .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
-                .init_resource::<MaterialPipeline<M>>()
-                .init_resource::<ExtractedMaterials<M>>()
-                .init_resource::<RenderMaterials<M>>()
-                .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system_to_stage(RenderStage::Extract, extract_materials::<M>)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
-                )
-                .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
-        }
+        let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
+        render_app
+            .add_render_command::<Transparent3d, DrawMaterial<M>>()
+            .add_render_command::<Opaque3d, DrawMaterial<M>>()
+            .add_render_command::<AlphaMask3d, DrawMaterial<M>>()
+            .init_resource::<MaterialPipeline<M>>()
+            .init_resource::<ExtractedMaterials<M>>()
+            .init_resource::<RenderMaterials<M>>()
+            .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
+            .add_system_to_stage(RenderStage::Extract, extract_materials::<M>)
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
+            )
+            .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
     }
 }
 

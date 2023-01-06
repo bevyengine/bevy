@@ -466,82 +466,79 @@ pub fn extract_lights(
 
     let mut point_lights_values = Vec::with_capacity(*previous_point_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
-            point_lights.get(entity)
-        {
-            if !visibility.is_visible() {
-                continue;
-            }
-            // TODO: This is very much not ideal. We should be able to re-use the vector memory.
-            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
-            let render_cubemap_visible_entities = cubemap_visible_entities.clone();
-            point_lights_values.push((
-                entity,
-                (
-                    ExtractedPointLight {
-                        color: point_light.color,
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                        // for details.
-                        intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
-                        range: point_light.range,
-                        radius: point_light.radius,
-                        transform: *transform,
-                        shadows_enabled: point_light.shadows_enabled,
-                        shadow_depth_bias: point_light.shadow_depth_bias,
-                        // The factor of SQRT_2 is for the worst-case diagonal offset
-                        shadow_normal_bias: point_light.shadow_normal_bias
-                            * point_light_texel_size
-                            * std::f32::consts::SQRT_2,
-                        spot_light_angles: None,
-                    },
-                    render_cubemap_visible_entities,
-                ),
-            ));
+        let Ok((point_light, cubemap_visible_entities, transform, visibility)) =
+        point_lights.get(entity) else { continue };
+        if !visibility.is_visible() {
+            continue;
         }
+        // TODO: This is very much not ideal. We should be able to re-use the vector memory.
+        // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+        let render_cubemap_visible_entities = cubemap_visible_entities.clone();
+        point_lights_values.push((
+            entity,
+            (
+                ExtractedPointLight {
+                    color: point_light.color,
+                    // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                    // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                    // for details.
+                    intensity: point_light.intensity / (4.0 * std::f32::consts::PI),
+                    range: point_light.range,
+                    radius: point_light.radius,
+                    transform: *transform,
+                    shadows_enabled: point_light.shadows_enabled,
+                    shadow_depth_bias: point_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: point_light.shadow_normal_bias
+                        * point_light_texel_size
+                        * std::f32::consts::SQRT_2,
+                    spot_light_angles: None,
+                },
+                render_cubemap_visible_entities,
+            ),
+        ));
     }
     *previous_point_lights_len = point_lights_values.len();
     commands.insert_or_spawn_batch(point_lights_values);
 
     let mut spot_lights_values = Vec::with_capacity(*previous_spot_lights_len);
     for entity in global_point_lights.iter().copied() {
-        if let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) {
-            if !visibility.is_visible() {
-                continue;
-            }
-            // TODO: This is very much not ideal. We should be able to re-use the vector memory.
-            // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
-            let render_visible_entities = visible_entities.clone();
-            let texel_size =
-                2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
-
-            spot_lights_values.push((
-                entity,
-                (
-                    ExtractedPointLight {
-                        color: spot_light.color,
-                        // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
-                        // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
-                        // for details.
-                        // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
-                        // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
-                        // which seems least surprising for users
-                        intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
-                        range: spot_light.range,
-                        radius: spot_light.radius,
-                        transform: *transform,
-                        shadows_enabled: spot_light.shadows_enabled,
-                        shadow_depth_bias: spot_light.shadow_depth_bias,
-                        // The factor of SQRT_2 is for the worst-case diagonal offset
-                        shadow_normal_bias: spot_light.shadow_normal_bias
-                            * texel_size
-                            * std::f32::consts::SQRT_2,
-                        spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
-                    },
-                    render_visible_entities,
-                ),
-            ));
+        let Ok((spot_light, visible_entities, transform, visibility)) = spot_lights.get(entity) else { continue };
+        if !visibility.is_visible() {
+            continue;
         }
+        // TODO: This is very much not ideal. We should be able to re-use the vector memory.
+        // However, since exclusive access to the main world in extract is ill-advised, we just clone here.
+        let render_visible_entities = visible_entities.clone();
+        let texel_size =
+            2.0 * spot_light.outer_angle.tan() / directional_light_shadow_map.size as f32;
+
+        spot_lights_values.push((
+            entity,
+            (
+                ExtractedPointLight {
+                    color: spot_light.color,
+                    // NOTE: Map from luminous power in lumens to luminous intensity in lumens per steradian
+                    // for a point light. See https://google.github.io/filament/Filament.html#mjx-eqn-pointLightLuminousPower
+                    // for details.
+                    // Note: Filament uses a divisor of PI for spot lights. We choose to use the same 4*PI divisor
+                    // in both cases so that toggling between point light and spot light keeps lit areas lit equally,
+                    // which seems least surprising for users
+                    intensity: spot_light.intensity / (4.0 * std::f32::consts::PI),
+                    range: spot_light.range,
+                    radius: spot_light.radius,
+                    transform: *transform,
+                    shadows_enabled: spot_light.shadows_enabled,
+                    shadow_depth_bias: spot_light.shadow_depth_bias,
+                    // The factor of SQRT_2 is for the worst-case diagonal offset
+                    shadow_normal_bias: spot_light.shadow_normal_bias
+                        * texel_size
+                        * std::f32::consts::SQRT_2,
+                    spot_light_angles: Some((spot_light.inner_angle, spot_light.outer_angle)),
+                },
+                render_visible_entities,
+            ),
+        ));
     }
     *previous_spot_lights_len = spot_lights_values.len();
     commands.insert_or_spawn_batch(spot_lights_values);
@@ -1749,37 +1746,36 @@ impl Node for ShadowPassNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        if let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) {
-            for view_light_entity in view_lights.lights.iter().copied() {
-                let (view_light, shadow_phase) = self
-                    .view_light_query
-                    .get_manual(world, view_light_entity)
-                    .unwrap();
+        let Ok(view_lights) = self.main_view_query.get_manual(world, view_entity) else { return Ok(()) };
+        for view_light_entity in view_lights.lights.iter().copied() {
+            let (view_light, shadow_phase) = self
+                .view_light_query
+                .get_manual(world, view_light_entity)
+                .unwrap();
 
-                if shadow_phase.items.is_empty() {
-                    continue;
-                }
-
-                let pass_descriptor = RenderPassDescriptor {
-                    label: Some(&view_light.pass_name),
-                    color_attachments: &[],
-                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        view: &view_light.depth_texture_view,
-                        depth_ops: Some(Operations {
-                            load: LoadOp::Clear(0.0),
-                            store: true,
-                        }),
-                        stencil_ops: None,
-                    }),
-                };
-
-                let render_pass = render_context
-                    .command_encoder
-                    .begin_render_pass(&pass_descriptor);
-                let mut render_pass = TrackedRenderPass::new(render_pass);
-
-                shadow_phase.render(&mut render_pass, world, view_light_entity);
+            if shadow_phase.items.is_empty() {
+                continue;
             }
+
+            let pass_descriptor = RenderPassDescriptor {
+                label: Some(&view_light.pass_name),
+                color_attachments: &[],
+                depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                    view: &view_light.depth_texture_view,
+                    depth_ops: Some(Operations {
+                        load: LoadOp::Clear(0.0),
+                        store: true,
+                    }),
+                    stencil_ops: None,
+                }),
+            };
+
+            let render_pass = render_context
+                .command_encoder
+                .begin_render_pass(&pass_descriptor);
+            let mut render_pass = TrackedRenderPass::new(render_pass);
+
+            shadow_phase.render(&mut render_pass, world, view_light_entity);
         }
 
         Ok(())
