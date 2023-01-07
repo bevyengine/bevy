@@ -45,8 +45,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     ///
     /// # Safety
     ///  - all `rows` must be in `[0, tables.entity_count)`.
-    ///  - `table` must match the WorldQueries Q and F
-    ///  - Both Q::IS_DENSE and F::IS_DENSE must be true.
+    ///  - `table` must match Q and F
+    ///  - Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
     #[inline]
     pub(super) unsafe fn fold_table<B, Func>(
         &mut self,
@@ -81,8 +81,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     ///
     /// # Safety
     ///  - all `indicies` must be in `[0, archetype.len())`.
-    ///  - `archetype` must match the WorldQueries Q and F
-    ///  - Either Q::IS_DENSE or F::IS_DENSE must be false.
+    ///  - `archetype` must match Q and F
+    ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
     pub(super) unsafe fn fold_archetype<B, Func>(
         &mut self,
@@ -127,8 +127,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     ///
     /// # Safety
     ///  - all `rows` must be in `[0, tables.entity_count)`.
-    ///  - `table` must match the WorldQueries Q and F
-    ///  - Both Q::IS_DENSE and F::IS_DENSE must be true.
+    ///  - `table` must match Q and F
+    ///  - Both `Q::IS_DENSE` and `F::IS_DENSE` must be true.
     #[inline]
     pub(super) unsafe fn for_each_table<Func>(
         &mut self,
@@ -146,8 +146,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIter<'w, 's, Q, F> {
     ///
     /// # Safety
     ///  - all `indicies` must be in `[0, archetype.len())`.
-    ///  - `archetype` must match the WorldQueries Q and F
-    ///  - Either Q::IS_DENSE or F::IS_DENSE must be false.
+    ///  - `archetype` must match Q and F
+    ///  - Either `Q::IS_DENSE` or `F::IS_DENSE` must be false.
     #[inline]
     pub(super) unsafe fn for_each_archetype<Func>(
         &mut self,
