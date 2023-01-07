@@ -1,7 +1,7 @@
 [package]
-name = "bevy_utils_macros"
+name = "bevy_utils_proc_macros"
 version = "0.9.0"
-description = "Bevy Utils Macros"
+description = "Bevy Utils Proc Macros"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 
