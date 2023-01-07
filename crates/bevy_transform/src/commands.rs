@@ -13,13 +13,13 @@ use crate::{GlobalTransform, Transform};
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::set_parent_keep_global_transform`]
 /// method on [`EntityCommands`] instead.
-pub struct AddChildKeep {
+pub struct AddChildInPlace {
     /// Parent entity to add the child to.
     pub parent: Entity,
     /// Child entity to add.
     pub child: Entity,
 }
-impl Command for AddChildKeep {
+impl Command for AddChildInPlace {
     fn write(self, world: &mut World) {
         let hierarchy_command = AddChild {
             child: self.child,
@@ -42,11 +42,11 @@ impl Command for AddChildKeep {
 ///
 /// You most likely want to use [`BuildChildrenTransformExt::remove_parent_keep_global_transform`]
 /// method on [`EntityCommands`] instead.
-struct RemoveParentKeep {
+struct RemoveParentInPlace {
     /// `Entity` which parent must be removed.
     child: Entity,
 }
-impl Command for RemoveParentKeep {
+impl Command for RemoveParentInPlace {
     fn write(self, world: &mut World) {
         let hierarchy_command = RemoveParent { child: self.child };
         hierarchy_command.write(world);
@@ -71,7 +71,7 @@ pub trait BuildChildrenTransformExt {
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// at the end of the current stage.
-    fn set_parent_keep_global_transform(&mut self, parent: Entity) -> &mut Self;
+    fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self;
 
     /// Make this entity parentless while preserving this entity's [`GlobalTransform`]
     /// by updating its [`Transform`] to be equal to its current [`GlobalTransform`].
@@ -81,18 +81,18 @@ pub trait BuildChildrenTransformExt {
     ///
     /// Note that both the hierarchy and transform updates will only execute
     /// at the end of the current stage.
-    fn remove_parent_keep_global_transform(&mut self) -> &mut Self;
+    fn remove_parent_in_place(&mut self) -> &mut Self;
 }
 impl<'w, 's, 'a> BuildChildrenTransformExt for EntityCommands<'w, 's, 'a> {
-    fn remove_parent_keep_global_transform(&mut self) -> &mut Self {
+    fn remove_parent_in_place(&mut self) -> &mut Self {
         let child = self.id();
-        self.commands().add(RemoveParentKeep { child });
+        self.commands().add(RemoveParentInPlace { child });
         self
     }
 
-    fn set_parent_keep_global_transform(&mut self, parent: Entity) -> &mut Self {
+    fn set_parent_in_place(&mut self, parent: Entity) -> &mut Self {
         let child = self.id();
-        self.commands().add(AddChildKeep { child, parent });
+        self.commands().add(AddChildInPlace { child, parent });
         self
     }
 }
