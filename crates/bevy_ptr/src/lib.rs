@@ -380,7 +380,9 @@ trait EnsureAligned {
     fn ensure_aligned(self) -> Self;
 }
 
-#[cfg(debug_assertions)]
+// Disable this for miri runs as it already checks if pointer to reference
+// casts are properly aligned.
+#[cfg(all(debug_assertions, not(miri)))]
 impl<T: Sized> EnsureAligned for *mut T {
     #[inline(always)]
     fn ensure_aligned(self) -> Self {
@@ -399,7 +401,7 @@ impl<T: Sized> EnsureAligned for *mut T {
     }
 }
 
-#[cfg(not(debug_assertions))]
+#[cfg(any(not(debug_assertions), miri)]
 impl<T: Sized> EnsureAligned for *mut T {
     #[inline(always)]
     fn ensure_aligned(self) -> Self {
