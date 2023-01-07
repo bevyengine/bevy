@@ -449,7 +449,7 @@ impl<'a> MutUntyped<'a> {
     ///
     /// # Safety
     ///
-    /// Must point to a valid `T`.
+    /// Must point to an aligned and fully-initialized `T` that is valid for writes.
     pub unsafe fn with_type<T>(self) -> Mut<'a, T> {
         Mut {
             value: self.value.deref_mut(),
