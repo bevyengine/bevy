@@ -161,7 +161,8 @@ impl<'a> PtrMut<'a> {
     /// Transforms this [`PtrMut<T>`] into a `&mut T` with the same lifetime
     ///
     /// # Safety
-    /// Must point to an aligned and fully-initialized `T` that is valid for writes.
+    /// * Must be valid for writes and aligned for `T`.
+    /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         &mut *self.as_ptr().cast()
@@ -214,7 +215,8 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
-    /// Must point to an aligned and fully-initialized `T` that is valid for reads.
+    /// * Must be valid for reads and aligned for `T`.
+    /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
         self.as_ptr().cast::<T>().read()
@@ -223,7 +225,8 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
-    /// Must point to a valid `T`.
+    /// * Must be valid for writes and aligned for `T`.
+    /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         self.as_ptr().cast::<T>().drop_in_place();
