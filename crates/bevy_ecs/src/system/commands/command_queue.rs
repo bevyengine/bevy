@@ -10,7 +10,7 @@ struct CommandMeta {
     offset: usize,
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this metadata.
-    write_command: unsafe fn(value: OwningPtr, world: &mut World),
+    apply_command: unsafe fn(value: OwningPtr, world: &mut World),
 }
 
 /// A queue of [`Command`]s
@@ -50,7 +50,7 @@ impl CommandQueue {
         // so we'll just use a dangling pointer, which is always valid for zero-sized types.
         self.metas.push(CommandMeta {
             offset: old_len,
-            write_command: |command, world| {
+            apply_command: |command, world| {
                 // SAFETY: According to the invariants of `CommandMeta.write_command`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
@@ -107,7 +107,7 @@ impl CommandQueue {
             let cmd = unsafe { OwningPtr::new(NonNull::new_unchecked(cmd.cast())) };
             // SAFETY: The underlying type of `cmd` matches the type expected by `meta.write_command`.
             unsafe {
-                (meta.write_command)(cmd, world);
+                (meta.apply_command)(cmd, world);
             }
         }
     }
