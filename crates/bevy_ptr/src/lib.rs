@@ -123,7 +123,7 @@ impl<'a> Ptr<'a> {
     ///
     /// # Safety
     /// * Must be aligned for `T`.
-    /// * Must point to an initialized value of `T`.
+    /// * Must point to a value of type `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         &*self.as_ptr().cast()
@@ -163,7 +163,7 @@ impl<'a> PtrMut<'a> {
     ///
     /// # Safety
     /// * Must be aligned for `T`.
-    /// * Must point to an initialized value of `T`.
+    /// * Must point to a value of type `T`.
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         &mut *self.as_ptr().cast()
@@ -217,7 +217,7 @@ impl<'a> OwningPtr<'a> {
     ///
     /// # Safety
     /// * Must be aligned for `T`.
-    /// * Must point to an initialized value of `T`.
+    /// * Must point to a value of type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
         self.as_ptr().cast::<T>().read()
@@ -227,7 +227,7 @@ impl<'a> OwningPtr<'a> {
     ///
     /// # Safety
     /// * Must be aligned for `T`.
-    /// * Must point to an initialized value of `T`.
+    /// * Must point to a value of type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         self.as_ptr().cast::<T>().drop_in_place();
