@@ -18,8 +18,6 @@ use crate::{Interaction, Node, RelativeCursorPosition, Style, Val};
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct Slider {
-    min: f32,
-    max: f32,
     step: f32,
     value: f32,
 }
@@ -27,8 +25,6 @@ pub struct Slider {
 impl Default for Slider {
     fn default() -> Self {
         Self {
-            min: 0.,
-            max: 100.,
             // Don't round up the slider value
             step: 0.,
             value: 0.,
@@ -37,14 +33,11 @@ impl Default for Slider {
 }
 
 impl Slider {
-    /// Creates a new `Slider` with `min` and `max` values
-    /// `Min` and `max` don't affect the physical size of the slider, they're only used for calculating the value of the slider
-    pub fn new(min: f32, max: f32) -> Self {
+    /// Creates a new `Slider` with default value of 0
+    pub fn new() -> Self {
         Self {
-            min,
-            max,
             step: 0.,
-            value: min,
+            value: 0.,
         }
     }
 
@@ -58,16 +51,16 @@ impl Slider {
         Self { step, ..self }
     }
 
-    /// Sets the slider value, returning error if the given value is out of the slider range
+    /// Sets the slider value, returning error if the given value is out of the (0..=1) range
     pub fn set_value(&mut self, value: f32) -> Result<(), SliderValueError> {
         // Round the value up to self.step (we have to consider that self.min can be a fraction)
         let value = if self.step != 0. {
-            ((value - self.min) / self.step).round() * self.step + self.min
+            (value / self.step).round() * self.step
         } else {
             value
         };
 
-        if (self.min..=self.max).contains(&value) {
+        if ((0.)..=1.).contains(&value) {
             self.value = value;
             return Ok(());
         }
@@ -75,19 +68,9 @@ impl Slider {
         Err(SliderValueError::ValueOutOfSliderRange)
     }
 
-    /// Retrieves the slider value
+    /// Retrieves the slider value between 0. and 1.
     pub fn value(&self) -> f32 {
         self.value
-    }
-
-    /// Retrieves the minimum slider value
-    pub fn min(&self) -> f32 {
-        self.min
-    }
-
-    /// Retrieves the maximum slider value
-    pub fn max(&self) -> f32 {
-        self.max
     }
 
     /// Retrieves the slider step
@@ -141,12 +124,7 @@ pub fn update_slider_value(
         }
 
         if slider_dragged.0 {
-            let max = slider.max();
-            let min = slider.min();
-
-            slider
-                .set_value(cursor_position.x.clamp(0., 1.) * (max - min) + min)
-                .unwrap(); // The unwrap here is alright since the value is clamped between min and max, so it shouldn't return an error
+            slider.set_value(cursor_position.x.clamp(0., 1.)).unwrap(); // The unwrap here is alright since the value is clamped between min and max, so it shouldn't return an error
         }
     }
 }
@@ -163,9 +141,7 @@ pub fn update_slider_handle(
 
             let slider_width = slider_node.size().x - slider_handle_node.size().x;
 
-            slider_handle_style.position.left = Val::Px(
-                (slider.value() - slider.min()) * slider_width / (slider.max() - slider.min()),
-            );
+            slider_handle_style.position.left = Val::Px(slider.value() * slider_width);
         }
     }
 }
