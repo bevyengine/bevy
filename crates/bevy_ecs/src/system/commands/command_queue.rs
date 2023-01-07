@@ -60,15 +60,18 @@ impl CommandQueue {
 
         let size = std::mem::size_of::<C>();
         if size > 0 {
+            // Ensure that the buffer has enough space at the end to fit a value of type `C`.
+            // Since `C` is non-zero sized, this also guarantees that the buffer is non-null.
             self.bytes.reserve(size);
 
-            // SAFETY: Due to the call to `.reserve()` above, the buffer must be
-            // non-null and have enough space to store a value of type `C`.
+            // SAFETY: The buffer must be at least as long as `old_len`, so this operation
+            // will not overflow the pointer's original allocation.
             let ptr: *mut C = unsafe { self.bytes.as_mut_ptr().add(old_len).cast() };
 
             // Transfer ownership of the command into the buffer.
             // SAFETY: `ptr` must be non-null, since it is within a non-null buffer.
-            // Since the underlying buffer is of type `MaybeUninit<u8>`, any bit patterns are valid for writes.
+            // The call to `reserve()` ensures that the buffer has enough space to fit a value of type `C`,
+            // and it is valid to write any bit pattern since the underlying buffer is of type `MaybeUninit<u8>`.
             unsafe { ptr.write_unaligned(command) };
 
             // Grow the vector to include the command we just wrote.
