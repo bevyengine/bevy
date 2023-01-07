@@ -43,6 +43,36 @@ impl SystemMeta {
         &self.name
     }
 
+    /// Returns the system's component access set.
+    #[inline]
+    pub fn component_access_set(&self) -> &FilteredAccessSet<ComponentId> {
+        &self.component_access_set
+    }
+
+    /// Returns a mutable reference to the system's component access set.
+    ///
+    /// # Safety
+    /// This allows unsafe modifications to the component access set that can violate Bevy's scheduling soundness.
+    #[inline]
+    pub unsafe fn component_access_set_mut(&mut self) -> &mut FilteredAccessSet<ComponentId> {
+        &mut self.component_access_set
+    }
+
+    /// Returns the system's archetype component access set.
+    #[inline]
+    pub fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
+        &self.archetype_component_access
+    }
+
+    /// Returns a mutable reference to this system's archetype component access set.
+    ///
+    /// # Safety
+    /// This allows unsafe modifications to the archetype component access set that can violate Bevy's scheduling soundness.
+    #[inline]
+    pub unsafe fn archetype_component_access_mut(&mut self) -> &mut Access<ArchetypeComponentId> {
+        &mut self.archetype_component_access
+    }
+
     /// Returns true if the system is [`Send`].
     #[inline]
     pub fn is_send(&self) -> bool {
@@ -55,6 +85,18 @@ impl SystemMeta {
     #[inline]
     pub fn set_non_send(&mut self) {
         self.is_send = false;
+    }
+
+    /// Returns this system's last change tick.
+    #[inline]
+    pub fn last_change_tick(&self) -> u32 {
+        self.last_change_tick
+    }
+
+    /// Set this system's last change tick.
+    #[inline]
+    pub fn set_last_change_tick(&mut self, last_change_tick: u32) {
+        self.last_change_tick = last_change_tick;
     }
 }
 
