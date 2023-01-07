@@ -122,7 +122,8 @@ impl<'a> Ptr<'a> {
     /// Transforms this [`Ptr<T>`] into a `&T` with the same lifetime
     ///
     /// # Safety
-    /// Must point to an aligned and fully-initialized `T` that is valid for reads.
+    /// * Must be valid for reads and aligned for `T`.
+    /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         &*self.as_ptr().cast()
