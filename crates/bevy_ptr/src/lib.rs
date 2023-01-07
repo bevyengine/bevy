@@ -391,7 +391,7 @@ impl<T: Sized> EnsureAligned for *mut T {
         //
         // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
         assert!(
-            self as usize & align - 1 == 0,
+            self as usize & (align - 1) == 0,
             "pointer is not aligned. Address {:p} does not have alignemnt {}",
             self,
             align,
