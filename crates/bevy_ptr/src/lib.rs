@@ -401,7 +401,7 @@ impl<T: Sized> EnsureAligned for *mut T {
     }
 }
 
-#[cfg(any(not(debug_assertions), miri)]
+#[cfg(any(not(debug_assertions), miri))]
 impl<T: Sized> EnsureAligned for *mut T {
     #[inline(always)]
     fn ensure_aligned(self) -> Self {
