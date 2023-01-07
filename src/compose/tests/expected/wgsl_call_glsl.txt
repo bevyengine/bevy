@@ -11,15 +11,15 @@
     Color: vec4<f32>,
     _ = (&global.Color);
     _ = (&global.Color);
-    _ = _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_v_Uv;
-    _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_main();
-    _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_o_Target = (_e6 * _e9);
-    _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_v_Uv = v_Uv;
-    let _e13: vec4<f32> = _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_o_Target;
-    let _e4: f32 = _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_glsl_func();
+    _ = _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberv_Uv;
+    _naga_oil_mod_M5WHG3C7NVXWI5LMMU_membermain();
+    _naga_oil_mod_M5WHG3C7NVXWI5LMMU_membero_Target = (_e6 * _e9);
+    _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberv_Uv = v_Uv;
+    let _e13: vec4<f32> = _naga_oil_mod_M5WHG3C7NVXWI5LMMU_membero_Target;
+    let _e4: f32 = _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberglsl_func();
     let _e6: vec4<f32> = global.Color;
-    let _e8: vec2<f32> = _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_v_Uv;
-    let _e9: vec4<f32> = textureSample(_naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_CustomMaterial_texture, _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_CustomMaterial_sampler, _e8);
+    let _e8: vec2<f32> = _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberv_Uv;
+    let _e9: vec4<f32> = textureSample(_naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberCustomMaterial_texture, _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberCustomMaterial_sampler, _e8);
     return 3.0;
     return _e4;
     return type_5(_e13);
@@ -27,18 +27,18 @@
 @group(1) @binding(0) 
 @group(1) @binding(1) 
 @group(1) @binding(2) 
-fn _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_glsl_func() -> f32 {
-fn _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_main() {
-fn _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_main_1(@location(0) v_Uv: vec2<f32>) -> type_5 {
+fn _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberglsl_func() -> f32 {
+fn _naga_oil_mod_M5WHG3C7NVXWI5LMMU_membermain() {
+fn _naga_oil_mod_M5WHG3C7NVXWI5LMMU_membermain_1(@location(0) v_Uv: vec2<f32>) -> type_5 {
 fn fraggo() -> f32 {
-struct _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_CustomMaterial {
+struct _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberCustomMaterial {
 struct type_5 {
 struct type_5_ {
-var _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_CustomMaterial_sampler: sampler;
-var _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_CustomMaterial_texture: texture_2d<f32>;
-var<private> _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_o_Target: vec4<f32>;
-var<private> _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_v_Uv: vec2<f32>;
-var<uniform> global: _naga_oil_mod_M5WHG3C7NVXWI5LMMU_member_CustomMaterial;
+var _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberCustomMaterial_sampler: sampler;
+var _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberCustomMaterial_texture: texture_2d<f32>;
+var<private> _naga_oil_mod_M5WHG3C7NVXWI5LMMU_membero_Target: vec4<f32>;
+var<private> _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberv_Uv: vec2<f32>;
+var<uniform> global: _naga_oil_mod_M5WHG3C7NVXWI5LMMU_memberCustomMaterial;
 }
 }
 }

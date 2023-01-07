@@ -614,7 +614,7 @@ impl Default for Composer {
 }
 
 const DECORATION_PRE: &str = "_naga_oil_mod_";
-const DECORATION_POST: &str = "_member_";
+const DECORATION_POST: &str = "_member";
 
 // must be same length as DECORATION_PRE for spans to work
 const DECORATION_VIRTUAL_PRE: &str = "_naga_oil_vrt_";
