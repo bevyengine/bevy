@@ -4,8 +4,7 @@
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
-    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize,
-    ptr::NonNull,
+    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
 };
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
@@ -387,7 +386,7 @@ impl<T: Sized> EnsureAligned for *mut T {
     #[inline(always)]
     fn ensure_aligned(self) -> Self {
         let align = core::mem::align_of::<T>();
-        // Implemenation shamelessly borrowed from the currently unstable 
+        // Implemenation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
         //
         // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
