@@ -122,7 +122,7 @@ impl<'a> Ptr<'a> {
     /// Transforms this [`Ptr<T>`] into a `&T` with the same lifetime
     ///
     /// # Safety
-    /// * Must be valid for reads and aligned for `T`.
+    /// * Must be aligned for `T`.
     /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
@@ -162,7 +162,7 @@ impl<'a> PtrMut<'a> {
     /// Transforms this [`PtrMut<T>`] into a `&mut T` with the same lifetime
     ///
     /// # Safety
-    /// * Must be valid for writes and aligned for `T`.
+    /// * Must be aligned for `T`.
     /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
