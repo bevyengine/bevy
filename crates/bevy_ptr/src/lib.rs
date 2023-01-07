@@ -214,8 +214,8 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
-    /// * Must be valid for reads and aligned for `T`.
-    /// * Must point to an initialized value of `T`.
+    /// * Must be aligned for `T`.
+    /// * Must point to a value of type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
         self.as_ptr().cast::<T>().read()
@@ -224,8 +224,7 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
-    /// * Must be valid for reads.
-    /// * Must point to an initialized value of `T`.
+    /// * Must point to a value of type `T`.
     pub unsafe fn read_unaligned<T>(self) -> T {
         self.as_ptr().cast::<T>().read_unaligned()
     }
@@ -233,8 +232,8 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
-    /// * Must be valid for writes and aligned for `T`.
-    /// * Must point to an initialized value of `T`.
+    /// * Must be aligned for `T`.
+    /// * Must point to a value of type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         self.as_ptr().cast::<T>().drop_in_place();
