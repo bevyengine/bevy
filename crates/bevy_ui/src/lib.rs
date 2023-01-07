@@ -137,14 +137,6 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(widget::text_system),
             )
             .add_system_to_stage(
-                CoreStage::Update,
-                widget::update_slider_value.label(widget::UpdateSliderValue),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                widget::update_slider_handle.after(widget::UpdateSliderValue),
-            )
-            .add_system_to_stage(
                 CoreStage::PostUpdate,
                 widget::update_slider_value.label(widget::UpdateSliderValue),
             )
