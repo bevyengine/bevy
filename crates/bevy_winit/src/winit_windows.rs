@@ -1,4 +1,3 @@
-use crate::converters::convert_cursor_grab_mode;
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
 use bevy_window::{
@@ -63,18 +62,20 @@ impl WinitWindows {
                     window_descriptor.height as u32,
                 )),
             )),
-            _ => {
+            WindowMode::Windowed => {
                 if let Some(sf) = scale_factor_override {
                     winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
                 } else {
                     winit_window_builder.with_inner_size(logical_size)
                 }
             }
+        };
+
+        winit_window_builder = winit_window_builder
             .with_resizable(window_descriptor.resizable)
             .with_decorations(window_descriptor.decorations)
             .with_transparent(window_descriptor.transparent)
-            .with_always_on_top(window_descriptor.always_on_top),
-        };
+            .with_always_on_top(window_descriptor.always_on_top);
 
         let constraints = window_descriptor.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
@@ -163,16 +164,6 @@ impl WinitWindows {
             }
         }
 
-        // Do not set the grab mode on window creation if it's none, this can fail on mobile
-        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
-            match winit_window
-                .set_cursor_grab(convert_cursor_grab_mode(window_descriptor.cursor_grab_mode))
-            {
-                Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
-                Err(err) => Err(err).unwrap(),
-            }
-        }
-
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
 
         self.window_id_to_winit.insert(window_id, winit_window.id());
@@ -205,7 +196,7 @@ impl WinitWindows {
             display_handle: winit_window.raw_display_handle(),
         };
         self.windows.insert(winit_window.id(), winit_window);
-        Window::new(
+        let mut window = Window::new(
             window_id,
             window_descriptor,
             inner_size.width,
@@ -213,7 +204,12 @@ impl WinitWindows {
             scale_factor,
             position,
             Some(raw_handle),
-        )
+        );
+        // Do not set the grab mode on window creation if it's none, this can fail on mobile
+        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
+            window.set_cursor_grab_mode(window_descriptor.cursor_grab_mode);
+        }
+        window
     }
 
     pub fn get_window(&self, id: WindowId) -> Option<&winit::window::Window> {

@@ -3,7 +3,7 @@ use crate::{
     entity::{Entities, Entity},
     prelude::World,
     query::{ArchetypeFilter, DebugCheckedUnwrap, QueryState, WorldQuery},
-    storage::{Table, TableId, Tables},
+    storage::{Table, TableId, TableRow, Tables},
 };
 use std::{borrow::Borrow, iter::FusedIterator, marker::PhantomData, mem::MaybeUninit, ops::Range};
 
@@ -303,7 +303,7 @@ where
                 .archetypes
                 .get(location.archetype_id)
                 .debug_checked_unwrap();
-            let table = self.tables.get(archetype.table_id()).debug_checked_unwrap();
+            let table = self.tables.get(location.table_id).debug_checked_unwrap();
 
             // SAFETY: `archetype` is from the world that `fetch/filter` were created for,
             // `fetch_state`/`filter_state` are the states that `fetch/filter` were initialized with
@@ -322,12 +322,11 @@ where
                 table,
             );
 
-            let table_row = archetype.entity_table_row(location.index);
             // SAFETY: set_archetype was called prior.
-            // `location.index` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
-            if F::filter_fetch(&mut self.filter, entity, table_row) {
-                // SAFETY: set_archetype was called prior, `location.index` is an archetype index in range of the current archetype
-                return Some(Q::fetch(&mut self.fetch, entity, table_row));
+            // `location.archetype_row` is an archetype index row in range of the current archetype, because if it was not, the match above would have `continue`d
+            if F::filter_fetch(&mut self.filter, entity, location.table_row) {
+                // SAFETY: set_archetype was called prior, `location.archetype_row` is an archetype index in range of the current archetype
+                return Some(Q::fetch(&mut self.fetch, entity, location.table_row));
             }
         }
         None
@@ -616,7 +615,7 @@ struct QueryIterationCursor<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
     // length of the table table or length of the archetype, depending on whether both `Q`'s and `F`'s fetches are dense
     current_len: usize,
     // either table row or archetype index, depending on whether both `Q`'s and `F`'s fetches are dense
-    current_index: usize,
+    current_row: usize,
     phantom: PhantomData<Q>,
 }
 
@@ -626,7 +625,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     /// # Safety
     /// While calling this method on its own cannot cause UB it is marked `unsafe` as the caller must ensure
     /// that the returned value is not used in any way that would cause two `QueryItem<Q>` for the same
-    /// `archetype_index` or `table_row` to be alive at the same time.
+    /// `archetype_row` or `table_row` to be alive at the same time.
     unsafe fn clone_cursor(&self) -> Self {
         Self {
             table_id_iter: self.table_id_iter.clone(),
@@ -637,7 +636,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             fetch: Q::clone_fetch(&self.fetch),
             filter: F::clone_fetch(&self.filter),
             current_len: self.current_len,
-            current_index: self.current_index,
+            current_row: self.current_row,
             phantom: PhantomData,
         }
     }
@@ -685,7 +684,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             table_id_iter: query_state.matched_table_ids.iter(),
             archetype_id_iter: query_state.matched_archetype_ids.iter(),
             current_len: 0,
-            current_index: 0,
+            current_row: 0,
             phantom: PhantomData,
         }
     }
@@ -693,11 +692,11 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
     /// retrieve item returned from most recent `next` call again.
     #[inline]
     unsafe fn peek_last(&mut self) -> Option<Q::Item<'w>> {
-        if self.current_index > 0 {
-            let index = self.current_index - 1;
+        if self.current_row > 0 {
+            let index = self.current_row - 1;
             if Self::IS_DENSE {
                 let entity = self.table_entities.get_unchecked(index);
-                Some(Q::fetch(&mut self.fetch, *entity, index))
+                Some(Q::fetch(&mut self.fetch, *entity, TableRow::new(index)))
             } else {
                 let archetype_entity = self.archetype_entities.get_unchecked(index);
                 Some(Q::fetch(
@@ -723,7 +722,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             let ids = self.archetype_id_iter.clone();
             ids.map(|id| archetypes[*id].len()).sum()
         };
-        remaining_matched + self.current_len - self.current_index
+        remaining_matched + self.current_len - self.current_row
     }
 
     // NOTE: If you are changing query iteration code, remember to update the following places, where relevant:
@@ -742,7 +741,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
         if Self::IS_DENSE {
             loop {
                 // we are on the beginning of the query, or finished processing a table, so skip to the next
-                if self.current_index == self.current_len {
+                if self.current_row == self.current_len {
                     let table_id = self.table_id_iter.next()?;
                     let table = tables.get(*table_id).debug_checked_unwrap();
                     // SAFETY: `table` is from the world that `fetch/filter` were created for,
@@ -751,14 +750,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     F::set_table(&mut self.filter, &query_state.filter_state, table);
                     self.table_entities = table.entities();
                     self.current_len = table.entity_count();
-                    self.current_index = 0;
+                    self.current_row = 0;
                     continue;
                 }
 
                 // SAFETY: set_table was called prior.
-                // `current_index` is a table row in range of the current table, because if it was not, then the if above would have been executed.
+                // `current_row` is a table row in range of the current table, because if it was not, then the if above would have been executed.
                 let entity = self.table_entities.get_unchecked(self.current_index);
-                if let Some(item) = self.fetch(*entity, self.current_index) {
+                let row = TableRow::new(self.current_row);
+                if let Some(item) = self.fetch(*entity, row) {
                     self.current_index += 1;
                     return Some(item);
                 }
@@ -766,7 +766,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
             }
         } else {
             loop {
-                if self.current_index == self.current_len {
+                if self.current_row == self.current_len {
                     let archetype_id = self.archetype_id_iter.next()?;
                     let archetype = archetypes.get(*archetype_id).debug_checked_unwrap();
                     let table = tables.get(archetype.table_id()).debug_checked_unwrap();
@@ -781,7 +781,7 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> QueryIterationCursor<'w, 's, 
                     );
                     self.archetype_entities = archetype.entities();
                     self.current_len = archetype.len();
-                    self.current_index = 0;
+                    self.current_row = 0;
                     continue;
                 }
 
