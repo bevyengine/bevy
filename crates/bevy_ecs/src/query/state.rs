@@ -6,7 +6,7 @@ use crate::{
     query::{
         Access, DebugCheckedUnwrap, FilteredAccess, QueryCombinationIter, QueryIter, WorldQuery,
     },
-    storage::{TableId, TableRow},
+    storage::TableId,
     world::{World, WorldId},
 };
 use bevy_tasks::ComputeTaskPool;
