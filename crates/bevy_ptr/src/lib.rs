@@ -216,7 +216,7 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
-    /// * Must be valid for reads and aligned for `T`.
+    /// * Must be aligned for `T`.
     /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
@@ -226,7 +226,7 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
-    /// * Must be valid for writes and aligned for `T`.
+    /// * Must be aligned for `T`.
     /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
