@@ -383,7 +383,7 @@ trait EnsureAligned {
 // casts are properly aligned.
 #[cfg(all(debug_assertions, not(miri)))]
 impl<T: Sized> EnsureAligned for *mut T {
-    #[inline(always)]
+    #[track_caller]
     fn ensure_aligned(self) -> Self {
         let align = core::mem::align_of::<T>();
         // Implemenation shamelessly borrowed from the currently unstable
