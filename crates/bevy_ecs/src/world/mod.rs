@@ -768,9 +768,20 @@ impl World {
     /// and those default values will be here instead.
     #[inline]
     pub fn init_resource<R: Resource + FromWorld>(&mut self) {
-        if !self.contains_resource::<R>() {
-            let resource = R::from_world(self);
-            self.insert_resource(resource);
+        let component_id = self.components.init_resource::<R>();
+        if self
+            .storages
+            .resources
+            .get(component_id)
+            .map_or(true, |data| !data.is_present())
+        {
+            let value = R::from_world(self);
+            OwningPtr::make(value, |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R
+                unsafe {
+                    self.insert_resource_by_id(component_id, ptr);
+                }
+            });
         }
     }
 
@@ -803,9 +814,20 @@ impl World {
     /// Panics if called from a thread other than the main thread.
     #[inline]
     pub fn init_non_send_resource<R: 'static + FromWorld>(&mut self) {
-        if !self.contains_resource::<R>() {
-            let resource = R::from_world(self);
-            self.insert_non_send_resource(resource);
+        let component_id = self.components.init_non_send::<R>();
+        if self
+            .storages
+            .resources
+            .get(component_id)
+            .map_or(true, |data| !data.is_present())
+        {
+            let value = R::from_world(self);
+            OwningPtr::make(value, |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R
+                unsafe {
+                    self.insert_resource_by_id(component_id, ptr);
+                }
+            });
         }
     }
 
