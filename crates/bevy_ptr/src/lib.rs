@@ -233,7 +233,8 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
-    /// Must point to an aligned and fully-initialized value of type `T`.
+    /// * Must be valid for reads and aligned for `T`.
+    /// * Must point to an initialized value of `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         self.as_ptr().cast::<T>().drop_in_place();
