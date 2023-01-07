@@ -26,7 +26,7 @@ pub struct CommandQueue {
     bytes: Vec<MaybeUninit<u8>>,
     /// Metadata for each command stored in the queue.
     /// SAFETY: Each entry must have a corresponding value stored in `bytes`,
-    /// stored at offset `CommandMeta.offset` and with an underlying type matching `CommandMeta.write_command`.
+    /// stored at offset `CommandMeta.offset` and with an underlying type matching `CommandMeta.apply_command`.
     metas: Vec<CommandMeta>,
 }
 
@@ -51,7 +51,7 @@ impl CommandQueue {
         self.metas.push(CommandMeta {
             offset: old_len,
             apply_command: |command, world| {
-                // SAFETY: According to the invariants of `CommandMeta.write_command`,
+                // SAFETY: According to the invariants of `CommandMeta.apply_command`,
                 // `command` must point to a value of type `C`.
                 let command: C = unsafe { command.read_unaligned() };
                 command.write(world);
@@ -105,7 +105,7 @@ impl CommandQueue {
             // gaurantees that nothing stored in the buffer will get observed after this function ends.
             // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe { OwningPtr::new(NonNull::new_unchecked(cmd.cast())) };
-            // SAFETY: The underlying type of `cmd` matches the type expected by `meta.write_command`.
+            // SAFETY: The underlying type of `cmd` matches the type expected by `meta.apply_command`.
             unsafe {
                 (meta.apply_command)(cmd, world);
             }
