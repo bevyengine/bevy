@@ -14,7 +14,7 @@ use thiserror::Error;
 
 use crate::{Interaction, Node, RelativeCursorPosition, Style, Val};
 
-/// A component describing the slider-specific value, such as max and min values and step
+/// A component describing the slider-specific values
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct Slider {
@@ -53,7 +53,7 @@ impl Slider {
 
     /// Sets the slider value, returning error if the given value is out of the (0..=1) range
     pub fn set_value(&mut self, value: f32) -> Result<(), SliderValueError> {
-        // Round the value up to self.step (we have to consider that self.min can be a fraction)
+        // Round the value up to self.step
         let value = if self.step != 0. {
             (value / self.step).round() * self.step
         } else {
@@ -124,7 +124,7 @@ pub fn update_slider_value(
         }
 
         if slider_dragged.0 {
-            slider.set_value(cursor_position.x.clamp(0., 1.)).unwrap(); // The unwrap here is alright since the value is clamped between min and max, so it shouldn't return an error
+            slider.set_value(cursor_position.x.clamp(0., 1.)).unwrap(); // The unwrap here is alright since the value is clamped between 0. and 1., so it shouldn't return an error
         }
     }
 }
