@@ -214,7 +214,6 @@ macro_rules! impl_methods {
             #[doc = stringify!($name)]
             /// <T>`, but you need a `Mut<T>`.
             ///
-            ///
             /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
             /// will not affect the original.
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
