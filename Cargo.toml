@@ -1439,6 +1439,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "slider"
+path = "examples/ui/slider.rs"
+
+[package.metadata.example.slider]
+name = "Slider"
+description = "Illustrates creating and updating a slider"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 

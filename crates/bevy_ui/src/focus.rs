@@ -1,4 +1,5 @@
 use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -52,6 +53,24 @@ impl Default for Interaction {
     }
 }
 
+/// A component storing the position of the mouse relative to the node, (0., 0.) being the bottom-left corner and (1., 1.) being the upper-right
+/// I can be used alongside interaction to get the position of the press.
+#[derive(
+    Component,
+    Deref,
+    DerefMut,
+    Copy,
+    Clone,
+    Default,
+    PartialEq,
+    Debug,
+    Reflect,
+    Serialize,
+    Deserialize,
+)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
+pub struct RelativeCursorPosition(Vec2);
+
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
@@ -86,6 +105,7 @@ pub struct NodeQuery {
     node: &'static Node,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
+    relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
     computed_visibility: Option<&'static ComputedVisibility>,
@@ -177,16 +197,31 @@ pub fn ui_focus_system(
                 let ui_position = position.truncate();
                 let extents = node.node.size() / 2.0;
                 let mut min = ui_position - extents;
-                let mut max = ui_position + extents;
                 if let Some(clip) = node.calculated_clip {
                     min = Vec2::max(min, clip.clip.min);
-                    max = Vec2::min(max, clip.clip.max);
                 }
-                // if the current cursor position is within the bounds of the node, consider it for
+
+                // The mouse position relative to the node
+                // (0., 0.) is the bottom-left corner, (1., 1.) is the upper-right corner
+                let relative_cursor_postition = cursor_position.map(|cursor_position| {
+                    Vec2::new(
+                        (cursor_position.x - min.x) / node.node.size().x,
+                        (cursor_position.y - min.y) / node.node.size().y,
+                    )
+                });
+
+                // If the current cursor position is within the bounds of the node, consider it for
                 // clicking
-                let contains_cursor = if let Some(cursor_position) = cursor_position {
-                    (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&cursor_position.y)
+                let contains_cursor = if let Some(cursor_position) = relative_cursor_postition {
+                    // Save the relative cursor position to the correct component
+                    if let Some(mut relative_cursor_position_component) =
+                        node.relative_cursor_position
+                    {
+                        relative_cursor_position_component.0 = cursor_position;
+                    }
+
+                    ((0.)..1.).contains(&cursor_position.x)
+                        && ((0.)..1.).contains(&cursor_position.y)
                 } else {
                     false
                 };
