@@ -46,6 +46,12 @@ where
     item: SystemParamItem<'w, 's, P>,
 }
 
+#[doc(hidden)]
+pub struct ExtractState<P: SystemParam + 'static> {
+    state: SystemState<P>,
+    main_world_state: <Res<'static, MainWorld> as SystemParam>::State,
+}
+
 // SAFETY: only accesses MainWorld resource with read only system params using Res,
 // which is initialized in init()
 unsafe impl<P> SystemParam for Extract<'_, '_, P>
@@ -78,12 +84,6 @@ where
         let item = state.state.get(main_world.into_inner());
         Extract { item }
     }
-}
-
-#[doc(hidden)]
-pub struct ExtractState<P: SystemParam + 'static> {
-    state: SystemState<P>,
-    main_world_state: <Res<'static, MainWorld> as SystemParam>::State,
 }
 
 impl<'w, 's, P> Deref for Extract<'w, 's, P>
