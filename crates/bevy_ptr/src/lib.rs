@@ -4,7 +4,8 @@
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
-    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
+    alloc::Layout, cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize,
+    ptr::NonNull,
 };
 
 /// Type-erased borrow of some unknown type chosen when constructing this type.
@@ -121,11 +122,15 @@ impl<'a> Ptr<'a> {
 
     /// Transforms this [`Ptr<T>`] into a `&T` with the same lifetime
     ///
+    /// # Panics
+    /// In debug builds, this function will panic if the pointer is not properly
+    /// aligned for `T`.
+    ///
     /// # Safety
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
-        &*self.as_ptr().cast()
+        &*self.as_ptr().cast::<T>().ensure_aligned()
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -160,11 +165,15 @@ impl<'a> PtrMut<'a> {
 
     /// Transforms this [`PtrMut<T>`] into a `&mut T` with the same lifetime
     ///
+    /// # Panics
+    /// In debug builds, this function will panic if the pointer is not properly
+    /// aligned for `T`.
+    ///
     /// # Safety
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
-        &mut *self.as_ptr().cast()
+        &mut *self.as_ptr().cast::<T>().ensure_aligned()
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -213,20 +222,28 @@ impl<'a> OwningPtr<'a> {
 
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
+    /// # Panics
+    /// In debug builds, this function will panic if the pointer is not properly
+    /// aligned for `T`.
+    ///
     /// # Safety
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
-        self.as_ptr().cast::<T>().read()
+        self.as_ptr().cast::<T>().ensure_aligned().read()
     }
 
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
+    ///
+    /// # Panics
+    /// In debug builds, this function will panic if the pointer is not properly
+    /// aligned for `T`.
     ///
     /// # Safety
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
-        self.as_ptr().cast::<T>().drop_in_place();
+        self.as_ptr().cast::<T>().ensure_aligned().drop_in_place();
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -292,9 +309,10 @@ impl<'a, T> Copy for ThinSlicePtr<'a, T> {}
 impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
     #[inline]
     fn from(slice: &'a [T]) -> Self {
+        let ptr = slice.as_ptr() as *mut T;
         Self {
             // SAFETY: a reference can never be null
-            ptr: unsafe { NonNull::new_unchecked(slice.as_ptr() as *mut T) },
+            ptr: unsafe { NonNull::new_unchecked(ptr.ensure_aligned()) },
             #[cfg(debug_assertions)]
             len: slice.len(),
             _marker: PhantomData,
@@ -355,5 +373,32 @@ impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
         T: Copy,
     {
         self.get().read()
+    }
+}
+
+trait EnsureAligned {
+    fn ensure_aligned(self) -> Self;
+}
+
+#[cfg(debug_assertions)]
+impl<T: Sized> EnsureAligned for *mut T {
+    #[inline(always)]
+    fn ensure_aligned(self) -> Self {
+        let layout = Layout::new::<T>();
+        assert!(
+            self as usize % layout.align() == 0,
+            "pointer is not aligned. Address {:p} does not have alignemnt {}",
+            self,
+            layout.align()
+        );
+        self
+    }
+}
+
+#[cfg(not(debug_assertions))]
+impl<T: Sized> EnsureAligned for *mut T {
+    #[inline(always)]
+    fn ensure_aligned(self) -> Self {
+        self
     }
 }
