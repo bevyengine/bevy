@@ -75,7 +75,7 @@ pub struct ArchetypeId(NonZeroU32);
 impl ArchetypeId {
     /// The ID for the [`Archetype`] without any components.
     pub const EMPTY: ArchetypeId = {
-        // SAFETY: 0 is guarenteed to not equal 0
+        // SAFETY: 1 is guaranteed to not equal 0
         unsafe { Self::new_unchecked(1) }
     };
 
