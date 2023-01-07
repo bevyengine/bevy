@@ -16,7 +16,7 @@ use crate::{
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
     event::{Event, Events},
-    query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
+    query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
 };
@@ -977,10 +977,28 @@ impl World {
         &mut self,
         func: impl FnOnce() -> R,
     ) -> Mut<'_, R> {
-        if !self.contains_resource::<R>() {
-            self.insert_resource(func());
+        let change_tick = self.change_tick();
+        let last_change_tick = self.last_change_tick();
+
+        let component_id = self.components.init_resource::<R>();
+        // SAFETY: `component_id` was just initialized with this world's component set.
+        let data = unsafe { self.initialize_resource_internal(component_id) };
+        if !data.is_present() {
+            OwningPtr::make(func(), |ptr| {
+                // SAFETY: component_id was just initialized and corresponds to resource of type R
+                unsafe {
+                    data.insert(ptr, change_tick);
+                }
+            });
         }
-        self.resource_mut()
+
+        // SAFETY: The resource must be present, as we would have inserted it if it was empty.
+        let data = unsafe {
+            data.get_mut(last_change_tick, change_tick)
+                .debug_checked_unwrap()
+        };
+        // SAFETY: The underlying type of the resource is `R`.
+        unsafe { data.with_type::<R>() }
     }
 
     /// Gets a mutable reference to the resource of the given type, if it exists
