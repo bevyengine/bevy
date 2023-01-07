@@ -4,7 +4,7 @@
 
 use core::fmt::{self, Formatter, Pointer};
 use core::{
-    alloc::Layout, cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize,
+    cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize,
     ptr::NonNull,
 };
 
@@ -384,12 +384,16 @@ trait EnsureAligned {
 impl<T: Sized> EnsureAligned for *mut T {
     #[inline(always)]
     fn ensure_aligned(self) -> Self {
-        let layout = Layout::new::<T>();
+        let align = core::mem::align_of::<T>();
+        // Implemenation shamelessly borrowed from the currently unstable 
+        // ptr.is_aligned_to.
+        //
+        // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
         assert!(
-            self as usize % layout.align() == 0,
+            self as usize & align - 1 == 0,
             "pointer is not aligned. Address {:p} does not have alignemnt {}",
             self,
-            layout.align()
+            align,
         );
         self
     }
