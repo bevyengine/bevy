@@ -210,7 +210,10 @@ macro_rules! impl_methods {
             }
 
             /// Returns a `Mut<>` with a smaller lifetime.
-            /// This is useful if you have `&mut Mut<T>`, but you need a `Mut<T>`.
+            /// This is useful if you have `&mut
+            #[doc = stringify!($name)]
+            /// <T>`, but you need a `Mut<T>`.
+            ///
             ///
             /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
             /// will not affect the original.
