@@ -268,13 +268,17 @@ fn setup_sticks(
     gamepad_settings: Res<GamepadSettings>,
     font: Res<FontHandle>,
 ) {
-    let dead_upper = STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.positive_low;
-    let dead_lower = STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.negative_low;
+    let dead_upper =
+        STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_upperbound();
+    let dead_lower =
+        STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.deadzone_lowerbound();
     let dead_size = dead_lower.abs() + dead_upper.abs();
     let dead_mid = (dead_lower + dead_upper) / 2.0;
 
-    let live_upper = STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.positive_high;
-    let live_lower = STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.negative_high;
+    let live_upper =
+        STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.livezone_upperbound();
+    let live_lower =
+        STICK_BOUNDS_SIZE * gamepad_settings.default_axis_settings.livezone_lowerbound();
     let live_size = live_lower.abs() + live_upper.abs();
     let live_mid = (live_lower + live_upper) / 2.0;
 
@@ -433,7 +437,7 @@ fn setup_connected(mut commands: Commands, font: Res<FontHandle>) {
     commands.spawn((
         TextBundle::from_sections([
             TextSection {
-                value: "Connected Gamepads\n".to_string(),
+                value: "Connected Gamepads:\n".to_string(),
                 style: style.clone(),
             },
             TextSection {
@@ -471,7 +475,7 @@ fn update_button_values(
         if let GamepadEventType::ButtonChanged(button_type, value) = event.event_type {
             for (mut text, text_with_button_value) in query.iter_mut() {
                 if button_type == **text_with_button_value {
-                    text.sections[0].value = format!("{:.3}", value);
+                    text.sections[0].value = format!("{value:.3}");
                 }
             }
         }
@@ -495,10 +499,10 @@ fn update_axes(
             }
             for (mut text, text_with_axes) in text_query.iter_mut() {
                 if axis_type == text_with_axes.x_axis {
-                    text.sections[0].value = format!("{:.3}", value);
+                    text.sections[0].value = format!("{value:.3}");
                 }
                 if axis_type == text_with_axes.y_axis {
-                    text.sections[2].value = format!("{:.3}", value);
+                    text.sections[2].value = format!("{value:.3}");
                 }
             }
         }
@@ -517,7 +521,7 @@ fn update_connected(
 
     let formatted = gamepads
         .iter()
-        .map(|g| format!("{:?}", g))
+        .map(|g| format!("- {}", gamepads.name(g).unwrap()))
         .collect::<Vec<_>>()
         .join("\n");
 

@@ -15,9 +15,9 @@ pub(crate) fn impl_get_type_registration(
 ) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
     let serialization_data = serialization_denylist.map(|denylist| {
-        let denylist = denylist.into_iter().map(|v| v as usize);
+        let denylist = denylist.into_iter();
         quote! {
-            let ignored_indices = [#(#denylist),*].into_iter();
+            let ignored_indices = ::core::iter::IntoIterator::into_iter([#(#denylist),*]);
             registration.insert::<#bevy_reflect_path::serde::SerializationData>(#bevy_reflect_path::serde::SerializationData::new(ignored_indices));
         }
     });

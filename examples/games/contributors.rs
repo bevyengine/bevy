@@ -39,7 +39,7 @@ struct SelectionState {
 impl Default for SelectionState {
     fn default() -> Self {
         Self {
-            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, true),
+            timer: Timer::from_seconds(SHOWCASE_TIMER_SECS, TimerMode::Repeating),
             has_triggered: false,
         }
     }
@@ -248,9 +248,7 @@ fn collision_system(
     windows: Res<Windows>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let window = if let Some(window) = windows.get_primary() {
-        window
-    } else {
+    let Some(window) = windows.get_primary() else {
         return;
     };
 
@@ -261,7 +259,7 @@ fn collision_system(
     let wall_right = window.width() / 2.;
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.
-    let max_bounce_height = window.height() - SPRITE_SIZE * 2.0;
+    let max_bounce_height = (window.height() - SPRITE_SIZE * 2.0).max(0.0);
 
     let mut rng = rand::thread_rng();
 
@@ -276,7 +274,7 @@ fn collision_system(
             transform.translation.y = ground + SPRITE_SIZE / 2.0;
 
             // How high this birb will bounce.
-            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..max_bounce_height);
+            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..=max_bounce_height);
 
             // Apply the velocity that would bounce the birb up to bounce_height.
             velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();
@@ -324,7 +322,7 @@ fn contributors() -> Result<Contributors, LoadContributorsError> {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").map_err(LoadContributorsError::Var)?;
 
     let mut cmd = std::process::Command::new("git")
-        .args(&["--no-pager", "log", "--pretty=format:%an"])
+        .args(["--no-pager", "log", "--pretty=format:%an"])
         .current_dir(manifest_dir)
         .stdout(Stdio::piped())
         .spawn()

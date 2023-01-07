@@ -1,7 +1,10 @@
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
-use bevy_window::{MonitorSelection, Window, WindowDescriptor, WindowId, WindowMode};
-use raw_window_handle::HasRawWindowHandle;
+use bevy_window::{
+    CursorGrabMode, MonitorSelection, RawHandleWrapper, Window, WindowDescriptor, WindowId,
+    WindowMode,
+};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 use winit::{
     dpi::{LogicalPosition, LogicalSize, PhysicalPosition, PhysicalSize},
     window::Fullscreen,
@@ -59,17 +62,20 @@ impl WinitWindows {
                     window_descriptor.height as u32,
                 )),
             )),
-            _ => {
+            WindowMode::Windowed => {
                 if let Some(sf) = scale_factor_override {
                     winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
                 } else {
                     winit_window_builder.with_inner_size(logical_size)
                 }
             }
+        };
+
+        winit_window_builder = winit_window_builder
             .with_resizable(window_descriptor.resizable)
             .with_decorations(window_descriptor.decorations)
-            .with_transparent(window_descriptor.transparent),
-        };
+            .with_transparent(window_descriptor.transparent)
+            .with_always_on_top(window_descriptor.always_on_top);
 
         let constraints = window_descriptor.resize_constraints.check_constraints();
         let min_inner_size = LogicalSize {
@@ -158,13 +164,6 @@ impl WinitWindows {
             }
         }
 
-        if window_descriptor.cursor_locked {
-            match winit_window.set_cursor_grab(true) {
-                Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
-                Err(err) => Err(err).unwrap(),
-            }
-        }
-
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
 
         self.window_id_to_winit.insert(window_id, winit_window.id());
@@ -192,17 +191,25 @@ impl WinitWindows {
             .map(|position| IVec2::new(position.x, position.y));
         let inner_size = winit_window.inner_size();
         let scale_factor = winit_window.scale_factor();
-        let raw_window_handle = winit_window.raw_window_handle();
+        let raw_handle = RawHandleWrapper {
+            window_handle: winit_window.raw_window_handle(),
+            display_handle: winit_window.raw_display_handle(),
+        };
         self.windows.insert(winit_window.id(), winit_window);
-        Window::new(
+        let mut window = Window::new(
             window_id,
             window_descriptor,
             inner_size.width,
             inner_size.height,
             scale_factor,
             position,
-            raw_window_handle,
-        )
+            Some(raw_handle),
+        );
+        // Do not set the grab mode on window creation if it's none, this can fail on mobile
+        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
+            window.set_cursor_grab_mode(window_descriptor.cursor_grab_mode);
+        }
+        window
     }
 
     pub fn get_window(&self, id: WindowId) -> Option<&winit::window::Window> {
@@ -241,7 +248,9 @@ pub fn get_fitting_videomode(
         match abs_diff(a.size().width, width).cmp(&abs_diff(b.size().width, width)) {
             Equal => {
                 match abs_diff(a.size().height, height).cmp(&abs_diff(b.size().height, height)) {
-                    Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                    Equal => b
+                        .refresh_rate_millihertz()
+                        .cmp(&a.refresh_rate_millihertz()),
                     default => default,
                 }
             }
@@ -258,7 +267,9 @@ pub fn get_best_videomode(monitor: &winit::monitor::MonitorHandle) -> winit::mon
         use std::cmp::Ordering::*;
         match b.size().width.cmp(&a.size().width) {
             Equal => match b.size().height.cmp(&a.size().height) {
-                Equal => b.refresh_rate().cmp(&a.refresh_rate()),
+                Equal => b
+                    .refresh_rate_millihertz()
+                    .cmp(&a.refresh_rate_millihertz()),
                 default => default,
             },
             default => default,

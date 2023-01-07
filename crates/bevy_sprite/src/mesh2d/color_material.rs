@@ -1,7 +1,7 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AddAsset, Assets, Handle, HandleUntyped};
 use bevy_math::Vec4;
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{prelude::*, TypeUuid};
 use bevy_render::{
     color::Color, prelude::Shader, render_asset::RenderAssets, render_resource::*, texture::Image,
 };
@@ -23,7 +23,8 @@ impl Plugin for ColorMaterialPlugin {
             Shader::from_wgsl
         );
 
-        app.add_plugin(Material2dPlugin::<ColorMaterial>::default());
+        app.add_plugin(Material2dPlugin::<ColorMaterial>::default())
+            .register_asset_reflect::<ColorMaterial>();
 
         app.world
             .resource_mut::<Assets<ColorMaterial>>()
@@ -38,7 +39,8 @@ impl Plugin for ColorMaterialPlugin {
 }
 
 /// A [2d material](Material2d) that renders [2d meshes](crate::Mesh2dHandle) with a texture tinted by a uniform color
-#[derive(AsBindGroup, Debug, Clone, TypeUuid)]
+#[derive(AsBindGroup, Reflect, FromReflect, Debug, Clone, TypeUuid)]
+#[reflect(Default, Debug)]
 #[uuid = "e228a544-e3ca-4e1e-bb9d-4d8bc1ad8c19"]
 #[uniform(0, ColorMaterialUniform)]
 pub struct ColorMaterial {

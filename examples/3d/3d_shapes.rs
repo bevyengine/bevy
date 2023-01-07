@@ -10,8 +10,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(ImageSettings::default_nearest())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_startup_system(setup)
         .add_system(rotate)
         .run();
@@ -21,7 +20,7 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 14.;
+const X_EXTENT: f32 = 14.5;
 
 fn setup(
     mut commands: Commands,
@@ -39,7 +38,8 @@ fn setup(
         meshes.add(shape::Box::default().into()),
         meshes.add(shape::Capsule::default().into()),
         meshes.add(shape::Torus::default().into()),
-        meshes.add(shape::Icosphere::default().into()),
+        meshes.add(shape::Cylinder::default().into()),
+        meshes.add(shape::Icosphere::default().try_into().unwrap()),
         meshes.add(shape::UVSphere::default().into()),
     ];
 

@@ -6,8 +6,8 @@ use crate::{
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, ReadOnlySystemParamFetch, System, SystemParam, SystemParamFetch,
-        SystemParamItem, SystemParamState,
+        check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem,
+        SystemParamState,
     },
     world::{World, WorldId},
 };
@@ -35,6 +35,12 @@ impl SystemMeta {
             is_send: true,
             last_change_tick: 0,
         }
+    }
+
+    /// Returns the system's name
+    #[inline]
+    pub fn name(&self) -> &str {
+        &self.name
     }
 
     /// Returns true if the system is [`Send`].
@@ -135,7 +141,7 @@ impl SystemMeta {
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
-    param_state: <Param as SystemParam>::Fetch,
+    param_state: <Param as SystemParam>::State,
     world_id: WorldId,
     archetype_generation: ArchetypeGeneration,
 }
@@ -144,7 +150,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        let param_state = <Param::Fetch as SystemParamState>::init(world, &mut meta);
+        let param_state = <Param::State as SystemParamState>::init(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -160,12 +166,9 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
     #[inline]
-    pub fn get<'w, 's>(
-        &'s mut self,
-        world: &'w World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item
+    pub fn get<'w, 's>(&'s mut self, world: &'w World) -> SystemParamItem<'w, 's, Param>
     where
-        Param::Fetch: ReadOnlySystemParamFetch,
+        Param: ReadOnlySystemParam,
     {
         self.validate_world_and_update_archetypes(world);
         // SAFETY: Param is read-only and doesn't allow mutable access to World. It also matches the World this SystemState was created with.
@@ -174,10 +177,7 @@ impl<Param: SystemParam> SystemState<Param> {
 
     /// Retrieve the mutable [`SystemParam`] values.
     #[inline]
-    pub fn get_mut<'w, 's>(
-        &'s mut self,
-        world: &'w mut World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
+    pub fn get_mut<'w, 's>(&'s mut self, world: &'w mut World) -> SystemParamItem<'w, 's, Param> {
         self.validate_world_and_update_archetypes(world);
         // SAFETY: World is uniquely borrowed and matches the World this SystemState was created with.
         unsafe { self.get_unchecked_manual(world) }
@@ -188,7 +188,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
-        self.param_state.apply(world);
+        self.param_state.apply(&self.meta, world);
     }
 
     #[inline]
@@ -221,9 +221,9 @@ impl<Param: SystemParam> SystemState<Param> {
     pub unsafe fn get_unchecked_manual<'w, 's>(
         &'s mut self,
         world: &'w World,
-    ) -> <Param::Fetch as SystemParamFetch<'w, 's>>::Item {
+    ) -> SystemParamItem<'w, 's, Param> {
         let change_tick = world.increment_change_tick();
-        let param = <Param::Fetch as SystemParamFetch>::get_param(
+        let param = <Param::State as SystemParamState>::get_param(
             &mut self.param_state,
             &self.meta,
             world,
@@ -315,7 +315,7 @@ where
     Param: SystemParam,
 {
     func: F,
-    param_state: Option<Param::Fetch>,
+    param_state: Option<Param::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
@@ -400,7 +400,7 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = <Param as SystemParam>::Fetch::get_param(
+        let params = <Param as SystemParam>::State::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
@@ -422,14 +422,14 @@ where
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
-        param_state.apply(world);
+        param_state.apply(&self.system_meta, world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::Fetch as SystemParamState>::init(
+        self.param_state = Some(<Param::State as SystemParamState>::init(
             world,
             &mut self.system_meta,
         ));
@@ -499,7 +499,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///
 /// # Example
 ///
-/// To create something like [`ChainSystem`], but in entirely safe code.
+/// To create something like [`PipeSystem`], but in entirely safe code.
 ///
 /// ```rust
 /// use std::num::ParseIntError;
@@ -510,8 +510,8 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// // Unfortunately, we need all of these generics. `A` is the first system, with its
 /// // parameters and marker type required for coherence. `B` is the second system, and
 /// // the other generics are for the input/output types of `A` and `B`.
-/// /// Chain creates a new system which calls `a`, then calls `b` with the output of `a`
-/// pub fn chain<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
+/// /// Pipe creates a new system which calls `a`, then calls `b` with the output of `a`
+/// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
 /// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
@@ -529,15 +529,15 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     }
 /// }
 ///
-/// // Usage example for `chain`:
+/// // Usage example for `pipe`:
 /// fn main() {
 ///     let mut world = World::default();
 ///     world.insert_resource(Message("42".to_string()));
 ///
-///     // chain the `parse_message_system`'s output into the `filter_system`s input
-///     let mut chained_system = IntoSystem::into_system(chain(parse_message, filter));
-///     chained_system.initialize(&mut world);
-///     assert_eq!(chained_system.run((), &mut world), Some(42));
+///     // pipe the `parse_message_system`'s output into the `filter_system`s input
+///     let mut piped_system = IntoSystem::into_system(pipe(parse_message, filter));
+///     piped_system.initialize(&mut world);
+///     assert_eq!(piped_system.run((), &mut world), Some(42));
 /// }
 ///
 /// #[derive(Resource)]
@@ -551,7 +551,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 ///     result.ok().filter(|&n| n < 100)
 /// }
 /// ```
-/// [`ChainSystem`]: crate::system::ChainSystem
+/// [`PipeSystem`]: crate::system::PipeSystem
 /// [`ParamSet`]: crate::system::ParamSet
 pub trait SystemParamFunction<In, Out, Param: SystemParam, Marker>: Send + Sync + 'static {
     fn run(&mut self, input: In, param_value: SystemParamItem<Param>) -> Out;
@@ -588,7 +588,7 @@ macro_rules! impl_system_function {
         where
         for <'a> &'a mut Func:
                 FnMut(In<Input>, $($param),*) -> Out +
-                FnMut(In<Input>, $(<<$param as SystemParam>::Fetch as SystemParamFetch>::Item),*) -> Out, Out: 'static
+                FnMut(In<Input>, $(SystemParamItem<$param>),*) -> Out, Out: 'static
         {
             #[inline]
             fn run(&mut self, input: Input, param_value: SystemParamItem< ($($param,)*)>) -> Out {

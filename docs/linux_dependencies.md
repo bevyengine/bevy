@@ -92,8 +92,8 @@ sudo pacman -S libx11 pkgconf alsa-lib
 
 Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
 
-Note that for Intel GPUs, Vulkan drivers are not installed by default, you must also install
-the `vulkan-intel` for bevy to work.
+Depending on your graphics card, you may have to install one of the following:
+`vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
 ## Void
 
@@ -101,29 +101,44 @@ the `vulkan-intel` for bevy to work.
 sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
 ```
 
-## NixOS
+## [Nix](https://nixos.org)
 
 Add a `shell.nix` file to the root of the project containing:
 
 ```nix
-{ pkgs ? import <nixpkgs> {} }:
-with pkgs; mkShell rec {
+{ pkgs ? import <nixpkgs> { } }:
+
+with pkgs;
+
+mkShell rec {
   nativeBuildInputs = [
-    pkgconfig
-    llvmPackages.bintools # To use lld linker
+    pkg-config
   ];
   buildInputs = [
-    udev alsaLib vulkan-loader
-    xlibsWrapper xorg.libXcursor xorg.libXrandr xorg.libXi # To use x11 feature
-    libxkbcommon wayland # To use wayland feature
+    udev alsa-lib vulkan-loader
+    xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr # To use the x11 feature
+    libxkbcommon wayland # To use the wayland feature
   ];
-  LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath buildInputs;
+  LD_LIBRARY_PATH = lib.makeLibraryPath buildInputs;
 }
 ```
 
-And enter it by just running `nix-shell`. You should be able compile Bevy programs using `cargo run` within this nix-shell. You can do this in one line with `nix-shell --run "cargo run"`.
+And enter it by just running `nix-shell`.
+You should be able compile Bevy programs using `cargo run` within this nix-shell.
+You can do this in one line with `nix-shell --run "cargo run"`.
 
-Note that this template does not add Rust to the environment because there are many ways to do it. For example, to use stable Rust from nixpkgs you can add `cargo` to `nativeBuildInputs`.
+This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
+Instead of creating `shell.nix`, you just need to add the derivation (`mkShell`)
+to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell and
+`nix develop -c cargo run` to run the program. See
+[Nix's documentation](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-develop.html)
+for more information about `devShells`.
+
+Note that this template does not add Rust to the environment because there are many ways to do it.
+For example, to use stable Rust from nixpkgs, you can add `cargo` and `rustc` to `nativeBuildInputs`.
+
+[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/games/jumpy/default.nix)
+is an example of packaging a Bevy program in nix.
 
 ## [OpenSUSE](https://www.opensuse.org/)
 
@@ -136,6 +151,10 @@ Note that this template does not add Rust to the environment because there are m
 ```bash
    sudo emerge --ask libX11 pkgconf alsa-lib
 ```
+
+When using an AMD Radeon GPU, you may also need to emerge `amdgpu-pro-vulkan` to get Bevy to find the GPU.
+
+When using a NVIDIA GPU with the proprietary driver (eg. `x11-drivers/nvidia-drivers`), you may also need to emerge `media-libs/vulkan-loader` to get Bevy to find the GPU. NVIDIA Vulkan driver is included in `nvidia-driver`, but may need the loader to find the correct driver. See Gentoo [Documentation](https://wiki.gentoo.org/wiki/Vulkan) for details.
 
 ## [Clear Linux OS](https://clearlinux.org/)
 

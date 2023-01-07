@@ -26,9 +26,7 @@ pub fn enum_hash<TEnum: Enum>(value: &TEnum) -> Option<u64> {
 #[inline]
 pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn Reflect) -> Option<bool> {
     // Both enums?
-    let b = if let ReflectRef::Enum(e) = b.reflect_ref() {
-        e
-    } else {
+    let ReflectRef::Enum(b) = b.reflect_ref() else {
         return Some(false);
     };
 

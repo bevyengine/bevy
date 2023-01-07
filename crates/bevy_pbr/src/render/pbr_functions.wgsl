@@ -1,5 +1,10 @@
 #define_import_path bevy_pbr::pbr_functions
 
+#ifdef TONEMAP_IN_SHADER
+#import bevy_core_pipeline::tonemapping
+#endif
+
+
 fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f32>{
     var color = output_color;
     if ((material.flags & STANDARD_MATERIAL_FLAGS_ALPHA_MODE_OPAQUE) != 0u) {
@@ -18,9 +23,23 @@ fn alpha_discard(material: StandardMaterial, output_color: vec4<f32>) -> vec4<f3
     return color;
 }
 
-// NOTE: This ensures that the world_normal is normalized and if
-// vertex tangents and normal maps then normal mapping may be applied.
-fn prepare_normal(
+fn prepare_world_normal(
+    world_normal: vec3<f32>,
+    double_sided: bool,
+    is_front: bool,
+) -> vec3<f32> {
+    var output: vec3<f32> = world_normal;
+#ifndef VERTEX_TANGENTS
+#ifndef STANDARDMATERIAL_NORMAL_MAP
+    // NOTE: When NOT using normal-mapping, if looking at the back face of a double-sided
+    // material, the normal needs to be inverted. This is a branchless version of that.
+    output = (f32(!double_sided || is_front) * 2.0 - 1.0) * output;
+#endif
+#endif
+    return output;
+}
+
+fn apply_normal_mapping(
     standard_material_flags: u32,
     world_normal: vec3<f32>,
 #ifdef VERTEX_TANGENTS
@@ -31,7 +50,6 @@ fn prepare_normal(
 #ifdef VERTEX_UVS
     uv: vec2<f32>,
 #endif
-    is_front: bool,
 ) -> vec3<f32> {
     // NOTE: The mikktspace method of normal mapping explicitly requires that the world normal NOT
     // be re-normalized in the fragment shader. This is primarily to match the way mikktspace
@@ -51,18 +69,6 @@ fn prepare_normal(
     var B: vec3<f32> = world_tangent.w * cross(N, T);
 #endif
 #endif
-
-    if ((standard_material_flags & STANDARD_MATERIAL_FLAGS_DOUBLE_SIDED_BIT) != 0u) {
-        if (!is_front) {
-            N = -N;
-#ifdef VERTEX_TANGENTS
-#ifdef STANDARDMATERIAL_NORMAL_MAP
-            T = -T;
-            B = -B;
-#endif
-#endif
-        }
-    }
 
 #ifdef VERTEX_TANGENTS
 #ifdef VERTEX_UVS
@@ -85,12 +91,12 @@ fn prepare_normal(
     // calculates the normal maps so there is no error introduced. Do not change this code
     // unless you really know what you are doing.
     // http://www.mikktspace.com/
-    N = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
+    N = Nt.x * T + Nt.y * B + Nt.z * N;
 #endif
 #endif
 #endif
 
-    return N;
+    return normalize(N);
 }
 
 // NOTE: Correctly calculates the view vector depending on whether
@@ -190,38 +196,35 @@ fn pbr(
     // point lights
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
         if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        let light_contrib = point_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
     // spot lights
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
         let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
         if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
-        let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        let light_contrib = spot_light(in.world_position.xyz, light_id, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
     let n_directional_lights = lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-        let light = lights.directional_lights[i];
         var shadow: f32 = 1.0;
         if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
-        let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
+        let light_contrib = directional_light(i, roughness, NdotV, in.N, in.V, R, F0, diffuse_color);
         light_accum = light_accum + light_contrib * shadow;
     }
 
@@ -245,6 +248,7 @@ fn pbr(
     return output_color;
 }
 
+#ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // tone_mapping
     return vec4<f32>(reinhard_luminance(in.rgb), in.a);
@@ -253,4 +257,11 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 }
+#endif
+
+#ifdef DEBAND_DITHER
+fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
+    return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
+}
+#endif
 

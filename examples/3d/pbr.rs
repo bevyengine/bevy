@@ -22,12 +22,15 @@ fn setup(
             let y01 = (y + 2) as f32 / 4.0;
             // sphere
             commands.spawn(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Icosphere {
-                    radius: 0.45,
-                    subdivisions: 32,
-                })),
+                mesh: meshes.add(
+                    Mesh::try_from(shape::Icosphere {
+                        radius: 0.45,
+                        subdivisions: 32,
+                    })
+                    .unwrap(),
+                ),
                 material: materials.add(StandardMaterial {
-                    base_color: Color::hex("ffd891").unwrap(),
+                    base_color: Color::hex("#ffd891").unwrap(),
                     // vary key PBR parameters on a grid of spheres to show the effect
                     metallic: y01,
                     perceptual_roughness: x01,
@@ -40,12 +43,15 @@ fn setup(
     }
     // unlit sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: 0.45,
-            subdivisions: 32,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: 0.45,
+                subdivisions: 32,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial {
-            base_color: Color::hex("ffd891").unwrap(),
+            base_color: Color::hex("#ffd891").unwrap(),
             // vary key PBR parameters on a grid of spheres to show the effect
             unlit: true,
             ..default()

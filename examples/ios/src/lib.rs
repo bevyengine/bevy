@@ -4,12 +4,14 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 #[bevy_main]
 fn main() {
     App::new()
-        .insert_resource(WindowDescriptor {
-            resizable: false,
-            mode: WindowMode::BorderlessFullscreen,
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            window: WindowDescriptor {
+                resizable: false,
+                mode: WindowMode::BorderlessFullscreen,
+                ..default()
+            },
             ..default()
-        })
-        .add_plugins(DefaultPlugins)
+        }))
         .add_startup_system(setup_scene)
         .add_startup_system(setup_music)
         .add_system(touch_camera)
@@ -65,10 +67,13 @@ fn setup_scene(
     });
     // sphere
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            subdivisions: 4,
-            radius: 0.5,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                subdivisions: 4,
+                radius: 0.5,
+            })
+            .unwrap(),
+        ),
         material: materials.add(Color::rgb(0.1, 0.4, 0.8).into()),
         transform: Transform::from_xyz(1.5, 1.5, 1.5),
         ..default()
@@ -90,7 +95,6 @@ fn setup_scene(
     });
 
     // Test ui
-    commands.spawn(Camera2dBundle::default());
     commands
         .spawn(ButtonBundle {
             style: Style {

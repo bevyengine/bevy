@@ -10,18 +10,57 @@ pub use filter::*;
 pub use iter::*;
 pub use state::*;
 
-#[allow(unreachable_code)]
-pub(crate) unsafe fn debug_checked_unreachable() -> ! {
-    #[cfg(debug_assertions)]
-    unreachable!();
-    std::hint::unreachable_unchecked();
+/// A debug checked version of [`Option::unwrap_unchecked`]. Will panic in
+/// debug modes if unwrapping a `None` or `Err` value in debug mode, but is
+/// equivalent to `Option::unwrap_uncheched` or `Result::unwrap_unchecked`
+/// in release mode.
+pub(crate) trait DebugCheckedUnwrap {
+    type Item;
+    /// # Panics
+    /// Panics if the value is `None` or `Err`, only in debug mode.
+    ///
+    /// # Safety
+    /// This must never be called on a `None` or `Err` value. This can
+    /// only be called on `Some` or `Ok` values.
+    unsafe fn debug_checked_unwrap(self) -> Self::Item;
+}
+
+// These two impls are explicitly split to ensure that the unreachable! macro
+// does not cause inlining to fail when compiling in release mode.
+#[cfg(debug_assertions)]
+impl<T> DebugCheckedUnwrap for Option<T> {
+    type Item = T;
+
+    #[inline(always)]
+    #[track_caller]
+    unsafe fn debug_checked_unwrap(self) -> Self::Item {
+        if let Some(inner) = self {
+            inner
+        } else {
+            unreachable!()
+        }
+    }
+}
+
+#[cfg(not(debug_assertions))]
+impl<T> DebugCheckedUnwrap for Option<T> {
+    type Item = T;
+
+    #[inline(always)]
+    unsafe fn debug_checked_unwrap(self) -> Self::Item {
+        if let Some(inner) = self {
+            inner
+        } else {
+            std::hint::unreachable_unchecked()
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{ReadOnlyWorldQuery, WorldQuery};
     use crate::prelude::{AnyOf, Entity, Or, QueryState, With, Without};
-    use crate::query::{ArchetypeFilter, QueryCombinationIter, QueryFetch};
+    use crate::query::{ArchetypeFilter, QueryCombinationIter};
     use crate::system::{IntoSystem, Query, System, SystemState};
     use crate::{self as bevy_ecs, component::Component, world::World};
     use std::any::type_name;
@@ -67,29 +106,30 @@ mod tests {
         }
         fn assert_combination<Q, F, const K: usize>(world: &mut World, expected_size: usize)
         where
-            Q: WorldQuery,
+            Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
-            let iter = query.iter_combinations::<K>(world);
             let query_type = type_name::<QueryCombinationIter<Q, F, K>>();
-            assert_all_sizes_iterator_equal(iter, expected_size, query_type);
+            let iter = query.iter_combinations::<K>(world);
+            assert_all_sizes_iterator_equal(iter, expected_size, 0, query_type);
+            let iter = query.iter_combinations::<K>(world);
+            assert_all_sizes_iterator_equal(iter, expected_size, 1, query_type);
+            let iter = query.iter_combinations::<K>(world);
+            assert_all_sizes_iterator_equal(iter, expected_size, 5, query_type);
         }
         fn assert_all_sizes_equal<Q, F>(world: &mut World, expected_size: usize)
         where
-            Q: WorldQuery,
+            Q: ReadOnlyWorldQuery,
             F: ReadOnlyWorldQuery,
             F::ReadOnly: ArchetypeFilter,
-            for<'w> QueryFetch<'w, Q::ReadOnly>: Clone,
-            for<'w> QueryFetch<'w, F::ReadOnly>: Clone,
         {
             let mut query = world.query_filtered::<Q, F>();
-            let iter = query.iter(world);
             let query_type = type_name::<QueryState<Q, F>>();
-            assert_all_sizes_iterator_equal(iter, expected_size, query_type);
+            assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 0, query_type);
+            assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 1, query_type);
+            assert_all_exact_sizes_iterator_equal(query.iter(world), expected_size, 5, query_type);
 
             let expected = expected_size;
             assert_combination::<Q, F, 0>(world, choose(expected, 0));
@@ -97,30 +137,43 @@ mod tests {
             assert_combination::<Q, F, 2>(world, choose(expected, 2));
             assert_combination::<Q, F, 5>(world, choose(expected, 5));
             assert_combination::<Q, F, 43>(world, choose(expected, 43));
-            assert_combination::<Q, F, 128>(world, choose(expected, 128));
+            assert_combination::<Q, F, 64>(world, choose(expected, 64));
         }
-        fn assert_all_sizes_iterator_equal(
+        fn assert_all_exact_sizes_iterator_equal(
             iterator: impl ExactSizeIterator,
             expected_size: usize,
+            skip: usize,
             query_type: &'static str,
         ) {
+            let len = iterator.len();
+            println!("len:           {len}");
+            assert_all_sizes_iterator_equal(iterator, expected_size, skip, query_type);
+            assert_eq!(len, expected_size);
+        }
+        fn assert_all_sizes_iterator_equal(
+            mut iterator: impl Iterator,
+            expected_size: usize,
+            skip: usize,
+            query_type: &'static str,
+        ) {
+            let expected_size = expected_size.saturating_sub(skip);
+            for _ in 0..skip {
+                iterator.next();
+            }
             let size_hint_0 = iterator.size_hint().0;
             let size_hint_1 = iterator.size_hint().1;
-            let len = iterator.len();
             // `count` tests that not only it is the expected value, but also
             // the value is accurate to what the query returns.
             let count = iterator.count();
             // This will show up when one of the asserts in this function fails
             println!(
-                r#"query declared sizes:
-for query: {query_type}
-expected:      {expected_size}
-len():         {len}
-size_hint().0: {size_hint_0}
-size_hint().1: {size_hint_1:?}
-count():       {count}"#
+                "query declared sizes: \n\
+                for query:     {query_type} \n\
+                expected:      {expected_size} \n\
+                size_hint().0: {size_hint_0} \n\
+                size_hint().1: {size_hint_1:?} \n\
+                count():       {count}"
             );
-            assert_eq!(len, expected_size);
             assert_eq!(size_hint_0, expected_size);
             assert_eq!(size_hint_1, Some(expected_size));
             assert_eq!(count, expected_size);
@@ -357,7 +410,7 @@ count():       {count}"#
     fn query_iter_combinations_sparse() {
         let mut world = World::new();
 
-        world.spawn_batch((1..=4).map(|i| (Sparse(i),)));
+        world.spawn_batch((1..=4).map(Sparse));
 
         let mut query = world.query::<&mut Sparse>();
         let mut combinations = query.iter_combinations_mut(&mut world);

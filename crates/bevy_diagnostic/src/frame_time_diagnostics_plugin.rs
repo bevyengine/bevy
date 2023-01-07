@@ -25,7 +25,8 @@ impl FrameTimeDiagnosticsPlugin {
     pub fn setup_system(mut diagnostics: ResMut<Diagnostics>) {
         diagnostics.add(Diagnostic::new(Self::FRAME_TIME, "frame_time", 20).with_suffix("ms"));
         diagnostics.add(Diagnostic::new(Self::FPS, "fps", 20));
-        diagnostics.add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1));
+        diagnostics
+            .add(Diagnostic::new(Self::FRAME_COUNT, "frame_count", 1).with_smoothing_factor(0.0));
     }
 
     pub fn diagnostic_system(
@@ -35,12 +36,13 @@ impl FrameTimeDiagnosticsPlugin {
     ) {
         diagnostics.add_measurement(Self::FRAME_COUNT, || frame_count.0 as f64);
 
-        if time.delta_seconds_f64() == 0.0 {
+        let delta_seconds = time.raw_delta_seconds_f64();
+        if delta_seconds == 0.0 {
             return;
         }
 
-        diagnostics.add_measurement(Self::FRAME_TIME, || time.delta_seconds_f64() * 1000.);
+        diagnostics.add_measurement(Self::FRAME_TIME, || delta_seconds * 1000.0);
 
-        diagnostics.add_measurement(Self::FPS, || 1.0 / time.delta_seconds_f64());
+        diagnostics.add_measurement(Self::FPS, || 1.0 / delta_seconds);
     }
 }

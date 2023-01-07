@@ -1,6 +1,6 @@
 //! Loads and renders a glTF file as a scene.
 
-use std::f32::consts::PI;
+use std::f32::consts::*;
 
 use bevy::prelude::*;
 
@@ -52,8 +52,8 @@ fn animate_light_direction(
         transform.rotation = Quat::from_euler(
             EulerRot::ZYX,
             0.0,
-            time.seconds_since_startup() as f32 * PI / 5.0,
-            -PI / 4.,
+            time.elapsed_seconds() * PI / 5.0,
+            -FRAC_PI_4,
         );
     }
 }

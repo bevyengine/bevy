@@ -1,17 +1,28 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
-use bevy_ecs::system::{NonSend, Res, ResMut};
+use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_reflect::TypeUuid;
 use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 use std::marker::PhantomData;
 
 /// Used internally to play audio on the current "audio device"
+///
+/// ## Note
+///
+/// Initializing this resource will leak [`rodio::OutputStream`](rodio::OutputStream)
+/// using [`std::mem::forget`].
+/// This is done to avoid storing this in the struct (and making this `!Send`)
+/// while preventing it from dropping (to avoid halting of audio).
+///
+/// This is fine when initializing this once (as is default when adding this plugin),
+/// since the memory cost will be the same.
+/// However, repeatedly inserting this resource into the app will **leak more memory**.
+#[derive(Resource)]
 pub struct AudioOutput<Source = AudioSource>
 where
     Source: Decodable,
 {
-    _stream: Option<OutputStream>,
     stream_handle: Option<OutputStreamHandle>,
     phantom: PhantomData<Source>,
 }
@@ -22,15 +33,15 @@ where
 {
     fn default() -> Self {
         if let Ok((stream, stream_handle)) = OutputStream::try_default() {
+            // We leak `OutputStream` to prevent the audio from stopping.
+            std::mem::forget(stream);
             Self {
-                _stream: Some(stream),
                 stream_handle: Some(stream_handle),
                 phantom: PhantomData,
             }
         } else {
             warn!("No audio device found.");
             Self {
-                _stream: None,
                 stream_handle: None,
                 phantom: PhantomData,
             }
@@ -84,13 +95,13 @@ where
 
 /// Plays audio currently queued in the [`Audio`] resource through the [`AudioOutput`] resource
 pub fn play_queued_audio_system<Source: Asset + Decodable>(
-    audio_output: NonSend<AudioOutput<Source>>,
+    audio_output: Res<AudioOutput<Source>>,
     audio_sources: Option<Res<Assets<Source>>>,
     mut audio: ResMut<Audio<Source>>,
     mut sinks: ResMut<Assets<AudioSink>>,
 ) {
     if let Some(audio_sources) = audio_sources {
-        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut *sinks);
+        audio_output.try_play_queued(&*audio_sources, &mut *audio, &mut sinks);
     };
 }
 
@@ -178,9 +189,20 @@ impl AudioSink {
         self.sink.as_ref().unwrap().pause();
     }
 
+    /// Toggles the playback of this sink.
+    ///
+    /// Will pause if playing, and will be resumed if paused.
+    pub fn toggle(&self) {
+        if self.is_paused() {
+            self.play();
+        } else {
+            self.pause();
+        }
+    }
+
     /// Is this sink paused?
     ///
-    /// Sinks can be paused and resumed using [`pause`](Self::pause) and [`play`](Self::play).
+    /// Sinks can be paused and resumed using [`pause`](Self::pause), [`play`](Self::play), and [`toggle`](Self::toggle).
     pub fn is_paused(&self) -> bool {
         self.sink.as_ref().unwrap().is_paused()
     }

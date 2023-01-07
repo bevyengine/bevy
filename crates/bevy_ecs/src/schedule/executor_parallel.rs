@@ -558,7 +558,7 @@ mod tests {
                 StartedSystems(1),
             ]
         );
-        stage.set_executor(Box::new(SingleThreadedExecutor::default()));
+        stage.set_executor(Box::<SingleThreadedExecutor>::default());
         stage.run(&mut world);
     }
 }

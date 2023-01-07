@@ -1,5 +1,4 @@
 use crate::Vec2;
-use serde::{Deserialize, Serialize};
 
 /// A rectangle defined by two opposite corners.
 ///
@@ -10,7 +9,8 @@ use serde::{Deserialize, Serialize};
 /// methods instead, which will ensure this invariant is met, unless you already have
 /// the minimum and maximum corners.
 #[repr(C)]
-#[derive(Default, Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Default, Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 pub struct Rect {
     /// The minimum corner point of the rect.
     pub min: Vec2,

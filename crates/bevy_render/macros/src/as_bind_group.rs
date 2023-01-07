@@ -116,9 +116,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
     // Read field-level attributes
     for field in fields.iter() {
         for attr in &field.attrs {
-            let attr_ident = if let Some(ident) = attr.path.get_ident() {
-                ident
-            } else {
+            let Some(attr_ident) = attr.path.get_ident() else {
                 continue;
             };
 
@@ -373,7 +371,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 render_device: &#render_path::renderer::RenderDevice,
                 images: &#render_path::render_asset::RenderAssets<#render_path::texture::Image>,
                 fallback_image: &#render_path::texture::FallbackImage,
-            ) -> Result<#render_path::render_resource::PreparedBindGroup<Self>, #render_path::render_resource::AsBindGroupError> {
+            ) -> Result<#render_path::render_resource::PreparedBindGroup<Self::Data>, #render_path::render_resource::AsBindGroupError> {
                 let bindings = vec![#(#binding_impls,)*];
 
                 let bind_group = {

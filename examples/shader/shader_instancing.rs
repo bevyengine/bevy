@@ -2,7 +2,10 @@
 
 use bevy::{
     core_pipeline::core_3d::Transparent3d,
-    ecs::system::{lifetimeless::*, SystemParamItem},
+    ecs::{
+        query::QueryItem,
+        system::{lifetimeless::*, SystemParamItem},
+    },
     pbr::{MeshPipeline, MeshPipelineKey, MeshUniform, SetMeshBindGroup, SetMeshViewBindGroup},
     prelude::*,
     render::{
@@ -10,8 +13,8 @@ use bevy::{
         mesh::{GpuBufferInfo, MeshVertexBufferLayout},
         render_asset::RenderAssets,
         render_phase::{
-            AddRenderCommand, DrawFunctions, EntityRenderCommand, RenderCommandResult, RenderPhase,
-            SetItemPipeline, TrackedRenderPass,
+            AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+            RenderPhase, SetItemPipeline, TrackedRenderPass,
         },
         render_resource::*,
         renderer::RenderDevice,
@@ -32,8 +35,7 @@ fn main() {
 fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
     commands.spawn((
         meshes.add(Mesh::from(shape::Cube { size: 0.5 })),
-        Transform::from_xyz(0.0, 0.0, 0.0),
-        GlobalTransform::default(),
+        SpatialBundle::INHERITED_IDENTITY,
         InstanceMaterialData(
             (1..=10)
                 .flat_map(|x| (1..=10).map(move |y| (x as f32 / 10.0, y as f32 / 10.0)))
@@ -44,8 +46,6 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
                 })
                 .collect(),
         ),
-        Visibility::default(),
-        ComputedVisibility::default(),
         // NOTE: Frustum culling is done based on the Aabb of the Mesh and the GlobalTransform.
         // As the cube is at the origin, if its Aabb moves outside the view frustum, all the
         // instanced cubes will be culled.
@@ -69,9 +69,10 @@ struct InstanceMaterialData(Vec<InstanceData>);
 impl ExtractComponent for InstanceMaterialData {
     type Query = &'static InstanceMaterialData;
     type Filter = ();
+    type Out = Self;
 
-    fn extract_component(item: bevy::ecs::query::QueryItem<Self::Query>) -> Self {
-        InstanceMaterialData(item.0.clone())
+    fn extract_component(item: QueryItem<'_, Self::Query>) -> Option<Self> {
+        Some(InstanceMaterialData(item.0.clone()))
     }
 }
 
@@ -108,19 +109,17 @@ fn queue_custom(
     material_meshes: Query<(Entity, &MeshUniform, &Handle<Mesh>), With<InstanceMaterialData>>,
     mut views: Query<(&ExtractedView, &mut RenderPhase<Transparent3d>)>,
 ) {
-    let draw_custom = transparent_3d_draw_functions
-        .read()
-        .get_id::<DrawCustom>()
-        .unwrap();
+    let draw_custom = transparent_3d_draw_functions.read().id::<DrawCustom>();
 
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
 
     for (view, mut transparent_phase) in &mut views {
+        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
         let rangefinder = view.rangefinder3d();
         for (entity, mesh_uniform, mesh_handle) in &material_meshes {
             if let Some(mesh) = meshes.get(mesh_handle) {
                 let key =
-                    msaa_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                    view_key | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                 let pipeline = pipelines
                     .specialize(&mut pipeline_cache, &custom_pipeline, key, &mesh.layout)
                     .unwrap();
@@ -224,22 +223,19 @@ type DrawCustom = (
 
 pub struct DrawMeshInstanced;
 
-impl EntityRenderCommand for DrawMeshInstanced {
-    type Param = (
-        SRes<RenderAssets<Mesh>>,
-        SQuery<Read<Handle<Mesh>>>,
-        SQuery<Read<InstanceBuffer>>,
-    );
+impl<P: PhaseItem> RenderCommand<P> for DrawMeshInstanced {
+    type Param = SRes<RenderAssets<Mesh>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = (Read<Handle<Mesh>>, Read<InstanceBuffer>);
+
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (meshes, mesh_query, instance_buffer_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        (mesh_handle, instance_buffer): (&'w Handle<Mesh>, &'w InstanceBuffer),
+        meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = mesh_query.get(item).unwrap();
-        let instance_buffer = instance_buffer_query.get_inner(item).unwrap();
-
         let gpu_mesh = match meshes.into_inner().get(mesh_handle) {
             Some(gpu_mesh) => gpu_mesh,
             None => return RenderCommandResult::Failure,

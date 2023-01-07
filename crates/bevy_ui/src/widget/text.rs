@@ -8,7 +8,10 @@ use bevy_ecs::{
 use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_text::{Font, FontAtlasSet, Text, TextError, TextLayoutInfo, TextPipeline, TextSettings};
+use bevy_text::{
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
+    TextSettings, YAxisOrientation,
+};
 use bevy_window::Windows;
 
 #[derive(Debug, Default)]
@@ -36,6 +39,11 @@ pub fn text_constraint(min_size: Val, size: Val, max_size: Val, scale_factor: f6
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the `TextPipeline` on insertion, then stored.
+///
+/// ## World Resources
+///
+/// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
+/// It does not modify or observe existing ones.
 #[allow(clippy::too_many_arguments)]
 pub fn text_system(
     mut commands: Commands,
@@ -45,6 +53,7 @@ pub fn text_system(
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     text_settings: Res<TextSettings>,
+    mut font_atlas_warning: ResMut<FontAtlasWarning>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
@@ -114,19 +123,20 @@ pub fn text_system(
                 scale_factor,
                 text.alignment,
                 node_size,
-                &mut *font_atlas_set_storage,
-                &mut *texture_atlases,
-                &mut *textures,
+                &mut font_atlas_set_storage,
+                &mut texture_atlases,
+                &mut textures,
                 text_settings.as_ref(),
+                &mut font_atlas_warning,
+                YAxisOrientation::TopToBottom,
             ) {
                 Err(TextError::NoSuchFont) => {
                     // There was an error processing the text layout, let's add this entity to the
                     // queue for further processing
                     new_queue.push(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_))
-                | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
-                    panic!("Fatal error when processing text: {}.", e);
+                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                    panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
                     calculated_size.size = Size {
