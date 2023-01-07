@@ -112,24 +112,27 @@ pub(crate) fn changed_window(
             }
 
             if window.mode != previous.mode {
-                match window.mode {
+                let new_mode = match window.mode {
                     bevy_window::WindowMode::BorderlessFullscreen => {
-                        winit_window
-                            .set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)));
+                        Some(winit::window::Fullscreen::Borderless(None))
                     }
                     bevy_window::WindowMode::Fullscreen => {
-                        winit_window.set_fullscreen(Some(winit::window::Fullscreen::Exclusive(
-                            get_best_videomode(&winit_window.current_monitor().unwrap()),
-                        )));
+                        Some(winit::window::Fullscreen::Exclusive(get_best_videomode(
+                            &winit_window.current_monitor().unwrap(),
+                        )))
                     }
-                    bevy_window::WindowMode::SizedFullscreen => winit_window.set_fullscreen(Some(
-                        winit::window::Fullscreen::Exclusive(get_fitting_videomode(
+                    bevy_window::WindowMode::SizedFullscreen => {
+                        Some(winit::window::Fullscreen::Exclusive(get_fitting_videomode(
                             &winit_window.current_monitor().unwrap(),
                             window.width() as u32,
                             window.height() as u32,
-                        )),
-                    )),
-                    bevy_window::WindowMode::Windowed => winit_window.set_fullscreen(None),
+                        )))
+                    }
+                    bevy_window::WindowMode::Windowed => None,
+                };
+
+                if winit_window.fullscreen() != new_mode {
+                    winit_window.set_fullscreen(new_mode);
                 }
             }
 
@@ -184,11 +187,15 @@ pub(crate) fn changed_window(
                 }
             }
 
-            if window.decorations != previous.decorations {
+            if window.decorations != previous.decorations
+                && window.decorations != winit_window.is_decorated()
+            {
                 winit_window.set_decorations(window.decorations);
             }
 
-            if window.resizable != previous.resizable {
+            if window.resizable != previous.resizable
+                && window.resizable != winit_window.is_resizable()
+            {
                 winit_window.set_resizable(window.resizable);
             }
 
