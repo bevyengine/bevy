@@ -68,7 +68,7 @@ fn setup_2d(mut commands: Commands) {
     commands.spawn(Camera2dBundle {
         camera: Camera {
             // render the 2d camera after the 3d camera
-            priority: 1,
+            order: 1,
             ..default()
         },
         camera_2d: Camera2d {

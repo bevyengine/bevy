@@ -1,4 +1,3 @@
-use crate::converters::convert_cursor_grab_mode;
 use bevy_math::{DVec2, IVec2};
 use bevy_utils::HashMap;
 use bevy_window::{
@@ -165,16 +164,6 @@ impl WinitWindows {
             }
         }
 
-        // Do not set the grab mode on window creation if it's none, this can fail on mobile
-        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
-            match winit_window
-                .set_cursor_grab(convert_cursor_grab_mode(window_descriptor.cursor_grab_mode))
-            {
-                Ok(_) | Err(winit::error::ExternalError::NotSupported(_)) => {}
-                Err(err) => Err(err).unwrap(),
-            }
-        }
-
         winit_window.set_cursor_visible(window_descriptor.cursor_visible);
 
         self.window_id_to_winit.insert(window_id, winit_window.id());
@@ -207,7 +196,7 @@ impl WinitWindows {
             display_handle: winit_window.raw_display_handle(),
         };
         self.windows.insert(winit_window.id(), winit_window);
-        Window::new(
+        let mut window = Window::new(
             window_id,
             window_descriptor,
             inner_size.width,
@@ -215,7 +204,12 @@ impl WinitWindows {
             scale_factor,
             position,
             Some(raw_handle),
-        )
+        );
+        // Do not set the grab mode on window creation if it's none, this can fail on mobile
+        if window_descriptor.cursor_grab_mode != CursorGrabMode::None {
+            window.set_cursor_grab_mode(window_descriptor.cursor_grab_mode);
+        }
+        window
     }
 
     pub fn get_window(&self, id: WindowId) -> Option<&winit::window::Window> {

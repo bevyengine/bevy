@@ -275,6 +275,26 @@ By giving feedback on this work (and related supporting work), you can help us m
 Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
 As discussed in [*How we're organized*](#how-were-organized), this role only requires good faith and a basic understanding of our development process.
 
+### How to adopt pull requests
+
+Occasionally authors of pull requests get busy or become unresponsive, or project members fail to reply in a timely manner.
+This is a natural part of any open source project.
+To avoid blocking these efforts, these pull requests may be *adopted*, where another contributor creates a new pull request with the same content.
+If there is an old pull request that is without updates, comment to the organization whether it is appropriate to add the
+*[S-Adopt-Me](https://github.com/bevyengine/bevy/labels/S-Adopt-Me)* label, to indicate that it can be *adopted*.
+If you plan on adopting a PR yourself, you can also leave a comment on the PR asking the author if they plan on returning.
+If the author gives permission or simply doesn't respond after a few days, then it can be adopted.
+This may sometimes even skip the labeling process since at that point the PR has been adopted by you.
+
+With this label added, it's best practice to fork the original author's branch.
+This ensures that they still get credit for working on it and that the commit history is retained.
+When the new pull request is ready, it should reference the original PR in the description.
+Then notify org members to close the original.
+
+* For example, you can reference the original PR by adding the following to your PR description:
+
+`Adopted #number-original-pull-request`
+
 ### Maintaining code
 
 Maintainers can merge uncontroversial pull requests that have at least two approvals (or at least one for trivial changes).

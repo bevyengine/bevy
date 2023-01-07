@@ -10,7 +10,7 @@ use std::any::Any;
 /// can only be added once to an [`App`].
 ///
 /// If the plugin may need to be added twice or more, the function [`is_unique()`](Self::is_unique)
-/// should be overriden to return `false`. Plugins are considered duplicate if they have the same
+/// should be overridden to return `false`. Plugins are considered duplicate if they have the same
 /// [`name()`](Self::name). The default `name()` implementation returns the type name, which means
 /// generic plugins with different type parameters will not be considered duplicates.
 pub trait Plugin: Downcast + Any + Send + Sync {

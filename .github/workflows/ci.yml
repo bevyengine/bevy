@@ -108,6 +108,7 @@ jobs:
             ~/.cargo/git/db/
             target/
             crates/bevy_ecs_compile_fail_tests/target/
+            crates/bevy_reflect_compile_fail_tests/target/
           key: ${{ runner.os }}-cargo-check-compiles-${{ hashFiles('**/Cargo.toml') }}
       - uses: dtolnay/rust-toolchain@stable
         with:

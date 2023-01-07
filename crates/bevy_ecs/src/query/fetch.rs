@@ -415,7 +415,7 @@ pub unsafe trait WorldQuery {
     // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>);
-    // This does not have a default body of `{}` becaues 99% of cases need to add accesses
+    // This does not have a default body of `{}` because 99% of cases need to add accesses
     // and forgetting to do so would be unsound.
     fn update_archetype_component_access(
         state: &Self::State,
@@ -886,7 +886,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
     fn update_component_access(state: &T::State, access: &mut FilteredAccess<ComponentId>) {
         // We don't want to add the `with`/`without` of `T` as `Option<T>` will match things regardless of
         // `T`'s filters. for example `Query<(Option<&U>, &mut V)>` will match every entity with a `V` component
-        // regardless of whether it has a `U` component. If we dont do this the query will not conflict with
+        // regardless of whether it has a `U` component. If we don't do this the query will not conflict with
         // `Query<&mut V, Without<U>>` which would be unsound.
         let mut intermediate = access.clone();
         T::update_component_access(state, &mut intermediate);

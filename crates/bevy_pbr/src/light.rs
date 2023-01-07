@@ -303,7 +303,7 @@ pub enum SimulationLightSystems {
 // Some inspiration was taken from “Practical Clustered Shading” which is part 2 of:
 // https://efficientshading.com/2015/01/01/real-time-many-light-management-and-shadows-with-clustered-shading/
 // (Also note that Part 3 of the above shows how we could support the shadow mapping for many lights.)
-// The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa’s Siggraph 2016 talk about Doom 2016:
+// The z-slicing method mentioned in the aortiz article is originally from Tiago Sousa's Siggraph 2016 talk about Doom 2016:
 // http://advances.realtimerendering.com/s2016/Siggraph2016_idTech6.pdf
 
 /// Configure the far z-plane mode used for the furthest depth slice for clustered forward
@@ -550,7 +550,7 @@ fn view_z_to_z_slice(
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
         ((-view_z).ln() * cluster_factors.x - cluster_factors.y + 1.0) as u32
     };
-    // NOTE: We use min as we may limit the far z plane used for clustering to be closeer than
+    // NOTE: We use min as we may limit the far z plane used for clustering to be closer than
     // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
     z_slice.min(z_slices - 1)
 }
@@ -1437,7 +1437,7 @@ fn project_to_plane_z(z_light: Sphere, z_plane: Plane) -> Option<Sphere> {
     Some(Sphere {
         center: Vec3A::from(z_light.center.xy().extend(z)),
         // hypotenuse length = radius
-        // pythagorus = (distance to plane)^2 + b^2 = radius^2
+        // pythagoras = (distance to plane)^2 + b^2 = radius^2
         radius: (z_light.radius * z_light.radius - distance_to_plane * distance_to_plane).sqrt(),
     })
 }

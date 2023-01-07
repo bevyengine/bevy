@@ -6,7 +6,7 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     archetype::{
-        Archetype, ArchetypeId, ArchetypeRow, Archetypes, BundleComponentStatus, ComponentStatus,
+        Archetype, ArchetypeId, Archetypes, BundleComponentStatus, ComponentStatus,
         SpawnBundleStatus,
     },
     component::{Component, ComponentId, ComponentStorage, Components, StorageType, Tick},
@@ -528,13 +528,9 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
     pub unsafe fn insert<T: Bundle>(
         &mut self,
         entity: Entity,
-        archetype_row: ArchetypeRow,
+        location: EntityLocation,
         bundle: T,
     ) -> EntityLocation {
-        let location = EntityLocation {
-            archetype_row,
-            archetype_id: self.archetype.id(),
-        };
         match &mut self.result {
             InsertBundleResult::SameArchetype => {
                 // PERF: this could be looked up during Inserter construction and stored (but borrowing makes this nasty)
@@ -548,7 +544,7 @@ impl<'a, 'b> BundleInserter<'a, 'b> {
                     self.sparse_sets,
                     add_bundle,
                     entity,
-                    self.archetype.entity_table_row(archetype_row),
+                    location.table_row,
                     self.change_tick,
                     bundle,
                 );
