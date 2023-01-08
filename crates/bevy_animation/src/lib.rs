@@ -368,6 +368,7 @@ pub fn animation_player(
     });
 }
 
+#[allow(clippy::too_many_arguments)]
 fn run_animation_player(
     root: Entity,
     mut player: Mut<AnimationPlayer>,
@@ -452,7 +453,7 @@ fn apply_animation(
         if animation.path_cache.len() != animation_clip.paths.len() {
             animation.path_cache = vec![Vec::new(); animation_clip.paths.len()];
         }
-        if !verify_no_ancestor_player(maybe_parent, &parents) {
+        if !verify_no_ancestor_player(maybe_parent, parents) {
             warn!("Animation player on {:?} has a conflicting animation player on an ancestor. Cannot safely animate.", root);
             return;
         }
@@ -460,7 +461,7 @@ fn apply_animation(
         for (path, bone_id) in &animation_clip.paths {
             let cached_path = &mut animation.path_cache[*bone_id];
             let curves = animation_clip.get_curves(*bone_id).unwrap();
-            let Some(target) = find_bone(root, path, &children, &names, cached_path) else { continue };
+            let Some(target) = find_bone(root, path, children, names, cached_path) else { continue };
             // SAFETY: The verify_no_ancestor_player check above ensures that two animation players cannot alias
             // any of their descendant Transforms.
             //
