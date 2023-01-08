@@ -295,6 +295,7 @@ bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ShadowPipelineKey: u32 {
         const NONE               = 0;
+        const DEPTH_CLAMP_ORTHO  = 1;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = ShadowPipelineKey::PRIMITIVE_TOPOLOGY_MASK_BITS << ShadowPipelineKey::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
 }
@@ -344,8 +345,11 @@ impl SpecializedMeshPipeline for ShadowPipeline {
             "MAX_CASCADES_PER_LIGHT".to_string(),
             MAX_CASCADES_PER_LIGHT as u32,
         ));
-        // Avoid clipping shadow casters that are behind the near plane.
-        shader_defs.push("DEPTH_CLAMP".into());
+
+        if key.contains(ShadowPipelineKey::DEPTH_CLAMP_ORTHO) {
+            // Avoid clipping shadow casters that are behind the near plane.
+            shader_defs.push("DEPTH_CLAMP_ORTHO".into());
+        }
 
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
@@ -1693,6 +1697,7 @@ pub fn queue_shadows(
         for view_light_entity in view_lights.lights.iter().copied() {
             let (light_entity, mut shadow_phase) =
                 view_light_shadow_phases.get_mut(view_light_entity).unwrap();
+            let is_directional_light = matches!(light_entity, LightEntity::Directional {..});
             let visible_entities = match light_entity {
                 LightEntity::Directional {
                     light_entity,
@@ -1721,8 +1726,11 @@ pub fn queue_shadows(
             for entity in visible_entities.iter().copied() {
                 if let Ok(mesh_handle) = casting_meshes.get(entity) {
                     if let Some(mesh) = render_meshes.get(mesh_handle) {
-                        let key =
+                        let mut key =
                             ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
+                        if is_directional_light {
+                            key |= ShadowPipelineKey::DEPTH_CLAMP_ORTHO;
+                        }
                         let pipeline_id = pipelines.specialize(
                             &pipeline_cache,
                             &shadow_pipeline,
