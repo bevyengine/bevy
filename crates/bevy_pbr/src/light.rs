@@ -245,7 +245,12 @@ pub struct CascadeShadowConfig {
 
 impl Default for CascadeShadowConfig {
     fn default() -> Self {
-        Self::new(4, 5.0, 1000.0, 0.2)
+        if cfg!(feature = "webgl") {
+            // Currently only support one cascade in webgl.
+            Self::new(1, 5.0, 100.0, 0.2)
+        } else {
+            Self::new(4, 5.0, 1000.0, 0.2)
+        }
     }
 }
 
