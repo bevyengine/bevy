@@ -78,7 +78,7 @@ pub enum PresentMode {
 )]
 #[reflect(Debug, PartialEq, Hash)]
 pub enum CompositeAlphaMode {
-    /// Chooses either `Opaque` or `Inherit` automatically，depending on the
+    /// Chooses either `Opaque` or `Inherit` automatically, depending on the
     /// `alpha_mode` that the current surface can support.
     Auto = 0,
     /// The alpha channel, if it exists, of the textures is ignored in the

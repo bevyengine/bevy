@@ -295,7 +295,7 @@ Example | Description
 Example | Description
 --- | ---
 [Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
-[Scene Viewer](../examples/tools/scene_viewer.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
+[Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 
 ## Transforms
 

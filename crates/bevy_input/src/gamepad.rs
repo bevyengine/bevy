@@ -864,7 +864,7 @@ impl AxisSettings {
     ///
     /// If the value passed is less than the dead zone upper bound,
     /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
-    /// If the value passsed is not in range [0.0..=1.0], returns `AxisSettingsError::LiveZoneUpperBoundOutOfRange`.
+    /// If the value passed is not in range [0.0..=1.0], returns `AxisSettingsError::LiveZoneUpperBoundOutOfRange`.
     pub fn try_set_livezone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(0.0..=1.0).contains(&value) {
             Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(value))
@@ -901,7 +901,7 @@ impl AxisSettings {
     ///
     /// If the value passed is greater than the live zone upper bound,
     /// returns `AxisSettingsError::DeadZoneUpperBoundGreaterThanLiveZoneUpperBound`.
-    /// If the value passsed is not in range [0.0..=1.0], returns `AxisSettingsError::DeadZoneUpperBoundOutOfRange`.
+    /// If the value passed is not in range [0.0..=1.0], returns `AxisSettingsError::DeadZoneUpperBoundOutOfRange`.
     pub fn try_set_deadzone_upperbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(0.0..=1.0).contains(&value) {
             Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(value))
@@ -939,7 +939,7 @@ impl AxisSettings {
     ///
     /// If the value passed is less than the dead zone lower bound,
     /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
-    /// If the value passsed is not in range [-1.0..=0.0], returns `AxisSettingsError::LiveZoneLowerBoundOutOfRange`.
+    /// If the value passed is not in range [-1.0..=0.0], returns `AxisSettingsError::LiveZoneLowerBoundOutOfRange`.
     pub fn try_set_livezone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(-1.0..=0.0).contains(&value) {
             Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(value))
@@ -977,7 +977,7 @@ impl AxisSettings {
     ///
     /// If the value passed is less than the live zone lower bound,
     /// returns `AxisSettingsError::LiveZoneLowerBoundGreaterThanDeadZoneLowerBound`.
-    /// If the value passsed is not in range [-1.0..=0.0], returns `AxisSettingsError::DeadZoneLowerBoundOutOfRange`.
+    /// If the value passed is not in range [-1.0..=0.0], returns `AxisSettingsError::DeadZoneLowerBoundOutOfRange`.
     pub fn try_set_deadzone_lowerbound(&mut self, value: f32) -> Result<(), AxisSettingsError> {
         if !(-1.0..=0.0).contains(&value) {
             Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(value))

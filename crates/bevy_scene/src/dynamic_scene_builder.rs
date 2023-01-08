@@ -74,7 +74,7 @@ impl<'w> DynamicSceneBuilder<'w> {
         self.extract_entities(std::iter::once(entity))
     }
 
-    /// Despawns all enitities with no components.
+    /// Despawns all entities with no components.
     ///
     /// These were likely created because none of their components were present in the provided type registry upon extraction.
     pub fn remove_empty_entities(&mut self) -> &mut Self {

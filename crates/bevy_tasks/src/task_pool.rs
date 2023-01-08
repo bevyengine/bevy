@@ -414,7 +414,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.executor.spawn(f).fallible();
         // ConcurrentQueue only errors when closed or full, but we never
-        // close and use an unbouded queue, so it is safe to unwrap
+        // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
     }
 
@@ -427,7 +427,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         let task = self.task_scope_executor.spawn(f).fallible();
         // ConcurrentQueue only errors when closed or full, but we never
-        // close and use an unbouded queue, so it is safe to unwrap
+        // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
     }
 }
