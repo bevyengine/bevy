@@ -3,13 +3,13 @@ use slotmap::SlotMap;
 
 use super::{EdgeIdx, NodeIdx};
 
-pub struct AdjacencyMapGraph<N, E> {
+pub struct SimpleMapGraph<N, E> {
     nodes: SlotMap<NodeIdx, N>,
     edges: SlotMap<EdgeIdx, E>,
     adjacencies: HashMap<NodeIdx, HashMap<NodeIdx, EdgeIdx>>,
 }
 
-impl<N, E> AdjacencyMapGraph<N, E> {
+impl<N, E> SimpleMapGraph<N, E> {
     pub fn new() -> Self {
         Self {
             nodes: SlotMap::new(),
@@ -66,7 +66,7 @@ impl<N, E> AdjacencyMapGraph<N, E> {
     }
 }
 
-impl<N, E> Default for AdjacencyMapGraph<N, E> {
+impl<N, E> Default for SimpleMapGraph<N, E> {
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -75,7 +75,7 @@ impl<N, E> Default for AdjacencyMapGraph<N, E> {
 
 #[cfg(test)]
 mod test {
-    use super::AdjacencyMapGraph;
+    use super::SimpleMapGraph;
 
     enum Person {
         Jake,
