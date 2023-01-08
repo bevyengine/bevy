@@ -9,8 +9,8 @@ use crate::{
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 ///
-/// This is a sub-trait of [`Array`] as it implements [insertion](List::insert) and [removal](List::remove),
-/// allowing it's internal size to grow.
+/// This is a sub-trait of [`Array`], however as it implements [insertion](List::insert) and [removal](List::remove),
+/// it's internal size may change.
 ///
 /// This trait expects index 0 to contain the _front_ element.
 /// The _back_ element must refer to the element with the largest index.
