@@ -53,6 +53,13 @@ impl<N, E> AdjacencyMapGraph<N, E> {
     }
 }
 
+impl<N, E> Default for AdjacencyMapGraph<N, E> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::AdjacencyMapGraph;
