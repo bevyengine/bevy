@@ -87,7 +87,7 @@ mod test {
     fn undirected_edge() {
         const STRENGTH: i32 = 100;
 
-        let mut map_graph = AdjacencyMapGraph::<Person, i32>::new();
+        let mut map_graph = SimpleMapGraph::<Person, i32>::new();
 
         let jake = map_graph.add_node(Person::Jake);
         let michael = map_graph.add_node(Person::Michael);
@@ -106,7 +106,7 @@ mod test {
     fn directed_edge() {
         const STRENGTH: i32 = 9999;
 
-        let mut map_graph = AdjacencyMapGraph::<Person, i32>::new();
+        let mut map_graph = SimpleMapGraph::<Person, i32>::new();
 
         let jake = map_graph.add_node(Person::Jake);
         let jennifer = map_graph.add_node(Person::Jennifer);
