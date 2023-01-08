@@ -10,6 +10,8 @@
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
+    render::picking::Picking,
+    utils::HashSet,
     window::PresentMode,
 };
 
@@ -28,8 +30,8 @@ fn main() {
             std::env::args().nth(1).unwrap_or_default() == "--colored",
         ))
         // Since this is also used as a benchmark, we want it to display performance data.
-        .add_plugin(LogDiagnosticsPlugin::default())
-        .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        // .add_plugin(LogDiagnosticsPlugin::default())
+        // .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 present_mode: PresentMode::AutoNoVsync,
@@ -37,6 +39,10 @@ fn main() {
             },
             ..default()
         }))
+        // .init_resource::<Picked>()
+        .init_resource::<MousePosition>()
+        .add_system(mouse_position)
+        .add_system(picking.after(mouse_position))
         .add_startup_system(setup)
         .add_system(print_sprite_count)
         .add_system(move_camera.after(print_sprite_count))
@@ -58,7 +64,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 
     // Spawns the camera
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Picking::default()));
 
     // Builds and spawns the sprites
     let mut sprites = vec![];
@@ -95,6 +101,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
+    // return;
     camera_transform.rotate_z(time.delta_seconds() * 0.5);
     *camera_transform = *camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
@@ -114,6 +121,41 @@ fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites:
     timer.tick(time.delta());
 
     if timer.just_finished() {
-        info!("Sprites: {}", sprites.iter().count(),);
+        // info!("Sprites: {}", sprites.iter().count(),);
     }
+}
+
+// #[derive(Debug, Default, Resource, Deref, DerefMut)]
+// struct Picked(HashSet<Entity>);
+
+#[derive(Debug, Default, Resource, Deref, DerefMut)]
+struct MousePosition(Option<UVec2>);
+
+fn mouse_position(
+    mut cursor_moved: EventReader<CursorMoved>,
+    mut mouse_position: ResMut<MousePosition>,
+) {
+    if let Some(pos) = cursor_moved.iter().last() {
+        **mouse_position = Some(pos.position.as_uvec2());
+    }
+}
+
+fn picking(
+    mouse_position: Res<MousePosition>,
+    picking_camera: Query<(&Picking, &Camera)>,
+    mut sprites: Query<(Entity, &mut Handle<Image>), With<Sprite>>,
+    assets: Res<AssetServer>,
+) {
+    let Some(mouse_position) = **mouse_position else { return };
+
+    let (picking, camera) = picking_camera.single();
+
+    let Some(e) = picking.get_entity(camera, mouse_position) else { return };
+
+    info!("Picked: {:?}", e);
+
+    let Ok((_, mut image_handle)) = sprites.get_mut(e) else { panic!("Picked entity with no matching sprite") };
+
+    // sprite.color = Color::GREEN;
+    *image_handle = assets.load("branding/icon2.png");
 }

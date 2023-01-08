@@ -16,9 +16,9 @@ use bevy_utils::tracing::info_span;
 pub struct PickingNode {
     query: QueryState<
         (
-            &'static ViewDepthTexture,
             &'static Picking,
             &'static PickingTextures,
+            Option<&'static ViewDepthTexture>,
         ),
         With<ExtractedCamera>,
     >,
@@ -50,7 +50,7 @@ impl Node for PickingNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
-        let (depth, picking, picking_textures) =
+        let (picking, picking_textures, depth) =
             if let Ok(result) = self.query.get_manual(world, view_entity) {
                 result
             } else {

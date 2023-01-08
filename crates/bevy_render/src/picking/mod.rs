@@ -26,10 +26,22 @@ use crate::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
+/// See [https://www.w3.org/TR/webgpu/#texture-format-caps](here) for texture format capabilities.
+///
+/// We have to:
+/// 1. Use a texture format that supports blending. This implies "float" in the sample type in the link above.
+/// 2. Have an alpha channel such that we can blend- which allows us to cut out the background from e.g. a partially transparent image.
+/// 3. Have enough precision to be able to decompose an entity index across channels.
+/// The entity index is a u32, so across three channels we could do e.g. 12 bits, 12 bits, 8 bits.
+/// The largest possible number stored in a single channel is then 2^12 = 4096, which is well within the limits of 16 bit floats
+/// according to https://en.wikipedia.org/wiki/Half-precision_floating-point_format
+///
+pub const PICKING_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
+
 pub fn copy_to_buffer(
     picking: &Picking,
     picking_textures: &PickingTextures,
-    depth: &ViewDepthTexture,
+    depth: Option<&ViewDepthTexture>,
     render_context: &mut RenderContext,
 ) {
     let mut binding = picking.try_lock().expect("TODO: Can we lock here?");
@@ -37,47 +49,49 @@ pub fn copy_to_buffer(
 
     // Why every n only?
     // Just experimenting with perf.
-    if picking_resources.n % 100 == 0 {
-        let size = &picking_resources.size;
+    // if picking_resources.n % 10 == 0 {
+    let size = &picking_resources.size;
 
-        render_context.command_encoder.copy_texture_to_buffer(
-            picking_textures.main.texture.as_image_copy(),
-            ImageCopyBuffer {
-                buffer: &picking_resources.pick_buffer,
-                layout: ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
-                    ),
-                    rows_per_image: None,
-                },
+    render_context.command_encoder.copy_texture_to_buffer(
+        picking_textures.main.texture.as_image_copy(),
+        ImageCopyBuffer {
+            buffer: &picking_resources.pick_buffer,
+            layout: ImageDataLayout {
+                offset: 0,
+                bytes_per_row: Some(
+                    std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
+                ),
+                rows_per_image: None,
             },
-            Extent3d {
-                width: size.texture_size.x,
-                height: size.texture_size.y,
-                depth_or_array_layers: 1,
-            },
-        );
+        },
+        Extent3d {
+            width: size.texture_size.x,
+            height: size.texture_size.y,
+            depth_or_array_layers: 1,
+        },
+    );
 
-        render_context.command_encoder.copy_texture_to_buffer(
-            depth.texture.as_image_copy(),
-            ImageCopyBuffer {
-                buffer: &picking_resources.depth_buffer,
-                layout: ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(
-                        std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
-                    ),
-                    rows_per_image: None,
-                },
-            },
-            Extent3d {
-                width: size.texture_size.x,
-                height: size.texture_size.y,
-                depth_or_array_layers: 1,
-            },
-        );
-    }
+    // bevy_log::info!("Copying to buffer.");
+
+    // render_context.command_encoder.copy_texture_to_buffer(
+    //     depth.texture.as_image_copy(),
+    //     ImageCopyBuffer {
+    //         buffer: &picking_resources.depth_buffer,
+    //         layout: ImageDataLayout {
+    //             offset: 0,
+    //             bytes_per_row: Some(
+    //                 std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
+    //             ),
+    //             rows_per_image: None,
+    //         },
+    //     },
+    //     Extent3d {
+    //         width: size.texture_size.x,
+    //         height: size.texture_size.y,
+    //         depth_or_array_layers: 1,
+    //     },
+    // );
+    // }
 
     picking_resources.n += 1;
 }
@@ -120,15 +134,62 @@ impl Picking {
             &resources.size,
             &slice.get_mapped_range(),
             |bytes| {
-                u32::from_le_bytes(
-                    bytes
-                        .try_into()
-                        .expect("Should be able to make u32 (entity index) out of 4 bytes"),
-                )
+                // Four channels, 16 bites per channel.
+                assert!(bytes.len() == 4 * 2, "It's {:?}", bytes.len());
+                let f16_to_u16 = |bytes: &[u8], start: usize| {
+                    half::f16::from_le_bytes(bytes[start..start + 2].try_into().unwrap()).to_f32()
+                        as u16
+                };
+
+                // DEBUG: Upper bytes are marked, let's clear that
+                let mut upper_12: [u8; 2] = bytes[4..6].try_into().unwrap();
+                upper_12[1] &= 0b00001111;
+                // DEBUG END
+
+                // let u16_lower: u16 =
+                //     half::f16::from_le_bytes(bytes[0..2].try_into().unwrap()).to_f32() as u16;
+                let u16_lower_8 = f16_to_u16(bytes, 0);
+                let u16_mid_12 = f16_to_u16(bytes, 2);
+                // let u16_upper_12 = f16_to_u16(bytes, 4);
+                let u16_upper_12 = f16_to_u16(&upper_12, 0);
+
+                // let alpha_le = [0x00, 0x00, bytes[6], bytes[7]];
+                // let alpha = f32::from_le_bytes(alpha_le);
+
+                // let r_le = [bytes[0], bytes[1]];
+                // let g_le = [bytes[2], bytes[3]];
+                // let r = u16::from_le_bytes(r_le);
+                // let g1 = u16::from_le_bytes(g_le);
+                // let g2 = u16::from_be_bytes(g_le);
+
+                // bevy_log::info!("Alpha: {}, r: {}, g: {}", alpha, r, g);
+                // bevy_log::info!(
+                //     "Bytes: {:?}, r: {r}, g1: {g1}, g2: {g2}, alpha: {alpha}",
+                //     bytes
+                // );
+
+                // bevy_log::info!("Entity index: {entity_index}");
+
+                // None
+
+                // u32::from_le_bytes(
+                //     bytes
+                //         .try_into()
+                //         .expect("Should be able to make u32 (entity index) out of 4 bytes"),
+                // )
+
+                u16_lower_8 as u32 | ((u16_mid_12 as u32) << 8) | ((u16_upper_12 as u32) << 20)
             },
         );
 
-        Some(Entity::from_raw(entity_index))
+        if entity_index == 0 {
+            None
+        } else {
+            Some(Entity::from_raw(entity_index))
+        }
+
+        // Some(Entity::from_raw(entity_index))
+        // None
     }
 
     /// Get the depth at the given coordinate.
@@ -139,6 +200,8 @@ impl Picking {
         let resources = guard.as_ref().expect("Resources should have been prepared");
 
         let slice = resources.depth_buffer.slice(..);
+
+        todo!();
 
         let depth = coords_to_data(
             coordinates,
@@ -166,10 +229,12 @@ pub struct PickingBufferSize {
 
 impl PickingBufferSize {
     pub fn new(width: u32, height: u32) -> Self {
-        // See: https://github.com/gfx-rs/wgpu/blob/master/wgpu/examples/capture/main.rs#L193
-        let bytes_per_pixel = size_of::<u32>();
+        let bytes_per_pixel = PICKING_TEXTURE_FORMAT.describe().block_size as usize;
+        // Four channels per pixel.
         let unpadded_bytes_per_row = width as usize * bytes_per_pixel;
         let align = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT as usize;
+
+        // See: https://github.com/gfx-rs/wgpu/blob/master/wgpu/examples/capture/main.rs#L193
         let padded_bytes_per_row_padding = (align - (unpadded_bytes_per_row % align)) % align;
         let padded_bytes_per_row = unpadded_bytes_per_row + padded_bytes_per_row_padding;
 
@@ -216,20 +281,8 @@ pub struct PickingTextures {
 }
 
 impl PickingTextures {
-    // Same logic as [`ViewTarget`].
-
-    /// The clear color which should be used to clear picking textures.
-    /// Picking textures use a single u32 value for each pixel.
-    /// This color clears that with `u32::MAX`.
-    /// This allows all entity index values below `u32::MAX` to be valid.
     pub fn clear_color() -> wgpu::Color {
-        Color::Rgba {
-            red: f32::MAX,
-            green: f32::MAX,
-            blue: f32::MAX,
-            alpha: f32::MAX,
-        }
-        .into()
+        Color::BLACK.into()
     }
 
     /// Retrieve this target's color attachment. This will use [`Self::sampled`] and resolve to [`Self::main`] if
@@ -266,7 +319,7 @@ fn coords_to_data<F, T>(
     camera: &Camera,
     picking_buffer_size: &PickingBufferSize,
     buffer_view: &BufferView,
-    takes_4_bytes_makes_data: F,
+    make_data_from_viewed_bytes: F,
 ) -> T
 where
     F: FnOnce(&[u8]) -> T,
@@ -289,14 +342,14 @@ where
     // of padding.
     let padded_width = picking_buffer_size.padded_bytes_per_row;
 
-    let pixel_size = std::mem::size_of::<u32>();
+    let pixel_size = PICKING_TEXTURE_FORMAT.describe().block_size as usize;
 
     let start = (y * padded_width) + (x * pixel_size);
     let end = start + pixel_size;
 
-    let bytes_4 = &buffer_view[start..end];
+    let view_bytes = &buffer_view[start..end];
 
-    takes_4_bytes_makes_data(bytes_4)
+    make_data_from_viewed_bytes(view_bytes)
 }
 
 pub fn map_buffers(query: Query<(&Picking, &Camera)>, render_device: Res<RenderDevice>) {
@@ -416,10 +469,6 @@ pub fn prepare_picking_targets(
                 }
             }
 
-            // We want to store entity indices, which are u32s.
-            // We therefore only need a single u32 channel.
-            let picking_texture_format = TextureFormat::R32Uint;
-
             let picking_textures = textures.entry(camera.target.clone()).or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
@@ -427,7 +476,7 @@ pub fn prepare_picking_targets(
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
-                    format: picking_texture_format,
+                    format: PICKING_TEXTURE_FORMAT,
                     usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::COPY_SRC,
                 };
 
@@ -448,7 +497,7 @@ pub fn prepare_picking_targets(
                                 mip_level_count: 1,
                                 sample_count: msaa.samples,
                                 dimension: TextureDimension::D2,
-                                format: picking_texture_format,
+                                format: PICKING_TEXTURE_FORMAT,
                                 usage: TextureUsages::RENDER_ATTACHMENT,
                             },
                         )

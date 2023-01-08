@@ -63,7 +63,7 @@ impl Plugin for SpritePlugin {
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
-                .init_resource::<ImageBindGroups>()
+                .init_resource::<BatchBindGroups>()
                 .init_resource::<SpritePipeline>()
                 .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
                 .init_resource::<SpriteMeta>()

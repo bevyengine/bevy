@@ -16,49 +16,49 @@ struct View {
 @group(0) @binding(0)
 var<uniform> view: View;
 
+@group(1) @binding(0)
+var sprite_texture: texture_2d<f32>;
+@group(1) @binding(1)
+var sprite_sampler: sampler;
+
+@group(2) @binding(0)
+var<storage, read> entity_indices: array<u32>;
+
+@group(3) @binding(0)
+var<uniform> entity_indices_offset: u32;
+
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
 #ifdef COLORED
     @location(1) color: vec4<f32>,
 #endif
-#ifdef PICKING
-    @location(2) entity_index: u32,
-#endif
+    @location(2) vertex_index: u32,
 };
 
 @vertex
 fn vertex(
+    @builtin(vertex_index) vertex_index: u32,
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
 #ifdef COLORED
     @location(2) vertex_color: vec4<f32>,
 #endif
-#ifdef PICKING
-    @location(3) entity_index: u32,
-#endif
 ) -> VertexOutput {
     var out: VertexOutput;
     out.uv = vertex_uv;
-#ifdef PICKING
-    out.entity_index = entity_index;
-#endif
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
+    out.vertex_index = u32((vertex_index - entity_indices_offset) / 6u);
 #ifdef COLORED
     out.color = vertex_color;
 #endif
     return out;
 }
 
-@group(1) @binding(0)
-var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1)
-var sprite_sampler: sampler;
-
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
 #ifdef PICKING
-    @location(1) picking: u32,
+    @location(1) picking: vec4<f32>,
 #endif
 }
 
@@ -78,7 +78,22 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     out.color = color;
 
 #ifdef PICKING
-    out.picking = in.entity_index;
+    let index = in.vertex_index;
+
+    let mask_8 = 0x000000FFu;
+    let mask_12 = 0x00000FFFu;
+
+    let lower_8 = entity_indices[index] & mask_8;
+    let mid_12 = (entity_indices[index] >> 8u) & mask_12;
+    var up_12 = (entity_indices[index] >> 20u) & mask_12;
+
+
+    out.picking = vec4(
+        f32(lower_8),
+        f32(mid_12),
+        f32(up_12),
+        color.a
+    );
 #endif
 
     return out;
