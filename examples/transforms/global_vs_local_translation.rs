@@ -70,7 +70,7 @@ fn setup(
                 }),
                 ..default()
             },
-            ChangeGlobal,
+            ChangeLocal,
             Move,
             ToggledBy(KeyCode::Key1),
         ))

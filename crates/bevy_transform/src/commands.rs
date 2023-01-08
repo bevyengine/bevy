@@ -11,7 +11,7 @@ use crate::{GlobalTransform, Transform};
 /// Command similar to [`AddChild`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
 ///
-/// You most likely want to use [`BuildChildrenTransformExt::set_parent_keep_global_transform`]
+/// You most likely want to use [`BuildChildrenTransformExt::set_parent_in_place`]
 /// method on [`EntityCommands`] instead.
 pub struct AddChildInPlace {
     /// Parent entity to add the child to.
@@ -40,11 +40,11 @@ impl Command for AddChildInPlace {
 /// Command similar to [`RemoveParent`], but updating the child transform to keep
 /// it at the same [`GlobalTransform`].
 ///
-/// You most likely want to use [`BuildChildrenTransformExt::remove_parent_keep_global_transform`]
+/// You most likely want to use [`BuildChildrenTransformExt::remove_parent_in_place`]
 /// method on [`EntityCommands`] instead.
-struct RemoveParentInPlace {
-    /// `Entity` which parent must be removed.
-    child: Entity,
+pub struct RemoveParentInPlace {
+    /// `Entity` whose parent must be removed.
+    pub child: Entity,
 }
 impl Command for RemoveParentInPlace {
     fn write(self, world: &mut World) {
