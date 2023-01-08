@@ -24,7 +24,20 @@ impl<N, E> AdjacencyMapGraph<N, E> {
         idx
     }
 
-    pub fn add_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+    pub fn add_undirected_edge(&mut self, first: NodeIdx, second: NodeIdx, edge: E) -> EdgeIdx {
+        let idx = self.edges.insert(edge);
+        self.adjacencies
+            .get_mut(&first)
+            .unwrap()
+            .insert(second, idx);
+        self.adjacencies
+            .get_mut(&second)
+            .unwrap()
+            .insert(first, idx);
+        idx // TODO: does the end user really need the idx?
+    }
+
+    pub fn add_directed_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(edge);
         self.adjacencies.get_mut(&from).unwrap().insert(to, idx);
         idx // TODO: does the end user really need the idx?
@@ -67,20 +80,43 @@ mod test {
     enum Person {
         Jake,
         Michael,
+        Jennifer,
     }
 
     #[test]
-    fn get_edge() {
+    fn undirected_edge() {
         const STRENGTH: i32 = 100;
 
         let mut map_graph = AdjacencyMapGraph::<Person, i32>::new();
 
         let jake = map_graph.add_node(Person::Jake);
         let michael = map_graph.add_node(Person::Michael);
-        let _best_friends = map_graph.add_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
+        let _best_friends = map_graph.add_undirected_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
 
-        let stength = map_graph.edge(jake, michael);
-        assert!(stength.is_some());
-        assert_eq!(stength.unwrap(), &STRENGTH);
+        let strength_jake = map_graph.edge(jake, michael);
+        assert!(strength_jake.is_some());
+        assert_eq!(strength_jake.unwrap(), &STRENGTH);
+
+        let strength_michael = map_graph.edge(michael, jake);
+        assert!(strength_michael.is_some());
+        assert_eq!(strength_michael.unwrap(), &STRENGTH);
+    }
+
+    #[test]
+    fn directed_edge() {
+        const STRENGTH: i32 = 9999;
+
+        let mut map_graph = AdjacencyMapGraph::<Person, i32>::new();
+
+        let jake = map_graph.add_node(Person::Jake);
+        let jennifer = map_graph.add_node(Person::Jennifer);
+        let _oneway_crush = map_graph.add_directed_edge(jake, jennifer, STRENGTH); // TODO: does the end user really need the idx returned?
+
+        let strength_jake = map_graph.edge(jake, jennifer);
+        assert!(strength_jake.is_some());
+        assert_eq!(strength_jake.unwrap(), &STRENGTH);
+
+        let strength_jennifer = map_graph.edge(jennifer, jake);
+        assert!(strength_jennifer.is_none());
     }
 }
