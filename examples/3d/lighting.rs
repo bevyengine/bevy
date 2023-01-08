@@ -3,7 +3,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::prelude::*;
+use bevy::{pbr::CascadeShadowConfig, prelude::*};
 
 fn main() {
     App::new()
@@ -196,6 +196,10 @@ fn setup(
             rotation: Quat::from_rotation_x(-PI / 4.),
             ..default()
         },
+        // The default cascade config is designed to handle large scenes.
+        // As this example has a much smaller world, we can tighten the shadow
+        // far bound for better visual quality.
+        cascade_shadow_config: CascadeShadowConfig::new(4, 5.0, 30.0, 0.2),
         ..default()
     });
 
