@@ -152,6 +152,7 @@ fn pbr_input_new() -> PbrInput {
     return pbr_input;
 }
 
+#ifndef NORMAL_PREPASS
 fn pbr(
     in: PbrInput,
 ) -> vec4<f32> {
@@ -237,7 +238,7 @@ fn pbr(
     let light_ambient = (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb;
 
     output_color = vec4<f32>(
-        light_accum + light_ambient + emissive.rgb * output_color.a,
+        light_accum + (diffuse_ambient + specular_ambient) * lights.ambient_color.rgb * occlusion + emissive.rgb * output_color.a,
         output_color.a
     );
 
@@ -251,6 +252,7 @@ fn pbr(
 
     return output_color;
 }
+#endif // NORMAL_PREPASS
 
 #ifdef TONEMAP_IN_SHADER
 fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
@@ -261,10 +263,10 @@ fn tone_mapping(in: vec4<f32>) -> vec4<f32> {
     // Not needed with sRGB buffer
     // output_color.rgb = pow(output_color.rgb, vec3(1.0 / 2.2));
 }
-#endif
+#endif // TONEMAP_IN_SHADER
 
 #ifdef DEBAND_DITHER
 fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
 }
-#endif
+#endif // DEBAND_DITHER

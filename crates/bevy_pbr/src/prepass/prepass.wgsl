@@ -1,6 +1,8 @@
 #import bevy_pbr::prepass_bindings
 #import bevy_pbr::mesh_functions
 
+// Most of these attributes are not used in the default prepass fragment shader, but they are still needed so we can
+// pass them to custom prepass shaders like pbr_prepass.wgsl.
 struct Vertex {
     @location(0) position: vec3<f32>,
 
@@ -79,14 +81,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 
 struct FragmentInput {
 #ifdef NORMAL_PREPASS
-    @builtin(front_facing) is_front: bool,
-#ifdef VERTEX_UVS
-    @location(0) uv: vec2<f32>,
-#endif // VERTEX_UVS
     @location(1) world_normal: vec3<f32>,
-#ifdef VERTEX_TANGENTS
-    @location(2) world_tangent: vec4<f32>,
-#endif // VERTEX_TANGENTS
 #endif // NORMAL_PREPASS
 
 #ifdef VELOCITY_PREPASS
