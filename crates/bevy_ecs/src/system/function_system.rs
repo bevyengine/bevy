@@ -199,6 +199,7 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     #[inline]
+    /// Asserts that the [`SystemState`] matches the provided [`World`].
     fn validate_world(&mut self, world: &World) {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
     }
