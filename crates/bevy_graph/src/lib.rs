@@ -7,25 +7,28 @@ new_key_type! {
     pub struct EdgeIdx;
 }
 
+impl EdgeIdx {
+    #[inline]
+    pub fn get<N, E>(self, graph: &impl Graph<N, E>) -> Option<&E> {
+        graph.get_edge(self)
+    }
+
+    #[inline]
+    pub fn get_mut<N, E>(self, graph: &mut impl Graph<N, E>) -> Option<&mut E> {
+        graph.get_edge_mut(self)
+    }
+}
+
 pub trait Graph<N, E> {
     fn new_node(&mut self, node: N) -> NodeIdx;
 
     fn node(&self, idx: NodeIdx) -> Option<&N>;
     fn node_mut(&mut self, idx: NodeIdx) -> Option<&mut N>;
 
-    fn edgeidx_between(&self, from: NodeIdx, to: NodeIdx) -> Option<EdgeIdx>;
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx;
 
-    fn edge_by_idx(&self, edge: EdgeIdx) -> Option<&E>;
-    fn edge_by_idx_mut(&mut self, edge: EdgeIdx) -> Option<&mut E>;
-
-    #[inline]
-    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> Option<&E> {
-        self.edge_by_idx(self.edgeidx_between(from, to)?)
-    }
-    #[inline]
-    fn edge_between_mut(&mut self, from: NodeIdx, to: NodeIdx) -> Option<&mut E> {
-        self.edge_by_idx_mut(self.edgeidx_between(from, to)?)
-    }
+    fn get_edge(&self, edge: EdgeIdx) -> Option<&E>;
+    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E>;
 }
 
 pub trait UndirectedGraph<N, E> {

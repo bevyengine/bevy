@@ -1,5 +1,5 @@
 use hashbrown::HashMap;
-use slotmap::{HopSlotMap, SecondaryMap};
+use slotmap::{HopSlotMap, Key, SecondaryMap};
 
 use crate::{DirectedGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph};
 
@@ -37,17 +37,22 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     }
 
     #[inline]
-    fn edgeidx_between(&self, from: NodeIdx, to: NodeIdx) -> Option<EdgeIdx> {
-        self.adjacencies.get(from)?.get(&to).cloned()
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+        self.adjacencies
+            .get(from)
+            .unwrap()
+            .get(&to)
+            .cloned()
+            .unwrap_or_else(|| EdgeIdx::null())
     }
 
     #[inline]
-    fn edge_by_idx(&self, edge: EdgeIdx) -> Option<&E> {
+    fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
         self.edges.get(edge)
     }
 
     #[inline]
-    fn edge_by_idx_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
+    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
         self.edges.get_mut(edge)
     }
 }
@@ -113,20 +118,20 @@ mod test {
 
         let _best_friends = map_graph.new_edge(jake, michael, STRENGTH);
 
-        let strength_jake = map_graph.edge_between(jake, michael);
+        let strength_jake = map_graph.edge_between(jake, michael).get(&map_graph);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_michael = map_graph.edge_between(michael, jake);
+        let strength_michael = map_graph.edge_between(michael, jake).get(&map_graph);
         assert!(strength_michael.is_some());
         assert_eq!(strength_michael.unwrap(), &STRENGTH);
 
         map_graph.remove_edge_between(michael, jake);
 
-        let strength_jake = map_graph.edge_between(jake, michael);
+        let strength_jake = map_graph.edge_between(jake, michael).get(&map_graph);
         assert!(strength_jake.is_none());
 
-        let strength_michael = map_graph.edge_between(michael, jake);
+        let strength_michael = map_graph.edge_between(michael, jake).get(&map_graph);
         assert!(strength_michael.is_none());
     }
 
@@ -141,19 +146,19 @@ mod test {
 
         let _oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH);
 
-        let strength_jake = map_graph.edge_between(jake, jennifer);
+        let strength_jake = map_graph.edge_between(jake, jennifer).get(&map_graph);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_jennifer = map_graph.edge_between(jennifer, jake);
+        let strength_jennifer = map_graph.edge_between(jennifer, jake).get(&map_graph);
         assert!(strength_jennifer.is_none());
 
         map_graph.remove_edge_between(jake, jennifer);
 
-        let strength_jake = map_graph.edge_between(jake, jennifer);
+        let strength_jake = map_graph.edge_between(jake, jennifer).get(&map_graph);
         assert!(strength_jake.is_none());
 
-        let strength_jennifer = map_graph.edge_between(jennifer, jake);
+        let strength_jennifer = map_graph.edge_between(jennifer, jake).get(&map_graph);
         assert!(strength_jennifer.is_none());
     }
 }

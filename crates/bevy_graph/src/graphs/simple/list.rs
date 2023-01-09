@@ -1,4 +1,4 @@
-use slotmap::{HopSlotMap, SecondaryMap};
+use slotmap::{HopSlotMap, Key, SecondaryMap};
 
 use crate::{DirectedGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph};
 
@@ -36,20 +36,27 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     #[inline]
-    fn edgeidx_between(&self, from: NodeIdx, to: NodeIdx) -> Option<EdgeIdx> {
-        self.adjacencies
-            .get(from)?
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+        if let Some(idx) = self
+            .adjacencies
+            .get(from)
+            .unwrap()
             .iter()
             .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None })
+        {
+            idx
+        } else {
+            EdgeIdx::null()
+        }
     }
 
     #[inline]
-    fn edge_by_idx(&self, edge: EdgeIdx) -> Option<&E> {
+    fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
         self.edges.get(edge)
     }
 
     #[inline]
-    fn edge_by_idx_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
+    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
         self.edges.get_mut(edge)
     }
 }
@@ -132,20 +139,20 @@ mod test {
         let michael = list_graph.new_node(Person::Michael);
         let _best_friends = list_graph.new_edge(jake, michael, STRENGTH);
 
-        let strength_jake = list_graph.edge_between(jake, michael);
+        let strength_jake = list_graph.edge_between(jake, michael).get(&list_graph);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_michael = list_graph.edge_between(michael, jake);
+        let strength_michael = list_graph.edge_between(michael, jake).get(&list_graph);
         assert!(strength_michael.is_some());
         assert_eq!(strength_michael.unwrap(), &STRENGTH);
 
         list_graph.remove_edge_between(michael, jake);
 
-        let strength_jake = list_graph.edge_between(jake, michael);
+        let strength_jake = list_graph.edge_between(jake, michael).get(&list_graph);
         assert!(strength_jake.is_none());
 
-        let strength_michael = list_graph.edge_between(michael, jake);
+        let strength_michael = list_graph.edge_between(michael, jake).get(&list_graph);
         assert!(strength_michael.is_none());
     }
 
@@ -159,19 +166,19 @@ mod test {
         let jennifer = list_graph.new_node(Person::Jennifer);
         let _oneway_crush = list_graph.new_edge(jake, jennifer, STRENGTH);
 
-        let strength_jake = list_graph.edge_between(jake, jennifer);
+        let strength_jake = list_graph.edge_between(jake, jennifer).get(&list_graph);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_jennifer = list_graph.edge_between(jennifer, jake);
+        let strength_jennifer = list_graph.edge_between(jennifer, jake).get(&list_graph);
         assert!(strength_jennifer.is_none());
 
         list_graph.remove_edge_between(jake, jennifer);
 
-        let strength_jake = list_graph.edge_between(jake, jennifer);
+        let strength_jake = list_graph.edge_between(jake, jennifer).get(&list_graph);
         assert!(strength_jake.is_none());
 
-        let strength_jennifer = list_graph.edge_between(jennifer, jake);
+        let strength_jennifer = list_graph.edge_between(jennifer, jake).get(&list_graph);
         assert!(strength_jennifer.is_none());
     }
 }
