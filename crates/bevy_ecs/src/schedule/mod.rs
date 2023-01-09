@@ -361,6 +361,17 @@ impl Schedule {
             .and_then(|stage| stage.downcast_mut::<T>())
     }
 
+    /// Removes a [`Stage`] from the schedule.
+    pub fn remove_stage(&mut self, stage_label: impl StageLabel) -> Option<Box<dyn Stage>> {
+        let label = stage_label.as_label();
+
+        let Some(index) = self.stage_order.iter().position(|x| *x == label) else {
+                return None;
+            };
+        self.stage_order.remove(index);
+        self.stages.remove(&label)
+    }
+
     /// Executes each [`Stage`] contained in the schedule, one at a time.
     pub fn run_once(&mut self, world: &mut World) {
         for label in &self.stage_order {
