@@ -448,8 +448,7 @@ impl<'a> MutUntyped<'a> {
     /// Transforms this [`MutUntyped`] into a [`Mut<T>`] with the same lifetime.
     ///
     /// # Safety
-    /// * Must be valid for writes and aligned for `T`.
-    /// * Must point to an initialized value of `T`.
+    /// Must point to a valid `T`
     pub unsafe fn with_type<T>(self) -> Mut<'a, T> {
         Mut {
             value: self.value.deref_mut(),
