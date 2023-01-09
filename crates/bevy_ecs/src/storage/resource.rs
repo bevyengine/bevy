@@ -1,6 +1,7 @@
 use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components, Tick, TickCells};
-use crate::storage::{blob_vec::BlobBox, SparseSet};
+use crate::query::DebugCheckedUnwrap;
+use crate::storage::{blob_vec::BlobBox, SparseArray};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use std::cell::UnsafeCell;
 
@@ -152,7 +153,8 @@ impl ResourceData {
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Resources {
-    resources: SparseSet<ComponentId, ResourceData>,
+    component_ids: Vec<ComponentId>,
+    resources: SparseArray<ComponentId, ResourceData>,
 }
 
 impl Resources {
@@ -161,12 +163,17 @@ impl Resources {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn len(&self) -> usize {
-        self.resources.len()
+        self.component_ids.len()
     }
 
     /// Iterate over all resources that have been initialized, i.e. given a [`ComponentId`]
     pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData)> {
-        self.resources.iter().map(|(id, data)| (*id, data))
+        self.component_ids.iter().copied().map(|component_id| {
+            // SAFETY: If a component ID is in component_ids, it's populated in the sparse array.
+            (component_id, unsafe {
+                self.resources.get(component_id).debug_checked_unwrap()
+            })
+        })
     }
 
     /// Returns true if there are no resources stored in the [`World`],
@@ -175,7 +182,7 @@ impl Resources {
     /// [`World`]: crate::world::World
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.resources.is_empty()
+        self.component_ids.is_empty()
     }
 
     /// Gets read-only access to a resource, if it exists.
@@ -202,6 +209,7 @@ impl Resources {
     ) -> &mut ResourceData {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
+            self.component_ids.push(component_id);
             ResourceData {
                 // SAFETY: component_info.drop() is valid for the types that will be inserted.
                 data: unsafe { BlobBox::new(component_info.layout(), component_info.drop()) },
@@ -213,8 +221,14 @@ impl Resources {
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        for info in self.resources.values_mut() {
-            info.check_change_ticks(change_tick);
+        for component_id in &self.component_ids {
+            // SAFETY: If a component ID is in component_ids, it's populated in the sparse array.
+            unsafe {
+                self.resources
+                    .get_mut(*component_id)
+                    .debug_checked_unwrap()
+                    .check_change_ticks(change_tick);
+            }
         }
     }
 }

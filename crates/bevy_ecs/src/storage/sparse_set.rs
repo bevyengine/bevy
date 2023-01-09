@@ -61,6 +61,22 @@ impl_sparse_array!(ImmutableSparseArray);
 
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
     #[inline]
+    pub fn get_or_insert_with(&mut self, index: I, f: impl FnOnce() -> V) -> &mut V {
+        let index = index.sparse_set_index();
+        if index >= self.values.len() {
+            self.values.resize_with(index + 1, || None);
+        }
+        let value = &mut self.values[index];
+        if let Some(ref mut value) = *value {
+            value
+        } else {
+            *value = Some(f());
+            // SAFETY: The above statement explicitly initializes the entry to Some.
+            unsafe { value.as_mut().unwrap_unchecked() }
+        }
+    }
+
+    #[inline]
     pub fn insert(&mut self, index: I, value: V) {
         let index = index.sparse_set_index();
         if index >= self.values.len() {
