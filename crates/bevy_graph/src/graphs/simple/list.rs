@@ -1,6 +1,6 @@
 use slotmap::{HopSlotMap, SecondaryMap};
 
-use super::{EdgeIdx, NodeIdx};
+use crate::{EdgeIdx, Graph, NodeIdx};
 
 pub struct SimpleListGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
@@ -16,25 +16,27 @@ impl<N, E, const DIRECTED: bool> SimpleListGraph<N, E, DIRECTED> {
             adjacencies: SecondaryMap::new(),
         }
     }
+}
 
-    pub fn add_node(&mut self, node: N) -> NodeIdx {
+impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED> {
+    fn new_node(&mut self, node: N) -> NodeIdx {
         let idx = self.nodes.insert(node);
         self.adjacencies.insert(idx, Vec::new());
         idx
     }
 
     #[inline]
-    pub fn node(&self, idx: NodeIdx) -> Option<&N> {
+    fn node(&self, idx: NodeIdx) -> Option<&N> {
         self.nodes.get(idx)
     }
 
     #[inline]
-    pub fn node_mut(&mut self, idx: NodeIdx) -> Option<&mut N> {
+    fn node_mut(&mut self, idx: NodeIdx) -> Option<&mut N> {
         self.nodes.get_mut(idx)
     }
 
     #[inline]
-    pub fn edge(&self, from: NodeIdx, to: NodeIdx) -> Option<&E> {
+    fn edge(&self, from: NodeIdx, to: NodeIdx) -> Option<&E> {
         let edge_idx = self
             .adjacencies
             .get(from)?
@@ -44,7 +46,7 @@ impl<N, E, const DIRECTED: bool> SimpleListGraph<N, E, DIRECTED> {
     }
 
     #[inline]
-    pub fn edge_mut(&mut self, from: NodeIdx, to: NodeIdx) -> Option<&mut E> {
+    fn edge_mut(&mut self, from: NodeIdx, to: NodeIdx) -> Option<&mut E> {
         let edge_idx = self
             .adjacencies
             .get(from)?
@@ -80,6 +82,8 @@ impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
+    use crate::Graph;
+
     use super::SimpleListGraph;
 
     enum Person {
@@ -94,8 +98,8 @@ mod test {
 
         let mut map_graph = SimpleListGraph::<Person, i32, false>::new();
 
-        let jake = map_graph.add_node(Person::Jake);
-        let michael = map_graph.add_node(Person::Michael);
+        let jake = map_graph.new_node(Person::Jake);
+        let michael = map_graph.new_node(Person::Michael);
         let _best_friends = map_graph.add_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
 
         let strength_jake = map_graph.edge(jake, michael);
@@ -113,8 +117,8 @@ mod test {
 
         let mut map_graph = SimpleListGraph::<Person, i32, true>::new();
 
-        let jake = map_graph.add_node(Person::Jake);
-        let jennifer = map_graph.add_node(Person::Jennifer);
+        let jake = map_graph.new_node(Person::Jake);
+        let jennifer = map_graph.new_node(Person::Jennifer);
         let _oneway_crush = map_graph.add_edge(jake, jennifer, STRENGTH); // TODO: does the end user really need the idx returned?
 
         let strength_jake = map_graph.edge(jake, jennifer);
