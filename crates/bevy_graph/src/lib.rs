@@ -13,14 +13,25 @@ pub trait Graph<N, E> {
     fn node(&self, idx: NodeIdx) -> Option<&N>;
     fn node_mut(&mut self, idx: NodeIdx) -> Option<&mut N>;
 
-    fn edge(&self, from: NodeIdx, to: NodeIdx) -> Option<&E>;
-    fn edge_mut(&mut self, from: NodeIdx, to: NodeIdx) -> Option<&mut E>;
+    fn edge_id_between(&self, from: NodeIdx, to: NodeIdx) -> Option<EdgeIdx>;
+
+    fn edge_by_id(&self, edge: EdgeIdx) -> Option<&E>;
+    fn edge_by_id_mut(&mut self, edge: EdgeIdx) -> Option<&mut E>;
+
+    #[inline]
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> Option<&E> {
+        self.edge_by_id(self.edge_id_between(from, to)?)
+    }
+    #[inline]
+    fn edge_between_mut(&mut self, from: NodeIdx, to: NodeIdx) -> Option<&mut E> {
+        self.edge_by_id_mut(self.edge_id_between(from, to)?)
+    }
 }
 
 pub trait UndirectedGraph<N, E> {
-    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx; // TODO: does the end user really need the idx?
+    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx;
 }
 
 pub trait DirectedGraph<N, E> {
-    fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx; // TODO: does the end user really need the idx?
+    fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx;
 }
