@@ -1770,23 +1770,19 @@ impl Node for ShadowPassNode {
                     continue;
                 }
 
-                let pass_descriptor = RenderPassDescriptor {
-                    label: Some(&view_light.pass_name),
-                    color_attachments: &[],
-                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        view: &view_light.depth_texture_view,
-                        depth_ops: Some(Operations {
-                            load: LoadOp::Clear(0.0),
-                            store: true,
+                let mut render_pass =
+                    render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                        label: Some(&view_light.pass_name),
+                        color_attachments: &[],
+                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                            view: &view_light.depth_texture_view,
+                            depth_ops: Some(Operations {
+                                load: LoadOp::Clear(0.0),
+                                store: true,
+                            }),
+                            stencil_ops: None,
                         }),
-                        stencil_ops: None,
-                    }),
-                };
-
-                let render_pass = render_context
-                    .command_encoder
-                    .begin_render_pass(&pass_descriptor);
-                let mut render_pass = TrackedRenderPass::new(render_pass);
+                    });
 
                 shadow_phase.render(&mut render_pass, world, view_light_entity);
             }
