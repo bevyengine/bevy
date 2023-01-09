@@ -48,7 +48,7 @@ impl CommandQueue {
 
         // SAFETY: After adding the metadata, we correctly write the corresponding `command`
         // of type `C` into `self.bytes`. Zero-sized commands do not get written into the buffer,
-        // so we'll just use a dangling pointer, which is always valid for zero-sized types.
+        // so we'll just use a dangling pointer, which is valid for zero-sized types.
         self.metas.push(CommandMeta {
             offset: old_len,
             apply_command: |command, world| {
