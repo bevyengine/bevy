@@ -1,7 +1,7 @@
 use bevy_ecs::prelude::Component;
 use bevy_reflect::Reflect;
 
-/// Applies a bloom effect to a 2d or 3d camera.
+/// Applies a bloom effect to a 2d or 3d camera. Currently not compatible with WebGL2.
 ///
 /// Bloom emulates an effect found in real cameras and the human eye,
 /// causing halos to appear around very bright parts of the scene.
