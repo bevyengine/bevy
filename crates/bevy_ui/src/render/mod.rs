@@ -176,7 +176,6 @@ pub struct ExtractedUiNode {
     pub clip: Option<Rect>,
     pub flip_x: bool,
     pub flip_y: bool,
-    pub scale_factor: f32,
 }
 
 #[derive(Resource, Default)]
@@ -188,7 +187,6 @@ pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<UiStack>>,
-    windows: Extract<Res<Windows>>,
     uinode_query: Extract<
         Query<(
             &Node,
@@ -200,7 +198,6 @@ pub fn extract_uinodes(
         )>,
     >,
 ) {
-    let scale_factor = windows.scale_factor(WindowId::primary()) as f32;
     extracted_uinodes.uinodes.clear();
     for (stack_index, entity) in ui_stack.uinodes.iter().enumerate() {
         if let Ok((uinode, transform, color, maybe_image, visibility, clip)) =
@@ -236,7 +233,6 @@ pub fn extract_uinodes(
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
-                scale_factor,
             });
         }
     }
@@ -364,7 +360,6 @@ pub fn extract_text_uinodes(
                     clip: clip.map(|clip| clip.clip),
                     flip_x: false,
                     flip_y: false,
-                    scale_factor,
                 });
             }
         }
