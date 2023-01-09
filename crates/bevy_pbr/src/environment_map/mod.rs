@@ -48,11 +48,12 @@ impl Plugin for EnvironmentMapPlugin {
     }
 }
 
-/// Environment map based ambient lighting.
+/// Environment map based ambient lighting representing light from distant scenery.
 ///
 /// When added to a 3D camera, this component adds indirect light
 /// to every point of the scene (including inside, enclosed areas) based on
-/// an environment cubemap texture.
+/// an environment cubemap texture. This is similiar to [`AmbientLight`], but
+/// higher quality, and is intended for outdoor scenes.
 ///
 /// The environment map must be prefiltered into a diffuse and specular map based on the
 /// [split-sum approximation](https://cdn2.unrealengine.com/Resources/files/2013SiggraphPresentationsNotes-26915738.pdf).
