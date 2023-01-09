@@ -61,6 +61,24 @@ impl<N, E> UndirectedGraph<N, E> for SimpleListGraph<N, E, false> {
         self.adjacencies.get_mut(other).unwrap().push((node, idx));
         idx
     }
+
+    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) {
+        let list = self.adjacencies.get_mut(node).unwrap();
+
+        if let Some(index) = list
+            .iter()
+            .position(|(node_idx, _edge_idx)| *node_idx == other)
+        {
+            let (_, edge_idx) = list.swap_remove(index); // TODO: remove or swap_remove ?
+
+            let list = self.adjacencies.get_mut(other).unwrap();
+            if let Some(index) = list.iter().position(|(node_idx, _)| *node_idx == node) {
+                list.swap_remove(index); // TODO: remove or swap_remove ?
+            }
+
+            self.edges.remove(edge_idx);
+        }
+    }
 }
 
 impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
@@ -68,6 +86,16 @@ impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
         let idx = self.edges.insert(edge);
         self.adjacencies.get_mut(from).unwrap().push((to, idx));
         idx
+    }
+
+    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) {
+        let list = self.adjacencies.get_mut(from).unwrap();
+
+        if let Some(index) = list.iter().position(|(node_idx, _)| *node_idx == to) {
+            let (_, edge_idx) = list.swap_remove(index); // TODO: remove or swap_remove ?
+
+            self.edges.remove(edge_idx);
+        }
     }
 }
 
@@ -94,36 +122,52 @@ mod test {
     fn undirected_edge() {
         const STRENGTH: i32 = 100;
 
-        let mut map_graph = SimpleListGraph::<Person, i32, false>::new();
+        let mut list_graph = SimpleListGraph::<Person, i32, false>::new();
 
-        let jake = map_graph.new_node(Person::Jake);
-        let michael = map_graph.new_node(Person::Michael);
-        let _best_friends = map_graph.new_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
+        let jake = list_graph.new_node(Person::Jake);
+        let michael = list_graph.new_node(Person::Michael);
+        let _best_friends = list_graph.new_edge(jake, michael, STRENGTH);
 
-        let strength_jake = map_graph.edge_between(jake, michael);
+        let strength_jake = list_graph.edge_between(jake, michael);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_michael = map_graph.edge_between(michael, jake);
+        let strength_michael = list_graph.edge_between(michael, jake);
         assert!(strength_michael.is_some());
         assert_eq!(strength_michael.unwrap(), &STRENGTH);
+
+        list_graph.remove_edge_between(michael, jake);
+
+        let strength_jake = list_graph.edge_between(jake, michael);
+        assert!(strength_jake.is_none());
+
+        let strength_michael = list_graph.edge_between(michael, jake);
+        assert!(strength_michael.is_none());
     }
 
     #[test]
     fn directed_edge() {
         const STRENGTH: i32 = 9999;
 
-        let mut map_graph = SimpleListGraph::<Person, i32, true>::new();
+        let mut list_graph = SimpleListGraph::<Person, i32, true>::new();
 
-        let jake = map_graph.new_node(Person::Jake);
-        let jennifer = map_graph.new_node(Person::Jennifer);
-        let _oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH); // TODO: does the end user really need the idx returned?
+        let jake = list_graph.new_node(Person::Jake);
+        let jennifer = list_graph.new_node(Person::Jennifer);
+        let _oneway_crush = list_graph.new_edge(jake, jennifer, STRENGTH);
 
-        let strength_jake = map_graph.edge_between(jake, jennifer);
+        let strength_jake = list_graph.edge_between(jake, jennifer);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_jennifer = map_graph.edge_between(jennifer, jake);
+        let strength_jennifer = list_graph.edge_between(jennifer, jake);
+        assert!(strength_jennifer.is_none());
+
+        list_graph.remove_edge_between(jake, jennifer);
+
+        let strength_jake = list_graph.edge_between(jake, jennifer);
+        assert!(strength_jake.is_none());
+
+        let strength_jennifer = list_graph.edge_between(jennifer, jake);
         assert!(strength_jennifer.is_none());
     }
 }

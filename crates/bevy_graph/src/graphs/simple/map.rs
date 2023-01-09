@@ -59,6 +59,19 @@ impl<N, E> UndirectedGraph<N, E> for SimpleMapGraph<N, E, false> {
         self.adjacencies.get_mut(other).unwrap().insert(node, idx);
         idx
     }
+
+    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) {
+        let edge_idx = self
+            .adjacencies
+            .get_mut(node)
+            .unwrap()
+            .remove(&other)
+            .unwrap();
+
+        self.adjacencies.get_mut(other).unwrap().remove(&node);
+
+        self.edges.remove(edge_idx);
+    }
 }
 
 impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
@@ -66,6 +79,11 @@ impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
         let idx = self.edges.insert(edge);
         self.adjacencies.get_mut(from).unwrap().insert(to, idx);
         idx
+    }
+    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) {
+        let edge_idx = self.adjacencies.get_mut(from).unwrap().remove(&to).unwrap();
+
+        self.edges.remove(edge_idx);
     }
 }
 
@@ -96,7 +114,8 @@ mod test {
 
         let jake = map_graph.new_node(Person::Jake);
         let michael = map_graph.new_node(Person::Michael);
-        let _best_friends = map_graph.new_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
+
+        let _best_friends = map_graph.new_edge(jake, michael, STRENGTH);
 
         let strength_jake = map_graph.edge_between(jake, michael);
         assert!(strength_jake.is_some());
@@ -105,6 +124,14 @@ mod test {
         let strength_michael = map_graph.edge_between(michael, jake);
         assert!(strength_michael.is_some());
         assert_eq!(strength_michael.unwrap(), &STRENGTH);
+
+        map_graph.remove_edge_between(michael, jake);
+
+        let strength_jake = map_graph.edge_between(jake, michael);
+        assert!(strength_jake.is_none());
+
+        let strength_michael = map_graph.edge_between(michael, jake);
+        assert!(strength_michael.is_none());
     }
 
     #[test]
@@ -115,11 +142,20 @@ mod test {
 
         let jake = map_graph.new_node(Person::Jake);
         let jennifer = map_graph.new_node(Person::Jennifer);
-        let _oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH); // TODO: does the end user really need the idx returned?
+
+        let _oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH);
 
         let strength_jake = map_graph.edge_between(jake, jennifer);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
+
+        let strength_jennifer = map_graph.edge_between(jennifer, jake);
+        assert!(strength_jennifer.is_none());
+
+        map_graph.remove_edge_between(jake, jennifer);
+
+        let strength_jake = map_graph.edge_between(jake, jennifer);
+        assert!(strength_jake.is_none());
 
         let strength_jennifer = map_graph.edge_between(jennifer, jake);
         assert!(strength_jennifer.is_none());
