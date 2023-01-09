@@ -15,6 +15,7 @@ use crate::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
     entity::{AllocAtWithoutReplacement, Entities, Entity, EntityLocation},
+    event::{Event, Events},
     query::{QueryState, ReadOnlyWorldQuery, WorldQuery},
     storage::{ResourceData, SparseSet, Storages},
     system::Resource,
@@ -333,6 +334,8 @@ impl World {
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
+                        table_id: archetype.table_id(),
+                        table_row: archetype_entity.table_row(),
                     };
                     EntityRef::new(self, archetype_entity.entity(), location)
                 })
@@ -1134,7 +1137,7 @@ impl World {
                             if location.archetype_id == archetype =>
                         {
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.archetype_row, bundle) };
+                            unsafe { inserter.insert(entity, location, bundle) };
                         }
                         _ => {
                             let mut inserter = bundle_info.get_bundle_inserter(
@@ -1146,7 +1149,7 @@ impl World {
                                 change_tick,
                             );
                             // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
-                            unsafe { inserter.insert(entity, location.archetype_row, bundle) };
+                            unsafe { inserter.insert(entity, location, bundle) };
                             spawn_or_insert =
                                 SpawnOrInsert::Insert(inserter, location.archetype_id);
                         }
@@ -1268,22 +1271,22 @@ impl World {
         result
     }
 
-    /// Sends an [`Event`](crate::event::Event).
+    /// Sends an [`Event`].
     #[inline]
-    pub fn send_event<E: crate::event::Event>(&mut self, event: E) {
+    pub fn send_event<E: Event>(&mut self, event: E) {
         self.send_event_batch(std::iter::once(event));
     }
 
-    /// Sends the default value of the [`Event`](crate::event::Event) of type `E`.
+    /// Sends the default value of the [`Event`] of type `E`.
     #[inline]
-    pub fn send_event_default<E: crate::event::Event + Default>(&mut self) {
+    pub fn send_event_default<E: Event + Default>(&mut self) {
         self.send_event_batch(std::iter::once(E::default()));
     }
 
-    /// Sends a batch of [`Event`](crate::event::Event)s from an iterator.
+    /// Sends a batch of [`Event`]s from an iterator.
     #[inline]
-    pub fn send_event_batch<E: crate::event::Event>(&mut self, events: impl Iterator<Item = E>) {
-        match self.get_resource_mut::<crate::event::Events<E>>() {
+    pub fn send_event_batch<E: Event>(&mut self, events: impl IntoIterator<Item = E>) {
+        match self.get_resource_mut::<Events<E>>() {
             Some(mut events_resource) => events_resource.extend(events),
             None => bevy_utils::tracing::error!(
                     "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",

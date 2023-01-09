@@ -54,6 +54,21 @@ pub struct PipeSystem<SystemA, SystemB> {
     archetype_component_access: Access<ArchetypeComponentId>,
 }
 
+impl<SystemA, SystemB> PipeSystem<SystemA, SystemB> {
+    /// Manual constructor for creating a [`PipeSystem`].
+    /// This should only be used when [`IntoPipeSystem::pipe`] cannot be used,
+    /// such as in `const` contexts.
+    pub const fn new(system_a: SystemA, system_b: SystemB, name: Cow<'static, str>) -> Self {
+        Self {
+            system_a,
+            system_b,
+            name,
+            component_access: Access::new(),
+            archetype_component_access: Access::new(),
+        }
+    }
+}
+
 impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<SystemA, SystemB> {
     type In = SystemA::In;
     type Out = SystemB::Out;
@@ -154,13 +169,8 @@ where
     fn pipe(self, system: SystemB) -> PipeSystem<SystemA::System, SystemB::System> {
         let system_a = IntoSystem::into_system(self);
         let system_b = IntoSystem::into_system(system);
-        PipeSystem {
-            name: Cow::Owned(format!("Pipe({}, {})", system_a.name(), system_b.name())),
-            system_a,
-            system_b,
-            archetype_component_access: Default::default(),
-            component_access: Default::default(),
-        }
+        let name = format!("Pipe({}, {})", system_a.name(), system_b.name());
+        PipeSystem::new(system_a, system_b, Cow::Owned(name))
     }
 }
 
