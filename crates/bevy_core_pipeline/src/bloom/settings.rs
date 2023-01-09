@@ -6,32 +6,33 @@ use bevy_reflect::Reflect;
 /// Bloom emulates an effect found in real cameras and the human eye,
 /// causing halos to appear around very bright parts of the scene.
 ///
-/// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive`.
+/// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
+///
+/// Often used in conjunction with [`bevy_pbr::StandardMaterial::emissive`]
+/// for 3d meshes or [`bevy::Color::Hsla::lightness`] for 2d sprites.
 ///
 /// Bloom is best used alongside a tonemapping function that desaturates bright colors,
 /// such as ACES Filmic (Bevy's default).
 ///
-/// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
-/// 
 /// Bevy's implementation uses a parametric curve to blend between a set of
-/// blurred (lower freequency) images generated from input image.
+/// blurred (lower frequency) images generated from the camera's view.
 /// See <https://starlederer.github.io/bloom/> for a vizualization of the parametric curve
 /// used in Bevy as well as a vislualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
 pub struct BloomSettings {
     /// Controls the baseline of how much the image is scattered (default: 0.3).
-    /// 
+    ///
     /// # In energy-conserving mode
     /// The value represents how likely the light is to scatter.
-    /// 
+    ///
     /// The value should be clamed between 0.0 and 1.0 where:
     /// * 0.0 means no bloom
     /// * 1.0 means the light is scattered as much as possible
-    ///  
+    ///
     /// # In additive mode
     /// The value represents how much scattered light is added to
     /// the image to create the glow effect.
-    /// 
+    ///
     /// In this configuration:
     /// * 0.0 means no bloom
     /// * > 0.0 means a propotrionate amount of scattered light is added
@@ -40,18 +41,18 @@ pub struct BloomSettings {
     /// Low frequency contribution boost.
     /// Controls how much more likely the light
     /// is to scatter completely sideways (low frequency image).
-    /// 
+    ///
     /// Comparable to a low shelf boost on an equalizer.
-    /// 
+    ///
     /// # In energy-conserving mode
     /// The value should be clamed between 0.0 and 1.0 where:
     /// * 0.0 means low frequency light uses base intensity for blend factor calculation
     /// * 1.0 means low frequency light contributes at full power
-    ///  
+    ///
     /// # In additive mode
     /// The value represents how much scattered light is added to
     /// the image to create the glow effect.
-    /// 
+    ///
     /// In this configuration:
     /// * 0.0 means no bloom
     /// * > 0.0 means a propotrionate amount of scattered light is added
@@ -60,16 +61,16 @@ pub struct BloomSettings {
     /// Low frequency contribution boost curve.
     /// Controls the curvature of the blend factor function
     /// making frequncies next to lowest one contribute more.
-    /// 
+    ///
     /// Somewhat comparable to the Q factor of an equalizer node.
-    /// 
+    ///
     /// Valid range:
     /// * 0.0 - base base intensity and boosted intensity are lineraly interpolated
     /// * 1.0 - all frequencies below maximum are at boosted intensity level
     pub lf_boost_curvature: f32,
 
     /// Tightens how much the light scatters (default: 1.0).
-    /// 
+    ///
     /// Valid range:
     /// * 0.0 - maximum scattering angle is 0deg (no scattering)
     /// * 1.0 - maximum scattering angle is 90deg
