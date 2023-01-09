@@ -8,6 +8,8 @@ pub use render_device::*;
 
 use crate::{
     render_graph::RenderGraph,
+    render_phase::TrackedRenderPass,
+    render_resource::RenderPassDescriptor,
     settings::{WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
@@ -137,7 +139,7 @@ pub async fn initialize_renderer(
     let mut features = wgpu::Features::empty();
     let mut limits = options.limits.clone();
     if matches!(options.priority, WgpuSettingsPriority::Functionality) {
-        features = adapter.features() | wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES;
+        features = adapter.features();
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
             // discrete GPUs due to having to transfer data across the PCI-E bus and so it
@@ -278,4 +280,18 @@ pub async fn initialize_renderer(
 pub struct RenderContext {
     pub render_device: RenderDevice,
     pub command_encoder: CommandEncoder,
+}
+
+impl RenderContext {
+    /// Creates a new [`TrackedRenderPass`] for the context,
+    /// configured using the provided `descriptor`.
+    pub fn begin_tracked_render_pass<'a>(
+        &'a mut self,
+        descriptor: RenderPassDescriptor<'a, '_>,
+    ) -> TrackedRenderPass<'a> {
+        TrackedRenderPass::new(
+            &self.render_device,
+            self.command_encoder.begin_render_pass(&descriptor),
+        )
+    }
 }

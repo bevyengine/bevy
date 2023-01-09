@@ -5,7 +5,7 @@ use crate::{
     ptr::PtrMut,
     system::Resource,
 };
-use bevy_ptr::UnsafeCellDeref;
+use bevy_ptr::{Ptr, UnsafeCellDeref};
 use std::ops::{Deref, DerefMut};
 
 /// The (arbitrarily chosen) minimum number of world tick increments between `check_tick` scans.
@@ -33,7 +33,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 ///
 /// To ensure that changes are only triggered when the value actually differs,
 /// check if the value would change before assignment, such as by checking that `new != old`.
-/// You must be *sure* that you are not mutably derefencing in this process.
+/// You must be *sure* that you are not mutably dereferencing in this process.
 ///
 /// [`set_if_neq`](DetectChanges::set_if_neq) is a helper
 /// method for this common functionality.
@@ -216,20 +216,17 @@ macro_rules! impl_methods {
             ///
             /// ```rust
             /// # use bevy_ecs::prelude::*;
-            /// # pub struct Vec2;
+            /// # #[derive(PartialEq)] pub struct Vec2;
             /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
-            /// # mod my_utils {
-            /// #   pub fn set_if_not_equal<T>(x: bevy_ecs::prelude::Mut<T>, val: T) { unimplemented!() }
-            /// # }
             /// // When run, zeroes the translation of every entity.
             /// fn reset_positions(mut transforms: Query<&mut Transform>) {
             ///     for transform in &mut transforms {
             ///         // We pinky promise not to modify `t` within the closure.
             ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
-            ///         let translation = transform.map_unchanged(|t| &mut t.translation);
+            ///         let mut translation = transform.map_unchanged(|t| &mut t.translation);
             ///         // Only reset the translation if it isn't already zero;
-            ///         my_utils::set_if_not_equal(translation, Vec2::ZERO);
+            ///         translation.set_if_neq(Vec2::ZERO);
             ///     }
             /// }
             /// # bevy_ecs::system::assert_is_system(reset_positions);
@@ -421,12 +418,28 @@ pub struct MutUntyped<'a> {
 }
 
 impl<'a> MutUntyped<'a> {
-    /// Returns the pointer to the value, without marking it as changed.
+    /// Returns the pointer to the value, marking it as changed.
     ///
-    /// In order to mark the value as changed, you need to call [`set_changed`](DetectChanges::set_changed) manually.
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
     #[inline]
-    pub fn into_inner(self) -> PtrMut<'a> {
+    pub fn into_inner(mut self) -> PtrMut<'a> {
+        self.set_changed();
         self.value
+    }
+
+    /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
+    ///
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
+    #[inline]
+    pub fn as_mut(&mut self) -> PtrMut<'_> {
+        self.set_changed();
+        self.value.reborrow()
+    }
+
+    /// Returns an immutable pointer to the value without taking ownership.
+    #[inline]
+    pub fn as_ref(&self) -> Ptr<'_> {
+        self.value.as_ref()
     }
 }
 

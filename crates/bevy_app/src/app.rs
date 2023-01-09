@@ -73,6 +73,8 @@ pub struct App {
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
+    /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
+    is_building_plugin: bool,
 }
 
 impl Debug for App {
@@ -93,13 +95,13 @@ pub struct SubApp {
 }
 
 impl SubApp {
-    /// run the `SubApp`'s schedule
+    /// Runs the `SubApp`'s schedule.
     pub fn run(&mut self) {
         self.app.schedule.run(&mut self.app.world);
         self.app.world.clear_trackers();
     }
 
-    /// extract data from main world to sub app
+    /// Extracts data from main world to this sub-app.
     pub fn extract(&mut self, main_world: &mut World) {
         (self.extract)(main_world, &mut self.app);
     }
@@ -150,6 +152,7 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
+            is_building_plugin: false,
         }
     }
 
@@ -176,11 +179,18 @@ impl App {
     ///
     /// Finalizes the [`App`] configuration. For general usage, see the example on the item
     /// level documentation.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called from `Plugin::build()`, because it would prevent other plugins to properly build.
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
+        if app.is_building_plugin {
+            panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
+        }
 
         // temporarily remove the plugin registry to run each plugin's setup function on app.
         let mut plugin_registry = std::mem::take(&mut app.plugin_registry);
@@ -881,7 +891,9 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
+        self.is_building_plugin = true;
         plugin.build(self);
+        self.is_building_plugin = false;
         self.plugin_registry.push(plugin);
         Ok(self)
     }
@@ -1138,5 +1150,17 @@ mod tests {
     #[test]
     fn can_add_twice_the_same_plugin_not_unique() {
         App::new().add_plugin(PluginD).add_plugin(PluginD);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_call_app_run_from_plugin_build() {
+        struct PluginRun;
+        impl Plugin for PluginRun {
+            fn build(&self, app: &mut crate::App) {
+                app.run();
+            }
+        }
+        App::new().add_plugin(PluginRun);
     }
 }

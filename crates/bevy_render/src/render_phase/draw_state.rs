@@ -5,14 +5,16 @@ use crate::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
         ShaderStages,
     },
+    renderer::RenderDevice,
 };
-use bevy_utils::tracing::trace;
+use bevy_utils::{default, tracing::trace};
 use std::ops::Range;
 use wgpu::{IndexFormat, RenderPass};
+use wgpu_hal::{MAX_BIND_GROUPS, MAX_VERTEX_BUFFERS};
 
 /// Tracks the current [`TrackedRenderPass`] state to ensure draw calls are valid.
 #[derive(Debug, Default)]
-pub struct DrawState {
+struct DrawState {
     pipeline: Option<RenderPipelineId>,
     bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
     vertex_buffers: Vec<Option<(BufferId, u64)>>,
@@ -26,12 +28,10 @@ impl DrawState {
         bind_group: BindGroupId,
         dynamic_indices: &[u32],
     ) {
-        if index >= self.bind_groups.len() {
-            self.bind_groups.resize(index + 1, (None, Vec::new()));
-        }
-        self.bind_groups[index].0 = Some(bind_group);
-        self.bind_groups[index].1.clear();
-        self.bind_groups[index].1.extend(dynamic_indices);
+        let group = &mut self.bind_groups[index];
+        group.0 = Some(bind_group);
+        group.1.clear();
+        group.1.extend(dynamic_indices);
     }
 
     pub fn is_bind_group_set(
@@ -48,9 +48,6 @@ impl DrawState {
     }
 
     pub fn set_vertex_buffer(&mut self, index: usize, buffer: BufferId, offset: u64) {
-        if index >= self.vertex_buffers.len() {
-            self.vertex_buffers.resize(index + 1, None);
-        }
         self.vertex_buffers[index] = Some((buffer, offset));
     }
 
@@ -98,9 +95,16 @@ pub struct TrackedRenderPass<'a> {
 
 impl<'a> TrackedRenderPass<'a> {
     /// Tracks the supplied render pass.
-    pub fn new(pass: RenderPass<'a>) -> Self {
+    pub fn new(device: &RenderDevice, pass: RenderPass<'a>) -> Self {
+        let limits = device.limits();
+        let max_bind_groups = limits.max_bind_groups as usize;
+        let max_vertex_buffers = limits.max_vertex_buffers as usize;
         Self {
-            state: DrawState::default(),
+            state: DrawState {
+                bind_groups: vec![(None, Vec::new()); max_bind_groups.min(MAX_BIND_GROUPS)],
+                vertex_buffers: vec![None; max_vertex_buffers.min(MAX_VERTEX_BUFFERS)],
+                ..default()
+            },
             pass,
         }
     }

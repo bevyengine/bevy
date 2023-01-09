@@ -154,10 +154,14 @@ impl Plugin for LogPlugin {
             let tracy_layer = tracing_tracy::TracyLayer::new();
 
             let fmt_layer = tracing_subscriber::fmt::Layer::default();
+
+            // bevy_render::renderer logs a `tracy.frame_mark` event every frame
+            // at Level::INFO. Formatted logs should omit it.
             #[cfg(feature = "tracing-tracy")]
-            let fmt_layer = fmt_layer.with_filter(
-                tracing_subscriber::filter::Targets::new().with_target("tracy", Level::ERROR),
-            );
+            let fmt_layer =
+                fmt_layer.with_filter(tracing_subscriber::filter::FilterFn::new(|meta| {
+                    meta.fields().field("tracy.frame_mark").is_none()
+                }));
 
             let subscriber = subscriber.with(fmt_layer);
 
