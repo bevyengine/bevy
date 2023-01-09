@@ -1,21 +1,21 @@
+mod device;
 mod graph_runner;
-mod render_device;
 
 use bevy_derive::{Deref, DerefMut};
 use bevy_utils::tracing::{error, info, info_span};
+pub use device::*;
 pub use graph_runner::*;
-pub use render_device::*;
 
 use crate::{
     render_graph::RenderGraph,
-    settings::{WgpuSettings, WgpuSettingsPriority},
+    settings::{Settings, SettingsPriority},
     view::{ExtractedWindows, ViewTarget},
 };
 use bevy_ecs::prelude::*;
 use bevy_time::TimeSender;
 use bevy_utils::Instant;
 use std::sync::Arc;
-use wgpu::{Adapter, AdapterInfo, CommandEncoder, Instance, Queue, RequestAdapterOptions};
+use wgpu::RequestAdapterOptions;
 
 /// Updates the [`RenderGraph`] with all of its nodes and then runs it to render the entire frame.
 pub fn render_system(world: &mut World) {
@@ -23,13 +23,13 @@ pub fn render_system(world: &mut World) {
         graph.update(world);
     });
     let graph = world.resource::<RenderGraph>();
-    let render_device = world.resource::<RenderDevice>();
-    let render_queue = world.resource::<RenderQueue>();
+    let device = world.resource::<Device>();
+    let queue = world.resource::<Queue>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
-        render_device.clone(), // TODO: is this clone really necessary?
-        &render_queue.0,
+        device.clone(), // TODO: is this clone really necessary?
+        &queue.0,
         world,
     ) {
         error!("Error running render graph:");
@@ -86,21 +86,21 @@ pub fn render_system(world: &mut World) {
 
 /// This queue is used to enqueue tasks for the GPU to execute asynchronously.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderQueue(pub Arc<Queue>);
+pub struct Queue(pub Arc<wgpu::Queue>);
 
 /// The handle to the physical device being used for rendering.
-/// See [`wgpu::Adapter`] for more info.
+/// See [`Adapter`] for more info.
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
-pub struct RenderAdapter(pub Arc<Adapter>);
+pub struct Adapter(pub Arc<wgpu::Adapter>);
 
-/// The GPU instance is used to initialize the [`RenderQueue`] and [`RenderDevice`],
+/// The GPU instance is used to initialize the [`Queue`] and [`Device`],
 /// as well as to create [`WindowSurfaces`](crate::view::window::WindowSurfaces).
 #[derive(Resource, Deref, DerefMut)]
-pub struct RenderInstance(pub Instance);
+pub struct Instance(pub wgpu::Instance);
 
 /// The `AdapterInfo` of the adapter in use by the renderer.
 #[derive(Resource, Clone, Deref, DerefMut)]
-pub struct RenderAdapterInfo(pub AdapterInfo);
+pub struct AdapterInfo(pub wgpu::AdapterInfo);
 
 const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers! For extra information, see: https://github.com/bevyengine/bevy/blob/latest/docs/linux_dependencies.md"
@@ -111,10 +111,10 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
-    instance: &Instance,
-    options: &WgpuSettings,
+    instance: &wgpu::Instance,
+    settings: &Settings,
     request_adapter_options: &RequestAdapterOptions<'_>,
-) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
+) -> (Device, Queue, AdapterInfo, Adapter) {
     let adapter = instance
         .request_adapter(request_adapter_options)
         .await
@@ -135,8 +135,8 @@ pub async fn initialize_renderer(
 
     // Maybe get features and limits based on what is supported by the adapter/backend
     let mut features = wgpu::Features::empty();
-    let mut limits = options.limits.clone();
-    if matches!(options.priority, WgpuSettingsPriority::Functionality) {
+    let mut limits = settings.limits.clone();
+    if matches!(settings.priority, SettingsPriority::Functionality) {
         features = adapter.features();
         if adapter_info.device_type == wgpu::DeviceType::DiscreteGpu {
             // `MAPPABLE_PRIMARY_BUFFERS` can have a significant, negative performance impact for
@@ -149,14 +149,14 @@ pub async fn initialize_renderer(
     }
 
     // Enforce the disabled features
-    if let Some(disabled_features) = options.disabled_features {
+    if let Some(disabled_features) = settings.disabled_features {
         features -= disabled_features;
     }
     // NOTE: |= is used here to ensure that any explicitly-enabled features are respected.
-    features |= options.features;
+    features |= settings.features;
 
     // Enforce the limit constraints
-    if let Some(constrained_limits) = options.constrained_limits.as_ref() {
+    if let Some(constrained_limits) = settings.constrained_limits.as_ref() {
         // NOTE: Respect the configured limits as an 'upper bound'. This means for 'max' limits, we
         // take the minimum of the calculated limits according to the adapter/backend and the
         // specified max_limits. For 'min' limits, take the maximum instead. This is intended to
@@ -253,7 +253,7 @@ pub async fn initialize_renderer(
     let (device, queue) = adapter
         .request_device(
             &wgpu::DeviceDescriptor {
-                label: options.device_label.as_ref().map(|a| a.as_ref()),
+                label: settings.device_label.as_ref().map(|a| a.as_ref()),
                 features,
                 limits,
             },
@@ -264,18 +264,9 @@ pub async fn initialize_renderer(
     let queue = Arc::new(queue);
     let adapter = Arc::new(adapter);
     (
-        RenderDevice::from(device),
-        RenderQueue(queue),
-        RenderAdapterInfo(adapter_info),
-        RenderAdapter(adapter),
+        Device::from(device),
+        Queue(queue),
+        AdapterInfo(adapter_info),
+        Adapter(adapter),
     )
-}
-
-/// The context with all information required to interact with the GPU.
-///
-/// The [`RenderDevice`] is used to create render resources and the
-/// the [`CommandEncoder`] is used to record a series of GPU operations.
-pub struct RenderContext {
-    pub render_device: RenderDevice,
-    pub command_encoder: CommandEncoder,
 }

@@ -4,13 +4,12 @@ use crate::tonemapping::{TonemappingPipeline, ViewTonemappingPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, LoadOp, Operations,
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
-    renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
 
@@ -72,26 +71,25 @@ impl Node for TonemappingNode {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
                 let sampler = render_context
-                    .render_device
+                    .device
                     .create_sampler(&SamplerDescriptor::default());
 
-                let bind_group =
-                    render_context
-                        .render_device
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &tonemapping_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context
+                    .device
+                    .create_bind_group(&BindGroupDescriptor {
+                        label: None,
+                        layout: &tonemapping_pipeline.texture_bind_group,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(source),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&sampler),
+                            },
+                        ],
+                    });
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group

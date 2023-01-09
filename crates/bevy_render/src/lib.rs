@@ -45,8 +45,8 @@ use crate::{
     camera::CameraPlugin,
     mesh::MeshPlugin,
     render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
-    settings::WgpuSettings,
+    renderer::{render_system, Instance},
+    settings::Settings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -61,7 +61,7 @@ use std::{
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
 pub struct RenderPlugin {
-    pub wgpu_settings: WgpuSettings,
+    pub settings: Settings,
 }
 
 /// The labels of the default App rendering stages.
@@ -135,7 +135,7 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        if let Some(backends) = self.wgpu_settings.backends {
+        if let Some(backends) = self.settings.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
 
@@ -148,22 +148,19 @@ impl Plugin for RenderPlugin {
                 });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: self.wgpu_settings.power_preference,
+                power_preference: self.settings.power_preference,
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue, adapter_info, render_adapter) =
-                futures_lite::future::block_on(renderer::initialize_renderer(
-                    &instance,
-                    &self.wgpu_settings,
-                    &request_adapter_options,
-                ));
+            let (device, queue, adapter_info, adapter) = futures_lite::future::block_on(
+                renderer::initialize_renderer(&instance, &self.settings, &request_adapter_options),
+            );
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone())
+                .insert_resource(adapter.clone())
                 .init_resource::<ScratchMainWorld>();
 
             let pipeline_cache = PipelineCache::new(device.clone());
@@ -200,10 +197,10 @@ impl Plugin for RenderPlugin {
                 )
                 .add_stage(RenderStage::Cleanup, SystemStage::parallel())
                 .init_resource::<render_graph::RenderGraph>()
-                .insert_resource(RenderInstance(instance))
+                .insert_resource(Instance(instance))
                 .insert_resource(device)
                 .insert_resource(queue)
-                .insert_resource(render_adapter)
+                .insert_resource(adapter)
                 .insert_resource(adapter_info)
                 .insert_resource(pipeline_cache)
                 .insert_resource(asset_server);

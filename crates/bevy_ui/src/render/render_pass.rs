@@ -8,7 +8,6 @@ use bevy_render::{
     render_graph::*,
     render_phase::*,
     render_resource::{CachedRenderPipelineId, LoadOp, Operations, RenderPassDescriptor},
-    renderer::*,
     view::*,
 };
 use bevy_utils::FloatOrd;

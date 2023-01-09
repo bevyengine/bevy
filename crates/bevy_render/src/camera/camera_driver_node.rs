@@ -1,7 +1,6 @@
 use crate::{
     camera::{ExtractedCamera, RenderTarget},
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
-    renderer::RenderContext,
+    render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotValue},
     view::ExtractedWindows,
 };
 use bevy_ecs::{entity::Entity, prelude::QueryState, world::World};

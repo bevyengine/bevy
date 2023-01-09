@@ -1,10 +1,9 @@
 use crate::{
     define_atomic_id,
     render_graph::{
-        Edge, InputSlotError, OutputSlotError, RenderGraphContext, RenderGraphError,
+        Edge, InputSlotError, OutputSlotError, RenderContext, RenderGraphContext, RenderGraphError,
         RunSubGraphError, SlotInfo, SlotInfos, SlotType, SlotValue,
     },
-    renderer::RenderContext,
 };
 use bevy_ecs::world::World;
 use downcast_rs::{impl_downcast, Downcast};

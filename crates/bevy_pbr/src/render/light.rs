@@ -16,13 +16,13 @@ use bevy_render::{
     color::Color,
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
         RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{Device, Queue},
     texture::*,
     view::{
         ComputedVisibility, ExtractedView, ViewUniform, ViewUniformOffset, ViewUniforms,
@@ -140,10 +140,10 @@ impl GpuPointLights {
         }
     }
 
-    fn write_buffer(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+    fn write_buffer(&mut self, device: &Device, queue: &Queue) {
         match self {
-            GpuPointLights::Uniform(buffer) => buffer.write_buffer(render_device, render_queue),
-            GpuPointLights::Storage(buffer) => buffer.write_buffer(render_device, render_queue),
+            GpuPointLights::Uniform(buffer) => buffer.write_buffer(device, queue),
+            GpuPointLights::Storage(buffer) => buffer.write_buffer(device, queue),
         }
     }
 
@@ -225,9 +225,9 @@ pub struct ShadowPipeline {
 // TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
 impl FromWorld for ShadowPipeline {
     fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+        let device = world.resource::<Device>();
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let view_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 // View
                 BindGroupLayoutEntry {
@@ -251,7 +251,7 @@ impl FromWorld for ShadowPipeline {
             view_layout,
             mesh_layout: mesh_pipeline.mesh_layout.clone(),
             skinned_mesh_layout,
-            point_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+            point_light_sampler: device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
@@ -261,7 +261,7 @@ impl FromWorld for ShadowPipeline {
                 compare: Some(CompareFunction::GreaterEqual),
                 ..Default::default()
             }),
-            directional_light_sampler: render_device.create_sampler(&SamplerDescriptor {
+            directional_light_sampler: device.create_sampler(&SamplerDescriptor {
                 address_mode_u: AddressMode::ClampToEdge,
                 address_mode_v: AddressMode::ClampToEdge,
                 address_mode_w: AddressMode::ClampToEdge,
@@ -671,7 +671,7 @@ impl FromWorld for GlobalLightMeta {
     fn from_world(world: &mut World) -> Self {
         Self::new(
             world
-                .resource::<RenderDevice>()
+                .resource::<Device>()
                 .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
         )
     }
@@ -758,8 +758,8 @@ pub(crate) fn spot_light_projection_matrix(angle: f32) -> Mat4 {
 pub fn prepare_lights(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    device: Res<Device>,
+    queue: Res<Queue>,
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
@@ -789,7 +789,7 @@ pub fn prepare_lights(
     let mut directional_lights: Vec<_> = directional_lights.iter().collect::<Vec<_>>();
 
     #[cfg(not(feature = "webgl"))]
-    let max_texture_array_layers = render_device.limits().max_texture_array_layers as usize;
+    let max_texture_array_layers = device.limits().max_texture_array_layers as usize;
     #[cfg(not(feature = "webgl"))]
     let max_texture_cubes = max_texture_array_layers / 6;
     #[cfg(feature = "webgl")]
@@ -980,12 +980,12 @@ pub fn prepare_lights(
     global_light_meta.gpu_point_lights.set(gpu_point_lights);
     global_light_meta
         .gpu_point_lights
-        .write_buffer(&render_device, &render_queue);
+        .write_buffer(&device, &queue);
 
     // set up light data for each view
     for (entity, extracted_view, clusters) in &views {
         let point_light_depth_texture = texture_cache.get(
-            &render_device,
+            &device,
             TextureDescriptor {
                 size: Extent3d {
                     width: point_light_shadow_map.size as u32,
@@ -1001,13 +1001,13 @@ pub fn prepare_lights(
             },
         );
         let directional_light_depth_texture = texture_cache.get(
-            &render_device,
+            &device,
             TextureDescriptor {
                 size: Extent3d {
                     width: (directional_light_shadow_map.size as u32)
-                        .min(render_device.limits().max_texture_dimension_2d),
+                        .min(device.limits().max_texture_dimension_2d),
                     height: (directional_light_shadow_map.size as u32)
-                        .min(render_device.limits().max_texture_dimension_2d),
+                        .min(device.limits().max_texture_dimension_2d),
                     depth_or_array_layers: (directional_shadow_maps_count
                         + spot_light_shadow_maps_count)
                         .max(1) as u32,
@@ -1258,9 +1258,7 @@ pub fn prepare_lights(
         ));
     }
 
-    light_meta
-        .view_gpu_lights
-        .write_buffer(&render_device, &render_queue);
+    light_meta.view_gpu_lights.write_buffer(&device, &queue);
 }
 
 // this must match CLUSTER_COUNT_SIZE in pbr.wgsl
@@ -1469,21 +1467,21 @@ impl ViewClusterBindings {
         self.n_indices += 1;
     }
 
-    pub fn write_buffers(&mut self, render_device: &RenderDevice, render_queue: &RenderQueue) {
+    pub fn write_buffers(&mut self, device: &Device, queue: &Queue) {
         match &mut self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_light_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                cluster_light_index_lists.write_buffer(render_device, render_queue);
-                cluster_offsets_and_counts.write_buffer(render_device, render_queue);
+                cluster_light_index_lists.write_buffer(device, queue);
+                cluster_offsets_and_counts.write_buffer(device, queue);
             }
             ViewClusterBuffers::Storage {
                 cluster_light_index_lists,
                 cluster_offsets_and_counts,
             } => {
-                cluster_light_index_lists.write_buffer(render_device, render_queue);
-                cluster_offsets_and_counts.write_buffer(render_device, render_queue);
+                cluster_light_index_lists.write_buffer(device, queue);
+                cluster_offsets_and_counts.write_buffer(device, queue);
             }
         }
     }
@@ -1535,8 +1533,8 @@ impl ViewClusterBindings {
 
 pub fn prepare_clusters(
     mut commands: Commands,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    device: Res<Device>,
+    queue: Res<Queue>,
     mesh_pipeline: Res<MeshPipeline>,
     global_light_meta: Res<GlobalLightMeta>,
     views: Query<
@@ -1548,7 +1546,7 @@ pub fn prepare_clusters(
         With<RenderPhase<Transparent3d>>,
     >,
 ) {
-    let render_device = render_device.into_inner();
+    let device = device.into_inner();
     let supports_storage_buffers = matches!(
         mesh_pipeline.clustered_forward_buffer_binding_type,
         BufferBindingType::Storage { .. }
@@ -1594,28 +1592,27 @@ pub fn prepare_clusters(
             }
         }
 
-        view_clusters_bindings.write_buffers(render_device, &render_queue);
+        view_clusters_bindings.write_buffers(device, &queue);
 
         commands.get_or_spawn(entity).insert(view_clusters_bindings);
     }
 }
 
 pub fn queue_shadow_view_bind_group(
-    render_device: Res<RenderDevice>,
+    device: Res<Device>,
     shadow_pipeline: Res<ShadowPipeline>,
     mut light_meta: ResMut<LightMeta>,
     view_uniforms: Res<ViewUniforms>,
 ) {
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
-        light_meta.shadow_view_bind_group =
-            Some(render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: view_binding,
-                }],
-                label: Some("shadow_view_bind_group"),
-                layout: &shadow_pipeline.view_layout,
-            }));
+        light_meta.shadow_view_bind_group = Some(device.create_bind_group(&BindGroupDescriptor {
+            entries: &[BindGroupEntry {
+                binding: 0,
+                resource: view_binding,
+            }],
+            label: Some("shadow_view_bind_group"),
+            layout: &shadow_pipeline.view_layout,
+        }));
     }
 }
 

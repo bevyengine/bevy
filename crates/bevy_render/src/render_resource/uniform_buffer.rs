@@ -1,6 +1,6 @@
 use crate::{
     render_resource::Buffer,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{Device, Queue},
 };
 use encase::{
     internal::WriteInto, DynamicUniformBuffer as DynamicUniformBufferWrapper, ShaderType,
@@ -99,12 +99,12 @@ impl<T: ShaderType + WriteInto> UniformBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue), if a GPU-side backing buffer already exists.
+    /// Queues writing of data from system RAM to VRAM using the [`Device`](crate::renderer::Device)
+    /// and the provided [`Queue`](crate::renderer::Queue), if a GPU-side backing buffer already exists.
     ///
     /// If a GPU-side buffer does not already exist for this data, such a buffer is initialized with currently
     /// available data.
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, device: &Device, queue: &Queue) {
         self.scratch.write(&self.value).unwrap();
 
         if self.label_changed || self.buffer.is_none() {
@@ -208,13 +208,13 @@ impl<T: ShaderType + WriteInto> DynamicUniformBuffer<T> {
         self.label.as_deref()
     }
 
-    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`](crate::renderer::RenderDevice)
-    /// and the provided [`RenderQueue`](crate::renderer::RenderQueue).
+    /// Queues writing of data from system RAM to VRAM using the [`Device`](crate::renderer::Device)
+    /// and the provided [`Queue`](crate::renderer::Queue).
     ///
     /// If there is no GPU-side buffer allocated to hold the data currently stored, or if a GPU-side buffer previously
     /// allocated does not have enough capacity, a new GPU-side buffer is created.
     #[inline]
-    pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
+    pub fn write_buffer(&mut self, device: &Device, queue: &Queue) {
         let size = self.scratch.as_ref().len();
 
         if self.capacity < size || self.label_changed {

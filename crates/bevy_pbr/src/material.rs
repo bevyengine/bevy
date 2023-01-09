@@ -34,7 +34,7 @@ use bevy_render::{
         PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
-    renderer::RenderDevice,
+    renderer::Device,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
     Extract, RenderApp, RenderStage,
@@ -265,11 +265,11 @@ where
 impl<M: Material> FromWorld for MaterialPipeline<M> {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
+        let device = world.resource::<Device>();
 
         MaterialPipeline {
             mesh_pipeline: world.resource::<MeshPipeline>().clone(),
-            material_layout: M::bind_group_layout(render_device),
+            material_layout: M::bind_group_layout(device),
             vertex_shader: match M::vertex_shader() {
                 ShaderRef::Default => None,
                 ShaderRef::Handle(handle) => Some(handle),
@@ -525,20 +525,14 @@ fn prepare_materials<M: Material>(
     mut prepare_next_frame: Local<PrepareNextFrameMaterials<M>>,
     mut extracted_assets: ResMut<ExtractedMaterials<M>>,
     mut render_materials: ResMut<RenderMaterials<M>>,
-    render_device: Res<RenderDevice>,
+    device: Res<Device>,
     images: Res<RenderAssets<Image>>,
     fallback_image: Res<FallbackImage>,
     pipeline: Res<MaterialPipeline<M>>,
 ) {
     let queued_assets = std::mem::take(&mut prepare_next_frame.assets);
     for (handle, material) in queued_assets.into_iter() {
-        match prepare_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_material(&material, &device, &images, &fallback_image, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -553,13 +547,7 @@ fn prepare_materials<M: Material>(
     }
 
     for (handle, material) in std::mem::take(&mut extracted_assets.extracted) {
-        match prepare_material(
-            &material,
-            &render_device,
-            &images,
-            &fallback_image,
-            &pipeline,
-        ) {
+        match prepare_material(&material, &device, &images, &fallback_image, &pipeline) {
             Ok(prepared_asset) => {
                 render_materials.insert(handle, prepared_asset);
             }
@@ -572,17 +560,13 @@ fn prepare_materials<M: Material>(
 
 fn prepare_material<M: Material>(
     material: &M,
-    render_device: &RenderDevice,
+    device: &Device,
     images: &RenderAssets<Image>,
     fallback_image: &FallbackImage,
     pipeline: &MaterialPipeline<M>,
 ) -> Result<PreparedMaterial<M>, AsBindGroupError> {
-    let prepared = material.as_bind_group(
-        &pipeline.material_layout,
-        render_device,
-        images,
-        fallback_image,
-    )?;
+    let prepared =
+        material.as_bind_group(&pipeline.material_layout, device, images, fallback_image)?;
     Ok(PreparedMaterial {
         bindings: prepared.bindings,
         bind_group: prepared.bind_group,

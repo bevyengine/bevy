@@ -20,7 +20,7 @@ use bevy_render::{
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{Device, Queue},
     texture::{
         BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
     },
@@ -45,14 +45,11 @@ pub struct SpritePipeline {
 
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<DefaultImageSampler>,
-            Res<RenderQueue>,
-        )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
+        let mut system_state: SystemState<(Res<Device>, Res<DefaultImageSampler>, Res<Queue>)> =
+            SystemState::new(world);
+        let (device, default_sampler, queue) = system_state.get_mut(world);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let view_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
@@ -66,7 +63,7 @@ impl FromWorld for SpritePipeline {
             label: Some("sprite_view_layout"),
         });
 
-        let material_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+        let material_layout = device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -94,14 +91,14 @@ impl FromWorld for SpritePipeline {
                 &[255u8; 4],
                 TextureFormat::bevy_default(),
             );
-            let texture = render_device.create_texture(&image.texture_descriptor);
+            let texture = device.create_texture(&image.texture_descriptor);
             let sampler = match image.sampler_descriptor {
                 ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(descriptor) => render_device.create_sampler(&descriptor),
+                ImageSampler::Descriptor(descriptor) => device.create_sampler(&descriptor),
             };
 
             let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
+            queue.write_texture(
                 ImageCopyTexture {
                     texture: &texture,
                     mip_level: 0,
@@ -445,8 +442,8 @@ pub fn queue_sprites(
     mut commands: Commands,
     mut view_entities: Local<FixedBitSet>,
     draw_functions: Res<DrawFunctions<Transparent2d>>,
-    render_device: Res<RenderDevice>,
-    render_queue: Res<RenderQueue>,
+    device: Res<Device>,
+    queue: Res<Queue>,
     mut sprite_meta: ResMut<SpriteMeta>,
     view_uniforms: Res<ViewUniforms>,
     sprite_pipeline: Res<SpritePipeline>,
@@ -483,7 +480,7 @@ pub fn queue_sprites(
         sprite_meta.vertices.clear();
         sprite_meta.colored_vertices.clear();
 
-        sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
+        sprite_meta.view_bind_group = Some(device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
                 binding: 0,
                 resource: view_binding,
@@ -575,7 +572,7 @@ pub fn queue_sprites(
                             .values
                             .entry(Handle::weak(current_batch.image_handle_id))
                             .or_insert_with(|| {
-                                render_device.create_bind_group(&BindGroupDescriptor {
+                                device.create_bind_group(&BindGroupDescriptor {
                                     entries: &[
                                         BindGroupEntry {
                                             binding: 0,
@@ -679,12 +676,8 @@ pub fn queue_sprites(
                 }
             }
         }
-        sprite_meta
-            .vertices
-            .write_buffer(&render_device, &render_queue);
-        sprite_meta
-            .colored_vertices
-            .write_buffer(&render_device, &render_queue);
+        sprite_meta.vertices.write_buffer(&device, &queue);
+        sprite_meta.colored_vertices.write_buffer(&device, &queue);
     }
 }
 

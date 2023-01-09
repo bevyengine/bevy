@@ -8,9 +8,9 @@ use bevy::{
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
-        render_graph::{self, RenderGraph},
+        render_graph::{self, RenderContext, RenderGraph},
         render_resource::*,
-        renderer::{RenderContext, RenderDevice},
+        renderer::Device,
         RenderApp, RenderStage,
     },
 };
@@ -95,10 +95,10 @@ fn queue_bind_group(
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<Image>>,
     game_of_life_image: Res<GameOfLifeImage>,
-    render_device: Res<RenderDevice>,
+    device: Res<Device>,
 ) {
     let view = &gpu_images[&game_of_life_image.0];
-    let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+    let bind_group = device.create_bind_group(&BindGroupDescriptor {
         label: None,
         layout: &pipeline.texture_bind_group_layout,
         entries: &[BindGroupEntry {
@@ -120,7 +120,7 @@ impl FromWorld for GameOfLifePipeline {
     fn from_world(world: &mut World) -> Self {
         let texture_bind_group_layout =
             world
-                .resource::<RenderDevice>()
+                .resource::<Device>()
                 .create_bind_group_layout(&BindGroupLayoutDescriptor {
                     label: None,
                     entries: &[BindGroupLayoutEntry {

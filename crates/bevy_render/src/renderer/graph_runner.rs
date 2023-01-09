@@ -10,10 +10,10 @@ use thiserror::Error;
 
 use crate::{
     render_graph::{
-        Edge, NodeId, NodeRunError, NodeState, RenderGraph, RenderGraphContext, SlotLabel,
-        SlotType, SlotValue,
+        Edge, NodeId, NodeRunError, NodeState, RenderContext, RenderGraph, RenderGraphContext,
+        SlotLabel, SlotType, SlotValue,
     },
-    renderer::{RenderContext, RenderDevice},
+    renderer::Device,
 };
 
 pub(crate) struct RenderGraphRunner;
@@ -54,14 +54,14 @@ pub enum RenderGraphRunnerError {
 impl RenderGraphRunner {
     pub fn run(
         graph: &RenderGraph,
-        render_device: RenderDevice,
+        device: Device,
         queue: &wgpu::Queue,
         world: &World,
     ) -> Result<(), RenderGraphRunnerError> {
         let command_encoder =
-            render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
         let mut render_context = RenderContext {
-            render_device,
+            device,
             command_encoder,
         };
 

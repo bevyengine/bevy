@@ -5,27 +5,27 @@ use crate::render_resource::{
 use bevy_ecs::system::Resource;
 use wgpu::{util::DeviceExt, BufferAsyncError, BufferBindingType};
 
-use super::RenderQueue;
+use super::Queue;
 
 use crate::render_resource::resource_macros::*;
 
-render_resource_wrapper!(ErasedRenderDevice, wgpu::Device);
+render_resource_wrapper!(ErasedDevice, wgpu::Device);
 
 /// This GPU device is responsible for the creation of most rendering and compute resources.
 #[derive(Resource, Clone)]
-pub struct RenderDevice {
-    device: ErasedRenderDevice,
+pub struct Device {
+    device: ErasedDevice,
 }
 
-impl From<wgpu::Device> for RenderDevice {
+impl From<wgpu::Device> for Device {
     fn from(device: wgpu::Device) -> Self {
         Self {
-            device: ErasedRenderDevice::new(device),
+            device: ErasedDevice::new(device),
         }
     }
 }
 
-impl RenderDevice {
+impl Device {
     /// List all [`Features`](wgpu::Features) that may be used with this device.
     ///
     /// Functions may panic if you use unsupported features.
@@ -134,13 +134,13 @@ impl RenderDevice {
     /// `data` is the raw data.
     pub fn create_texture_with_data(
         &self,
-        render_queue: &RenderQueue,
+        queue: &Queue,
         desc: &wgpu::TextureDescriptor,
         data: &[u8],
     ) -> Texture {
         let wgpu_texture = self
             .device
-            .create_texture_with_data(render_queue.as_ref(), desc, data);
+            .create_texture_with_data(queue.as_ref(), desc, data);
         Texture::from(wgpu_texture)
     }
 
@@ -171,7 +171,7 @@ impl RenderDevice {
     }
 
     /// Returns the wgpu [`Device`](wgpu::Device).
-    pub fn wgpu_device(&self) -> &wgpu::Device {
+    pub fn wdevice(&self) -> &wgpu::Device {
         &self.device
     }
 

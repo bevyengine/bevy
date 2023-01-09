@@ -4,13 +4,12 @@ use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
-    render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
+    render_graph::{Node, NodeRunError, RenderContext, RenderGraphContext, SlotInfo, SlotType},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindingResource, FilterMode, Operations,
         PipelineCache, RenderPassColorAttachment, RenderPassDescriptor, SamplerDescriptor,
         TextureViewId,
     },
-    renderer::RenderContext,
     view::{ExtractedView, ViewTarget},
 };
 use bevy_utils::default;
@@ -77,32 +76,29 @@ impl Node for FxaaNode {
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {
-                let sampler = render_context
-                    .render_device
-                    .create_sampler(&SamplerDescriptor {
-                        mipmap_filter: FilterMode::Linear,
-                        mag_filter: FilterMode::Linear,
-                        min_filter: FilterMode::Linear,
-                        ..default()
-                    });
+                let sampler = render_context.device.create_sampler(&SamplerDescriptor {
+                    mipmap_filter: FilterMode::Linear,
+                    mag_filter: FilterMode::Linear,
+                    min_filter: FilterMode::Linear,
+                    ..default()
+                });
 
-                let bind_group =
-                    render_context
-                        .render_device
-                        .create_bind_group(&BindGroupDescriptor {
-                            label: None,
-                            layout: &fxaa_pipeline.texture_bind_group,
-                            entries: &[
-                                BindGroupEntry {
-                                    binding: 0,
-                                    resource: BindingResource::TextureView(source),
-                                },
-                                BindGroupEntry {
-                                    binding: 1,
-                                    resource: BindingResource::Sampler(&sampler),
-                                },
-                            ],
-                        });
+                let bind_group = render_context
+                    .device
+                    .create_bind_group(&BindGroupDescriptor {
+                        label: None,
+                        layout: &fxaa_pipeline.texture_bind_group,
+                        entries: &[
+                            BindGroupEntry {
+                                binding: 0,
+                                resource: BindingResource::TextureView(source),
+                            },
+                            BindGroupEntry {
+                                binding: 1,
+                                resource: BindingResource::Sampler(&sampler),
+                            },
+                        ],
+                    });
 
                 let (_, bind_group) = cached_bind_group.insert((source.id(), bind_group));
                 bind_group

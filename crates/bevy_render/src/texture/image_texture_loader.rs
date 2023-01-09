@@ -5,7 +5,7 @@ use bevy_utils::BoxedFuture;
 use thiserror::Error;
 
 use crate::{
-    renderer::RenderDevice,
+    renderer::Device,
     texture::{Image, ImageType, TextureError},
 };
 
@@ -69,8 +69,8 @@ impl AssetLoader for ImageTextureLoader {
 
 impl FromWorld for ImageTextureLoader {
     fn from_world(world: &mut World) -> Self {
-        let supported_compressed_formats = match world.get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
+        let supported_compressed_formats = match world.get_resource::<Device>() {
+            Some(device) => CompressedImageFormats::from_features(device.features()),
 
             None => CompressedImageFormats::all(),
         };
