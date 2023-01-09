@@ -1,12 +1,12 @@
 use hashbrown::HashMap;
-use slotmap::SlotMap;
+use slotmap::{SecondaryMap, SlotMap};
 
 use super::{EdgeIdx, NodeIdx};
 
 pub struct SimpleMapGraph<N, E, const DIRECTED: bool> {
     nodes: SlotMap<NodeIdx, N>,
     edges: SlotMap<EdgeIdx, E>,
-    adjacencies: HashMap<NodeIdx, HashMap<NodeIdx, EdgeIdx>>,
+    adjacencies: SecondaryMap<NodeIdx, HashMap<NodeIdx, EdgeIdx>>,
 }
 
 impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
@@ -14,7 +14,7 @@ impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
         Self {
             nodes: SlotMap::with_key(),
             edges: SlotMap::with_key(),
-            adjacencies: HashMap::new(),
+            adjacencies: SecondaryMap::new(),
         }
     }
 
@@ -36,13 +36,13 @@ impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
 
     #[inline]
     pub fn edge(&self, from: NodeIdx, to: NodeIdx) -> Option<&E> {
-        let edge_idx = self.adjacencies.get(&from)?.get(&to)?;
+        let edge_idx = self.adjacencies.get(from)?.get(&to)?;
         self.edges.get(*edge_idx)
     }
 
     #[inline]
     pub fn edge_mut(&mut self, from: NodeIdx, to: NodeIdx) -> Option<&mut E> {
-        let edge_idx = self.adjacencies.get(&from)?.get(&to)?;
+        let edge_idx = self.adjacencies.get(from)?.get(&to)?;
         self.edges.get_mut(*edge_idx)
     }
 }
@@ -50,14 +50,8 @@ impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
 impl<N, E> SimpleMapGraph<N, E, false> {
     pub fn add_edge(&mut self, first: NodeIdx, second: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(edge);
-        self.adjacencies
-            .get_mut(&first)
-            .unwrap()
-            .insert(second, idx);
-        self.adjacencies
-            .get_mut(&second)
-            .unwrap()
-            .insert(first, idx);
+        self.adjacencies.get_mut(first).unwrap().insert(second, idx);
+        self.adjacencies.get_mut(second).unwrap().insert(first, idx);
         idx // TODO: does the end user really need the idx?
     }
 }
@@ -65,7 +59,7 @@ impl<N, E> SimpleMapGraph<N, E, false> {
 impl<N, E> SimpleMapGraph<N, E, true> {
     pub fn add_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(edge);
-        self.adjacencies.get_mut(&from).unwrap().insert(to, idx);
+        self.adjacencies.get_mut(from).unwrap().insert(to, idx);
         idx // TODO: does the end user really need the idx?
     }
 }
