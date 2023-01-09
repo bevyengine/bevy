@@ -1,6 +1,6 @@
 use slotmap::{HopSlotMap, SecondaryMap};
 
-use crate::{EdgeIdx, Graph, NodeIdx};
+use crate::{DirectedGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph};
 
 pub struct SimpleListGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
@@ -56,20 +56,20 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 }
 
-impl<N, E> SimpleListGraph<N, E, false> {
-    pub fn add_edge(&mut self, first: NodeIdx, second: NodeIdx, edge: E) -> EdgeIdx {
+impl<N, E> UndirectedGraph<N, E> for SimpleListGraph<N, E, false> {
+    fn new_edge(&mut self, first: NodeIdx, second: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(edge);
         self.adjacencies.get_mut(first).unwrap().push((second, idx));
         self.adjacencies.get_mut(second).unwrap().push((first, idx));
-        idx // TODO: does the end user really need the idx?
+        idx
     }
 }
 
-impl<N, E> SimpleListGraph<N, E, true> {
-    pub fn add_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
+    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(edge);
         self.adjacencies.get_mut(from).unwrap().push((to, idx));
-        idx // TODO: does the end user really need the idx?
+        idx
     }
 }
 
@@ -82,7 +82,7 @@ impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
-    use crate::Graph;
+    use crate::{DirectedGraph, Graph, UndirectedGraph};
 
     use super::SimpleListGraph;
 
@@ -100,7 +100,7 @@ mod test {
 
         let jake = map_graph.new_node(Person::Jake);
         let michael = map_graph.new_node(Person::Michael);
-        let _best_friends = map_graph.add_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
+        let _best_friends = map_graph.new_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
 
         let strength_jake = map_graph.edge(jake, michael);
         assert!(strength_jake.is_some());
@@ -119,7 +119,7 @@ mod test {
 
         let jake = map_graph.new_node(Person::Jake);
         let jennifer = map_graph.new_node(Person::Jennifer);
-        let _oneway_crush = map_graph.add_edge(jake, jennifer, STRENGTH); // TODO: does the end user really need the idx returned?
+        let _oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH); // TODO: does the end user really need the idx returned?
 
         let strength_jake = map_graph.edge(jake, jennifer);
         assert!(strength_jake.is_some());

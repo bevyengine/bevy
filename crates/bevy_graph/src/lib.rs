@@ -16,3 +16,11 @@ pub trait Graph<N, E> {
     fn edge(&self, from: NodeIdx, to: NodeIdx) -> Option<&E>;
     fn edge_mut(&mut self, from: NodeIdx, to: NodeIdx) -> Option<&mut E>;
 }
+
+pub trait UndirectedGraph<N, E> {
+    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx; // TODO: does the end user really need the idx?
+}
+
+pub trait DirectedGraph<N, E> {
+    fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx; // TODO: does the end user really need the idx?
+}
