@@ -1038,7 +1038,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
             .add_unfiltered_read(component_id);
 
         let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
+            .get_non_send_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -1054,9 +1054,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
-            .get_resource_with_ticks(component_id)
+            .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1090,9 +1089,8 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.validate_non_send_access::<T>();
         world
-            .get_resource_with_ticks(component_id)
+            .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSend {
                 value: ptr.deref(),
                 ticks: ticks.read(),
@@ -1130,7 +1128,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             .add_unfiltered_write(component_id);
 
         let archetype_component_id = world
-            .get_resource_archetype_component_id(component_id)
+            .get_non_send_archetype_component_id(component_id)
             .unwrap();
         system_meta
             .archetype_component_access
@@ -1146,9 +1144,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.validate_non_send_access::<T>();
         let (ptr, ticks) = world
-            .get_resource_with_ticks(component_id)
+            .get_non_send_with_ticks(component_id)
             .unwrap_or_else(|| {
                 panic!(
                     "Non-send resource requested by {} does not exist: {}",
@@ -1179,9 +1176,8 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        world.validate_non_send_access::<T>();
         world
-            .get_resource_with_ticks(component_id)
+            .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
                 ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
