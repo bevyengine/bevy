@@ -129,7 +129,7 @@ impl<'a> Ptr<'a> {
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
-        &*self.as_ptr().cast::<T>().ensure_aligned()
+        &*self.as_ptr().cast::<T>().debug_ensure_aligned()
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -172,7 +172,7 @@ impl<'a> PtrMut<'a> {
     /// Must point to a valid `T`
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
-        &mut *self.as_ptr().cast::<T>().ensure_aligned()
+        &mut *self.as_ptr().cast::<T>().debug_ensure_aligned()
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -229,7 +229,7 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
-        self.as_ptr().cast::<T>().ensure_aligned().read()
+        self.as_ptr().cast::<T>().debug_ensure_aligned().read()
     }
 
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
@@ -242,7 +242,10 @@ impl<'a> OwningPtr<'a> {
     /// Must point to a valid `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
-        self.as_ptr().cast::<T>().ensure_aligned().drop_in_place();
+        self.as_ptr()
+            .cast::<T>()
+            .debug_ensure_aligned()
+            .drop_in_place();
     }
 
     /// Gets the underlying pointer, erasing the associated lifetime.
@@ -311,7 +314,7 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
         let ptr = slice.as_ptr() as *mut T;
         Self {
             // SAFETY: a reference can never be null
-            ptr: unsafe { NonNull::new_unchecked(ptr.ensure_aligned()) },
+            ptr: unsafe { NonNull::new_unchecked(ptr.debug_ensure_aligned()) },
             #[cfg(debug_assertions)]
             len: slice.len(),
             _marker: PhantomData,
@@ -376,16 +379,16 @@ impl<'a, T> UnsafeCellDeref<'a, T> for &'a UnsafeCell<T> {
     }
 }
 
-trait EnsureAligned {
-    fn ensure_aligned(self) -> Self;
+trait DebugEnsureAligned {
+    fn debug_ensure_aligned(self) -> Self;
 }
 
 // Disable this for miri runs as it already checks if pointer to reference
 // casts are properly aligned.
 #[cfg(all(debug_assertions, not(miri)))]
-impl<T: Sized> EnsureAligned for *mut T {
+impl<T: Sized> DebugEnsureAligned for *mut T {
     #[track_caller]
-    fn ensure_aligned(self) -> Self {
+    fn debug_ensure_aligned(self) -> Self {
         let align = core::mem::align_of::<T>();
         // Implemenation shamelessly borrowed from the currently unstable
         // ptr.is_aligned_to.
@@ -403,9 +406,9 @@ impl<T: Sized> EnsureAligned for *mut T {
 }
 
 #[cfg(any(not(debug_assertions), miri))]
-impl<T: Sized> EnsureAligned for *mut T {
+impl<T: Sized> DebugEnsureAligned for *mut T {
     #[inline(always)]
-    fn ensure_aligned(self) -> Self {
+    fn debug_ensure_aligned(self) -> Self {
         self
     }
 }
