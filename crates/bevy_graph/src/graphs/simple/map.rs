@@ -37,17 +37,17 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     }
 
     #[inline]
-    fn edge_id_between(&self, from: NodeIdx, to: NodeIdx) -> Option<EdgeIdx> {
+    fn edgeidx_between(&self, from: NodeIdx, to: NodeIdx) -> Option<EdgeIdx> {
         self.adjacencies.get(from)?.get(&to).cloned()
     }
 
     #[inline]
-    fn edge_by_id(&self, edge: EdgeIdx) -> Option<&E> {
+    fn edge_by_idx(&self, edge: EdgeIdx) -> Option<&E> {
         self.edges.get(edge)
     }
 
     #[inline]
-    fn edge_by_id_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
+    fn edge_by_idx_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
         self.edges.get_mut(edge)
     }
 }
