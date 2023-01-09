@@ -43,7 +43,7 @@ const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Float;
 
 impl BloomSettings {
     /// Calculates blend intensities of blur pyramid levels
-    /// during the upsampling+compositing stage.
+    /// during the upsampling + compositing stage.
     ///
     /// The function assumes all pyramid levels are upsampled and
     /// blended into higher frequency ones using this function to
