@@ -62,8 +62,8 @@ impl<N, E> UndirectedGraph<N, E> for SimpleListGraph<N, E, false> {
         idx
     }
 
-    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) {
-        let list = self.adjacencies.get_mut(node).unwrap();
+    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) -> Option<E> {
+        let list = self.adjacencies.get_mut(node)?;
 
         if let Some(index) = list
             .iter()
@@ -71,12 +71,14 @@ impl<N, E> UndirectedGraph<N, E> for SimpleListGraph<N, E, false> {
         {
             let (_, edge_idx) = list.swap_remove(index); // TODO: remove or swap_remove ?
 
-            let list = self.adjacencies.get_mut(other).unwrap();
+            let list = self.adjacencies.get_mut(other)?;
             if let Some(index) = list.iter().position(|(node_idx, _)| *node_idx == node) {
                 list.swap_remove(index); // TODO: remove or swap_remove ?
             }
 
-            self.edges.remove(edge_idx);
+            self.edges.remove(edge_idx)
+        } else {
+            None
         }
     }
 }
@@ -88,13 +90,15 @@ impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
         idx
     }
 
-    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) {
+    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) -> Option<E> {
         let list = self.adjacencies.get_mut(from).unwrap();
 
         if let Some(index) = list.iter().position(|(node_idx, _)| *node_idx == to) {
             let (_, edge_idx) = list.swap_remove(index); // TODO: remove or swap_remove ?
 
-            self.edges.remove(edge_idx);
+            self.edges.remove(edge_idx)
+        } else {
+            None
         }
     }
 }

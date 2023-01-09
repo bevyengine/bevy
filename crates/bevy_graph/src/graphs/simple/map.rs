@@ -60,17 +60,12 @@ impl<N, E> UndirectedGraph<N, E> for SimpleMapGraph<N, E, false> {
         idx
     }
 
-    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) {
-        let edge_idx = self
-            .adjacencies
-            .get_mut(node)
-            .unwrap()
-            .remove(&other)
-            .unwrap();
+    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) -> Option<E> {
+        let edge_idx = self.adjacencies.get_mut(node)?.remove(&other)?;
 
-        self.adjacencies.get_mut(other).unwrap().remove(&node);
+        self.adjacencies.get_mut(other)?.remove(&node);
 
-        self.edges.remove(edge_idx);
+        self.edges.remove(edge_idx)
     }
 }
 
@@ -80,10 +75,11 @@ impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
         self.adjacencies.get_mut(from).unwrap().insert(to, idx);
         idx
     }
-    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) {
-        let edge_idx = self.adjacencies.get_mut(from).unwrap().remove(&to).unwrap();
 
-        self.edges.remove(edge_idx);
+    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) -> Option<E> {
+        let edge_idx = self.adjacencies.get_mut(from)?.remove(&to)?;
+
+        self.edges.remove(edge_idx)
     }
 }
 
