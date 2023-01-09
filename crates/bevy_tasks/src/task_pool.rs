@@ -11,7 +11,7 @@ use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, pin, FutureExt};
 
 use crate::{
-    thread_executor::{ThreadExecutor, ThreadSpawner},
+    thread_executor::{ThreadExecutor, ThreadExecutorSpawner},
     Task,
 };
 
@@ -284,7 +284,8 @@ impl TaskPool {
             let executor: &async_executor::Executor = &self.executor;
             let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
             let thread_spawner = thread_executor.spawner();
-            let thread_spawner: ThreadSpawner<'env> = unsafe { mem::transmute(thread_spawner) };
+            let thread_spawner: ThreadExecutorSpawner<'env> =
+                unsafe { mem::transmute(thread_spawner) };
             let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
             let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
                 unsafe { mem::transmute(&spawned) };
@@ -401,7 +402,7 @@ impl Drop for TaskPool {
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
-    thread_spawner: ThreadSpawner<'scope>,
+    thread_spawner: ThreadExecutorSpawner<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
