@@ -70,7 +70,6 @@ impl FromWorld for BloomUpsamplingPipeline {
             });
 
         BloomUpsamplingPipeline {
-            // sampler,
             bind_group_layout,
         }
     }
