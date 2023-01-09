@@ -73,7 +73,7 @@ pub struct BloomSettings {
     ///
     /// Valid range:
     /// * 0.0 - maximum scattering angle is 0 degrees (no scattering)
-    /// * 1.0 - maximum scattering angle is 90deg
+    /// * 1.0 - maximum scattering angle is 90 degrees
     pub high_pass_frequency: f32,
 
     pub prefilter_settings: BloomPrefilterSettings,
