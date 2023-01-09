@@ -117,9 +117,9 @@ impl ResourceData {
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
     pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        self.is_present().then(|| {
+        self.data.remove_and_forget().map(|ptr| {
             (
-                self.data.swap_remove_and_forget_unchecked(),
+                ptr,
                 ComponentTicks {
                     added: self.added_tick.read(),
                     changed: self.changed_tick.read(),
@@ -141,11 +141,8 @@ impl ResourceData {
     }
 
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
-        // SAFETY: Function has unique access.
-        unsafe {
-            self.added_tick.deref_mut().check_tick(change_tick);
-            self.changed_tick.deref_mut().check_tick(change_tick);
-        }
+        self.added_tick.get_mut().check_tick(change_tick);
+        self.changed_tick.get_mut().check_tick(change_tick);
     }
 }
 

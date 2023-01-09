@@ -406,6 +406,7 @@ impl BlobBox {
     /// - the memory at `*value` must also be previously initialized with an item matching this
     /// [`BlobVec`]'s `item_layout`
     pub unsafe fn replace(&mut self, value: OwningPtr<'_>) {
+        debug_assert!(self.is_present());
         let ptr = self.data.as_ptr();
         self.is_present = false;
         // Drop the old value, then write back, justifying the promotion
@@ -431,22 +432,21 @@ impl BlobBox {
     /// Performs a "swap remove" at the given `index`, which removes the item at `index` and moves
     /// the last item in the [`BlobVec`] to `index` (if `index` is not the last item). It is the
     /// caller's responsibility to drop the returned pointer, if that is desirable.
-    ///
-    /// # Safety
-    /// It is the caller's responsibility to ensure that `index` is less than `self.len()`.
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed element"]
-    pub unsafe fn swap_remove_and_forget_unchecked(&mut self) -> OwningPtr<'_> {
-        debug_assert!(self.is_present);
-        self.is_present = false;
-        // Cannot use get_unchecked here as this is technically out of bounds after changing len.
-        OwningPtr::new(self.data)
+    pub fn remove_and_forget(&mut self) -> Option<OwningPtr<'_>> {
+        self.is_present().then(|| {
+            self.is_present = false;
+            // SAFETY: The data is marked inaccessible by the BlobBox already, and it's the caller's
+            // responsibility to drop or remove the instance in the returned pointer.
+            unsafe { OwningPtr::new(self.data) }
+        })
     }
 
     /// Gets a [`Ptr`] to the start of the vec
     #[inline]
     pub fn get_ptr(&self) -> Option<Ptr<'_>> {
-        (self.is_present())
+        self.is_present()
             // SAFETY: the inner data will remain valid for as long as 'self.
             .then(|| unsafe { Ptr::new(self.data) })
     }
@@ -458,13 +458,10 @@ impl BlobBox {
         // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
         // accidentally drop elements twice in the event of a drop impl panicking.
         self.is_present = false;
-        if let Some(drop) = self.drop {
-            // SAFETY: `i * layout_size` is inbounds for the allocation, and the item is left unreachable so it can be safely promoted to an `OwningPtr`
-            unsafe {
-                // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
-                // will panic here due to self.len being set to 0
-                (drop)(OwningPtr::new(self.data));
-            }
+        let Some(drop) = self.drop else { return };
+        // SAFETY: self.data is currently valid, and the item is left unreachable so it can be safely promoted to an `OwningPtr`
+        unsafe {
+            (drop)(OwningPtr::new(self.data));
         }
     }
 }
