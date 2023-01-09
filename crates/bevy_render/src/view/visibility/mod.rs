@@ -212,7 +212,7 @@ impl Plugin for VisibilityPlugin {
 
         app.add_system_to_stage(
             CoreStage::PostUpdate,
-            calculate_bounds.label(CalculateBounds),
+            calculate_bounds.label(CalculateBounds).before_commands(),
         )
         .add_system_to_stage(
             CoreStage::PostUpdate,
@@ -252,7 +252,6 @@ impl Plugin for VisibilityPlugin {
             CoreStage::PostUpdate,
             check_visibility
                 .label(CheckVisibility)
-                .after(CalculateBounds)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
                 .after(UpdateProjectionFrusta)
