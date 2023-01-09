@@ -6,7 +6,7 @@ use crate::{
     schedule::{SystemLabel, SystemLabelId},
     system::{
         check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamItem,
-        ExclusiveSystemParamState, IntoSystem, System, SystemMeta, SystemTypeIdLabel,
+        IntoSystem, System, SystemMeta, SystemTypeIdLabel,
     },
     world::{World, WorldId},
 };
@@ -94,7 +94,7 @@ where
         let saved_last_tick = world.last_change_tick;
         world.last_change_tick = self.system_meta.last_change_tick;
 
-        let params = <Param as ExclusiveSystemParam>::State::get_param(
+        let params = Param::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
             &self.system_meta,
         );
@@ -122,17 +122,14 @@ where
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(PARAM_MESSAGE);
-        param_state.apply(world);
+        Param::apply(param_state, world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::State as ExclusiveSystemParamState>::init(
-            world,
-            &mut self.system_meta,
-        ));
+        self.param_state = Some(Param::init(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, _world: &World) {}
