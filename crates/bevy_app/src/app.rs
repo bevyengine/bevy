@@ -1018,7 +1018,7 @@ impl App {
 
     /// Adds an [`App`] as a child of the current one.
     ///
-    /// The provided function `f` is called by the [`update`](Self::update) method. The [`World`]
+    /// The provided function `sub_app_runner` is called by the [`update`](Self::update) method. The [`World`]
     /// parameter represents the main app world, while the [`App`] parameter is just a mutable
     /// reference to the `SubApp` itself.
     pub fn add_sub_app(
