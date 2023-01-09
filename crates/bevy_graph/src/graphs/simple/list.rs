@@ -2,13 +2,13 @@ use slotmap::{SecondaryMap, SlotMap};
 
 use super::{EdgeIdx, NodeIdx};
 
-pub struct SimpleListGraph<N, E> {
+pub struct SimpleListGraph<N, E, const DIRECTED: bool> {
     nodes: SlotMap<NodeIdx, N>,
     edges: SlotMap<EdgeIdx, E>,
     adjacencies: SecondaryMap<NodeIdx, Vec<(NodeIdx, EdgeIdx)>>,
 }
 
-impl<N, E> SimpleListGraph<N, E> {
+impl<N, E, const DIRECTED: bool> SimpleListGraph<N, E, DIRECTED> {
     pub fn new() -> Self {
         Self {
             nodes: SlotMap::with_key(),
@@ -21,19 +21,6 @@ impl<N, E> SimpleListGraph<N, E> {
         let idx = self.nodes.insert(node);
         self.adjacencies.insert(idx, Vec::new());
         idx
-    }
-
-    pub fn add_undirected_edge(&mut self, first: NodeIdx, second: NodeIdx, edge: E) -> EdgeIdx {
-        let idx = self.edges.insert(edge);
-        self.adjacencies.get_mut(first).unwrap().push((second, idx));
-        self.adjacencies.get_mut(second).unwrap().push((first, idx));
-        idx // TODO: does the end user really need the idx?
-    }
-
-    pub fn add_directed_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
-        let idx = self.edges.insert(edge);
-        self.adjacencies.get_mut(from).unwrap().push((to, idx));
-        idx // TODO: does the end user really need the idx?
     }
 
     #[inline]
@@ -67,7 +54,24 @@ impl<N, E> SimpleListGraph<N, E> {
     }
 }
 
-impl<N, E> Default for SimpleListGraph<N, E> {
+impl<N, E> SimpleListGraph<N, E, false> {
+    pub fn add_edge(&mut self, first: NodeIdx, second: NodeIdx, edge: E) -> EdgeIdx {
+        let idx = self.edges.insert(edge);
+        self.adjacencies.get_mut(first).unwrap().push((second, idx));
+        self.adjacencies.get_mut(second).unwrap().push((first, idx));
+        idx // TODO: does the end user really need the idx?
+    }
+}
+
+impl<N, E> SimpleListGraph<N, E, true> {
+    pub fn add_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+        let idx = self.edges.insert(edge);
+        self.adjacencies.get_mut(from).unwrap().push((to, idx));
+        idx // TODO: does the end user really need the idx?
+    }
+}
+
+impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
     #[inline]
     fn default() -> Self {
         Self::new()
@@ -88,11 +92,11 @@ mod test {
     fn undirected_edge() {
         const STRENGTH: i32 = 100;
 
-        let mut map_graph = SimpleListGraph::<Person, i32>::new();
+        let mut map_graph = SimpleListGraph::<Person, i32, false>::new();
 
         let jake = map_graph.add_node(Person::Jake);
         let michael = map_graph.add_node(Person::Michael);
-        let _best_friends = map_graph.add_undirected_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
+        let _best_friends = map_graph.add_edge(jake, michael, STRENGTH); // TODO: does the end user really need the idx returned?
 
         let strength_jake = map_graph.edge(jake, michael);
         assert!(strength_jake.is_some());
@@ -107,11 +111,11 @@ mod test {
     fn directed_edge() {
         const STRENGTH: i32 = 9999;
 
-        let mut map_graph = SimpleListGraph::<Person, i32>::new();
+        let mut map_graph = SimpleListGraph::<Person, i32, true>::new();
 
         let jake = map_graph.add_node(Person::Jake);
         let jennifer = map_graph.add_node(Person::Jennifer);
-        let _oneway_crush = map_graph.add_directed_edge(jake, jennifer, STRENGTH); // TODO: does the end user really need the idx returned?
+        let _oneway_crush = map_graph.add_edge(jake, jennifer, STRENGTH); // TODO: does the end user really need the idx returned?
 
         let strength_jake = map_graph.edge(jake, jennifer);
         assert!(strength_jake.is_some());
