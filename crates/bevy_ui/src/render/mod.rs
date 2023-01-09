@@ -500,20 +500,20 @@ pub fn prepare_uinodes(
         let atlas_extent = extracted_uinode.atlas_size.unwrap_or(uinode_rect.max);
         let mut uvs = [
             Vec2::new(
-                uinode_rect.min.x + positions_diff[0].x * extracted_uinode.scale_factor,
-                uinode_rect.min.y + positions_diff[0].y * extracted_uinode.scale_factor,
+                uinode_rect.min.x + positions_diff[0].x,
+                uinode_rect.min.y + positions_diff[0].y,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[1].x * extracted_uinode.scale_factor,
-                uinode_rect.min.y + positions_diff[1].y * extracted_uinode.scale_factor,
+                uinode_rect.max.x + positions_diff[1].x,
+                uinode_rect.min.y + positions_diff[1].y,
             ),
             Vec2::new(
-                uinode_rect.max.x + positions_diff[2].x * extracted_uinode.scale_factor,
-                uinode_rect.max.y + positions_diff[2].y * extracted_uinode.scale_factor,
+                uinode_rect.max.x + positions_diff[2].x,
+                uinode_rect.max.y + positions_diff[2].y,
             ),
             Vec2::new(
-                uinode_rect.min.x + positions_diff[3].x * extracted_uinode.scale_factor,
-                uinode_rect.max.y + positions_diff[3].y * extracted_uinode.scale_factor,
+                uinode_rect.min.x + positions_diff[3].x,
+                uinode_rect.max.y + positions_diff[3].y,
             ),
         ]
         .map(|pos| pos / atlas_extent);
