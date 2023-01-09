@@ -43,7 +43,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
             .unwrap()
             .get(&to)
             .cloned()
-            .unwrap_or_else(|| EdgeIdx::null())
+            .unwrap_or_else(EdgeIdx::null)
     }
 
     #[inline]
