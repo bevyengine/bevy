@@ -209,6 +209,25 @@ macro_rules! impl_methods {
                 self.value
             }
 
+            /// Returns a `Mut<>` with a smaller lifetime.
+            /// This is useful if you have `&mut
+            #[doc = stringify!($name)]
+            /// <T>`, but you need a `Mut<T>`.
+            ///
+            /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
+            /// will not affect the original.
+            pub fn reborrow(&mut self) -> Mut<'_, $target> {
+                Mut {
+                    value: self.value,
+                    ticks: Ticks {
+                        added: self.ticks.added,
+                        changed: self.ticks.changed,
+                        last_change_tick: self.ticks.last_change_tick,
+                        change_tick: self.ticks.change_tick,
+                    }
+                }
+            }
+
             /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
             ///
             /// You should never modify the argument passed to the closure -- if you want to modify the data
@@ -425,6 +444,24 @@ impl<'a> MutUntyped<'a> {
     pub fn into_inner(mut self) -> PtrMut<'a> {
         self.set_changed();
         self.value
+    }
+
+    /// Returns a [`MutUntyped`] with a smaller lifetime.
+    /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
+    ///
+    /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
+    /// will not affect the original.
+    #[inline]
+    pub fn reborrow(&mut self) -> MutUntyped {
+        MutUntyped {
+            value: self.value.reborrow(),
+            ticks: Ticks {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                last_change_tick: self.ticks.last_change_tick,
+                change_tick: self.ticks.change_tick,
+            },
+        }
     }
 
     /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
