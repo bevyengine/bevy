@@ -1268,6 +1268,15 @@ mod tests {
     }
 
     #[test]
+    fn non_send_resource_points_to_distinct_data() {
+        let mut world = World::default();
+        world.insert_resource(A(123));
+        world.insert_non_send_resource(A(456));
+        assert_eq!(*world.resource::<A>(), A(123));
+        assert_eq!(*world.non_send_resource::<A>(), A(456));
+    }
+
+    #[test]
     #[should_panic]
     fn non_send_resource_panic() {
         let mut world = World::default();
@@ -1407,35 +1416,29 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource_scope() {
-        let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
-        world.resource_scope(|world: &mut World, mut value: Mut<NonSendA>| {
-            value.0 += 1;
-            assert!(!world.contains_resource::<NonSendA>());
-        });
-        assert_eq!(world.non_send_resource::<NonSendA>().0, 1);
-    }
-
-    #[test]
     #[should_panic(
-        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSendA off of the main thread"
+        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendA from thread"
     )]
-    fn non_send_resource_scope_from_different_thread() {
+    fn non_send_resource_drop_from_different_thread() {
         let mut world = World::default();
         world.insert_non_send_resource(NonSendA::default());
 
         let thread = std::thread::spawn(move || {
-            // Accessing the non-send resource on a different thread
+            // Dropping the non-send resource on a different thread
             // Should result in a panic
-            world.resource_scope(|_: &mut World, mut value: Mut<NonSendA>| {
-                value.0 += 1;
-            });
+            drop(world);
         });
 
         if let Err(err) = thread.join() {
             std::panic::resume_unwind(err);
         }
+    }
+
+    #[test]
+    fn non_send_resource_drop_from_same_thread() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+        drop(world);
     }
 
     #[test]
