@@ -1,19 +1,19 @@
 use hashbrown::HashMap;
-use slotmap::{SecondaryMap, SlotMap};
+use slotmap::{HopSlotMap, SecondaryMap};
 
 use super::{EdgeIdx, NodeIdx};
 
 pub struct SimpleMapGraph<N, E, const DIRECTED: bool> {
-    nodes: SlotMap<NodeIdx, N>,
-    edges: SlotMap<EdgeIdx, E>,
+    nodes: HopSlotMap<NodeIdx, N>,
+    edges: HopSlotMap<EdgeIdx, E>,
     adjacencies: SecondaryMap<NodeIdx, HashMap<NodeIdx, EdgeIdx>>,
 }
 
 impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
     pub fn new() -> Self {
         Self {
-            nodes: SlotMap::with_key(),
-            edges: SlotMap::with_key(),
+            nodes: HopSlotMap::with_key(),
+            edges: HopSlotMap::with_key(),
             adjacencies: SecondaryMap::new(),
         }
     }
