@@ -89,6 +89,13 @@ flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
+symphonia-aac = ["bevy_internal/symphonia-aac"]
+symphonia-all = ["bevy_internal/symphonia-all"]
+symphonia-flac = ["bevy_internal/symphonia-flac"]
+symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
+symphonia-mp3 = ["bevy_internal/symphonia-mp3"]
+symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
+symphonia-wav = ["bevy_internal/symphonia-wav"]
 
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_internal/filesystem_watcher"]
