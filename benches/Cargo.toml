@@ -13,6 +13,7 @@ rand_chacha = "0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
 bevy_app = { path = "../crates/bevy_app" }
 bevy_ecs = { path = "../crates/bevy_ecs" }
+bevy_graph = { path = "../crates/bevy_graph" }
 bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
@@ -29,6 +30,11 @@ harness = false
 [[bench]]
 name = "ecs"
 path = "benches/bevy_ecs/benches.rs"
+harness = false
+
+[[bench]]
+name = "map_graph"
+path = "benches/bevy_graph/map.rs"
 harness = false
 
 [[bench]]
