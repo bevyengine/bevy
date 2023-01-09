@@ -38,7 +38,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
 
     #[inline]
     fn edge_id_between(&self, from: NodeIdx, to: NodeIdx) -> Option<EdgeIdx> {
-        self.adjacencies.get(from)?.get(&to).map(|idx| *idx)
+        self.adjacencies.get(from)?.get(&to).cloned()
     }
 
     #[inline]
