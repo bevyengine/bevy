@@ -60,18 +60,18 @@ impl Default for ThreadExecutor {
 }
 
 impl ThreadExecutor {
-    /// create a new `[ThreadExecutor]`
+    /// create a new [`ThreadExecutor`]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Gets the `[ThreadSpawner]` for the thread executor.
+    /// Gets the [`ThreadExecutorSpawner`] for the thread executor.
     /// Use this to spawn tasks that run on the thread this was instantiated on.
     pub fn spawner(&self) -> ThreadExecutorSpawner<'static> {
         ThreadExecutorSpawner(self.executor.clone())
     }
 
-    /// Gets the `[ThreadTicker]` for this executor.
+    /// Gets the [`ThreadExecutorTicker`] for this executor.
     /// Use this to tick the executor.
     /// It only returns the ticker if it's on the thread the executor was created on
     /// and returns `None` otherwise.

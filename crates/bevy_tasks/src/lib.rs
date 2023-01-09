@@ -25,7 +25,7 @@ pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 #[cfg(not(target_arch = "wasm32"))]
 mod thread_executor;
 #[cfg(not(target_arch = "wasm32"))]
-pub use thread_executor::ThreadExecutor;
+pub use thread_executor::{ThreadExecutor, ThreadExecutorSpawner, ThreadExecutorTicker};
 
 mod iter;
 pub use iter::ParallelIterator;
