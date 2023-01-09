@@ -25,6 +25,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         })
         .with_children(|parent| {
+            // Adding the slider
             parent
                 .spawn(SliderBundle {
                     style: Style {
@@ -36,6 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
+                    // Adding the slider handle
                     parent.spawn(SliderHandleBundle {
                         style: Style {
                             size: Size::new(Val::Px(15.), Val::Px(20.)),
@@ -60,5 +62,5 @@ fn update(slider_query: Query<&Slider>, mut text_query: Query<&mut Text>) {
     let slider = slider_query.single();
     let mut text = text_query.single_mut();
 
-    text.sections[0].value = format!("{}", (slider.value() * 100.).round());
+    text.sections[0].value = format!("{}", slider.value().round());
 }
