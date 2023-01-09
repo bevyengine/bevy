@@ -12,8 +12,8 @@ pub struct SimpleMapGraph<N, E> {
 impl<N, E> SimpleMapGraph<N, E> {
     pub fn new() -> Self {
         Self {
-            nodes: SlotMap::new(),
-            edges: SlotMap::new(),
+            nodes: SlotMap::with_key(),
+            edges: SlotMap::with_key(),
             adjacencies: HashMap::new(),
         }
     }
