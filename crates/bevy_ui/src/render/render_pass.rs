@@ -76,16 +76,17 @@ impl Node for UiPassNode {
         } else {
             input_view_entity
         };
-        let pass_descriptor = RenderPassDescriptor {
+        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
                 load: LoadOp::Load,
                 store: true,
             }))],
             depth_stencil_attachment: None,
-        };
+        });
 
-        transparent_phase.render(world, render_context, view_entity, None, pass_descriptor);
+        transparent_phase.render(&mut render_pass, world, view_entity);
+
         Ok(())
     }
 }
@@ -101,6 +102,11 @@ impl PhaseItem for TransparentUi {
     type SortKey = FloatOrd;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         self.sort_key
     }
@@ -108,13 +114,6 @@ impl PhaseItem for TransparentUi {
     #[inline]
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
-    }
-}
-
-impl EntityPhaseItem for TransparentUi {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -133,16 +132,18 @@ pub type DrawUi = (
 );
 
 pub struct SetUiViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetUiViewBindGroup<I> {
-    type Param = (SRes<UiMeta>, SQuery<Read<ViewUniformOffset>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
+    type Param = SRes<UiMeta>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemWorldQuery = ();
 
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (ui_meta, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        view_uniform: &'w ViewUniformOffset,
+        _entity: (),
+        ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform = view_query.get(view).unwrap();
         pass.set_bind_group(
             I,
             ui_meta.into_inner().view_bind_group.as_ref().unwrap(),
@@ -152,34 +153,38 @@ impl<const I: usize> EntityRenderCommand for SetUiViewBindGroup<I> {
     }
 }
 pub struct SetUiTextureBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetUiTextureBindGroup<I> {
-    type Param = (SRes<UiImageBindGroups>, SQuery<Read<UiBatch>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
+    type Param = SRes<UiImageBindGroups>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<UiBatch>;
 
+    #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (image_bind_groups, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        batch: &'w UiBatch,
+        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let batch = query_batch.get(item).unwrap();
         let image_bind_groups = image_bind_groups.into_inner();
-
         pass.set_bind_group(I, image_bind_groups.values.get(&batch.image).unwrap(), &[]);
         RenderCommandResult::Success
     }
 }
 pub struct DrawUiNode;
-impl EntityRenderCommand for DrawUiNode {
-    type Param = (SRes<UiMeta>, SQuery<Read<UiBatch>>);
+impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
+    type Param = SRes<UiMeta>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<UiBatch>;
 
+    #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (ui_meta, query_batch): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        batch: &'w UiBatch,
+        ui_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let batch = query_batch.get(item).unwrap();
-
         pass.set_vertex_buffer(0, ui_meta.into_inner().vertices.buffer().unwrap().slice(..));
         pass.draw(batch.range.clone(), 0..1);
         RenderCommandResult::Success

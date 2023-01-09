@@ -493,7 +493,8 @@ mod tests {
         #[uuid = "44115972-f31b-46e5-be5c-2b9aece6a52f"]
         struct MyAsset;
         let mut app = App::new();
-        app.add_plugin(bevy_core::CorePlugin::default())
+        app.add_plugin(bevy_core::TaskPoolPlugin::default())
+            .add_plugin(bevy_core::TypeRegistrationPlugin::default())
             .add_plugin(crate::AssetPlugin::default());
         app.add_asset::<MyAsset>();
         let mut assets_before = app.world.resource_mut::<Assets<MyAsset>>();
