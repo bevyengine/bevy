@@ -72,7 +72,7 @@ pub struct BloomSettings {
     /// Tightens how much the light scatters (default: 1.0).
     ///
     /// Valid range:
-    /// * 0.0 - maximum scattering angle is 0deg (no scattering)
+    /// * 0.0 - maximum scattering angle is 0 degrees (no scattering)
     /// * 1.0 - maximum scattering angle is 90deg
     pub high_pass_frequency: f32,
 
