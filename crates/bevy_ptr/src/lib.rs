@@ -121,10 +121,6 @@ impl<'a> Ptr<'a> {
 
     /// Transforms this [`Ptr<T>`] into a `&T` with the same lifetime
     ///
-    /// # Panics
-    /// In debug builds, this function will panic if the pointer is not properly
-    /// aligned for `T`.
-    ///
     /// # Safety
     /// Must point to a valid `T`
     #[inline]
@@ -163,10 +159,6 @@ impl<'a> PtrMut<'a> {
     }
 
     /// Transforms this [`PtrMut<T>`] into a `&mut T` with the same lifetime
-    ///
-    /// # Panics
-    /// In debug builds, this function will panic if the pointer is not properly
-    /// aligned for `T`.
     ///
     /// # Safety
     /// Must point to a valid `T`
@@ -221,10 +213,6 @@ impl<'a> OwningPtr<'a> {
 
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
-    /// # Panics
-    /// In debug builds, this function will panic if the pointer is not properly
-    /// aligned for `T`.
-    ///
     /// # Safety
     /// Must point to a valid `T`.
     #[inline]
@@ -233,10 +221,6 @@ impl<'a> OwningPtr<'a> {
     }
 
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
-    ///
-    /// # Panics
-    /// In debug builds, this function will panic if the pointer is not properly
-    /// aligned for `T`.
     ///
     /// # Safety
     /// Must point to a valid `T`.
