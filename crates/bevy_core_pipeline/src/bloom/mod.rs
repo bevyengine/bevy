@@ -49,7 +49,7 @@ impl BloomSettings {
     /// blended into higher frequency ones using this function to
     /// calculate blend levels every time. The final (highest frequency)
     /// pyramid level in not blended into anything therefore this function
-    /// is not applied to it. As a result, the *mip* Earameter of 0 indicates
+    /// is not applied to it. As a result, the *mip* parameter of 0 indicates
     /// the second-highest frequency pyramid level (in our case that is the
     /// 0th mip of the bloom texture with the original image being the
     /// actual highest frequency level).
