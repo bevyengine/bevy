@@ -105,7 +105,7 @@ fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
         // we use a scope here to run any main thread tasks that the render world still needs to run
         // while we wait for the render world to be received.
         let mut render_app = ComputeTaskPool::get()
-            .scope_with_executor(true, Some(main_thread_executor.0.clone()), |s| {
+            .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
                 s.spawn(async {
                     let receiver = world.get_resource::<RenderToMainAppReceiver>().unwrap();
                     receiver.0.recv().await.unwrap()

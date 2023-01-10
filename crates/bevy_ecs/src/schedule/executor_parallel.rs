@@ -20,7 +20,7 @@ use scheduling_event::*;
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Default)]
-pub struct MainThreadExecutor(pub Arc<ThreadExecutor>);
+pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
 
 impl MainThreadExecutor {
     pub fn new() -> Self {
@@ -144,9 +144,7 @@ impl ParallelSystemExecutor for ParallelExecutor {
             }
         }
 
-        let thread_executor = world
-            .get_resource::<MainThreadExecutor>()
-            .map(|e| e.0.clone());
+        let thread_executor = world.get_resource::<MainThreadExecutor>().map(|e| &*e.0);
 
         ComputeTaskPool::init(TaskPool::default).scope_with_executor(
             false,

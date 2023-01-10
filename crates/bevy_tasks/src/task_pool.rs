@@ -272,7 +272,8 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        self.scope_with_executor(true, None, f)
+        Self::THREAD_EXECUTOR
+            .with(|thread_executor| self.scope_with_executor_inner(true, thread_executor, f))
     }
 
     /// This allows passing an external executor to spawn tasks on. When you pass an external executor
@@ -281,7 +282,26 @@ impl TaskPool {
     pub fn scope_with_executor<'env, F, T>(
         &self,
         tick_task_pool_executor: bool,
-        thread_executor: Option<Arc<ThreadExecutor>>,
+        thread_executor: Option<&ThreadExecutor>,
+        f: F,
+    ) -> Vec<T>
+    where
+        F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
+        T: Send + 'static,
+    {
+        if let Some(thread_executor) = thread_executor {
+            self.scope_with_executor_inner(tick_task_pool_executor, thread_executor, f)
+        } else {
+            Self::THREAD_EXECUTOR.with(|thread_executor| {
+                self.scope_with_executor_inner(tick_task_pool_executor, thread_executor, f)
+            })
+        }
+    }
+
+    fn scope_with_executor_inner<'env, F, T>(
+        &self,
+        tick_task_pool_executor: bool,
+        thread_executor: &ThreadExecutor,
         f: F,
     ) -> Vec<T>
     where
@@ -295,33 +315,28 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         let executor: &async_executor::Executor = &self.executor;
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-
-        let thread_executor = if let Some(thread_executor) = thread_executor {
-            thread_executor
-        } else {
-            Arc::new(ThreadExecutor::new())
-        };
-        let thread_spawner = thread_executor.spawner();
-        let thread_spawner: ThreadSpawner<'env> = unsafe { mem::transmute(thread_spawner) };
+        let thread_executor: &'env ThreadExecutor<'env> =
+            unsafe { mem::transmute(thread_executor) };
         let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
-            thread_spawner,
+            thread_executor,
             spawned: spawned_ref,
             scope: PhantomData,
             env: PhantomData,
         };
 
-            let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
+        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
-            f(scope_ref);
+        f(scope_ref);
 
-            if spawned.is_empty() {
-                Vec::new()
-            } else {
+        if spawned.is_empty() {
+            Vec::new()
+        } else {
+            future::block_on(async move {
                 let get_results = async {
                     let mut results = Vec::with_capacity(spawned_ref.len());
                     while let Ok(task) = spawned_ref.pop() {
