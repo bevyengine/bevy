@@ -62,12 +62,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
-        self.adjacencies
-            .get(node)
-            .unwrap()
-            .iter()
-            .cloned()
-            .collect()
+        self.adjacencies.get(node).unwrap().to_vec()
     }
 }
 

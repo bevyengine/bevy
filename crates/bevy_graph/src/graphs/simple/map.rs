@@ -62,7 +62,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
             .get(node)
             .unwrap()
             .iter()
-            .map(|(node, edge)| (node.clone(), edge.clone()))
+            .map(|(node, edge)| (*node, *edge))
             .collect()
     }
 }
