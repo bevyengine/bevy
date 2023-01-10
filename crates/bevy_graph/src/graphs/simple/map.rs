@@ -56,6 +56,15 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
         self.edges.get_mut(edge)
     }
+
+    fn edges_of(&self, node: NodeIdx) -> Vec<EdgeIdx> {
+        self.adjacencies
+            .get(node)
+            .unwrap()
+            .values()
+            .cloned()
+            .collect()
+    }
 }
 
 impl<N, E> UndirectedGraph<N, E> for SimpleMapGraph<N, E, false> {
@@ -117,7 +126,7 @@ mod test {
         let jake = map_graph.new_node(Person::Jake);
         let michael = map_graph.new_node(Person::Michael);
 
-        let _best_friends = map_graph.new_edge(jake, michael, STRENGTH);
+        let best_friends = map_graph.new_edge(jake, michael, STRENGTH);
 
         let strength_jake = map_graph.edge_between(jake, michael).get(&map_graph);
         assert!(strength_jake.is_some());
@@ -126,6 +135,9 @@ mod test {
         let strength_michael = map_graph.edge_between(michael, jake).get(&map_graph);
         assert!(strength_michael.is_some());
         assert_eq!(strength_michael.unwrap(), &STRENGTH);
+
+        assert_eq!(map_graph.edges_of(jake), vec![best_friends]);
+        assert_eq!(map_graph.edges_of(michael), vec![best_friends]);
 
         map_graph.remove_edge_between(michael, jake);
 
@@ -145,7 +157,7 @@ mod test {
         let jake = map_graph.new_node(Person::Jake);
         let jennifer = map_graph.new_node(Person::Jennifer);
 
-        let _oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH);
+        let oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH);
 
         let strength_jake = map_graph.edge_between(jake, jennifer).get(&map_graph);
         assert!(strength_jake.is_some());
@@ -153,6 +165,9 @@ mod test {
 
         let strength_jennifer = map_graph.edge_between(jennifer, jake).get(&map_graph);
         assert!(strength_jennifer.is_none());
+
+        assert_eq!(map_graph.edges_of(jake), vec![oneway_crush]);
+        assert_eq!(map_graph.edges_of(jennifer), vec![]);
 
         map_graph.remove_edge_between(jake, jennifer);
 
