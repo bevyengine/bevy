@@ -10,9 +10,10 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+rust-version = "1.66.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
+exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
 members = [
   "crates/*",
   "examples/android",
@@ -89,6 +90,13 @@ flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
+symphonia-aac = ["bevy_internal/symphonia-aac"]
+symphonia-all = ["bevy_internal/symphonia-all"]
+symphonia-flac = ["bevy_internal/symphonia-flac"]
+symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
+symphonia-mp3 = ["bevy_internal/symphonia-mp3"]
+symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
+symphonia-wav = ["bevy_internal/symphonia-wav"]
 
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_internal/filesystem_watcher"]

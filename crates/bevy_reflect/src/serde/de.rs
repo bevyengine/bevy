@@ -257,6 +257,54 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
     }
 }
 
+/// A deserializer for type registrations.
+///
+/// This will return a [`&TypeRegistration`] corresponding to the given type.
+/// This deserializer expects a string containing the _full_ [type name] of the
+/// type to find the `TypeRegistration` of.
+///
+/// [`&TypeRegistration`]: crate::TypeRegistration
+/// [type name]: std::any::type_name
+pub struct TypeRegistrationDeserializer<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a> TypeRegistrationDeserializer<'a> {
+    pub fn new(registry: &'a TypeRegistry) -> Self {
+        Self { registry }
+    }
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
+    type Value = &'a TypeRegistration;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct TypeRegistrationVisitor<'a>(&'a TypeRegistry);
+
+        impl<'de, 'a> Visitor<'de> for TypeRegistrationVisitor<'a> {
+            type Value = &'a TypeRegistration;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("string containing `type` entry for the reflected value")
+            }
+
+            fn visit_str<E>(self, type_name: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                self.0.get_with_name(type_name).ok_or_else(|| {
+                    Error::custom(format_args!("No registration found for `{type_name}`"))
+                })
+            }
+        }
+
+        deserializer.deserialize_str(TypeRegistrationVisitor(self.registry))
+    }
+}
+
 struct UntypedReflectDeserializerVisitor<'a> {
     registry: &'a TypeRegistry,
 }
@@ -272,13 +320,9 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let type_name = map
-            .next_key::<String>()?
+        let registration = map
+            .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
             .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
-
-        let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
-            Error::custom(format_args!("No registration found for `{type_name}`"))
-        })?;
         let value = map.next_value_seed(TypedReflectDeserializer {
             registration,
             registry: self.registry,
@@ -1536,10 +1580,11 @@ mod tests {
             108, 101, 144, 146, 100, 145, 101,
         ];
 
-        let deserializer = UntypedReflectDeserializer::new(&registry);
+        let mut reader = std::io::BufReader::new(input.as_slice());
 
+        let deserializer = UntypedReflectDeserializer::new(&registry);
         let dynamic_output = deserializer
-            .deserialize(&mut rmp_serde::Deserializer::new(input.as_slice()))
+            .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
             .unwrap();
 
         let output = <MyStruct as FromReflect>::from_reflect(dynamic_output.as_ref()).unwrap();

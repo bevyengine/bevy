@@ -33,7 +33,7 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 ///
 /// To ensure that changes are only triggered when the value actually differs,
 /// check if the value would change before assignment, such as by checking that `new != old`.
-/// You must be *sure* that you are not mutably derefencing in this process.
+/// You must be *sure* that you are not mutably dereferencing in this process.
 ///
 /// [`set_if_neq`](DetectChanges::set_if_neq) is a helper
 /// method for this common functionality.
@@ -209,6 +209,25 @@ macro_rules! impl_methods {
                 self.value
             }
 
+            /// Returns a `Mut<>` with a smaller lifetime.
+            /// This is useful if you have `&mut
+            #[doc = stringify!($name)]
+            /// <T>`, but you need a `Mut<T>`.
+            ///
+            /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
+            /// will not affect the original.
+            pub fn reborrow(&mut self) -> Mut<'_, $target> {
+                Mut {
+                    value: self.value,
+                    ticks: Ticks {
+                        added: self.ticks.added,
+                        changed: self.ticks.changed,
+                        last_change_tick: self.ticks.last_change_tick,
+                        change_tick: self.ticks.change_tick,
+                    }
+                }
+            }
+
             /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
             ///
             /// You should never modify the argument passed to the closure -- if you want to modify the data
@@ -216,20 +235,17 @@ macro_rules! impl_methods {
             ///
             /// ```rust
             /// # use bevy_ecs::prelude::*;
-            /// # pub struct Vec2;
+            /// # #[derive(PartialEq)] pub struct Vec2;
             /// # impl Vec2 { pub const ZERO: Self = Self; }
             /// # #[derive(Component)] pub struct Transform { translation: Vec2 }
-            /// # mod my_utils {
-            /// #   pub fn set_if_not_equal<T>(x: bevy_ecs::prelude::Mut<T>, val: T) { unimplemented!() }
-            /// # }
             /// // When run, zeroes the translation of every entity.
             /// fn reset_positions(mut transforms: Query<&mut Transform>) {
             ///     for transform in &mut transforms {
             ///         // We pinky promise not to modify `t` within the closure.
             ///         // Breaking this promise will result in logic errors, but will never cause undefined behavior.
-            ///         let translation = transform.map_unchanged(|t| &mut t.translation);
+            ///         let mut translation = transform.map_unchanged(|t| &mut t.translation);
             ///         // Only reset the translation if it isn't already zero;
-            ///         my_utils::set_if_not_equal(translation, Vec2::ZERO);
+            ///         translation.set_if_neq(Vec2::ZERO);
             ///     }
             /// }
             /// # bevy_ecs::system::assert_is_system(reset_positions);
@@ -428,6 +444,24 @@ impl<'a> MutUntyped<'a> {
     pub fn into_inner(mut self) -> PtrMut<'a> {
         self.set_changed();
         self.value
+    }
+
+    /// Returns a [`MutUntyped`] with a smaller lifetime.
+    /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
+    ///
+    /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
+    /// will not affect the original.
+    #[inline]
+    pub fn reborrow(&mut self) -> MutUntyped {
+        MutUntyped {
+            value: self.value.reborrow(),
+            ticks: Ticks {
+                added: self.ticks.added,
+                changed: self.ticks.changed,
+                last_change_tick: self.ticks.last_change_tick,
+                change_tick: self.ticks.change_tick,
+            },
+        }
     }
 
     /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
