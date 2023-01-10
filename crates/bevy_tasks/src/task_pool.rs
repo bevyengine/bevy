@@ -10,10 +10,7 @@ use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, pin, FutureExt};
 
-use crate::{
-    thread_executor::{ThreadExecutor, ThreadExecutorSpawner},
-    Task,
-};
+use crate::{thread_executor::ThreadExecutor, Task};
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
 
@@ -111,7 +108,7 @@ pub struct TaskPool {
 impl TaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
-        static THREAD_EXECUTOR: ThreadExecutor = ThreadExecutor::new();
+        static THREAD_EXECUTOR: ThreadExecutor<'static> = ThreadExecutor::new();
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -283,16 +280,15 @@ impl TaskPool {
             // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
             let executor: &async_executor::Executor = &self.executor;
             let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-            let thread_spawner = thread_executor.spawner();
-            let thread_spawner: ThreadExecutorSpawner<'env> =
-                unsafe { mem::transmute(thread_spawner) };
+            let thread_executor: &'env ThreadExecutor<'env> =
+                unsafe { mem::transmute(thread_executor) };
             let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
             let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
                 unsafe { mem::transmute(&spawned) };
 
             let scope = Scope {
                 executor,
-                thread_spawner,
+                thread_executor,
                 spawned: spawned_ref,
                 scope: PhantomData,
                 env: PhantomData,
@@ -402,7 +398,7 @@ impl Drop for TaskPool {
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
-    thread_spawner: ThreadExecutorSpawner<'scope>,
+    thread_executor: &'scope ThreadExecutor<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -432,7 +428,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.thread_spawner.spawn(f).fallible();
+        let task = self.thread_executor.spawn(f).fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();

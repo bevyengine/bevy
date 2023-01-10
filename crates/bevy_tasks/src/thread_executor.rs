@@ -45,12 +45,12 @@ use futures_lite::Future;
 /// assert_eq!(count.load(Ordering::Relaxed), 1);
 /// ```
 #[derive(Debug, Clone)]
-pub struct ThreadExecutor {
-    executor: Arc<Executor<'static>>,
+pub struct ThreadExecutor<'a> {
+    executor: Arc<Executor<'a>>,
     thread_id: ThreadId,
 }
 
-impl Default for ThreadExecutor {
+impl<'a> Default for ThreadExecutor<'a> {
     fn default() -> Self {
         Self {
             executor: Arc::new(Executor::new()),
@@ -59,23 +59,22 @@ impl Default for ThreadExecutor {
     }
 }
 
-impl ThreadExecutor {
+impl<'a> ThreadExecutor<'a> {
     /// create a new [`ThreadExecutor`]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Gets the [`ThreadExecutorSpawner`] for the thread executor.
-    /// Use this to spawn tasks that run on the thread this was instantiated on.
-    pub fn spawner(&self) -> ThreadExecutorSpawner<'static> {
-        ThreadExecutorSpawner(self.executor.clone())
+    /// Spawn a task on the thread executor
+    pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
+        self.executor.spawn(future)
     }
 
     /// Gets the [`ThreadExecutorTicker`] for this executor.
     /// Use this to tick the executor.
     /// It only returns the ticker if it's on the thread the executor was created on
     /// and returns `None` otherwise.
-    pub fn ticker(&self) -> Option<ThreadExecutorTicker> {
+    pub fn ticker(&self) -> Option<ThreadExecutorTicker<'a>> {
         if thread::current().id() == self.thread_id {
             return Some(ThreadExecutorTicker {
                 executor: self.executor.clone(),
@@ -86,29 +85,19 @@ impl ThreadExecutor {
     }
 }
 
-/// Used to spawn on the [`ThreadExecutor`]
-#[derive(Debug, Clone)]
-pub struct ThreadExecutorSpawner<'a>(Arc<Executor<'a>>);
-impl<'a> ThreadExecutorSpawner<'a> {
-    /// Spawn a task on the thread executor
-    pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
-        self.0.spawn(future)
-    }
-}
-
 /// Used to tick the [`ThreadExecutor`]. The executor does not
 /// make progress unless it is manually ticked on the thread it was
 /// created on.
 #[derive(Debug)]
-pub struct ThreadExecutorTicker {
-    executor: Arc<Executor<'static>>,
+pub struct ThreadExecutorTicker<'a> {
+    executor: Arc<Executor<'a>>,
     // make type not send or sync
     _marker: PhantomData<*const ()>,
 }
-impl ThreadExecutorTicker {
+impl<'a> ThreadExecutorTicker<'a> {
     /// Tick the thread executor.
-    pub fn tick(&self) -> impl Future<Output = ()> + '_ {
-        self.executor.tick()
+    pub async fn tick(&self) {
+        self.executor.tick().await;
     }
 
     /// Synchronously try to tick a task on the executor.
