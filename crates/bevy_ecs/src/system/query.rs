@@ -295,6 +295,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w,
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Creates a new query.
     ///
+    /// # Panics
+    ///
+    /// This will panic if the world used to create `state` is not `world`.
+    ///
     /// # Safety
     ///
     /// This will create a query that could violate memory safety rules. Make sure that this is only
@@ -306,6 +310,8 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         last_change_tick: u32,
         change_tick: u32,
     ) -> Self {
+        state.validate_world(world);
+
         Self {
             force_read_only_component_access: false,
             world,

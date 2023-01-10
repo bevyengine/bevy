@@ -1202,4 +1202,15 @@ mod tests {
             );
         });
     }
+
+    #[test]
+    #[should_panic = "Attempted to use bevy_ecs::query::state::QueryState<()> with a mismatched World."]
+    fn query_validates_world_id() {
+        let mut world1 = World::new();
+        let world2 = World::new();
+        let qstate = world1.query::<()>();
+        // SAFETY: doesnt access anything
+        let query = unsafe { Query::new(&world2, &qstate, 0, 0) };
+        query.iter();
+    }
 }
