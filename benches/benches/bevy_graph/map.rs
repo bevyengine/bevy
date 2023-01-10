@@ -1,4 +1,8 @@
-use bevy_graph::{graphs::simple::SimpleMapGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph};
+use bevy_graph::graphs::{
+    keys::{EdgeIdx, NodeIdx},
+    simple::SimpleMapGraph,
+    Graph, UndirectedGraph,
+};
 use bevy_utils::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
@@ -41,7 +45,12 @@ fn nodes_10_000_undirected(c: &mut Criterion) {
     c.bench_function("nodes_10_000_remove_edge", |b| {
         b.iter(|| {
             for i in 1..10_000 {
-                black_box(map_graph.remove_edge_between(nodes[i - 1], nodes[i]));
+                black_box(
+                    map_graph
+                        .edge_between(nodes[i - 1], nodes[i])
+                        .remove_undirected(&mut map_graph)
+                        .unwrap(),
+                );
             }
         })
     });
