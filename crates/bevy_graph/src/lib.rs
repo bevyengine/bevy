@@ -22,6 +22,7 @@ impl EdgeIdx {
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 pub trait Graph<N, E> {
     fn new_node(&mut self, node: N) -> NodeIdx;
 
