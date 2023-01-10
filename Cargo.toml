@@ -139,6 +139,16 @@ hidden = true
 
 # 2D Rendering
 [[example]]
+name = "2d_bloom"
+path = "examples/2d/2d_bloom.rs"
+
+[package.metadata.example.2d_bloom]
+name = "2D Bloom"
+description = "Illustrates bloom post-processing in 2d"
+category = "2D Rendering"
+wasm = false
+
+[[example]]
 name = "move_sprite"
 path = "examples/2d/move_sprite.rs"
 
@@ -320,11 +330,11 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "bloom"
-path = "examples/3d/bloom.rs"
+name = "3d_bloom"
+path = "examples/3d/3d_bloom.rs"
 
-[package.metadata.example.bloom]
-name = "Bloom"
+[package.metadata.example.3d_bloom]
+name = "3D Bloom"
 description = "Illustrates bloom configuration using HDR and emissive materials"
 category = "3D Rendering"
 wasm = false
