@@ -6,6 +6,7 @@
 pub mod components;
 mod systems;
 pub use crate::systems::propagate_transforms;
+pub use crate::systems::sync_simple_transforms;
 
 #[doc(hidden)]
 pub mod prelude {
