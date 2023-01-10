@@ -42,12 +42,12 @@ use futures_lite::Future;
 /// assert_eq!(count.load(Ordering::Relaxed), 1);
 /// ```
 #[derive(Debug)]
-pub struct ThreadExecutor<'a> {
-    executor: Executor<'a>,
+pub struct ThreadExecutor<'task> {
+    executor: Executor<'task>,
     thread_id: ThreadId,
 }
 
-impl<'a> Default for ThreadExecutor<'a> {
+impl<'task> Default for ThreadExecutor<'task> {
     fn default() -> Self {
         Self {
             executor: Executor::new(),
@@ -56,14 +56,17 @@ impl<'a> Default for ThreadExecutor<'a> {
     }
 }
 
-impl<'a> ThreadExecutor<'a> {
+impl<'task> ThreadExecutor<'task> {
     /// create a new [`ThreadExecutor`]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Spawn a task on the thread executor
-    pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
+    pub fn spawn<T: Send + 'task>(
+        &self,
+        future: impl Future<Output = T> + Send + 'task,
+    ) -> Task<T> {
         self.executor.spawn(future)
     }
 
@@ -71,7 +74,7 @@ impl<'a> ThreadExecutor<'a> {
     /// Use this to tick the executor.
     /// It only returns the ticker if it's on the thread the executor was created on
     /// and returns `None` otherwise.
-    pub fn ticker<'b>(&'b self) -> Option<ThreadExecutorTicker<'a, 'b>> {
+    pub fn ticker<'ticker>(&'ticker self) -> Option<ThreadExecutorTicker<'task, 'ticker>> {
         if thread::current().id() == self.thread_id {
             return Some(ThreadExecutorTicker {
                 executor: &self.executor,
@@ -86,12 +89,12 @@ impl<'a> ThreadExecutor<'a> {
 /// make progress unless it is manually ticked on the thread it was
 /// created on.
 #[derive(Debug)]
-pub struct ThreadExecutorTicker<'a, 'b> {
-    executor: &'b Executor<'a>,
+pub struct ThreadExecutorTicker<'task, 'ticker> {
+    executor: &'ticker Executor<'task>,
     // make type not send or sync
     _marker: PhantomData<*const ()>,
 }
-impl<'a, 'b> ThreadExecutorTicker<'a, 'b> {
+impl<'task, 'ticker> ThreadExecutorTicker<'task, 'ticker> {
     /// Tick the thread executor.
     pub async fn tick(&self) {
         self.executor.tick().await;
