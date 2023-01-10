@@ -8,6 +8,8 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 /// Describe the position of an entity relative to the reference frame.
 ///
 /// * To place or move an entity, you should set its [`Transform`].
+/// * [`GlobalTransform`] is fully managed by bevy, you cannot mutate it, use
+///   [`Transform`] instead.
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * For transform hierarchies to work correctly, you must have both a [`Transform`] and a [`GlobalTransform`].
 ///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
@@ -28,9 +30,9 @@ use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 ///
 /// # Examples
 ///
-/// - [`global_vs_local_translation`]
+/// - [`transform`]
 ///
-/// [`global_vs_local_translation`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/global_vs_local_translation.rs
+/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
 #[derive(Component, Debug, PartialEq, Clone, Copy, Reflect, FromReflect)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[reflect(Component, Default, PartialEq)]
@@ -167,12 +169,6 @@ impl GlobalTransform {
     #[inline]
     pub fn translation(&self) -> Vec3 {
         self.0.translation.into()
-    }
-
-    /// Mutably access the internal translation.
-    #[inline]
-    pub fn translation_mut(&mut self) -> &mut Vec3A {
-        &mut self.0.translation
     }
 
     /// Get the translation as a [`Vec3A`].

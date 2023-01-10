@@ -1384,17 +1384,6 @@ description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
 wasm = false
 
-# Transforms
-[[example]]
-name = "global_vs_local_translation"
-path = "examples/transforms/global_vs_local_translation.rs"
-
-[package.metadata.example.global_vs_local_translation]
-name = "Global / Local Translation"
-description = "Illustrates the difference between direction of a translation in respect to local object or global object Transform"
-category = "Transforms"
-wasm = true
-
 [[example]]
 name = "3d_rotation"
 path = "examples/transforms/3d_rotation.rs"

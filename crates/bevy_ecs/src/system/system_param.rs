@@ -223,7 +223,13 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        Query::new(world, state, system_meta.last_change_tick, change_tick)
+        Query::new(
+            world,
+            state,
+            system_meta.last_change_tick,
+            change_tick,
+            false,
+        )
     }
 }
 
@@ -1639,4 +1645,13 @@ mod tests {
 
     #[derive(SystemParam)]
     pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
+
+    // regression test for https://github.com/bevyengine/bevy/issues/7103.
+    #[derive(SystemParam)]
+    pub struct WhereParam<'w, 's, Q>
+    where
+        Q: 'static + WorldQuery,
+    {
+        _q: Query<'w, 's, Q, ()>,
+    }
 }

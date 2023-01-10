@@ -11,8 +11,7 @@ use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, FutureExt};
 
-use crate::Task;
-use crate::{thread_executor::ThreadSpawner, ThreadExecutor};
+use crate::{thread_executor::ThreadExecutor, Task};
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
 
@@ -110,6 +109,7 @@ pub struct TaskPool {
 impl TaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
+        static THREAD_EXECUTOR: ThreadExecutor<'static> = ThreadExecutor::new();
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -315,16 +315,15 @@ impl TaskPool {
             env: PhantomData,
         };
 
-        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
+            let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
-        f(scope_ref);
+            f(scope_ref);
 
-        if spawned.is_empty() {
-            Vec::new()
-        } else {
-            future::block_on(async move {
+            if spawned.is_empty() {
+                Vec::new()
+            } else {
                 let get_results = async {
-                    let mut results = Vec::with_capacity(scope.spawned.len());
+                    let mut results = Vec::with_capacity(spawned_ref.len());
                     while let Ok(task) = spawned_ref.pop() {
                         results.push(task.await.unwrap());
                     }
@@ -458,7 +457,7 @@ impl Drop for TaskPool {
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
-    thread_spawner: ThreadSpawner<'scope>,
+    thread_executor: &'scope ThreadExecutor<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -488,7 +487,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.thread_spawner.spawn(f).fallible();
+        let task = self.thread_executor.spawn(f).fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
