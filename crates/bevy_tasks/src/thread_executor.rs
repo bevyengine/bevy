@@ -21,7 +21,6 @@ use futures_lite::Future;
 /// // create some owned values that can be moved into another thread
 /// let thread_executor_clone = thread_executor.clone();
 /// let count_clone = count.clone();
-/// let thread_spawner = thread_executor.spawner();
 ///
 /// std::thread::scope(|scope| {
 ///     scope.spawn(|| {
@@ -30,7 +29,7 @@ use futures_lite::Future;
 ///         assert!(not_thread_ticker.is_none());
 ///         
 ///         // but we can spawn tasks from another thread
-///         thread_spawner.spawn(async move {
+///         thread_executor_clone.spawn(async move {
 ///             count_clone.fetch_add(1, Ordering::Relaxed);
 ///         }).detach();
 ///     });
@@ -74,10 +73,10 @@ impl<'a> ThreadExecutor<'a> {
     /// Use this to tick the executor.
     /// It only returns the ticker if it's on the thread the executor was created on
     /// and returns `None` otherwise.
-    pub fn ticker(&self) -> Option<ThreadExecutorTicker<'a>> {
+    pub fn ticker<'b>(&'b self) -> Option<ThreadExecutorTicker<'a, 'b>> {
         if thread::current().id() == self.thread_id {
             return Some(ThreadExecutorTicker {
-                executor: self.executor.clone(),
+                executor: &*self.executor,
                 _marker: PhantomData::default(),
             });
         }
@@ -89,12 +88,12 @@ impl<'a> ThreadExecutor<'a> {
 /// make progress unless it is manually ticked on the thread it was
 /// created on.
 #[derive(Debug)]
-pub struct ThreadExecutorTicker<'a> {
-    executor: Arc<Executor<'a>>,
+pub struct ThreadExecutorTicker<'a, 'b> {
+    executor: &'b Executor<'a>,
     // make type not send or sync
     _marker: PhantomData<*const ()>,
 }
-impl<'a> ThreadExecutorTicker<'a> {
+impl<'a, 'b> ThreadExecutorTicker<'a, 'b> {
     /// Tick the thread executor.
     pub async fn tick(&self) {
         self.executor.tick().await;
