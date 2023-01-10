@@ -3,13 +3,14 @@ use slotmap::{HopSlotMap, Key, SecondaryMap};
 
 use crate::{
     error::{GraphError, GraphResult},
+    graphs::Edge,
     DirectedGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph,
 };
 
 #[derive(Clone)]
 pub struct SimpleMapGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
-    edges: HopSlotMap<EdgeIdx, E>,
+    edges: HopSlotMap<EdgeIdx, Edge<E>>,
     adjacencies: SecondaryMap<NodeIdx, HashMap<NodeIdx, EdgeIdx>>,
 }
 
@@ -65,12 +66,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
 
     #[inline]
     fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
-        self.edges.get(edge)
+        self.edges.get(edge).map(|e| &e.data)
     }
 
     #[inline]
     fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
-        self.edges.get_mut(edge)
+        self.edges.get_mut(edge).map(|e| &mut e.data)
     }
 
     fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
@@ -85,7 +86,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
 
 impl<N, E> UndirectedGraph<N, E> for SimpleMapGraph<N, E, false> {
     fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
-        let idx = self.edges.insert(edge);
+        let idx = self.edges.insert(Edge {
+            src: node,
+            dst: other,
+            data: edge,
+        });
         self.adjacencies.get_mut(node).unwrap().insert(other, idx);
         self.adjacencies.get_mut(other).unwrap().insert(node, idx);
         idx
@@ -96,13 +101,17 @@ impl<N, E> UndirectedGraph<N, E> for SimpleMapGraph<N, E, false> {
 
         self.adjacencies.get_mut(other)?.remove(&node);
 
-        self.edges.remove(edge_idx)
+        self.edges.remove(edge_idx).map(|e| e.data)
     }
 }
 
 impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
-        let idx = self.edges.insert(edge);
+        let idx = self.edges.insert(Edge {
+            src: from,
+            dst: to,
+            data: edge,
+        });
         self.adjacencies.get_mut(from).unwrap().insert(to, idx);
         idx
     }
@@ -110,7 +119,7 @@ impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
     fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) -> Option<E> {
         let edge_idx = self.adjacencies.get_mut(from)?.remove(&to)?;
 
-        self.edges.remove(edge_idx)
+        self.edges.remove(edge_idx).map(|e| e.data)
     }
 }
 
