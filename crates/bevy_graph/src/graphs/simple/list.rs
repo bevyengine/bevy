@@ -2,8 +2,11 @@ use slotmap::{HopSlotMap, Key, SecondaryMap};
 
 use crate::{
     error::{GraphError, GraphResult},
-    graphs::Edge,
-    DirectedGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph,
+    graphs::{
+        edge::Edge,
+        keys::{EdgeIdx, NodeIdx},
+        DirectedGraph, Graph, UndirectedGraph,
+    },
 };
 
 #[derive(Clone)]
@@ -149,7 +152,7 @@ impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
-    use crate::{DirectedGraph, Graph, UndirectedGraph};
+    use crate::graphs::{DirectedGraph, Graph, UndirectedGraph};
 
     use super::SimpleListGraph;
 

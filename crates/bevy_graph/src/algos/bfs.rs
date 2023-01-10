@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use hashbrown::HashSet;
 
-use crate::{Graph, NodeIdx};
+use crate::graphs::{keys::NodeIdx, Graph};
 
 pub struct BreadthFirstSearch {
     queue: VecDeque<NodeIdx>,
@@ -51,7 +51,7 @@ impl BreadthFirstSearch {
 
 #[cfg(test)]
 mod test {
-    use crate::{graphs::simple::SimpleMapGraph, DirectedGraph, Graph};
+    use crate::graphs::{simple::SimpleMapGraph, DirectedGraph, Graph};
 
     #[test]
     fn bfs() {
