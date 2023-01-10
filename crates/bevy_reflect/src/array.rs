@@ -8,14 +8,38 @@ use std::{
     hash::{Hash, Hasher},
 };
 
-/// A static-sized array of [`Reflect`] items.
+/// A trait used to power [array-like] operations via [reflection].
 ///
-/// This corresponds to types like `[T; N]` (arrays).
+/// This corresponds to true Rust arrays like `[T; N]`,
+/// but also to any fixed-size linear sequence types.
+/// It is expected that implementors of this trait uphold this contract
+/// and maintain a fixed size as returned by the [`Array::len`] method.
 ///
-/// Currently, this only supports arrays of up to 32 items. It can technically
-/// contain more than 32, but the blanket [`GetTypeRegistration`] is only
-/// implemented up to the 32 item limit due to a [limitation] on `Deserialize`.
+/// Due to the [type-erasing] nature of the reflection API as a whole,
+/// this trait does not make any guarantees that the implementor's elements
+/// are homogenous (i.e. all the same type).
 ///
+/// This trait has a blanket implementation over Rust arrays of up to 32 items.
+/// This implementation can technically contain more than 32,
+/// but the blanket [`GetTypeRegistration`] is only implemented up to the 32
+/// item limit due to a [limitation] on `Deserialize`.
+///
+/// # Example
+///
+/// ```
+/// use bevy_reflect::{Reflect, Array};
+///
+/// let foo: &dyn Array = &[123_u32, 456_u32, 789_u32];
+/// assert_eq!(foo.len(), 3);
+///
+/// let field: &dyn Reflect = foo.get(0).unwrap();
+/// assert_eq!(field.downcast_ref::<u32>(), Some(&123));
+/// ```
+///
+/// [array-like]: https://doc.rust-lang.org/book/ch03-02-data-types.html#the-array-type
+/// [reflection]: crate
+/// [`List`]: crate::List
+/// [type-erasing]: https://doc.rust-lang.org/book/ch17-02-trait-objects.html
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
 pub trait Array: Reflect {
