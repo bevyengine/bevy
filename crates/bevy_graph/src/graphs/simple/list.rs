@@ -1,6 +1,9 @@
 use slotmap::{HopSlotMap, Key, SecondaryMap};
 
-use crate::{DirectedGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph};
+use crate::{
+    error::{GraphError, GraphResult},
+    DirectedGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph,
+};
 
 #[derive(Clone)]
 pub struct SimpleListGraph<N, E, const DIRECTED: bool> {
@@ -27,13 +30,21 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     #[inline]
-    fn node(&self, idx: NodeIdx) -> Option<&N> {
-        self.nodes.get(idx)
+    fn node(&self, idx: NodeIdx) -> GraphResult<&N> {
+        if let Some(node) = self.nodes.get(idx) {
+            Ok(node)
+        } else {
+            Err(GraphError::NodeDoesntExist(idx))
+        }
     }
 
     #[inline]
-    fn node_mut(&mut self, idx: NodeIdx) -> Option<&mut N> {
-        self.nodes.get_mut(idx)
+    fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N> {
+        if let Some(node) = self.nodes.get_mut(idx) {
+            Ok(node)
+        } else {
+            Err(GraphError::NodeDoesntExist(idx))
+        }
     }
 
     #[inline]

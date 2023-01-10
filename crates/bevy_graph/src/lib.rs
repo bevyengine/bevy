@@ -1,5 +1,7 @@
+pub mod error;
 pub mod graphs;
 
+use error::GraphResult;
 use slotmap::new_key_type;
 
 new_key_type! {
@@ -22,8 +24,8 @@ impl EdgeIdx {
 pub trait Graph<N, E> {
     fn new_node(&mut self, node: N) -> NodeIdx;
 
-    fn node(&self, idx: NodeIdx) -> Option<&N>;
-    fn node_mut(&mut self, idx: NodeIdx) -> Option<&mut N>;
+    fn node(&self, idx: NodeIdx) -> GraphResult<&N>;
+    fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N>;
 
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx;
 
