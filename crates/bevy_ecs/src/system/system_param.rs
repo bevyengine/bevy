@@ -1639,4 +1639,13 @@ mod tests {
 
     #[derive(SystemParam)]
     pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
+
+    // regression test for https://github.com/bevyengine/bevy/issues/7103.
+    #[derive(SystemParam)]
+    pub struct WhereParam<'w, 's, Q>
+    where
+        Q: 'static + WorldQuery,
+    {
+        _q: Query<'w, 's, Q, ()>,
+    }
 }
