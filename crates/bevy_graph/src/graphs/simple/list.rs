@@ -98,25 +98,33 @@ impl<N, E> UndirectedGraph<N, E> for SimpleListGraph<N, E, false> {
         idx
     }
 
-    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) -> Option<E> {
-        let list = self.adjacencies.get_mut(node)?;
+    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+        if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
+            let list = self.adjacencies.get_mut(node).unwrap();
 
-        if let Some(index) = list
-            .iter()
-            .position(|(node_idx, _edge_idx)| *node_idx == other)
-        {
-            let (_, edge_idx) = list.swap_remove(index); // TODO: remove or swap_remove ?
-
-            let list = self.adjacencies.get_mut(other)?;
-            if let Some(index) = list.iter().position(|(node_idx, _)| *node_idx == node) {
+            if let Some(index) = find_edge(list, other) {
                 list.swap_remove(index); // TODO: remove or swap_remove ?
-            }
 
-            self.edges.remove(edge_idx).map(|e| e.data)
+                let list = self.adjacencies.get_mut(other).unwrap();
+                if let Some(index) = find_edge(list, node) {
+                    list.swap_remove(index); // TODO: remove or swap_remove ?
+                }
+
+                Ok(self.edges.remove(edge).unwrap().data)
+            } else {
+                Err(GraphError::EdgeDoesntExist(edge))
+            }
         } else {
-            None
+            Err(GraphError::EdgeDoesntExist(edge))
         }
     }
+}
+
+// Util function TODO: move
+#[inline]
+fn find_edge(list: &Vec<(NodeIdx, EdgeIdx)>, node: NodeIdx) -> Option<usize> {
+    list.iter()
+        .position(|(node_idx, _edge_idx)| *node_idx == node)
 }
 
 impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
@@ -130,15 +138,19 @@ impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
         idx
     }
 
-    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) -> Option<E> {
-        let list = self.adjacencies.get_mut(from).unwrap();
+    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+        if let Some((from, to)) = self.edges.get(edge).map(|e| e.indices()) {
+            let list = self.adjacencies.get_mut(from).unwrap();
 
-        if let Some(index) = list.iter().position(|(node_idx, _)| *node_idx == to) {
-            let (_, edge_idx) = list.swap_remove(index); // TODO: remove or swap_remove ?
+            if let Some(index) = find_edge(list, to) {
+                list.swap_remove(index); // TODO: remove or swap_remove ?
 
-            self.edges.remove(edge_idx).map(|e| e.data)
+                Ok(self.edges.remove(edge).unwrap().data)
+            } else {
+                Err(GraphError::EdgeDoesntExist(edge))
+            }
         } else {
-            None
+            Err(GraphError::EdgeDoesntExist(edge))
         }
     }
 }
@@ -183,7 +195,10 @@ mod test {
         assert_eq!(list_graph.edges_of(jake), vec![(michael, best_friends)]);
         assert_eq!(list_graph.edges_of(michael), vec![(jake, best_friends)]);
 
-        list_graph.remove_edge_between(michael, jake);
+        assert!(list_graph
+            .edge_between(michael, jake)
+            .remove_undirected(&mut list_graph)
+            .is_ok());
 
         let strength_jake = list_graph.edge_between(jake, michael).get(&list_graph);
         assert!(strength_jake.is_none());
@@ -212,7 +227,10 @@ mod test {
         assert_eq!(list_graph.edges_of(jake), vec![(jennifer, oneway_crush)]);
         assert_eq!(list_graph.edges_of(jennifer), vec![]);
 
-        list_graph.remove_edge_between(jake, jennifer);
+        assert!(list_graph
+            .edge_between(jake, jennifer)
+            .remove_directed(&mut list_graph)
+            .is_ok());
 
         let strength_jake = list_graph.edge_between(jake, jennifer).get(&list_graph);
         assert!(strength_jake.is_none());

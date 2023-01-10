@@ -99,12 +99,15 @@ impl<N, E> UndirectedGraph<N, E> for SimpleMapGraph<N, E, false> {
         idx
     }
 
-    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) -> Option<E> {
-        let edge_idx = self.adjacencies.get_mut(node)?.remove(&other)?;
+    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+        if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
+            self.adjacencies.get_mut(node).unwrap().remove(&other);
+            self.adjacencies.get_mut(other).unwrap().remove(&node);
 
-        self.adjacencies.get_mut(other)?.remove(&node);
-
-        self.edges.remove(edge_idx).map(|e| e.data)
+            Ok(self.edges.remove(edge).unwrap().data)
+        } else {
+            Err(GraphError::EdgeDoesntExist(edge))
+        }
     }
 }
 
@@ -119,10 +122,14 @@ impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
         idx
     }
 
-    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) -> Option<E> {
-        let edge_idx = self.adjacencies.get_mut(from)?.remove(&to)?;
+    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+        if let Some((from, to)) = self.edges.get(edge).map(|e| e.indices()) {
+            self.adjacencies.get_mut(from).unwrap().remove(&to);
 
-        self.edges.remove(edge_idx).map(|e| e.data)
+            Ok(self.edges.remove(edge).unwrap().data)
+        } else {
+            Err(GraphError::EdgeDoesntExist(edge))
+        }
     }
 }
 
@@ -167,7 +174,10 @@ mod test {
         assert_eq!(map_graph.edges_of(jake), vec![(michael, best_friends)]);
         assert_eq!(map_graph.edges_of(michael), vec![(jake, best_friends)]);
 
-        map_graph.remove_edge_between(michael, jake);
+        assert!(map_graph
+            .edge_between(michael, jake)
+            .remove_undirected(&mut map_graph)
+            .is_ok());
 
         let strength_jake = map_graph.edge_between(jake, michael).get(&map_graph);
         assert!(strength_jake.is_none());
@@ -197,7 +207,10 @@ mod test {
         assert_eq!(map_graph.edges_of(jake), vec![(jennifer, oneway_crush)]);
         assert_eq!(map_graph.edges_of(jennifer), vec![]);
 
-        map_graph.remove_edge_between(jake, jennifer);
+        assert!(map_graph
+            .edge_between(jake, jennifer)
+            .remove_directed(&mut map_graph)
+            .is_ok());
 
         let strength_jake = map_graph.edge_between(jake, jennifer).get(&map_graph);
         assert!(strength_jake.is_none());

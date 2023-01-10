@@ -33,11 +33,11 @@ pub trait Graph<N, E> {
 pub trait UndirectedGraph<N, E> {
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx;
 
-    fn remove_edge_between(&mut self, node: NodeIdx, other: NodeIdx) -> Option<E>;
+    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E>;
 }
 
 pub trait DirectedGraph<N, E> {
     fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx;
 
-    fn remove_edge_between(&mut self, from: NodeIdx, to: NodeIdx) -> Option<E>;
+    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E>;
 }

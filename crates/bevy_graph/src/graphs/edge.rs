@@ -6,3 +6,10 @@ pub struct Edge<E> {
     pub dst: NodeIdx,
     pub data: E,
 }
+
+impl<E> Edge<E> {
+    #[inline]
+    pub fn indices(&self) -> (NodeIdx, NodeIdx) {
+        (self.src, self.dst)
+    }
+}
