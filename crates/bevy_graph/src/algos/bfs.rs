@@ -4,20 +4,33 @@ use hashbrown::HashSet;
 
 use crate::{Graph, NodeIdx};
 
-pub fn breadth_first_search<N, E>(start: NodeIdx, graph: &impl Graph<N, E>, visitor: fn(&N)) {
-    let mut queue = VecDeque::new();
-    let mut visited = HashSet::with_capacity(graph.len());
+pub struct BreadthFirstSearch {
+    queue: VecDeque<NodeIdx>,
+    visited: HashSet<NodeIdx>,
+}
 
-    visited.insert(start);
-    queue.push_back(start);
+impl BreadthFirstSearch {
+    pub fn new<N, E>(start: NodeIdx, graph: &impl Graph<N, E>) -> Self {
+        let mut queue = VecDeque::new();
+        let mut visited = HashSet::with_capacity(graph.len());
 
-    while let Some(node) = queue.pop_front() {
-        visitor(graph.node(node).unwrap());
-        for (idx, _) in graph.edges_of(node) {
-            if !visited.contains(&idx) {
-                visited.insert(idx);
-                queue.push_back(idx);
+        visited.insert(start);
+        queue.push_back(start);
+
+        Self { queue, visited }
+    }
+
+    pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
+        if let Some(node) = self.queue.pop_front() {
+            for (idx, _) in graph.edges_of(node) {
+                if !self.visited.contains(&idx) {
+                    self.visited.insert(idx);
+                    self.queue.push_back(idx);
+                }
             }
+            Some(graph.node(node).unwrap())
+        } else {
+            None
         }
     }
 }
@@ -26,7 +39,7 @@ pub fn breadth_first_search<N, E>(start: NodeIdx, graph: &impl Graph<N, E>, visi
 mod test {
     use crate::{graphs::simple::SimpleMapGraph, DirectedGraph, Graph};
 
-    use super::breadth_first_search;
+    use super::BreadthFirstSearch;
 
     #[test]
     fn bfs() {
@@ -37,12 +50,21 @@ mod test {
         let two = map.new_node(2);
         let three = map.new_node(3);
 
+        let sum = 0 + 1 + 2 + 3;
+
         map.new_edge(zero, one, ());
         map.new_edge(zero, two, ());
         map.new_edge(one, two, ());
         map.new_edge(two, zero, ());
         map.new_edge(two, three, ());
 
-        breadth_first_search(zero, &map, |value| println!("{value}"));
+        let mut counter = 0;
+
+        let mut bfs = BreadthFirstSearch::new(zero, &map);
+        while let Some(node) = bfs.next(&map) {
+            counter += node;
+        }
+
+        assert_eq!(sum, counter);
     }
 }
