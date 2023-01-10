@@ -10,9 +10,9 @@ pub struct BreadthFirstSearch {
 }
 
 impl BreadthFirstSearch {
-    pub fn new<N, E>(start: NodeIdx, graph: &impl Graph<N, E>) -> Self {
+    pub fn new(start: NodeIdx, len: usize) -> Self {
         let mut queue = VecDeque::new();
-        let mut visited = HashSet::with_capacity(graph.len());
+        let mut visited = HashSet::with_capacity(len);
 
         visited.insert(start);
         queue.push_back(start);
@@ -53,8 +53,6 @@ impl BreadthFirstSearch {
 mod test {
     use crate::{graphs::simple::SimpleMapGraph, DirectedGraph, Graph};
 
-    use super::BreadthFirstSearch;
-
     #[test]
     fn bfs() {
         let mut map = SimpleMapGraph::<i32, (), true>::new();
@@ -74,7 +72,7 @@ mod test {
 
         let mut counter = 0;
 
-        let mut bfs = BreadthFirstSearch::new(zero, &map);
+        let mut bfs = map.algo_bfs(zero);
         while let Some(node) = bfs.next(&map) {
             counter += node;
         }

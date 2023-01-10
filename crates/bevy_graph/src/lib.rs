@@ -2,6 +2,7 @@ pub mod algos;
 pub mod error;
 pub mod graphs;
 
+use algos::bfs::BreadthFirstSearch;
 use error::GraphResult;
 use slotmap::new_key_type;
 
@@ -37,6 +38,11 @@ pub trait Graph<N, E> {
     fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E>;
 
     fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)>; // TODO: can we use other type than Vec? maybe directly iterator?
+
+    #[inline]
+    fn algo_bfs(&self, start: NodeIdx) -> BreadthFirstSearch {
+        BreadthFirstSearch::new(start, self.len())
+    }
 }
 
 pub trait UndirectedGraph<N, E> {
