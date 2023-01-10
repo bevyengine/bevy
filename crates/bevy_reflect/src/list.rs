@@ -1,10 +1,13 @@
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 
-use crate::utility::NonGenericTypeInfoCell;
+use bevy_reflect_derive::type_path_for;
+
+use crate::utility::{NonGenericTypeInfoCell, NonGenericTypePathCell};
 use crate::{
+    self as bevy_reflect,
     Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, Typed,
+    ReflectRef, TypeInfo, Typed, TypePath, WithPath,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -324,6 +327,13 @@ impl Typed for DynamicList {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
+    }
+}
+    
+impl WithPath for DynamicList {
+    fn type_path() -> &'static TypePath {
+        static CELL: NonGenericTypePathCell = NonGenericTypePathCell::new();
+        CELL.get_or_set(|| type_path_for!(::bevy_reflect::DynamicList))
     }
 }
 

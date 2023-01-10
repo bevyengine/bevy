@@ -1,13 +1,16 @@
+use bevy_reflect_derive::impl_with_path;
 use smallvec::SmallVec;
 use std::any::Any;
 
-use crate::utility::GenericTypeInfoCell;
+use crate::utility::{GenericTypeInfoCell, GenericTypePathCell};
 use crate::{
+    self as bevy_reflect,
     Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed, TypePath,
+    WithPath
 };
 
-impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
+impl<T: smallvec::Array + WithPath + Send + Sync + 'static> Array for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -45,7 +48,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
+impl<T: smallvec::Array + WithPath + Send + Sync + 'static> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -82,7 +85,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+impl<T: smallvec::Array + WithPath + Send + Sync + 'static> Reflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -148,7 +151,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Typed for SmallVec<T>
+impl<T: smallvec::Array + WithPath + Send + Sync + 'static> Typed for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -158,7 +161,9 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
+impl_with_path!(::smallvec::SmallVec<T: smallvec::Array + WithPath + Send + Sync + 'static>);
+
+impl<T: smallvec::Array + WithPath + Send + Sync + 'static> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -175,7 +180,7 @@ where
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>
+impl<T: smallvec::Array + Typed + Send + Sync + 'static> GetTypeRegistration for SmallVec<T>
 where
     T::Item: FromReflect,
 {

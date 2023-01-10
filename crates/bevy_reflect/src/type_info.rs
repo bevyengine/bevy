@@ -1,5 +1,5 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo, WithPath,
 };
 use std::any::{Any, TypeId};
 
@@ -66,7 +66,7 @@ use std::any::{Any, TypeId};
 /// ```
 ///
 /// [utility]: crate::utility
-pub trait Typed: Reflect {
+pub trait Typed: WithPath + Reflect {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo

@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
     tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo,
+    ValueInfo, TypePath, utility::{NonGenericTypePathCell},
 };
 use std::{
     any::{self, Any, TypeId},
@@ -225,6 +225,11 @@ impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+    }
+
+    fn type_path() -> &'static TypePath {
+        static CELL: NonGenericTypePathCell = NonGenericTypePathCell::new();
+        CELL.get_or_set(|| TypePath::new_anonymous("dyn bevy_reflect::Reflect".to_owned(), "dyn Reflect".to_owned()))
     }
 }
 

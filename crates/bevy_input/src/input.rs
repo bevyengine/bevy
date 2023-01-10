@@ -1,5 +1,5 @@
 use bevy_ecs::system::Resource;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, Reflect, Typed};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 
@@ -43,7 +43,7 @@ use bevy_ecs::schedule::State;
 ///[`DetectChangesMut::bypass_change_detection`]: bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection
 #[derive(Debug, Clone, Resource, Reflect)]
 #[reflect(Default)]
-pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
+pub struct Input<T: Typed + Copy + Eq + Hash + Send + Sync + 'static> {
     /// A collection of every button that is currently being pressed.
     pressed: HashSet<T>,
     /// A collection of every button that has just been pressed.
@@ -52,7 +52,7 @@ pub struct Input<T: Copy + Eq + Hash + Send + Sync + 'static> {
     just_released: HashSet<T>,
 }
 
-impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
+impl<T: Typed + Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
     fn default() -> Self {
         Self {
             pressed: Default::default(),
@@ -64,7 +64,7 @@ impl<T: Copy + Eq + Hash + Send + Sync + 'static> Default for Input<T> {
 
 impl<T> Input<T>
 where
-    T: Copy + Eq + Hash + Send + Sync + 'static,
+    T: Typed + Copy + Eq + Hash + Send + Sync + 'static,
 {
     /// Registers a press for the given `input`.
     pub fn press(&mut self, input: T) {

@@ -6,17 +6,19 @@ use proc_macro2::Ident;
 use quote::quote;
 use syn::{Generics, Path};
 
+use crate::derive_data::{PathToType, ReflectMeta};
+
 /// Creates the `GetTypeRegistration` impl for the given type data.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn impl_get_type_registration(
-    type_name: &Ident,
-    bevy_reflect_path: &Path,
-    registration_data: &[Ident],
-    generics: &Generics,
+    meta: &ReflectMeta,
     where_clause_options: &WhereClauseOptions,
     serialization_denylist: Option<&BitSet<u32>>,
 ) -> proc_macro2::TokenStream {
-    let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
+    let path_to_type = meta.path_to_type();
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    let registration_data = meta.traits().idents();
+    let (impl_generics, ty_generics, where_clause) = meta.split_generics_for_impl();
     let serialization_data = serialization_denylist.map(|denylist| {
         let denylist = denylist.into_iter();
         quote! {
@@ -29,12 +31,12 @@ pub(crate) fn impl_get_type_registration(
 
     quote! {
         #[allow(unused_mut)]
-        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #type_name #ty_generics #where_reflect_clause {
+        impl #impl_generics #bevy_reflect_path::GetTypeRegistration for #path_to_type #ty_generics #where_reflect_clause {
             fn get_type_registration() -> #bevy_reflect_path::TypeRegistration {
-                let mut registration = #bevy_reflect_path::TypeRegistration::of::<#type_name #ty_generics>();
-                registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());
+                let mut registration = #bevy_reflect_path::TypeRegistration::of::<Self>();
+                registration.insert::<#bevy_reflect_path::ReflectFromPtr>(#bevy_reflect_path::FromType::<Self>::from_type());
                 #serialization_data
-                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<#type_name #ty_generics>::from_type());)*
+                #(registration.insert::<#registration_data>(#bevy_reflect_path::FromType::<Self>::from_type());)*
                 registration
             }
         }

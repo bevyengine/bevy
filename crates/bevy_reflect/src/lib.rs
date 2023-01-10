@@ -11,6 +11,7 @@ mod struct_trait;
 mod tuple;
 mod tuple_struct;
 mod type_info;
+mod type_path;
 mod type_registry;
 mod type_uuid;
 mod impls {
@@ -58,11 +59,14 @@ pub use struct_trait::*;
 pub use tuple::*;
 pub use tuple_struct::*;
 pub use type_info::*;
+pub use type_path::*;
 pub use type_registry::*;
 pub use type_uuid::*;
 
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
+
+extern crate alloc;
 
 #[doc(hidden)]
 pub mod __macro_exports {
@@ -105,7 +109,7 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use std::any::TypeId;
+    use std::{any::TypeId, marker::PhantomData};
     use std::fmt::{Debug, Formatter};
 
     use super::prelude::*;
@@ -646,6 +650,42 @@ mod tests {
             std::any::type_name::<TestTupleStruct>()
         );
     }
+    
+    #[test]
+    fn reflect_type_path() {
+        #[derive(WithPath)]
+        struct A;
+        
+        #[derive(WithPath)]
+        #[type_path = "my_alias::B"]
+        struct B;
+        
+        #[derive(WithPath)]
+        struct C<T: WithPath>(PhantomData<T>);
+        
+        #[derive(WithPath)]
+        #[type_path = "my_alias::D"]
+        struct D<T: WithPath>(PhantomData<T>);
+        
+        struct E;
+        impl_with_path!(E);
+        
+        struct F;
+        impl_with_path!(F as my_alias::F);
+        
+        struct G<T: WithPath>(PhantomData<T>);
+        impl_with_path!(G<T>);
+        
+        struct H<T: WithPath>(PhantomData<T>);
+        impl_with_path!(H<T> as my_alias::H);
+        
+        A::type_path();
+        B::type_path();
+        C::<A>::type_path();
+        D::<A>::type_path();
+        E::<A>::type_path();
+        F::<A>::type_path();
+    }
 
     #[test]
     fn reflect_type_info() {
@@ -700,7 +740,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T: Reflect> {
+        struct MyGenericStruct<T> {
             foo: T,
             bar: usize,
         }

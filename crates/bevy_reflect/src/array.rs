@@ -1,6 +1,9 @@
+use bevy_reflect_derive::impl_with_path;
+
 use crate::{
-    utility::NonGenericTypeInfoCell, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, Typed,
+    self as bevy_reflect,
+    utility::{NonGenericTypeInfoCell, NonGenericTypePathCell}, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, Typed, TypePath, WithPath,
 };
 use std::{
     any::{Any, TypeId},
@@ -300,6 +303,8 @@ impl Typed for DynamicArray {
         CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
 }
+
+impl_with_path!(DynamicArray as bevy_reflect::DynamicArray);
 
 /// An iterator over an [`Array`].
 pub struct ArrayIter<'a> {

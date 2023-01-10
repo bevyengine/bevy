@@ -1,7 +1,9 @@
-use crate::utility::NonGenericTypeInfoCell;
+use bevy_reflect_derive::type_path_for;
+
+use crate::utility::{GenericTypePathCell, NonGenericTypeInfoCell, NonGenericTypePathCell};
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
-    TypeInfo, TypeRegistration, Typed, UnnamedField,
+    self as bevy_reflect, DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed, UnnamedField, WithPath,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -378,6 +380,13 @@ impl Typed for DynamicTuple {
     }
 }
 
+impl WithPath for DynamicTuple {
+    fn type_path() -> &'static TypePath {
+        static CELL: NonGenericTypePathCell = NonGenericTypePathCell::new();
+        CELL.get_or_set(|| type_path_for!(::bevy_reflect::DynamicTuple))
+    }
+}
+
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
 /// # Panics
@@ -452,7 +461,7 @@ pub fn tuple_debug(dyn_tuple: &dyn Tuple, f: &mut std::fmt::Formatter<'_>) -> st
 
 macro_rules! impl_reflect_tuple {
     {$($index:tt : $name:tt),*} => {
-        impl<$($name: Reflect),*> Tuple for ($($name,)*) {
+        impl<$($name: Reflect + WithPath),*> Tuple for ($($name,)*) {
             #[inline]
             fn field(&self, index: usize) -> Option<&dyn Reflect> {
                 match index {
@@ -504,7 +513,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl<$($name: Reflect),*> Reflect for ($($name,)*) {
+        impl<$($name: Reflect + WithPath),*> Reflect for ($($name,)*) {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }
@@ -567,7 +576,7 @@ macro_rules! impl_reflect_tuple {
             }
         }
 
-        impl <$($name: Reflect),*> Typed for ($($name,)*) {
+        impl <$($name: Reflect + WithPath),*> Typed for ($($name,)*) {
             fn type_info() -> &'static TypeInfo {
                 static CELL: $crate::utility::GenericTypeInfoCell = $crate::utility::GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| {
@@ -579,14 +588,26 @@ macro_rules! impl_reflect_tuple {
                 })
             }
         }
+        
+        impl <$($name: Reflect + WithPath),*> WithPath for ($($name,)*) {
+            fn type_path() -> &'static TypePath {
+                static CELL: GenericTypePathCell = GenericTypePathCell::new();
+                CELL.get_or_insert::<Self, _>(|| {
+                    TypePath::new_anonymous(
+                        "(".to_owned() $(+ <$name as WithPath>::type_path().path())* + ")",
+                        "(".to_owned() $(+ <$name as WithPath>::type_path().short_path())* + ")",
+                    )
+                })
+            }
+        }
 
-        impl<$($name: Reflect + Typed),*> GetTypeRegistration for ($($name,)*) {
+        impl<$($name: Reflect + WithPath),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {
                 TypeRegistration::of::<($($name,)*)>()
             }
         }
 
-        impl<$($name: FromReflect),*> FromReflect for ($($name,)*)
+        impl<$($name: FromReflect + WithPath),*> FromReflect for ($($name,)*)
         {
             fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
                 if let ReflectRef::Tuple(_ref_tuple) = reflect.reflect_ref() {

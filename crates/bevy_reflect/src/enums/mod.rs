@@ -316,7 +316,7 @@ mod tests {
     #[test]
     fn enum_should_allow_generics() {
         #[derive(Reflect, Debug, PartialEq)]
-        enum TestEnum<T: FromReflect> {
+        enum TestEnum<T: FromReflect + Typed> {
             A,
             B(T),
             C { value: T },

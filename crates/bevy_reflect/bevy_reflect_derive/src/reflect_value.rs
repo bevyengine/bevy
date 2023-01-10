@@ -1,27 +1,30 @@
 use crate::container_attributes::ReflectTraits;
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
-use syn::token::{Paren, Where};
-use syn::{parenthesized, Attribute, Generics};
+use syn::punctuated::Punctuated;
+use syn::token::{Colon2, Paren, Where};
+use syn::{parenthesized, Attribute, Generics, Path, PathSegment};
 
 /// A struct used to define a simple reflected value type (such as primitives).
+///
+///
 ///
 /// This takes the form:
 ///
 /// ```ignore
 /// // Standard
-/// foo(TraitA, TraitB)
+/// ::my_crate::foo::Bar(TraitA, TraitB)
 ///
 /// // With generics
-/// foo<T1: Bar, T2>(TraitA, TraitB)
+/// ::my_crate::foo::Bar<T1: Bar, T2>(TraitA, TraitB)
 ///
 /// // With generics and where clause
-/// foo<T1, T2> where T1: Bar (TraitA, TraitB)
+/// ::my_crate::foo::Bar<T1, T2> where T1: Bar (TraitA, TraitB)
 /// ```
 pub(crate) struct ReflectValueDef {
     #[allow(dead_code)]
     pub attrs: Vec<Attribute>,
-    pub type_name: Ident,
+    pub type_path: Path,
     pub generics: Generics,
     pub traits: Option<ReflectTraits>,
 }
@@ -29,7 +32,21 @@ pub(crate) struct ReflectValueDef {
 impl Parse for ReflectValueDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let attrs = input.call(Attribute::parse_outer)?;
-        let type_ident = input.parse::<Ident>()?;
+        let type_path = {
+            let lookahead = input.lookahead1();
+            if lookahead.peek(Colon2) {
+                // This parses `::foo::Foo` from `::foo::Foo<T>` (leaving the generics).
+                Path::parse_mod_style(input)?
+            } else {
+                let ident = input.parse::<Ident>()?;
+                let mut segments = Punctuated::new();
+                segments.push(PathSegment::from(ident));
+                Path {
+                    leading_colon: None,
+                    segments,
+                }
+            }
+        };
         let generics = input.parse::<Generics>()?;
         let mut lookahead = input.lookahead1();
         let mut where_clause = None;
@@ -47,7 +64,7 @@ impl Parse for ReflectValueDef {
 
         Ok(ReflectValueDef {
             attrs,
-            type_name: type_ident,
+            type_path,
             generics: Generics {
                 where_clause,
                 ..generics
