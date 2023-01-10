@@ -1397,7 +1397,7 @@ impl World {
             .get_with_ticks()?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks {
+            ticks: TicksMut {
                 added: ticks.added.deref_mut(),
                 changed: ticks.changed.deref_mut(),
                 last_change_tick: self.last_change_tick(),
@@ -1636,7 +1636,7 @@ impl World {
         // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
         // - index is in-bounds because the column is initialized and non-empty
         // - no other reference to the ticks of the same row can exist at the same time
-        let ticks = unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+        let ticks = unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.

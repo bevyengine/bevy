@@ -246,7 +246,7 @@ macro_rules! impl_methods {
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
                     value: self.value,
-                    ticks: Ticks {
+                    ticks: TicksMut {
                         added: self.ticks.added,
                         changed: self.ticks.changed,
                         last_change_tick: self.ticks.last_change_tick,
@@ -612,7 +612,7 @@ impl<'a> MutUntyped<'a> {
     pub fn reborrow(&mut self) -> MutUntyped {
         MutUntyped {
             value: self.value.reborrow(),
-            ticks: Ticks {
+            ticks: TicksMut {
                 added: self.ticks.added,
                 changed: self.ticks.changed,
                 last_change_tick: self.ticks.last_change_tick,
