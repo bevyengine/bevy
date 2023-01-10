@@ -123,7 +123,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
     out.color = output_color;
 #ifdef PICKING
-    out.picking = vec4(entity_index_to_vec3_f32(mesh.entity_index), output_color.a);
+    out.picking = vec4(entity_index_to_vec3_f32(mesh.entity_index), picking_alpha(output_color.a));
 #endif
 
     return out;

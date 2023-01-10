@@ -3,6 +3,8 @@
 //!
 //! Combines parts of the 3D shapes example and the UI example.
 
+// TODO: Update to store mouse position across frames like many_sprites.
+
 use std::f32::consts::PI;
 
 use bevy::{

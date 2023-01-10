@@ -124,7 +124,10 @@ impl Picking {
     /// Panics if the coordinate is out of bounds.
     pub fn get_entity(&self, camera: &Camera, coordinates: UVec2) -> Option<Entity> {
         let guard = self.try_lock().expect("Should have been unlocked");
-        let resources = guard.as_ref().expect("Resources should have been prepared");
+        let Some(resources) = guard.as_ref() else {
+            // Picking resources not yet prepared.
+            return None
+        };
 
         let slice = resources.pick_buffer.slice(..);
 
@@ -347,6 +350,9 @@ where
     let start = (y * padded_width) + (x * pixel_size);
     let end = start + pixel_size;
 
+    // TODO: Sometimes we're able to go out of bounds here:
+    //  "panicked at 'range end index 7381600 out of range for slice of length 7372800'",
+    // we have to figure out when this can happen and why.
     let view_bytes = &buffer_view[start..end];
 
     make_data_from_viewed_bytes(view_bytes)

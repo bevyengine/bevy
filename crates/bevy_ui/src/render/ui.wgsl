@@ -66,7 +66,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     out.color = color;
 
 #ifdef PICKING
-    out.picking = vec4(entity_index_to_vec3_f32(in.entity_index), color.a);
+    out.picking = vec4(entity_index_to_vec3_f32(in.entity_index), picking_alpha(color.a));
 #endif
 
     return out;

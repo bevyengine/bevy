@@ -1,6 +1,8 @@
 #import bevy_sprite::mesh2d_types
 #import bevy_sprite::mesh2d_view_bindings
 
+// TODO: Fix this one
+
 struct ColorMaterial {
     color: vec4<f32>,
     // 'flags' is a bit field indicating various options. u32 is 32 bits so we have up to 32 options.

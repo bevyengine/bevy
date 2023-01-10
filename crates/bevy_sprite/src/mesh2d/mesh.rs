@@ -409,7 +409,7 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
             targets.push(Some(ColorTargetState {
                 format: PICKING_TEXTURE_FORMAT,
-                // TODO: Check this works
+                // TODO: Check this works for different situations
                 blend,
                 write_mask: ColorWrites::ALL,
             }));
