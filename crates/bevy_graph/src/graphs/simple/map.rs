@@ -3,6 +3,7 @@ use slotmap::{HopSlotMap, Key, SecondaryMap};
 
 use crate::{DirectedGraph, EdgeIdx, Graph, NodeIdx, UndirectedGraph};
 
+#[derive(Clone)]
 pub struct SimpleMapGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
     edges: HopSlotMap<EdgeIdx, E>,
