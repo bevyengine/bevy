@@ -120,13 +120,6 @@ impl<N, E> UndirectedGraph<N, E> for SimpleListGraph<N, E, false> {
     }
 }
 
-// Util function TODO: move
-#[inline]
-fn find_edge(list: &Vec<(NodeIdx, EdgeIdx)>, node: NodeIdx) -> Option<usize> {
-    list.iter()
-        .position(|(node_idx, _edge_idx)| *node_idx == node)
-}
-
 impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(Edge {
@@ -160,6 +153,13 @@ impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
     fn default() -> Self {
         Self::new()
     }
+}
+
+// Util function
+#[inline]
+fn find_edge(list: &[(NodeIdx, EdgeIdx)], node: NodeIdx) -> Option<usize> {
+    list.iter()
+        .position(|(node_idx, _edge_idx)| *node_idx == node)
 }
 
 #[cfg(test)]
