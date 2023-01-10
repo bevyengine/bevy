@@ -64,7 +64,7 @@ mod test {
         let two = map.new_node(2);
         let three = map.new_node(3);
 
-        let sum = 0 + 1 + 2 + 3;
+        let sum = 6; // 0 + 1 + 2 + 3
 
         map.new_edge(zero, one, ());
         map.new_edge(zero, two, ());
