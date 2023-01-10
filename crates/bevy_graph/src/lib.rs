@@ -1,3 +1,4 @@
+pub mod algos;
 pub mod error;
 pub mod graphs;
 
@@ -26,6 +27,8 @@ pub trait Graph<N, E> {
 
     fn node(&self, idx: NodeIdx) -> GraphResult<&N>;
     fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N>;
+
+    fn len(&self) -> usize;
 
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx;
 

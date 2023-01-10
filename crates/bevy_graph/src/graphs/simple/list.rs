@@ -48,6 +48,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     #[inline]
+    fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    #[inline]
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
         if let Some(idx) = self
             .adjacencies

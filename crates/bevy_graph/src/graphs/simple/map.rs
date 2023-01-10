@@ -49,6 +49,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     }
 
     #[inline]
+    fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    #[inline]
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
         self.adjacencies
             .get(from)
