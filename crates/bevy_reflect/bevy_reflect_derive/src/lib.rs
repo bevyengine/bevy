@@ -41,7 +41,84 @@ use type_uuid::TypeUuidDef;
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
 
-#[proc_macro_derive(Reflect, attributes(reflect, reflect_value, module))]
+/// The main derive macro used by `bevy_reflect` for deriving its `Reflect` trait.
+///
+/// This macro can be used on all structs and enums (unions are not supported).
+/// It will automatically generate the implementations for `Reflect`, `Typed`, and `GetTypeRegistration`.
+/// And, depending on the item's structure, will either implement `Struct`, `TupleStruct`, or `Enum`.
+///
+/// # Container Attributes
+///
+/// This macro comes with some helper attributes that can be added to the container item
+/// in order to provide additional functionality or alter the generated implementations.
+///
+/// ## `#[reflect(Ident)]`
+///
+/// The `#[reflect(Ident)]` attribute is used to add type data registrations to the `GetTypeRegistration`
+/// implementation corresponding to the given identifier, prepended by `Reflect`.
+///
+/// For example, `#[reflect(Foo, Bar)]` would add two registrations:
+/// one for `ReflectFoo` and another for `ReflectBar`.
+/// This assumes these types are indeed in-scope wherever this macro is called.
+///
+/// ### Special Identifiers
+///
+/// There are a few "special" identifiers that work a bit differently:
+///
+/// * `#[reflect(Debug)]` will force the implementation of `Reflect::reflect_debug` to rely on
+///   the type's [`Debug`] implementation.
+///   A custom implementation may be provided using `#[reflect(Debug(my_debug_func))]` where
+///   `my_debug_func` is the path to a function matching the signature:
+///   `(&self, f: &mut ::core::fmt::Formatter<'_>) -> ::core::fmt::Result`.
+/// * `#[reflect(PartialEq)]` will force the implementation of `Reflect::reflect_partial_eq` to rely on
+///   the type's [`PartialEq`] implementation.
+///   A custom implementation may be provided using `#[reflect(PartialEq(my_partial_eq_func))]` where
+///   `my_partial_eq_func` is the path to a function matching the signature:
+///   `(&self, value: &dyn #bevy_reflect_path::Reflect) -> bool`.
+/// * `#[reflect(Hash)]` will force the implementation of `Reflect::reflect_hash` to rely on
+///   the type's [`Hash`] implementation.
+///   A custom implementation may be provided using `#[reflect(Hash(my_hash_func))]` where
+///   `my_hash_func` is the path to a function matching the signature: `(&self) -> u64`.
+/// * `#[reflect(Default)]` will register the `ReflectDefault` type data as normal.
+///   However, it will also affect how certain other operations are performed in order
+///   to improve performance and/or robustness.
+///   An example of where this is used is in the [`FromReflect`] derive macro,
+///   where adding this attribute will cause the `FromReflect` implementation to create
+///   a base value using its [`Default`] implementation avoiding issues with ignored fields.
+///
+/// ## `#[reflect_value]`
+///
+/// The `#[reflect_value]` attribute (which may also take the form `#[reflect_value(Ident)]`),
+/// denotes that the item should implement `Reflect` as though it were a base value type.
+/// This means that it will forgo implementing `Struct`, `TupleStruct`, or `Enum`.
+///
+/// Furthermore, it requires that the type implements [`Clone`].
+/// If planning to serialize this type using the reflection serializers,
+/// then the `Serialize` and `Deserialize` traits will need to be implemented and registered as well.
+///
+/// # Field Attributes
+///
+/// Along with the container attributes, this macro comes with some attributes that may be applied
+/// to the contained fields themselves.
+///
+/// ## `#[reflect(ignore)]`
+///
+/// This attribute simply marks a field to be ignored by the reflection API.
+///
+/// This allows fields to completely opt-out of reflection,
+/// which may be useful for maintaining invariants, keeping certain data private,
+/// or allowing the use of types that do not implement `Reflect` within the container.
+///
+/// ## `#[reflect(skip_serializing)]`
+///
+/// This works similar to `#[reflect(ignore)]`, but rather than opting out of _all_ of reflection,
+/// it simply opts the field out of serialization.
+///
+/// This is done by registering the `SerializationData` type within the `GetTypeRegistration` implementation,
+/// which will be used by the reflection serializers to determine whether or not the field is serializable.
+///
+/// Note that this affects both serialization and deserialization.
+#[proc_macro_derive(Reflect, attributes(reflect, reflect_value))]
 pub fn derive_reflect(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
