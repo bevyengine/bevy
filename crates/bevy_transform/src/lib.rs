@@ -5,6 +5,7 @@
 /// The basic components of the transform crate
 pub mod components;
 mod systems;
+pub use crate::systems::propagate_transforms;
 
 #[doc(hidden)]
 pub mod prelude {
