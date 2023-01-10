@@ -223,7 +223,13 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        Query::new(world, state, system_meta.last_change_tick, change_tick)
+        Query::new(
+            world,
+            state,
+            system_meta.last_change_tick,
+            change_tick,
+            false,
+        )
     }
 }
 

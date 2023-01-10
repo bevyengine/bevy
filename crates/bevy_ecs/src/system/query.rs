@@ -274,16 +274,16 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
-    pub(crate) world: &'world World,
-    pub(crate) state: &'state QueryState<Q, F>,
-    pub(crate) last_change_tick: u32,
-    pub(crate) change_tick: u32,
+    world: &'world World,
+    state: &'state QueryState<Q, F>,
+    last_change_tick: u32,
+    change_tick: u32,
     // SAFETY: This is used to ensure that `get_component_mut::<C>` properly fails when a Query writes C
     // and gets converted to a read-only query using `to_readonly`. Without checking this, `get_component_mut` relies on
     // QueryState's archetype_component_access, which will continue allowing write access to C after being cast to
     // the read-only variant. This whole situation is confusing and error prone. Ideally this is a temporary hack
     // until we sort out a cleaner alternative.
-    pub(crate) force_read_only_component_access: bool,
+    force_read_only_component_access: bool,
 }
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
@@ -309,11 +309,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
+        force_read_only_component_access: bool,
     ) -> Self {
         state.validate_world(world);
 
         Self {
-            force_read_only_component_access: false,
+            force_read_only_component_access,
             world,
             state,
             last_change_tick,
@@ -329,14 +330,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn to_readonly(&self) -> Query<'_, 's, Q::ReadOnly, F::ReadOnly> {
         let new_state = self.state.as_readonly();
         // SAFETY: This is memory safe because it turns the query immutable.
-        Query {
-            // SAFETY: this must be set to true or `get_component_mut` will be unsound. See the comments
-            // on this field for more details
-            force_read_only_component_access: true,
-            world: self.world,
-            state: new_state,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
+        unsafe {
+            Query::new(
+                self.world,
+                new_state,
+                self.last_change_tick,
+                self.change_tick,
+                // SAFETY: this must be set to true or `get_component_mut` will be unsound. See the comments
+                // on this field for more details
+                true,
+            )
         }
     }
 
