@@ -1,5 +1,6 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    picking::PICKING_TEXTURE_FORMAT,
     render_resource::*,
     renderer::RenderDevice,
     texture::BevyDefault,
@@ -106,20 +107,23 @@ impl SpecializedRenderPipeline for UiPipeline {
         let vertex_layout =
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, vertex_formats);
 
+        let blend = Some(BlendState::ALPHA_BLENDING);
+
         let mut targets = vec![Some(ColorTargetState {
             format: if key.contains(UiPipelineKey::HDR) {
                 ViewTarget::TEXTURE_FORMAT_HDR
             } else {
                 TextureFormat::bevy_default()
             },
-            blend: Some(BlendState::ALPHA_BLENDING),
+            blend,
             write_mask: ColorWrites::ALL,
         })];
 
         if key.contains(UiPipelineKey::PICKING) {
             targets.push(Some(ColorTargetState {
-                format: TextureFormat::R32Uint,
-                blend: None,
+                format: PICKING_TEXTURE_FORMAT,
+                // TODO: Check this is supported
+                blend,
                 write_mask: ColorWrites::ALL,
             }))
         }

@@ -19,6 +19,7 @@ use bevy_render::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
     },
+    picking::PICKING_TEXTURE_FORMAT,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
@@ -664,8 +665,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("PICKING".into());
 
             targets.push(Some(ColorTargetState {
-                format: TextureFormat::R32Uint,
-                blend: None,
+                format: PICKING_TEXTURE_FORMAT,
+                // TODO: Check that we support both pipelines
+                blend,
                 write_mask: ColorWrites::ALL,
             }))
         }

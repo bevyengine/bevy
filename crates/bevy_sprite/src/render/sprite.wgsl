@@ -2,6 +2,10 @@
 #import bevy_core_pipeline::tonemapping
 #endif
 
+#ifdef PICKING
+#import bevy_core_pipeline::picking
+#endif
+
 struct View {
     view_proj: mat4x4<f32>,
     inverse_view_proj: mat4x4<f32>,
@@ -74,26 +78,10 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
 #endif
 
     var out: FragmentOutput;
-
     out.color = color;
 
 #ifdef PICKING
-    let index = in.vertex_index;
-
-    let mask_8 = 0x000000FFu;
-    let mask_12 = 0x00000FFFu;
-
-    let lower_8 = entity_indices[index] & mask_8;
-    let mid_12 = (entity_indices[index] >> 8u) & mask_12;
-    var up_12 = (entity_indices[index] >> 20u) & mask_12;
-
-
-    out.picking = vec4(
-        f32(lower_8),
-        f32(mid_12),
-        f32(up_12),
-        color.a
-    );
+    out.picking = vec4(entity_index_to_vec3_f32(entity_indices[in.vertex_index]), color.a);
 #endif
 
     return out;

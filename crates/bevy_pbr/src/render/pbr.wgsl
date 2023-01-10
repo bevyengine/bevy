@@ -8,6 +8,10 @@
 #import bevy_pbr::shadows
 #import bevy_pbr::pbr_functions
 
+#ifdef PICKING
+#import bevy_core_pipeline::picking
+#endif
+
 struct FragmentInput {
     @builtin(front_facing) is_front: bool,
     @builtin(position) frag_coord: vec4<f32>,
@@ -17,7 +21,7 @@ struct FragmentInput {
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
 #ifdef PICKING
-    @location(1) picking: u32,
+    @location(1) picking: vec4<f32>,
 #endif
 }
 
@@ -119,7 +123,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
     out.color = output_color;
 #ifdef PICKING
-    out.picking = mesh.entity_index;
+    out.picking = vec4(entity_index_to_vec3_f32(mesh.entity_index), output_color.a);
 #endif
 
     return out;

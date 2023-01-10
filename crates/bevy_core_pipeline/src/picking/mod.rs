@@ -1,6 +1,7 @@
 use std::num::NonZeroU64;
 
 use bevy_app::{CoreStage, Plugin};
+use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
@@ -8,13 +9,14 @@ use bevy_ecs::{
     system::{Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     picking::{self, Picking},
     render_phase::{batch_phase_system, BatchedPhaseItem, RenderPhase},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BufferBindingType, ShaderStages, UniformBuffer,
+        BindGroupLayoutEntry, BindingType, BufferBindingType, Shader, ShaderStages, UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
     RenderApp, RenderStage,
@@ -24,6 +26,9 @@ use bevy_utils::HashMap;
 use crate::core_2d::Transparent2d;
 
 pub mod node;
+
+pub const PICKING_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 7934005773504148195);
 
 /// Uses the GPU to provide a buffer which allows lookup of entities at a given coordinate.
 #[derive(Default)]

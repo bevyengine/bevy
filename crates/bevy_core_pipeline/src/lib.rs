@@ -24,7 +24,7 @@ use crate::{
     core_3d::Core3dPlugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
-    picking::PickingPlugin,
+    picking::{PickingPlugin, PICKING_SHADER_HANDLE},
     tonemapping::TonemappingPlugin,
     upscaling::UpscalingPlugin,
 };
@@ -41,6 +41,13 @@ impl Plugin for CorePipelinePlugin {
             app,
             FULLSCREEN_SHADER_HANDLE,
             "fullscreen_vertex_shader/fullscreen.wgsl",
+            Shader::from_wgsl
+        );
+
+        load_internal_asset!(
+            app,
+            PICKING_SHADER_HANDLE,
+            "picking/picking.wgsl",
             Shader::from_wgsl
         );
 

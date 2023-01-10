@@ -1,3 +1,7 @@
+#ifdef PICKING
+#import bevy_core_pipeline::picking
+#endif
+
 struct View {
     view_proj: mat4x4<f32>,
     inverse_view_proj: mat4x4<f32>,
@@ -48,7 +52,7 @@ var sprite_sampler: sampler;
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
 #ifdef PICKING
-    @location(1) picking: u32,
+    @location(1) picking: vec4<f32>,
 #endif
 }
 
@@ -62,7 +66,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     out.color = color;
 
 #ifdef PICKING
-    out.picking = in.entity_index;
+    out.picking = vec4(entity_index_to_vec3_f32(in.entity_index), color.a);
 #endif
 
     return out;

@@ -11,6 +11,7 @@ use bevy_render::{
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
+    picking::PICKING_TEXTURE_FORMAT,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
@@ -395,9 +396,11 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             false => TextureFormat::bevy_default(),
         };
 
+        let blend = Some(BlendState::ALPHA_BLENDING);
+
         let mut targets = vec![Some(ColorTargetState {
             format,
-            blend: Some(BlendState::ALPHA_BLENDING),
+            blend,
             write_mask: ColorWrites::ALL,
         })];
 
@@ -405,8 +408,9 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             shader_defs.push("PICKING".into());
 
             targets.push(Some(ColorTargetState {
-                format: TextureFormat::R32Uint,
-                blend: None,
+                format: PICKING_TEXTURE_FORMAT,
+                // TODO: Check this works
+                blend,
                 write_mask: ColorWrites::ALL,
             }));
         }
