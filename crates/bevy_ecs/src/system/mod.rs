@@ -1210,7 +1210,7 @@ mod tests {
         let world2 = World::new();
         let qstate = world1.query::<()>();
         // SAFETY: doesnt access anything
-        let query = unsafe { Query::new(&world2, &qstate, 0, 0) };
+        let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
         query.iter();
     }
 }
