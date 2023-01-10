@@ -5,7 +5,7 @@ use std::any::{Any, TypeId};
 
 /// A static accessor to compile-time type information.
 ///
-/// This trait is automatically implemented by the `#[derive(Reflect)]` macro
+/// This trait is automatically implemented by the [`Reflect` derive macro]
 /// and allows type information to be processed without an instance of that type.
 ///
 /// # Implementing
@@ -65,6 +65,7 @@ use std::any::{Any, TypeId};
 /// # }
 /// ```
 ///
+/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
 /// [utility]: crate::utility
 pub trait Typed: Reflect {
     /// Returns the compile-time [info] for the underlying type.

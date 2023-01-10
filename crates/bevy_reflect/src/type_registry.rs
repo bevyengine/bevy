@@ -6,7 +6,19 @@ use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use serde::Deserialize;
 use std::{any::TypeId, fmt::Debug, sync::Arc};
 
-/// A registry of reflected types.
+/// A registry of [reflected] types.
+///
+/// This struct is used as the central store for type information.
+/// [Registering] a type will generate a new [`TypeRegistration`] entry in this store
+/// using a type's [`GetTypeRegistration`] implementation
+/// (which will is automatically implemented when using the [`Reflect` derive macro]).
+///
+/// See the [crate-level documentation] for more information.
+///
+/// [reflected]: crate
+/// [Registering]: TypeRegistry::register
+/// [`Reflect` derive macro]: bevy_reflect_derive::Reflect
+/// [crate-level documentation]: crate
 pub struct TypeRegistry {
     registrations: HashMap<TypeId, TypeRegistration>,
     short_name_to_id: HashMap<String, TypeId>,
