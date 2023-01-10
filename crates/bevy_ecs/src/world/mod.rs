@@ -1589,12 +1589,11 @@ impl World {
         let change_tick = self.change_tick();
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
-        let ticks = unsafe {
+        let ticks =
             // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
-            TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick)
-        };
+            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -1634,12 +1633,11 @@ impl World {
         let change_tick = self.change_tick();
         let (ptr, ticks) = self.get_non_send_with_ticks(component_id)?;
 
-        let ticks = unsafe {
+        let ticks =
             // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
             // - index is in-bounds because the column is initialized and non-empty
             // - no other reference to the ticks of the same row can exist at the same time
-            TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick)
-        };
+            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
