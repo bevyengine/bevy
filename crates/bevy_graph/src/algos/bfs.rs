@@ -33,6 +33,20 @@ impl BreadthFirstSearch {
             None
         }
     }
+
+    pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
+        if let Some(node) = self.queue.pop_front() {
+            for (idx, _) in graph.edges_of(node) {
+                if !self.visited.contains(&idx) {
+                    self.visited.insert(idx);
+                    self.queue.push_back(idx);
+                }
+            }
+            Some(graph.node_mut(node).unwrap())
+        } else {
+            None
+        }
+    }
 }
 
 #[cfg(test)]
