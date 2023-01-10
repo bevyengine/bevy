@@ -7,17 +7,37 @@ use core::{
     cell::UnsafeCell, marker::PhantomData, mem::ManuallyDrop, num::NonZeroUsize, ptr::NonNull,
 };
 
+#[derive(Copy, Clone)]
+/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
+pub struct Aligned;
+#[derive(Copy, Clone)]
+/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not aligned.
+pub struct Unaligned;
+
+/// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
+/// to have const generics of an enum.
+pub trait IsAligned: sealed::Sealed {}
+impl IsAligned for Aligned {}
+impl IsAligned for Unaligned {}
+
+mod sealed {
+    pub trait Sealed {}
+    impl Sealed for super::Aligned {}
+    impl Sealed for super::Unaligned {}
+}
+
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
 /// This type tries to act "borrow-like" which means that:
 /// - It should be considered immutable: its target must not be changed while this pointer is alive.
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
+/// - Must be sufficiently aligned for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
 #[derive(Copy, Clone)]
-pub struct Ptr<'a>(NonNull<u8>, PhantomData<&'a u8>);
+pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>);
 
 /// Type-erased mutable borrow of some unknown type chosen when constructing this type.
 ///
@@ -26,10 +46,11 @@ pub struct Ptr<'a>(NonNull<u8>, PhantomData<&'a u8>);
 ///   aliased mutability.
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
+/// - Must be sufficiently aligned for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
-pub struct PtrMut<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
+pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
 /// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
 /// Conceptually represents ownership of whatever data is being pointed to and so is
@@ -42,14 +63,22 @@ pub struct PtrMut<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
 ///   to aliased mutability and potentially use after free bugs.
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
+/// - Must be sufficiently aligned for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
-pub struct OwningPtr<'a>(NonNull<u8>, PhantomData<&'a mut u8>);
+pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
 macro_rules! impl_ptr {
     ($ptr:ident) => {
-        impl $ptr<'_> {
+        impl<'a> $ptr<'a, Aligned> {
+            /// Removes the alignment requirement of this pointer
+            pub fn to_unaligned(self) -> $ptr<'a, Unaligned> {
+                $ptr(self.0, PhantomData)
+            }
+        }
+
+        impl<A: IsAligned> $ptr<'_, A> {
             /// Calculates the offset from a pointer.
             /// As the pointer is type-erased, there is no size information available. The provided
             /// `count` parameter is in raw bytes.
@@ -57,7 +86,9 @@ macro_rules! impl_ptr {
             /// *See also: [`ptr::offset`][ptr_offset]*
             ///
             /// # Safety
-            /// the offset cannot make the existing ptr null, or take it out of bounds for its allocation.
+            /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
+            /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
+            ///   be unaligned for the pointee type.
             ///
             /// [ptr_offset]: https://doc.rust-lang.org/std/primitive.pointer.html#method.offset
             #[inline]
@@ -75,7 +106,9 @@ macro_rules! impl_ptr {
             /// *See also: [`ptr::add`][ptr_add]*
             ///
             /// # Safety
-            /// the offset cannot make the existing ptr null, or take it out of bounds for its allocation.
+            /// - The offset cannot make the existing ptr null, or take it out of bounds for its allocation.
+            /// - If the `A` type parameter is [`Aligned`] then the offset must not make the resulting pointer
+            ///   be unaligned for the pointee type.
             ///
             /// [ptr_add]: https://doc.rust-lang.org/std/primitive.pointer.html#method.add
             #[inline]
@@ -85,18 +118,9 @@ macro_rules! impl_ptr {
                     PhantomData,
                 )
             }
-
-            /// Creates a new instance from a raw pointer.
-            ///
-            /// # Safety
-            /// The lifetime for the returned item must not exceed the lifetime `inner` is valid for
-            #[inline]
-            pub unsafe fn new(inner: NonNull<u8>) -> Self {
-                Self(inner, PhantomData)
-            }
         }
 
-        impl Pointer for $ptr<'_> {
+        impl<A: IsAligned> Pointer for $ptr<'_, A> {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 Pointer::fmt(&self.0, f)
@@ -109,20 +133,35 @@ impl_ptr!(Ptr);
 impl_ptr!(PtrMut);
 impl_ptr!(OwningPtr);
 
-impl<'a> Ptr<'a> {
+impl<'a, A: IsAligned> Ptr<'a, A> {
+    /// Creates a new instance from a raw pointer.
+    ///
+    /// # Safety
+    /// - `inner` must point to valid value of whatever the pointee type is.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - `inner` must have correct provenance to allow reads of the pointee type.
+    /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
+    ///   can mutate the pointee while this [`Ptr`] is live except through an `UnsafeCell`.
+    #[inline]
+    pub unsafe fn new(inner: NonNull<u8>) -> Self {
+        Self(inner, PhantomData)
+    }
+
     /// Transforms this [`Ptr`] into an [`PtrMut`]
     ///
     /// # Safety
     /// Another [`PtrMut`] for the same [`Ptr`] must not be created until the first is dropped.
     #[inline]
-    pub unsafe fn assert_unique(self) -> PtrMut<'a> {
+    pub unsafe fn assert_unique(self) -> PtrMut<'a, A> {
         PtrMut(self.0, PhantomData)
     }
 
     /// Transforms this [`Ptr<T>`] into a `&T` with the same lifetime
     ///
     /// # Safety
-    /// Must point to a valid `T`
+    /// - `T` must be the erased pointee type for this [`Ptr`].
+    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         &*self.as_ptr().cast()
@@ -148,20 +187,35 @@ impl<'a, T> From<&'a T> for Ptr<'a> {
     }
 }
 
-impl<'a> PtrMut<'a> {
+impl<'a, A: IsAligned> PtrMut<'a, A> {
+    /// Creates a new instance from a raw pointer.
+    ///
+    /// # Safety
+    /// - `inner` must point to valid value of whatever the pointee type is.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - `inner` must have correct provenance to allow read and writes of the pointee type.
+    /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and nothing
+    ///   else can read or mutate the pointee while this [`PtrMut`] is live.
+    #[inline]
+    pub unsafe fn new(inner: NonNull<u8>) -> Self {
+        Self(inner, PhantomData)
+    }
+
     /// Transforms this [`PtrMut`] into an [`OwningPtr`]
     ///
     /// # Safety
     /// Must have right to drop or move out of [`PtrMut`].
     #[inline]
-    pub unsafe fn promote(self) -> OwningPtr<'a> {
+    pub unsafe fn promote(self) -> OwningPtr<'a, A> {
         OwningPtr(self.0, PhantomData)
     }
 
     /// Transforms this [`PtrMut<T>`] into a `&mut T` with the same lifetime
     ///
     /// # Safety
-    /// Must point to a valid `T`
+    /// - `T` must be the erased pointee type for this [`PtrMut`].
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         &mut *self.as_ptr().cast()
@@ -177,16 +231,16 @@ impl<'a> PtrMut<'a> {
         self.0.as_ptr()
     }
 
-    /// Gets a `PtrMut` from this with a smaller lifetime.
+    /// Gets a [`PtrMut`] from this with a smaller lifetime.
     #[inline]
-    pub fn reborrow(&mut self) -> PtrMut<'_> {
+    pub fn reborrow(&mut self) -> PtrMut<'_, A> {
         // SAFE: the ptrmut we're borrowing from is assumed to be valid
         unsafe { PtrMut::new(self.0) }
     }
 
     /// Gets an immutable reference from this mutable reference
     #[inline]
-    pub fn as_ref(&self) -> Ptr<'_> {
+    pub fn as_ref(&self) -> Ptr<'_, A> {
         // SAFE: The `PtrMut` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
@@ -210,11 +264,27 @@ impl<'a> OwningPtr<'a> {
         // so it's safe to promote it to an owning pointer.
         f(unsafe { PtrMut::from(&mut *temp).promote() })
     }
+}
+impl<'a, A: IsAligned> OwningPtr<'a, A> {
+    /// Creates a new instance from a raw pointer.
+    ///
+    /// # Safety
+    /// - `inner` must point to valid value of whatever the pointee type is.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - `inner` must have correct provenance to allow read and writes of the pointee type.
+    /// - The lifetime `'a` must be constrained such that this [`OwningPtr`] will stay valid and nothing
+    ///   else can read or mutate the pointee while this [`OwningPtr`] is live.
+    #[inline]
+    pub unsafe fn new(inner: NonNull<u8>) -> Self {
+        Self(inner, PhantomData)
+    }
 
     /// Consumes the [`OwningPtr`] to obtain ownership of the underlying data of type `T`.
     ///
     /// # Safety
-    /// Must point to a valid `T`.
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
+    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn read<T>(self) -> T {
         self.as_ptr().cast::<T>().read()
@@ -223,7 +293,9 @@ impl<'a> OwningPtr<'a> {
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
-    /// Must point to a valid `T`.
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
+    /// - If the type parameter `A` is `Unaligned` then this pointer must be sufficiently aligned
+    ///   for the pointee type `T`.
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         self.as_ptr().cast::<T>().drop_in_place();
@@ -241,14 +313,14 @@ impl<'a> OwningPtr<'a> {
 
     /// Gets an immutable pointer from this owned pointer.
     #[inline]
-    pub fn as_ref(&self) -> Ptr<'_> {
+    pub fn as_ref(&self) -> Ptr<'_, A> {
         // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { Ptr::new(self.0) }
     }
 
     /// Gets a mutable pointer from this owned pointer.
     #[inline]
-    pub fn as_mut(&mut self) -> PtrMut<'_> {
+    pub fn as_mut(&mut self) -> PtrMut<'_, A> {
         // SAFE: The `Owning` type's guarantees about the validity of this pointer are a superset of `Ptr` s guarantees
         unsafe { PtrMut::new(self.0) }
     }
