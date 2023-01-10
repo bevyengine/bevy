@@ -30,7 +30,7 @@ pub trait Graph<N, E> {
     fn get_edge(&self, edge: EdgeIdx) -> Option<&E>;
     fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E>;
 
-    fn edges_of(&self, node: NodeIdx) -> Vec<EdgeIdx>; // TODO: can we use other type than Vec? maybe directly iterator?
+    fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)>; // TODO: can we use other type than Vec? maybe directly iterator?
 }
 
 pub trait UndirectedGraph<N, E> {

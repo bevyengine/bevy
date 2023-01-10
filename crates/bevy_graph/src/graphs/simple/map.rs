@@ -57,12 +57,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         self.edges.get_mut(edge)
     }
 
-    fn edges_of(&self, node: NodeIdx) -> Vec<EdgeIdx> {
+    fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
         self.adjacencies
             .get(node)
             .unwrap()
-            .values()
-            .cloned()
+            .iter()
+            .map(|(node, edge)| (node.clone(), edge.clone()))
             .collect()
     }
 }
@@ -136,8 +136,8 @@ mod test {
         assert!(strength_michael.is_some());
         assert_eq!(strength_michael.unwrap(), &STRENGTH);
 
-        assert_eq!(map_graph.edges_of(jake), vec![best_friends]);
-        assert_eq!(map_graph.edges_of(michael), vec![best_friends]);
+        assert_eq!(map_graph.edges_of(jake), vec![(michael, best_friends)]);
+        assert_eq!(map_graph.edges_of(michael), vec![(jake, best_friends)]);
 
         map_graph.remove_edge_between(michael, jake);
 
@@ -166,7 +166,7 @@ mod test {
         let strength_jennifer = map_graph.edge_between(jennifer, jake).get(&map_graph);
         assert!(strength_jennifer.is_none());
 
-        assert_eq!(map_graph.edges_of(jake), vec![oneway_crush]);
+        assert_eq!(map_graph.edges_of(jake), vec![(jennifer, oneway_crush)]);
         assert_eq!(map_graph.edges_of(jennifer), vec![]);
 
         map_graph.remove_edge_between(jake, jennifer);
