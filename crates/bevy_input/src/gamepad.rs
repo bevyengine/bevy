@@ -1256,8 +1256,7 @@ mod tests {
         let actual = settings.filter(new_value, old_value);
         assert_eq!(
             expected, actual,
-            "Testing filtering for {:?} with new_value = {:?}, old_value = {:?}",
-            settings, new_value, old_value
+            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
         );
     }
 
@@ -1312,8 +1311,7 @@ mod tests {
         let actual = settings.filter(new_value, old_value);
         assert_eq!(
             expected, actual,
-            "Testing filtering for {:?} with new_value = {:?}, old_value = {:?}",
-            settings, new_value, old_value
+            "Testing filtering for {settings:?} with new_value = {new_value:?}, old_value = {old_value:?}",
         );
     }
 
@@ -1398,8 +1396,7 @@ mod tests {
 
             assert_eq!(
                 expected, actual,
-                "testing ButtonSettings::is_pressed() for value: {}",
-                value
+                "testing ButtonSettings::is_pressed() for value: {value}",
             );
         }
     }
@@ -1424,8 +1421,7 @@ mod tests {
 
             assert_eq!(
                 expected, actual,
-                "testing ButtonSettings::is_released() for value: {}",
-                value
+                "testing ButtonSettings::is_released() for value: {value}",
             );
         }
     }
@@ -1450,8 +1446,7 @@ mod tests {
                 }
                 Err(_) => {
                     panic!(
-                        "ButtonSettings::new({}, {}) should be valid ",
-                        press_threshold, release_threshold
+                        "ButtonSettings::new({press_threshold}, {release_threshold}) should be valid"
                     );
                 }
             }
@@ -1476,8 +1471,7 @@ mod tests {
             match bs {
                 Ok(_) => {
                     panic!(
-                        "ButtonSettings::new({}, {}) should be invalid",
-                        press_threshold, release_threshold
+                        "ButtonSettings::new({press_threshold}, {release_threshold}) should be invalid"
                     );
                 }
                 Err(err_code) => match err_code {

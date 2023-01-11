@@ -224,10 +224,7 @@ impl Schedule {
         // of the game. Closures inherit generic parameters from their enclosing function.
         #[cold]
         fn stage_not_found(stage_label: &dyn Debug) -> ! {
-            panic!(
-                "Stage '{:?}' does not exist or is not a SystemStage",
-                stage_label
-            )
+            panic!("Stage '{stage_label:?}' does not exist or is not a SystemStage",)
         }
 
         let label = stage_label.as_label();

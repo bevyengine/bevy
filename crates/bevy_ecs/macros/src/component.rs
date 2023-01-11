@@ -86,8 +86,7 @@ fn parse_component_attr(ast: &DeriveInput) -> Result<Attrs> {
                         return Err(Error::new_spanned(
                             m.lit,
                             format!(
-                                "Invalid storage type `{}`, expected '{}' or '{}'.",
-                                s, TABLE, SPARSE_SET
+                                "Invalid storage type `{s}`, expected '{TABLE}' or '{SPARSE_SET}'.",
                             ),
                         ))
                     }

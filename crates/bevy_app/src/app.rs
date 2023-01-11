@@ -872,8 +872,7 @@ impl App {
         match self.add_boxed_plugin(Box::new(plugin)) {
             Ok(app) => app,
             Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
-                "Error adding plugin {}: : plugin was already added in application",
-                plugin_name
+                "Error adding plugin {plugin_name}: : plugin was already added in application"
             ),
         }
     }

@@ -250,8 +250,7 @@ fn assert_component_access_compatibility(
         .map(|component_id| world.components.get_info(component_id).unwrap().name())
         .collect::<Vec<&str>>();
     let accesses = conflicting_components.join(", ");
-    panic!("error[B0001]: Query<{}, {}> in system {} accesses component(s) {} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`.",
-           query_type, filter_type, system_name, accesses);
+    panic!("error[B0001]: Query<{query_type}, {filter_type}> in system {system_name} accesses component(s) {accesses} in a way that conflicts with a previous system parameter. Consider using `Without<T>` to create disjoint Queries or merging conflicting Queries into a `ParamSet`.");
 }
 
 /// A collection of potentially conflicting [`SystemParam`]s allowed by disjoint access.
