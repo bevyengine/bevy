@@ -92,7 +92,7 @@ unsafe fn propagate_recursive(
     mut changed: bool,
 ) {
     let Ok(actual_parent) = parent_query.get(entity) else {
-        panic!("Propagated child for {:?} has no Parent component!", entity);
+        panic!("Propagated child for {entity:?} has no Parent component!");
     };
     assert_eq!(
         actual_parent.get(), expected_parent,
