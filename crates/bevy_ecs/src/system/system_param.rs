@@ -191,7 +191,7 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
     type Item<'w, 's> = Query<'w, 's, Q, F>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
-        let state = QueryState::new(world);
+        let state = QueryState::<Q, F>::new(world);
         assert_component_access_compatibility(
             &system_meta.name,
             std::any::type_name::<Q>(),
@@ -223,8 +223,11 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         world: &'w World,
         change_tick: u32,
     ) -> Self::Item<'w, 's> {
+        // SAFETY: `state` was constructed with the same `QF` as this `Query`.
         Query::new(
-            world,
+            // SAFETY: caller ensures that all accesss specified in `init_state` are
+            // valid for us to access. `QF` is the same access as what is specified in `init_state`.
+            super::query_world_borrows::QueryLockBorrows::new(world),
             state,
             system_meta.last_change_tick,
             change_tick,

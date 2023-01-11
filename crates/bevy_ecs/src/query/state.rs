@@ -128,11 +128,18 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     /// Checks if the query is empty for the given [`World`], where the last change and current tick are given.
+    ///
+    /// This function will only access `world` in ways that are compliant with the access of `Q::ReadOnly` and
+    /// `F::ReadOnly` (though may not use those `WorldQuery`'s specifically).
     #[inline]
     pub fn is_empty(&self, world: &World, last_change_tick: u32, change_tick: u32) -> bool {
-        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
+        // SAFETY: `&World` ensures we have readonly access to the whole world. A `NopWorldQuery` does not
+        // access anything so it is trivially true that it cannot violate any aliasing guarantees. We convert
+        // the `F` world query to its `ReadOnly` which is guaranteed by the `ReadOnlyWorldQuery` trait to not
+        // access the world mutably.
         unsafe {
-            self.as_nop()
+            self.as_readonly()
+                .as_nop()
                 .iter_unchecked_manual(world, last_change_tick, change_tick)
                 .next()
                 .is_none()

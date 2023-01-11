@@ -1719,6 +1719,8 @@ impl World {
 
 impl fmt::Debug for World {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // SAFETY: `Query` calls this function in its `Debug` impl therefore we must be careful not to
+        // access any data in world that a `Query<(), ()>` would not be allowed to access.
         f.debug_struct("World")
             .field("id", &self.id)
             .field("entity_count", &self.entities.len())

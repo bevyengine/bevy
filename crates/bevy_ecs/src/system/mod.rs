@@ -1209,8 +1209,17 @@ mod tests {
         let mut world1 = World::new();
         let world2 = World::new();
         let qstate = world1.query::<()>();
-        // SAFETY: doesnt access anything
-        let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
+        // SAFETY: query state was made with the same QF as this query has
+        let query = unsafe {
+            Query::new(
+                // SAFETY: doesnt have any access
+                super::query_world_borrows::QueryLockBorrows::new(&world2),
+                &qstate,
+                0,
+                0,
+                false,
+            )
+        };
         query.iter();
     }
 }

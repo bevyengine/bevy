@@ -1,3 +1,4 @@
+use self::query_world_borrows::QueryLockBorrows;
 use crate::{
     component::Component,
     entity::Entity,
@@ -8,6 +9,15 @@ use crate::{
     world::{Mut, World},
 };
 use std::{any::TypeId, borrow::Borrow, fmt::Debug};
+
+// separate file instead of inline so that it will be more obvious from looking at list of changed files
+// that scary soundness important safe code has been modified.
+pub mod query_world_borrows;
+
+const _: () = {
+    struct AssertSendSync<T: Send + Sync>(T);
+    let _: AssertSendSync<Query<'static, 'static, (), ()>>;
+};
 
 /// [System parameter] that provides selective access to the [`Component`] data stored in a [`World`].
 ///
@@ -274,7 +284,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// [`With`]: crate::query::With
 /// [`Without`]: crate::query::Without
 pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
-    world: &'world World,
+    lock_borrows: QueryLockBorrows<'world, (Q, F)>,
     state: &'state QueryState<Q, F>,
     last_change_tick: u32,
     change_tick: u32,
@@ -288,7 +298,16 @@ pub struct Query<'world, 'state, Q: WorldQuery, F: ReadOnlyWorldQuery = ()> {
 
 impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> std::fmt::Debug for Query<'w, 's, Q, F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_change_tick: {}, change_tick: {} }}", self.iter().count(), self.world, self.state, self.last_change_tick, self.change_tick)
+        write!(
+            f,
+            "Query {{ matched entities: {}, world: {:?}, state: {:?}, last_change_tick: {}, change_tick: {} }}",
+            self.iter().count(),
+            // SAFETY: `World`'s `Debug` impl only accesses world metadata and `Query` always has access to that
+            unsafe { self.lock_borrows.world_ref() },
+            self.state,
+            self.last_change_tick,
+            self.change_tick
+        )
     }
 }
 
@@ -301,21 +320,24 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     ///
     /// # Safety
     ///
-    /// This will create a query that could violate memory safety rules. Make sure that this is only
-    /// called in ways that ensure the queries have unique mutable access.
+    /// If `force_read_only_component_access` is `false` then `state`'s access must exactly correspond to what `(Q, F)` accesses.
+    /// If `force_read_only_component_access` is `true` then `state`'s access with all writes replaced by
+    /// reads must exactly correspond to what `(Q, F)` accesses.
     #[inline]
     pub(crate) unsafe fn new(
-        world: &'w World,
+        lock_borrows: QueryLockBorrows<'w, (Q, F)>,
         state: &'s QueryState<Q, F>,
         last_change_tick: u32,
         change_tick: u32,
         force_read_only_component_access: bool,
     ) -> Self {
-        state.validate_world(world);
+        // SAFETY: `validate_world` does not access anything other than the `WorldId` which
+        // even a `Query<(), ()>` has access to.
+        state.validate_world(unsafe { lock_borrows.world_ref() });
 
         Self {
             force_read_only_component_access,
-            world,
+            lock_borrows,
             state,
             last_change_tick,
             change_tick,
@@ -329,10 +351,19 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// or reusing functionality between systems via functions that accept query types.
     pub fn to_readonly(&self) -> Query<'_, 's, Q::ReadOnly, F::ReadOnly> {
         let new_state = self.state.as_readonly();
-        // SAFETY: This is memory safe because it turns the query immutable.
+        // SAFETY: This is maybe not sound.
+        //
+        // `WorldQuery` requires that `Q::ReadOnly` has a subset of the access that `Q` has. This permits `Q::ReadOnly` to
+        // outright remove access rather than downgrading a write to a read. `force_read_only_component_access` only forces
+        // the writes in access of `QueryState` to be reads, it does not handle the situation where you have a `Query<Q>` with
+        // write access to some `T` that has a `type ReadOnly = ()`.  This means that it would be possible to create a
+        // `Query<()>` where `get_component::<T>` succeeds.
+        //
+        // Other than that, `WorldQuery` requries `Q::ReadOnly` and `ReadOnlyWorldQuery` requires it to have no writes which
+        // makes this sound if the above is fixed.
         unsafe {
             Query::new(
-                self.world,
+                self.lock_borrows.reborrow(),
                 new_state,
                 self.last_change_tick,
                 self.change_tick,
@@ -369,11 +400,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`for_each`](Self::for_each) for the closure based alternative.
     #[inline]
     pub fn iter(&self) -> QueryIter<'_, 's, Q::ReadOnly, F::ReadOnly> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().iter_unchecked_manual(
-                self.world,
+                // SAFETY:
+                // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+                // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+                // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+                // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+                // therefore it is fine to access the world with them using a shared reference.
+                self.lock_borrows.world_ref(),
                 self.last_change_tick,
                 self.change_tick,
             )
@@ -406,11 +444,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`for_each_mut`](Self::for_each_mut) for the closure based alternative.
     #[inline]
     pub fn iter_mut(&mut self) -> QueryIter<'_, 's, Q, F> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
-            self.state
-                .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+            self.state.iter_unchecked_manual(
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                self.lock_borrows.world_mut(),
+                self.last_change_tick,
+                self.change_tick,
+            )
         }
     }
 
@@ -437,11 +479,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter_combinations<const K: usize>(
         &self,
     ) -> QueryCombinationIter<'_, 's, Q::ReadOnly, F::ReadOnly, K> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().iter_combinations_unchecked_manual(
-                self.world,
+                // SAFETY:
+                // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+                // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+                // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+                // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+                // therefore it is fine to access the world with them using a shared reference.
+                self.lock_borrows.world_ref(),
                 self.last_change_tick,
                 self.change_tick,
             )
@@ -471,11 +520,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub fn iter_combinations_mut<const K: usize>(
         &mut self,
     ) -> QueryCombinationIter<'_, 's, Q, F, K> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.iter_combinations_unchecked_manual(
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                self.lock_borrows.world_mut(),
                 self.last_change_tick,
                 self.change_tick,
             )
@@ -526,12 +576,19 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().iter_many_unchecked_manual(
                 entities,
-                self.world,
+                // SAFETY:
+                // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+                // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+                // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+                // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+                // therefore it is fine to access the world with them using a shared reference.
+                self.lock_borrows.world_ref(),
                 self.last_change_tick,
                 self.change_tick,
             )
@@ -579,12 +636,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.iter_many_unchecked_manual(
                 entities,
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                self.lock_borrows.world_mut(),
                 self.last_change_tick,
                 self.change_tick,
             )
@@ -603,10 +661,15 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter`](Self::iter) and [`iter_mut`](Self::iter_mut) for the safe versions.
     #[inline]
     pub unsafe fn iter_unsafe(&self) -> QueryIter<'_, 's, Q, F> {
-        // SEMI-SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        self.state
-            .iter_unchecked_manual(self.world, self.last_change_tick, self.change_tick)
+        // SAFETY: Aliasing correctness is justified below.
+        self.state.iter_unchecked_manual(
+            // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+            // `WorldQuery`'s. Additionally the caller is responsible for any aliasing issues caused
+            // by the lifetime on the returned data being not correctly constrained.
+            self.lock_borrows.world_ref_unbounded(),
+            self.last_change_tick,
+            self.change_tick,
+        )
     }
 
     /// Iterates over all possible combinations of `K` query items without repetition.
@@ -623,10 +686,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     pub unsafe fn iter_combinations_unsafe<const K: usize>(
         &self,
     ) -> QueryCombinationIter<'_, 's, Q, F, K> {
-        // SEMI-SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         self.state.iter_combinations_unchecked_manual(
-            self.world,
+            // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+            // `WorldQuery`'s. Additionally the caller is responsible for any aliasing issues caused
+            // by the lifetime on the returned data being not correctly constrained.
+            self.lock_borrows.world_ref(),
             self.last_change_tick,
             self.change_tick,
         )
@@ -650,9 +715,13 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     where
         EntityList::Item: Borrow<Entity>,
     {
+        // SAFETY: Aliasing correctness is justified below.
         self.state.iter_many_unchecked_manual(
             entities,
-            self.world,
+            // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+            // `WorldQuery`'s. Additionally the caller is responsible for any aliasing issues caused
+            // by the lifetime on the returned data being not correctly constrained.
+            self.lock_borrows.world_ref(),
             self.last_change_tick,
             self.change_tick,
         )
@@ -684,11 +753,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter`](Self::iter) for the iterator based alternative.
     #[inline]
     pub fn for_each<'this>(&'this self, f: impl FnMut(ROQueryItem<'this, Q>)) {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().for_each_unchecked_manual(
-                self.world,
+                // SAFETY:
+                // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+                // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+                // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+                // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+                // therefore it is fine to access the world with them using a shared reference.
+                self.lock_borrows.world_ref(),
                 f,
                 self.last_change_tick,
                 self.change_tick,
@@ -722,11 +798,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`iter_mut`](Self::iter_mut) for the iterator based alternative.
     #[inline]
     pub fn for_each_mut<'a>(&'a mut self, f: impl FnMut(Q::Item<'a>)) {
-        // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
-        // borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.for_each_unchecked_manual(
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                self.lock_borrows.world_mut(),
                 f,
                 self.last_change_tick,
                 self.change_tick,
@@ -764,11 +841,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         batch_size: usize,
         f: impl Fn(ROQueryItem<'this, Q>) + Send + Sync + Clone,
     ) {
-        // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
-        // borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().par_for_each_unchecked_manual(
-                self.world,
+                // SAFETY:
+                // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+                // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+                // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+                // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+                // therefore it is fine to access the world with them using a shared reference.
+                self.lock_borrows.world_ref(),
                 batch_size,
                 f,
                 self.last_change_tick,
@@ -797,11 +881,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         batch_size: usize,
         f: impl Fn(Q::Item<'a>) + Send + Sync + Clone,
     ) {
-        // SAFETY: system runs without conflicts with other systems. same-system queries have runtime
-        // borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.par_for_each_unchecked_manual(
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                self.lock_borrows.world_mut(),
                 batch_size,
                 f,
                 self.last_change_tick,
@@ -843,11 +928,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_mut`](Self::get_mut) to get a mutable query item.
     #[inline]
     pub fn get(&self, entity: Entity) -> Result<ROQueryItem<'_, Q>, QueryEntityError> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().get_unchecked_manual(
-                self.world,
+                // SAFETY:
+                // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+                // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+                // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+                // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+                // therefore it is fine to access the world with them using a shared reference.
+                self.lock_borrows.world_ref(),
                 entity,
                 self.last_change_tick,
                 self.change_tick,
@@ -869,10 +961,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         &self,
         entities: [Entity; N],
     ) -> Result<[ROQueryItem<'_, Q>; N], QueryEntityError> {
-        // SAFETY: it is the scheduler's responsibility to ensure that `Query` is never handed out on the wrong `World`.
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.get_many_read_only_manual(
-                self.world,
+                // SAFETY:
+                // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+                // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+                // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+                // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+                // therefore it is fine to access the world with them using a shared reference.
+                self.lock_borrows.world_ref(),
                 entities,
                 self.last_change_tick,
                 self.change_tick,
@@ -955,11 +1055,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get`](Self::get) to get a read-only query item.
     #[inline]
     pub fn get_mut(&mut self, entity: Entity) -> Result<Q::Item<'_>, QueryEntityError> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.get_unchecked_manual(
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                self.lock_borrows.world_mut(),
                 entity,
                 self.last_change_tick,
                 self.change_tick,
@@ -980,10 +1081,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         &mut self,
         entities: [Entity; N],
     ) -> Result<[Q::Item<'_>; N], QueryEntityError> {
-        // SAFETY: scheduler ensures safe Query world access
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.get_many_unchecked_manual(
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                self.lock_borrows.world_mut(),
                 entities,
                 self.last_change_tick,
                 self.change_tick,
@@ -1058,10 +1161,16 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_mut`](Self::get_mut) for the safe version.
     #[inline]
     pub unsafe fn get_unchecked(&self, entity: Entity) -> Result<Q::Item<'_>, QueryEntityError> {
-        // SEMI-SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
-        self.state
-            .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
+        // SAFETY: Aliasing correctness is justified below.
+        self.state.get_unchecked_manual(
+            // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+            // `WorldQuery`'s. Additionally the caller is responsible for any aliasing issues caused
+            // by the lifetime on the returned data being not correctly constrained.
+            self.lock_borrows.world_ref_unbounded(),
+            entity,
+            self.last_change_tick,
+            self.change_tick,
+        )
     }
 
     /// Returns a shared reference to the component `T` of the given [`Entity`].
@@ -1097,7 +1206,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`get_component_mut`](Self::get_component_mut) to get a mutable reference of a component.
     #[inline]
     pub fn get_component<T: Component>(&self, entity: Entity) -> Result<&T, QueryComponentError> {
-        let world = self.world;
+        // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+        // `WorldQuery`'s, and we only access the component of type `T` once we checked that our `Q` or `F`
+        // have added a read for the corresponding `ArchetypeComponentId`.
+        let world = unsafe { self.lock_borrows.world_ref() };
         let entity_ref = world
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
@@ -1180,7 +1292,10 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
         if self.force_read_only_component_access {
             return Err(QueryComponentError::MissingWriteAccess);
         }
-        let world = self.world;
+        // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+        // `WorldQuery`'s, and we only access the component of type `T` once we checked that our `Q` or `F`
+        // have added a write for the corresponding `ArchetypeComponentId`.
+        let world = &self.lock_borrows.world_ref();
         let entity_ref = world
             .get_entity(entity)
             .ok_or(QueryComponentError::NoSuchEntity)?;
@@ -1268,12 +1383,18 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`single`](Self::single) for the panicking version.
     #[inline]
     pub fn get_single(&self) -> Result<ROQueryItem<'_, Q>, QuerySingleError> {
-        // SAFETY:
-        // the query ensures that the components it accesses are not mutably accessible somewhere else
-        // and the query is read only.
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().get_single_unchecked_manual(
-                self.world,
+                // SAFETY:
+                // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+                // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+                // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+                // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+                // therefore it is fine to access the world with them using a shared reference.
+                self.lock_borrows.world_ref(),
                 self.last_change_tick,
                 self.change_tick,
             )
@@ -1339,12 +1460,12 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// - [`single_mut`](Self::single_mut) for the panicking version.
     #[inline]
     pub fn get_single_mut(&mut self) -> Result<Q::Item<'_>, QuerySingleError> {
-        // SAFETY:
-        // the query ensures mutable access to the components it accesses, and the query
-        // is uniquely borrowed
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.get_single_unchecked_manual(
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s.
+                self.lock_borrows.world_mut(),
                 self.last_change_tick,
                 self.change_tick,
             )
@@ -1373,8 +1494,21 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.state
-            .is_empty(self.world, self.last_change_tick, self.change_tick)
+        self.state.is_empty(
+            // SAFETY:
+            // -`Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+            // `WorldQuery`'s.
+            // - The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+            // therefore if we're allowed to access the world with `Q` and `F`(we do, see first point) then we can
+            // access the world using `Q::ReadOnly` and `F::ReadOnly`.
+            // - `ReadOnlyWorldQuery` ensures that `Q::ReadOnly` and `F::ReadOnly` do not access the world mutably
+            // therefore it is fine to access the world with them using a shared reference.
+            // - `state.is_empty()` guarantees it does not access anything in ways that are not compliant with the access
+            // of `Q::ReadOnly` and `F::ReadOnly`.
+            unsafe { self.lock_borrows.world_ref() },
+            self.last_change_tick,
+            self.change_tick,
+        )
     }
 
     /// Returns `true` if the given [`Entity`] matches the query.
@@ -1401,11 +1535,29 @@ impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn contains(&self, entity: Entity) -> bool {
-        // SAFETY: NopFetch does not access any members while &self ensures no one has exclusive access
+        // SAFETY:
+        // - `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+        // `WorldQuery`'s.
+        //
+        // The `WorldQuery` trait guarantees that `Self::ReadOnly` has a subset of the access that `Self` has,
+        // therefore if we're allowed to access the world with and `F` (we do, see first point) then we can access
+        // the world using and `F::ReadOnly`.
+        //
+        // `ReadOnlyWorldQuery` ensures that `F::ReadOnly` does not access the world mutably therefore it is fine to
+        // access the world with it using a shared reference.
+        // - `NopWorldQuery` does not access anything so it is trivially true that `NopWorldQuery<Q>` does not break
+        // any aliasing guarantees.
         unsafe {
             self.state
+                .as_readonly()
                 .as_nop()
-                .get_unchecked_manual(self.world, entity, self.last_change_tick, self.change_tick)
+                .get_unchecked_manual(
+                    // SAFETY: see above
+                    self.lock_borrows.world_ref(),
+                    entity,
+                    self.last_change_tick,
+                    self.change_tick,
+                )
                 .is_ok()
         }
     }
@@ -1465,6 +1617,10 @@ impl std::fmt::Display for QueryComponentError {
     }
 }
 
+// FIXME: we should have `_inner` variants of all functions that take `self` instead of `&self`
+// along with no `Q: ReadOnlyWorldQuery` bound. We should also implement copy for `WorldQuery`
+// when both `Q: ReadOnlyWorldQuery` and `F: ReadOnlyWorldQuery` hold and then stop using
+// `QueryLockBorrows::world_ref_unbounded` in favor of `QueryLockBorrows::into_world_ref`.
 impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// Returns the query item for the given [`Entity`], with the actual "inner" world lifetime.
     ///
@@ -1500,11 +1656,14 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn get_inner(&self, entity: Entity) -> Result<ROQueryItem<'w, Q>, QueryEntityError> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().get_unchecked_manual(
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s. The `Q` and `F` types both implement `ReadOnlyWorldQuery` so their
+                // `ReadOnly` assoc types are equal to `Q` and `F` respectively, this means that there is no change in access
+                // between us using `Q` or `Q::ReadOnly` and we already justified being able to access the world using `Q` and `F`.
+                self.lock_borrows.into_world_ref(),
                 entity,
                 self.last_change_tick,
                 self.change_tick,
@@ -1537,11 +1696,14 @@ impl<'w, 's, Q: ReadOnlyWorldQuery, F: ReadOnlyWorldQuery> Query<'w, 's, Q, F> {
     /// ```
     #[inline]
     pub fn iter_inner(&self) -> QueryIter<'w, 's, Q::ReadOnly, F::ReadOnly> {
-        // SAFETY: system runs without conflicts with other systems.
-        // same-system queries have runtime borrow checks when they conflict
+        // SAFETY: Aliasing correctness is justified below.
         unsafe {
             self.state.as_readonly().iter_unchecked_manual(
-                self.world,
+                // SAFETY: `Query::new` upholds that `QueryLockBorrows` has adequate access for our `Q` and `F`
+                // `WorldQuery`'s. The `Q` and `F` types both implement `ReadOnlyWorldQuery` so their
+                // `ReadOnly` assoc types are equal to `Q` and `F` respectively, this means that there is no change in access
+                // between us using `Q` or `Q::ReadOnly` and we already justified being able to access the world using `Q` and `F`.
+                self.lock_borrows.world_ref_unbounded(),
                 self.last_change_tick,
                 self.change_tick,
             )
