@@ -51,7 +51,7 @@ impl BreadthFirstSearch {
 
 #[cfg(test)]
 mod test {
-    use crate::graphs::{simple::SimpleMapGraph, DirectedGraph, Graph};
+    use crate::graphs::{simple::SimpleMapGraph, Graph, NewEdge, NewNode};
 
     #[test]
     fn bfs() {

@@ -6,7 +6,7 @@ use crate::{
     graphs::{
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
-        DirectedGraph, Graph, UndirectedGraph,
+        EdgeUtils, GetEdge, GetNode, Graph, NewEdge, NewNode,
     },
 };
 
@@ -27,13 +27,20 @@ impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
     }
 }
 
-impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> {
+impl<N, E, const DIRECTED: bool> NewNode<N> for SimpleMapGraph<N, E, DIRECTED> {
     fn new_node(&mut self, node: N) -> NodeIdx {
         let idx = self.nodes.insert(node);
         self.adjacencies.insert(idx, HashMap::new());
         idx
     }
 
+    #[inline]
+    fn len(&self) -> usize {
+        self.nodes.len()
+    }
+}
+
+impl<N, E, const DIRECTED: bool> GetNode<N> for SimpleMapGraph<N, E, DIRECTED> {
     #[inline]
     fn node(&self, idx: NodeIdx) -> GraphResult<&N> {
         if let Some(node) = self.nodes.get(idx) {
@@ -51,43 +58,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
             Err(GraphError::NodeDoesntExist(idx))
         }
     }
-
-    #[inline]
-    fn len(&self) -> usize {
-        self.nodes.len()
-    }
-
-    #[inline]
-    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
-        self.adjacencies
-            .get(from)
-            .unwrap()
-            .get(&to)
-            .cloned()
-            .unwrap_or_else(EdgeIdx::null)
-    }
-
-    #[inline]
-    fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
-        self.edges.get(edge).map(|e| &e.data)
-    }
-
-    #[inline]
-    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
-        self.edges.get_mut(edge).map(|e| &mut e.data)
-    }
-
-    fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
-        self.adjacencies
-            .get(node)
-            .unwrap()
-            .iter()
-            .map(|(node, edge)| (*node, *edge))
-            .collect()
-    }
 }
 
-impl<N, E> UndirectedGraph<N, E> for SimpleMapGraph<N, E, false> {
+impl<N, E> NewEdge<E> for SimpleMapGraph<N, E, false> {
     fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(Edge {
             src: node,
@@ -111,7 +84,7 @@ impl<N, E> UndirectedGraph<N, E> for SimpleMapGraph<N, E, false> {
     }
 }
 
-impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
+impl<N, E> NewEdge<E> for SimpleMapGraph<N, E, true> {
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(Edge {
             src: from,
@@ -133,6 +106,42 @@ impl<N, E> DirectedGraph<N, E> for SimpleMapGraph<N, E, true> {
     }
 }
 
+impl<N, E, const DIRECTED: bool> GetEdge<E> for SimpleMapGraph<N, E, DIRECTED> {
+    #[inline]
+    fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
+        self.edges.get(edge).map(|e| &e.data)
+    }
+
+    #[inline]
+    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
+        self.edges.get_mut(edge).map(|e| &mut e.data)
+    }
+}
+
+impl<N, E, const DIRECTED: bool> EdgeUtils for SimpleMapGraph<N, E, DIRECTED> {
+    #[inline]
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+        self.adjacencies
+            .get(from)
+            .unwrap()
+            .get(&to)
+            .cloned()
+            .unwrap_or_else(EdgeIdx::null)
+    }
+
+    fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
+        self.adjacencies
+            .get(node)
+            .unwrap()
+            .iter()
+            .map(|(node, edge)| (*node, *edge))
+            .collect()
+    }
+}
+
+impl<N, E> Graph<N, E> for SimpleMapGraph<N, E, false> {}
+impl<N, E> Graph<N, E> for SimpleMapGraph<N, E, true> {}
+
 impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
     #[inline]
     fn default() -> Self {
@@ -142,7 +151,7 @@ impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
-    use crate::graphs::{DirectedGraph, Graph, UndirectedGraph};
+    use crate::graphs::{EdgeUtils, NewEdge, NewNode};
 
     use super::SimpleMapGraph;
 
@@ -163,11 +172,15 @@ mod test {
 
         let best_friends = map_graph.new_edge(jake, michael, STRENGTH);
 
-        let strength_jake = map_graph.edge_between(jake, michael).get(&map_graph);
+        let strength_jake = map_graph
+            .edge_between(jake, michael)
+            .get::<Person, i32>(&map_graph);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_michael = map_graph.edge_between(michael, jake).get(&map_graph);
+        let strength_michael = map_graph
+            .edge_between(michael, jake)
+            .get::<Person, i32>(&map_graph);
         assert!(strength_michael.is_some());
         assert_eq!(strength_michael.unwrap(), &STRENGTH);
 
@@ -176,13 +189,17 @@ mod test {
 
         assert!(map_graph
             .edge_between(michael, jake)
-            .remove_undirected(&mut map_graph)
+            .remove::<Person, i32>(&mut map_graph)
             .is_ok());
 
-        let strength_jake = map_graph.edge_between(jake, michael).get(&map_graph);
+        let strength_jake = map_graph
+            .edge_between(jake, michael)
+            .get::<Person, i32>(&map_graph);
         assert!(strength_jake.is_none());
 
-        let strength_michael = map_graph.edge_between(michael, jake).get(&map_graph);
+        let strength_michael = map_graph
+            .edge_between(michael, jake)
+            .get::<Person, i32>(&map_graph);
         assert!(strength_michael.is_none());
     }
 
@@ -197,11 +214,15 @@ mod test {
 
         let oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH);
 
-        let strength_jake = map_graph.edge_between(jake, jennifer).get(&map_graph);
+        let strength_jake = map_graph
+            .edge_between(jake, jennifer)
+            .get::<Person, i32>(&map_graph);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_jennifer = map_graph.edge_between(jennifer, jake).get(&map_graph);
+        let strength_jennifer = map_graph
+            .edge_between(jennifer, jake)
+            .get::<Person, i32>(&map_graph);
         assert!(strength_jennifer.is_none());
 
         assert_eq!(map_graph.edges_of(jake), vec![(jennifer, oneway_crush)]);
@@ -209,13 +230,17 @@ mod test {
 
         assert!(map_graph
             .edge_between(jake, jennifer)
-            .remove_directed(&mut map_graph)
+            .remove::<Person, i32>(&mut map_graph)
             .is_ok());
 
-        let strength_jake = map_graph.edge_between(jake, jennifer).get(&map_graph);
+        let strength_jake = map_graph
+            .edge_between(jake, jennifer)
+            .get::<Person, i32>(&map_graph);
         assert!(strength_jake.is_none());
 
-        let strength_jennifer = map_graph.edge_between(jennifer, jake).get(&map_graph);
+        let strength_jennifer = map_graph
+            .edge_between(jennifer, jake)
+            .get::<Person, i32>(&map_graph);
         assert!(strength_jennifer.is_none());
     }
 }

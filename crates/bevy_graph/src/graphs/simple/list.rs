@@ -5,7 +5,7 @@ use crate::{
     graphs::{
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
-        DirectedGraph, Graph, UndirectedGraph,
+        EdgeUtils, GetEdge, GetNode, Graph, NewEdge, NewNode,
     },
 };
 
@@ -26,13 +26,21 @@ impl<N, E, const DIRECTED: bool> SimpleListGraph<N, E, DIRECTED> {
     }
 }
 
-impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED> {
+impl<N, E, const DIRECTED: bool> NewNode<N> for SimpleListGraph<N, E, DIRECTED> {
+    #[inline]
     fn new_node(&mut self, node: N) -> NodeIdx {
         let idx = self.nodes.insert(node);
         self.adjacencies.insert(idx, Vec::new());
         idx
     }
 
+    #[inline]
+    fn len(&self) -> usize {
+        self.nodes.len()
+    }
+}
+
+impl<N, E, const DIRECTED: bool> GetNode<N> for SimpleListGraph<N, E, DIRECTED> {
     #[inline]
     fn node(&self, idx: NodeIdx) -> GraphResult<&N> {
         if let Some(node) = self.nodes.get(idx) {
@@ -50,43 +58,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
             Err(GraphError::NodeDoesntExist(idx))
         }
     }
-
-    #[inline]
-    fn len(&self) -> usize {
-        self.nodes.len()
-    }
-
-    #[inline]
-    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
-        if let Some(idx) = self
-            .adjacencies
-            .get(from)
-            .unwrap()
-            .iter()
-            .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None })
-        {
-            idx
-        } else {
-            EdgeIdx::null()
-        }
-    }
-
-    #[inline]
-    fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
-        self.edges.get(edge).map(|e| &e.data)
-    }
-
-    #[inline]
-    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
-        self.edges.get_mut(edge).map(|e| &mut e.data)
-    }
-
-    fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
-        self.adjacencies.get(node).unwrap().to_vec()
-    }
 }
 
-impl<N, E> UndirectedGraph<N, E> for SimpleListGraph<N, E, false> {
+impl<N, E> NewEdge<E> for SimpleListGraph<N, E, false> {
     fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(Edge {
             src: node,
@@ -120,7 +94,7 @@ impl<N, E> UndirectedGraph<N, E> for SimpleListGraph<N, E, false> {
     }
 }
 
-impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
+impl<N, E> NewEdge<E> for SimpleListGraph<N, E, true> {
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(Edge {
             src: from,
@@ -148,6 +122,43 @@ impl<N, E> DirectedGraph<N, E> for SimpleListGraph<N, E, true> {
     }
 }
 
+impl<N, E, const DIRECTED: bool> GetEdge<E> for SimpleListGraph<N, E, DIRECTED> {
+    #[inline]
+    fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
+        self.edges.get(edge).map(|e| &e.data)
+    }
+
+    #[inline]
+    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
+        self.edges.get_mut(edge).map(|e| &mut e.data)
+    }
+}
+
+impl<N, E, const DIRECTED: bool> EdgeUtils for SimpleListGraph<N, E, DIRECTED> {
+    #[inline]
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+        if let Some(idx) = self
+            .adjacencies
+            .get(from)
+            .unwrap()
+            .iter()
+            .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None })
+        {
+            idx
+        } else {
+            EdgeIdx::null()
+        }
+    }
+
+    #[inline]
+    fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
+        self.adjacencies.get(node).unwrap().to_vec()
+    }
+}
+
+impl<N, E> Graph<N, E> for SimpleListGraph<N, E, false> {}
+impl<N, E> Graph<N, E> for SimpleListGraph<N, E, true> {}
+
 impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
     #[inline]
     fn default() -> Self {
@@ -164,7 +175,7 @@ fn find_edge(list: &[(NodeIdx, EdgeIdx)], node: NodeIdx) -> Option<usize> {
 
 #[cfg(test)]
 mod test {
-    use crate::graphs::{DirectedGraph, Graph, UndirectedGraph};
+    use crate::graphs::{EdgeUtils, NewEdge, NewNode};
 
     use super::SimpleListGraph;
 
@@ -184,11 +195,15 @@ mod test {
         let michael = list_graph.new_node(Person::Michael);
         let best_friends = list_graph.new_edge(jake, michael, STRENGTH);
 
-        let strength_jake = list_graph.edge_between(jake, michael).get(&list_graph);
+        let strength_jake = list_graph
+            .edge_between(jake, michael)
+            .get::<Person, i32>(&list_graph);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_michael = list_graph.edge_between(michael, jake).get(&list_graph);
+        let strength_michael = list_graph
+            .edge_between(michael, jake)
+            .get::<Person, i32>(&list_graph);
         assert!(strength_michael.is_some());
         assert_eq!(strength_michael.unwrap(), &STRENGTH);
 
@@ -197,13 +212,17 @@ mod test {
 
         assert!(list_graph
             .edge_between(michael, jake)
-            .remove_undirected(&mut list_graph)
+            .remove::<Person, i32>(&mut list_graph)
             .is_ok());
 
-        let strength_jake = list_graph.edge_between(jake, michael).get(&list_graph);
+        let strength_jake = list_graph
+            .edge_between(jake, michael)
+            .get::<Person, i32>(&list_graph);
         assert!(strength_jake.is_none());
 
-        let strength_michael = list_graph.edge_between(michael, jake).get(&list_graph);
+        let strength_michael = list_graph
+            .edge_between(michael, jake)
+            .get::<Person, i32>(&list_graph);
         assert!(strength_michael.is_none());
     }
 
@@ -217,11 +236,15 @@ mod test {
         let jennifer = list_graph.new_node(Person::Jennifer);
         let oneway_crush = list_graph.new_edge(jake, jennifer, STRENGTH);
 
-        let strength_jake = list_graph.edge_between(jake, jennifer).get(&list_graph);
+        let strength_jake = list_graph
+            .edge_between(jake, jennifer)
+            .get::<Person, i32>(&list_graph);
         assert!(strength_jake.is_some());
         assert_eq!(strength_jake.unwrap(), &STRENGTH);
 
-        let strength_jennifer = list_graph.edge_between(jennifer, jake).get(&list_graph);
+        let strength_jennifer = list_graph
+            .edge_between(jennifer, jake)
+            .get::<Person, i32>(&list_graph);
         assert!(strength_jennifer.is_none());
 
         assert_eq!(list_graph.edges_of(jake), vec![(jennifer, oneway_crush)]);
@@ -229,13 +252,17 @@ mod test {
 
         assert!(list_graph
             .edge_between(jake, jennifer)
-            .remove_directed(&mut list_graph)
+            .remove::<Person, i32>(&mut list_graph)
             .is_ok());
 
-        let strength_jake = list_graph.edge_between(jake, jennifer).get(&list_graph);
+        let strength_jake = list_graph
+            .edge_between(jake, jennifer)
+            .get::<Person, i32>(&list_graph);
         assert!(strength_jake.is_none());
 
-        let strength_jennifer = list_graph.edge_between(jennifer, jake).get(&list_graph);
+        let strength_jennifer = list_graph
+            .edge_between(jennifer, jake)
+            .get::<Person, i32>(&list_graph);
         assert!(strength_jennifer.is_none());
     }
 }
