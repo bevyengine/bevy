@@ -9,7 +9,11 @@ use std::{
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
 
-/// dummy struct for wasm
+/// This is a dummy struct for wasm support to provide the same api as with the multithreaded
+/// task pool. In the case of the multithreaded task pool this struct is used to spawn
+/// tasks on a specific thread. But the wasm task pool just calls
+/// [`wasm_bindgen_futures::spawn_local`] for spawning which just runs tasks on the main thread
+/// and so the [`ThreadExecutor`] does nothing.
 #[derive(Default)]
 pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
 impl<'a> ThreadExecutor<'a> {

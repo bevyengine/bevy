@@ -14,16 +14,12 @@ use crate::RenderApp;
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
 pub struct RenderExtractApp;
 
-/// Labels for stages in the sub app that syncs with the rendering task.
+/// Labels for stages in the [`RenderExtractApp`] sub app. These will run after rendering has started.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderExtractStage {
-    /// This stage runs after the render schedule starts, but before I/O processing and the main app schedule.
-    /// This can be useful for something like frame pacing.
-    /// |-------------------------------------------------------------------|
-    /// |         | BeforeIoAfterRenderStart | winit events | main schedule |
-    /// | extract |---------------------------------------------------------|
-    /// |         | extract commands | rendering schedule                   |
-    /// |-------------------------------------------------------------------|
+    /// When pipelined rendering is enabled this stage runs after the render schedule starts, but 
+    /// before I/O processing and the main app schedule. This can be useful for something like 
+    /// frame pacing.
     BeforeIoAfterRenderStart,
 }
 
@@ -35,6 +31,41 @@ pub struct MainToRenderAppSender(pub Sender<SubApp>);
 #[derive(Resource)]
 pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 
+/// The [`PipelinedRenderingPlugin`] can be added to your application to enable pipelined rendering.
+/// This moves rendering into a different thread, so that the Nth frame's rendering can
+/// be run at the same time as the N + 1 frame's simulation.
+/// 
+/// ```text
+/// |--------------------|--------------------|--------------------|--------------------|
+/// | simulation thread  | frame 1 simulation | frame 2 simulation | frame 3 simulation |
+/// |--------------------|--------------------|--------------------|--------------------|
+/// | rendering thread   |                    | frame 1 rendering  | frame 2 rendering  |
+/// |--------------------|--------------------|--------------------|--------------------|
+/// ```
+/// 
+/// The plugin is dependent on the [`crate::RenderApp`] added by [`crate::RenderPlugin`] and so must
+/// be added after that plugin. If it is not added after, the plugin will do nothing.
+/// 
+/// A single frame of execution looks something like below    
+/// 
+/// ```text
+/// |-------------------------------------------------------------------|
+/// |         | BeforeIoAfterRenderStart | winit events | main schedule |
+/// | extract |---------------------------------------------------------|
+/// |         | extract commands | rendering schedule                   |
+/// |-------------------------------------------------------------------|
+/// ```
+/// 
+/// - `extract` is the stage where data is copied from the main world to the render world.
+/// This is run on the main app's thread.
+/// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
+/// main schedule can start sooner.
+/// - Then the `rendering schedule` is run. See [crate::RenderStage] for the available stages.
+/// - In parallel to the rendering thread we first run the [`RenderExtractStage::BeforeIoAfterRenderStart`] stage. By
+/// default this stage is empty. But is useful if you need something to run before I/O processing.
+/// - Next all the `winit events` are processed.
+/// - And finally the `main app schedule` is run.
+/// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.
 #[derive(Default)]
 pub struct PipelinedRenderingPlugin;
 impl Plugin for PipelinedRenderingPlugin {

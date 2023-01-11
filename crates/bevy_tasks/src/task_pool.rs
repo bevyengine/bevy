@@ -278,6 +278,7 @@ impl TaskPool {
 
     /// This allows passing an external executor to spawn tasks on. When you pass an external executor
     /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`ThreadExecutor`] is being ticked on.
+    /// If [`None`] is passed the scope will use a [`ThreadExecutor`] that is ticked on the current thread.
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(
         &self,
@@ -289,6 +290,8 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
+        // If a `thread_executor` is passed use that. Otherwise get the `thread_executor` stored
+        // in the `THREAD_EXECUTOR` thread local.
         if let Some(thread_executor) = thread_executor {
             self.scope_with_executor_inner(tick_task_pool_executor, thread_executor, f)
         } else {

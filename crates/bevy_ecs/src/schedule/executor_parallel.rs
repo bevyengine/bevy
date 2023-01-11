@@ -19,18 +19,12 @@ use fixedbitset::FixedBitSet;
 use scheduling_event::*;
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Clone)]
 pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
 
 impl MainThreadExecutor {
     pub fn new() -> Self {
         MainThreadExecutor(Arc::new(ThreadExecutor::new()))
-    }
-}
-
-impl Clone for MainThreadExecutor {
-    fn clone(&self) -> Self {
-        MainThreadExecutor(self.0.clone())
     }
 }
 

@@ -87,11 +87,16 @@ impl Debug for App {
     }
 }
 
-/// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
+/// A [`SubApp`] contains its own [`Schedule`] and [`World`] separate from the main [`App`].
+/// This is useful for situations where data and data processing should be kept completely separate
+/// from the main application. The primary use of this feature in bevy is to enable pipelined rendering.
 pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
-    extract: Box<dyn Fn(&mut World, &mut App) + Send>,
+
+    /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is 
+    /// useful for moving data between the sub app and the main app.
+    pub extract: Box<dyn Fn(&mut World, &mut App) + Send>,
 }
 
 impl SubApp {
