@@ -181,8 +181,8 @@ impl<'a> From<&'a Path> for AssetPath<'a> {
 }
 
 impl<'a> From<PathBuf> for AssetPath<'a> {
-    fn from(mut path: PathBuf) -> Self {
-        match path
+    fn from(mut path_buf: PathBuf) -> Self {
+        match path_buf
             .file_name()
             .and_then(OsStr::to_str)
             .map(ToOwned::to_owned)
@@ -193,12 +193,12 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
                 path = path.join(parts.next().expect("Path must be set."));
                 let label = parts.next().map(String::from);
                 AssetPath {
-                    path: Cow::Owned(path),
+                    path: Cow::Owned(path_buf),
                     label: label.map(Cow::Owned),
                 }
             }
             None => AssetPath {
-                path: Cow::Owned(path),
+                path: Cow::Owned(path_buf),
                 label: None,
             },
         }
