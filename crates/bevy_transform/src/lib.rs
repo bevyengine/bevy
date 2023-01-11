@@ -5,8 +5,6 @@
 /// The basic components of the transform crate
 pub mod components;
 mod systems;
-pub use crate::systems::propagate_transforms;
-pub use crate::systems::sync_simple_transforms;
 
 #[doc(hidden)]
 pub mod prelude {
@@ -79,6 +77,13 @@ impl From<Transform> for TransformBundle {
 pub enum TransformSystem {
     /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
     TransformPropagate,
+}
+
+/// Transform propagation system set for third party plugins use
+pub fn transform_propagate_system_set() -> SystemSet {
+    SystemSet::new()
+        .with_system(systems::sync_simple_transforms)
+        .with_system(systems::propagate_transforms)
 }
 
 /// The base plugin for handling [`Transform`] components
