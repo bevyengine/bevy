@@ -60,7 +60,7 @@ pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 /// This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
 /// main schedule can start sooner.
-/// - Then the `rendering schedule` is run. See [crate::RenderStage] for the available stages.
+/// - Then the `rendering schedule` is run. See [`crate::RenderStage`] for the available stages.
 /// - In parallel to the rendering thread we first run the [`RenderExtractStage::BeforeIoAfterRenderStart`] stage. By
 /// default this stage is empty. But is useful if you need something to run before I/O processing.
 /// - Next all the `winit events` are processed.
