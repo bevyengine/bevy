@@ -42,7 +42,8 @@ pub const NORMAL_PREPASS_FORMAT: TextureFormat = TextureFormat::Rgb10a2Unorm;
 #[derive(Component, Default, Reflect)]
 pub struct DepthPrepass;
 
-/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass. Normals will have normal map textures already applied.
+/// If added to a [`crate::prelude::Camera3d`] then vertex world normals will be copied to a separate texture available to the main pass.
+/// Normals will have normal map textures already applied.
 #[derive(Component, Default, Reflect)]
 pub struct NormalPrepass;
 
