@@ -11,7 +11,10 @@ use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, FutureExt};
 
-use crate::{thread_executor::ThreadExecutor, Task};
+use crate::{
+    thread_executor::{ThreadExecutor, ThreadExecutorTicker},
+    Task,
+};
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
 
@@ -345,65 +348,83 @@ impl TaskPool {
                     while let Ok(task) = spawned_ref.pop() {
                         results.push(task.await.unwrap());
                     }
-
                     results
                 };
 
                 let tick_task_pool_executor = tick_task_pool_executor || self.threads.is_empty();
                 if let Some(thread_ticker) = thread_executor.ticker() {
                     if tick_task_pool_executor {
-                        let execute_forever = async move {
-                            // we restart the executors if a task errors. if a scoped
-                            // task errors it will panic the scope on the call to get_results
-                            loop {
-                                let tick_forever = async {
-                                    loop {
-                                        thread_ticker.tick().await;
-                                    }
-                                };
-
-                                // we don't care if it errors. If a scoped task errors it will propagate
-                                // to get_results
-                                let _result = AssertUnwindSafe(executor.run(tick_forever))
-                                    .catch_unwind()
-                                    .await
-                                    .is_ok();
-                            }
-                        };
-                        execute_forever.or(get_results).await
+                        Self::execute_local_global(thread_ticker, executor, get_results).await
                     } else {
-                        let execute_forever = async {
-                            loop {
-                                let tick_forever = async {
-                                    loop {
-                                        thread_ticker.tick().await;
-                                    }
-                                };
-
-                                let _result =
-                                    AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
-                            }
-                        };
-
-                        execute_forever.or(get_results).await
+                        Self::execute_local(thread_ticker, get_results).await
                     }
                 } else if tick_task_pool_executor {
-                    let execute_forever = async {
-                        loop {
-                            let _result =
-                                AssertUnwindSafe(executor.run(std::future::pending::<()>()))
-                                    .catch_unwind()
-                                    .await
-                                    .is_ok();
-                        }
-                    };
-
-                    execute_forever.or(get_results).await
+                    Self::execute_global(executor, get_results).await
                 } else {
                     get_results.await
                 }
             })
         }
+    }
+
+    #[inline]
+    async fn execute_local_global<'scope, 'ticker, T>(
+        thread_ticker: ThreadExecutorTicker<'scope, 'ticker>,
+        executor: &'scope async_executor::Executor<'scope>,
+        get_results: impl Future<Output = Vec<T>>,
+    ) -> Vec<T> {
+        // we restart the executors if a task errors. if a scoped
+        // task errors it will panic the scope on the call to get_results
+        let execute_forever = async move {
+            loop {
+                let tick_forever = async {
+                    loop {
+                        thread_ticker.tick().await;
+                    }
+                };
+                // we don't care if it errors. If a scoped task errors it will propagate
+                // to get_results
+                let _result = AssertUnwindSafe(executor.run(tick_forever))
+                    .catch_unwind()
+                    .await
+                    .is_ok();
+            }
+        };
+        execute_forever.or(get_results).await
+    }
+
+    #[inline]
+    async fn execute_local<'scope, 'ticker, T>(
+        thread_ticker: ThreadExecutorTicker<'scope, 'ticker>,
+        get_results: impl Future<Output = Vec<T>>,
+    ) -> Vec<T> {
+        let execute_forever = async {
+            loop {
+                let tick_forever = async {
+                    loop {
+                        thread_ticker.tick().await;
+                    }
+                };
+                let _result = AssertUnwindSafe(tick_forever).catch_unwind().await.is_ok();
+            }
+        };
+        execute_forever.or(get_results).await
+    }
+
+    #[inline]
+    async fn execute_global<'scope, T>(
+        executor: &'scope async_executor::Executor<'scope>,
+        get_results: impl Future<Output = Vec<T>>,
+    ) -> Vec<T> {
+        let execute_forever = async {
+            loop {
+                let _result = AssertUnwindSafe(executor.run(std::future::pending::<()>()))
+                    .catch_unwind()
+                    .await
+                    .is_ok();
+            }
+        };
+        execute_forever.or(get_results).await
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
