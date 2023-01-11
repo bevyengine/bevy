@@ -1446,7 +1446,7 @@ mod tests {
                 }
                 Err(_) => {
                     panic!(
-                        "ButtonSettings::new({press_threshold}, {release_threshold}) should be valid "
+                        "ButtonSettings::new({press_threshold}, {release_threshold}) should be valid"
                     );
                 }
             }
