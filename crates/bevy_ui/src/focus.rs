@@ -63,7 +63,7 @@ pub enum FocusPolicy {
 }
 
 impl FocusPolicy {
-    const DEFAULT: Self = Self::Block;
+    const DEFAULT: Self = Self::Pass;
 }
 
 impl Default for FocusPolicy {

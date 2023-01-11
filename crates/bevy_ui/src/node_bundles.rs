@@ -96,7 +96,7 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct TextBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -157,23 +157,6 @@ impl TextBundle {
     pub const fn with_style(mut self, style: Style) -> Self {
         self.style = style;
         self
-    }
-}
-
-impl Default for TextBundle {
-    fn default() -> Self {
-        TextBundle {
-            focus_policy: FocusPolicy::Pass,
-            text: Default::default(),
-            node: Default::default(),
-            calculated_size: Default::default(),
-            style: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-            z_index: Default::default(),
-        }
     }
 }
 
