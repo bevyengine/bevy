@@ -29,7 +29,7 @@ pub mod node;
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
 use bevy_render::{
-    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, EntityPhaseItem, PhaseItem},
+    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
 };
@@ -76,6 +76,10 @@ pub struct Opaque3dPrepass {
 impl PhaseItem for Opaque3dPrepass {
     type SortKey = FloatOrd;
 
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
@@ -89,12 +93,6 @@ impl PhaseItem for Opaque3dPrepass {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for Opaque3dPrepass {
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -120,6 +118,10 @@ pub struct AlphaMask3dPrepass {
 impl PhaseItem for AlphaMask3dPrepass {
     type SortKey = FloatOrd;
 
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
@@ -133,12 +135,6 @@ impl PhaseItem for AlphaMask3dPrepass {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for AlphaMask3dPrepass {
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 

@@ -9,7 +9,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::Entity,
-    query::With,
+    query::{ROQueryItem, With},
     system::{
         lifetimeless::{Read, SQuery, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
@@ -23,7 +23,7 @@ use bevy_render::{
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::{
-        sort_phase_system, AddRenderCommand, DrawFunctions, EntityRenderCommand,
+        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
         RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
@@ -573,23 +573,25 @@ pub fn queue_prepass_material_meshes<M: Material>(
 }
 
 pub struct SetPrepassViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
-    type Param = (SRes<PrepassViewBindGroup>, SQuery<Read<ViewUniformOffset>>);
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
+    type Param = SRes<PrepassViewBindGroup>;
+    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (prepass_view_bind_group, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        view_uniform_offset: &'_ ViewUniformOffset,
+        _entity: (),
+        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let view_uniform_offset = view_query.get(view).unwrap();
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
         pass.set_bind_group(
             I,
             prepass_view_bind_group.bind_group.as_ref().unwrap(),
             &[view_uniform_offset.offset],
         );
-
         RenderCommandResult::Success
     }
 }
