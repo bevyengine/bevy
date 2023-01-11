@@ -266,7 +266,7 @@ fn dynamic_map_insert(criterion: &mut Criterion) {
                     |mut map| {
                         for i in 0..size as u64 {
                             let key = black_box(i);
-                            map.insert(key, i);
+                            black_box(map.insert(key, i));
                         }
                     },
                     BatchSize::SmallInput,
