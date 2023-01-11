@@ -1,9 +1,9 @@
-pub use crate::change_detection::{NonSendMut, ResMut};
+pub use crate::change_detection::{NonSendMut, Res, ResMut};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
-    change_detection::Ticks,
-    component::{Component, ComponentId, ComponentTicks, Components, Tick},
+    change_detection::{Ticks, TicksMut},
+    component::{Component, ComponentId, ComponentTicks, Components},
     entity::{Entities, Entity},
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
@@ -403,103 +403,6 @@ impl_param_set!();
 /// ```
 pub trait Resource: Send + Sync + 'static {}
 
-/// Shared borrow of a [`Resource`].
-///
-/// See the [`Resource`] documentation for usage.
-///
-/// If you need a unique mutable borrow, use [`ResMut`] instead.
-///
-/// # Panics
-///
-/// Panics when used as a [`SystemParameter`](SystemParam) if the resource does not exist.
-///
-/// Use `Option<Res<T>>` instead if the resource might not always exist.
-pub struct Res<'w, T: Resource> {
-    value: &'w T,
-    added: &'w Tick,
-    changed: &'w Tick,
-    last_change_tick: u32,
-    change_tick: u32,
-}
-
-impl<'w, T: Resource> Debug for Res<'w, T>
-where
-    T: Debug,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Res").field(&self.value).finish()
-    }
-}
-
-impl<'w, T: Resource> Res<'w, T> {
-    // no it shouldn't clippy
-    #[allow(clippy::should_implement_trait)]
-    pub fn clone(this: &Self) -> Self {
-        Self {
-            value: this.value,
-            added: this.added,
-            changed: this.changed,
-            last_change_tick: this.last_change_tick,
-            change_tick: this.change_tick,
-        }
-    }
-
-    /// Returns `true` if the resource was added after the system last ran.
-    pub fn is_added(&self) -> bool {
-        self.added
-            .is_older_than(self.last_change_tick, self.change_tick)
-    }
-
-    /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
-    pub fn is_changed(&self) -> bool {
-        self.changed
-            .is_older_than(self.last_change_tick, self.change_tick)
-    }
-
-    pub fn into_inner(self) -> &'w T {
-        self.value
-    }
-}
-
-impl<'w, T: Resource> Deref for Res<'w, T> {
-    type Target = T;
-
-    fn deref(&self) -> &Self::Target {
-        self.value
-    }
-}
-
-impl<'w, T: Resource> AsRef<T> for Res<'w, T> {
-    #[inline]
-    fn as_ref(&self) -> &T {
-        self.deref()
-    }
-}
-
-impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
-    fn from(res: ResMut<'w, T>) -> Self {
-        Self {
-            value: res.value,
-            added: res.ticks.added,
-            changed: res.ticks.changed,
-            change_tick: res.ticks.change_tick,
-            last_change_tick: res.ticks.last_change_tick,
-        }
-    }
-}
-
-impl<'w, 'a, T: Resource> IntoIterator for &'a Res<'w, T>
-where
-    &'a T: IntoIterator,
-{
-    type Item = <&'a T as IntoIterator>::Item;
-    type IntoIter = <&'a T as IntoIterator>::IntoIter;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.value.into_iter()
-    }
-}
-
 // SAFETY: Res only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
@@ -550,10 +453,12 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
             });
         Res {
             value: ptr.deref(),
-            added: ticks.added.deref(),
-            changed: ticks.changed.deref(),
-            last_change_tick: system_meta.last_change_tick,
-            change_tick,
+            ticks: Ticks {
+                added: ticks.added.deref(),
+                changed: ticks.changed.deref(),
+                last_change_tick: system_meta.last_change_tick,
+                change_tick,
+            },
         }
     }
 }
@@ -581,10 +486,12 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
             .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| Res {
                 value: ptr.deref(),
-                added: ticks.added.deref(),
-                changed: ticks.changed.deref(),
-                last_change_tick: system_meta.last_change_tick,
-                change_tick,
+                ticks: Ticks {
+                    added: ticks.added.deref(),
+                    changed: ticks.changed.deref(),
+                    last_change_tick: system_meta.last_change_tick,
+                    change_tick,
+                },
             })
     }
 }
@@ -639,7 +546,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
             });
         ResMut {
             value: value.value,
-            ticks: Ticks {
+            ticks: TicksMut {
                 added: value.ticks.added,
                 changed: value.ticks.changed,
                 last_change_tick: system_meta.last_change_tick,
@@ -669,7 +576,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
             .get_resource_unchecked_mut_with_id(component_id)
             .map(|value| ResMut {
                 value: value.value,
-                ticks: Ticks {
+                ticks: TicksMut {
                     added: value.ticks.added,
                     changed: value.ticks.changed,
                     last_change_tick: system_meta.last_change_tick,
@@ -1160,7 +1067,7 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
             });
         NonSendMut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
+            ticks: TicksMut::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
         }
     }
 }
@@ -1185,7 +1092,7 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
             .get_non_send_with_ticks(component_id)
             .map(|(ptr, ticks)| NonSendMut {
                 value: ptr.assert_unique().deref_mut(),
-                ticks: Ticks::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
+                ticks: TicksMut::from_tick_cells(ticks, system_meta.last_change_tick, change_tick),
             })
     }
 }

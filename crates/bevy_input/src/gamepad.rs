@@ -1,7 +1,7 @@
 use crate::{Axis, Input};
 use bevy_ecs::event::{EventReader, EventWriter};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::DetectChangesMut,
     system::{Res, ResMut, Resource},
 };
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};

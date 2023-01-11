@@ -23,19 +23,55 @@ pub const CHECK_TICK_THRESHOLD: u32 = 518_400_000;
 /// Changes stop being detected once they become this old.
 pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 
+/// Types that can read change detection information.
+/// This change detection is controlled by [`DetectChangesMut`] types such as [`ResMut`].
+///
+/// ## Example
+/// Using types that implement [`DetectChanges`], such as [`Res`], provide
+/// a way to query if a value has been mutated in another system.
+///
+/// ```
+/// use bevy_ecs::prelude::*;
+///
+/// #[derive(Resource)]
+/// struct MyResource(u32);
+///
+/// fn my_system(mut resource: Res<MyResource>) {
+///     if resource.is_changed() {
+///         println!("My component was mutated!");
+///     }
+/// }
+/// ```
+pub trait DetectChanges {
+    /// Returns `true` if this value was added after the system last ran.
+    fn is_added(&self) -> bool;
+
+    /// Returns `true` if this value was added or mutably dereferenced after the system last ran.
+    fn is_changed(&self) -> bool;
+
+    /// Returns the change tick recording the previous time this data was changed.
+    ///
+    /// Note that components and resources are also marked as changed upon insertion.
+    ///
+    /// For comparison, the previous change tick of a system can be read using the
+    /// [`SystemChangeTick`](crate::system::SystemChangeTick)
+    /// [`SystemParam`](crate::system::SystemParam).
+    fn last_changed(&self) -> u32;
+}
+
 /// Types that implement reliable change detection.
 ///
 /// ## Example
-/// Using types that implement [`DetectChanges`], such as [`ResMut`], provide
+/// Using types that implement [`DetectChangesMut`], such as [`ResMut`], provide
 /// a way to query if a value has been mutated in another system.
-/// Normally change detecting is triggered by either [`DerefMut`] or [`AsMut`], however
-/// it can be manually triggered via [`DetectChanges::set_changed`].
+/// Normally change detection is triggered by either [`DerefMut`] or [`AsMut`], however
+/// it can be manually triggered via [`set_if_neq`](`DetectChangesMut::set_changed`).
 ///
 /// To ensure that changes are only triggered when the value actually differs,
 /// check if the value would change before assignment, such as by checking that `new != old`.
 /// You must be *sure* that you are not mutably dereferencing in this process.
 ///
-/// [`set_if_neq`](DetectChanges::set_if_neq) is a helper
+/// [`set_if_neq`](DetectChangesMut::set_if_neq) is a helper
 /// method for this common functionality.
 ///
 /// ```
@@ -53,17 +89,11 @@ pub const MAX_CHANGE_AGE: u32 = u32::MAX - (2 * CHECK_TICK_THRESHOLD - 1);
 /// }
 /// ```
 ///
-pub trait DetectChanges {
+pub trait DetectChangesMut: DetectChanges {
     /// The type contained within this smart pointer
     ///
-    /// For example, for `Res<T>` this would be `T`.
+    /// For example, for `ResMut<T>` this would be `T`.
     type Inner: ?Sized;
-
-    /// Returns `true` if this value was added after the system last ran.
-    fn is_added(&self) -> bool;
-
-    /// Returns `true` if this value was added or mutably dereferenced after the system last ran.
-    fn is_changed(&self) -> bool;
 
     /// Flags this value as having been changed.
     ///
@@ -73,21 +103,12 @@ pub trait DetectChanges {
     /// **Note**: This operation cannot be undone.
     fn set_changed(&mut self);
 
-    /// Returns the change tick recording the previous time this data was changed.
-    ///
-    /// Note that components and resources are also marked as changed upon insertion.
-    ///
-    /// For comparison, the previous change tick of a system can be read using the
-    /// [`SystemChangeTick`](crate::system::SystemChangeTick)
-    /// [`SystemParam`](crate::system::SystemParam).
-    fn last_changed(&self) -> u32;
-
     /// Manually sets the change tick recording the previous time this data was mutated.
     ///
     /// # Warning
     /// This is a complex and error-prone operation, primarily intended for use with rollback networking strategies.
-    /// If you merely want to flag this data as changed, use [`set_changed`](DetectChanges::set_changed) instead.
-    /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChanges::bypass_change_detection) instead.
+    /// If you merely want to flag this data as changed, use [`set_changed`](DetectChangesMut::set_changed) instead.
+    /// If you want to avoid triggering change detection, use [`bypass_change_detection`](DetectChangesMut::bypass_change_detection) instead.
     fn set_last_changed(&mut self, last_change_tick: u32);
 
     /// Manually bypasses change detection, allowing you to mutate the underlying value without updating the change tick.
@@ -113,8 +134,6 @@ pub trait DetectChanges {
 macro_rules! change_detection_impl {
     ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
         impl<$($generics),* : ?Sized $(+ $traits)?> DetectChanges for $name<$($generics),*> {
-            type Inner = $target;
-
             #[inline]
             fn is_added(&self) -> bool {
                 self.ticks
@@ -130,15 +149,39 @@ macro_rules! change_detection_impl {
             }
 
             #[inline]
+            fn last_changed(&self) -> u32 {
+                self.ticks.last_change_tick
+            }
+        }
+
+        impl<$($generics),*: ?Sized $(+ $traits)?> Deref for $name<$($generics),*> {
+            type Target = $target;
+
+            #[inline]
+            fn deref(&self) -> &Self::Target {
+                self.value
+            }
+        }
+
+        impl<$($generics),* $(: $traits)?> AsRef<$target> for $name<$($generics),*> {
+            #[inline]
+            fn as_ref(&self) -> &$target {
+                self.deref()
+            }
+        }
+    }
+}
+
+macro_rules! change_detection_mut_impl {
+    ($name:ident < $( $generics:tt ),+ >, $target:ty, $($traits:ident)?) => {
+        impl<$($generics),* : ?Sized $(+ $traits)?> DetectChangesMut for $name<$($generics),*> {
+            type Inner = $target;
+
+            #[inline]
             fn set_changed(&mut self) {
                 self.ticks
                     .changed
                     .set_changed(self.ticks.change_tick);
-            }
-
-            #[inline]
-            fn last_changed(&self) -> u32 {
-                self.ticks.last_change_tick
             }
 
             #[inline]
@@ -165,27 +208,11 @@ macro_rules! change_detection_impl {
             }
         }
 
-        impl<$($generics),*: ?Sized $(+ $traits)?> Deref for $name<$($generics),*> {
-            type Target = $target;
-
-            #[inline]
-            fn deref(&self) -> &Self::Target {
-                self.value
-            }
-        }
-
         impl<$($generics),* : ?Sized $(+ $traits)?> DerefMut for $name<$($generics),*> {
             #[inline]
             fn deref_mut(&mut self) -> &mut Self::Target {
                 self.set_changed();
                 self.value
-            }
-        }
-
-        impl<$($generics),* $(: $traits)?> AsRef<$target> for $name<$($generics),*> {
-            #[inline]
-            fn as_ref(&self) -> &$target {
-                self.deref()
             }
         }
 
@@ -214,12 +241,12 @@ macro_rules! impl_methods {
             #[doc = stringify!($name)]
             /// <T>`, but you need a `Mut<T>`.
             ///
-            /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
+            /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
             /// will not affect the original.
             pub fn reborrow(&mut self) -> Mut<'_, $target> {
                 Mut {
                     value: self.value,
-                    ticks: Ticks {
+                    ticks: TicksMut {
                         added: self.ticks.added,
                         changed: self.ticks.changed,
                         last_change_tick: self.ticks.last_change_tick,
@@ -231,7 +258,7 @@ macro_rules! impl_methods {
             /// Maps to an inner value by applying a function to the contained reference, without flagging a change.
             ///
             /// You should never modify the argument passed to the closure -- if you want to modify the data
-            /// without flagging a change, consider using [`DetectChanges::bypass_change_detection`] to make your intent explicit.
+            /// without flagging a change, consider using [`DetectChangesMut::bypass_change_detection`] to make your intent explicit.
             ///
             /// ```rust
             /// # use bevy_ecs::prelude::*;
@@ -275,14 +302,40 @@ macro_rules! impl_debug {
     };
 }
 
+#[derive(Clone)]
 pub(crate) struct Ticks<'a> {
+    pub(crate) added: &'a Tick,
+    pub(crate) changed: &'a Tick,
+    pub(crate) last_change_tick: u32,
+    pub(crate) change_tick: u32,
+}
+
+impl<'a> Ticks<'a> {
+    /// # Safety
+    /// This should never alias the underlying ticks with a mutable one such as `TicksMut`.
+    #[inline]
+    pub(crate) unsafe fn from_tick_cells(
+        cells: TickCells<'a>,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self {
+        Self {
+            added: cells.added.deref(),
+            changed: cells.changed.deref(),
+            last_change_tick,
+            change_tick,
+        }
+    }
+}
+
+pub(crate) struct TicksMut<'a> {
     pub(crate) added: &'a mut Tick,
     pub(crate) changed: &'a mut Tick,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
 }
 
-impl<'a> Ticks<'a> {
+impl<'a> TicksMut<'a> {
     /// # Safety
     /// This should never alias the underlying ticks. All access must be unique.
     #[inline]
@@ -300,6 +353,71 @@ impl<'a> Ticks<'a> {
     }
 }
 
+impl<'a> From<TicksMut<'a>> for Ticks<'a> {
+    fn from(ticks: TicksMut<'a>) -> Self {
+        Ticks {
+            added: ticks.added,
+            changed: ticks.changed,
+            last_change_tick: ticks.last_change_tick,
+            change_tick: ticks.change_tick,
+        }
+    }
+}
+
+/// Shared borrow of a [`Resource`].
+///
+/// See the [`Resource`] documentation for usage.
+///
+/// If you need a unique mutable borrow, use [`ResMut`] instead.
+///
+/// # Panics
+///
+/// Panics when used as a [`SystemParameter`](crate::system::SystemParam) if the resource does not exist.
+///
+/// Use `Option<Res<T>>` instead if the resource might not always exist.
+pub struct Res<'w, T: ?Sized + Resource> {
+    pub(crate) value: &'w T,
+    pub(crate) ticks: Ticks<'w>,
+}
+
+impl<'w, T: Resource> Res<'w, T> {
+    // no it shouldn't clippy
+    #[allow(clippy::should_implement_trait)]
+    pub fn clone(this: &Self) -> Self {
+        Self {
+            value: this.value,
+            ticks: this.ticks.clone(),
+        }
+    }
+
+    pub fn into_inner(self) -> &'w T {
+        self.value
+    }
+}
+
+impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
+    fn from(res: ResMut<'w, T>) -> Self {
+        Self {
+            value: res.value,
+            ticks: res.ticks.into(),
+        }
+    }
+}
+
+impl<'w, 'a, T: Resource> IntoIterator for &'a Res<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+change_detection_impl!(Res<'w, T>, T, Resource);
+impl_debug!(Res<'w, T>, Resource);
+
 /// Unique mutable borrow of a [`Resource`].
 ///
 /// See the [`Resource`] documentation for usage.
@@ -313,7 +431,7 @@ impl<'a> Ticks<'a> {
 /// Use `Option<ResMut<T>>` instead if the resource might not always exist.
 pub struct ResMut<'a, T: ?Sized + Resource> {
     pub(crate) value: &'a mut T,
-    pub(crate) ticks: Ticks<'a>,
+    pub(crate) ticks: TicksMut<'a>,
 }
 
 impl<'w, 'a, T: Resource> IntoIterator for &'a ResMut<'w, T>
@@ -342,6 +460,7 @@ where
 }
 
 change_detection_impl!(ResMut<'a, T>, T, Resource);
+change_detection_mut_impl!(ResMut<'a, T>, T, Resource);
 impl_methods!(ResMut<'a, T>, T, Resource);
 impl_debug!(ResMut<'a, T>, Resource);
 
@@ -370,10 +489,11 @@ impl<'a, T: Resource> From<ResMut<'a, T>> for Mut<'a, T> {
 /// Use `Option<NonSendMut<T>>` instead if the resource might not always exist.
 pub struct NonSendMut<'a, T: ?Sized + 'static> {
     pub(crate) value: &'a mut T,
-    pub(crate) ticks: Ticks<'a>,
+    pub(crate) ticks: TicksMut<'a>,
 }
 
 change_detection_impl!(NonSendMut<'a, T>, T,);
+change_detection_mut_impl!(NonSendMut<'a, T>, T,);
 impl_methods!(NonSendMut<'a, T>, T,);
 impl_debug!(NonSendMut<'a, T>,);
 
@@ -388,10 +508,46 @@ impl<'a, T: 'static> From<NonSendMut<'a, T>> for Mut<'a, T> {
     }
 }
 
+/// Shared borrow of an entity's component with access to change detection.
+/// Similar to [`Mut`] but is immutable and so doesn't require unique access.
+pub struct Ref<'a, T: ?Sized> {
+    pub(crate) value: &'a T,
+    pub(crate) ticks: Ticks<'a>,
+}
+
+impl<'a, T: ?Sized> Ref<'a, T> {
+    pub fn into_inner(self) -> &'a T {
+        self.value
+    }
+}
+
+impl<'w, 'a, T> IntoIterator for &'a Ref<'w, T>
+where
+    &'a T: IntoIterator,
+{
+    type Item = <&'a T as IntoIterator>::Item;
+    type IntoIter = <&'a T as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.value.into_iter()
+    }
+}
+change_detection_impl!(Ref<'a, T>, T,);
+impl_debug!(Ref<'a, T>,);
+
 /// Unique mutable borrow of an entity's component
 pub struct Mut<'a, T: ?Sized> {
     pub(crate) value: &'a mut T,
-    pub(crate) ticks: Ticks<'a>,
+    pub(crate) ticks: TicksMut<'a>,
+}
+
+impl<'a, T: ?Sized> From<Mut<'a, T>> for Ref<'a, T> {
+    fn from(mut_ref: Mut<'a, T>) -> Self {
+        Self {
+            value: mut_ref.value,
+            ticks: mut_ref.ticks.into(),
+        }
+    }
 }
 
 impl<'w, 'a, T> IntoIterator for &'a Mut<'w, T>
@@ -420,6 +576,7 @@ where
 }
 
 change_detection_impl!(Mut<'a, T>, T,);
+change_detection_mut_impl!(Mut<'a, T>, T,);
 impl_methods!(Mut<'a, T>, T,);
 impl_debug!(Mut<'a, T>,);
 
@@ -433,13 +590,13 @@ impl_debug!(Mut<'a, T>,);
 /// or are defined outside of rust this can be used.
 pub struct MutUntyped<'a> {
     pub(crate) value: PtrMut<'a>,
-    pub(crate) ticks: Ticks<'a>,
+    pub(crate) ticks: TicksMut<'a>,
 }
 
 impl<'a> MutUntyped<'a> {
     /// Returns the pointer to the value, marking it as changed.
     ///
-    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
     #[inline]
     pub fn into_inner(mut self) -> PtrMut<'a> {
         self.set_changed();
@@ -449,13 +606,13 @@ impl<'a> MutUntyped<'a> {
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
     ///
-    /// Note that calling [`DetectChanges::set_last_changed`] on the returned value
+    /// Note that calling [`DetectChangesMut::set_last_changed`] on the returned value
     /// will not affect the original.
     #[inline]
     pub fn reborrow(&mut self) -> MutUntyped {
         MutUntyped {
             value: self.value.reborrow(),
-            ticks: Ticks {
+            ticks: TicksMut {
                 added: self.ticks.added,
                 changed: self.ticks.changed,
                 last_change_tick: self.ticks.last_change_tick,
@@ -466,7 +623,7 @@ impl<'a> MutUntyped<'a> {
 
     /// Returns a pointer to the value without taking ownership of this smart pointer, marking it as changed.
     ///
-    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChanges::bypass_change_detection).
+    /// In order to avoid marking the value as changed, you need to call [`bypass_change_detection`](DetectChangesMut::bypass_change_detection).
     #[inline]
     pub fn as_mut(&mut self) -> PtrMut<'_> {
         self.set_changed();
@@ -481,8 +638,6 @@ impl<'a> MutUntyped<'a> {
 }
 
 impl<'a> DetectChanges for MutUntyped<'a> {
-    type Inner = PtrMut<'a>;
-
     #[inline]
     fn is_added(&self) -> bool {
         self.ticks
@@ -498,13 +653,17 @@ impl<'a> DetectChanges for MutUntyped<'a> {
     }
 
     #[inline]
-    fn set_changed(&mut self) {
-        self.ticks.changed.set_changed(self.ticks.change_tick);
-    }
-
-    #[inline]
     fn last_changed(&self) -> u32 {
         self.ticks.last_change_tick
+    }
+}
+
+impl<'a> DetectChangesMut for MutUntyped<'a> {
+    type Inner = PtrMut<'a>;
+
+    #[inline]
+    fn set_changed(&mut self) {
+        self.ticks.changed.set_changed(self.ticks.change_tick);
     }
 
     #[inline]
@@ -545,7 +704,9 @@ mod tests {
 
     use crate::{
         self as bevy_ecs,
-        change_detection::{Mut, NonSendMut, ResMut, Ticks, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE},
+        change_detection::{
+            Mut, NonSendMut, ResMut, TicksMut, CHECK_TICK_THRESHOLD, MAX_CHANGE_AGE,
+        },
         component::{Component, ComponentTicks, Tick},
         query::ChangeTrackers,
         system::{IntoSystem, Query, System},
@@ -553,6 +714,7 @@ mod tests {
     };
 
     use super::DetectChanges;
+    use super::DetectChangesMut;
 
     #[derive(Component, PartialEq)]
     struct C;
@@ -656,7 +818,7 @@ mod tests {
             added: Tick::new(1),
             changed: Tick::new(2),
         };
-        let ticks = Ticks {
+        let ticks = TicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             last_change_tick: 3,
@@ -681,7 +843,7 @@ mod tests {
             added: Tick::new(1),
             changed: Tick::new(2),
         };
-        let ticks = Ticks {
+        let ticks = TicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             last_change_tick: 3,
@@ -710,7 +872,7 @@ mod tests {
             added: Tick::new(1),
             changed: Tick::new(2),
         };
-        let ticks = Ticks {
+        let ticks = TicksMut {
             added: &mut component_ticks.added,
             changed: &mut component_ticks.changed,
             last_change_tick,
