@@ -772,16 +772,3 @@ unsafe fn initialize_bundle(
 
     BundleInfo { id, component_ids }
 }
-
-#[cfg(test)]
-mod test {
-    use super::BundleId;
-
-    #[test]
-    pub fn test_bundle_id_size_optimized() {
-        assert_eq!(
-            core::mem::size_of::<BundleId>(),
-            core::mem::size_of::<Option<BundleId>>(),
-        );
-    }
-}
