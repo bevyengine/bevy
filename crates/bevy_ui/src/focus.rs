@@ -53,7 +53,7 @@ impl Default for Interaction {
     }
 }
 
-/// A component storing the position of the mouse relative to the node, (0., 0.) being the bottom-left corner and (1., 1.) being the upper-right
+/// A component storing the position of the mouse relative to the node, (0., 0.) being the upper-left corner and (1., 1.) being the bottom-right
 /// I can be used alongside interaction to get the position of the press.
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
 #[derive(
@@ -70,7 +70,7 @@ impl Default for Interaction {
     Deserialize,
 )]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
-pub struct RelativeCursorPosition(Vec2);
+pub struct RelativeCursorPosition(pub Vec2);
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
@@ -203,7 +203,7 @@ pub fn ui_focus_system(
                 }
 
                 // The mouse position relative to the node
-                // (0., 0.) is the bottom-left corner, (1., 1.) is the upper-right corner
+                // (0., 0.) is the upper-left corner, (1., 1.) is the bottom-right corner
                 let relative_cursor_postition = cursor_position.map(|cursor_position| {
                     Vec2::new(
                         (cursor_position.x - min.x) / node.node.size().x,
