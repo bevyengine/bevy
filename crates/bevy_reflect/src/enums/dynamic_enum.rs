@@ -1,4 +1,3 @@
-use crate::proxy::Proxy;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     enum_debug, enum_hash, enum_partial_eq, DynamicInfo, DynamicStruct, DynamicTuple, Enum,
@@ -115,10 +114,9 @@ impl DynamicEnum {
         }
     }
 
-    /// Sets the [type] to be [represented] by this `DynamicEnum`.
+    /// Sets the [type] to be represented by this `DynamicEnum`.
     ///
     /// [type]: TypeInfo
-    /// [represented]: Proxy::represents
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
         self.represented_type = represented_type;
     }
@@ -410,12 +408,6 @@ impl Reflect for DynamicEnum {
         write!(f, "DynamicEnum(")?;
         enum_debug(self, f)?;
         write!(f, ")")
-    }
-}
-
-impl Proxy for DynamicEnum {
-    fn represents(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
     }
 }
 

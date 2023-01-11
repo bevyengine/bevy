@@ -1,4 +1,3 @@
-use crate::proxy::Proxy;
 use crate::{
     ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
 };
@@ -238,7 +237,6 @@ impl ValueInfo {
 pub struct DynamicInfo {
     type_name: &'static str,
     type_id: TypeId,
-    represents: fn(&dyn Reflect) -> Option<&'static TypeInfo>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
 }
@@ -259,37 +257,13 @@ impl Debug for DynamicInfo {
 }
 
 impl DynamicInfo {
-    pub fn new<T: Proxy>() -> Self {
-        fn represents<T: Proxy>(value: &dyn Reflect) -> Option<&'static TypeInfo> {
-            let value: &T = value.downcast_ref().unwrap_or_else(|| {
-                panic!(
-                    "expected dynamic type `{}`, but received `{}`",
-                    std::any::type_name::<T>(),
-                    value.type_name()
-                )
-            });
-            value.represents()
-        }
-
+    pub fn new<T: Reflect>() -> Self {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
-            represents: represents::<T>,
             #[cfg(feature = "documentation")]
             docs: None,
         }
-    }
-
-    /// Returns the [type info] represented by the given dynamic type, if any.
-    ///
-    /// # Panics
-    ///
-    /// This method will panic if the given value is not the same type as the one
-    /// represented by this [`DynamicInfo`].
-    ///
-    /// [type info]: TypeInfo
-    pub fn represents(&self, value: &dyn Reflect) -> Option<&'static TypeInfo> {
-        (self.represents)(value)
     }
 
     /// Sets the docstring for this dynamic value.
@@ -319,21 +293,5 @@ impl DynamicInfo {
     #[cfg(feature = "documentation")]
     pub fn docs(&self) -> Option<&'static str> {
         self.docs
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::{DynamicArray, DynamicList, TypeInfo, Typed};
-
-    #[test]
-    #[should_panic(
-        expected = "expected dynamic type `bevy_reflect::array::DynamicArray`, but received ``"
-    )]
-    fn dynamic_represents_should_panic_on_type_mismatch() {
-        let TypeInfo::Dynamic(info) = DynamicArray::type_info() else { panic!("expected `TypeInfo::Dynamic`") };
-
-        let value = DynamicList::default();
-        info.represents(&value);
     }
 }

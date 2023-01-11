@@ -2,7 +2,6 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::{Hash, Hasher};
 
-use crate::proxy::Proxy;
 use crate::utility::{reflect_hasher, NonGenericTypeInfoCell};
 use crate::{
     DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
@@ -183,10 +182,9 @@ pub struct DynamicList {
 }
 
 impl DynamicList {
-    /// Sets the [type] to be [represented] by this `DynamicList`.
+    /// Sets the [type] to be represented by this `DynamicList`.
     ///
     /// [type]: TypeInfo
-    /// [represented]: Proxy::represents
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
         self.represented_type = represented_type;
     }
@@ -338,11 +336,10 @@ impl Reflect for DynamicList {
         list_debug(self, f)?;
         write!(f, ")")
     }
-}
 
-impl Proxy for DynamicList {
-    fn represents(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 

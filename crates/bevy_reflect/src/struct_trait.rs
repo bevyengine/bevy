@@ -1,4 +1,3 @@
-use crate::proxy::Proxy;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
@@ -280,10 +279,9 @@ pub struct DynamicStruct {
 }
 
 impl DynamicStruct {
-    /// Sets the [type] to be [represented] by this `DynamicStruct`.
+    /// Sets the [type] to be represented by this `DynamicStruct`.
     ///
     /// [type]: TypeInfo
-    /// [represented]: Proxy::represents
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
         self.represented_type = represented_type;
     }
@@ -471,11 +469,10 @@ impl Reflect for DynamicStruct {
         struct_debug(self, f)?;
         write!(f, ")")
     }
-}
 
-impl Proxy for DynamicStruct {
-    fn represents(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 

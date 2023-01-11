@@ -470,7 +470,6 @@ mod impls {
 }
 
 mod enums;
-pub mod proxy;
 pub mod serde;
 pub mod std_traits;
 pub mod utility;

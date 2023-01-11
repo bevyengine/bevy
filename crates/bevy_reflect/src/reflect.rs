@@ -216,6 +216,22 @@ pub trait Reflect: Any + Send + Sync {
     fn serializable(&self) -> Option<Serializable> {
         None
     }
+
+    /// Indicates whether or not this type is a _dynamic_ type.
+    ///
+    /// Dynamic types include the ones built-in to this [crate],
+    /// such as [`DynamicStruct`], [`DynamicList`], and [`DynamicTuple`].
+    /// However, they may be custom types used as proxies for other types
+    /// or to facilitate scripting capabilities.
+    ///
+    /// By default, this method will return `false`.
+    ///
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
+    /// [`DynamicTuple`]: crate::DynamicTuple
+    fn is_dynamic(&self) -> bool {
+        false
+    }
 }
 
 impl Debug for dyn Reflect {

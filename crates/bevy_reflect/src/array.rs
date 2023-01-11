@@ -1,4 +1,3 @@
-use crate::proxy::Proxy;
 use crate::{
     utility::{reflect_hasher, NonGenericTypeInfoCell},
     DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
@@ -192,10 +191,9 @@ impl DynamicArray {
         }
     }
 
-    /// Sets the [type] to be [represented] by this `DynamicArray`.
+    /// Sets the [type] to be represented by this `DynamicArray`.
     ///
     /// [type]: TypeInfo
-    /// [represented]: Proxy::represents
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
         self.represented_type = represented_type;
     }
@@ -282,6 +280,11 @@ impl Reflect for DynamicArray {
     fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
         array_partial_eq(self, value)
     }
+
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
+    }
 }
 
 impl Array for DynamicArray {
@@ -320,12 +323,6 @@ impl Array for DynamicArray {
                 .map(|value| value.clone_value())
                 .collect(),
         }
-    }
-}
-
-impl Proxy for DynamicArray {
-    fn represents(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
     }
 }
 

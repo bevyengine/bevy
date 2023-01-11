@@ -1,4 +1,3 @@
-use crate::proxy::Proxy;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
     DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
@@ -215,10 +214,9 @@ pub struct DynamicTuple {
 }
 
 impl DynamicTuple {
-    /// Sets the [type] to be [represented] by this `DynamicTuple`.
+    /// Sets the [type] to be represented by this `DynamicTuple`.
     ///
     /// [type]: TypeInfo
-    /// [represented]: Proxy::represents
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
         if let Some(info) = represented_type {
             self.name = Cow::Borrowed(info.type_name());
@@ -379,11 +377,10 @@ impl Reflect for DynamicTuple {
         tuple_debug(self, f)?;
         write!(f, ")")
     }
-}
 
-impl Proxy for DynamicTuple {
-    fn represents(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 

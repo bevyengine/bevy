@@ -4,7 +4,6 @@ use std::hash::Hash;
 
 use bevy_utils::{Entry, HashMap};
 
-use crate::proxy::Proxy;
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
 
@@ -191,10 +190,9 @@ pub struct DynamicMap {
 }
 
 impl DynamicMap {
-    /// Sets the [type] to be [represented] by this `DynamicMap`.
+    /// Sets the [type] to be represented by this `DynamicMap`.
     ///
     /// [type]: TypeInfo
-    /// [represented]: Proxy::represents
     pub fn set_represented_type(&mut self, represented_type: Option<&'static TypeInfo>) {
         self.represented_type = represented_type;
     }
@@ -353,11 +351,10 @@ impl Reflect for DynamicMap {
         map_debug(self, f)?;
         write!(f, ")")
     }
-}
 
-impl Proxy for DynamicMap {
-    fn represents(&self) -> Option<&'static TypeInfo> {
-        self.represented_type
+    #[inline]
+    fn is_dynamic(&self) -> bool {
+        true
     }
 }
 
