@@ -84,12 +84,12 @@ impl DrawState {
         }
     }
 
-    /// Marks the index `buffer` as bound to the `index`.
+    /// Marks the index `buffer` as bound.
     pub fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
         self.index_buffer = Some((buffer, offset, index_format));
     }
 
-    /// Checks, whether the index `buffer` is already bound to the `index`.
+    /// Checks, whether the index `buffer` is already bound.
     pub fn is_index_buffer_set(
         &self,
         buffer: BufferId,

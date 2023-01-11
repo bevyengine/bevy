@@ -24,8 +24,7 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     #[allow(unused_variables)]
     fn prepare(&mut self, world: &'_ World) {}
 
-    /// Draws a [`PhaseItem`] by issuing zero or more `draw` calls draw calls via the
-    /// [`TrackedRenderPass`].
+    /// Draws a [`PhaseItem`] by issuing zero or more `draw` calls via the [`TrackedRenderPass`].
     fn draw<'w>(
         &mut self,
         world: &'w World,

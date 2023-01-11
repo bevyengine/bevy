@@ -203,10 +203,10 @@ impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
 /// If this is implemented on a type, the implementation of [`PhaseItem::sort`] should
 /// be changed to implement a stable sort, or incorrect/suboptimal batching may result.
 pub trait BatchedPhaseItem: PhaseItem {
-    /// Range in the vertex buffer of this item
+    /// Range in the vertex buffer of this item.
     fn batch_range(&self) -> &Option<Range<u32>>;
 
-    /// Range in the vertex buffer of this item
+    /// Range in the vertex buffer of this item.
     fn batch_range_mut(&mut self) -> &mut Option<Range<u32>>;
 
     /// Batches another item within this item if they are compatible.
