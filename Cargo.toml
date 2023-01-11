@@ -19,6 +19,7 @@ thiserror = "1.0"
 codespan-reporting = "0.11"
 data-encoding = "2.3.2"
 bit-set = "0.5"
+rustc_hash = "1.1.0"
 
 # required for prune only
 serde = { version = "1", optional = true }
