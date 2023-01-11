@@ -9,9 +9,9 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{
     prelude::Entity,
-    query::{ROQueryItem, With},
+    query::With,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
+        lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::{FromWorld, World},
