@@ -6,8 +6,9 @@ use crate::{
     graphs::{
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
-        EdgeUtils, GetEdge, GetNode, Graph, NewEdge, NewNode,
+        Graph,
     },
+    impl_graph,
 };
 
 #[derive(Clone)]
@@ -25,24 +26,20 @@ impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
             adjacencies: SecondaryMap::new(),
         }
     }
-}
 
-impl<N, E, const DIRECTED: bool> NewNode<N> for SimpleMapGraph<N, E, DIRECTED> {
-    fn new_node(&mut self, node: N) -> NodeIdx {
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn new_node(&mut self, node: N) -> NodeIdx {
         let idx = self.nodes.insert(node);
         self.adjacencies.insert(idx, HashMap::new());
         idx
     }
 
     #[inline]
-    fn len(&self) -> usize {
-        self.nodes.len()
-    }
-}
-
-impl<N, E, const DIRECTED: bool> GetNode<N> for SimpleMapGraph<N, E, DIRECTED> {
-    #[inline]
-    fn node(&self, idx: NodeIdx) -> GraphResult<&N> {
+    pub fn node(&self, idx: NodeIdx) -> GraphResult<&N> {
         if let Some(node) = self.nodes.get(idx) {
             Ok(node)
         } else {
@@ -51,17 +48,46 @@ impl<N, E, const DIRECTED: bool> GetNode<N> for SimpleMapGraph<N, E, DIRECTED> {
     }
 
     #[inline]
-    fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N> {
+    pub fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N> {
         if let Some(node) = self.nodes.get_mut(idx) {
             Ok(node)
         } else {
             Err(GraphError::NodeDoesntExist(idx))
         }
     }
+
+    #[inline]
+    pub fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
+        self.edges.get(edge).map(|e| &e.data)
+    }
+
+    #[inline]
+    pub fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
+        self.edges.get_mut(edge).map(|e| &mut e.data)
+    }
+
+    #[inline]
+    pub fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+        self.adjacencies
+            .get(from)
+            .unwrap()
+            .get(&to)
+            .cloned()
+            .unwrap_or_else(EdgeIdx::null)
+    }
+
+    pub fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
+        self.adjacencies
+            .get(node)
+            .unwrap()
+            .iter()
+            .map(|(node, edge)| (*node, *edge))
+            .collect()
+    }
 }
 
-impl<N, E> NewEdge<E> for SimpleMapGraph<N, E, false> {
-    fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
+impl<N, E> SimpleMapGraph<N, E, false> {
+    pub fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(Edge {
             src: node,
             dst: other,
@@ -72,7 +98,7 @@ impl<N, E> NewEdge<E> for SimpleMapGraph<N, E, false> {
         idx
     }
 
-    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+    pub fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
         if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
             self.adjacencies.get_mut(node).unwrap().remove(&other);
             self.adjacencies.get_mut(other).unwrap().remove(&node);
@@ -84,8 +110,8 @@ impl<N, E> NewEdge<E> for SimpleMapGraph<N, E, false> {
     }
 }
 
-impl<N, E> NewEdge<E> for SimpleMapGraph<N, E, true> {
-    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+impl<N, E> SimpleMapGraph<N, E, true> {
+    pub fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
         let idx = self.edges.insert(Edge {
             src: from,
             dst: to,
@@ -95,7 +121,7 @@ impl<N, E> NewEdge<E> for SimpleMapGraph<N, E, true> {
         idx
     }
 
-    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+    pub fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
         if let Some((from, to)) = self.edges.get(edge).map(|e| e.indices()) {
             self.adjacencies.get_mut(from).unwrap().remove(&to);
 
@@ -106,41 +132,8 @@ impl<N, E> NewEdge<E> for SimpleMapGraph<N, E, true> {
     }
 }
 
-impl<N, E, const DIRECTED: bool> GetEdge<E> for SimpleMapGraph<N, E, DIRECTED> {
-    #[inline]
-    fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
-        self.edges.get(edge).map(|e| &e.data)
-    }
-
-    #[inline]
-    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
-        self.edges.get_mut(edge).map(|e| &mut e.data)
-    }
-}
-
-impl<N, E, const DIRECTED: bool> EdgeUtils for SimpleMapGraph<N, E, DIRECTED> {
-    #[inline]
-    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
-        self.adjacencies
-            .get(from)
-            .unwrap()
-            .get(&to)
-            .cloned()
-            .unwrap_or_else(EdgeIdx::null)
-    }
-
-    fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
-        self.adjacencies
-            .get(node)
-            .unwrap()
-            .iter()
-            .map(|(node, edge)| (*node, *edge))
-            .collect()
-    }
-}
-
-impl<N, E> Graph<N, E> for SimpleMapGraph<N, E, false> {}
-impl<N, E> Graph<N, E> for SimpleMapGraph<N, E, true> {}
+impl_graph!(SimpleMapGraph, false);
+impl_graph!(SimpleMapGraph, true);
 
 impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
     #[inline]
@@ -151,8 +144,6 @@ impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
-    use crate::graphs::{EdgeUtils, NewEdge, NewNode};
-
     use super::SimpleMapGraph;
 
     enum Person {
