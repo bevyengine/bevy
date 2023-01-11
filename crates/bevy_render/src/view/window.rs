@@ -1,6 +1,9 @@
+pub mod screenshot;
+
 use crate::{
-    render_resource::TextureView,
+    render_resource::{Buffer, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
+    texture::TextureFormatPixelInfo,
     Extract, RenderApp, RenderStage,
 };
 use bevy_app::{App, Plugin};
@@ -10,7 +13,9 @@ use bevy_window::{
     CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
 };
 use std::ops::{Deref, DerefMut};
-use wgpu::TextureFormat;
+use wgpu::{BufferUsages, TextureFormat};
+
+use self::screenshot::ScreenshotManager;
 
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
@@ -50,6 +55,8 @@ pub struct ExtractedWindow {
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
+    pub screenshot_func: Option<screenshot::ScreenshotFn>,
+    pub screenshot_buffer: Option<Buffer>,
 }
 
 #[derive(Default, Resource)]
@@ -73,6 +80,7 @@ impl DerefMut for ExtractedWindows {
 
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
+    screenshot_manager: Extract<Res<ScreenshotManager>>,
     mut closed: Extract<EventReader<WindowClosed>>,
     windows: Extract<Res<Windows>>,
 ) {
@@ -97,6 +105,8 @@ fn extract_windows(
                     size_changed: false,
                     present_mode_changed: false,
                     alpha_mode: window.alpha_mode(),
+                    screenshot_func: None,
+                    screenshot_buffer: None,
                 });
 
         // NOTE: Drop the swap chain frame here
@@ -127,6 +137,11 @@ fn extract_windows(
     }
     for closed_window in closed.iter() {
         extracted_windows.remove(&closed_window.id);
+    }
+    for (window, screenshot_func) in screenshot_manager.callbacks.lock().drain() {
+        if let Some(window) = extracted_windows.get_mut(&window) {
+            window.screenshot_func = Some(screenshot_func);
+        }
     }
 }
 
@@ -198,7 +213,7 @@ pub fn prepare_windows(
                 SurfaceData { surface, format }
             });
 
-        let surface_configuration = wgpu::SurfaceConfiguration {
+        let mut surface_configuration = wgpu::SurfaceConfiguration {
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
@@ -218,6 +233,19 @@ pub fn prepare_windows(
                 CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
             },
         };
+        if window.screenshot_func.is_some() {
+            surface_configuration.usage |= wgpu::TextureUsages::COPY_SRC;
+            window.screenshot_buffer = Some(render_device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: screenshot::get_aligned_size(
+                    window.physical_width,
+                    window.physical_height,
+                    surface_data.format.pixel_size() as u32,
+                ) as u64,
+                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            }));
+        }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
         // mesa driver implementations. This seems to be a quirk of some drivers.
@@ -239,7 +267,11 @@ pub fn prepare_windows(
         let not_already_configured = window_surfaces.configured_windows.insert(window.id);
 
         let surface = &surface_data.surface;
-        if not_already_configured || window.size_changed || window.present_mode_changed {
+        if not_already_configured
+            || window.size_changed
+            || window.present_mode_changed
+            || window.screenshot_func.is_some()
+        {
             render_device.configure_surface(surface, &surface_configuration);
             let frame = surface
                 .get_current_texture()

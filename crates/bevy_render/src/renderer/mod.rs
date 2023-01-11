@@ -27,12 +27,16 @@ pub fn render_system(world: &mut World) {
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
+    let windows = world.resource::<ExtractedWindows>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         &render_queue.0,
         world,
+        |encoder| {
+            crate::view::screenshot::submit_screenshot_commands(windows, encoder);
+        },
     ) {
         error!("Error running render graph:");
         {
@@ -78,6 +82,8 @@ pub fn render_system(world: &mut World) {
             tracy.frame_mark = true
         );
     }
+
+    crate::view::screenshot::collect_screenshots(world);
 
     // update the time and send it to the app world
     let time_sender = world.resource::<TimeSender>();

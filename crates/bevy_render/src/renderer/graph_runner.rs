@@ -57,6 +57,7 @@ impl RenderGraphRunner {
         render_device: RenderDevice,
         queue: &wgpu::Queue,
         world: &World,
+        finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
     ) -> Result<(), RenderGraphRunnerError> {
         let command_encoder =
             render_device.create_command_encoder(&wgpu::CommandEncoderDescriptor::default());
@@ -66,6 +67,7 @@ impl RenderGraphRunner {
         };
 
         Self::run_graph(graph, None, &mut render_context, world, &[])?;
+        finalizer(&mut render_context.command_encoder);
         {
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();

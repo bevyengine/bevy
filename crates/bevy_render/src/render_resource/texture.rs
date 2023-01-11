@@ -93,6 +93,14 @@ impl TextureView {
             TextureViewValue::SurfaceTexture { texture, .. } => texture.try_unwrap(),
         }
     }
+
+    #[inline]
+    pub(crate) fn get_surface_texture(&self) -> Option<&wgpu::SurfaceTexture> {
+        match &self.value {
+            TextureViewValue::TextureView(_) => None,
+            TextureViewValue::SurfaceTexture { texture, .. } => Some(&*texture),
+        }
+    }
 }
 
 impl From<wgpu::TextureView> for TextureView {
