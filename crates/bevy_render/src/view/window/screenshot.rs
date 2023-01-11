@@ -94,7 +94,7 @@ pub(crate) fn submit_screenshot_commands(windows: &ExtractedWindows, encoder: &m
             encoder.copy_texture_to_buffer(
                 texture.as_image_copy(),
                 wgpu::ImageCopyBuffer {
-                    buffer: &screenshot_buffer,
+                    buffer: screenshot_buffer,
                     layout: crate::view::screenshot::layout_data(width, height, texture_format),
                 },
                 Extent3d {
@@ -135,7 +135,6 @@ pub(crate) fn collect_screenshots(world: &mut World) {
                 // we immediately move the data to CPU memory to avoid holding the mapped view for long
                 let mut result = Vec::from(&*data);
                 drop(data);
-                drop(buffer_slice);
                 drop(buffer);
 
                 if result.len() != ((width * height) as usize * pixel_size) {
