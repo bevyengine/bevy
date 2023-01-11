@@ -179,7 +179,7 @@ impl_from_reflect_value!(NonZeroU8);
 impl_from_reflect_value!(NonZeroI8);
 
 macro_rules! impl_reflect_for_veclike {
-    ($ty:ty, $push:expr, $pop:expr, $sub:ty) => {
+    ($ty:ty, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
         impl<T: FromReflect> Array for $ty {
             #[inline]
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
@@ -213,14 +213,28 @@ macro_rules! impl_reflect_for_veclike {
         }
 
         impl<T: FromReflect> List for $ty {
-            fn push(&mut self, value: Box<dyn Reflect>) {
+            fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
                 let value = value.take::<T>().unwrap_or_else(|value| {
                     T::from_reflect(&*value).unwrap_or_else(|| {
                         panic!(
-                            "Attempted to push invalid value of type {}.",
+                            "Attempted to insert invalid value of type {}.",
                             value.type_name()
                         )
                     })
+                });
+                $insert(self, index, value);
+            }
+
+            fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+                Box::new($remove(self, index))
+            }
+
+            fn push(&mut self, value: Box<dyn Reflect>) {
+                let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+                    panic!(
+                        "Attempted to push invalid value of type {}.",
+                        value.type_name()
+                    )
                 });
                 $push(self, value);
             }
@@ -328,9 +342,11 @@ macro_rules! impl_reflect_for_veclike {
     };
 }
 
-impl_reflect_for_veclike!(Vec<T>, Vec::push, Vec::pop, [T]);
+impl_reflect_for_veclike!(Vec<T>, Vec::insert, Vec::remove, Vec::push, Vec::pop, [T]);
 impl_reflect_for_veclike!(
     VecDeque<T>,
+    VecDeque::insert,
+    VecDeque::remove,
     VecDeque::push_back,
     VecDeque::pop_back,
     VecDeque::<T>
@@ -391,21 +407,17 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
         key: Box<dyn Reflect>,
         value: Box<dyn Reflect>,
     ) -> Option<Box<dyn Reflect>> {
-        let key = key.take::<K>().unwrap_or_else(|key| {
-            K::from_reflect(&*key).unwrap_or_else(|| {
-                panic!(
-                    "Attempted to insert invalid key of type {}.",
-                    key.type_name()
-                )
-            })
+        let key = K::take_from_reflect(key).unwrap_or_else(|key| {
+            panic!(
+                "Attempted to insert invalid key of type {}.",
+                key.type_name()
+            )
         });
-        let value = value.take::<V>().unwrap_or_else(|value| {
-            V::from_reflect(&*value).unwrap_or_else(|| {
-                panic!(
-                    "Attempted to insert invalid value of type {}.",
-                    value.type_name()
-                )
-            })
+        let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+            panic!(
+                "Attempted to insert invalid value of type {}.",
+                value.type_name()
+            )
         });
         self.insert(key, value)
             .map(|old_value| Box::new(old_value) as Box<dyn Reflect>)
@@ -811,25 +823,24 @@ impl<T: FromReflect> Reflect for Option<T> {
                 // New variant -> perform a switch
                 match value.variant_name() {
                     "Some" => {
-                        let field = value
-                            .field_at(0)
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "Field in `Some` variant of {} should exist",
-                                    std::any::type_name::<Option<T>>()
-                                )
-                            })
-                            .clone_value()
-                            .take::<T>()
-                            .unwrap_or_else(|value| {
-                                T::from_reflect(&*value).unwrap_or_else(|| {
+                        let field = T::take_from_reflect(
+                            value
+                                .field_at(0)
+                                .unwrap_or_else(|| {
                                     panic!(
-                                        "Field in `Some` variant of {} should be of type {}",
-                                        std::any::type_name::<Option<T>>(),
-                                        std::any::type_name::<T>()
+                                        "Field in `Some` variant of {} should exist",
+                                        std::any::type_name::<Option<T>>()
                                     )
                                 })
-                            });
+                                .clone_value(),
+                        )
+                        .unwrap_or_else(|_| {
+                            panic!(
+                                "Field in `Some` variant of {} should be of type {}",
+                                std::any::type_name::<Option<T>>(),
+                                std::any::type_name::<T>()
+                            )
+                        });
                         *self = Some(field);
                     }
                     "None" => {
@@ -878,25 +889,24 @@ impl<T: FromReflect> FromReflect for Option<T> {
         if let ReflectRef::Enum(dyn_enum) = reflect.reflect_ref() {
             match dyn_enum.variant_name() {
                 "Some" => {
-                    let field = dyn_enum
-                        .field_at(0)
-                        .unwrap_or_else(|| {
-                            panic!(
-                                "Field in `Some` variant of {} should exist",
-                                std::any::type_name::<Option<T>>()
-                            )
-                        })
-                        .clone_value()
-                        .take::<T>()
-                        .unwrap_or_else(|value| {
-                            T::from_reflect(&*value).unwrap_or_else(|| {
+                    let field = T::take_from_reflect(
+                        dyn_enum
+                            .field_at(0)
+                            .unwrap_or_else(|| {
                                 panic!(
-                                    "Field in `Some` variant of {} should be of type {}",
-                                    std::any::type_name::<Option<T>>(),
-                                    std::any::type_name::<T>()
+                                    "Field in `Some` variant of {} should exist",
+                                    std::any::type_name::<Option<T>>()
                                 )
                             })
-                        });
+                            .clone_value(),
+                    )
+                    .unwrap_or_else(|_| {
+                        panic!(
+                            "Field in `Some` variant of {} should be of type {}",
+                            std::any::type_name::<Option<T>>(),
+                            std::any::type_name::<T>()
+                        )
+                    });
                     Some(Some(field))
                 }
                 "None" => Some(None),

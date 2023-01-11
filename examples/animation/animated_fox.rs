@@ -1,6 +1,7 @@
 //! Plays animations from a skinned glTF.
 
 use std::f32::consts::PI;
+use std::time::Duration;
 
 use bevy::prelude::*;
 
@@ -122,7 +123,10 @@ fn keyboard_animation_control(
         if keyboard_input.just_pressed(KeyCode::Return) {
             *current_animation = (*current_animation + 1) % animations.0.len();
             player
-                .play(animations.0[*current_animation].clone_weak())
+                .play_with_transition(
+                    animations.0[*current_animation].clone_weak(),
+                    Duration::from_millis(250),
+                )
                 .repeat();
         }
     }

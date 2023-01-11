@@ -22,6 +22,11 @@ mod usages;
 pub use usages::tick_global_task_pools_on_main_thread;
 pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
+#[cfg(not(target_arch = "wasm32"))]
+mod thread_executor;
+#[cfg(not(target_arch = "wasm32"))]
+pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
+
 mod iter;
 pub use iter::ParallelIterator;
 
