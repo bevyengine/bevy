@@ -161,7 +161,7 @@ impl TextBundle {
 }
 
 /// A UI node that is a button
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -195,4 +195,23 @@ pub struct ButtonBundle {
     pub computed_visibility: ComputedVisibility,
     /// Indicates the depth at which the node should appear in the UI
     pub z_index: ZIndex,
+}
+
+impl Default for ButtonBundle {
+    fn default() -> Self {
+        Self {
+            focus_policy: FocusPolicy::Block,
+            node: Default::default(),
+            button: Default::default(),
+            style: Default::default(),
+            interaction: Default::default(),
+            background_color: Default::default(),
+            image: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
 }
