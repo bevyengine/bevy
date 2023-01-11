@@ -231,7 +231,7 @@ impl Plugin for RenderPlugin {
 
             app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
                 #[cfg(feature = "trace")]
-                let _render_span = bevy_utils::tracing::info_span!("extract main to render app").entered();
+                let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
                 {
                     #[cfg(feature = "trace")]
                     let _stage_span =

@@ -1079,7 +1079,7 @@ impl App {
         self.sub_apps.insert(label.as_label(), sub_app);
     }
 
-    /// Removes a sub app from the app. Returns None if the label doesn't exist.
+    /// Removes a sub app from the app. Returns [`None`] if the label doesn't exist.
     pub fn remove_sub_app(&mut self, label: impl AppLabel) -> Option<SubApp> {
         self.sub_apps.remove(&label.as_label())
     }
