@@ -11,11 +11,11 @@ pub struct TaskPoolBuilder {}
 
 /// dummy struct for wasm
 #[derive(Default)]
-pub struct ThreadExecutor;
-impl ThreadExecutor {
+pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
+impl<'a> ThreadExecutor<'a> {
     /// creates a new `ThreadExecutor`
     pub fn new() -> Self {
-        Self
+        Self(PhantomData::default())
     }
 }
 
@@ -88,7 +88,7 @@ impl TaskPool {
     pub fn scope_with_executor<'env, F, T>(
         &self,
         _tick_task_pool_executor: bool,
-        _thread_executor: Option<Arc<ThreadExecutor>>,
+        _thread_executor: Option<&ThreadExecutor>,
         f: F,
     ) -> Vec<T>
     where
