@@ -136,6 +136,7 @@ pub struct EnumInfo {
     type_name: &'static str,
     type_id: TypeId,
     variants: Box<[VariantInfo]>,
+    variant_names: Box<[&'static str]>,
     variant_indices: HashMap<&'static str, usize>,
     #[cfg(feature = "documentation")]
     docs: Option<&'static str>,
@@ -156,11 +157,14 @@ impl EnumInfo {
             .map(|(index, variant)| (variant.name(), index))
             .collect::<HashMap<_, _>>();
 
+        let variant_names = variants.iter().map(|variant| variant.name()).collect();
+
         Self {
             name,
             type_name: std::any::type_name::<TEnum>(),
             type_id: TypeId::of::<TEnum>(),
             variants: variants.to_vec().into_boxed_slice(),
+            variant_names,
             variant_indices,
             #[cfg(feature = "documentation")]
             docs: None,
@@ -171,6 +175,11 @@ impl EnumInfo {
     #[cfg(feature = "documentation")]
     pub fn with_docs(self, docs: Option<&'static str>) -> Self {
         Self { docs, ..self }
+    }
+
+    /// A slice containing the names of all variants in order.
+    pub fn variant_names(&self) -> &[&'static str] {
+        &self.variant_names
     }
 
     /// Get a variant with the given name.

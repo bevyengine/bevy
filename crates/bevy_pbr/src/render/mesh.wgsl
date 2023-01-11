@@ -35,12 +35,16 @@ struct VertexOutput {
 fn vertex(vertex: Vertex) -> VertexOutput {
     var out: VertexOutput;
 
-#ifdef VERTEX_NORMALS
 #ifdef SKINNED
     var model = skin_model(vertex.joint_indices, vertex.joint_weights);
-    out.world_normal = skin_normals(model, vertex.normal);
 #else
     var model = mesh.model;
+#endif
+
+#ifdef VERTEX_NORMALS
+#ifdef SKINNED
+    out.world_normal = skin_normals(model, vertex.normal);
+#else
     out.world_normal = mesh_normal_local_to_world(vertex.normal);
 #endif
 #endif
@@ -66,7 +70,6 @@ fn vertex(vertex: Vertex) -> VertexOutput {
 }
 
 struct FragmentInput {
-    @builtin(front_facing) is_front: bool,
     #import bevy_pbr::mesh_vertex_output
 };
 

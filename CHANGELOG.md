@@ -7,7 +7,541 @@ While we try to keep the `Unreleased` changes updated, it is often behind and do
 all merged pull requests. To see a list of all changes since the latest release, you may compare
 current changes on git with [previous release tags][git_tag_comparison].
 
-[git_tag_comparison]: https://github.com/bevyengine/bevy/compare/v0.8.1...main
+[git_tag_comparison]: https://github.com/bevyengine/bevy/compare/v0.9.0...main
+
+## Version 0.9.0 (2022-11-12)
+
+### Added
+
+- [Bloom][6397]
+- [Add FXAA postprocessing][6393]
+- [Fix color banding by dithering image before quantization][5264]
+- [Plugins own their settings. Rework PluginGroup trait.][6336]
+- [Add global time scaling][5752]
+- [add globals to mesh view bind group][5409]
+- [Add UI scaling][5814]
+- [Add FromReflect for Timer][6422]
+- [Re-add local bool `has_received_time` in `time_system`][6357]
+- [Add default implementation of Serialize and Deserialize to Timer and Stopwatch][6248]
+- [add time wrapping to Time][5982]
+- [Stopwatch elapsed secs f64][5978]
+- [Remaining fn in Timer][5971]
+- [Support array / cubemap / cubemap array textures in KTX2][5325]
+- [Add methods for silencing system-order ambiguity warnings][6158]
+- [bevy_dynamic_plugin: make it possible to handle loading errors][6437]
+- [can get the settings of a plugin from the app][6372]
+- [Use plugin setup for resource only used at setup time][6360]
+- [Add `TimeUpdateStrategy` resource for manual `Time` updating][6159]
+- [dynamic scene builder][6227]
+- [Create a scene from a dynamic scene][6229]
+- [Scene example: write file in a task][5952]
+- [Add writing of scene data to Scene example][5949]
+- [can clone a scene][5855]
+- [Add "end of main pass post processing" render graph node][6468]
+- [Add `Camera::viewport_to_world`][6126]
+- [Sprite: allow using a sub-region (Rect) of the image][6014]
+- [Add missing type registrations for bevy_math types][5758]
+- [Add `serialize` feature to `bevy_core`][6423]
+- [add serialize feature to bevy_transform][6379]
+- [Add associated constant `IDENTITY` to `Transform` and friends.][5340]
+- [bevy_reflect: Add `Reflect::into_reflect`][6502]
+- [Add reflect_owned][6494]
+- [`Reflect` for `Tonemapping` and `ClusterConfig`][6488]
+- [add `ReflectDefault` to std types][6429]
+- [Add FromReflect for Visibility][6410]
+- [Register `RenderLayers` type in `CameraPlugin`][6308]
+- [Enable Constructing ReflectComponent/Resource][6257]
+- [Support multiple `#[reflect]`/`#[reflect_value]` + improve error messages][6237]
+- [Reflect Default for GlobalTransform][6200]
+- [Impl Reflect for PathBuf and OsString][6193]
+- [Reflect Default for `ComputedVisibility` and `Handle<T>`][6187]
+- [Register `Wireframe` type][6152]
+- [Derive `FromReflect` for `Transform` and `GlobalTransform`][6015]
+- [Make arrays behave like lists in reflection][5987]
+- [Implement `Debug` for dynamic types][5948]
+- [Implemented `Reflect` for all the ranges][5806]
+- [Add `pop` method for `List` trait.][5797]
+- [bevy_reflect: `GetTypeRegistration` for `SmallVec<T>`][5782]
+- [register missing reflect types][5747]
+- [bevy_reflect: Get owned fields][5728]
+- [bevy_reflect: Add `FromReflect` to the prelude][5720]
+- [implement `Reflect` for `Input<T>`, some misc improvements to reflect value derive][5676]
+- [register `Cow<'static, str>` for reflection][5664]
+- [bevy_reflect: Relax bounds on `Option<T>`][5658]
+- [remove `ReflectMut` in favor of `Mut<dyn Reflect>`][5630]
+- [add some info from `ReflectPathError` to the error messages][5626]
+- [Added reflect/from reflect impls for NonZero integer types][5556]
+- [bevy_reflect: Update enum derives][5473]
+- [Add `reflect(skip_serializing)` which retains reflection but disables automatic serialization][5250]
+- [bevy_reflect: Reflect enums][4761]
+- [Disabling default features support in bevy_ecs, bevy_reflect and bevy][5993]
+- [expose window alpha mode][6331]
+- [Make bevy_window and bevy_input events serializable][6180]
+- [Add window resizing example][5813]
+- [feat: add GamepadInfo, expose gamepad names][6342]
+- [Derive `Reflect` + `FromReflect` for input types][6232]
+- [Make TouchInput and ForceTouch serializable][6191]
+- [Add a Gamepad Viewer tool to examples][6074]
+- [Derived `Copy` trait for `bevy_input` events, `Serialize`/`Deserialize` for events in `bevy_input` and `bevy_windows`, `PartialEq` for events in both, and `Eq` where possible in both.][6023]
+- [Support for additional gamepad buttons and axis][5853]
+- [Added keyboard scan input event][5495]
+- [Add `set_parent` and `remove_parent` to `EntityCommands`][6189]
+- [Add methods to `Query<&Children>` and `Query<&Parent>` to iterate over descendants and ancestors][6185]
+- [Add `is_finished` to `Task<T>`][6444]
+- [Expose mint feature in bevy_math/glam][5857]
+- [Utility methods for Val][6134]
+- [Register missing bevy_text types][6029]
+- [Add additional constructors for `UiRect` to specify values for specific fields][5988]
+- [Add AUTO and UNDEFINED const constructors for `Size`][5761]
+- [Add Exponential Moving Average into diagnostics][4992]
+- [Add `send_event` and friends to `WorldCell`][6515]
+- [Add a method for accessing the width of a `Table`][6249]
+- [Add iter_entities to World #6228][6242]
+- [Adding Debug implementations for App, Stage, Schedule, Query, QueryState, etc.][6214]
+- [Add a method for mapping `Mut<T>` -> `Mut<U>`][6199]
+- [implemented #[bundle(ignore)]][6123]
+- [Allow access to non-send resource through `World::resource_scope`][6113]
+- [Add get_entity to Commands][5854]
+- [Added the ability to get or set the last change tick of a system.][5838]
+- [Add a module for common system `chain`/`pipe` adapters][5776]
+- [SystemParam for the name of the system you are currently in][5731]
+- [Warning message for missing events][5730]
+- [Add a change detection bypass and manual control over change ticks][5635]
+- [Add into_world_mut to EntityMut][5586]
+- [Add `FromWorld` bound to `T` in `Local<T>`][5481]
+- [Add `From<EntityMut>` for EntityRef (fixes #5459)][5461]
+- [Implement IntoIterator for ECS wrapper types.][5096]
+- [add `Res::clone`][4109]
+- [Add CameraRenderGraph::set][6470]
+- [Use wgsl saturate][6318]
+- [Add mutating `toggle` method to `Visibility` component][6268]
+- [Add globals struct to mesh2d][6222]
+- [add support for .comp glsl shaders][6084]
+- [Implement `IntoIterator` for `&Extract<P>`][6025]
+- [add Debug, Copy, Clone derives to Circle][6009]
+- [Add TextureFormat::Rg16Unorm support for Image and derive Resource for SpecializedComputePipelines][5991]
+- [Add `bevy_render::texture::ImageSettings` to prelude][5566]
+- [Add `Projection` component to prelude.][5557]
+- [Expose `Image` conversion functions (fixes #5452)][5527]
+- [Macro for Loading Internal Binary Assets][6478]
+- [Add `From<String>` for `AssetPath<'a>`][6337]
+- [Add Eq & PartialEq to AssetPath][6274]
+- [add `ReflectAsset` and `ReflectHandle`][5923]
+- [Add warning when using load_folder on web][5827]
+- [Expose rodio's Source and Sample traits in bevy_audio][6374]
+- [Add a way to toggle `AudioSink`][6321]
+
+### Changed
+
+- [separate tonemapping and upscaling passes][3425]
+- [Rework ViewTarget to better support post processing][6415]
+- [bevy_reflect: Improve serialization format even more][5723]
+- [bevy_reflect: Binary formats][6140]
+- [Unique plugins][6411]
+- [Support arbitrary RenderTarget texture formats][6380]
+- [Make `Resource` trait opt-in, requiring `#[derive(Resource)]` V2][5577]
+- [Replace `WorldQueryGats` trait with actual gats][6319]
+- [Change UI coordinate system to have origin at top left corner][6000]
+- [Move the cursor's origin back to the bottom-left][6533]
+- [Add z-index support with a predictable UI stack][5877]
+- [TaskPool Panic Handling][6443]
+- [Implement `Bundle` for `Component`. Use `Bundle` tuples for insertion][2975]
+- [Spawn now takes a Bundle][6054]
+- [make `WorldQuery` very flat][5205]
+- [Accept Bundles for insert and remove. Deprecate insert/remove_bundle][6039]
+- [Exclusive Systems Now Implement `System`. Flexible Exclusive System Params][6083]
+- [bevy_scene: Serialize entities to map][6416]
+- [bevy_scene: Stabilize entity order in `DynamicSceneBuilder`][6382]
+- [bevy_scene: Replace root list with struct][6354]
+- [bevy_scene: Use map for scene `components`][6345]
+- [Start running systems while prepare_systems is running][4919]
+- [Extract Resources into their own dedicated storage][4809]
+- [get proper texture format after the renderer is initialized, fix #3897][5413]
+- [Add getters and setters for `InputAxis` and `ButtonSettings`][6088]
+- [Clean up Fetch code][4800]
+- [Nested spawns on scope][4466]
+- [Skip empty archetypes and tables when iterating over queries][4724]
+- [Increase the `MAX_DIRECTIONAL_LIGHTS` from 1 to 10][6066]
+- [bevy_pbr: Normalize skinned normals][6543]
+- [remove mandatory mesh attributes][6127]
+- [Rename `play` to `start` and add new `play` method that won't overwrite the existing animation if it's already playing][6350]
+- [Replace the `bool` argument of `Timer` with `TimerMode`][6247]
+- [improve panic messages for add_system_to_stage and add_system_set_to_stage][5847]
+- [Use default serde impls for Entity][6194]
+- [scenes: simplify return type of iter_instance_entities][5994]
+- [Consistently use `PI` to specify angles in examples.][5825]
+- [Remove `Transform::apply_non_uniform_scale`][6133]
+- [Rename `Transform::mul_vec3` to `transform_point` and improve docs][6132]
+- [make `register` on `TypeRegistry` idempotent][6487]
+- [do not set cursor grab on window creation if not asked for][6381]
+- [Make `raw_window_handle` field in `Window` and `ExtractedWindow` an `Option`.][6114]
+- [Support monitor selection for all window modes.][5878]
+- [`Gamepad` type is `Copy`; do not require / return references to it in `Gamepads` API][5296]
+- [Update tracing-chrome to 0.6.0][6398]
+- [Update to ron 0.8][5864]
+- [Update clap requirement from 3.2 to 4.0][6303]
+- [Update glam 0.22, hexasphere 8.0, encase 0.4][6427]
+- [Update `wgpu` to 0.14.0, `naga` to `0.10.0`, `winit` to 0.27.4, `raw-window-handle` to 0.5.0, `ndk` to 0.7][6218]
+- [Update to notify 5.0 stable][5865]
+- [Update rodio requirement from 0.15 to 0.16][6020]
+- [remove copyless][6100]
+- [Mark `Task` as `#[must_use]`][6068]
+- [Swap out num_cpus for std::thread::available_parallelism][4970]
+- [Cleaning up NodeBundle, and some slight UI module re-organization][6473]
+- [Make the default background color of `NodeBundle` transparent][6211]
+- [Rename `UiColor`  to `BackgroundColor`][6087]
+- [changed diagnostics from seconds to milliseconds][5554]
+- [Remove unnecesary branches/panics from Query accesses][6461]
+- [`debug_checked_unwrap` should track its caller][6452]
+- [Speed up `Query::get_many` and add benchmarks][6400]
+- [Rename system chaining to system piping][6230]
+- [[Fixes #6059] ``Entity``'s “ID” should be named “index” instead][6107]
+- [`Query` filter types must be `ReadOnlyWorldQuery`][6008]
+- [Remove ambiguity sets][5916]
+- [relax `Sized` bounds around change detection types][5917]
+- [Remove ExactSizeIterator from QueryCombinationIter][5895]
+- [Remove Sync bound from Command][5871]
+- [Make most `Entity` methods `const`][5688]
+- [Remove `insert_resource_with_id`][5608]
+- [Avoid making `Fetch`s `Clone`][5593]
+- [Remove `Sync` bound from `Local`][5483]
+- [Replace `many_for_each_mut` with `iter_many_mut`.][5402]
+- [bevy_ecs: Use 32-bit entity ID cursor on platforms without AtomicI64][4452]
+- [Specialize UI pipeline on "hdr-ness"][6459]
+- [Allow passing `glam` vector types as vertex attributes][6442]
+- [Add multi draw indirect draw calls][6392]
+- [Take DirectionalLight's GlobalTransform into account when calculating shadow map volume (not just direction)][6384]
+- [Respect mipmap_filter when create ImageDescriptor with linear()/nearest()][6349]
+- [use bevy default texture format if the surface is not yet available][6233]
+- [log pipeline cache errors earlier][6115]
+- [Merge TextureAtlas::from_grid_with_padding into TextureAtlas::from_grid through option arguments][6057]
+- [Reconfigure surface on present mode change][6049]
+- [Use 3 bits of PipelineKey to store MSAA sample count][5826]
+- [Limit FontAtlasSets][5708]
+- [Move `sprite::Rect` into `bevy_math`][5686]
+- [Make vertex colors work without textures in bevy_sprite][5685]
+- [use bevy_default() for texture format in post_processing][5601]
+- [don't render completely transparent UI nodes][5537]
+- [make TextLayoutInfo a Component][4460]
+- [make `Handle::<T>` field id private, and replace with a getter][6176]
+- [Remove `AssetServer::watch_for_changes()`][5968]
+- [Rename Handle::as_weak() to cast_weak()][5321]
+- [Remove `Sync` requirement in `Decodable::Decoder`][5819]
+
+### Fixed
+
+- [Optimize rendering slow-down at high entity counts][5509]
+- [bevy_reflect: Fix `DynamicScene` not respecting component registrations during serialization][6288]
+- [fixes the types for Vec3 and Quat in scene example to remove WARN from the logs][5751]
+- [Fix end-of-animation index OOB][6210]
+- [bevy_reflect: Remove unnecessary `Clone` bounds][5783]
+- [bevy_reflect: Fix `apply` method for `Option<T>`][5780]
+- [Fix outdated and badly formatted docs for `WindowDescriptor::transparent`][6329]
+- [disable window pre creation for ios][5883]
+- [Remove unnecessary unsafe `Send` and `Sync` impl for `WinitWindows` on wasm.][5863]
+- [Fix window centering when scale_factor is not 1.0][5582]
+- [fix order of exit/close window systems][5558]
+- [bevy_input: Fix process touch event][4352]
+- [fix: explicitly specify required version of async-task][6509]
+- [Fix `clippy::iter_with_drain`][6485]
+- [Use `cbrt()` instead of `powf(1./3.)`][6481]
+- [Fix `RemoveChildren` command][6192]
+- [Fix inconsistent children removal behavior][6017]
+- [tick local executor][6121]
+- [Fix panic when the primary window is closed][6545]
+- [UI scaling fix][6479]
+- [Fix clipping in UI][6351]
+- [Fixes scroll example after inverting UI Y axis][6290]
+- [Fixes incorrect glyph positioning for text2d][6273]
+- [Clean up taffy nodes when UI node entities are removed][5886]
+- [Fix unsound `EntityMut::remove_children`. Add `EntityMut::world_scope`][6464]
+- [Fix spawning empty bundles][6425]
+- [Fix query.to_readonly().get_component_mut() soundness bug][6401]
+- [#5817: derive_bundle macro is not hygienic][5835]
+- [drop old value in `insert_resource_by_id` if exists][5587]
+- [Fix lifetime bound on `From` impl for `NonSendMut` -> `Mut`][5560]
+- [Fix `mesh.wgsl` error for meshes without normals][6439]
+- [Fix panic when using globals uniform in wasm builds][6460]
+- [Resolve most remaining execution-order ambiguities][6341]
+- [Call `mesh2d_tangent_local_to_world` with the right arguments][6209]
+- [Fixes Camera not being serializable due to missing registrations in core functionality.][6170]
+- [fix spot dir nan bug][6167]
+- [use alpha mask even when unlit][6047]
+- [Ignore `Timeout` errors on Linux AMD & Intel][5957]
+- [adjust cluster index for viewport origin][5947]
+- [update camera projection if viewport changed][5945]
+- [Ensure 2D phase items are sorted before batching][5942]
+- [bevy_pbr: Fix incorrect and unnecessary normal-mapping code][5766]
+- [Add explicit ordering between `update_frusta` and `camera_system`][5757]
+- [bevy_pbr: Fix tangent and normal normalization][5666]
+- [Fix shader syntax][5613]
+- [Correctly use as_hsla_f32 in `Add<Color>` and `AddAssign<Color>`, fixes #5543][5546]
+- [Sync up bevy_sprite and bevy_ui shader View struct][5531]
+- [Fix View by adding missing fields present in ViewUniform][5512]
+- [Freeing memory held by visible entities vector][3009]
+- [Correctly parse labels with '#'][5729]
+
+[6545]: https://github.com/bevyengine/bevy/pull/6545
+[6543]: https://github.com/bevyengine/bevy/pull/6543
+[6533]: https://github.com/bevyengine/bevy/pull/6533
+[6515]: https://github.com/bevyengine/bevy/pull/6515
+[6509]: https://github.com/bevyengine/bevy/pull/6509
+[6502]: https://github.com/bevyengine/bevy/pull/6502
+[6494]: https://github.com/bevyengine/bevy/pull/6494
+[6488]: https://github.com/bevyengine/bevy/pull/6488
+[6487]: https://github.com/bevyengine/bevy/pull/6487
+[6485]: https://github.com/bevyengine/bevy/pull/6485
+[6481]: https://github.com/bevyengine/bevy/pull/6481
+[6479]: https://github.com/bevyengine/bevy/pull/6479
+[6478]: https://github.com/bevyengine/bevy/pull/6478
+[6473]: https://github.com/bevyengine/bevy/pull/6473
+[6470]: https://github.com/bevyengine/bevy/pull/6470
+[6468]: https://github.com/bevyengine/bevy/pull/6468
+[6464]: https://github.com/bevyengine/bevy/pull/6464
+[6461]: https://github.com/bevyengine/bevy/pull/6461
+[6460]: https://github.com/bevyengine/bevy/pull/6460
+[6459]: https://github.com/bevyengine/bevy/pull/6459
+[6452]: https://github.com/bevyengine/bevy/pull/6452
+[6444]: https://github.com/bevyengine/bevy/pull/6444
+[6443]: https://github.com/bevyengine/bevy/pull/6443
+[6442]: https://github.com/bevyengine/bevy/pull/6442
+[6439]: https://github.com/bevyengine/bevy/pull/6439
+[6437]: https://github.com/bevyengine/bevy/pull/6437
+[6429]: https://github.com/bevyengine/bevy/pull/6429
+[6427]: https://github.com/bevyengine/bevy/pull/6427
+[6425]: https://github.com/bevyengine/bevy/pull/6425
+[6423]: https://github.com/bevyengine/bevy/pull/6423
+[6422]: https://github.com/bevyengine/bevy/pull/6422
+[6416]: https://github.com/bevyengine/bevy/pull/6416
+[6415]: https://github.com/bevyengine/bevy/pull/6415
+[6411]: https://github.com/bevyengine/bevy/pull/6411
+[6410]: https://github.com/bevyengine/bevy/pull/6410
+[6401]: https://github.com/bevyengine/bevy/pull/6401
+[6400]: https://github.com/bevyengine/bevy/pull/6400
+[6398]: https://github.com/bevyengine/bevy/pull/6398
+[6397]: https://github.com/bevyengine/bevy/pull/6397
+[6393]: https://github.com/bevyengine/bevy/pull/6393
+[6392]: https://github.com/bevyengine/bevy/pull/6392
+[6384]: https://github.com/bevyengine/bevy/pull/6384
+[6382]: https://github.com/bevyengine/bevy/pull/6382
+[6381]: https://github.com/bevyengine/bevy/pull/6381
+[6380]: https://github.com/bevyengine/bevy/pull/6380
+[6379]: https://github.com/bevyengine/bevy/pull/6379
+[6374]: https://github.com/bevyengine/bevy/pull/6374
+[6372]: https://github.com/bevyengine/bevy/pull/6372
+[6360]: https://github.com/bevyengine/bevy/pull/6360
+[6357]: https://github.com/bevyengine/bevy/pull/6357
+[6354]: https://github.com/bevyengine/bevy/pull/6354
+[6351]: https://github.com/bevyengine/bevy/pull/6351
+[6350]: https://github.com/bevyengine/bevy/pull/6350
+[6349]: https://github.com/bevyengine/bevy/pull/6349
+[6345]: https://github.com/bevyengine/bevy/pull/6345
+[6342]: https://github.com/bevyengine/bevy/pull/6342
+[6341]: https://github.com/bevyengine/bevy/pull/6341
+[6337]: https://github.com/bevyengine/bevy/pull/6337
+[6336]: https://github.com/bevyengine/bevy/pull/6336
+[6331]: https://github.com/bevyengine/bevy/pull/6331
+[6329]: https://github.com/bevyengine/bevy/pull/6329
+[6321]: https://github.com/bevyengine/bevy/pull/6321
+[6319]: https://github.com/bevyengine/bevy/pull/6319
+[6318]: https://github.com/bevyengine/bevy/pull/6318
+[6308]: https://github.com/bevyengine/bevy/pull/6308
+[6303]: https://github.com/bevyengine/bevy/pull/6303
+[6290]: https://github.com/bevyengine/bevy/pull/6290
+[6288]: https://github.com/bevyengine/bevy/pull/6288
+[6274]: https://github.com/bevyengine/bevy/pull/6274
+[6273]: https://github.com/bevyengine/bevy/pull/6273
+[6268]: https://github.com/bevyengine/bevy/pull/6268
+[6257]: https://github.com/bevyengine/bevy/pull/6257
+[6249]: https://github.com/bevyengine/bevy/pull/6249
+[6248]: https://github.com/bevyengine/bevy/pull/6248
+[6247]: https://github.com/bevyengine/bevy/pull/6247
+[6242]: https://github.com/bevyengine/bevy/pull/6242
+[6237]: https://github.com/bevyengine/bevy/pull/6237
+[6233]: https://github.com/bevyengine/bevy/pull/6233
+[6232]: https://github.com/bevyengine/bevy/pull/6232
+[6230]: https://github.com/bevyengine/bevy/pull/6230
+[6229]: https://github.com/bevyengine/bevy/pull/6229
+[6227]: https://github.com/bevyengine/bevy/pull/6227
+[6222]: https://github.com/bevyengine/bevy/pull/6222
+[6218]: https://github.com/bevyengine/bevy/pull/6218
+[6214]: https://github.com/bevyengine/bevy/pull/6214
+[6211]: https://github.com/bevyengine/bevy/pull/6211
+[6210]: https://github.com/bevyengine/bevy/pull/6210
+[6209]: https://github.com/bevyengine/bevy/pull/6209
+[6200]: https://github.com/bevyengine/bevy/pull/6200
+[6199]: https://github.com/bevyengine/bevy/pull/6199
+[6194]: https://github.com/bevyengine/bevy/pull/6194
+[6193]: https://github.com/bevyengine/bevy/pull/6193
+[6192]: https://github.com/bevyengine/bevy/pull/6192
+[6191]: https://github.com/bevyengine/bevy/pull/6191
+[6189]: https://github.com/bevyengine/bevy/pull/6189
+[6187]: https://github.com/bevyengine/bevy/pull/6187
+[6185]: https://github.com/bevyengine/bevy/pull/6185
+[6180]: https://github.com/bevyengine/bevy/pull/6180
+[6176]: https://github.com/bevyengine/bevy/pull/6176
+[6170]: https://github.com/bevyengine/bevy/pull/6170
+[6167]: https://github.com/bevyengine/bevy/pull/6167
+[6159]: https://github.com/bevyengine/bevy/pull/6159
+[6158]: https://github.com/bevyengine/bevy/pull/6158
+[6152]: https://github.com/bevyengine/bevy/pull/6152
+[6140]: https://github.com/bevyengine/bevy/pull/6140
+[6134]: https://github.com/bevyengine/bevy/pull/6134
+[6133]: https://github.com/bevyengine/bevy/pull/6133
+[6132]: https://github.com/bevyengine/bevy/pull/6132
+[6127]: https://github.com/bevyengine/bevy/pull/6127
+[6126]: https://github.com/bevyengine/bevy/pull/6126
+[6123]: https://github.com/bevyengine/bevy/pull/6123
+[6121]: https://github.com/bevyengine/bevy/pull/6121
+[6115]: https://github.com/bevyengine/bevy/pull/6115
+[6114]: https://github.com/bevyengine/bevy/pull/6114
+[6113]: https://github.com/bevyengine/bevy/pull/6113
+[6107]: https://github.com/bevyengine/bevy/pull/6107
+[6100]: https://github.com/bevyengine/bevy/pull/6100
+[6088]: https://github.com/bevyengine/bevy/pull/6088
+[6087]: https://github.com/bevyengine/bevy/pull/6087
+[6084]: https://github.com/bevyengine/bevy/pull/6084
+[6083]: https://github.com/bevyengine/bevy/pull/6083
+[6074]: https://github.com/bevyengine/bevy/pull/6074
+[6068]: https://github.com/bevyengine/bevy/pull/6068
+[6066]: https://github.com/bevyengine/bevy/pull/6066
+[6057]: https://github.com/bevyengine/bevy/pull/6057
+[6054]: https://github.com/bevyengine/bevy/pull/6054
+[6049]: https://github.com/bevyengine/bevy/pull/6049
+[6047]: https://github.com/bevyengine/bevy/pull/6047
+[6039]: https://github.com/bevyengine/bevy/pull/6039
+[6029]: https://github.com/bevyengine/bevy/pull/6029
+[6025]: https://github.com/bevyengine/bevy/pull/6025
+[6023]: https://github.com/bevyengine/bevy/pull/6023
+[6020]: https://github.com/bevyengine/bevy/pull/6020
+[6017]: https://github.com/bevyengine/bevy/pull/6017
+[6015]: https://github.com/bevyengine/bevy/pull/6015
+[6014]: https://github.com/bevyengine/bevy/pull/6014
+[6009]: https://github.com/bevyengine/bevy/pull/6009
+[6008]: https://github.com/bevyengine/bevy/pull/6008
+[6000]: https://github.com/bevyengine/bevy/pull/6000
+[5994]: https://github.com/bevyengine/bevy/pull/5994
+[5993]: https://github.com/bevyengine/bevy/pull/5993
+[5991]: https://github.com/bevyengine/bevy/pull/5991
+[5988]: https://github.com/bevyengine/bevy/pull/5988
+[5987]: https://github.com/bevyengine/bevy/pull/5987
+[5982]: https://github.com/bevyengine/bevy/pull/5982
+[5978]: https://github.com/bevyengine/bevy/pull/5978
+[5971]: https://github.com/bevyengine/bevy/pull/5971
+[5968]: https://github.com/bevyengine/bevy/pull/5968
+[5957]: https://github.com/bevyengine/bevy/pull/5957
+[5952]: https://github.com/bevyengine/bevy/pull/5952
+[5949]: https://github.com/bevyengine/bevy/pull/5949
+[5948]: https://github.com/bevyengine/bevy/pull/5948
+[5947]: https://github.com/bevyengine/bevy/pull/5947
+[5945]: https://github.com/bevyengine/bevy/pull/5945
+[5942]: https://github.com/bevyengine/bevy/pull/5942
+[5923]: https://github.com/bevyengine/bevy/pull/5923
+[5917]: https://github.com/bevyengine/bevy/pull/5917
+[5916]: https://github.com/bevyengine/bevy/pull/5916
+[5895]: https://github.com/bevyengine/bevy/pull/5895
+[5886]: https://github.com/bevyengine/bevy/pull/5886
+[5883]: https://github.com/bevyengine/bevy/pull/5883
+[5878]: https://github.com/bevyengine/bevy/pull/5878
+[5877]: https://github.com/bevyengine/bevy/pull/5877
+[5871]: https://github.com/bevyengine/bevy/pull/5871
+[5865]: https://github.com/bevyengine/bevy/pull/5865
+[5864]: https://github.com/bevyengine/bevy/pull/5864
+[5863]: https://github.com/bevyengine/bevy/pull/5863
+[5857]: https://github.com/bevyengine/bevy/pull/5857
+[5855]: https://github.com/bevyengine/bevy/pull/5855
+[5854]: https://github.com/bevyengine/bevy/pull/5854
+[5853]: https://github.com/bevyengine/bevy/pull/5853
+[5847]: https://github.com/bevyengine/bevy/pull/5847
+[5838]: https://github.com/bevyengine/bevy/pull/5838
+[5835]: https://github.com/bevyengine/bevy/pull/5835
+[5827]: https://github.com/bevyengine/bevy/pull/5827
+[5826]: https://github.com/bevyengine/bevy/pull/5826
+[5825]: https://github.com/bevyengine/bevy/pull/5825
+[5819]: https://github.com/bevyengine/bevy/pull/5819
+[5814]: https://github.com/bevyengine/bevy/pull/5814
+[5813]: https://github.com/bevyengine/bevy/pull/5813
+[5806]: https://github.com/bevyengine/bevy/pull/5806
+[5797]: https://github.com/bevyengine/bevy/pull/5797
+[5783]: https://github.com/bevyengine/bevy/pull/5783
+[5782]: https://github.com/bevyengine/bevy/pull/5782
+[5780]: https://github.com/bevyengine/bevy/pull/5780
+[5776]: https://github.com/bevyengine/bevy/pull/5776
+[5766]: https://github.com/bevyengine/bevy/pull/5766
+[5761]: https://github.com/bevyengine/bevy/pull/5761
+[5758]: https://github.com/bevyengine/bevy/pull/5758
+[5757]: https://github.com/bevyengine/bevy/pull/5757
+[5752]: https://github.com/bevyengine/bevy/pull/5752
+[5751]: https://github.com/bevyengine/bevy/pull/5751
+[5747]: https://github.com/bevyengine/bevy/pull/5747
+[5731]: https://github.com/bevyengine/bevy/pull/5731
+[5730]: https://github.com/bevyengine/bevy/pull/5730
+[5729]: https://github.com/bevyengine/bevy/pull/5729
+[5728]: https://github.com/bevyengine/bevy/pull/5728
+[5723]: https://github.com/bevyengine/bevy/pull/5723
+[5720]: https://github.com/bevyengine/bevy/pull/5720
+[5708]: https://github.com/bevyengine/bevy/pull/5708
+[5688]: https://github.com/bevyengine/bevy/pull/5688
+[5686]: https://github.com/bevyengine/bevy/pull/5686
+[5685]: https://github.com/bevyengine/bevy/pull/5685
+[5676]: https://github.com/bevyengine/bevy/pull/5676
+[5666]: https://github.com/bevyengine/bevy/pull/5666
+[5664]: https://github.com/bevyengine/bevy/pull/5664
+[5658]: https://github.com/bevyengine/bevy/pull/5658
+[5635]: https://github.com/bevyengine/bevy/pull/5635
+[5630]: https://github.com/bevyengine/bevy/pull/5630
+[5626]: https://github.com/bevyengine/bevy/pull/5626
+[5613]: https://github.com/bevyengine/bevy/pull/5613
+[5608]: https://github.com/bevyengine/bevy/pull/5608
+[5601]: https://github.com/bevyengine/bevy/pull/5601
+[5593]: https://github.com/bevyengine/bevy/pull/5593
+[5587]: https://github.com/bevyengine/bevy/pull/5587
+[5586]: https://github.com/bevyengine/bevy/pull/5586
+[5582]: https://github.com/bevyengine/bevy/pull/5582
+[5577]: https://github.com/bevyengine/bevy/pull/5577
+[5566]: https://github.com/bevyengine/bevy/pull/5566
+[5560]: https://github.com/bevyengine/bevy/pull/5560
+[5558]: https://github.com/bevyengine/bevy/pull/5558
+[5557]: https://github.com/bevyengine/bevy/pull/5557
+[5556]: https://github.com/bevyengine/bevy/pull/5556
+[5554]: https://github.com/bevyengine/bevy/pull/5554
+[5546]: https://github.com/bevyengine/bevy/pull/5546
+[5537]: https://github.com/bevyengine/bevy/pull/5537
+[5531]: https://github.com/bevyengine/bevy/pull/5531
+[5527]: https://github.com/bevyengine/bevy/pull/5527
+[5512]: https://github.com/bevyengine/bevy/pull/5512
+[5509]: https://github.com/bevyengine/bevy/pull/5509
+[5495]: https://github.com/bevyengine/bevy/pull/5495
+[5483]: https://github.com/bevyengine/bevy/pull/5483
+[5481]: https://github.com/bevyengine/bevy/pull/5481
+[5473]: https://github.com/bevyengine/bevy/pull/5473
+[5461]: https://github.com/bevyengine/bevy/pull/5461
+[5413]: https://github.com/bevyengine/bevy/pull/5413
+[5409]: https://github.com/bevyengine/bevy/pull/5409
+[5402]: https://github.com/bevyengine/bevy/pull/5402
+[5340]: https://github.com/bevyengine/bevy/pull/5340
+[5325]: https://github.com/bevyengine/bevy/pull/5325
+[5321]: https://github.com/bevyengine/bevy/pull/5321
+[5296]: https://github.com/bevyengine/bevy/pull/5296
+[5264]: https://github.com/bevyengine/bevy/pull/5264
+[5250]: https://github.com/bevyengine/bevy/pull/5250
+[5205]: https://github.com/bevyengine/bevy/pull/5205
+[5096]: https://github.com/bevyengine/bevy/pull/5096
+[4992]: https://github.com/bevyengine/bevy/pull/4992
+[4970]: https://github.com/bevyengine/bevy/pull/4970
+[4919]: https://github.com/bevyengine/bevy/pull/4919
+[4809]: https://github.com/bevyengine/bevy/pull/4809
+[4800]: https://github.com/bevyengine/bevy/pull/4800
+[4761]: https://github.com/bevyengine/bevy/pull/4761
+[4724]: https://github.com/bevyengine/bevy/pull/4724
+[4466]: https://github.com/bevyengine/bevy/pull/4466
+[4460]: https://github.com/bevyengine/bevy/pull/4460
+[4452]: https://github.com/bevyengine/bevy/pull/4452
+[4352]: https://github.com/bevyengine/bevy/pull/4352
+[4109]: https://github.com/bevyengine/bevy/pull/4109
+[3425]: https://github.com/bevyengine/bevy/pull/3425
+[3009]: https://github.com/bevyengine/bevy/pull/3009
+[2975]: https://github.com/bevyengine/bevy/pull/2975
 
 ## Version 0.8.0 (2022-07-30)
 
@@ -783,12 +1317,10 @@ current changes on git with [previous release tags][git_tag_comparison].
 [4243]: https://github.com/bevyengine/bevy/pull/4243
 [4246]: https://github.com/bevyengine/bevy/pull/4246
 [4250]: https://github.com/bevyengine/bevy/pull/4250
-[4252]: https://github.com/bevyengine/bevy/pull/4252
 [4270]: https://github.com/bevyengine/bevy/pull/4270
 [4298]: https://github.com/bevyengine/bevy/pull/4298
 [4310]: https://github.com/bevyengine/bevy/pull/4310
 [4328]: https://github.com/bevyengine/bevy/pull/4328
-[4332]: https://github.com/bevyengine/bevy/pull/4332
 [4340]: https://github.com/bevyengine/bevy/pull/4340
 [4347]: https://github.com/bevyengine/bevy/pull/4347
 [4361]: https://github.com/bevyengine/bevy/pull/4361
@@ -799,11 +1331,7 @@ current changes on git with [previous release tags][git_tag_comparison].
 [4396]: https://github.com/bevyengine/bevy/pull/4396
 [4399]: https://github.com/bevyengine/bevy/pull/4399
 [4400]: https://github.com/bevyengine/bevy/pull/4400
-[4403]: https://github.com/bevyengine/bevy/pull/4403
-[4405]: https://github.com/bevyengine/bevy/pull/4405
 [4417]: https://github.com/bevyengine/bevy/pull/4417
-[4420]: https://github.com/bevyengine/bevy/pull/4420
-[4426]: https://github.com/bevyengine/bevy/pull/4426
 [4427]: https://github.com/bevyengine/bevy/pull/4427
 [4428]: https://github.com/bevyengine/bevy/pull/4428
 [4433]: https://github.com/bevyengine/bevy/pull/4433
@@ -1804,84 +2332,56 @@ current changes on git with [previous release tags][git_tag_comparison].
 [691]: https://github.com/bevyengine/bevy/pull/691
 [719]: https://github.com/bevyengine/bevy/pull/719
 [761]: https://github.com/bevyengine/bevy/pull/761
-[761]: https://github.com/bevyengine/bevy/pull/761
 [765]: https://github.com/bevyengine/bevy/pull/765
-[772]: https://github.com/bevyengine/bevy/pull/772
 [772]: https://github.com/bevyengine/bevy/pull/772
 [789]: https://github.com/bevyengine/bevy/pull/789
 [791]: https://github.com/bevyengine/bevy/pull/791
 [798]: https://github.com/bevyengine/bevy/pull/798
-[801]: https://github.com/bevyengine/bevy/pull/801
 [801]: https://github.com/bevyengine/bevy/pull/801
 [805]: https://github.com/bevyengine/bevy/pull/805
 [808]: https://github.com/bevyengine/bevy/pull/808
 [815]: https://github.com/bevyengine/bevy/pull/815
 [820]: https://github.com/bevyengine/bevy/pull/820
 [821]: https://github.com/bevyengine/bevy/pull/821
-[821]: https://github.com/bevyengine/bevy/pull/821
-[829]: https://github.com/bevyengine/bevy/pull/829
 [829]: https://github.com/bevyengine/bevy/pull/829
 [834]: https://github.com/bevyengine/bevy/pull/834
-[834]: https://github.com/bevyengine/bevy/pull/834
-[836]: https://github.com/bevyengine/bevy/pull/836
 [836]: https://github.com/bevyengine/bevy/pull/836
 [842]: https://github.com/bevyengine/bevy/pull/842
 [843]: https://github.com/bevyengine/bevy/pull/843
 [847]: https://github.com/bevyengine/bevy/pull/847
 [852]: https://github.com/bevyengine/bevy/pull/852
-[852]: https://github.com/bevyengine/bevy/pull/852
 [857]: https://github.com/bevyengine/bevy/pull/857
-[857]: https://github.com/bevyengine/bevy/pull/857
-[859]: https://github.com/bevyengine/bevy/pull/859
 [859]: https://github.com/bevyengine/bevy/pull/859
 [863]: https://github.com/bevyengine/bevy/pull/863
 [864]: https://github.com/bevyengine/bevy/pull/864
 [871]: https://github.com/bevyengine/bevy/pull/871
 [876]: https://github.com/bevyengine/bevy/pull/876
-[876]: https://github.com/bevyengine/bevy/pull/876
 [883]: https://github.com/bevyengine/bevy/pull/883
 [887]: https://github.com/bevyengine/bevy/pull/887
 [892]: https://github.com/bevyengine/bevy/pull/892
 [893]: https://github.com/bevyengine/bevy/pull/893
-[893]: https://github.com/bevyengine/bevy/pull/893
-[893]: https://github.com/bevyengine/bevy/pull/893
 [894]: https://github.com/bevyengine/bevy/pull/894
-[894]: https://github.com/bevyengine/bevy/pull/894
-[894]: https://github.com/bevyengine/bevy/pull/894
-[895]: https://github.com/bevyengine/bevy/pull/895
 [895]: https://github.com/bevyengine/bevy/pull/895
 [897]: https://github.com/bevyengine/bevy/pull/897
 [903]: https://github.com/bevyengine/bevy/pull/903
 [904]: https://github.com/bevyengine/bevy/pull/904
-[904]: https://github.com/bevyengine/bevy/pull/904
-[905]: https://github.com/bevyengine/bevy/pull/905
 [905]: https://github.com/bevyengine/bevy/pull/905
 [908]: https://github.com/bevyengine/bevy/pull/908
 [914]: https://github.com/bevyengine/bevy/pull/914
-[914]: https://github.com/bevyengine/bevy/pull/914
-[917]: https://github.com/bevyengine/bevy/pull/917
 [917]: https://github.com/bevyengine/bevy/pull/917
 [920]: https://github.com/bevyengine/bevy/pull/920
-[920]: https://github.com/bevyengine/bevy/pull/920
-[926]: https://github.com/bevyengine/bevy/pull/926
 [926]: https://github.com/bevyengine/bevy/pull/926
 [928]: https://github.com/bevyengine/bevy/pull/928
-[928]: https://github.com/bevyengine/bevy/pull/928
-[931]: https://github.com/bevyengine/bevy/pull/931
 [931]: https://github.com/bevyengine/bevy/pull/931
 [932]: https://github.com/bevyengine/bevy/pull/932
 [934]: https://github.com/bevyengine/bevy/pull/934
-[934]: https://github.com/bevyengine/bevy/pull/934
 [937]: https://github.com/bevyengine/bevy/pull/937
 [940]: https://github.com/bevyengine/bevy/pull/940
-[945]: https://github.com/bevyengine/bevy/pull/945
 [945]: https://github.com/bevyengine/bevy/pull/945
 [946]: https://github.com/bevyengine/bevy/pull/946
 [947]: https://github.com/bevyengine/bevy/pull/947
 [948]: https://github.com/bevyengine/bevy/pull/948
 [952]: https://github.com/bevyengine/bevy/pull/952
-[955]: https://github.com/bevyengine/bevy/pull/955
-[955]: https://github.com/bevyengine/bevy/pull/955
 [955]: https://github.com/bevyengine/bevy/pull/955
 [956]: https://github.com/bevyengine/bevy/pull/956
 [958]: https://github.com/bevyengine/bevy/pull/958
@@ -1901,11 +2401,9 @@ current changes on git with [previous release tags][git_tag_comparison].
 [1027]: https://github.com/bevyengine/bevy/pull/1027
 [1033]: https://github.com/bevyengine/bevy/pull/1033
 [1034]: https://github.com/bevyengine/bevy/pull/1034
-[1034]: https://github.com/bevyengine/bevy/pull/1034
 [1035]: https://github.com/bevyengine/bevy/pull/1035
 [1037]: https://github.com/bevyengine/bevy/pull/1037
 [1038]: https://github.com/bevyengine/bevy/pull/1038
-[1043]: https://github.com/bevyengine/bevy/pull/1043
 [1043]: https://github.com/bevyengine/bevy/pull/1043
 [1071]: https://github.com/bevyengine/bevy/pull/1071
 

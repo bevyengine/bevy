@@ -16,7 +16,7 @@ use std::any::{Any, TypeId};
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectRef, StructInfo, Typed, TypeInfo};
+/// # use bevy_reflect::{NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, StructInfo, Typed, TypeInfo};
 /// use bevy_reflect::utility::NonGenericTypeInfoCell;
 ///
 /// struct Foo {
@@ -40,12 +40,14 @@ use std::any::{Any, TypeId};
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
 /// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```
@@ -79,7 +81,7 @@ impl NonGenericTypeInfoCell {
 ///
 /// ```
 /// # use std::any::Any;
-/// # use bevy_reflect::{Reflect, ReflectMut, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
+/// # use bevy_reflect::{Reflect, ReflectMut, ReflectOwned, ReflectRef, TupleStructInfo, Typed, TypeInfo, UnnamedField};
 /// use bevy_reflect::utility::GenericTypeInfoCell;
 ///
 /// struct Foo<T: Reflect>(T);
@@ -101,12 +103,14 @@ impl NonGenericTypeInfoCell {
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
+/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
 /// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
 /// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
 /// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
 /// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
+/// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
 /// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
 /// # }
 /// ```

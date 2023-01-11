@@ -1,6 +1,6 @@
 [package]
 name = "bevy_audio"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 description = "Provides audio functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -10,11 +10,11 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.9.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"] }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.9.0" }
+bevy_asset = { path = "../bevy_asset", version = "0.9.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
 # other
 anyhow = "1.0.4"
@@ -30,3 +30,10 @@ mp3 = ["rodio/mp3"]
 flac = ["rodio/flac"]
 wav = ["rodio/wav"]
 vorbis = ["rodio/vorbis"]
+symphonia-aac = ["rodio/symphonia-aac"]
+symphonia-all = ["rodio/symphonia-all"]
+symphonia-flac = ["rodio/symphonia-flac"]
+symphonia-isomp4 = ["rodio/symphonia-isomp4"]
+symphonia-mp3 = ["rodio/symphonia-mp3"]
+symphonia-vorbis = ["rodio/symphonia-vorbis"]
+symphonia-wav = ["rodio/symphonia-wav"]

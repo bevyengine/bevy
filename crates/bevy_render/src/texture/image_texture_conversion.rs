@@ -126,7 +126,7 @@ impl Image {
                     let r = pixel[0];
                     let g = pixel[1];
                     let b = pixel[2];
-                    let a = u16::max_value();
+                    let a = 1f32;
 
                     local_data.extend_from_slice(&r.to_ne_bytes());
                     local_data.extend_from_slice(&g.to_ne_bytes());

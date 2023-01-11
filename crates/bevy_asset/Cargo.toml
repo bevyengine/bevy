@@ -1,6 +1,6 @@
 [package]
 name = "bevy_asset"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 description = "Provides asset functionality for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -15,13 +15,13 @@ debug_asset_server = ["filesystem_watcher"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.9.0-dev" }
-bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.9.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.9.0-dev" }
-bevy_log = { path = "../bevy_log", version = "0.9.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.9.0-dev", features = ["bevy"] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.9.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.9.0" }
+bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.9.0" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.9.0" }
+bevy_log = { path = "../bevy_log", version = "0.9.0" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.9.0", features = ["bevy"] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.9.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
 # other
 serde = { version = "1", features = ["derive"] }
@@ -45,4 +45,4 @@ ndk-glue = { version = "0.7" }
 [dev-dependencies]
 futures-lite = "1.4.0"
 tempfile = "3.2.0"
-bevy_core = { path = "../bevy_core", version = "0.9.0-dev" }
+bevy_core = { path = "../bevy_core", version = "0.9.0" }

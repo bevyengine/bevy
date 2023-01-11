@@ -25,6 +25,7 @@
 //! ```
 
 use crate::mesh::VertexAttributeValues;
+use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec4};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Error)]
@@ -45,328 +46,125 @@ impl FromVertexAttributeError {
     }
 }
 
-impl From<Vec<f32>> for VertexAttributeValues {
-    fn from(vec: Vec<f32>) -> Self {
-        VertexAttributeValues::Float32(vec)
-    }
-}
-
-impl From<Vec<i32>> for VertexAttributeValues {
-    fn from(vec: Vec<i32>) -> Self {
-        VertexAttributeValues::Sint32(vec)
-    }
-}
-
-impl From<Vec<u32>> for VertexAttributeValues {
-    fn from(vec: Vec<u32>) -> Self {
-        VertexAttributeValues::Uint32(vec)
-    }
-}
-
-impl From<Vec<[f32; 2]>> for VertexAttributeValues {
-    fn from(vec: Vec<[f32; 2]>) -> Self {
-        VertexAttributeValues::Float32x2(vec)
-    }
-}
-
-impl From<Vec<[i32; 2]>> for VertexAttributeValues {
-    fn from(vec: Vec<[i32; 2]>) -> Self {
-        VertexAttributeValues::Sint32x2(vec)
-    }
-}
-
-impl From<Vec<[u32; 2]>> for VertexAttributeValues {
-    fn from(vec: Vec<[u32; 2]>) -> Self {
-        VertexAttributeValues::Uint32x2(vec)
-    }
-}
-
-impl From<Vec<[f32; 3]>> for VertexAttributeValues {
-    fn from(vec: Vec<[f32; 3]>) -> Self {
-        VertexAttributeValues::Float32x3(vec)
-    }
-}
-
-impl From<Vec<[i32; 3]>> for VertexAttributeValues {
-    fn from(vec: Vec<[i32; 3]>) -> Self {
-        VertexAttributeValues::Sint32x3(vec)
-    }
-}
-
-impl From<Vec<[u32; 3]>> for VertexAttributeValues {
-    fn from(vec: Vec<[u32; 3]>) -> Self {
-        VertexAttributeValues::Uint32x3(vec)
-    }
-}
-
-impl From<Vec<[f32; 4]>> for VertexAttributeValues {
-    fn from(vec: Vec<[f32; 4]>) -> Self {
-        VertexAttributeValues::Float32x4(vec)
-    }
-}
-
-impl From<Vec<[i32; 4]>> for VertexAttributeValues {
-    fn from(vec: Vec<[i32; 4]>) -> Self {
-        VertexAttributeValues::Sint32x4(vec)
-    }
-}
-
-impl From<Vec<[u32; 4]>> for VertexAttributeValues {
-    fn from(vec: Vec<[u32; 4]>) -> Self {
-        VertexAttributeValues::Uint32x4(vec)
-    }
-}
-
-impl From<Vec<[u16; 4]>> for VertexAttributeValues {
-    fn from(vec: Vec<[u16; 4]>) -> Self {
-        VertexAttributeValues::Uint16x4(vec)
-    }
-}
-
-impl From<Vec<[u8; 4]>> for VertexAttributeValues {
-    fn from(vec: Vec<[u8; 4]>) -> Self {
-        VertexAttributeValues::Unorm8x4(vec)
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[u8; 4]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Uint8x4(value) | VertexAttributeValues::Unorm8x4(value) => {
-                Ok(value)
+macro_rules! impl_from {
+    ($from:ty, $variant:tt) => {
+        impl From<Vec<$from>> for VertexAttributeValues {
+            fn from(vec: Vec<$from>) -> Self {
+                VertexAttributeValues::$variant(vec)
             }
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
-    }
+    };
 }
 
-impl TryFrom<VertexAttributeValues> for Vec<[i8; 4]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Sint8x4(value) | VertexAttributeValues::Snorm8x4(value) => {
-                Ok(value)
+macro_rules! impl_from_into {
+    ($from:ty, $variant:tt) => {
+        impl From<Vec<$from>> for VertexAttributeValues {
+            fn from(vec: Vec<$from>) -> Self {
+                let vec: Vec<_> = vec.into_iter().map(|t| t.into()).collect();
+                VertexAttributeValues::$variant(vec)
             }
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
-    }
+    };
 }
 
-impl TryFrom<VertexAttributeValues> for Vec<[u8; 2]> {
-    type Error = FromVertexAttributeError;
+impl_from!(f32, Float32);
+impl_from!([f32; 2], Float32x2);
+impl_from_into!(Vec2, Float32x2);
+impl_from!([f32; 3], Float32x3);
+impl_from_into!(Vec3, Float32x3);
+impl_from_into!(Vec3A, Float32x3);
+impl_from!([f32; 4], Float32x4);
+impl_from_into!(Vec4, Float32x4);
 
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Uint8x2(value) | VertexAttributeValues::Unorm8x2(value) => {
-                Ok(value)
+impl_from!(i32, Sint32);
+impl_from!([i32; 2], Sint32x2);
+impl_from_into!(IVec2, Sint32x2);
+impl_from!([i32; 3], Sint32x3);
+impl_from_into!(IVec3, Sint32x3);
+impl_from!([i32; 4], Sint32x4);
+impl_from_into!(IVec4, Sint32x4);
+
+impl_from!(u32, Uint32);
+impl_from!([u32; 2], Uint32x2);
+impl_from_into!(UVec2, Uint32x2);
+impl_from!([u32; 3], Uint32x3);
+impl_from_into!(UVec3, Uint32x3);
+impl_from!([u32; 4], Uint32x4);
+impl_from_into!(UVec4, Uint32x4);
+
+macro_rules! impl_try_from {
+    ($into:ty, $($variant:tt), +) => {
+        impl TryFrom<VertexAttributeValues> for Vec<$into> {
+            type Error = FromVertexAttributeError;
+
+            fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+                match value {
+                    $(VertexAttributeValues::$variant(value)) |+ => Ok(value),
+                    _ => Err(FromVertexAttributeError::new::<Self>(value)),
+                }
             }
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
-    }
+    };
 }
 
-impl TryFrom<VertexAttributeValues> for Vec<[i8; 2]> {
-    type Error = FromVertexAttributeError;
+macro_rules! impl_try_from_into {
+    ($into:ty, $($variant:tt), +) => {
+        impl TryFrom<VertexAttributeValues> for Vec<$into> {
+            type Error = FromVertexAttributeError;
 
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Sint8x2(value) | VertexAttributeValues::Snorm8x2(value) => {
-                Ok(value)
+            fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
+                match value {
+                    $(VertexAttributeValues::$variant(value)) |+ => {
+                        Ok(value.into_iter().map(|t| t.into()).collect())
+                    }
+                    _ => Err(FromVertexAttributeError::new::<Self>(value)),
+                }
             }
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
         }
-    }
+    };
 }
 
-impl TryFrom<VertexAttributeValues> for Vec<[i16; 4]> {
-    type Error = FromVertexAttributeError;
+impl_try_from!(f32, Float32);
+impl_try_from!([f32; 2], Float32x2);
+impl_try_from_into!(Vec2, Float32x2);
+impl_try_from!([f32; 3], Float32x3);
+impl_try_from_into!(Vec3, Float32x3);
+impl_try_from_into!(Vec3A, Float32x3);
+impl_try_from!([f32; 4], Float32x4);
+impl_try_from_into!(Vec4, Float32x4);
 
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Sint16x4(value) | VertexAttributeValues::Snorm16x4(value) => {
-                Ok(value)
-            }
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
+impl_try_from!(i32, Sint32);
+impl_try_from!([i32; 2], Sint32x2);
+impl_try_from_into!(IVec2, Sint32x2);
+impl_try_from!([i32; 3], Sint32x3);
+impl_try_from_into!(IVec3, Sint32x3);
+impl_try_from!([i32; 4], Sint32x4);
+impl_try_from_into!(IVec4, Sint32x4);
 
-impl TryFrom<VertexAttributeValues> for Vec<[u16; 4]> {
-    type Error = FromVertexAttributeError;
+impl_try_from!(u32, Uint32);
+impl_try_from!([u32; 2], Uint32x2);
+impl_try_from_into!(UVec2, Uint32x2);
+impl_try_from!([u32; 3], Uint32x3);
+impl_try_from_into!(UVec3, Uint32x3);
+impl_try_from!([u32; 4], Uint32x4);
+impl_try_from_into!(UVec4, Uint32x4);
 
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Uint16x4(value) | VertexAttributeValues::Unorm16x4(value) => {
-                Ok(value)
-            }
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
+impl_try_from!([i8; 2], Sint8x2, Snorm8x2);
+impl_try_from!([i8; 4], Sint8x4, Snorm8x4);
 
-impl TryFrom<VertexAttributeValues> for Vec<[u16; 2]> {
-    type Error = FromVertexAttributeError;
+impl_try_from!([u8; 2], Uint8x2, Unorm8x2);
+impl_try_from!([u8; 4], Uint8x4, Unorm8x4);
 
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Uint16x2(value) | VertexAttributeValues::Unorm16x2(value) => {
-                Ok(value)
-            }
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
+impl_try_from!([i16; 2], Sint16x2, Snorm16x2);
+impl_try_from!([i16; 4], Sint16x4, Snorm16x4);
 
-impl TryFrom<VertexAttributeValues> for Vec<[i16; 2]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Sint16x2(value) | VertexAttributeValues::Snorm16x2(value) => {
-                Ok(value)
-            }
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[u32; 4]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Uint32x4(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[i32; 4]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Sint32x4(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[f32; 4]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Float32x4(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[u32; 3]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Uint32x3(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[i32; 3]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Sint32x3(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[f32; 3]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Float32x3(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[u32; 2]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Uint32x2(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[i32; 2]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Sint32x2(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<[f32; 2]> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Float32x2(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<u32> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Uint32(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<i32> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Sint32(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
-
-impl TryFrom<VertexAttributeValues> for Vec<f32> {
-    type Error = FromVertexAttributeError;
-
-    fn try_from(value: VertexAttributeValues) -> Result<Self, Self::Error> {
-        match value {
-            VertexAttributeValues::Float32(value) => Ok(value),
-            _ => Err(FromVertexAttributeError::new::<Self>(value)),
-        }
-    }
-}
+impl_try_from!([u16; 2], Uint16x2, Unorm16x2);
+impl_try_from!([u16; 4], Uint16x4, Unorm16x4);
 
 #[cfg(test)]
 mod tests {
+    use bevy_math::{IVec2, IVec3, IVec4, UVec2, UVec3, UVec4, Vec2, Vec3, Vec3A, Vec4};
+
     use super::VertexAttributeValues;
     #[test]
     fn f32() {
@@ -417,11 +215,37 @@ mod tests {
     }
 
     #[test]
+    fn vec2() {
+        let buffer = vec![Vec2::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Float32x2(_)));
+        let result_into: Vec<Vec2> = values.clone().try_into().unwrap();
+        let result_from: Vec<Vec2> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn i32_2() {
         let buffer = vec![[0; 2]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[i32; 2]> = values.clone().try_into().unwrap();
         let result_from: Vec<[i32; 2]> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn ivec2() {
+        let buffer = vec![IVec2::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Sint32x2(_)));
+        let result_into: Vec<IVec2> = values.clone().try_into().unwrap();
+        let result_from: Vec<IVec2> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
@@ -441,11 +265,50 @@ mod tests {
     }
 
     #[test]
+    fn uvec2() {
+        let buffer = vec![UVec2::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Uint32x2(_)));
+        let result_into: Vec<UVec2> = values.clone().try_into().unwrap();
+        let result_from: Vec<UVec2> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn f32_3() {
         let buffer = vec![[0.0; 3]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[f32; 3]> = values.clone().try_into().unwrap();
         let result_from: Vec<[f32; 3]> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn vec3() {
+        let buffer = vec![Vec3::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Float32x3(_)));
+        let result_into: Vec<Vec3> = values.clone().try_into().unwrap();
+        let result_from: Vec<Vec3> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn vec3a() {
+        let buffer = vec![Vec3A::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Float32x3(_)));
+        let result_into: Vec<Vec3A> = values.clone().try_into().unwrap();
+        let result_from: Vec<Vec3A> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
@@ -465,11 +328,37 @@ mod tests {
     }
 
     #[test]
+    fn ivec3() {
+        let buffer = vec![IVec3::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Sint32x3(_)));
+        let result_into: Vec<IVec3> = values.clone().try_into().unwrap();
+        let result_from: Vec<IVec3> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn u32_3() {
         let buffer = vec![[0_u32; 3]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[u32; 3]> = values.clone().try_into().unwrap();
         let result_from: Vec<[u32; 3]> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn uvec3() {
+        let buffer = vec![UVec3::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Uint32x3(_)));
+        let result_into: Vec<UVec3> = values.clone().try_into().unwrap();
+        let result_from: Vec<UVec3> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);
@@ -489,6 +378,19 @@ mod tests {
     }
 
     #[test]
+    fn vec4() {
+        let buffer = vec![Vec4::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Float32x4(_)));
+        let result_into: Vec<Vec4> = values.clone().try_into().unwrap();
+        let result_from: Vec<Vec4> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn i32_4() {
         let buffer = vec![[0; 4]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
@@ -501,11 +403,37 @@ mod tests {
     }
 
     #[test]
+    fn ivec4() {
+        let buffer = vec![IVec4::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Sint32x4(_)));
+        let result_into: Vec<IVec4> = values.clone().try_into().unwrap();
+        let result_from: Vec<IVec4> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
     fn u32_4() {
         let buffer = vec![[0_u32; 4]; 10];
         let values = VertexAttributeValues::from(buffer.clone());
         let result_into: Vec<[u32; 4]> = values.clone().try_into().unwrap();
         let result_from: Vec<[u32; 4]> = Vec::try_from(values.clone()).unwrap();
+        let error: Result<Vec<u32>, _> = values.try_into();
+        assert_eq!(buffer, result_into);
+        assert_eq!(buffer, result_from);
+        assert!(error.is_err());
+    }
+
+    #[test]
+    fn uvec4() {
+        let buffer = vec![UVec4::ZERO; 10];
+        let values = VertexAttributeValues::from(buffer.clone());
+        assert!(matches!(values, VertexAttributeValues::Uint32x4(_)));
+        let result_into: Vec<UVec4> = values.clone().try_into().unwrap();
+        let result_from: Vec<UVec4> = Vec::try_from(values.clone()).unwrap();
         let error: Result<Vec<u32>, _> = values.try_into();
         assert_eq!(buffer, result_into);
         assert_eq!(buffer, result_from);

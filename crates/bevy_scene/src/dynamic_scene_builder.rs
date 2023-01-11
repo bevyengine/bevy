@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 ///
 /// # Entity Order
 ///
-/// Extracted entities will always be stored in ascending order based on their [id](Entity::id).
+/// Extracted entities will always be stored in ascending order based on their [id](Entity::index).
 /// This means that inserting `Entity(1v0)` then `Entity(0v0)` will always result in the entities
 /// being ordered as `[Entity(0v0), Entity(1v0)]`.
 ///
@@ -31,9 +31,9 @@ use std::collections::BTreeMap;
 /// let dynamic_scene = builder.build();
 /// ```
 pub struct DynamicSceneBuilder<'w> {
-    entities: BTreeMap<u32, DynamicEntity>,
+    extracted_scene: BTreeMap<u32, DynamicEntity>,
     type_registry: AppTypeRegistry,
-    world: &'w World,
+    original_world: &'w World,
 }
 
 impl<'w> DynamicSceneBuilder<'w> {
@@ -41,9 +41,9 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// All components registered in that world's [`AppTypeRegistry`] resource will be extracted.
     pub fn from_world(world: &'w World) -> Self {
         Self {
-            entities: default(),
+            extracted_scene: default(),
             type_registry: world.resource::<AppTypeRegistry>().clone(),
-            world,
+            original_world: world,
         }
     }
 
@@ -51,16 +51,19 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Only components registered in the given [`AppTypeRegistry`] will be extracted.
     pub fn from_world_with_type_registry(world: &'w World, type_registry: AppTypeRegistry) -> Self {
         Self {
-            entities: default(),
+            extracted_scene: default(),
             type_registry,
-            world,
+            original_world: world,
         }
     }
 
     /// Consume the builder, producing a [`DynamicScene`].
+    ///
+    /// To make sure the dynamic scene doesn't contain entities without any components, call
+    /// [`Self::remove_empty_entities`] before building the scene.
     pub fn build(self) -> DynamicScene {
         DynamicScene {
-            entities: self.entities.into_values().collect(),
+            entities: self.extracted_scene.into_values().collect(),
         }
     }
 
@@ -69,6 +72,16 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// Re-extracting an entity that was already extracted will have no effect.
     pub fn extract_entity(&mut self, entity: Entity) -> &mut Self {
         self.extract_entities(std::iter::once(entity))
+    }
+
+    /// Despawns all entities with no components.
+    ///
+    /// These were likely created because none of their components were present in the provided type registry upon extraction.
+    pub fn remove_empty_entities(&mut self) -> &mut Self {
+        self.extracted_scene
+            .retain(|_, entity| !entity.components.is_empty());
+
+        self
     }
 
     /// Extract entities from the builder's [`World`].
@@ -100,33 +113,33 @@ impl<'w> DynamicSceneBuilder<'w> {
         let type_registry = self.type_registry.read();
 
         for entity in entities {
-            let id = entity.id();
+            let index = entity.index();
 
-            if self.entities.contains_key(&id) {
+            if self.extracted_scene.contains_key(&index) {
                 continue;
             }
 
             let mut entry = DynamicEntity {
-                entity: id,
+                entity: index,
                 components: Vec::new(),
             };
 
-            for component_id in self.world.entity(entity).archetype().components() {
+            for component_id in self.original_world.entity(entity).archetype().components() {
                 let reflect_component = self
-                    .world
+                    .original_world
                     .components()
                     .get_info(component_id)
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
                     .and_then(|registration| registration.data::<ReflectComponent>());
 
                 if let Some(reflect_component) = reflect_component {
-                    if let Some(component) = reflect_component.reflect(self.world, entity) {
+                    if let Some(component) = reflect_component.reflect(self.original_world, entity)
+                    {
                         entry.components.push(component.clone_value());
                     }
                 }
             }
-
-            self.entities.insert(id, entry);
+            self.extracted_scene.insert(index, entry);
         }
 
         drop(type_registry);
@@ -167,7 +180,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -188,7 +201,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 1);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
     }
@@ -212,7 +225,7 @@ mod tests {
         let scene = builder.build();
 
         assert_eq!(scene.entities.len(), 1);
-        assert_eq!(scene.entities[0].entity, entity.id());
+        assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 2);
         assert!(scene.entities[0].components[0].represents::<ComponentA>());
         assert!(scene.entities[0].components[1].represents::<ComponentB>());
@@ -239,10 +252,10 @@ mod tests {
         let mut entities = builder.build().entities.into_iter();
 
         // Assert entities are ordered
-        assert_eq!(entity_a.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_b.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_c.id(), entities.next().map(|e| e.entity).unwrap());
-        assert_eq!(entity_d.id(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_a.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_b.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_c.index(), entities.next().map(|e| e.entity).unwrap());
+        assert_eq!(entity_d.index(), entities.next().map(|e| e.entity).unwrap());
     }
 
     #[test]
@@ -269,6 +282,26 @@ mod tests {
         assert_eq!(scene.entities.len(), 2);
         let mut scene_entities = vec![scene.entities[0].entity, scene.entities[1].entity];
         scene_entities.sort();
-        assert_eq!(scene_entities, [entity_a_b.id(), entity_a.id()]);
+        assert_eq!(scene_entities, [entity_a_b.index(), entity_a.index()]);
+    }
+
+    #[test]
+    fn remove_componentless_entity() {
+        let mut world = World::default();
+
+        let atr = AppTypeRegistry::default();
+        atr.write().register::<ComponentA>();
+        world.insert_resource(atr);
+
+        let entity_a = world.spawn(ComponentA).id();
+        let entity_b = world.spawn(ComponentB).id();
+
+        let mut builder = DynamicSceneBuilder::from_world(&world);
+        builder.extract_entities([entity_a, entity_b].into_iter());
+        builder.remove_empty_entities();
+        let scene = builder.build();
+
+        assert_eq!(scene.entities.len(), 1);
+        assert_eq!(scene.entities[0].entity, entity_a.index());
     }
 }
