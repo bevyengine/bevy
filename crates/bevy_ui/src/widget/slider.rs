@@ -163,14 +163,15 @@ pub fn update_slider_handle(
 ) {
     for (slider, slider_node, slider_children) in slider_query.iter() {
         for child in slider_children {
-            let (slider_handle_node, mut slider_handle_style) =
-                slider_handles_query.get_mut(*child).unwrap();
+            if let Ok((slider_handle_node, mut slider_handle_style)) =
+                slider_handles_query.get_mut(*child)
+            {
+                let slider_width = slider_node.size().x - slider_handle_node.size().x;
 
-            let slider_width = slider_node.size().x - slider_handle_node.size().x;
-
-            slider_handle_style.position.left = Val::Px(
-                (slider.value() - slider.min()) * slider_width / (slider.max() - slider.min()),
-            );
+                slider_handle_style.position.left = Val::Px(
+                    (slider.value() - slider.min()) * slider_width / (slider.max() - slider.min()),
+                );
+            }
         }
     }
 }
@@ -191,7 +192,10 @@ mod tests {
     fn slider_set_value_out_of_range_test() {
         let mut slider = Slider::new(10., 30.);
 
-        assert_eq!(slider.set_value(42.), Err(SliderValueError::ValueOutOfSliderRange));
+        assert_eq!(
+            slider.set_value(42.),
+            Err(SliderValueError::ValueOutOfSliderRange)
+        );
     }
 
     #[test]
