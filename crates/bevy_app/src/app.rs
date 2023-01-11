@@ -90,11 +90,50 @@ impl Debug for App {
 /// A [`SubApp`] contains its own [`Schedule`] and [`World`] separate from the main [`App`].
 /// This is useful for situations where data and data processing should be kept completely separate
 /// from the main application. The primary use of this feature in bevy is to enable pipelined rendering.
+///
+/// # Example
+///
+/// ```rust
+/// # use bevy_app::{App, AppLabel};
+/// # use bevy_ecs::prelude::*;
+///
+/// #[derive(Resource, Default)]
+/// struct Val(pub i32);
+///
+/// #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, AppLabel)]
+/// struct ExampleApp;
+///
+/// #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+/// struct ExampleStage;
+///
+/// let mut app = App::empty();
+/// // initialize the main app with a value of 0;
+/// app.insert_resource(Val(10));
+///
+/// // create a app with a resource and a single stage
+/// let mut sub_app = App::empty();
+/// sub_app.insert_resource(Val(100));
+/// let mut example_stage = SystemStage::single_threaded();
+/// example_stage.add_system(|counter: Res<Val>| {
+///     // since we assigned the value from the main world in extract
+///     // we see that value instead of 100
+///     assert_eq!(counter.0, 10);
+/// });
+/// sub_app.add_stage(ExampleStage, example_stage);
+///
+/// // add the sub_app to the app
+/// app.add_sub_app(ExampleApp, sub_app, |main_world, sub_app| {
+///     sub_app.world.resource_mut::<Val>().0 = main_world.resource::<Val>().0;
+/// });
+///
+/// // This will run the schedules once, since we're using the default runner
+/// app.run();
+/// ```
 pub struct SubApp {
     /// The [`SubApp`]'s instance of [`App`]
     pub app: App,
 
-    /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is 
+    /// A function that allows access to both the [`SubApp`] [`World`] and the main [`App`]. This is
     /// useful for moving data between the sub app and the main app.
     pub extract: Box<dyn Fn(&mut World, &mut App) + Send>,
 }

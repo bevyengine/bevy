@@ -17,8 +17,8 @@ pub struct RenderExtractApp;
 /// Labels for stages in the [`RenderExtractApp`] sub app. These will run after rendering has started.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
 pub enum RenderExtractStage {
-    /// When pipelined rendering is enabled this stage runs after the render schedule starts, but 
-    /// before I/O processing and the main app schedule. This can be useful for something like 
+    /// When pipelined rendering is enabled this stage runs after the render schedule starts, but
+    /// before I/O processing and the main app schedule. This can be useful for something like
     /// frame pacing.
     BeforeIoAfterRenderStart,
 }
@@ -34,7 +34,7 @@ pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 /// The [`PipelinedRenderingPlugin`] can be added to your application to enable pipelined rendering.
 /// This moves rendering into a different thread, so that the Nth frame's rendering can
 /// be run at the same time as the N + 1 frame's simulation.
-/// 
+///
 /// ```text
 /// |--------------------|--------------------|--------------------|--------------------|
 /// | simulation thread  | frame 1 simulation | frame 2 simulation | frame 3 simulation |
@@ -42,12 +42,12 @@ pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 /// | rendering thread   |                    | frame 1 rendering  | frame 2 rendering  |
 /// |--------------------|--------------------|--------------------|--------------------|
 /// ```
-/// 
+///
 /// The plugin is dependent on the [`crate::RenderApp`] added by [`crate::RenderPlugin`] and so must
 /// be added after that plugin. If it is not added after, the plugin will do nothing.
-/// 
+///
 /// A single frame of execution looks something like below    
-/// 
+///
 /// ```text
 /// |-------------------------------------------------------------------|
 /// |         | BeforeIoAfterRenderStart | winit events | main schedule |
@@ -55,7 +55,7 @@ pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 /// |         | extract commands | rendering schedule                   |
 /// |-------------------------------------------------------------------|
 /// ```
-/// 
+///
 /// - `extract` is the stage where data is copied from the main world to the render world.
 /// This is run on the main app's thread.
 /// - On the render thread, we first apply the `extract commands`. This is not run during extract, so the
