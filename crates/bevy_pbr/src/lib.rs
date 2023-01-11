@@ -189,7 +189,6 @@ impl Plugin for PbrPlugin {
                 check_light_mesh_visibility
                     .label(SimulationLightSystems::CheckLightVisibility)
                     .after(TransformSystem::TransformPropagate)
-                    .after(VisibilitySystems::CalculateBounds)
                     .after(SimulationLightSystems::UpdateLightFrusta)
                     // NOTE: This MUST be scheduled AFTER the core renderer visibility check
                     // because that resets entity ComputedVisibility for the first view
