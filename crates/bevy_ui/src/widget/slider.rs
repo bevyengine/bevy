@@ -48,9 +48,13 @@ impl Slider {
         }
     }
 
-    /// Consumes self, returning a new [`Slider`] with a given value
-    pub fn with_value(self, value: f32) -> Self {
-        Self { value, ..self }
+    /// Consumes self, returning a new [`Slider`] with a given value or an error if the value is out of the slider range
+    pub fn with_value(self, value: f32) -> Result<Self, SliderValueError> {
+        if !(self.min..=self.max).contains(&value) {
+            return Err(SliderValueError::ValueOutOfSliderRange);
+        }
+
+        Ok(Self { value, ..self })
     }
 
     /// Consumes self, returning a new [`Slider`] with a given step
@@ -58,8 +62,9 @@ impl Slider {
         Self { step, ..self }
     }
 
-    /// Sets the slider value, returning error if the given value is out of the slider range
-    pub fn set_value(&mut self, value: f32) -> Result<(), SliderValueError> {
+    /// Sets the slider value, returning the slider new value or an error if the given value is out of the slider range
+    /// It rounds up the slider value to match the value of `step`
+    pub fn set_value(&mut self, value: f32) -> Result<f32, SliderValueError> {
         // Round the value up to self.step
         let value = if self.step != 0. {
             ((value - self.min) / self.step).round() * self.step + self.min
@@ -69,7 +74,7 @@ impl Slider {
 
         if (self.min..=self.max).contains(&value) {
             self.value = value;
-            return Ok(());
+            return Ok(value);
         }
 
         Err(SliderValueError::ValueOutOfSliderRange)
@@ -167,5 +172,55 @@ pub fn update_slider_handle(
                 (slider.value() - slider.min()) * slider_width / (slider.max() - slider.min()),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_slider_set_value_test() {
+        let mut slider = Slider::default();
+
+        assert_eq!(slider.set_value(42.).unwrap(), 42.);
+        assert_eq!(slider.value(), 42.);
+    }
+
+    #[test]
+    fn slider_set_value_out_of_range_test() {
+        let mut slider = Slider::new(10., 30.);
+
+        assert_eq!(slider.set_value(42.), Err(SliderValueError::ValueOutOfSliderRange));
+    }
+
+    #[test]
+    fn slider_step_rounding_test() {
+        let mut slider = Slider::default().with_step(5.);
+
+        assert_eq!(slider.set_value(42.).unwrap(), 40.);
+        assert_eq!(slider.set_value(98.3).unwrap(), 100.);
+        assert_eq!(slider.set_value(50.).unwrap(), 50.);
+    }
+
+    #[test]
+    fn slider_step_rounding_with_fraction_bounds_test() {
+        let mut slider = Slider::new(1.32, 2.58).with_step(0.1);
+
+        assert_eq!(slider.set_value(1.35).unwrap(), 1.32);
+    }
+
+    #[test]
+    fn slider_with_value_test() {
+        let slider = Slider::default().with_value(42.).unwrap();
+
+        assert_eq!(slider.value(), 42.);
+    }
+
+    #[test]
+    fn slider_with_invalid_value_test() {
+        let error = Slider::default().with_value(101.).unwrap_err();
+
+        assert_eq!(error, SliderValueError::ValueOutOfSliderRange);
     }
 }
