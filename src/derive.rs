@@ -580,13 +580,19 @@ impl<'a> DerivedModule<'a> {
             &mut expressions,
         );
 
+        let named_expressions = func
+            .named_expressions
+            .iter()
+            .flat_map(|(h_expr, name)| expr_map.get(h_expr).map(|new_h| (*new_h, name.clone())))
+            .collect::<HashMap<_, _, std::hash::BuildHasherDefault<rustc_hash::FxHasher>>>();
+
         Function {
             name: func.name.clone(),
             arguments,
             result,
             local_variables,
             expressions,
-            named_expressions: func.named_expressions.clone(),
+            named_expressions,
             body,
         }
     }
