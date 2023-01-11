@@ -102,7 +102,7 @@ where
 
         let change_tick = world.change_tick.get_mut();
         self.system_meta.last_change_tick = *change_tick;
-        *change_tick += 1;
+        *change_tick = change_tick.wrapping_add(1);
         world.last_change_tick = saved_last_tick;
     }
 
