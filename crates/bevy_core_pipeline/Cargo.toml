@@ -28,6 +28,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.9.0" }
 bevy_math = { path = "../bevy_math", version = "0.9.0" }
 bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 
+fsr2_wgpu = { path = "../../../fsr2_wgpu" }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2"
 radsort = "0.1"

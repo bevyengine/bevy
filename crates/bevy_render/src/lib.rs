@@ -145,7 +145,9 @@ impl Plugin for RenderPlugin {
                 .map(|wrapper| unsafe {
                     let handle = wrapper.get_handle();
                     instance.create_surface(&handle)
-                });
+                })
+                .unwrap()
+                .ok();
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: self.wgpu_settings.power_preference,

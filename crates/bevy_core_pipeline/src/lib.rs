@@ -2,6 +2,7 @@ pub mod bloom;
 pub mod clear_color;
 pub mod core_2d;
 pub mod core_3d;
+pub mod fsr2;
 pub mod fullscreen_vertex_shader;
 pub mod fxaa;
 pub mod prepass;
@@ -22,6 +23,7 @@ use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
+    fsr2::Fsr2Plugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     prepass::{DepthPrepass, NormalPrepass},
@@ -55,6 +57,7 @@ impl Plugin for CorePipelinePlugin {
             .add_plugin(TonemappingPlugin)
             .add_plugin(UpscalingPlugin)
             .add_plugin(BloomPlugin)
-            .add_plugin(FxaaPlugin);
+            .add_plugin(FxaaPlugin)
+            .add_plugin(Fsr2Plugin);
     }
 }
