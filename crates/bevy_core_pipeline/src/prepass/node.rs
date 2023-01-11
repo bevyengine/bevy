@@ -103,6 +103,7 @@ impl Node for PrepassNode {
                 render_pass.set_camera_viewport(viewport);
             }
 
+            // Always run opaque pass to ensure screen is cleared
             {
                 // Run the prepass, sorted front-to-back
                 #[cfg(feature = "trace")]
@@ -110,7 +111,7 @@ impl Node for PrepassNode {
                 opaque_prepass_phase.render(&mut render_pass, world, view_entity);
             }
 
-            {
+            if !alpha_mask_prepass_phase.items.is_empty() {
                 // Run the prepass, sorted front-to-back
                 #[cfg(feature = "trace")]
                 let _alpha_mask_prepass_span = info_span!("alpha_mask_prepass").entered();
