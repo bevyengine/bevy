@@ -189,8 +189,8 @@ impl<'a> From<PathBuf> for AssetPath<'a> {
         {
             Some(path) => {
                 let mut parts = path.splitn(2, '#');
-                path.pop();
-                path = path.join(parts.next().expect("Path must be set."));
+                path_buf.pop();
+                path = path_buf.join(parts.next().expect("Path must be set."));
                 let label = parts.next().map(String::from);
                 AssetPath {
                     path: Cow::Owned(path_buf),
