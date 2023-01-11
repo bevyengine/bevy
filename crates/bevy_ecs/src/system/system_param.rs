@@ -730,10 +730,9 @@ unsafe impl<'a, T: Resource> ReadOnlySystemParam for Res<'a, T> {}
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, an error will occur.
-unsafe impl<'a, T: Resource> ResultfulSystemParam for Res<'a, T> {
+unsafe impl<'a, T: Resource> OptionalSystemParam for Res<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = Res<'w, T>;
-    type Error = SystemParamError<Self>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -764,7 +763,7 @@ unsafe impl<'a, T: Resource> ResultfulSystemParam for Res<'a, T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
-    ) -> Result<Self::Item<'w, 's>, <Self::Item<'w, 's> as ResultfulSystemParam>::Error> {
+    ) -> Option<Self::Item<'w, 's>> {
         world
             .get_resource_with_ticks(component_id)
             .map(|(ptr, ticks)| Res {
@@ -774,16 +773,14 @@ unsafe impl<'a, T: Resource> ResultfulSystemParam for Res<'a, T> {
                 last_change_tick: system_meta.last_change_tick,
                 change_tick,
             })
-            .ok_or(SystemParamError::default())
     }
 }
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
-unsafe impl<'a, T: Resource> ResultfulSystemParam for ResMut<'a, T> {
+unsafe impl<'a, T: Resource> OptionalSystemParam for ResMut<'a, T> {
     type State = ComponentId;
     type Item<'w, 's> = ResMut<'w, T>;
-    type Error = SystemParamError<Self>;
 
     fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
         let component_id = world.initialize_resource::<T>();
@@ -817,7 +814,7 @@ unsafe impl<'a, T: Resource> ResultfulSystemParam for ResMut<'a, T> {
         system_meta: &SystemMeta,
         world: &'w World,
         change_tick: u32,
-    ) -> Result<Self::Item<'w, 's>, <Self::Item<'w, 's> as ResultfulSystemParam>::Error> {
+    ) -> Option<Self::Item<'w, 's>> {
         world
             .get_resource_unchecked_mut_with_id(component_id)
             .map(|value| ResMut {
@@ -829,7 +826,6 @@ unsafe impl<'a, T: Resource> ResultfulSystemParam for ResMut<'a, T> {
                     change_tick,
                 },
             })
-            .ok_or(SystemParamError::default())
     }
 }
 
@@ -1735,6 +1731,7 @@ mod tests {
     pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 
     #[derive(SystemParam)]
+    #[system_param(optional)]
     pub struct OptionalParam<'w> {
         _r0: Res<'w, R<0>>,
         _r1: Res<'w, R<1>>,

@@ -455,7 +455,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 					},
 					SystemParamUsage::Resultful(_) => match field_fallibility {
 						SystemParamUsage::Infallible => (quote! { #ident }, quote! { #ty }),
-						SystemParamUsage::Optional => (quote! { match #ident { Some(s) => s, None => return Err(().into()), } }, quote! { Option<#ty> }),
+						SystemParamUsage::Optional => (quote! { match #ident { Some(s) => s, None => return Err(#bevy_ecs::system::SystemParamError::<#ty>::default().into()), } }, quote! { Option<#ty> }),
 						SystemParamUsage::Resultful(_) => (quote! { match #ident { Ok(o) => o, Err(e) => return Err(e.into()), } }, quote! { Result<#ty, <#ty as #bevy_ecs::system::ResultfulSystemParam>::Error> }),
 						SystemParamUsage::Ignore => unreachable!(),
 					},
