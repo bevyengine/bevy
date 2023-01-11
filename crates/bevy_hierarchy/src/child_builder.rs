@@ -96,10 +96,10 @@ fn remove_children(parent: Entity, children: &[Entity], world: &mut World) {
 fn clear_children(parent: Entity, world: &mut World) {
     let mut events: SmallVec<[HierarchyEvent; 8]> = SmallVec::new();
     if let Some(children) = world.entity_mut(parent).remove::<Children>() {
-        for child in &children.0 {
-            world.entity_mut(*child).remove::<Parent>();
+        for &child in &children.0 {
+            world.entity_mut(child).remove::<Parent>();
             events.push(HierarchyEvent::ChildRemoved {
-                child: *child,
+                child,
                 parent,
             });
         }
@@ -352,9 +352,9 @@ pub trait BuildChildren {
     /// will have those children removed from its list. Removing all children from a parent causes its
     /// [`Children`] component to be removed from the entity.
     fn add_child(&mut self, child: Entity) -> &mut Self;
-    /// Clear children
+    /// Removes all children from this entity. The [`Children`] component will be removed if it exists, otherwise this does nothing.
     fn clear_children(&mut self) -> &mut Self;
-    /// Replace children
+    /// Removes all current children from this entity, replacing them with the specified list of entities.
     fn replace_children(&mut self, children: &[Entity]) -> &mut Self;
     /// Sets the parent of this entity.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
