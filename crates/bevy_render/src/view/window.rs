@@ -346,7 +346,7 @@ pub fn prepare_windows(
                 texture,
                 buffer,
                 bind_group,
-            })
+            });
         }
     }
 }
