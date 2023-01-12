@@ -118,10 +118,14 @@ impl<I: BatchedPhaseItem> RenderPhase<I> {
     }
 }
 
-/// An item (entity) which will be drawn to a texture or the screen, as part of a [`RenderPhase`].
+/// An item (entity of the render world) which will be drawn to a texture or the screen,
+/// as part of a [`RenderPhase`].
 ///
-/// A phase item has to be queued up for rendering during the
-/// [`RenderStage::Queue`](crate::RenderStage::Queue).
+/// The data required for rendering an entity is extracted from the main world in the
+/// [`RenderStage::Extract`](crate::RenderStage::Extract).
+/// Then it has to be queued up for rendering during the
+/// [`RenderStage::Queue`](crate::RenderStage::Queue), by adding a corresponding phase item to
+/// a render phase.
 /// Afterwards it will be sorted and rendered automatically in the
 /// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) and
 /// [`RenderStage::Render`](crate::RenderStage::Render), respectively.
@@ -132,6 +136,9 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     type SortKey: Ord;
 
     /// The corresponding entity that will be drawn.
+    ///
+    /// This is used to fetch the render data of the entity, required by the draw function,
+    /// from the render world .
     fn entity(&self) -> Entity;
 
     /// Determines the order in which the items are drawn.

@@ -158,12 +158,18 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// ```
 pub trait RenderCommand<P: PhaseItem> {
     /// Specifies the general ECS data (e.g. resources) required by [`RenderCommand::render`].
+    ///
     /// All parameters have to be read only.
     type Param: SystemParam + 'static;
-    /// Specifies the ECS data of the view required by [`RenderCommand::render`].
+    /// Specifies the ECS data of the view entity required by [`RenderCommand::render`].
+    ///
+    /// The view entity refers to the camera, or shadow-casting light, etc. from which the phase
+    /// item will be rendered from.
     /// All components have to be accessed read only.
     type ViewWorldQuery: ReadOnlyWorldQuery;
-    /// Specifies the ECS data of the item required by [`RenderCommand::render`].
+    /// Specifies the ECS data of the item entity required by [`RenderCommand::render`].
+    ///
+    /// The item is the entity that will be rendered for the corresponding view.
     /// All components have to be accessed read only.
     type ItemWorldQuery: ReadOnlyWorldQuery;
 
