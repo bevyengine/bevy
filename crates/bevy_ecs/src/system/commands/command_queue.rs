@@ -1,6 +1,6 @@
 use std::{mem::MaybeUninit, ptr::NonNull};
 
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{OwningPtr, Unaligned};
 
 use super::Command;
 use crate::world::World;
@@ -11,7 +11,7 @@ struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this metadata.
     /// The pointer need not be aligned.
-    apply_command: unsafe fn(value: OwningPtr, world: &mut World),
+    apply_command: unsafe fn(value: OwningPtr<Unaligned>, world: &mut World),
 }
 
 /// A queue of [`Command`]s
