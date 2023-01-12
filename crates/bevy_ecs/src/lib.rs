@@ -28,7 +28,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::DetectChanges,
+        change_detection::{DetectChanges, DetectChangesMut},
         component::Component,
         entity::Entity,
         event::{EventReader, EventWriter, Events},

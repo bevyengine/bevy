@@ -1,7 +1,7 @@
 use crate::{
     archetype::{Archetype, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleInfo},
-    change_detection::{MutUntyped, Ticks},
+    change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentId, ComponentStorage, ComponentTicks, Components, StorageType,
         TickCells,
@@ -161,7 +161,7 @@ impl<'w> EntityRef<'w> {
             // - returned component is of type T
             // - Caller guarantees that this reference will not alias.
             value: value.assert_unique().deref_mut::<T>(),
-            ticks: Ticks::from_tick_cells(ticks, last_change_tick, change_tick),
+            ticks: TicksMut::from_tick_cells(ticks, last_change_tick, change_tick),
         })
     }
 }
@@ -347,7 +347,7 @@ impl<'w> EntityMut<'w> {
         )
         .map(|(value, ticks)| Mut {
             value: value.assert_unique().deref_mut::<T>(),
-            ticks: Ticks::from_tick_cells(
+            ticks: TicksMut::from_tick_cells(
                 ticks,
                 self.world.last_change_tick(),
                 self.world.read_change_tick(),
@@ -1057,7 +1057,7 @@ pub(crate) unsafe fn get_mut<T: Component>(
     )
     .map(|(value, ticks)| Mut {
         value: value.assert_unique().deref_mut::<T>(),
-        ticks: Ticks::from_tick_cells(ticks, last_change_tick, change_tick),
+        ticks: TicksMut::from_tick_cells(ticks, last_change_tick, change_tick),
     })
 }
 
@@ -1075,7 +1075,7 @@ pub(crate) unsafe fn get_mut_by_id(
     get_component_and_ticks(world, component_id, info.storage_type(), entity, location).map(
         |(value, ticks)| MutUntyped {
             value: value.assert_unique(),
-            ticks: Ticks::from_tick_cells(ticks, world.last_change_tick(), change_tick),
+            ticks: TicksMut::from_tick_cells(ticks, world.last_change_tick(), change_tick),
         },
     )
 }

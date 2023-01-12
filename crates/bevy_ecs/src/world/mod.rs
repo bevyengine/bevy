@@ -2,7 +2,7 @@ mod entity_ref;
 mod spawn_batch;
 mod world_cell;
 
-pub use crate::change_detection::Mut;
+pub use crate::change_detection::{Mut, Ref};
 pub use entity_ref::*;
 pub use spawn_batch::*;
 pub use world_cell::*;
@@ -10,7 +10,7 @@ pub use world_cell::*;
 use crate::{
     archetype::{ArchetypeComponentId, ArchetypeId, ArchetypeRow, Archetypes},
     bundle::{Bundle, BundleInserter, BundleSpawner, Bundles},
-    change_detection::{MutUntyped, Ticks},
+    change_detection::{MutUntyped, TicksMut},
     component::{
         Component, ComponentDescriptor, ComponentId, ComponentInfo, Components, TickCells,
     },
@@ -1277,7 +1277,7 @@ impl World {
         let mut value = unsafe { ptr.read::<R>() };
         let value_mut = Mut {
             value: &mut value,
-            ticks: Ticks {
+            ticks: TicksMut {
                 added: &mut ticks.added,
                 changed: &mut ticks.changed,
                 last_change_tick,
@@ -1358,7 +1358,11 @@ impl World {
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick()),
+            ticks: TicksMut::from_tick_cells(
+                ticks,
+                self.last_change_tick(),
+                self.read_change_tick(),
+            ),
         })
     }
 
@@ -1393,7 +1397,7 @@ impl World {
             .get_with_ticks()?;
         Some(Mut {
             value: ptr.assert_unique().deref_mut(),
-            ticks: Ticks {
+            ticks: TicksMut {
                 added: ticks.added.deref_mut(),
                 changed: ticks.changed.deref_mut(),
                 last_change_tick: self.last_change_tick(),
@@ -1585,10 +1589,11 @@ impl World {
         let change_tick = self.change_tick();
         let (ptr, ticks) = self.get_resource_with_ticks(component_id)?;
 
-        // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
-        // - index is in-bounds because the column is initialized and non-empty
-        // - no other reference to the ticks of the same row can exist at the same time
-        let ticks = unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+        let ticks =
+            // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
+            // - index is in-bounds because the column is initialized and non-empty
+            // - no other reference to the ticks of the same row can exist at the same time
+            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -1628,10 +1633,11 @@ impl World {
         let change_tick = self.change_tick();
         let (ptr, ticks) = self.get_non_send_with_ticks(component_id)?;
 
-        // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
-        // - index is in-bounds because the column is initialized and non-empty
-        // - no other reference to the ticks of the same row can exist at the same time
-        let ticks = unsafe { Ticks::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
+        let ticks =
+            // SAFETY: This function has exclusive access to the world so nothing aliases `ticks`.
+            // - index is in-bounds because the column is initialized and non-empty
+            // - no other reference to the ticks of the same row can exist at the same time
+            unsafe { TicksMut::from_tick_cells(ticks, self.last_change_tick(), change_tick) };
 
         Some(MutUntyped {
             // SAFETY: This function has exclusive access to the world so nothing aliases `ptr`.
@@ -1755,7 +1761,7 @@ impl<T: Default> FromWorld for T {
 mod tests {
     use super::World;
     use crate::{
-        change_detection::DetectChanges,
+        change_detection::DetectChangesMut,
         component::{ComponentDescriptor, ComponentInfo, StorageType},
         ptr::OwningPtr,
         system::Resource,

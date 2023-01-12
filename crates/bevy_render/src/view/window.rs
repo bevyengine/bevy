@@ -192,8 +192,7 @@ pub fn prepare_windows(
                     .get(0)
                     .unwrap_or_else(|| {
                         panic!(
-                            "No supported formats found for surface {:?} on adapter {:?}",
-                            surface, render_adapter
+                            "No supported formats found for surface {surface:?} on adapter {render_adapter:?}"
                         )
                     });
                 SurfaceData { surface, format }
