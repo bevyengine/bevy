@@ -1,6 +1,6 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
-/// This plugin group will add all the default plugins:
+/// This plugin group will add all the default plugins for a *Bevy* application:
 /// * [`LogPlugin`](crate::log::LogPlugin)
 /// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
 /// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
@@ -23,7 +23,10 @@ use bevy_app::{PluginGroup, PluginGroupBuilder};
 /// * [`GltfPlugin`](crate::gltf::GltfPlugin) - with feature `bevy_gltf`
 /// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit`
 ///
-/// See also [`MinimalPlugins`] for a slimmed down option
+/// [`DefaultPlugins`] represents the group of plugins typically required to build
+/// a *Bevy* application which includes a *window* and presentation components.
+///
+/// For *headless* cases – without a *window* or presentation, see [`MinimalPlugins`].
 pub struct DefaultPlugins;
 
 impl PluginGroup for DefaultPlugins {
@@ -121,14 +124,21 @@ impl PluginGroup for DefaultPlugins {
     }
 }
 
-/// Minimal plugin group that will add the following plugins:
+/// This plugin group will add all the minimal plugins for a *Bevy* application:
 /// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
 /// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
 /// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
 /// * [`TimePlugin`](crate::time::TimePlugin)
 /// * [`ScheduleRunnerPlugin`](crate::app::ScheduleRunnerPlugin)
 ///
-/// See also [`DefaultPlugins`] for a more complete set of plugins
+/// This group of plugins is intended for use for minimal, *headless* programs –
+/// see the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)
+/// – and includes a [schedule runner (`ScheduleRunnerPlugin`)](crate::app::ScheduleRunnerPlugin)
+/// to provide functionality that would normally be driven by an *event loop*
+/// or *message loop*.
+///
+/// For a more complete set of plugins intended for use in applications that include window
+/// and presentation components, see [`DefaultPlugins`].
 pub struct MinimalPlugins;
 
 impl PluginGroup for MinimalPlugins {
