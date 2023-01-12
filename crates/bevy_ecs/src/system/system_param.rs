@@ -851,6 +851,84 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// The most common example of this pattern is [`Commands`], which uses [`Buffer<T>`] to defer mutations.
 ///
 /// [`Commands`]: crate::system::Commands
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// // Tracks whether or not there is a threat the player should be aware of.
+/// #[derive(Resource, Default)]
+/// pub struct Alarm(bool);
+///
+/// // A threat from inside the settlement.
+/// #[derive(Component)]
+/// pub struct Criminal;
+///
+/// // A threat from outside the settlement.
+/// #[derive(Component)]
+/// pub struct Monster;
+///
+/// use bevy_ecs::system::{Buffer, SystemBuffer, SystemMeta};
+///
+/// // Uses deferred mutations to allow signalling the alarm from multiple systems in parallel.
+/// #[derive(Resource, Default)]
+/// struct AlarmFlag(bool);
+///
+/// impl SystemBuffer for AlarmFlag {
+///     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World) {
+///         if self.0 {
+///             world.resource_mut::<Alarm>().0 = true;
+///             self.0 = false;
+///         }
+///     }
+/// }
+///
+/// // Sound the alarm if there is a criminal.
+/// fn alert_criminal(
+///     criminals: Query<&Criminal>,
+///     mut alarm: Buffer<AlarmFlag>
+/// ) {
+///     if criminals.iter().next().is_some() {
+///         alarm.0 = true;
+///     }
+/// }
+///
+/// // Sound the alarm if there is a monster.
+/// fn alert_monster(
+///     monsters: Query<&Monster>,
+///     mut alarm: Buffer<AlarmFlag>
+/// ) {
+///     if monsters.iter().next().is_some() {
+///         alarm.0 = true;
+///     }
+/// }
+///
+/// let mut world = World::new();
+/// world.init_resource::<Alarm>();
+///
+/// let mut stage = SystemStage::parallel();
+/// stage
+///     // These two systems have no conflicts and will run in parallel.
+///     .add_system(alert_criminal)
+///     .add_system(alert_monster);
+///
+/// // There are no criminals or monsters, so the alarm is not sounded.
+/// stage.run(&mut world);
+/// assert_eq!(world.resource::<Alarm>().0, false);
+///
+/// // Spawn a monster, which will cause the alarm to be sounded.
+/// world.spawn(Monster);
+/// stage.run(&mut world);
+/// assert_eq!(world.resource::<Alarm>().0, true);
+///
+/// // Reset the alarm.
+/// world.resource_mut::<Alarm>().0 = false;
+///
+/// // Spawn a criminal, which will cause the alarm to be sounded.
+/// world.spawn(Criminal);
+/// stage.run(&mut world);
+/// assert_eq!(world.resource::<Alarm>().0, true);
+/// ```
 pub struct Buffer<'a, T: SystemBuffer>(pub(crate) &'a mut T);
 
 impl<'a, T: SystemBuffer> Deref for Buffer<'a, T> {
