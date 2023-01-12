@@ -10,9 +10,9 @@ pub struct BreadthFirstSearch {
 }
 
 impl BreadthFirstSearch {
-    pub fn new(start: NodeIdx, len: usize) -> Self {
+    pub fn new(start: NodeIdx, count: usize) -> Self {
         let mut queue = VecDeque::new();
-        let mut visited = HashSet::with_capacity(len);
+        let mut visited = HashSet::with_capacity(count);
 
         visited.insert(start);
         queue.push_back(start);

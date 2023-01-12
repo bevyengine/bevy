@@ -5,7 +5,6 @@ use crate::{
     graphs::{
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
-        Graph,
     },
     impl_graph,
 };
@@ -18,139 +17,140 @@ pub struct SimpleListGraph<N, E, const DIRECTED: bool> {
 }
 
 impl<N, E, const DIRECTED: bool> SimpleListGraph<N, E, DIRECTED> {
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             nodes: HopSlotMap::with_key(),
             edges: HopSlotMap::with_key(),
             adjacencies: SecondaryMap::new(),
         }
     }
+}
 
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.nodes.len()
-    }
-
-    #[inline]
-    pub fn new_node(&mut self, node: N) -> NodeIdx {
-        let idx = self.nodes.insert(node);
-        self.adjacencies.insert(idx, Vec::new());
-        idx
-    }
-
-    #[inline]
-    pub fn node(&self, idx: NodeIdx) -> GraphResult<&N> {
-        if let Some(node) = self.nodes.get(idx) {
-            Ok(node)
-        } else {
-            Err(GraphError::NodeDoesntExist(idx))
+impl_graph! {
+    impl common for SimpleListGraph {
+        #[inline]
+        fn count(&self) -> usize {
+            self.nodes.len()
         }
-    }
 
-    #[inline]
-    pub fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N> {
-        if let Some(node) = self.nodes.get_mut(idx) {
-            Ok(node)
-        } else {
-            Err(GraphError::NodeDoesntExist(idx))
-        }
-    }
-
-    #[inline]
-    pub fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
-        self.edges.get(edge).map(|e| &e.data)
-    }
-
-    #[inline]
-    pub fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
-        self.edges.get_mut(edge).map(|e| &mut e.data)
-    }
-
-    #[inline]
-    pub fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
-        if let Some(idx) = self
-            .adjacencies
-            .get(from)
-            .unwrap()
-            .iter()
-            .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None })
-        {
+        #[inline]
+        fn new_node(&mut self, node: N) -> NodeIdx {
+            let idx = self.nodes.insert(node);
+            self.adjacencies.insert(idx, Vec::new());
             idx
-        } else {
-            EdgeIdx::null()
+        }
+
+        #[inline]
+        fn node(&self, idx: NodeIdx) -> GraphResult<&N> {
+            if let Some(node) = self.nodes.get(idx) {
+                Ok(node)
+            } else {
+                Err(GraphError::NodeDoesntExist(idx))
+            }
+        }
+
+        #[inline]
+        fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N> {
+            if let Some(node) = self.nodes.get_mut(idx) {
+                Ok(node)
+            } else {
+                Err(GraphError::NodeDoesntExist(idx))
+            }
+        }
+
+        #[inline]
+        fn get_edge(&self, edge: EdgeIdx) -> Option<&E> {
+            self.edges.get(edge).map(|e| &e.data)
+        }
+
+        #[inline]
+        fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E> {
+            self.edges.get_mut(edge).map(|e| &mut e.data)
+        }
+
+        #[inline]
+        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+            if let Some(idx) = self
+                .adjacencies
+                .get(from)
+                .unwrap()
+                .iter()
+                .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None })
+            {
+                idx
+            } else {
+                EdgeIdx::null()
+            }
+        }
+
+        #[inline]
+        fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
+            self.adjacencies.get(node).unwrap().to_vec()
         }
     }
 
-    #[inline]
-    pub fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
-        self.adjacencies.get(node).unwrap().to_vec()
-    }
-}
+    impl undirected {
+        fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
+            let idx = self.edges.insert(Edge {
+                src: node,
+                dst: other,
+                data: edge,
+            });
+            self.adjacencies.get_mut(node).unwrap().push((other, idx));
+            self.adjacencies.get_mut(other).unwrap().push((node, idx));
+            idx
+        }
 
-impl<N, E> SimpleListGraph<N, E, false> {
-    pub fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
-        let idx = self.edges.insert(Edge {
-            src: node,
-            dst: other,
-            data: edge,
-        });
-        self.adjacencies.get_mut(node).unwrap().push((other, idx));
-        self.adjacencies.get_mut(other).unwrap().push((node, idx));
-        idx
-    }
+        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+            if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
+                let list = self.adjacencies.get_mut(node).unwrap();
 
-    pub fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
-        if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
-            let list = self.adjacencies.get_mut(node).unwrap();
-
-            if let Some(index) = find_edge(list, other) {
-                list.swap_remove(index); // TODO: remove or swap_remove ?
-
-                let list = self.adjacencies.get_mut(other).unwrap();
-                if let Some(index) = find_edge(list, node) {
+                if let Some(index) = find_edge(list, other) {
                     list.swap_remove(index); // TODO: remove or swap_remove ?
+
+                    let list = self.adjacencies.get_mut(other).unwrap();
+                    if let Some(index) = find_edge(list, node) {
+                        list.swap_remove(index); // TODO: remove or swap_remove ?
+                    }
+
+                    Ok(self.edges.remove(edge).unwrap().data)
+                } else {
+                    Err(GraphError::EdgeDoesntExist(edge))
                 }
-
-                Ok(self.edges.remove(edge).unwrap().data)
             } else {
                 Err(GraphError::EdgeDoesntExist(edge))
             }
-        } else {
-            Err(GraphError::EdgeDoesntExist(edge))
         }
     }
-}
 
-impl<N, E> SimpleListGraph<N, E, true> {
-    pub fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
-        let idx = self.edges.insert(Edge {
-            src: from,
-            dst: to,
-            data: edge,
-        });
-        self.adjacencies.get_mut(from).unwrap().push((to, idx));
-        idx
-    }
+    impl directed {
+        fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+            let idx = self.edges.insert(Edge {
+                src: from,
+                dst: to,
+                data: edge,
+            });
+            self.adjacencies.get_mut(from).unwrap().push((to, idx));
+            idx
+        }
 
-    pub fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
-        if let Some((from, to)) = self.edges.get(edge).map(|e| e.indices()) {
-            let list = self.adjacencies.get_mut(from).unwrap();
+        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+            if let Some((from, to)) = self.edges.get(edge).map(|e| e.indices()) {
+                let list = self.adjacencies.get_mut(from).unwrap();
 
-            if let Some(index) = find_edge(list, to) {
-                list.swap_remove(index); // TODO: remove or swap_remove ?
+                if let Some(index) = find_edge(list, to) {
+                    list.swap_remove(index); // TODO: remove or swap_remove ?
 
-                Ok(self.edges.remove(edge).unwrap().data)
+                    Ok(self.edges.remove(edge).unwrap().data)
+                } else {
+                    Err(GraphError::EdgeDoesntExist(edge))
+                }
             } else {
                 Err(GraphError::EdgeDoesntExist(edge))
             }
-        } else {
-            Err(GraphError::EdgeDoesntExist(edge))
         }
     }
 }
-
-impl_graph!(SimpleListGraph, false);
-impl_graph!(SimpleListGraph, true);
 
 impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
     #[inline]
@@ -168,6 +168,8 @@ fn find_edge(list: &[(NodeIdx, EdgeIdx)], node: NodeIdx) -> Option<usize> {
 
 #[cfg(test)]
 mod test {
+    use crate::graphs::Graph;
+
     use super::SimpleListGraph;
 
     enum Person {

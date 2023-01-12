@@ -1,17 +1,16 @@
 pub mod simple;
 
 pub mod edge;
+pub mod impl_graph;
 pub mod keys;
-pub mod trait_impl_util;
 
 use crate::algos::bfs::BreadthFirstSearch;
 use crate::error::GraphResult;
 
 use self::keys::{EdgeIdx, NodeIdx};
 
-#[allow(clippy::len_without_is_empty)]
 pub trait Graph<N, E> {
-    fn len(&self) -> usize;
+    fn count(&self) -> usize;
 
     fn new_node(&mut self, node: N) -> NodeIdx;
 
@@ -30,6 +29,6 @@ pub trait Graph<N, E> {
 
     #[inline]
     fn algo_bfs(&self, start: NodeIdx) -> BreadthFirstSearch {
-        BreadthFirstSearch::new(start, self.len())
+        BreadthFirstSearch::new(start, self.count())
     }
 }
