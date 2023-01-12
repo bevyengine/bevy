@@ -386,7 +386,7 @@ pub enum WindowCommand {
     SetMinimized {
         minimized: bool,
     },
-    /// Set the window's position. Optionally relative to a monitor.
+    /// Set the window's position, optionally relative to a monitor.
     SetPosition {
         monitor_selection: Option<MonitorSelection>,
         position: IVec2,
@@ -564,7 +564,7 @@ impl Window {
             .push(WindowCommand::SetMinimized { minimized });
     }
 
-    /// Set the window's position in physical pixels. Optionally relative to a monitor.
+    /// Set the window's position in physical pixels, optionally relative to a monitor.
     ///
     /// This automatically un-maximizes the window if it's maximized.
     ///
