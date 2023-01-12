@@ -993,8 +993,7 @@ impl World {
         let last_change_tick = self.last_change_tick();
 
         let component_id = self.components.init_resource::<R>();
-        // SAFETY: `component_id` was just initialized with this world's component set.
-        let data = unsafe { self.initialize_resource_internal(component_id) };
+        let data = self.initialize_resource_internal(component_id);
         if !data.is_present() {
             OwningPtr::make(func(), |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R
