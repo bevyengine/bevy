@@ -11,18 +11,16 @@ macro_rules! impl_graph {
     impl directed {
         $($directed_code:tt)*
     }) => {
-        impl<N, E> crate::graphs::Graph<N, E> for $name<N, E, false> {
+        impl<N, E> $crate::graphs::Graph<N, E> for $name<N, E, false> {
             $($common_code)*
 
             $($undirected_code)*
         }
 
-        impl<N, E> crate::graphs::Graph<N, E> for $name<N, E, true> {
+        impl<N, E> $crate::graphs::Graph<N, E> for $name<N, E, true> {
             $($common_code)*
 
             $($directed_code)*
         }
     }
 }
-
-// TODO: replace `crate::graphs::` with one of bevy's macro util helpers
