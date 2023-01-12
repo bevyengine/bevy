@@ -63,7 +63,11 @@ note: when importing an item with the `#from` directive, the final shader will i
 
 ## overriding functions
 
-functions defined in imported modules can be overridden using the `override` keyword:
+virtual functions can be declared with the `virtual` keyword:
+```glsl
+    virtual fn point_light(world_position: vec3<f32>) -> vec3<f32> { ... }
+```
+virtual functions defined in imported modules can then be overridden using the `override` keyword:
 
 ```wgsl
 #import bevy_pbr::lighting as Lighting
@@ -101,6 +105,8 @@ different overrides of the same function can be specified in different import br
 note that imports into a module/shader are processed in order, but are processed before the body of the current shader/module regardless of where they occur in that module, so there is no way to import a module containing an override and inject a call into the override stack prior to that imported override. you can instead create two modules each containing an override and import them into a parent module/shader to order them as required.
 
 override functions can currently only be defined in wgsl.
+
+if the `override_any` crate feature is enabled, then the `virtual` keyword is not required for the function being overridden.
 
 ## languages
 

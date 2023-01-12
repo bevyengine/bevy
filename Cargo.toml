@@ -9,6 +9,7 @@ readme = "README.md"
 
 [features]
 prune = ["dep:serde", "dep:serde_json", "naga/deserialize", "naga/serialize"]
+override_any = []
 
 [dependencies]
 naga = { version = "0.10", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "clone"] }
