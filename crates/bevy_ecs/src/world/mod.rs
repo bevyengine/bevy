@@ -981,7 +981,6 @@ impl World {
         unsafe { self.get_resource_unchecked_mut() }
     }
 
-    // PERF: optimize this to avoid redundant lookups
     /// Gets a mutable reference to the resource of type `T` if it exists,
     /// otherwise inserts the resource using the result of calling `func`.
     #[inline]
