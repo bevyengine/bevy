@@ -844,11 +844,13 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
     fn apply(&mut self, system_meta: &SystemMeta, world: &mut World);
 }
 
-/// A [`SystemParam`] that stores a buffer which gets applied at the end of a stage.
+/// A [`SystemParam`] that stores a buffer which gets applied to the [`World`] at the end of a stage.
+/// By using this to defer mutations, you can avoid mutable `World` data access within a system
+/// and allow it to run in parallel with more systems.
 ///
-/// This parameter has no access conflicts, so it can be used to defer writes and increase parallelism.
+/// The most common example of this pattern is [`Commands`], which uses [`Buffer<T>`] to defer mutations.
 ///
-/// todo: make these docs good
+/// [`Commands`]: crate::system::Commands
 pub struct Buffer<'a, T: SystemBuffer>(pub(crate) &'a mut T);
 
 impl<'a, T: SystemBuffer> Deref for Buffer<'a, T> {
