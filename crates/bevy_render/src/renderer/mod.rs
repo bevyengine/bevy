@@ -27,7 +27,6 @@ pub fn render_system(world: &mut World) {
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
-    let windows = world.resource::<ExtractedWindows>();
 
     if let Err(e) = RenderGraphRunner::run(
         graph,
@@ -35,7 +34,7 @@ pub fn render_system(world: &mut World) {
         &render_queue.0,
         world,
         |encoder| {
-            crate::view::screenshot::submit_screenshot_commands(windows, encoder);
+            crate::view::screenshot::submit_screenshot_commands(world, encoder);
         },
     ) {
         error!("Error running render graph:");
@@ -68,8 +67,8 @@ pub fn render_system(world: &mut World) {
 
         let mut windows = world.resource_mut::<ExtractedWindows>();
         for window in windows.values_mut() {
-            if let Some(texture_view) = window.swap_chain_texture.take() {
-                if let Some(surface_texture) = texture_view.take_surface_texture() {
+            if let Some(wrapped_texture) = window.swap_chain_texture.take() {
+                if let Some(surface_texture) = wrapped_texture.try_unwrap() {
                     surface_texture.present();
                 }
             }

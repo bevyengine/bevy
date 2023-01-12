@@ -1,4 +1,4 @@
-use std::{num::NonZeroU32, path::Path};
+use std::{borrow::Cow, num::NonZeroU32, path::Path};
 
 use bevy_ecs::prelude::*;
 use bevy_log::info_span;
@@ -11,7 +11,12 @@ use wgpu::{
     CommandEncoder, Extent3d, ImageDataLayout, TextureFormat, COPY_BYTES_PER_ROW_ALIGNMENT,
 };
 
-use crate::{prelude::Image, texture::TextureFormatPixelInfo};
+use crate::{
+    prelude::Image,
+    render_resource::{BindGroup, BindGroupLayout, Buffer, RenderPipeline, Texture},
+    renderer::RenderDevice,
+    texture::TextureFormatPixelInfo,
+};
 
 use super::ExtractedWindows;
 
@@ -80,21 +85,98 @@ pub(crate) fn layout_data(width: u32, height: u32, format: TextureFormat) -> Ima
     }
 }
 
-pub(crate) fn submit_screenshot_commands(windows: &ExtractedWindows, encoder: &mut CommandEncoder) {
-    for (window, texture) in windows
-        .values()
-        .filter_map(|w| w.swap_chain_texture.as_ref().map(|t| (w, t)))
-    {
-        if let Some(screenshot_buffer) = &window.screenshot_buffer {
+#[derive(Resource)]
+pub struct ScreenshotToScreenPipeline {
+    pub pipeline: RenderPipeline,
+    pub bind_group_layout: BindGroupLayout,
+}
+
+impl FromWorld for ScreenshotToScreenPipeline {
+    fn from_world(render_world: &mut World) -> Self {
+        let device = render_world.resource::<RenderDevice>();
+
+        let module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: None,
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("screenshot.wgsl"))),
+        });
+
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            label: Some("screenshot-to-screen-bgl"),
+            entries: &[wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Texture {
+                    sample_type: wgpu::TextureSampleType::Float { filterable: false },
+                    view_dimension: wgpu::TextureViewDimension::D2,
+                    multisampled: false,
+                },
+                count: None,
+            }],
+        });
+
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: Some("screenshot-to-screen-pgl"),
+            bind_group_layouts: &[&bind_group_layout],
+            push_constant_ranges: &[],
+        });
+
+        let pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("screenshot-to-screen"),
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                buffers: &[],
+                entry_point: "vs_main",
+                module: &module,
+            },
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false,
+                unclipped_depth: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            fragment: Some(wgpu::FragmentState {
+                module: &module,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: TextureFormat::Bgra8UnormSrgb,
+                    blend: None,
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            multiview: None,
+        });
+
+        Self {
+            pipeline,
+            bind_group_layout,
+        }
+    }
+}
+
+pub struct ScreenshotGpuMemory {
+    pub texture: Texture,
+    pub buffer: Buffer,
+    pub bind_group: BindGroup,
+}
+
+pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEncoder) {
+    let windows = world.resource::<ExtractedWindows>();
+    let pipeline = world.resource::<ScreenshotToScreenPipeline>();
+    for window in windows.values() {
+        if let Some(memory) = &window.screenshot_memory {
             let width = window.physical_width;
             let height = window.physical_height;
             let texture_format = window.swap_chain_texture_format.unwrap();
-            let texture = &texture.get_surface_texture().unwrap().texture;
 
             encoder.copy_texture_to_buffer(
-                texture.as_image_copy(),
+                memory.texture.as_image_copy(),
                 wgpu::ImageCopyBuffer {
-                    buffer: screenshot_buffer,
+                    buffer: &memory.buffer,
                     layout: crate::view::screenshot::layout_data(width, height, texture_format),
                 },
                 Extent3d {
@@ -103,6 +185,27 @@ pub(crate) fn submit_screenshot_commands(windows: &ExtractedWindows, encoder: &m
                     ..Default::default()
                 },
             );
+            let true_swapchain_texture_view = window
+                .swap_chain_texture
+                .as_ref()
+                .unwrap()
+                .texture
+                .create_view(&Default::default());
+            let mut pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("screenshot_to_screen_pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &true_swapchain_texture_view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Load,
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+            pass.set_pipeline(&pipeline.pipeline);
+            pass.set_bind_group(0, &memory.bind_group, &[]);
+            pass.draw(0..3, 0..1);
         }
     }
 }
@@ -117,7 +220,7 @@ pub(crate) fn collect_screenshots(world: &mut World) {
             let height = window.physical_height;
             let texture_format = window.swap_chain_texture_format.unwrap();
             let pixel_size = texture_format.pixel_size();
-            let buffer = window.screenshot_buffer.take().unwrap();
+            let ScreenshotGpuMemory { buffer, .. } = window.screenshot_memory.take().unwrap();
 
             let finish = async move {
                 let (tx, rx) = async_channel::bounded(1);

@@ -1,7 +1,7 @@
 pub mod screenshot;
 
 use crate::{
-    render_resource::{Buffer, TextureView},
+    render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
     Extract, RenderApp, RenderStage,
@@ -13,9 +13,9 @@ use bevy_window::{
     CompositeAlphaMode, PresentMode, RawHandleWrapper, WindowClosed, WindowId, Windows,
 };
 use std::ops::{Deref, DerefMut};
-use wgpu::{BufferUsages, TextureFormat};
+use wgpu::{BufferUsages, TextureFormat, TextureUsages};
 
-use self::screenshot::ScreenshotManager;
+use self::screenshot::{ScreenshotGpuMemory, ScreenshotManager, ScreenshotToScreenPipeline};
 
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
@@ -34,6 +34,7 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
+                .init_resource::<ScreenshotToScreenPipeline>()
                 .init_non_send_resource::<NonSendMarker>()
                 .add_system_to_stage(RenderStage::Extract, extract_windows)
                 .add_system_to_stage(
@@ -50,13 +51,17 @@ pub struct ExtractedWindow {
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
-    pub swap_chain_texture: Option<TextureView>,
+    /// Note: this will not always be the swap chain texture view. When taking a screenshot,
+    /// this will point to an alternative texture instead to allow for copying the render result
+    /// to CPU memory.
+    pub swap_chain_texture_view: Option<TextureView>,
+    pub swap_chain_texture: Option<SurfaceTexture>,
     pub swap_chain_texture_format: Option<TextureFormat>,
+    pub screenshot_memory: Option<ScreenshotGpuMemory>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
     pub screenshot_func: Option<screenshot::ScreenshotFn>,
-    pub screenshot_buffer: Option<Buffer>,
 }
 
 #[derive(Default, Resource)]
@@ -100,17 +105,18 @@ fn extract_windows(
                     physical_width: new_width,
                     physical_height: new_height,
                     present_mode: window.present_mode(),
+                    swap_chain_texture_view: None,
                     swap_chain_texture: None,
+                    screenshot_memory: None,
                     swap_chain_texture_format: None,
                     size_changed: false,
                     present_mode_changed: false,
                     alpha_mode: window.alpha_mode(),
                     screenshot_func: None,
-                    screenshot_buffer: None,
                 });
 
         // NOTE: Drop the swap chain frame here
-        extracted_window.swap_chain_texture = None;
+        extracted_window.swap_chain_texture_view = None;
         extracted_window.size_changed = new_width != extracted_window.physical_width
             || new_height != extracted_window.physical_height;
         extracted_window.present_mode_changed = new_present_mode != extracted_window.present_mode;
@@ -191,6 +197,7 @@ pub fn prepare_windows(
     render_device: Res<RenderDevice>,
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
+    screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
 ) {
     for window in windows
         .windows
@@ -217,7 +224,7 @@ pub fn prepare_windows(
                 SurfaceData { surface, format }
             });
 
-        let mut surface_configuration = wgpu::SurfaceConfiguration {
+        let surface_configuration = wgpu::SurfaceConfiguration {
             format: surface_data.format,
             width: window.physical_width,
             height: window.physical_height,
@@ -237,19 +244,6 @@ pub fn prepare_windows(
                 CompositeAlphaMode::Inherit => wgpu::CompositeAlphaMode::Inherit,
             },
         };
-        if window.screenshot_func.is_some() {
-            surface_configuration.usage |= wgpu::TextureUsages::COPY_SRC;
-            window.screenshot_buffer = Some(render_device.create_buffer(&wgpu::BufferDescriptor {
-                label: None,
-                size: screenshot::get_aligned_size(
-                    window.physical_width,
-                    window.physical_height,
-                    surface_data.format.pixel_size() as u32,
-                ) as u64,
-                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
-                mapped_at_creation: false,
-            }));
-        }
 
         // A recurring issue is hitting `wgpu::SurfaceError::Timeout` on certain Linux
         // mesa driver implementations. This seems to be a quirk of some drivers.
@@ -271,27 +265,32 @@ pub fn prepare_windows(
         let not_already_configured = window_surfaces.configured_windows.insert(window.id);
 
         let surface = &surface_data.surface;
-        if not_already_configured
-            || window.size_changed
-            || window.present_mode_changed
-            || window.screenshot_func.is_some()
-        {
+        if not_already_configured || window.size_changed || window.present_mode_changed {
             render_device.configure_surface(surface, &surface_configuration);
             let frame = surface
                 .get_current_texture()
                 .expect("Error configuring surface");
-            window.swap_chain_texture = Some(TextureView::from(frame));
+            window.swap_chain_texture_view = Some(TextureView::from(
+                frame.texture.create_view(&Default::default()),
+            ));
+            window.swap_chain_texture = Some(SurfaceTexture::from(frame));
         } else {
             match surface.get_current_texture() {
                 Ok(frame) => {
-                    window.swap_chain_texture = Some(TextureView::from(frame));
+                    window.swap_chain_texture_view = Some(TextureView::from(
+                        frame.texture.create_view(&Default::default()),
+                    ));
+                    window.swap_chain_texture = Some(SurfaceTexture::from(frame));
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
                     render_device.configure_surface(surface, &surface_configuration);
                     let frame = surface
                         .get_current_texture()
                         .expect("Error reconfiguring surface");
-                    window.swap_chain_texture = Some(TextureView::from(frame));
+                    window.swap_chain_texture_view = Some(TextureView::from(
+                        frame.texture.create_view(&Default::default()),
+                    ));
+                    window.swap_chain_texture = Some(SurfaceTexture::from(frame));
                 }
                 #[cfg(target_os = "linux")]
                 Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
@@ -306,5 +305,48 @@ pub fn prepare_windows(
             }
         };
         window.swap_chain_texture_format = Some(surface_data.format);
+
+        if window.screenshot_func.is_some() {
+            let texture = render_device.create_texture(&wgpu::TextureDescriptor {
+                label: None,
+                size: wgpu::Extent3d {
+                    width: surface_configuration.width,
+                    height: surface_configuration.height,
+                    depth_or_array_layers: 1,
+                },
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: wgpu::TextureDimension::D2,
+                format: surface_configuration.format,
+                usage: TextureUsages::RENDER_ATTACHMENT
+                    | TextureUsages::COPY_SRC
+                    | TextureUsages::TEXTURE_BINDING,
+            });
+            let texture_view = texture.create_view(&Default::default());
+            let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
+                label: None,
+                size: screenshot::get_aligned_size(
+                    window.physical_width,
+                    window.physical_height,
+                    surface_data.format.pixel_size() as u32,
+                ) as u64,
+                usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
+                mapped_at_creation: false,
+            });
+            let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
+                label: None,
+                layout: &screenshot_pipeline.bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&texture_view),
+                }],
+            });
+            window.swap_chain_texture_view = Some(texture_view);
+            window.screenshot_memory = Some(ScreenshotGpuMemory {
+                texture,
+                buffer,
+                bind_group,
+            })
+        }
     }
 }
