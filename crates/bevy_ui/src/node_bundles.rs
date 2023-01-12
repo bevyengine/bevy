@@ -97,7 +97,7 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct TextBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -161,25 +161,8 @@ impl TextBundle {
     }
 }
 
-impl Default for TextBundle {
-    fn default() -> Self {
-        TextBundle {
-            focus_policy: FocusPolicy::Pass,
-            text: Default::default(),
-            node: Default::default(),
-            calculated_size: Default::default(),
-            style: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
-}
-
 /// A UI node that is a button
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -250,6 +233,25 @@ pub struct SliderBundle {
     pub visibility: Visibility,
     /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
     pub computed_visibility: ComputedVisibility,
+}
+
+impl Default for ButtonBundle {
+    fn default() -> Self {
+        Self {
+            focus_policy: FocusPolicy::Block,
+            node: Default::default(),
+            button: Default::default(),
+            style: Default::default(),
+            interaction: Default::default(),
+            background_color: Default::default(),
+            image: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            z_index: Default::default(),
+        }
+    }
 }
 
 /// A UI node that is a slider

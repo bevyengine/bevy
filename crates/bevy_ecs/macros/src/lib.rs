@@ -465,7 +465,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             #[doc(hidden)]
-            #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*> {
+            #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*>
+            #where_clause {
                 state: (#(<#tuple_types as #path::system::SystemParam>::State,)*),
                 marker: std::marker::PhantomData<(
                     <#path::prelude::Query<'w, 's, ()> as #path::system::SystemParam>::State,

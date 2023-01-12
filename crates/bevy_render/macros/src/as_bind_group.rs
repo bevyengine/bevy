@@ -11,6 +11,7 @@ use syn::{
 const UNIFORM_ATTRIBUTE_NAME: Symbol = Symbol("uniform");
 const TEXTURE_ATTRIBUTE_NAME: Symbol = Symbol("texture");
 const SAMPLER_ATTRIBUTE_NAME: Symbol = Symbol("sampler");
+const STORAGE_ATTRIBUTE_NAME: Symbol = Symbol("storage");
 const BIND_GROUP_DATA_ATTRIBUTE_NAME: Symbol = Symbol("bind_group_data");
 
 #[derive(Copy, Clone, Debug)]
@@ -18,6 +19,7 @@ enum BindingType {
     Uniform,
     Texture,
     Sampler,
+    Storage,
 }
 
 #[derive(Clone)]
@@ -55,7 +57,6 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 }
             } else if attr_ident == UNIFORM_ATTRIBUTE_NAME {
                 let (binding_index, converted_shader_type) = get_uniform_binding_attr(attr)?;
-
                 binding_impls.push(quote! {{
                     use #render_path::render_resource::AsBindGroupShaderType;
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
@@ -126,6 +127,8 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                 BindingType::Texture
             } else if attr_ident == SAMPLER_ATTRIBUTE_NAME {
                 BindingType::Sampler
+            } else if attr_ident == STORAGE_ATTRIBUTE_NAME {
+                BindingType::Storage
             } else {
                 continue;
             };
@@ -190,7 +193,45 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             }
 
             match binding_type {
-                BindingType::Uniform => { /* uniform codegen is deferred to account for combined uniform bindings */
+                BindingType::Uniform => {
+                    // uniform codegen is deferred to account for combined uniform bindings
+                }
+                BindingType::Storage => {
+                    let StorageAttrs {
+                        visibility,
+                        read_only,
+                    } = get_storage_binding_attr(nested_meta_items)?;
+                    let visibility =
+                        visibility.hygenic_quote(&quote! { #render_path::render_resource });
+
+                    let field_name = field.ident.as_ref().unwrap();
+                    let field_ty = &field.ty;
+
+                    binding_impls.push(quote! {{
+                        use #render_path::render_resource::AsBindGroupShaderType;
+                        let mut buffer = #render_path::render_resource::encase::StorageBuffer::new(Vec::new());
+                        buffer.write(&self.#field_name).unwrap();
+                        #render_path::render_resource::OwnedBindingResource::Buffer(render_device.create_buffer_with_data(
+                            &#render_path::render_resource::BufferInitDescriptor {
+                                label: None,
+                                usage: #render_path::render_resource::BufferUsages::COPY_DST | #render_path::render_resource::BufferUsages::STORAGE,
+                                contents: buffer.as_ref(),
+                            },
+                        ))
+                    }});
+
+                    binding_layouts.push(quote! {
+                        #render_path::render_resource::BindGroupLayoutEntry {
+                            binding: #binding_index,
+                            visibility: #visibility,
+                            ty: #render_path::render_resource::BindingType::Buffer {
+                                ty: #render_path::render_resource::BufferBindingType::Storage { read_only: #read_only },
+                                has_dynamic_offset: false,
+                                min_binding_size: Some(<#field_ty as #render_path::render_resource::ShaderType>::min_size()),
+                            },
+                            count: None,
+                        }
+                    });
                 }
                 BindingType::Texture => {
                     let TextureAttrs {
@@ -860,4 +901,41 @@ fn get_sampler_binding_type_value(lit_str: &LitStr) -> Result<SamplerBindingType
             "Not a valid dimension. Must be `filtering`, `non_filtering`, or `comparison`.",
         )),
     }
+}
+
+#[derive(Default)]
+struct StorageAttrs {
+    visibility: ShaderStageVisibility,
+    read_only: bool,
+}
+
+const READ_ONLY: Symbol = Symbol("read_only");
+
+fn get_storage_binding_attr(metas: Vec<NestedMeta>) -> Result<StorageAttrs> {
+    let mut visibility = ShaderStageVisibility::vertex_fragment();
+    let mut read_only = false;
+
+    for meta in metas {
+        use syn::{Meta::List, Meta::Path, NestedMeta::Meta};
+        match meta {
+            // Parse #[storage(0, visibility(...))].
+            Meta(List(m)) if m.path == VISIBILITY => {
+                visibility = get_visibility_flag_value(&m.nested)?;
+            }
+            Meta(Path(path)) if path == READ_ONLY => {
+                read_only = true;
+            }
+            _ => {
+                return Err(Error::new_spanned(
+                    meta,
+                    "Not a valid attribute. Available attributes: `read_only`, `visibility`",
+                ));
+            }
+        }
+    }
+
+    Ok(StorageAttrs {
+        visibility,
+        read_only,
+    })
 }

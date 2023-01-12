@@ -40,6 +40,7 @@ use std::{
 /// [`World`]: crate::world::World
 /// [`Entities::get`]: crate::entity::Entities
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
 pub struct ArchetypeRow(u32);
 
@@ -68,6 +69,7 @@ impl ArchetypeRow {
 /// [`World`]: crate::world::World
 /// [`EMPTY`]: crate::archetype::ArchetypeId::EMPTY
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+// SAFETY: Must be repr(transparent) due to the safety requirements on EntityLocation
 #[repr(transparent)]
 pub struct ArchetypeId(u32);
 

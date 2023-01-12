@@ -48,7 +48,7 @@ impl<'a, P: SystemParam + 'static> ExclusiveSystemParam for &'a mut SystemState<
     }
 }
 
-impl<'_s, T: FromWorld + Send + Sync + 'static> ExclusiveSystemParam for Local<'_s, T> {
+impl<'_s, T: FromWorld + Send + 'static> ExclusiveSystemParam for Local<'_s, T> {
     type State = SyncCell<T>;
     type Item<'s> = Local<'s, T>;
 

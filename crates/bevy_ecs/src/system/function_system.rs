@@ -106,6 +106,9 @@ impl SystemMeta {
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
 /// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+///
+/// // If you are using [`Commands`], you can choose when you want to apply them to the world.
+/// // You need to manually call `.apply(world)` on the [`SystemState`] to apply them.
 /// ```
 /// Caching:
 /// ```rust
