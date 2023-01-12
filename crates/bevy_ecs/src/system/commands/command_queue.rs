@@ -10,7 +10,6 @@ struct CommandMeta {
     offset: usize,
     /// SAFETY: The `value` must point to a value of type `T: Command`,
     /// where `T` is some specific type that was used to produce this metadata.
-    /// The pointer need not be aligned.
     apply_command: unsafe fn(value: OwningPtr<Unaligned>, world: &mut World),
 }
 
