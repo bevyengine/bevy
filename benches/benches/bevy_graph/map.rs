@@ -1,7 +1,7 @@
 use bevy_graph::graphs::{
     keys::{EdgeIdx, NodeIdx},
     simple::SimpleMapGraph,
-    Graph, UndirectedGraph,
+    Graph,
 };
 use bevy_utils::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
@@ -48,7 +48,7 @@ fn nodes_10_000_undirected(c: &mut Criterion) {
                 black_box(
                     map_graph
                         .edge_between(nodes[i - 1], nodes[i])
-                        .remove_undirected(&mut map_graph)
+                        .remove(&mut map_graph)
                         .unwrap(),
                 );
             }
