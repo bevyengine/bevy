@@ -23,7 +23,6 @@ use crate::{
     clear_color::{ClearColor, ClearColorConfig},
     core_2d::Core2dPlugin,
     core_3d::Core3dPlugin,
-    fsr2::Fsr2Plugin,
     fullscreen_vertex_shader::FULLSCREEN_SHADER_HANDLE,
     fxaa::FxaaPlugin,
     prepass::{DepthPrepass, NormalPrepass},
@@ -57,7 +56,6 @@ impl Plugin for CorePipelinePlugin {
             .add_plugin(TonemappingPlugin)
             .add_plugin(UpscalingPlugin)
             .add_plugin(BloomPlugin)
-            .add_plugin(FxaaPlugin)
-            .add_plugin(Fsr2Plugin);
+            .add_plugin(FxaaPlugin);
     }
 }
