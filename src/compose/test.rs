@@ -574,6 +574,58 @@ mod test {
     }
 
     #[test]
+    fn invalid_override() {
+        let mut composer = Composer::default();
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/overrides/mod.wgsl"),
+                file_path: "tests/overrides/mod.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+
+        let module = composer.make_naga_module(NagaModuleDescriptor {
+            source: include_str!("tests/overrides/top_invalid.wgsl"),
+            file_path: "tests/overrides/top_invalid.wgsl",
+            ..Default::default()
+        });
+
+        #[cfg(feature = "override_any")]
+        {
+            let module = module.unwrap();
+            let info = naga::valid::Validator::new(
+                naga::valid::ValidationFlags::all(),
+                naga::valid::Capabilities::default(),
+            )
+            .validate(&module)
+            .unwrap();
+            let wgsl = naga::back::wgsl::write_string(
+                &module,
+                &info,
+                naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
+            )
+            .unwrap();
+
+            // todo test properly - the redirect returns the functions in random order so can't rely on string repr
+            println!("{}", wgsl);
+        }
+
+        #[cfg(not(feature = "override_any"))]
+        {
+            let err = module.err().unwrap();
+            let err = err.emit_to_string(&composer);
+            // let mut f = std::fs::File::create("invalid_override_base.txt").unwrap();
+            // f.write_all(err.as_bytes()).unwrap();
+            // drop(f);
+            assert_eq!(
+                err,
+                include_str!("tests/expected/invalid_override_base.txt")
+            );
+        }
+    }
+
+    #[test]
     fn import_in_decl() {
         let mut composer = Composer::default();
         composer

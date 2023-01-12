@@ -1,6 +1,6 @@
 #define_import_path mod
 
-fn inner(arg: f32) -> f32 {
+virtual fn inner(arg: f32) -> f32 {
     return arg * 2.0;
 }
 

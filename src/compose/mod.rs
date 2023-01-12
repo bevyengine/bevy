@@ -52,7 +52,11 @@
 ///
 /// ## overriding functions
 ///
-/// functions defined in imported modules can be overridden using the `override` keyword:
+/// virtual functions can be declared with the `virtual` keyword:
+/// ```ignore
+/// virtual fn point_light(world_position: vec3<f32>) -> vec3<f32> { ... }
+/// ```
+/// virtual functions defined in imported modules can then be overridden using the `override` keyword:
 ///
 /// ```ignore
 /// #import bevy_pbr::lighting as Lighting
@@ -84,6 +88,8 @@
 ///
 /// note that imports into a module/shader are processed in order, but are processed before the body of the current shader/module regardless of where they occur in that module, so there is no way to import a module containing an override and inject a call into the override stack prior to that imported override. you can instead create two modules each containing an override and import them into a parent module/shader to order them as required.
 /// override functions can currently only be defined in wgsl.
+///
+/// if the `override_any` crate feature is enabled, then the `virtual` keyword is not required for the function being overridden.
 ///
 /// ## languages
 ///
@@ -221,9 +227,11 @@ pub struct ComposableModule {
     pub owned_vars: HashSet<String>,
     // functions exported
     pub owned_functions: HashSet<String>,
-    // any virtual functions defined in this module
+    // local functions that can be overridden
+    pub virtual_functions: HashSet<String>,
+    // overriding functions defined in this module
     // target function -> Vec<replacement functions>
-    pub virtual_functions: HashMap<String, Vec<String>>,
+    pub override_functions: HashMap<String, Vec<String>>,
     // naga module, built against headers for any imports
     module_ir: naga::Module,
     // headers in different shader languages, used for building modules/shaders that import this module
@@ -386,6 +394,10 @@ pub enum ComposerErrorInner {
     GlslInvalidVersion(usize),
     #[error("invalid override :{0}")]
     RedirectError(#[from] RedirectError),
+    #[error(
+        "override is invalid as `{name}` is not virtual (this error can be disabled with feature 'override_any')"
+    )]
+    OverrideNotVirtual { name: String, pos: usize },
 }
 
 struct ErrorSources<'a> {
@@ -480,6 +492,7 @@ impl ComposerError {
             | ComposerErrorInner::UnknownShaderDef { pos, .. }
             | ComposerErrorInner::UnknownShaderDefOperator { pos, .. }
             | ComposerErrorInner::InvalidShaderDefComparisonValue { pos, .. }
+            | ComposerErrorInner::OverrideNotVirtual { pos, .. }
             | ComposerErrorInner::GlslInvalidVersion(pos) => {
                 (vec![Label::primary((), *pos..*pos)], vec![])
             }
@@ -547,7 +560,8 @@ pub struct Composer {
     annotated_identifier_regex: Regex,
     define_import_path_regex: Regex,
     virtual_fn_regex: Regex,
-    undecorate_virtual_regex: Regex,
+    override_fn_regex: Regex,
+    undecorate_override_regex: Regex,
     auto_binding_regex: Regex,
     auto_binding_index: u32,
 }
@@ -565,7 +579,7 @@ impl Default for Composer {
             capabilities: Default::default(),
             module_sets: Default::default(),
             module_index: Default::default(),
-            check_decoration_regex: Regex::new(format!("({}|{})", regex_syntax::escape(DECORATION_PRE), regex_syntax::escape(DECORATION_VIRTUAL_PRE)).as_str()).unwrap(),
+            check_decoration_regex: Regex::new(format!("({}|{})", regex_syntax::escape(DECORATION_PRE), regex_syntax::escape(DECORATION_OVERRIDE_PRE)).as_str()).unwrap(),
             undecorate_regex: Regex::new(
                 format!(
                     "{}([A-Z0-9]*){}",
@@ -590,7 +604,8 @@ impl Default for Composer {
             identifier_regex: Regex::new(r"([\w|\d|_]+)").unwrap(),
             annotated_identifier_regex: Regex::new(r"([^\w|^]+)::([\w|\d|_]+)").unwrap(),
             define_import_path_regex: Regex::new(r"^\s*#\s*define_import_path\s+([^\s]+)").unwrap(),
-            virtual_fn_regex: Regex::new(
+            virtual_fn_regex: Regex::new(r"(?P<lead>[\s]*virtual\s+fn\s+)(?P<function>[^\s]+)(?P<trail>\s*)\(").unwrap(),
+            override_fn_regex: Regex::new(
                 format!(
                     r"(?P<lead>[\s]*override\s+fn\s*){}(?P<module>[^\s]+){}(?P<function>[^\s]+)(?P<trail>\s*)\(", 
                     regex_syntax::escape(DECORATION_PRE),
@@ -598,10 +613,10 @@ impl Default for Composer {
                 )
                 .as_str()
             ).unwrap(),
-            undecorate_virtual_regex: Regex::new(
+            undecorate_override_regex: Regex::new(
                 format!(
                     "{}([A-Z0-9]*){}",
-                    regex_syntax::escape(DECORATION_VIRTUAL_PRE),
+                    regex_syntax::escape(DECORATION_OVERRIDE_PRE),
                     regex_syntax::escape(DECORATION_POST)
                 )
                 .as_str(),
@@ -617,12 +632,12 @@ const DECORATION_PRE: &str = "_naga_oil_mod_";
 const DECORATION_POST: &str = "_member";
 
 // must be same length as DECORATION_PRE for spans to work
-const DECORATION_VIRTUAL_PRE: &str = "_naga_oil_vrt_";
+const DECORATION_OVERRIDE_PRE: &str = "_naga_oil_vrt_";
 
 struct IrBuildResult {
     module: naga::Module,
     start_offset: usize,
-    virtual_functions: HashMap<String, Vec<String>>,
+    override_functions: HashMap<String, Vec<String>>,
 }
 
 impl Composer {
@@ -650,7 +665,7 @@ impl Composer {
             });
 
         let undecor =
-            self.undecorate_virtual_regex
+            self.undecorate_override_regex
                 .replace_all(&undecor, |caps: &regex::Captures| {
                     format!(
                         "override fn {}::",
@@ -768,7 +783,7 @@ impl Composer {
             ShaderLanguage::Glsl => String::from("#version 450\n"),
         };
 
-        let mut virtual_functions: HashMap<String, Vec<String>> = HashMap::default();
+        let mut override_functions: HashMap<String, Vec<String>> = HashMap::default();
         let mut added_imports: HashSet<String> = HashSet::new();
 
         for import in imports {
@@ -787,9 +802,9 @@ impl Composer {
             module_string.push_str(module.headers.get(&language).unwrap().as_str());
 
             // gather overrides
-            if !module.virtual_functions.is_empty() {
-                for (original, replacements) in &module.virtual_functions {
-                    match virtual_functions.entry(original.clone()) {
+            if !module.override_functions.is_empty() {
+                for (original, replacements) in &module.override_functions {
+                    match override_functions.entry(original.clone()) {
                         Entry::Occupied(o) => {
                             let existing = o.into_mut();
                             let new_replacements: Vec<_> = replacements
@@ -846,7 +861,7 @@ impl Composer {
         Ok(IrBuildResult {
             module,
             start_offset,
-            virtual_functions,
+            override_functions,
         })
     }
 
@@ -1138,13 +1153,66 @@ impl Composer {
             source.len()
         );
 
-        // record and rename virtual functions
-        let mut local_virtual_functions: HashMap<String, String> = Default::default();
+        // record virtual/overridable functions
+        let mut virtual_functions: HashSet<String> = Default::default();
         let source = self
             .virtual_fn_regex
             .replace_all(&source, |cap: &regex::Captures| {
+                let target_function = cap.get(2).unwrap().as_str().to_owned();
+
+                let replacement_str = format!(
+                    "{}fn {}{}(",
+                    " ".repeat(cap.get(1).unwrap().range().len() - 3),
+                    target_function,
+                    " ".repeat(cap.get(3).unwrap().range().len()),
+                );
+
+                virtual_functions.insert(target_function);
+
+                replacement_str
+            });
+
+        // record and rename override functions
+        let mut local_override_functions: HashMap<String, String> = Default::default();
+
+        #[cfg(not(feature = "override_any"))]
+        let mut override_error = None;
+
+        let source = self
+            .override_fn_regex
+            .replace_all(&source, |cap: &regex::Captures| {
                 let target_module = cap.get(2).unwrap().as_str().to_owned();
                 let target_function = cap.get(3).unwrap().as_str().to_owned();
+
+                #[cfg(not(feature = "override_any"))]
+                {
+                    // ensure overrides are applied to virtual functions
+                    let raw_module_name = Self::decode(&target_module);
+                    let module_set = self.module_sets.get(&raw_module_name);
+
+                    match module_set {
+                        None => {
+                            let pos = cap.get(2).unwrap().start();
+                            override_error = Some(ComposerError {
+                                inner: ComposerErrorInner::ImportNotFound(raw_module_name, pos),
+                                source: ErrSource::Module(module_definition.name.to_owned(), 0),
+                            });
+                        }
+                        Some(module_set) => {
+                            let module = module_set.get_module(shader_defs).unwrap();
+                            if !module.virtual_functions.contains(&target_function) {
+                                let pos = cap.get(3).unwrap().start();
+                                override_error = Some(ComposerError {
+                                    inner: ComposerErrorInner::OverrideNotVirtual {
+                                        name: target_function.clone(),
+                                        pos,
+                                    },
+                                    source: ErrSource::Module(module_definition.name.to_owned(), 0),
+                                });
+                            }
+                        }
+                    }
+                }
 
                 let base_name = format!(
                     "{}{}{}{}",
@@ -1155,7 +1223,7 @@ impl Composer {
                 );
                 let rename = format!(
                     "{}{}{}{}",
-                    DECORATION_VIRTUAL_PRE,
+                    DECORATION_OVERRIDE_PRE,
                     target_module.as_str(),
                     DECORATION_POST,
                     target_function.as_str()
@@ -1168,13 +1236,18 @@ impl Composer {
                     " ".repeat(cap.get(4).unwrap().range().len()),
                 );
 
-                local_virtual_functions.insert(rename, base_name);
+                local_override_functions.insert(rename, base_name);
 
                 replacement_str
             })
             .to_string();
 
-        debug!("local virtuals: {:?}", local_virtual_functions);
+        #[cfg(not(feature = "override_any"))]
+        if let Some(err) = override_error {
+            return Err(err);
+        }
+
+        debug!("local overrides: {:?}", local_override_functions);
         debug!(
             "create composable module {}: source len {}",
             module_definition.name,
@@ -1184,7 +1257,7 @@ impl Composer {
         let IrBuildResult {
             module: mut source_ir,
             start_offset,
-            mut virtual_functions,
+            mut override_functions,
         } = self.create_module_ir(
             &module_definition.name,
             source,
@@ -1194,8 +1267,8 @@ impl Composer {
         )?;
 
         // add our local override to the total set of overrides for the given function
-        for (rename, base_name) in &local_virtual_functions {
-            virtual_functions
+        for (rename, base_name) in &local_override_functions {
+            override_functions
                 .entry(base_name.clone())
                 .or_default()
                 .push(format!("{}{}", module_decoration, rename));
@@ -1509,6 +1582,7 @@ impl Composer {
             owned_vars: owned_vars.into_iter().map(|(n, _)| n).collect(),
             owned_functions: owned_functions.into_iter().map(|(n, _)| n).collect(),
             virtual_functions,
+            override_functions,
             module_ir,
             headers,
             start_offset,
@@ -2005,10 +2079,10 @@ impl Composer {
         };
 
         // apply overrides
-        if !composable.virtual_functions.is_empty() {
+        if !composable.override_functions.is_empty() {
             let mut redirect = Redirector::new(naga_module);
 
-            for (base_function, overrides) in composable.virtual_functions {
+            for (base_function, overrides) in composable.override_functions {
                 let mut omit = HashSet::default();
 
                 let mut original = base_function;
