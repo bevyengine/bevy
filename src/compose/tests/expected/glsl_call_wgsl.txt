@@ -4,12 +4,12 @@ struct VertexOutput {
 
 var<private> o_Target: vec4<f32>;
 
-fn _naga_oil__mod__O5TXG3C7NVXWI5LMMU__member__wgsl_func() -> f32 {
+fn _naga_oil_mod_O5TXG3C7NVXWI5LMMU_memberwgsl_func() -> f32 {
     return 53.0;
 }
 
 fn main_1() {
-    let _e0: f32 = _naga_oil__mod__O5TXG3C7NVXWI5LMMU__member__wgsl_func();
+    let _e0: f32 = _naga_oil_mod_O5TXG3C7NVXWI5LMMU_memberwgsl_func();
     o_Target = vec4<f32>(_e0);
     return;
 }

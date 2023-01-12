@@ -3,16 +3,16 @@
 
 
 
-    let _e1: u32 = _naga_oil__mod__MNXW443UOM__member__double(_naga_oil__mod__MNXW443UOM__member__X);
-    let _e1: u32 = _naga_oil__mod__MNXW443UOM__member__double(_naga_oil__mod__MNXW443UOM__member__Y);
+    let _e1: u32 = _naga_oil_mod_MNXW443UOM_memberdouble(_naga_oil_mod_MNXW443UOM_memberX);
+    let _e1: u32 = _naga_oil_mod_MNXW443UOM_memberdouble(_naga_oil_mod_MNXW443UOM_memberY);
     return (in * 2u);
     return _e1;
     return _e1;
-fn _naga_oil__mod__MNXW443UOM__member__double(in: u32) -> u32 {
+fn _naga_oil_mod_MNXW443UOM_memberdouble(in: u32) -> u32 {
 fn main() -> u32 {
 fn other() -> u32 {
-let _naga_oil__mod__MNXW443UOM__member__X: u32 = 1u;
-let _naga_oil__mod__MNXW443UOM__member__Y: u32 = 2u;
+let _naga_oil_mod_MNXW443UOM_memberX: u32 = 1u;
+let _naga_oil_mod_MNXW443UOM_memberY: u32 = 2u;
 }
 }
 }

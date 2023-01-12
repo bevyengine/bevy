@@ -1,20 +1,20 @@
-let _naga_oil__mod__MNXW443UOM__member__PI: f32 = 3.0999999046325684;
+let _naga_oil_mod_MNXW443UOM_memberPI: f32 = 3.0999999046325684;
 
-fn _naga_oil__mod__ME__member__f() -> f32 {
-    return (_naga_oil__mod__MNXW443UOM__member__PI * 1.0);
+fn _naga_oil_mod_ME_memberf() -> f32 {
+    return (_naga_oil_mod_MNXW443UOM_memberPI * 1.0);
 }
 
-fn _naga_oil__mod__MI__member__f() -> f32 {
-    return (_naga_oil__mod__MNXW443UOM__member__PI * 2.0);
+fn _naga_oil_mod_MI_memberf() -> f32 {
+    return (_naga_oil_mod_MNXW443UOM_memberPI * 2.0);
 }
 
-fn _naga_oil__mod__MI__member__g() -> f32 {
-    return (_naga_oil__mod__MNXW443UOM__member__PI * 2.0);
+fn _naga_oil_mod_MI_memberg() -> f32 {
+    return (_naga_oil_mod_MNXW443UOM_memberPI * 2.0);
 }
 
 fn main() -> f32 {
-    let _e0: f32 = _naga_oil__mod__ME__member__f();
-    let _e1: f32 = _naga_oil__mod__MI__member__f();
+    let _e0: f32 = _naga_oil_mod_ME_memberf();
+    let _e1: f32 = _naga_oil_mod_MI_memberf();
     return (_e0 * _e1);
 }
 

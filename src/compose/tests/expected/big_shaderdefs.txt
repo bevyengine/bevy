@@ -1,4 +1,4 @@
-fn _naga_oil__mod__NVXWI__member__f() -> f32 {
+fn _naga_oil_mod_NVXWI_memberf() -> f32 {
     var x: f32 = 0.0;
 
     x = 1.0;
@@ -7,7 +7,7 @@ fn _naga_oil__mod__NVXWI__member__f() -> f32 {
 }
 
 fn main() -> f32 {
-    let _e0: f32 = _naga_oil__mod__NVXWI__member__f();
+    let _e0: f32 = _naga_oil_mod_NVXWI_memberf();
     return _e0;
 }
 

@@ -628,11 +628,11 @@ impl Default for Composer {
     }
 }
 
-const DECORATION_PRE: &str = "_naga_oil__mod__";
-const DECORATION_POST: &str = "__member__";
+const DECORATION_PRE: &str = "_naga_oil_mod_";
+const DECORATION_POST: &str = "_member";
 
 // must be same length as DECORATION_PRE for spans to work
-const DECORATION_OVERRIDE_PRE: &str = "_naga_oil__vrt__";
+const DECORATION_OVERRIDE_PRE: &str = "_naga_oil_vrt_";
 
 struct IrBuildResult {
     module: naga::Module,

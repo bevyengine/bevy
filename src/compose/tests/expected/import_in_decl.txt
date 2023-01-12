@@ -1,13 +1,13 @@
-let _naga_oil__mod__MNXW443UOM__member__X: u32 = 1u;
+let _naga_oil_mod_MNXW443UOM_memberX: u32 = 1u;
 
-let _naga_oil__mod__MJUW4ZA__member__y: u32 = 2u;
+let _naga_oil_mod_MJUW4ZA_membery: u32 = 2u;
 
-let _naga_oil__mod__MJUW4ZA__member___naga_oil__mod__MNXW443UOM__member__X: u32 = 1u;
+let _naga_oil_mod_MJUW4ZA_member_naga_oil_mod_MNXW443UOM_memberX: u32 = 1u;
 
-var<private> _naga_oil__mod__MJUW4ZA__member__arr: array<u32,_naga_oil__mod__MJUW4ZA__member___naga_oil__mod__MNXW443UOM__member__X>;
+var<private> _naga_oil_mod_MJUW4ZA_memberarr: array<u32,_naga_oil_mod_MJUW4ZA_member_naga_oil_mod_MNXW443UOM_memberX>;
 
 fn main() -> f32 {
-    let _e2: u32 = _naga_oil__mod__MJUW4ZA__member__arr[0];
+    let _e2: u32 = _naga_oil_mod_MJUW4ZA_memberarr[0];
     return f32(_e2);
 }
 

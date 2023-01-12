@@ -1,9 +1,9 @@
-fn _naga_oil__mod__NFXGG__member__hello() -> f32 {
+fn _naga_oil_mod_NFXGG_memberhello() -> f32 {
     return 1.0;
 }
 
 fn main() -> f32 {
-    let _e0: f32 = _naga_oil__mod__NFXGG__member__hello();
+    let _e0: f32 = _naga_oil_mod_NFXGG_memberhello();
     return _e0;
 }
 

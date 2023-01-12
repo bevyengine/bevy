@@ -1,14 +1,14 @@
-fn _naga_oil__mod__N53GK4TSNFSGCYTMMU__member__func() -> f32 {
+fn _naga_oil_mod_N53GK4TSNFSGCYTMMU_memberfunc() -> f32 {
     return 1.0;
 }
 
-fn _naga_oil__mod__OBWHKZ3JNY__member___naga_oil__vrt__N53GK4TSNFSGCYTMMU__member__func() -> f32 {
-    let _e0: f32 = _naga_oil__mod__N53GK4TSNFSGCYTMMU__member__func();
+fn _naga_oil_mod_OBWHKZ3JNY_member_naga_oil_vrt_N53GK4TSNFSGCYTMMU_memberfunc() -> f32 {
+    let _e0: f32 = _naga_oil_mod_N53GK4TSNFSGCYTMMU_memberfunc();
     return (_e0 + 1.0);
 }
 
 fn entry_point() -> f32 {
-    let _e0: f32 = _naga_oil__mod__OBWHKZ3JNY__member___naga_oil__vrt__N53GK4TSNFSGCYTMMU__member__func();
+    let _e0: f32 = _naga_oil_mod_OBWHKZ3JNY_member_naga_oil_vrt_N53GK4TSNFSGCYTMMU_memberfunc();
     return _e0;
 }
 
