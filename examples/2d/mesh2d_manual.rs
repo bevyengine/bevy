@@ -12,7 +12,7 @@ use bevy::{
     render::{
         mesh::{Indices, MeshVertexAttribute},
         render_asset::RenderAssets,
-        render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+        render_phase::{AddRenderCommand, RenderCommands, RenderPhase, SetItemPipeline},
         render_resource::{
             BlendState, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
             MultisampleState, PipelineCache, PolygonMode, PrimitiveState, PrimitiveTopology,
@@ -310,7 +310,7 @@ pub fn extract_colored_mesh2d(
 /// Queue the 2d meshes marked with [`ColoredMesh2d`] using our custom pipeline and draw function
 #[allow(clippy::too_many_arguments)]
 pub fn queue_colored_mesh2d(
-    transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
+    transparent_render_commands: Res<RenderCommands<Transparent2d>>,
     colored_mesh2d_pipeline: Res<ColoredMesh2dPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<ColoredMesh2dPipeline>>,
     pipeline_cache: Res<PipelineCache>,
@@ -328,7 +328,7 @@ pub fn queue_colored_mesh2d(
     }
     // Iterate each view (a camera is a view)
     for (visible_entities, mut transparent_phase, view) in &mut views {
-        let draw_colored_mesh2d = transparent_draw_functions.read().id::<DrawColoredMesh2d>();
+        let draw_colored_mesh2d = transparent_render_commands.id::<DrawColoredMesh2d>();
 
         let mesh_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
@@ -349,7 +349,7 @@ pub fn queue_colored_mesh2d(
                 let mesh_z = mesh2d_uniform.transform.w_axis.z;
                 transparent_phase.add(Transparent2d {
                     entity: *visible_entity,
-                    draw_function: draw_colored_mesh2d,
+                    render_command: draw_colored_mesh2d,
                     pipeline: pipeline_id,
                     // The 2d render items are sorted according to their z value before rendering,
                     // in order to get correct transparency

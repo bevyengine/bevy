@@ -20,7 +20,7 @@ use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
     render_graph::{RenderGraph, RunGraphOnViewNode, SlotInfo, SlotType},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions, RenderPhase},
+    render_phase::{sort_phase_system, AddRenderCommand, RenderCommands, RenderPhase},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
@@ -74,7 +74,7 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<UiImageBindGroups>()
         .init_resource::<UiMeta>()
         .init_resource::<ExtractedUiNodes>()
-        .init_resource::<DrawFunctions<TransparentUi>>()
+        .init_resource::<RenderCommands<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
         .add_systems(
             (
@@ -557,7 +557,7 @@ pub struct UiImageBindGroups {
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_uinodes(
-    draw_functions: Res<DrawFunctions<TransparentUi>>,
+    render_commands: Res<RenderCommands<TransparentUi>>,
     render_device: Res<RenderDevice>,
     mut ui_meta: ResMut<UiMeta>,
     view_uniforms: Res<ViewUniforms>,
@@ -589,7 +589,7 @@ pub fn queue_uinodes(
             label: Some("ui_view_bind_group"),
             layout: &ui_pipeline.view_layout,
         }));
-        let draw_ui_function = draw_functions.read().id::<DrawUi>();
+        let draw_ui_function = render_commands.id::<DrawUi>();
         for (view, mut transparent_phase) in &mut views {
             let pipeline = pipelines.specialize(
                 &pipeline_cache,
@@ -618,7 +618,7 @@ pub fn queue_uinodes(
                         })
                     });
                 transparent_phase.add(TransparentUi {
-                    draw_function: draw_ui_function,
+                    render_command: draw_ui_function,
                     pipeline,
                     entity,
                     sort_key: FloatOrd(batch.z),

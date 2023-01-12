@@ -19,7 +19,7 @@ use bevy_render::{
     color::Color,
     render_asset::RenderAssets,
     render_phase::{
-        BatchedPhaseItem, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        BatchedPhaseItem, PhaseItem, RenderCommand, RenderCommandResult, RenderCommands,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
@@ -477,7 +477,7 @@ pub struct ImageBindGroups {
 pub fn queue_sprites(
     mut commands: Commands,
     mut view_entities: Local<FixedBitSet>,
-    draw_functions: Res<DrawFunctions<Transparent2d>>,
+    render_commands: Res<RenderCommands<Transparent2d>>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut sprite_meta: ResMut<SpriteMeta>,
@@ -526,7 +526,7 @@ pub fn queue_sprites(
             layout: &sprite_pipeline.view_layout,
         }));
 
-        let draw_sprite_function = draw_functions.read().id::<DrawSprite>();
+        let draw_sprite_function = render_commands.id::<DrawSprite>();
 
         // Vertex buffer indices
         let mut index = 0;
@@ -706,7 +706,7 @@ pub fn queue_sprites(
                     let item_end = colored_index;
 
                     transparent_phase.add(Transparent2d {
-                        draw_function: draw_sprite_function,
+                        render_command: draw_sprite_function,
                         pipeline: colored_pipeline,
                         entity: current_batch_entity,
                         sort_key,
@@ -724,7 +724,7 @@ pub fn queue_sprites(
                     let item_end = index;
 
                     transparent_phase.add(Transparent2d {
-                        draw_function: draw_sprite_function,
+                        render_command: draw_sprite_function,
                         pipeline,
                         entity: current_batch_entity,
                         sort_key,

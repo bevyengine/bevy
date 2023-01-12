@@ -31,8 +31,8 @@ use bevy_render::{
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        RenderPhase,
+        sort_phase_system, CachedRenderPipelinePhaseItem, PhaseItem, RenderCommandId,
+        RenderCommands, RenderPhase,
     },
     render_resource::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
@@ -65,9 +65,9 @@ impl Plugin for Core3dPlugin {
         };
 
         render_app
-            .init_resource::<DrawFunctions<Opaque3d>>()
-            .init_resource::<DrawFunctions<AlphaMask3d>>()
-            .init_resource::<DrawFunctions<Transparent3d>>()
+            .init_resource::<RenderCommands<Opaque3d>>()
+            .init_resource::<RenderCommands<AlphaMask3d>>()
+            .init_resource::<RenderCommands<Transparent3d>>()
             .add_system(extract_core_3d_camera_phases.in_schedule(ExtractSchedule))
             .add_system(
                 prepare_core_3d_depth_textures
@@ -137,7 +137,7 @@ pub struct Opaque3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    pub render_command_id: RenderCommandId,
 }
 
 impl PhaseItem for Opaque3d {
@@ -155,8 +155,8 @@ impl PhaseItem for Opaque3d {
     }
 
     #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+    fn render_command_id(&self) -> RenderCommandId {
+        self.render_command_id
     }
 
     #[inline]
@@ -177,7 +177,7 @@ pub struct AlphaMask3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    pub render_command_id: RenderCommandId,
 }
 
 impl PhaseItem for AlphaMask3d {
@@ -195,8 +195,8 @@ impl PhaseItem for AlphaMask3d {
     }
 
     #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+    fn render_command_id(&self) -> RenderCommandId {
+        self.render_command_id
     }
 
     #[inline]
@@ -217,7 +217,7 @@ pub struct Transparent3d {
     pub distance: f32,
     pub pipeline: CachedRenderPipelineId,
     pub entity: Entity,
-    pub draw_function: DrawFunctionId,
+    pub render_command_id: RenderCommandId,
 }
 
 impl PhaseItem for Transparent3d {
@@ -235,8 +235,8 @@ impl PhaseItem for Transparent3d {
     }
 
     #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+    fn render_command_id(&self) -> RenderCommandId {
+        self.render_command_id
     }
 
     #[inline]

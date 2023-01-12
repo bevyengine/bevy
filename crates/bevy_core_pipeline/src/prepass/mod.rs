@@ -30,8 +30,9 @@ use std::cmp::Reverse;
 
 use bevy_ecs::prelude::*;
 use bevy_reflect::Reflect;
+use bevy_render::render_phase::RenderCommandId;
 use bevy_render::{
-    render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
+    render_phase::{CachedRenderPipelinePhaseItem, PhaseItem},
     render_resource::{CachedRenderPipelineId, Extent3d, TextureFormat},
     texture::CachedTexture,
 };
@@ -73,7 +74,7 @@ pub struct Opaque3dPrepass {
     pub distance: f32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub render_command_id: RenderCommandId,
 }
 
 impl PhaseItem for Opaque3dPrepass {
@@ -91,8 +92,8 @@ impl PhaseItem for Opaque3dPrepass {
     }
 
     #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+    fn render_command_id(&self) -> RenderCommandId {
+        self.render_command_id
     }
 
     #[inline]
@@ -118,7 +119,7 @@ pub struct AlphaMask3dPrepass {
     pub distance: f32,
     pub entity: Entity,
     pub pipeline_id: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub render_command_id: RenderCommandId,
 }
 
 impl PhaseItem for AlphaMask3dPrepass {
@@ -136,8 +137,8 @@ impl PhaseItem for AlphaMask3dPrepass {
     }
 
     #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+    fn render_command_id(&self) -> RenderCommandId {
+        self.render_command_id
     }
 
     #[inline]

@@ -21,7 +21,7 @@ use bevy_render::{
     prelude::Image,
     render_asset::{PrepareAssetSet, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        AddRenderCommand, PhaseItem, RenderCommand, RenderCommandResult, RenderCommands,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
@@ -318,7 +318,7 @@ impl<P: PhaseItem, M: Material2d, const I: usize> RenderCommand<P>
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material2d_meshes<M: Material2d>(
-    transparent_draw_functions: Res<DrawFunctions<Transparent2d>>,
+    transparent_render_commands: Res<RenderCommands<Transparent2d>>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -341,7 +341,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
     }
 
     for (view, visible_entities, tonemapping, dither, mut transparent_phase) in &mut views {
-        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial2d<M>>();
+        let draw_transparent_pbr = transparent_render_commands.id::<DrawMaterial2d<M>>();
 
         let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
             | Mesh2dPipelineKey::from_hdr(view.hdr);
@@ -399,7 +399,7 @@ pub fn queue_material2d_meshes<M: Material2d>(
                         let mesh_z = mesh2d_uniform.transform.w_axis.z;
                         transparent_phase.add(Transparent2d {
                             entity: *visible_entity,
-                            draw_function: draw_transparent_pbr,
+                            render_command: draw_transparent_pbr,
                             pipeline: pipeline_id,
                             // NOTE: Back-to-front ordering for transparent with ascending sort means far should have the
                             // lowest sort key and getting closer should increase. As we have

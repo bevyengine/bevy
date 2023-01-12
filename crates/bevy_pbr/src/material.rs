@@ -24,7 +24,7 @@ use bevy_render::{
     prelude::Image,
     render_asset::{PrepareAssetSet, RenderAssets},
     render_phase::{
-        AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult,
+        AddRenderCommand, PhaseItem, RenderCommand, RenderCommandResult, RenderCommands,
         RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
@@ -360,9 +360,9 @@ impl<P: PhaseItem, M: Material, const I: usize> RenderCommand<P> for SetMaterial
 
 #[allow(clippy::too_many_arguments)]
 pub fn queue_material_meshes<M: Material>(
-    opaque_draw_functions: Res<DrawFunctions<Opaque3d>>,
-    alpha_mask_draw_functions: Res<DrawFunctions<AlphaMask3d>>,
-    transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
+    opaque_render_commands: Res<RenderCommands<Opaque3d>>,
+    alpha_mask_render_commands: Res<RenderCommands<AlphaMask3d>>,
+    transparent_render_commands: Res<RenderCommands<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     pipeline_cache: Res<PipelineCache>,
@@ -395,9 +395,9 @@ pub fn queue_material_meshes<M: Material>(
         mut transparent_phase,
     ) in &mut views
     {
-        let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();
-        let draw_alpha_mask_pbr = alpha_mask_draw_functions.read().id::<DrawMaterial<M>>();
-        let draw_transparent_pbr = transparent_draw_functions.read().id::<DrawMaterial<M>>();
+        let draw_opaque_pbr = opaque_render_commands.id::<DrawMaterial<M>>();
+        let draw_alpha_mask_pbr = alpha_mask_render_commands.id::<DrawMaterial<M>>();
+        let draw_transparent_pbr = transparent_render_commands.id::<DrawMaterial<M>>();
 
         let mut view_key = MeshPipelineKey::from_msaa_samples(msaa.samples())
             | MeshPipelineKey::from_hdr(view.hdr);
@@ -483,7 +483,7 @@ pub fn queue_material_meshes<M: Material>(
                         AlphaMode::Opaque => {
                             opaque_phase.add(Opaque3d {
                                 entity: *visible_entity,
-                                draw_function: draw_opaque_pbr,
+                                render_command_id: draw_opaque_pbr,
                                 pipeline: pipeline_id,
                                 distance,
                             });
@@ -491,7 +491,7 @@ pub fn queue_material_meshes<M: Material>(
                         AlphaMode::Mask(_) => {
                             alpha_mask_phase.add(AlphaMask3d {
                                 entity: *visible_entity,
-                                draw_function: draw_alpha_mask_pbr,
+                                render_command_id: draw_alpha_mask_pbr,
                                 pipeline: pipeline_id,
                                 distance,
                             });
@@ -502,7 +502,7 @@ pub fn queue_material_meshes<M: Material>(
                         | AlphaMode::Multiply => {
                             transparent_phase.add(Transparent3d {
                                 entity: *visible_entity,
-                                draw_function: draw_transparent_pbr,
+                                render_command_id: draw_transparent_pbr,
                                 pipeline: pipeline_id,
                                 distance,
                             });

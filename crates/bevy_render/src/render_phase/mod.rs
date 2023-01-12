@@ -16,22 +16,21 @@
 //! Finally the items are rendered using a single [`TrackedRenderPass`], during the
 //! [`RenderSet::Render`](crate::RenderSet::Render).
 //!
-//! Therefore each phase item is assigned a [`Draw`] function.
+//! Each phase item is drawn using a [`RenderCommand`].
 //! These set up the state of the [`TrackedRenderPass`] (i.e. select the
 //! [`RenderPipeline`](crate::render_resource::RenderPipeline), configure the
 //! [`BindGroup`](crate::render_resource::BindGroup)s, etc.) and then issue a draw call,
 //! for the corresponding item.
-//!
-//! The [`Draw`] function trait can either be implemented directly or such a function can be
-//! created by composing multiple [`RenderCommand`]s.
+//! A [`RenderCommand`] can be implemented directly or composed out of multiple other
+//! [`RenderCommand`]s, by wrapping them in a tuple.
 
-mod draw;
 mod draw_state;
 mod rangefinder;
+mod render_command;
 
-pub use draw::*;
 pub use draw_state::*;
 pub use rangefinder::*;
+pub use render_command::*;
 
 use crate::render_resource::{CachedRenderPipelineId, PipelineCache};
 use bevy_ecs::{
@@ -40,7 +39,7 @@ use bevy_ecs::{
 };
 use std::ops::Range;
 
-/// A collection of all rendering instructions, that will be executed by the GPU, for a
+/// A collection of all rendering commands, that will be executed by the GPU, for a
 /// single render phase for a single view.
 ///
 /// Each view (camera, or shadow-casting light, etc.) can have one or multiple render phases.
@@ -51,47 +50,41 @@ use std::ops::Range;
 /// All [`PhaseItem`]s are then rendered using a single [`TrackedRenderPass`].
 /// The render pass might be reused for multiple phases to reduce GPU overhead.
 #[derive(Component)]
-pub struct RenderPhase<I: PhaseItem> {
-    pub items: Vec<I>,
+pub struct RenderPhase<P: PhaseItem> {
+    pub items: Vec<P>,
 }
 
-impl<I: PhaseItem> Default for RenderPhase<I> {
+impl<P: PhaseItem> Default for RenderPhase<P> {
     fn default() -> Self {
         Self { items: Vec::new() }
     }
 }
 
-impl<I: PhaseItem> RenderPhase<I> {
+impl<P: PhaseItem> RenderPhase<P> {
     /// Adds a [`PhaseItem`] to this render phase.
     #[inline]
-    pub fn add(&mut self, item: I) {
+    pub fn add(&mut self, item: P) {
         self.items.push(item);
     }
 
     /// Sorts all of its [`PhaseItem`]s.
     pub fn sort(&mut self) {
-        I::sort(&mut self.items);
+        P::sort(&mut self.items);
     }
 
-    /// Renders all of its [`PhaseItem`]s using their corresponding draw functions.
+    /// Renders all of its [`PhaseItem`]s using their corresponding [`RenderCommand`].
     pub fn render<'w>(
         &self,
         render_pass: &mut TrackedRenderPass<'w>,
         world: &'w World,
         view: Entity,
     ) {
-        let draw_functions = world.resource::<DrawFunctions<I>>();
-        let mut draw_functions = draw_functions.write();
-        draw_functions.prepare(world);
-
-        for item in &self.items {
-            let draw_function = draw_functions.get_mut(item.draw_function()).unwrap();
-            draw_function.draw(world, render_pass, view, item);
-        }
+        let render_commands = world.resource::<RenderCommands<P>>();
+        render_commands.render(world, self, render_pass, view);
     }
 }
 
-impl<I: BatchedPhaseItem> RenderPhase<I> {
+impl<P: BatchedPhaseItem> RenderPhase<P> {
     /// Batches the compatible [`BatchedPhaseItem`]s of this render phase
     pub fn batch(&mut self) {
         // TODO: this could be done in-place
@@ -144,8 +137,8 @@ pub trait PhaseItem: Sized + Send + Sync + 'static {
     /// Determines the order in which the items are drawn.
     fn sort_key(&self) -> Self::SortKey;
 
-    /// Specifies the [`Draw`] function used to render the item.
-    fn draw_function(&self) -> DrawFunctionId;
+    /// Specifies the [`RenderCommand`] used to render the item.
+    fn render_command_id(&self) -> RenderCommandId;
 
     /// Sorts a slice of phase items into render order. Generally if the same type
     /// implements [`BatchedPhaseItem`], this should use a stable sort like [`slice::sort_by_key`].
@@ -250,14 +243,14 @@ pub enum BatchResult {
 }
 
 /// This system sorts the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
-pub fn sort_phase_system<I: PhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
+pub fn sort_phase_system<P: PhaseItem>(mut render_phases: Query<&mut RenderPhase<P>>) {
     for mut phase in &mut render_phases {
         phase.sort();
     }
 }
 
 /// This system batches the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
-pub fn batch_phase_system<I: BatchedPhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
+pub fn batch_phase_system<P: BatchedPhaseItem>(mut render_phases: Query<&mut RenderPhase<P>>) {
     for mut phase in &mut render_phases {
         phase.batch();
     }
@@ -285,7 +278,7 @@ mod tests {
 
             fn sort_key(&self) -> Self::SortKey {}
 
-            fn draw_function(&self) -> DrawFunctionId {
+            fn render_command_id(&self) -> RenderCommandId {
                 unimplemented!();
             }
         }

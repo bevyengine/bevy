@@ -28,7 +28,7 @@ use bevy_render::{
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
         batch_phase_system, sort_phase_system, BatchedPhaseItem, CachedRenderPipelinePhaseItem,
-        DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase,
+        PhaseItem, RenderCommandId, RenderCommands, RenderPhase,
     },
     render_resource::CachedRenderPipelineId,
     Extract, ExtractSchedule, RenderApp, RenderSet,
@@ -51,7 +51,7 @@ impl Plugin for Core2dPlugin {
         };
 
         render_app
-            .init_resource::<DrawFunctions<Transparent2d>>()
+            .init_resource::<RenderCommands<Transparent2d>>()
             .add_system(extract_core_2d_camera_phases.in_schedule(ExtractSchedule))
             .add_system(sort_phase_system::<Transparent2d>.in_set(RenderSet::PhaseSort))
             .add_system(
@@ -109,7 +109,7 @@ pub struct Transparent2d {
     pub sort_key: FloatOrd,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
-    pub draw_function: DrawFunctionId,
+    pub render_command: RenderCommandId,
     /// Range in the vertex buffer of this item
     pub batch_range: Option<Range<u32>>,
 }
@@ -128,8 +128,8 @@ impl PhaseItem for Transparent2d {
     }
 
     #[inline]
-    fn draw_function(&self) -> DrawFunctionId {
-        self.draw_function
+    fn render_command_id(&self) -> RenderCommandId {
+        self.render_command
     }
 
     #[inline]

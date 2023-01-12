@@ -11,7 +11,7 @@ use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     mesh::{Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_phase::{AddRenderCommand, DrawFunctions, RenderPhase, SetItemPipeline},
+    render_phase::{AddRenderCommand, RenderCommands, RenderPhase, SetItemPipeline},
     render_resource::{
         PipelineCache, PolygonMode, RenderPipelineDescriptor, Shader, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
@@ -97,7 +97,7 @@ impl SpecializedMeshPipeline for WireframePipeline {
 
 #[allow(clippy::too_many_arguments)]
 fn queue_wireframes(
-    opaque_3d_draw_functions: Res<DrawFunctions<Opaque3d>>,
+    opaque_3d_render_commands: Res<RenderCommands<Opaque3d>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
@@ -110,7 +110,7 @@ fn queue_wireframes(
     )>,
     mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
 ) {
-    let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
+    let draw_custom = opaque_3d_render_commands.id::<DrawWireframes>();
     let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples());
     for (view, visible_entities, mut opaque_phase) in &mut views {
         let rangefinder = view.rangefinder3d();
@@ -137,7 +137,7 @@ fn queue_wireframes(
                     opaque_phase.add(Opaque3d {
                         entity,
                         pipeline: pipeline_id,
-                        draw_function: draw_custom,
+                        render_command_id: draw_custom,
                         distance: rangefinder.distance(&mesh_uniform.transform),
                     });
                 }
