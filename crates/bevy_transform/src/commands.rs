@@ -27,6 +27,7 @@ impl Command for AddChildInPlace {
             parent: self.parent,
         };
         hierarchy_command.write(world);
+        // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
             let parent = *world.get_entity(self.parent)?.get::<GlobalTransform>()?;
             let child_global = *world.get_entity(self.child)?.get::<GlobalTransform>()?;
