@@ -1,6 +1,6 @@
 use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::DetectChangesMut,
     entity::Entity,
     prelude::Component,
     query::WorldQuery,
