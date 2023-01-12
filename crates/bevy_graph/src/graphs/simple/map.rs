@@ -78,6 +78,7 @@ impl_graph! {
                 .unwrap_or_else(EdgeIdx::null)
         }
 
+        #[inline]
         fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
             self.adjacencies
                 .get(node)
@@ -89,6 +90,16 @@ impl_graph! {
     }
 
     impl undirected {
+        fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
+            for (_, edge) in self.edges_of(node) {
+                self.remove_edge(edge).unwrap();
+            }
+            match self.nodes.remove(node) {
+                Some(n) => Ok(n),
+                None => Err(GraphError::NodeDoesntExist(node))
+            }
+        }
+
         fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
             let idx = self.edges.insert(Edge {
                 src: node,
@@ -113,6 +124,23 @@ impl_graph! {
     }
 
     impl directed {
+        fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
+            let mut edges = vec![];
+            for (edge, data) in &self.edges {
+                let (src, dst) = data.indices();
+                if dst == node || src == node {
+                    edges.push(edge);
+                }
+            }
+            for edge in edges {
+                self.remove_edge(edge).unwrap();
+            }
+            match self.nodes.remove(node) {
+                Some(n) => Ok(n),
+                None => Err(GraphError::NodeDoesntExist(node))
+            }
+        }
+
         fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
             let idx = self.edges.insert(Edge {
                 src: from,
@@ -144,6 +172,8 @@ impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
+    use slotmap::Key;
+
     use crate::graphs::Graph;
 
     use super::SimpleMapGraph;
@@ -235,5 +265,39 @@ mod test {
             .edge_between(jennifer, jake)
             .get::<Person, i32>(&map_graph);
         assert!(strength_jennifer.is_none());
+    }
+
+    #[test]
+    fn remove_undirected_node() {
+        const STRENGTH: i32 = 100;
+
+        let mut map_graph = SimpleMapGraph::<Person, i32, false>::new();
+
+        let jake = map_graph.new_node(Person::Jake);
+        let michael = map_graph.new_node(Person::Michael);
+
+        let _best_friends = map_graph.new_edge(jake, michael, STRENGTH);
+
+        assert!(map_graph.remove_node(michael).is_ok());
+
+        assert!(map_graph.node(michael).is_err());
+        assert!(map_graph.edge_between(jake, michael).is_null());
+    }
+
+    #[test]
+    fn remove_directed_node() {
+        const STRENGTH: i32 = 9999;
+
+        let mut map_graph = SimpleMapGraph::<Person, i32, true>::new();
+
+        let jake = map_graph.new_node(Person::Jake);
+        let jennifer = map_graph.new_node(Person::Jennifer);
+
+        let _oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH);
+
+        assert!(map_graph.remove_node(jake).is_ok());
+
+        assert!(map_graph.node(jake).is_err());
+        assert!(map_graph.edge_between(jake, jennifer).is_null());
     }
 }

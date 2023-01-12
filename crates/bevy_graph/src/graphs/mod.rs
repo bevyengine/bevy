@@ -12,11 +12,15 @@ use self::keys::{EdgeIdx, NodeIdx};
 pub trait Graph<N, E> {
     fn count(&self) -> usize;
 
+    // Nodes
     fn new_node(&mut self, node: N) -> NodeIdx;
 
     fn node(&self, idx: NodeIdx) -> GraphResult<&N>;
     fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N>;
 
+    fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N>;
+
+    // Edges
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx;
 
     fn get_edge(&self, edge: EdgeIdx) -> Option<&E>;
@@ -27,6 +31,7 @@ pub trait Graph<N, E> {
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx;
     fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)>; // TODO: can we use other type than Vec? maybe directly iterator?
 
+    // Algos
     #[inline]
     fn algo_bfs(&self, start: NodeIdx) -> BreadthFirstSearch {
         BreadthFirstSearch::new(start, self.count())
