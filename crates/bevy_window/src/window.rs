@@ -386,9 +386,9 @@ pub enum WindowCommand {
     SetMinimized {
         minimized: bool,
     },
-    /// Set the window's position on the selected monitor.
+    /// Set the window's position. Optionally relative to a monitor.
     SetPosition {
-        monitor_selection: MonitorSelection,
+        monitor_selection: Option<MonitorSelection>,
         position: IVec2,
     },
     /// Sets the position of the window to be in the center of the selected monitor.
@@ -545,6 +545,7 @@ impl Window {
     pub fn position(&self) -> Option<IVec2> {
         self.position
     }
+    
     /// Set whether or not the window is maximized.
     #[inline]
     pub fn set_maximized(&mut self, maximized: bool) {
@@ -563,7 +564,7 @@ impl Window {
             .push(WindowCommand::SetMinimized { minimized });
     }
 
-    /// Sets the `position` of the window on the selected `monitor` in physical pixels.
+    /// Set the window's position in physical pixels. Optionally relative to a monitor.
     ///
     /// This automatically un-maximizes the window if it's maximized.
     ///
@@ -574,7 +575,7 @@ impl Window {
     /// - Web: Sets the top-left coordinates relative to the viewport.
     /// - Android / Wayland: Unsupported.
     #[inline]
-    pub fn set_position(&mut self, monitor: MonitorSelection, position: IVec2) {
+    pub fn set_position(&mut self, monitor: Option<MonitorSelection>, position: IVec2) {
         self.command_queue.push(WindowCommand::SetPosition {
             monitor_selection: monitor,
             position,

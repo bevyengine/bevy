@@ -178,18 +178,23 @@ fn change_window(
                     let window = winit_windows.get_window(id).unwrap();
 
                     use bevy_window::MonitorSelection::*;
-                    let maybe_monitor = match monitor_selection {
-                        Current => window.current_monitor(),
-                        Primary => window.primary_monitor(),
-                        Index(i) => window.available_monitors().nth(i),
-                    };
-                    if let Some(monitor) = maybe_monitor {
-                        let monitor_position = DVec2::from(<(_, _)>::from(monitor.position()));
-                        let position = monitor_position + position.as_dvec2();
+                    if let Some(monitor_selection) = monitor_selection {
+                        let maybe_monitor = match monitor_selection {
+                            Current => window.current_monitor(),
+                            Primary => window.primary_monitor(),
+                            Index(i) => window.available_monitors().nth(i),
+                        };
+                        if let Some(monitor) = maybe_monitor {
+                            let monitor_position = DVec2::from(<(_, _)>::from(monitor.position()));
+                            let position = monitor_position + position.as_dvec2();
 
-                        window.set_outer_position(LogicalPosition::new(position.x, position.y));
+                            window
+                                .set_outer_position(PhysicalPosition::new(position.x, position.y));
+                        } else {
+                            warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                        }
                     } else {
-                        warn!("Couldn't get monitor selected with: {monitor_selection:?}");
+                        window.set_outer_position(PhysicalPosition::new(position.x, position.y));
                     }
                 }
                 bevy_window::WindowCommand::Center(monitor_selection) => {
