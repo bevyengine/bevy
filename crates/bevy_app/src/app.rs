@@ -211,7 +211,9 @@ impl App {
             let _bevy_frame_update_span = info_span!("main app").entered();
             self.schedule.run(&mut self.world);
         }
-        for sub_app in self.sub_apps.values_mut() {
+        for (_label, sub_app) in self.sub_apps.iter_mut() {
+            #[cfg(feature = "trace")]
+            let _sub_app_span = info_span!("sub app", name = ?_label).entered();
             sub_app.extract(&mut self.world);
             sub_app.run();
         }
