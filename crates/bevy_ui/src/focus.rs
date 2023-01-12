@@ -63,7 +63,7 @@ pub enum FocusPolicy {
 }
 
 impl FocusPolicy {
-    const DEFAULT: Self = Self::Block;
+    const DEFAULT: Self = Self::Pass;
 }
 
 impl Default for FocusPolicy {
@@ -164,9 +164,7 @@ pub fn ui_focus_system(
                         // Reset their interaction to None to avoid strange stuck state
                         if let Some(mut interaction) = node.interaction {
                             // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
-                            if *interaction != Interaction::None {
-                                *interaction = Interaction::None;
-                            }
+                            interaction.set_if_neq(Interaction::None);
                         }
 
                         return None;
