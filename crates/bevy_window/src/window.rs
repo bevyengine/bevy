@@ -545,7 +545,7 @@ impl Window {
     pub fn position(&self) -> Option<IVec2> {
         self.position
     }
-    
+
     /// Set whether or not the window is maximized.
     #[inline]
     pub fn set_maximized(&mut self, maximized: bool) {
