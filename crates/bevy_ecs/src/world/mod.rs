@@ -824,7 +824,7 @@ impl World {
             OwningPtr::make(value, |ptr| {
                 // SAFETY: component_id was just initialized and corresponds to resource of type R
                 unsafe {
-                    self.insert_resource_by_id(component_id, ptr);
+                    self.insert_non_send_by_id(component_id, ptr);
                 }
             });
         }
