@@ -2,18 +2,60 @@ use crate::archetype::ArchetypeComponentId;
 use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
 use crate::storage::{Column, SparseSet, TableRow};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use std::{mem::ManuallyDrop, thread::ThreadId};
 
 /// The type-erased backing storage and metadata for a single resource within a [`World`].
 ///
+/// If `SEND` is false, values of this type will panic if dropped from a different thread.
+///
 /// [`World`]: crate::world::World
-pub struct ResourceData {
-    column: Column,
+pub struct ResourceData<const SEND: bool> {
+    column: ManuallyDrop<Column>,
+    type_name: String,
     id: ArchetypeComponentId,
+    origin_thread_id: Option<ThreadId>,
 }
 
-impl ResourceData {
+impl<const SEND: bool> Drop for ResourceData<SEND> {
+    fn drop(&mut self) {
+        if self.is_present() {
+            // If this thread is already panicking, panicking again will cause
+            // the entire process to abort. In this case we choose to avoid
+            // dropping or checking this altogether and just leak the column.
+            if std::thread::panicking() {
+                return;
+            }
+            self.validate_access();
+        }
+        // SAFETY: Drop is only called once upon dropping the ResourceData
+        // and is inaccessible after this as the parent ResourceData has
+        // been dropped. The validate_access call above will check that the
+        // data is dropped on the thread it was inserted from.
+        unsafe {
+            ManuallyDrop::drop(&mut self.column);
+        }
+    }
+}
+
+impl<const SEND: bool> ResourceData<SEND> {
     /// The only row in the underlying column.
     const ROW: TableRow = TableRow::new(0);
+
+    #[inline]
+    fn validate_access(&self) {
+        if SEND {
+            return;
+        }
+        if self.origin_thread_id != Some(std::thread::current().id()) {
+            // Panic in tests, as testing for aborting is nearly impossible
+            panic!(
+                "Attempted to access or drop non-send resource {} from thread {:?} on a thread {:?}. This is not allowed. Aborting.",
+                self.type_name,
+                self.origin_thread_id,
+                std::thread::current().id()
+            );
+        }
+    }
 
     /// Returns true if the resource is populated.
     #[inline]
@@ -28,9 +70,16 @@ impl ResourceData {
     }
 
     /// Gets a read-only pointer to the underlying resource, if available.
+    ///
+    /// # Panics
+    /// If `SEND` is false, this will panic if a value is present and is not accessed from the
+    /// original thread it was inserted from.
     #[inline]
     pub fn get_data(&self) -> Option<Ptr<'_>> {
-        self.column.get_data(Self::ROW)
+        self.column.get_data(Self::ROW).map(|res| {
+            self.validate_access();
+            res
+        })
     }
 
     /// Gets a read-only reference to the change ticks of the underlying resource, if available.
@@ -39,26 +88,35 @@ impl ResourceData {
         self.column.get_ticks(Self::ROW)
     }
 
+    /// # Panics
+    /// If `SEND` is false, this will panic if a value is present and is not accessed from the
+    /// original thread it was inserted in.
     #[inline]
     pub(crate) fn get_with_ticks(&self) -> Option<(Ptr<'_>, TickCells<'_>)> {
-        self.column.get(Self::ROW)
+        self.column.get(Self::ROW).map(|res| {
+            self.validate_access();
+            res
+        })
     }
 
     /// Inserts a value into the resource. If a value is already present
     /// it will be replaced.
     ///
+    /// # Panics
+    /// If `SEND` is false, this will panic if a value is present and is not replaced from
+    /// the original thread it was inserted in.
+    ///
     /// # Safety
-    /// `value` must be valid for the underlying type for the resource.
-    ///
-    /// The underlying type must be [`Send`] or be inserted from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
+    /// - `value` must be valid for the underlying type for the resource.
     #[inline]
     pub(crate) unsafe fn insert(&mut self, value: OwningPtr<'_>, change_tick: u32) {
         if self.is_present() {
+            self.validate_access();
             self.column.replace(Self::ROW, value, change_tick);
         } else {
+            if !SEND {
+                self.origin_thread_id = Some(std::thread::current().id());
+            }
             self.column.push(value, ComponentTicks::new(change_tick));
         }
     }
@@ -66,13 +124,12 @@ impl ResourceData {
     /// Inserts a value into the resource with a pre-existing change tick. If a
     /// value is already present it will be replaced.
     ///
+    /// # Panics
+    /// If `SEND` is false, this will panic if a value is present and is not replaced from
+    /// the original thread it was inserted in.
+    ///
     /// # Safety
-    /// `value` must be valid for the underlying type for the resource.
-    ///
-    /// The underlying type must be [`Send`] or be inserted from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
+    /// - `value` must be valid for the underlying type for the resource.
     #[inline]
     pub(crate) unsafe fn insert_with_ticks(
         &mut self,
@@ -80,6 +137,7 @@ impl ResourceData {
         change_ticks: ComponentTicks,
     ) {
         if self.is_present() {
+            self.validate_access();
             self.column.replace_untracked(Self::ROW, value);
             *self.column.get_added_ticks_unchecked(Self::ROW).deref_mut() = change_ticks.added;
             *self
@@ -87,35 +145,41 @@ impl ResourceData {
                 .get_changed_ticks_unchecked(Self::ROW)
                 .deref_mut() = change_ticks.changed;
         } else {
+            if !SEND {
+                self.origin_thread_id = Some(std::thread::current().id());
+            }
             self.column.push(value, change_ticks);
         }
     }
 
     /// Removes a value from the resource, if present.
     ///
-    /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// The removed value must be used or dropped.
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
+    /// # Panics
+    /// If `SEND` is false, this will panic if a value is present and is not removed from the
+    /// original thread it was inserted from.
     #[inline]
     #[must_use = "The returned pointer to the removed component should be used or dropped"]
-    pub(crate) unsafe fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
-        self.column.swap_remove_and_forget(Self::ROW)
+    pub(crate) fn remove(&mut self) -> Option<(OwningPtr<'_>, ComponentTicks)> {
+        if SEND {
+            self.column.swap_remove_and_forget(Self::ROW)
+        } else {
+            self.is_present()
+                .then(|| self.validate_access())
+                .and_then(|_| self.column.swap_remove_and_forget(Self::ROW))
+        }
     }
 
     /// Removes a value from the resource, if present, and drops it.
     ///
-    /// # Safety
-    /// The underlying type must be [`Send`] or be removed from the main thread.
-    /// This can be validated with [`World::validate_non_send_access_untyped`].
-    ///
-    /// [`World::validate_non_send_access_untyped`]: crate::world::World::validate_non_send_access_untyped
+    /// # Panics
+    /// If `SEND` is false, this will panic if a value is present and is not
+    /// accessed from the original thread it was inserted in.
     #[inline]
-    pub(crate) unsafe fn remove_and_drop(&mut self) {
-        self.column.clear();
+    pub(crate) fn remove_and_drop(&mut self) {
+        if self.is_present() {
+            self.validate_access();
+            self.column.clear();
+        }
     }
 }
 
@@ -124,11 +188,11 @@ impl ResourceData {
 /// [`Resource`]: crate::system::Resource
 /// [`World`]: crate::world::World
 #[derive(Default)]
-pub struct Resources {
-    resources: SparseSet<ComponentId, ResourceData>,
+pub struct Resources<const SEND: bool> {
+    resources: SparseSet<ComponentId, ResourceData<SEND>>,
 }
 
-impl Resources {
+impl<const SEND: bool> Resources<SEND> {
     /// The total number of resources stored in the [`World`]
     ///
     /// [`World`]: crate::world::World
@@ -138,7 +202,7 @@ impl Resources {
     }
 
     /// Iterate over all resources that have been initialized, i.e. given a [`ComponentId`]
-    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData)> {
+    pub fn iter(&self) -> impl Iterator<Item = (ComponentId, &ResourceData<SEND>)> {
         self.resources.iter().map(|(id, data)| (*id, data))
     }
 
@@ -153,13 +217,13 @@ impl Resources {
 
     /// Gets read-only access to a resource, if it exists.
     #[inline]
-    pub fn get(&self, component_id: ComponentId) -> Option<&ResourceData> {
+    pub fn get(&self, component_id: ComponentId) -> Option<&ResourceData<SEND>> {
         self.resources.get(component_id)
     }
 
     /// Gets mutable access to a resource, if it exists.
     #[inline]
-    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData> {
+    pub(crate) fn get_mut(&mut self, component_id: ComponentId) -> Option<&mut ResourceData<SEND>> {
         self.resources.get_mut(component_id)
     }
 
@@ -167,17 +231,23 @@ impl Resources {
     ///
     /// # Panics
     /// Will panic if `component_id` is not valid for the provided `components`
+    /// If `SEND` is false, this will panic if `component_id`'s `ComponentInfo` is not registered as being `Send` + `Sync`.
     pub(crate) fn initialize_with(
         &mut self,
         component_id: ComponentId,
         components: &Components,
         f: impl FnOnce() -> ArchetypeComponentId,
-    ) -> &mut ResourceData {
+    ) -> &mut ResourceData<SEND> {
         self.resources.get_or_insert_with(component_id, || {
             let component_info = components.get_info(component_id).unwrap();
+            if SEND {
+                assert!(component_info.is_send_and_sync());
+            }
             ResourceData {
-                column: Column::with_capacity(component_info, 1),
+                column: ManuallyDrop::new(Column::with_capacity(component_info, 1)),
+                type_name: String::from(component_info.name()),
                 id: f(),
+                origin_thread_id: None,
             }
         })
     }

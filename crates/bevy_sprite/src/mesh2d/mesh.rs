@@ -2,6 +2,7 @@ use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
+    query::ROQueryItem,
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_math::{Mat4, Vec2};
@@ -11,7 +12,7 @@ use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
     mesh::{GpuBufferInfo, Mesh, MeshVertexBufferLayout},
     render_asset::RenderAssets,
-    render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
@@ -495,16 +496,19 @@ pub fn queue_mesh2d_view_bind_groups(
 }
 
 pub struct SetMesh2dViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
-    type Param = SQuery<(Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>)>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I> {
+    type Param = ();
+    type ViewWorldQuery = (Read<ViewUniformOffset>, Read<Mesh2dViewBindGroup>);
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        view_query: SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewWorldQuery>,
+        _view: (),
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform, mesh2d_view_bind_group) = view_query.get_inner(view).unwrap();
         pass.set_bind_group(I, &mesh2d_view_bind_group.value, &[view_uniform.offset]);
 
         RenderCommandResult::Success
@@ -512,19 +516,19 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dViewBindGroup<I> {
 }
 
 pub struct SetMesh2dBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMesh2dBindGroup<I> {
-    type Param = (
-        SRes<Mesh2dBindGroup>,
-        SQuery<Read<DynamicUniformIndex<Mesh2dUniform>>>,
-    );
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
+    type Param = SRes<Mesh2dBindGroup>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<DynamicUniformIndex<Mesh2dUniform>>;
+
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (mesh2d_bind_group, mesh2d_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        mesh2d_index: &'_ DynamicUniformIndex<Mesh2dUniform>,
+        mesh2d_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh2d_index = mesh2d_query.get(item).unwrap();
         pass.set_bind_group(
             I,
             &mesh2d_bind_group.into_inner().value,
@@ -535,17 +539,20 @@ impl<const I: usize> EntityRenderCommand for SetMesh2dBindGroup<I> {
 }
 
 pub struct DrawMesh2d;
-impl EntityRenderCommand for DrawMesh2d {
-    type Param = (SRes<RenderAssets<Mesh>>, SQuery<Read<Mesh2dHandle>>);
+impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
+    type Param = SRes<RenderAssets<Mesh>>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<Mesh2dHandle>;
+
     #[inline]
     fn render<'w>(
-        _view: Entity,
-        item: Entity,
-        (meshes, mesh2d_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        _view: (),
+        mesh_handle: ROQueryItem<'w, Self::ItemWorldQuery>,
+        meshes: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let mesh_handle = &mesh2d_query.get(item).unwrap().0;
-        if let Some(gpu_mesh) = meshes.into_inner().get(mesh_handle) {
+        if let Some(gpu_mesh) = meshes.into_inner().get(&mesh_handle.0) {
             pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
             match &gpu_mesh.buffer_info {
                 GpuBufferInfo::Indexed {

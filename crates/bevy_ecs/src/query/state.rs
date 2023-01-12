@@ -408,17 +408,16 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         let mut fetch = Q::init_fetch(world, &self.fetch_state, last_change_tick, change_tick);
         let mut filter = F::init_fetch(world, &self.filter_state, last_change_tick, change_tick);
 
-        let table_row = archetype.entity_table_row(location.archetype_row);
         let table = world
             .storages()
             .tables
-            .get(archetype.table_id())
+            .get(location.table_id)
             .debug_checked_unwrap();
         Q::set_archetype(&mut fetch, &self.fetch_state, archetype, table);
         F::set_archetype(&mut filter, &self.filter_state, archetype, table);
 
-        if F::filter_fetch(&mut filter, entity, table_row) {
-            Ok(Q::fetch(&mut fetch, entity, table_row))
+        if F::filter_fetch(&mut filter, entity, location.table_row) {
+            Ok(Q::fetch(&mut fetch, entity, location.table_row))
         } else {
             Err(QueryEntityError::QueryDoesNotMatch(entity))
         }

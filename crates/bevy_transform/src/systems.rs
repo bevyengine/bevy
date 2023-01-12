@@ -3,6 +3,9 @@ use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
 use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
+///
+/// Third party plugins should use [`transform_propagate_system_set`](crate::transform_propagate_system_set)
+/// to propagate transforms correctly.
 pub fn sync_simple_transforms(
     mut query: Query<
         (&Transform, &mut GlobalTransform),
@@ -16,6 +19,9 @@ pub fn sync_simple_transforms(
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
+///
+/// Third party plugins should use [`transform_propagate_system_set`](crate::transform_propagate_system_set)
+/// to propagate transforms correctly.
 pub fn propagate_transforms(
     mut root_query: Query<
         (
@@ -92,7 +98,7 @@ unsafe fn propagate_recursive(
     mut changed: bool,
 ) {
     let Ok(actual_parent) = parent_query.get(entity) else {
-        panic!("Propagated child for {:?} has no Parent component!", entity);
+        panic!("Propagated child for {entity:?} has no Parent component!");
     };
     assert_eq!(
         actual_parent.get(), expected_parent,

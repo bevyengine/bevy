@@ -302,7 +302,6 @@ Example | Description
 Example | Description
 --- | ---
 [3D Rotation](../examples/transforms/3d_rotation.rs) | Illustrates how to (constantly) rotate an object around an axis
-[Global / Local Translation](../examples/transforms/global_vs_local_translation.rs) | Illustrates the difference between direction of a translation in respect to local object or global object Transform
 [Scale](../examples/transforms/scale.rs) | Illustrates how to scale an object in each direction
 [Transform](../examples/transforms/transform.rs) | Shows multiple transformations of objects
 [Translation](../examples/transforms/translation.rs) | Illustrates how to move an object along an axis
