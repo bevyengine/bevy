@@ -51,6 +51,7 @@ impl Command for RemoveParentInPlace {
     fn write(self, world: &mut World) {
         let hierarchy_command = RemoveParent { child: self.child };
         hierarchy_command.write(world);
+        // FIXME: Replace this closure with a `try` block. See: https://github.com/rust-lang/rust/issues/31436.
         let mut update_transform = || {
             let child_global = *world.get_entity(self.child)?.get::<GlobalTransform>()?;
             let mut child_entity = world.get_entity_mut(self.child)?;
