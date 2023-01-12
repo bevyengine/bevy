@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    render::camera::Viewport,
+    render::{camera::Viewport, picking::Picking},
     window::{WindowId, WindowResized},
 };
 
@@ -53,6 +53,7 @@ fn setup(
             ..default()
         },
         LeftCamera,
+        Picking::default(),
     ));
 
     // Right Camera
@@ -72,6 +73,7 @@ fn setup(
             ..default()
         },
         RightCamera,
+        Picking::default(),
     ));
 }
 

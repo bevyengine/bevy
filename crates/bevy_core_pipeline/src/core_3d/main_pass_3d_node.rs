@@ -93,7 +93,11 @@ impl Node for MainPass3dNode {
 
             if let Some(picking_textures) = picking_textures {
                 color_attachments.push(Some(picking_textures.get_color_attachment(Operations {
-                    load: LoadOp::Clear(PickingTextures::clear_color()),
+                    // If the wish is to not clear the screen, don't clear the picking buffer either.
+                    load: match camera_3d.clear_color {
+                        ClearColorConfig::None => LoadOp::Load,
+                        _ => LoadOp::Clear(PickingTextures::clear_color()),
+                    },
                     store: true,
                 })));
             }

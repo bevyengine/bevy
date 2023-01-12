@@ -14,7 +14,7 @@ use bevy::{
 fn main() {
     App::new()
         // TODO: Support MSAA != 1 with depth texture copies
-        .insert_resource(Msaa { samples: 1 })
+        // .insert_resource(Msaa { samples: 1 })
         .add_plugins(DefaultPlugins)
         .init_resource::<MousePosition>()
         .init_resource::<Hovered>()
