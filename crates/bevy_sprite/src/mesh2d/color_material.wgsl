@@ -1,7 +1,9 @@
 #import bevy_sprite::mesh2d_types
 #import bevy_sprite::mesh2d_view_bindings
 
-// TODO: Fix this one
+#ifdef PICKING
+#import bevy_core_pipeline::picking
+#endif
 
 struct ColorMaterial {
     color: vec4<f32>,
@@ -27,7 +29,7 @@ struct FragmentInput {
 struct FragmentOutput {
     @location(0) color: vec4<f32>,
 #ifdef PICKING
-    @location(1) picking: u32,
+    @location(1) picking: vec4<f32>,
 #endif
 }
 
@@ -46,7 +48,7 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
     out.color = output_color;
 
 #ifdef PICKING
-    out.picking = mesh.entity_index;
+    out.picking = vec4(entity_index_to_vec3_f32(mesh.entity_index), picking_alpha(output_color.a));
 #endif
 
     return out;

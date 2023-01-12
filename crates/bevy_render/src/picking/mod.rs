@@ -144,55 +144,19 @@ impl Picking {
                         as u16
                 };
 
-                // DEBUG: Upper bytes are marked, let's clear that
-                let mut upper_12: [u8; 2] = bytes[4..6].try_into().unwrap();
-                upper_12[1] &= 0b00001111;
-                // DEBUG END
-
-                // let u16_lower: u16 =
-                //     half::f16::from_le_bytes(bytes[0..2].try_into().unwrap()).to_f32() as u16;
                 let u16_lower_8 = f16_to_u16(bytes, 0);
                 let u16_mid_12 = f16_to_u16(bytes, 2);
-                // let u16_upper_12 = f16_to_u16(bytes, 4);
-                let u16_upper_12 = f16_to_u16(&upper_12, 0);
-
-                // let alpha_le = [0x00, 0x00, bytes[6], bytes[7]];
-                // let alpha = f32::from_le_bytes(alpha_le);
-
-                // let r_le = [bytes[0], bytes[1]];
-                // let g_le = [bytes[2], bytes[3]];
-                // let r = u16::from_le_bytes(r_le);
-                // let g1 = u16::from_le_bytes(g_le);
-                // let g2 = u16::from_be_bytes(g_le);
-
-                // bevy_log::info!("Alpha: {}, r: {}, g: {}", alpha, r, g);
-                // bevy_log::info!(
-                //     "Bytes: {:?}, r: {r}, g1: {g1}, g2: {g2}, alpha: {alpha}",
-                //     bytes
-                // );
-
-                // bevy_log::info!("Entity index: {entity_index}");
-
-                // None
-
-                // u32::from_le_bytes(
-                //     bytes
-                //         .try_into()
-                //         .expect("Should be able to make u32 (entity index) out of 4 bytes"),
-                // )
+                let u16_upper_12 = f16_to_u16(bytes, 4);
 
                 u16_lower_8 as u32 | ((u16_mid_12 as u32) << 8) | ((u16_upper_12 as u32) << 20)
             },
         );
 
-        if entity_index == 0 {
+        if entity_index == u32::MAX {
             None
         } else {
             Some(Entity::from_raw(entity_index))
         }
-
-        // Some(Entity::from_raw(entity_index))
-        // None
     }
 
     /// Get the depth at the given coordinate.
@@ -285,7 +249,11 @@ pub struct PickingTextures {
 
 impl PickingTextures {
     pub fn clear_color() -> wgpu::Color {
-        Color::BLACK.into()
+        // An entity index is u32. The picking buffer needs to have a value which indicates
+        // that there is no entity at the given pixel.
+        // It is more likely that a user sees an entity with index 0 than with index u32::MAX,
+        // so make u32::MAX the default value (i.e. no entity) value.
+        Color::rgba_u8(0xFF, 0xFF, 0xFF, 0xFF).into()
     }
 
     /// Retrieve this target's color attachment. This will use [`Self::sampled`] and resolve to [`Self::main`] if
