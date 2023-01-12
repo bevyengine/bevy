@@ -776,7 +776,7 @@ impl World {
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R
+                // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
                     self.insert_resource_by_id(component_id, ptr);
                 }
@@ -793,7 +793,7 @@ impl World {
     pub fn insert_resource<R: Resource>(&mut self, value: R) {
         let component_id = self.components.init_resource::<R>();
         OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R
+            // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
                 self.insert_resource_by_id(component_id, ptr);
             }
@@ -822,7 +822,7 @@ impl World {
         {
             let value = R::from_world(self);
             OwningPtr::make(value, |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R
+                // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
                     self.insert_non_send_by_id(component_id, ptr);
                 }
@@ -843,7 +843,7 @@ impl World {
     pub fn insert_non_send_resource<R: 'static>(&mut self, value: R) {
         let component_id = self.components.init_non_send::<R>();
         OwningPtr::make(value, |ptr| {
-            // SAFETY: component_id was just initialized and corresponds to resource of type R
+            // SAFETY: component_id was just initialized and corresponds to resource of type R.
             unsafe {
                 self.insert_non_send_by_id(component_id, ptr);
             }
@@ -996,7 +996,7 @@ impl World {
         let data = self.initialize_resource_internal(component_id);
         if !data.is_present() {
             OwningPtr::make(func(), |ptr| {
-                // SAFETY: component_id was just initialized and corresponds to resource of type R
+                // SAFETY: component_id was just initialized and corresponds to resource of type R.
                 unsafe {
                     data.insert(ptr, change_tick);
                 }
