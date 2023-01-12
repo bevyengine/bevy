@@ -197,6 +197,8 @@ impl Image {
                 self.data,
             )
             .map(DynamicImage::ImageRgba8),
+            // This format is commonly used as the format for the swapchain texture
+            // This conversion is added here to support screenshots
             TextureFormat::Bgra8UnormSrgb => ImageBuffer::from_raw(
                 self.texture_descriptor.size.width,
                 self.texture_descriptor.size.height,

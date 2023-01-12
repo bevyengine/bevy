@@ -138,6 +138,10 @@ fn extract_windows(
     for closed_window in closed.iter() {
         extracted_windows.remove(&closed_window.id);
     }
+    // This lock will never block because `callbacks` is `pub(crate)` and this is the singular callsite where it's locked.
+    // Even if a user had multiple copies of this system, since the system has a mutable resource access the two systems would never run
+    // at the same time
+    // TODO: since this is guaranteed, should the lock be replaced with an UnsafeCell to remove the overhead, or is it minor enough to be ignored?
     for (window, screenshot_func) in screenshot_manager.callbacks.lock().drain() {
         if let Some(window) = extracted_windows.get_mut(&window) {
             window.screenshot_func = Some(screenshot_func);
