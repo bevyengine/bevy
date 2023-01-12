@@ -1,5 +1,5 @@
 use crate::archetype::ArchetypeComponentId;
-use crate::change_detection::{MutUntyped, Ticks};
+use crate::change_detection::{MutUntyped, TicksMut};
 use crate::component::{ComponentId, ComponentTicks, Components, TickCells};
 use crate::storage::{Column, SparseSet, TableRow};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
@@ -110,7 +110,7 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: We have exclusive access to the underlying storage.
             value: unsafe { ptr.assert_unique() },
             // SAFETY: We have exclusive access to the underlying storage.
-            ticks: unsafe { Ticks::from_tick_cells(ticks, last_change_tick, change_tick) },
+            ticks: unsafe { TicksMut::from_tick_cells(ticks, last_change_tick, change_tick) },
         })
     }
 
