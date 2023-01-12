@@ -1,6 +1,6 @@
 [0m[1m[38;5;9merror[0m[1m: override is invalid as `outer` is not virtual (this error can be disabled with feature 'override_any')[0m
-  [0m[36m┌─[0m tests/overrides/top_invalid.wgsl:3:44
+  [0m[36m┌─[0m tests/overrides/top_invalid.wgsl:3:39
   [0m[36m│[0m
 [0m[36m3[0m [0m[36m│[0m override fn mod::[0m[31mo[0muter() -> f32 {
-  [0m[36m│[0m                                            [0m[31m^[0m
+  [0m[36m│[0m                                       [0m[31m^[0m
 
