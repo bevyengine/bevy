@@ -887,7 +887,7 @@ pub(crate) unsafe fn get_mut_by_id(
 /// Caller is responsible to drop component data behind returned pointer.
 ///
 /// # Safety
-/// - `location` must be within bounds of the given archetype and `entity` must exist inside the `archetype`
+/// - `location.table_row` must be in bounds of column of component id `component_id`
 /// - `component_id` must be valid
 /// - `components` must come from the same world as `self`
 /// - The relevant table row **must be removed** by the caller once all components are taken, without dropping the value
@@ -900,13 +900,13 @@ pub(crate) unsafe fn take_component<'a>(
     entity: Entity,
     location: EntityLocation,
 ) -> OwningPtr<'a> {
+    // SAFETY: caller promises component_id to be valid
     let component_info = components.get_info_unchecked(component_id);
     let removed_components = removed_components.get_or_insert_with(component_id, Vec::new);
     removed_components.push(entity);
     match component_info.storage_type() {
         StorageType::Table => {
             let table = &mut storages.tables[location.table_id];
-            // SAFETY: archetypes will always point to valid columns
             let components = table.get_column_mut(component_id).unwrap();
             // SAFETY:
             // - archetypes only store valid table_rows
