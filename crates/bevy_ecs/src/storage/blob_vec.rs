@@ -6,6 +6,7 @@ use std::{
 };
 
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
+use bevy_utils::OnDrop;
 
 /// A flat, type-erased data storage type
 ///
@@ -158,25 +159,22 @@ impl BlobVec {
         // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
         // done.
         let old_len = self.len;
-        let ptr = self.get_unchecked_mut(index).promote().as_ptr();
+        let drop = self.drop;
         self.len = 0;
+
+        let old_value = self.get_unchecked_mut(index).promote();
+        let dst_addr = old_value.as_ptr();
+        let src_addr = value.as_ptr();
         // Drop the old value, then write back, justifying the promotion
         // If the drop impl for the old value panics then we run the drop impl for `value` too.
-        if let Some(drop) = self.drop {
-            struct OnDrop<F: FnMut()>(F);
-            impl<F: FnMut()> Drop for OnDrop<F> {
-                fn drop(&mut self) {
-                    (self.0)();
-                }
-            }
-            let value = value.as_ptr();
-            let on_unwind = OnDrop(|| (drop)(OwningPtr::new(NonNull::new_unchecked(value))));
+        if let Some(drop) = drop {
+            let on_unwind = OnDrop::new(|| (drop)(value));
 
-            (drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
+            (drop)(old_value);
 
             core::mem::forget(on_unwind);
         }
-        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
+        std::ptr::copy_nonoverlapping::<u8>(src_addr, dst_addr, self.item_layout.size());
         self.len = old_len;
     }
 
