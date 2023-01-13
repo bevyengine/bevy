@@ -119,6 +119,22 @@ impl<'w> InteriorMutableWorld<'w> {
         &self.0.bundles
     }
 
+    /// Reads the current change tick of this world.
+    #[inline]
+    pub fn read_change_tick(&self) -> u32 {
+        self.0.read_change_tick()
+    }
+
+    #[inline]
+    pub fn last_change_tick(&self) -> u32 {
+        self.0.last_change_tick()
+    }
+
+    #[inline]
+    pub fn increment_change_tick(&self) -> u32 {
+        self.0.increment_change_tick()
+    }
+
     /// Retrieves an [`InteriorMutableEntityRef`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`InteriorMutableWorld`], you are in charge of making sure that no aliasing rules are violated.
     pub fn get_entity(&self, entity: Entity) -> Option<InteriorMutableEntityRef<'w>> {
@@ -206,7 +222,7 @@ impl<'w> InteriorMutableWorld<'w> {
         // - index is in-bounds because the column is initialized and non-empty
         // - the caller promises that no other reference to the ticks of the same row can exist at the same time
         let ticks = unsafe {
-            TicksMut::from_tick_cells(ticks, self.0.last_change_tick(), self.0.read_change_tick())
+            TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
         };
 
         Some(MutUntyped {
@@ -250,7 +266,7 @@ impl<'w> InteriorMutableWorld<'w> {
         // - This caller ensures that nothing aliases `ticks`.
         // - index is in-bounds because the column is initialized and non-empty
         let ticks = unsafe {
-            TicksMut::from_tick_cells(ticks, self.0.last_change_tick(), self.0.read_change_tick())
+            TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
         };
 
         Some(Mut {
@@ -283,11 +299,7 @@ impl<'w> InteriorMutableWorld<'w> {
             value: unsafe { ptr.assert_unique().deref_mut() },
             // SAFETY: caller ensures unique access
             ticks: unsafe {
-                TicksMut::from_tick_cells(
-                    ticks,
-                    self.0.last_change_tick(),
-                    self.0.read_change_tick(),
-                )
+                TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.read_change_tick())
             },
         })
     }
@@ -393,10 +405,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
     pub unsafe fn get_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
         unsafe {
-            self.get_mut_using_ticks(
-                self.world.0.last_change_tick(),
-                self.world.0.read_change_tick(),
-            )
+            self.get_mut_using_ticks(self.world.last_change_tick(), self.world.read_change_tick())
         }
     }
 
@@ -487,8 +496,8 @@ impl<'w> InteriorMutableEntityRef<'w> {
                     value: value.assert_unique(),
                     ticks: TicksMut::from_tick_cells(
                         cells,
-                        self.world.0.last_change_tick,
-                        self.world.0.read_change_tick(),
+                        self.world.last_change_tick(),
+                        self.world.read_change_tick(),
                     ),
                 })
         }
