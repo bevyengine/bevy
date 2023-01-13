@@ -368,7 +368,10 @@ impl Node for BloomNode {
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
                             resolve_target: None,
-                            ops: Operations::default(),
+                            ops: Operations {
+                                load: LoadOp::Load,
+                                store: true,
+                            },
                         })],
                         depth_stencil_attachment: None,
                     }),
