@@ -749,21 +749,16 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<
     #[inline]
     fn render<'w>(
         _item: &P,
-        view_uniform_offset: &'_ ViewUniformOffset,
+        uniform_offsets: (&ViewUniformOffset, &PreviousViewProjectionUniformOffset),
         _entity: (),
         prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let (view_uniform_offset, previous_view_proj_uniform_offset) =
-            view_query.get(view).unwrap();
         let prepass_view_bind_group = prepass_view_bind_group.into_inner();
         pass.set_bind_group(
             I,
             prepass_view_bind_group.bind_group.as_ref().unwrap(),
-            &[
-                view_uniform_offset.offset,
-                previous_view_proj_uniform_offset.offset,
-            ],
+            &[uniform_offsets.0.offset, uniform_offsets.1.offset],
         );
         RenderCommandResult::Success
     }
