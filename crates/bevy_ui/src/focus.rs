@@ -219,8 +219,8 @@ pub fn ui_focus_system(
                         relative_cursor_position_component.0 = cursor_position;
                     }
 
-                    ((0.)..1.).contains(&cursor_position.x)
-                        && ((0.)..1.).contains(&cursor_position.y)
+                    (0.0..1.0).contains(&cursor_position.x)
+                        && (0.0..1.0).contains(&cursor_position.y)
                 } else {
                     false
                 };
