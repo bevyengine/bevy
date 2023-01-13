@@ -28,7 +28,7 @@ impl BreadthFirstSearch {
                     self.queue.push_back(idx);
                 }
             }
-            Some(graph.node(node).unwrap())
+            Some(graph.get_node(node).unwrap())
         } else {
             None
         }
@@ -42,7 +42,7 @@ impl BreadthFirstSearch {
                     self.queue.push_back(idx);
                 }
             }
-            Some(graph.node_mut(node).unwrap())
+            Some(graph.get_node_mut(node).unwrap())
         } else {
             None
         }
@@ -64,11 +64,11 @@ mod test {
 
         let sum = 6; // 0 + 1 + 2 + 3
 
-        map.new_edge(zero, one, ());
-        map.new_edge(zero, two, ());
-        map.new_edge(one, two, ());
-        map.new_edge(two, zero, ());
-        map.new_edge(two, three, ());
+        map.new_edge(zero, one, ()).unwrap();
+        map.new_edge(zero, two, ()).unwrap();
+        map.new_edge(one, two, ()).unwrap();
+        map.new_edge(two, zero, ()).unwrap();
+        map.new_edge(two, three, ()).unwrap();
 
         let mut counter = 0;
 

@@ -4,6 +4,7 @@ use crate::graphs::keys::{EdgeIdx, NodeIdx};
 pub enum GraphError {
     NodeDoesntExist(NodeIdx),
     EdgeDoesntExist(EdgeIdx),
+    EdgeAlreadyExists(NodeIdx, NodeIdx),
 }
 
 pub type GraphResult<T> = Result<T, GraphError>;

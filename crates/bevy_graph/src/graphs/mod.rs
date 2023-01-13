@@ -15,16 +15,18 @@ pub trait Graph<N, E> {
     // Nodes
     fn new_node(&mut self, node: N) -> NodeIdx;
 
-    fn node(&self, idx: NodeIdx) -> GraphResult<&N>;
-    fn node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N>;
+    fn get_node(&self, idx: NodeIdx) -> GraphResult<&N>;
+    fn get_node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N>;
 
     fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N>;
 
-    // Edges
-    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx;
+    fn has_node(&self, node: NodeIdx) -> bool;
 
-    fn get_edge(&self, edge: EdgeIdx) -> Option<&E>;
-    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Option<&mut E>;
+    // Edges
+    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx>;
+
+    fn get_edge(&self, edge: EdgeIdx) -> GraphResult<&E>;
+    fn get_edge_mut(&mut self, edge: EdgeIdx) -> GraphResult<&mut E>;
 
     fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E>;
 
