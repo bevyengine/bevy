@@ -29,7 +29,7 @@ impl Plugin for WindowRenderPlugin {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
-                .init_resource::<NonSendMarker>()
+                .init_non_send_resource::<NonSendMarker>()
                 .add_system_to_stage(RenderStage::Extract, extract_windows)
                 .add_system_to_stage(
                     RenderStage::Prepare,
@@ -192,8 +192,7 @@ pub fn prepare_windows(
                     .get(0)
                     .unwrap_or_else(|| {
                         panic!(
-                            "No supported formats found for surface {:?} on adapter {:?}",
-                            surface, render_adapter
+                            "No supported formats found for surface {surface:?} on adapter {render_adapter:?}"
                         )
                     });
                 SurfaceData { surface, format }

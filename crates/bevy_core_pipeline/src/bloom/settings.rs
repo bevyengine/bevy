@@ -142,9 +142,9 @@ impl Default for BloomSettings {
 /// to an SDR image or when emulating the 1990s-2000s game look.
 ///
 /// # Considerations
-/// * It is recommended to use this only if HDR rendering is not possible.
-/// * Changing these settings creates a physically inaccurate image.
-/// * Changing these settings makes it easy to make the final result look worse.
+/// * It is recommended to use this only if HDR rendering is not possible
+/// * Changing these settings creates a physically inaccurate image
+/// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjuction with composite_mode::Additive
 #[derive(Default, Clone, Reflect)]
 pub struct BloomPrefilterSettings {

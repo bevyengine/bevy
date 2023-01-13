@@ -2,6 +2,7 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
+pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
 mod systems;
@@ -9,7 +10,9 @@ mod systems;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{components::*, TransformBundle, TransformPlugin};
+    pub use crate::{
+        commands::BuildChildrenTransformExt, components::*, TransformBundle, TransformPlugin,
+    };
 }
 
 use bevy_app::prelude::*;
@@ -77,6 +80,13 @@ impl From<Transform> for TransformBundle {
 pub enum TransformSystem {
     /// Propagates changes in transform to children's [`GlobalTransform`](crate::components::GlobalTransform)
     TransformPropagate,
+}
+
+/// Transform propagation system set for third party plugins use
+pub fn transform_propagate_system_set() -> SystemSet {
+    SystemSet::new()
+        .with_system(systems::sync_simple_transforms)
+        .with_system(systems::propagate_transforms)
 }
 
 /// The base plugin for handling [`Transform`] components

@@ -17,7 +17,10 @@ pub fn derive_extract_resource(input: TokenStream) -> TokenStream {
     extract_resource::derive_extract_resource(input)
 }
 
-#[proc_macro_derive(AsBindGroup, attributes(uniform, texture, sampler, bind_group_data))]
+#[proc_macro_derive(
+    AsBindGroup,
+    attributes(uniform, texture, sampler, bind_group_data, storage)
+)]
 pub fn derive_as_bind_group(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
 
