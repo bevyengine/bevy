@@ -195,16 +195,8 @@ mod test {
         assert!(graph.get_node(jake).is_ok());
         assert!(graph.get_node(michael).is_err());
         assert!(graph.get_edge(edge).is_err());
-        assert!(graph
-            .edge_between(jake, michael)
-            .unwrap()
-            .get(&graph)
-            .is_err());
-        assert!(graph
-            .edge_between(michael, jake)
-            .unwrap()
-            .get(&graph)
-            .is_err());
+        assert!(graph.edge_between(jake, michael).is_err());
+        assert!(graph.edge_between(michael, jake).is_err());
     }
 
     pub fn remove_node_directed(mut graph: impl Graph<Person, i32>) {
@@ -224,27 +216,15 @@ mod test {
                 .unwrap(),
             &20
         );
-        assert!(graph
-            .edge_between(michael, jake)
-            .unwrap()
-            .get(&graph)
-            .is_err());
+        assert!(graph.edge_between(michael, jake).is_err());
 
         assert!(graph.remove_node(michael).is_ok());
 
         assert!(graph.get_node(jake).is_ok());
         assert!(graph.get_node(michael).is_err());
         assert!(graph.get_edge(edge).is_err());
-        assert!(graph
-            .edge_between(jake, michael)
-            .unwrap()
-            .get(&graph)
-            .is_err());
-        assert!(graph
-            .edge_between(michael, jake)
-            .unwrap()
-            .get(&graph)
-            .is_err());
+        assert!(graph.edge_between(jake, michael).is_err());
+        assert!(graph.edge_between(michael, jake).is_err());
     }
 
     fn unordered_eq<T>(a: &[T], b: &[T]) -> bool
