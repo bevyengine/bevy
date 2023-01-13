@@ -1,6 +1,6 @@
 #define_import_path wgsl_parse_err
 
-let VAL: u32 = 1u;
+const VAL: u32 = 1u;
 
 fn all_ok() -> f32 {
     let x = 1.0;

@@ -12,7 +12,7 @@ prune = ["dep:serde", "dep:serde_json", "naga/deserialize", "naga/serialize"]
 override_any = []
 
 [dependencies]
-naga = { version = "0.10", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "clone"] }
+naga = { git = "https://github.com/gfx-rs/naga", rev="6035b07b786135f65cb4140f99cf67cc0381b4c3", features = ["wgsl-in", "wgsl-out", "glsl-in", "glsl-out", "clone"] }
 tracing = "0.1"
 regex = "1.5"
 regex-syntax = "0.6"
@@ -30,3 +30,6 @@ serde_json = { version = "1", optional = true }
 wgpu = { version = "0.14", features=["naga"] }
 futures-lite = "1"
 tracing-subscriber = { version = "0.3", features = ["std", "fmt"] }
+
+[patch.crates-io]
+naga = { git = "https://github.com/gfx-rs/naga", rev="6035b07b786135f65cb4140f99cf67cc0381b4c3" }

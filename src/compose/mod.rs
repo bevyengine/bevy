@@ -474,7 +474,9 @@ impl ComposerError {
             ),
             ComposerErrorInner::WgslParseError(e) => (
                 e.labels()
-                    .map(|(range, msg)| Label::primary((), map_span(range)).with_message(msg))
+                    .map(|(range, msg)| {
+                        Label::primary((), map_span(range.to_range().unwrap())).with_message(msg)
+                    })
                     .collect(),
                 vec![e.message().to_owned()],
             ),

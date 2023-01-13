@@ -1,8 +1,8 @@
-let _naga_oil_mod_MNXW443UOM_memberX: u32 = 1u;
+const _naga_oil_mod_MNXW443UOM_memberX: u32 = 1u;
 
-let _naga_oil_mod_MJUW4ZA_membery: u32 = 2u;
+const _naga_oil_mod_MJUW4ZA_membery: u32 = 2u;
 
-let _naga_oil_mod_MJUW4ZA_member_naga_oil_mod_MNXW443UOM_memberX: u32 = 1u;
+const _naga_oil_mod_MJUW4ZA_member_naga_oil_mod_MNXW443UOM_memberX: u32 = 1u;
 
 var<private> _naga_oil_mod_MJUW4ZA_memberarr: array<u32,_naga_oil_mod_MJUW4ZA_member_naga_oil_mod_MNXW443UOM_memberX>;
 
