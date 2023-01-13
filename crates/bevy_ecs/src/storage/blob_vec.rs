@@ -186,6 +186,13 @@ impl BlobVec {
             core::mem::forget(on_unwind);
         }
         // Copy the new value into the vector, overwriting the previous value which has been moved.
+        // SAFETY:
+        // - `src_addr` and `dst_addr` were obtained from `OwningPtr`s, which ensures they are
+        //   valid for both reads and writes.
+        // - The data behind `src_addr` will only be dropped if the above branch panics,
+        //   so it must still be initialized and it is safe to transfer ownership into the vector.
+        // - `src_addr` and `dst_addr` were obtained from different memory locations,
+        //   both of which we have exclusive access to, so they are guaranteed not to overlap.
         std::ptr::copy_nonoverlapping::<u8>(src_addr, dst_addr, self.item_layout.size());
 
         // Now that each entry in the vector is fully initialized again, restore its length.
