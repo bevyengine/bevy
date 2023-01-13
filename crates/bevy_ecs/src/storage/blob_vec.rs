@@ -156,6 +156,7 @@ impl BlobVec {
         debug_assert!(index < self.len());
 
         let drop = self.drop;
+        let size = self.item_layout.size();
 
         // Temporarily set the length to zero, so that uninitialized bytes won't
         // get observed in case this function panics.
@@ -169,7 +170,7 @@ impl BlobVec {
         //   that the element will not get observed or double dropped later.
         // * If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
         //   does not occur. Instead, all elements will be forgotten.
-        let old_value = self.get_unchecked_mut(index).promote();
+        let old_value = self.get_ptr_mut().byte_add(index * size).promote();
 
         let dst_addr = old_value.as_ptr();
         let src_addr = value.as_ptr();
@@ -193,7 +194,7 @@ impl BlobVec {
         //   so it must still be initialized and it is safe to transfer ownership into the vector.
         // - `src_addr` and `dst_addr` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
-        std::ptr::copy_nonoverlapping::<u8>(src_addr, dst_addr, self.item_layout.size());
+        std::ptr::copy_nonoverlapping::<u8>(src_addr, dst_addr, size);
 
         // Now that each entry in the vector is fully initialized again, restore its length.
         self.len = old_len;
