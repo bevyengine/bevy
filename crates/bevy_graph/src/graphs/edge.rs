@@ -9,7 +9,7 @@ pub struct Edge<E> {
 
 impl<E> Edge<E> {
     #[inline]
-    pub fn indices(&self) -> (NodeIdx, NodeIdx) {
+    pub const fn indices(&self) -> (NodeIdx, NodeIdx) {
         (self.src, self.dst)
     }
 }
