@@ -114,6 +114,7 @@ Example | Description
 [Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
+[3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Use the cursor to move a cube through the scene
 [Fog](../examples/3d/fog.rs) | A scene showcasing the distance fog effect
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
