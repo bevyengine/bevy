@@ -52,7 +52,7 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: fn(&World, Entity) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    /// SAFETY:  The function may only be called with an InteriorMutableWorld that can be used to mutably access the relevant component on the given entity
+    /// SAFETY: The function may only be called with an InteriorMutableWorld that can be used to mutably access the relevant component on the given entity
     pub reflect_mut: unsafe fn(InteriorMutableWorld<'_>, Entity) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity),
