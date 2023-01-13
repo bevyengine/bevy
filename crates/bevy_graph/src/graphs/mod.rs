@@ -1,3 +1,4 @@
+pub mod multi;
 pub mod simple;
 
 pub mod edge;

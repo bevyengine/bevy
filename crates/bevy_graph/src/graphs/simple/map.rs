@@ -34,6 +34,7 @@ impl_graph! {
             self.nodes.len()
         }
 
+        #[inline]
         fn new_node(&mut self, node: N) -> NodeIdx {
             let idx = self.nodes.insert(node);
             self.adjacencies.insert(idx, HashMap::new());
