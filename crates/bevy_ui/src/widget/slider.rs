@@ -132,12 +132,17 @@ pub fn update_slider_value(
         &mut SliderDragged,
         &Interaction,
         &RelativeCursorPosition,
+        &Node,
+        Option<&Children>,
     )>,
+    slider_handle_query: Query<&Node, With<SliderHandle>>,
 ) {
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
 
-    for (mut slider, mut slider_dragged, interaction, cursor_position) in slider_query.iter_mut() {
+    for (mut slider, mut slider_dragged, interaction, cursor_position, node, children) in
+        slider_query.iter_mut()
+    {
         if mouse_released {
             slider_dragged.0 = false;
         }
@@ -150,8 +155,29 @@ pub fn update_slider_value(
             let max = slider.max();
             let min = slider.min();
 
+            let slider_width = node.size().x;
+
+            // Get the slider handle node
+            let slider_handle_node = if let Some(children) = children {
+                children.iter().find_map(|child| {
+                    if let Ok(node) = slider_handle_query.get(*child) {
+                        Some(node)
+                    } else {
+                        None
+                    }
+                })
+            } else {
+                None
+            };
+
+            let handle_width = slider_handle_node.map(|node| node.size().x).unwrap_or(0.);
+
+            // Make it so the cursor dragging is always in the middle of the handle
+            let physical_progress = (cursor_position.x - 0.5) * slider_width;
+            let progress = physical_progress / (slider_width - handle_width) + 0.5;
+
             slider
-                .set_value(cursor_position.x.clamp(0., 1.) * (max - min) + min)
+                .set_value(progress.clamp(0., 1.) * (max - min) + min)
                 .unwrap(); // The unwrap here is alright since the value is clamped between min and max, so it shouldn't return an error
         }
     }
