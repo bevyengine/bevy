@@ -15,6 +15,15 @@ mod test {
         ImportDefinition, NagaModuleDescriptor, ShaderDefValue, ShaderLanguage, ShaderType,
     };
 
+    macro_rules! output_eq {
+        ($result:ident, $path:expr) => {
+            assert_eq!(
+                $result.replace("\r", ""),
+                include_str!($path).replace("\r", "")
+            )
+        };
+    }
+
     #[test]
     fn simple_compose() {
         let mut composer = Composer::default();
@@ -52,7 +61,7 @@ mod test {
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
 
-        assert_eq!(wgsl, include_str!("tests/expected/simple_compose.txt"));
+        output_eq!(wgsl, "tests/expected/simple_compose.txt");
     }
 
     #[test]
@@ -98,7 +107,7 @@ mod test {
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
 
-        assert_eq!(wgsl, include_str!("tests/expected/big_shaderdefs.txt"));
+        output_eq!(wgsl, "tests/expected/big_shaderdefs.txt");
     }
 
     #[test]
@@ -152,7 +161,7 @@ mod test {
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
 
-        assert_eq!(wgsl, include_str!("tests/expected/dup_import.txt"));
+        output_eq!(wgsl, "tests/expected/dup_import.txt");
     }
 
     #[test]
@@ -175,7 +184,7 @@ mod test {
             // f.write_all(text.as_bytes()).unwrap();
             // drop(f);
 
-            assert_eq!(text, include_str!("tests/expected/err_validation_1.txt"));
+            output_eq!(text, "tests/expected/err_validation_1.txt");
         }
 
         {
@@ -203,7 +212,7 @@ mod test {
             // f.write_all(text.as_bytes()).unwrap();
             // drop(f);
 
-            assert_eq!(text, include_str!("tests/expected/err_validation_2.txt"));
+            output_eq!(text, "tests/expected/err_validation_2.txt");
         }
     }
 
@@ -227,7 +236,7 @@ mod test {
             // f.write_all(text.as_bytes()).unwrap();
             // drop(f);
 
-            assert_eq!(text, include_str!("tests/expected/err_parse.txt"));
+            output_eq!(text, "tests/expected/err_parse.txt");
         }
 
         {
@@ -248,7 +257,7 @@ mod test {
                 .err()
                 .unwrap();
             let text2 = error_2.emit_to_string(&composer);
-            assert_eq!(text2, include_str!("tests/expected/err_parse.txt"));
+            output_eq!(text2, "tests/expected/err_parse.txt");
         }
     }
 
@@ -268,7 +277,7 @@ mod test {
         // let mut f = std::fs::File::create("missing_import.txt").unwrap();
         // f.write_all(text.as_bytes()).unwrap();
         // drop(f);
-        assert_eq!(text, include_str!("tests/expected/missing_import.txt"));
+        output_eq!(text, "tests/expected/missing_import.txt");
     }
 
     #[test]
@@ -287,7 +296,7 @@ mod test {
         // let mut f = std::fs::File::create("missing_import.txt").unwrap();
         // f.write_all(text.as_bytes()).unwrap();
         // drop(f);
-        assert_eq!(text, include_str!("tests/expected/missing_import.txt"));
+        output_eq!(text, "tests/expected/missing_import.txt");
     }
 
     #[test]
@@ -378,7 +387,7 @@ mod test {
         // let mut f = std::fs::File::create("glsl_call_wgsl.txt").unwrap();
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
-        assert_eq!(wgsl, include_str!("tests/expected/glsl_call_wgsl.txt"));
+        output_eq!(wgsl, "tests/expected/glsl_call_wgsl.txt");
     }
 
     #[test]
@@ -431,10 +440,7 @@ mod test {
         // let mut f = std::fs::File::create("wgsl_call_entrypoint.txt").unwrap();
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
-        assert_eq!(
-            wgsl,
-            include_str!("tests/expected/wgsl_call_entrypoint.txt")
-        );
+        output_eq!(wgsl, "tests/expected/wgsl_call_entrypoint.txt");
     }
 
     #[test]
@@ -554,7 +560,7 @@ mod test {
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
 
-        assert_eq!(wgsl, include_str!("tests/expected/additional_import.txt"));
+        output_eq!(wgsl, "tests/expected/additional_import.txt");
 
         // test as module
         composer
@@ -618,10 +624,7 @@ mod test {
             // let mut f = std::fs::File::create("invalid_override_base.txt").unwrap();
             // f.write_all(err.as_bytes()).unwrap();
             // drop(f);
-            assert_eq!(
-                err,
-                include_str!("tests/expected/invalid_override_base.txt")
-            );
+            output_eq!(err, "tests/expected/invalid_override_base.txt");
         }
     }
 
@@ -670,7 +673,7 @@ mod test {
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
 
-        assert_eq!(wgsl, include_str!("tests/expected/import_in_decl.txt"));
+        output_eq!(wgsl, "tests/expected/import_in_decl.txt");
     }
 
     #[test]
@@ -715,7 +718,7 @@ mod test {
         // f.write_all(wgsl.as_bytes()).unwrap();
         // drop(f);
 
-        assert_eq!(wgsl, include_str!("tests/expected/item_import_test.txt"));
+        output_eq!(wgsl, "tests/expected/item_import_test.txt");
     }
 
     // actually run a shader and extract the result
