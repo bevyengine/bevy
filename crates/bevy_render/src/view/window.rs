@@ -1,7 +1,5 @@
-pub mod screenshot;
-
 use crate::{
-    render_resource::{SurfaceTexture, TextureView},
+    render_resource::{PipelineCache, SpecializedRenderPipelines, SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
     texture::TextureFormatPixelInfo,
     Extract, RenderApp, RenderStage,
@@ -15,7 +13,11 @@ use bevy_window::{
 use std::ops::{Deref, DerefMut};
 use wgpu::{BufferUsages, TextureFormat, TextureUsages};
 
-use self::screenshot::{ScreenshotGpuMemory, ScreenshotManager, ScreenshotToScreenPipeline};
+pub mod screenshot;
+
+use screenshot::{
+    ScreenshotManager, ScreenshotPlugin, ScreenshotPreparedState, ScreenshotToScreenPipeline,
+};
 
 /// Token to ensure a system runs on the main thread.
 #[derive(Resource, Default)]
@@ -30,6 +32,8 @@ pub enum WindowSystem {
 
 impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
+        app.add_plugin(ScreenshotPlugin);
+
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
@@ -57,7 +61,7 @@ pub struct ExtractedWindow {
     pub swap_chain_texture_view: Option<TextureView>,
     pub swap_chain_texture: Option<SurfaceTexture>,
     pub swap_chain_texture_format: Option<TextureFormat>,
-    pub screenshot_memory: Option<ScreenshotGpuMemory>,
+    pub screenshot_memory: Option<ScreenshotPreparedState>,
     pub size_changed: bool,
     pub present_mode_changed: bool,
     pub alpha_mode: CompositeAlphaMode,
@@ -207,6 +211,8 @@ pub fn prepare_windows(
     render_instance: Res<RenderInstance>,
     render_adapter: Res<RenderAdapter>,
     screenshot_pipeline: Res<ScreenshotToScreenPipeline>,
+    mut pipeline_cache: ResMut<PipelineCache>,
+    mut pipelines: ResMut<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>,
 ) {
     for window in windows
         .windows
@@ -341,11 +347,17 @@ pub fn prepare_windows(
                     resource: wgpu::BindingResource::TextureView(&texture_view),
                 }],
             });
+            let pipeline_id = pipelines.specialize(
+                &mut pipeline_cache,
+                &screenshot_pipeline,
+                surface_configuration.format,
+            );
             window.swap_chain_texture_view = Some(texture_view);
-            window.screenshot_memory = Some(ScreenshotGpuMemory {
+            window.screenshot_memory = Some(ScreenshotPreparedState {
                 texture,
                 buffer,
                 bind_group,
+                pipeline_id,
             });
         }
     }

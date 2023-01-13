@@ -137,7 +137,6 @@ impl Plugin for RenderPlugin {
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
-            .init_resource::<view::screenshot::ScreenshotManager>()
             .init_debug_asset_loader::<ShaderLoader>();
 
         if let Some(backends) = self.wgpu_settings.backends {
