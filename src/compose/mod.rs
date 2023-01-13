@@ -1580,7 +1580,7 @@ impl Composer {
             owned_types,
             owned_constants: owned_constants.into_keys().collect(),
             owned_vars: owned_vars.into_keys().collect(),
-            owned_functions: owned_functions.into_iter().map(|(n, _)| n).collect(),
+            owned_functions: owned_functions.into_keys().collect(),
             virtual_functions,
             override_functions,
             module_ir,
