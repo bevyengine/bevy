@@ -151,7 +151,7 @@ impl<'w> EntityRef<'w> {
         let info = self.world.components().get_info(component_id)?;
         // SAFETY:
         // - entity_location and entity are valid
-        // . component_id is valid as checked by the line above
+        // - component_id is valid as checked by the line above
         // - the storage type is accurate as checked by the fetched ComponentInfo
         unsafe {
             self.world.get_component(
@@ -808,7 +808,7 @@ pub(crate) unsafe fn get_mut<T: Component>(
     // SAFETY:
     // - world access is unique
     // - entity location is valid
-    // - and returned component is of type T
+    // - returned component is of type T
     world
         .get_component_and_ticks_with_type(
             TypeId::of::<T>(),
@@ -839,7 +839,7 @@ pub(crate) unsafe fn get_mut_by_id(
     // SAFETY:
     // - world access is unique
     // - entity location is valid
-    // - and returned component is of type T
+    // - returned component is of type T
     world
         .get_component_and_ticks(component_id, info.storage_type(), entity, location)
         .map(|(value, ticks)| MutUntyped {
