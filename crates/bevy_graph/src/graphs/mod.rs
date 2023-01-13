@@ -12,7 +12,9 @@ use self::keys::{EdgeIdx, NodeIdx};
 pub trait Graph<N, E> {
     fn count(&self) -> usize;
 
+    ////////////////////////////
     // Nodes
+    ////////////////////////////
     fn new_node(&mut self, node: N) -> NodeIdx;
 
     fn get_node(&self, idx: NodeIdx) -> GraphResult<&N>;
@@ -22,8 +24,13 @@ pub trait Graph<N, E> {
 
     fn has_node(&self, node: NodeIdx) -> bool;
 
+    ////////////////////////////
     // Edges
+    ////////////////////////////
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx>;
+    /// # Safety
+    ///
+    /// This function should only be called when the nodes exist and there is no equal edge.
     unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx;
 
     fn get_edge(&self, edge: EdgeIdx) -> GraphResult<&E>;
@@ -34,7 +41,9 @@ pub trait Graph<N, E> {
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx;
     fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)>; // TODO: can we use other type than Vec? maybe directly iterator?
 
+    ////////////////////////////
     // Algos
+    ////////////////////////////
     #[inline]
     fn algo_bfs(&self, start: NodeIdx) -> BreadthFirstSearch {
         BreadthFirstSearch::new(start, self.count())

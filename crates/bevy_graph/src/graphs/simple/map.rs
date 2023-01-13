@@ -115,18 +115,16 @@ impl_graph! {
             if let Some(node_edges) = self.adjacencies.get(node) {
                 if node_edges.contains_key(&other) {
                     Err(GraphError::EdgeAlreadyExists(node, other))
-                } else {
-                    if let Some(other_edges) = self.adjacencies.get(other) {
-                        if other_edges.contains_key(&node) {
-                            Err(GraphError::EdgeAlreadyExists(node, other))
-                        } else {
-                            unsafe {
-                                Ok(self.new_edge_unchecked(node, other, edge))
-                            }
-                        }
+                } else if let Some(other_edges) = self.adjacencies.get(other) {
+                    if other_edges.contains_key(&node) {
+                        Err(GraphError::EdgeAlreadyExists(node, other))
                     } else {
-                        Err(GraphError::NodeDoesntExist(other))
+                        unsafe {
+                            Ok(self.new_edge_unchecked(node, other, edge))
+                        }
                     }
+                } else {
+                    Err(GraphError::NodeDoesntExist(other))
                 }
             } else {
                 Err(GraphError::NodeDoesntExist(node))
@@ -178,14 +176,12 @@ impl_graph! {
             if let Some(from_edges) = self.adjacencies.get(from) {
                 if from_edges.contains_key(&to) {
                     Err(GraphError::EdgeAlreadyExists(from, to))
-                } else {
-                    if self.has_node(to) {
-                        unsafe {
-                            Ok(self.new_edge_unchecked(from, to, edge))
-                        }
-                    } else {
-                        Err(GraphError::NodeDoesntExist(to))
+                } else if self.has_node(to) {
+                    unsafe {
+                        Ok(self.new_edge_unchecked(from, to, edge))
                     }
+                } else {
+                    Err(GraphError::NodeDoesntExist(to))
                 }
             } else {
                 Err(GraphError::NodeDoesntExist(from))
