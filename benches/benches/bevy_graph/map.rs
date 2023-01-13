@@ -16,39 +16,31 @@ criterion_group! {
     targets = nodes_10_000_undirected
 }
 
+// TODO: find a better way for fix with multiple iterations over same graph
 fn nodes_10_000_undirected(c: &mut Criterion) {
-    let mut map_graph = SimpleMapGraph::<i32, (), false>::new();
+    c.bench_function("nodes_10_000", |b| {
+        b.iter(|| {
+            let mut graph = SimpleMapGraph::<i32, (), false>::new();
 
-    let mut nodes: Vec<NodeIdx> = Vec::with_capacity(10_000);
-    c.bench_function("nodes_10_000_new_node", |b| {
-        b.iter(|| {
+            let mut nodes: Vec<NodeIdx> = Vec::with_capacity(10_000);
             for i in 1..=10_000 {
-                nodes.push(map_graph.new_node(i));
+                nodes.push(graph.new_node(i));
             }
-        })
-    });
-    let mut edges: Vec<EdgeIdx> = Vec::with_capacity(10_000 - 1);
-    c.bench_function("nodes_10_000_new_edge", |b| {
-        b.iter(|| {
+
+            let mut edges: Vec<EdgeIdx> = Vec::with_capacity(10_000 - 1);
             for i in 1..10_000 {
-                edges.push(map_graph.new_edge(nodes[i - 1], nodes[i], ()));
+                edges.push(graph.new_edge(nodes[i - 1], nodes[i], ()).unwrap());
             }
-        })
-    });
-    c.bench_function("nodes_10_000_get_edge", |b| {
-        b.iter(|| {
+
             for edge in &edges {
-                black_box(edge.get(&map_graph));
+                black_box(edge.get(&graph));
             }
-        })
-    });
-    c.bench_function("nodes_10_000_remove_edge", |b| {
-        b.iter(|| {
+
             for i in 1..10_000 {
                 black_box(
-                    map_graph
+                    graph
                         .edge_between(nodes[i - 1], nodes[i])
-                        .remove(&mut map_graph)
+                        .remove(&mut graph)
                         .unwrap(),
                 );
             }
