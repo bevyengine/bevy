@@ -1,3 +1,5 @@
+// This vertex shader will create a triangle that will cover the entire screen
+// with minimal effort, avoiding the need for a vertex buffer etc.
 @vertex
 fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4<f32> {
     let x = f32((in_vertex_index & 1u) << 2u);

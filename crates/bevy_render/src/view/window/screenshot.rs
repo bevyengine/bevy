@@ -1,7 +1,7 @@
 use std::{borrow::Cow, num::NonZeroU32, path::Path};
 
 use bevy_ecs::prelude::*;
-use bevy_log::info_span;
+use bevy_log::{error, info_span};
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::HashMap;
 use bevy_window::WindowId;
@@ -58,8 +58,16 @@ impl ScreenshotManager {
         path: impl AsRef<Path>,
     ) -> Result<(), ScreenshotAlreadyRequestedError> {
         let path = path.as_ref().to_owned();
-        self.take_screenshot(window, |image| {
-            image.try_into_dynamic().unwrap().save(path).unwrap();
+        self.take_screenshot(window, move |img| match img.try_into_dynamic() {
+            Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
+                Ok(format) => {
+                    if let Err(e) = dyn_img.save_with_format(path, format) {
+                        error!("Cannot save screenshot, IO error: {e}")
+                    }
+                }
+                Err(e) => error!("Cannot save screenshot, requested format not recognized: {e}"),
+            },
+            Err(e) => error!("Cannot save screenshot, screen format cannot be understood: {e}"),
         })
     }
 }

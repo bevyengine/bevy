@@ -64,6 +64,15 @@ pub struct ExtractedWindow {
     pub screenshot_func: Option<screenshot::ScreenshotFn>,
 }
 
+impl ExtractedWindow {
+    fn set_swapchain_texture(&mut self, frame: wgpu::SurfaceTexture) {
+        self.swap_chain_texture_view = Some(TextureView::from(
+            frame.texture.create_view(&Default::default()),
+        ));
+        self.swap_chain_texture = Some(SurfaceTexture::from(frame));
+    }
+}
+
 #[derive(Default, Resource)]
 pub struct ExtractedWindows {
     pub windows: HashMap<WindowId, ExtractedWindow>,
@@ -270,27 +279,18 @@ pub fn prepare_windows(
             let frame = surface
                 .get_current_texture()
                 .expect("Error configuring surface");
-            window.swap_chain_texture_view = Some(TextureView::from(
-                frame.texture.create_view(&Default::default()),
-            ));
-            window.swap_chain_texture = Some(SurfaceTexture::from(frame));
+            window.set_swapchain_texture(frame);
         } else {
             match surface.get_current_texture() {
                 Ok(frame) => {
-                    window.swap_chain_texture_view = Some(TextureView::from(
-                        frame.texture.create_view(&Default::default()),
-                    ));
-                    window.swap_chain_texture = Some(SurfaceTexture::from(frame));
+                    window.set_swapchain_texture(frame);
                 }
                 Err(wgpu::SurfaceError::Outdated) => {
                     render_device.configure_surface(surface, &surface_configuration);
                     let frame = surface
                         .get_current_texture()
                         .expect("Error reconfiguring surface");
-                    window.swap_chain_texture_view = Some(TextureView::from(
-                        frame.texture.create_view(&Default::default()),
-                    ));
-                    window.swap_chain_texture = Some(SurfaceTexture::from(frame));
+                    window.set_swapchain_texture(frame);
                 }
                 #[cfg(target_os = "linux")]
                 Err(wgpu::SurfaceError::Timeout) if may_erroneously_timeout() => {
@@ -308,7 +308,7 @@ pub fn prepare_windows(
 
         if window.screenshot_func.is_some() {
             let texture = render_device.create_texture(&wgpu::TextureDescriptor {
-                label: None,
+                label: Some("screenshot-capture-rendertarget"),
                 size: wgpu::Extent3d {
                     width: surface_configuration.width,
                     height: surface_configuration.height,
@@ -324,7 +324,7 @@ pub fn prepare_windows(
             });
             let texture_view = texture.create_view(&Default::default());
             let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
-                label: None,
+                label: Some("screenshot-transfer-buffer"),
                 size: screenshot::get_aligned_size(
                     window.physical_width,
                     window.physical_height,
@@ -334,7 +334,7 @@ pub fn prepare_windows(
                 mapped_at_creation: false,
             });
             let bind_group = render_device.create_bind_group(&wgpu::BindGroupDescriptor {
-                label: None,
+                label: Some("screenshot-to-screen-bind-group"),
                 layout: &screenshot_pipeline.bind_group_layout,
                 entries: &[wgpu::BindGroupEntry {
                     binding: 0,
