@@ -172,132 +172,28 @@ impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
-    use slotmap::Key;
-
-    use crate::graphs::Graph;
+    use crate::graphs::simple::test::{self, Person};
 
     use super::SimpleMapGraph;
 
-    enum Person {
-        Jake,
-        Michael,
-        Jennifer,
-    }
-
     #[test]
-    fn undirected_edge() {
-        const STRENGTH: i32 = 100;
-
-        let mut map_graph = SimpleMapGraph::<Person, i32, false>::new();
-
-        let jake = map_graph.new_node(Person::Jake);
-        let michael = map_graph.new_node(Person::Michael);
-
-        let best_friends = map_graph.new_edge(jake, michael, STRENGTH);
-
-        let strength_jake = map_graph
-            .edge_between(jake, michael)
-            .get::<Person, i32>(&map_graph);
-        assert!(strength_jake.is_some());
-        assert_eq!(strength_jake.unwrap(), &STRENGTH);
-
-        let strength_michael = map_graph
-            .edge_between(michael, jake)
-            .get::<Person, i32>(&map_graph);
-        assert!(strength_michael.is_some());
-        assert_eq!(strength_michael.unwrap(), &STRENGTH);
-
-        assert_eq!(map_graph.edges_of(jake), vec![(michael, best_friends)]);
-        assert_eq!(map_graph.edges_of(michael), vec![(jake, best_friends)]);
-
-        assert!(map_graph
-            .edge_between(michael, jake)
-            .remove::<Person, i32>(&mut map_graph)
-            .is_ok());
-
-        let strength_jake = map_graph
-            .edge_between(jake, michael)
-            .get::<Person, i32>(&map_graph);
-        assert!(strength_jake.is_none());
-
-        let strength_michael = map_graph
-            .edge_between(michael, jake)
-            .get::<Person, i32>(&map_graph);
-        assert!(strength_michael.is_none());
+    fn nodes() {
+        test::nodes(SimpleMapGraph::<Person, i32, false>::new())
     }
-
     #[test]
-    fn directed_edge() {
-        const STRENGTH: i32 = 9999;
-
-        let mut map_graph = SimpleMapGraph::<Person, i32, true>::new();
-
-        let jake = map_graph.new_node(Person::Jake);
-        let jennifer = map_graph.new_node(Person::Jennifer);
-
-        let oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH);
-
-        let strength_jake = map_graph
-            .edge_between(jake, jennifer)
-            .get::<Person, i32>(&map_graph);
-        assert!(strength_jake.is_some());
-        assert_eq!(strength_jake.unwrap(), &STRENGTH);
-
-        let strength_jennifer = map_graph
-            .edge_between(jennifer, jake)
-            .get::<Person, i32>(&map_graph);
-        assert!(strength_jennifer.is_none());
-
-        assert_eq!(map_graph.edges_of(jake), vec![(jennifer, oneway_crush)]);
-        assert_eq!(map_graph.edges_of(jennifer), vec![]);
-
-        assert!(map_graph
-            .edge_between(jake, jennifer)
-            .remove::<Person, i32>(&mut map_graph)
-            .is_ok());
-
-        let strength_jake = map_graph
-            .edge_between(jake, jennifer)
-            .get::<Person, i32>(&map_graph);
-        assert!(strength_jake.is_none());
-
-        let strength_jennifer = map_graph
-            .edge_between(jennifer, jake)
-            .get::<Person, i32>(&map_graph);
-        assert!(strength_jennifer.is_none());
+    fn undirected_edges() {
+        test::undirected_edges(SimpleMapGraph::<Person, i32, false>::new())
     }
-
     #[test]
-    fn remove_undirected_node() {
-        const STRENGTH: i32 = 100;
-
-        let mut map_graph = SimpleMapGraph::<Person, i32, false>::new();
-
-        let jake = map_graph.new_node(Person::Jake);
-        let michael = map_graph.new_node(Person::Michael);
-
-        let _best_friends = map_graph.new_edge(jake, michael, STRENGTH);
-
-        assert!(map_graph.remove_node(michael).is_ok());
-
-        assert!(map_graph.node(michael).is_err());
-        assert!(map_graph.edge_between(jake, michael).is_null());
+    fn directed_edges() {
+        test::directed_edges(SimpleMapGraph::<Person, i32, true>::new())
     }
-
     #[test]
-    fn remove_directed_node() {
-        const STRENGTH: i32 = 9999;
-
-        let mut map_graph = SimpleMapGraph::<Person, i32, true>::new();
-
-        let jake = map_graph.new_node(Person::Jake);
-        let jennifer = map_graph.new_node(Person::Jennifer);
-
-        let _oneway_crush = map_graph.new_edge(jake, jennifer, STRENGTH);
-
-        assert!(map_graph.remove_node(jake).is_ok());
-
-        assert!(map_graph.node(jake).is_err());
-        assert!(map_graph.edge_between(jake, jennifer).is_null());
+    fn remove_node_undirected() {
+        test::remove_node_undirected(SimpleMapGraph::<Person, i32, false>::new())
+    }
+    #[test]
+    fn remove_node_directed() {
+        test::remove_node_directed(SimpleMapGraph::<Person, i32, true>::new())
     }
 }
