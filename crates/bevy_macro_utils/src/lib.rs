@@ -32,12 +32,11 @@ impl Default for BevyManifest {
         }
     }
 }
+const BEVY: &str = "bevy";
+const BEVY_INTERNAL: &str = "bevy_internal";
 
 impl BevyManifest {
     pub fn maybe_get_path(&self, name: &str) -> Option<syn::Path> {
-        const BEVY: &str = "bevy";
-        const BEVY_INTERNAL: &str = "bevy_internal";
-
         fn dep_package(dep: &Value) -> Option<&str> {
             if dep.as_str().is_some() {
                 None
@@ -102,6 +101,19 @@ impl BevyManifest {
 
     pub fn parse_str<T: syn::parse::Parse>(path: &str) -> T {
         syn::parse(path.parse::<TokenStream>().unwrap()).unwrap()
+    }
+
+    pub fn get_subcrate(&self, subcrate: &str) -> Option<syn::Path> {
+        self.maybe_get_path(BEVY)
+            .map(|bevy_path| {
+                let mut segments = bevy_path.segments;
+                segments.push(BevyManifest::parse_str(subcrate));
+                syn::Path {
+                    leading_colon: None,
+                    segments,
+                }
+            })
+            .or_else(|| self.maybe_get_path(&format!("bevy_{subcrate}")))
     }
 }
 
