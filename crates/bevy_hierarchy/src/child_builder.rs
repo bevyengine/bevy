@@ -198,7 +198,8 @@ impl Command for RemoveChildren {
 
 /// Command that removes the parent of an entity, and removes that entity from the parent's [`Children`].
 pub struct RemoveParent {
-    child: Entity,
+    /// `Entity` whose parent must be removed.
+    pub child: Entity,
 }
 
 impl Command for RemoveParent {

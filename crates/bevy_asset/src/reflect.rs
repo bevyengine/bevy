@@ -94,13 +94,13 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::add`]
-    pub fn add<'w>(&self, world: &'w mut World, value: &dyn Reflect) -> HandleUntyped {
+    pub fn add(&self, world: &mut World, value: &dyn Reflect) -> HandleUntyped {
         (self.add)(world, value)
     }
     /// Equivalent of [`Assets::set`]
-    pub fn set<'w>(
+    pub fn set(
         &self,
-        world: &'w mut World,
+        world: &mut World,
         handle: HandleUntyped,
         value: &dyn Reflect,
     ) -> HandleUntyped {

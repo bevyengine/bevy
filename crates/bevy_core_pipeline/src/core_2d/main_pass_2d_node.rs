@@ -62,7 +62,8 @@ impl Node for MainPass2dNode {
         {
             #[cfg(feature = "trace")]
             let _main_pass_2d = info_span!("main_pass_2d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_pass_2d"),
                 color_attachments: &[Some(target.get_color_attachment(Operations {
                     load: match camera_2d.clear_color {
@@ -75,15 +76,13 @@ impl Node for MainPass2dNode {
                     store: true,
                 }))],
                 depth_stencil_attachment: None,
-            };
+            });
 
-            transparent_phase.render(
-                world,
-                render_context,
-                view_entity,
-                camera.viewport.as_ref(),
-                pass_descriptor,
-            );
+            if let Some(viewport) = camera.viewport.as_ref() {
+                render_pass.set_camera_viewport(viewport);
+            }
+
+            transparent_phase.render(&mut render_pass, world, view_entity);
         }
 
         // WebGL2 quirk: if ending with a render pass with a custom viewport, the viewport isn't

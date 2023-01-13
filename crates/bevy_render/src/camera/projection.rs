@@ -19,7 +19,7 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
     }
 }
 
-/// Label for [`camera_system<T>`], shared accross all `T`.
+/// Label for [`camera_system<T>`], shared across all `T`.
 ///
 /// [`camera_system<T>`]: crate::camera::camera_system
 #[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]

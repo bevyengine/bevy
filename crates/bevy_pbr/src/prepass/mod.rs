@@ -11,7 +11,7 @@ use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
     system::{
-        lifetimeless::{Read, SQuery, SRes},
+        lifetimeless::{Read, SRes},
         Commands, Query, Res, ResMut, Resource, SystemParamItem,
     },
     world::{FromWorld, World},
@@ -24,7 +24,7 @@ use bevy_render::{
     prelude::{Camera, Mesh},
     render_asset::RenderAssets,
     render_phase::{
-        sort_phase_system, AddRenderCommand, DrawFunctions, EntityRenderCommand,
+        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, RenderCommand,
         RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
     },
     render_resource::{
@@ -738,19 +738,20 @@ pub fn queue_prepass_material_meshes<M: Material>(
 }
 
 pub struct SetPrepassViewBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
-    type Param = (
-        SRes<PrepassViewBindGroup>,
-        SQuery<(
-            Read<ViewUniformOffset>,
-            Read<PreviousViewProjectionUniformOffset>,
-        )>,
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetPrepassViewBindGroup<I> {
+    type Param = SRes<PrepassViewBindGroup>;
+    type ViewWorldQuery = (
+        Read<ViewUniformOffset>,
+        Read<PreviousViewProjectionUniformOffset>,
     );
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        (prepass_view_bind_group, view_query): SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        view_uniform_offset: &'_ ViewUniformOffset,
+        _entity: (),
+        prepass_view_bind_group: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let (view_uniform_offset, previous_view_proj_uniform_offset) =
@@ -764,7 +765,6 @@ impl<const I: usize> EntityRenderCommand for SetPrepassViewBindGroup<I> {
                 previous_view_proj_uniform_offset.offset,
             ],
         );
-
         RenderCommandResult::Success
     }
 }

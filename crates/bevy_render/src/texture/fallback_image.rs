@@ -6,7 +6,6 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_utils::HashMap;
-use std::marker::PhantomData;
 use wgpu::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{
@@ -86,16 +85,14 @@ pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
 pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);
 
 #[derive(SystemParam)]
-pub struct FallbackImagesMsaa<'w, 's> {
+pub struct FallbackImagesMsaa<'w> {
     cache: ResMut<'w, FallbackImageMsaaCache>,
     render_device: Res<'w, RenderDevice>,
     render_queue: Res<'w, RenderQueue>,
     default_sampler: Res<'w, DefaultImageSampler>,
-    #[system_param(ignore)]
-    _p: PhantomData<&'s ()>,
 }
 
-impl<'w, 's> FallbackImagesMsaa<'w, 's> {
+impl<'w> FallbackImagesMsaa<'w> {
     pub fn image_for_samplecount(&mut self, sample_count: u32) -> &GpuImage {
         self.cache.entry(sample_count).or_insert_with(|| {
             fallback_image_new(
@@ -110,16 +107,14 @@ impl<'w, 's> FallbackImagesMsaa<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct FallbackImagesDepth<'w, 's> {
+pub struct FallbackImagesDepth<'w> {
     cache: ResMut<'w, FallbackImageDepthCache>,
     render_device: Res<'w, RenderDevice>,
     render_queue: Res<'w, RenderQueue>,
     default_sampler: Res<'w, DefaultImageSampler>,
-    #[system_param(ignore)]
-    _p: PhantomData<&'s ()>,
 }
 
-impl<'w, 's> FallbackImagesDepth<'w, 's> {
+impl<'w> FallbackImagesDepth<'w> {
     pub fn image_for_samplecount(&mut self, sample_count: u32) -> &GpuImage {
         self.cache.entry(sample_count).or_insert_with(|| {
             fallback_image_new(
