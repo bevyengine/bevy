@@ -78,7 +78,7 @@ impl<'w> InteriorMutableWorld<'w> {
     }
 
     /// Gets a reference to the [`&World`](crate::world::World) this [`InteriorMutableWorld`] belongs to.
-    /// This can be used to call methods like [`World::read_change_tick`] which aren't exposed here but don't perform any accesses.
+    /// This can be used to call methods like [`World::contains_resource`] which aren't exposed and but don't perform any accesses.
     ///
     /// **Note**: You *must not* hand out a `&World` reference to arbitrary safe code when the [`InteriorMutableWorld`] is currently
     /// being used for mutable accesses.
@@ -149,9 +149,9 @@ impl<'w> InteriorMutableWorld<'w> {
     /// Gets a reference to the resource of the given type if it exists
     ///
     /// # Safety
-    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - no other mutable references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_resource<R: Resource>(&self) -> Option<&'w R> {
         self.0.get_resource::<R>()
@@ -165,9 +165,9 @@ impl<'w> InteriorMutableWorld<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - no other mutable references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.0.get_resource_by_id(component_id)
@@ -176,9 +176,9 @@ impl<'w> InteriorMutableWorld<'w> {
     /// Gets a reference to the non-send resource of the given type if it exists
     ///
     /// # Safety
-    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - no other mutable references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_non_send_resource<R: 'static>(&self) -> Option<&'w R> {
         self.0.get_non_send_resource()
@@ -187,9 +187,9 @@ impl<'w> InteriorMutableWorld<'w> {
     /// Gets a mutable reference to the resource of the given type if it exists
     ///
     /// # Safety
-    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_resource_mut<R: Resource>(&self) -> Option<Mut<'w, R>> {
         let component_id = self.0.components.get_resource_id(TypeId::of::<R>())?;
@@ -208,9 +208,9 @@ impl<'w> InteriorMutableWorld<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_resource_mut_by_id(
         &self,
@@ -235,9 +235,9 @@ impl<'w> InteriorMutableWorld<'w> {
     /// Gets a mutable reference to the non-send resource of the given type if it exists
     ///
     /// # Safety
-    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - no other references to the resource exist at the same time
     #[inline]
     pub unsafe fn get_non_send_resource_mut<R: 'static>(&self) -> Option<Mut<'w, R>> {
         let component_id = self.0.components.get_resource_id(TypeId::of::<R>())?;
@@ -248,13 +248,10 @@ impl<'w> InteriorMutableWorld<'w> {
 
 impl<'w> InteriorMutableWorld<'w> {
     /// # Safety
+    /// It is the callers responsibility to ensure that
     /// - `component_id` must be assigned to a component of type `R`
-    /// - Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    /// - resource is either Send+Sync or the main thread is validated
-    ///
-    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// - the [`InteriorMutableWorld`] has permission to access the resource
+    /// - no other mutable references to the resource exist at the same time
     #[inline]
     pub(crate) unsafe fn get_resource_mut_with_id<R>(
         &self,
@@ -277,12 +274,10 @@ impl<'w> InteriorMutableWorld<'w> {
     }
 
     /// # Safety
+    /// It is the callers responsibility to ensure that
     /// - `component_id` must be assigned to a component of type `R`.
-    /// - Caller must ensure this doesn't violate Rust mutability rules for the given resource.
-    ///
-    /// All [`InteriorMutableWorld`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
+    /// - no other references to the resource exist at the same time
     #[inline]
     pub(crate) unsafe fn get_non_send_mut_with_id<R: 'static>(
         &self,
@@ -351,15 +346,14 @@ impl<'w> InteriorMutableEntityRef<'w> {
     }
 
     /// # Safety
-    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableEntityRef`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get<T: Component>(&self) -> Option<&'w T> {
         // SAFETY:
         // - entity location is valid
-        // - archetypes and components come from the same world
-        // - world access is immutable, lifetime tied to `&self`
+        // - proper world access is promised by caller
         unsafe {
             self.world
                 .0
@@ -378,15 +372,14 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// detection in custom runtimes.
     ///
     /// # Safety
-    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableEntityRef`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
         // SAFETY:
         // - entity location is valid
-        // - archetypes and components come from the same world
-        // - world access is immutable, lifetime tied to `&self`
+        // - proper world acess is promised by caller
         unsafe {
             self.world.0.get_ticks_with_type(
                 TypeId::of::<T>(),
@@ -398,9 +391,9 @@ impl<'w> InteriorMutableEntityRef<'w> {
     }
 
     /// # Safety
-    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
@@ -410,9 +403,9 @@ impl<'w> InteriorMutableEntityRef<'w> {
     }
 
     /// # Safety
-    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
     #[inline]
     pub(crate) unsafe fn get_mut_using_ticks<T: Component>(
         &self,
@@ -451,9 +444,9 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// which is only valid while the `'w` borrow of the lifetime is active.
     ///
     /// # Safety
-    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableEntityRef`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
     #[inline]
     pub unsafe fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
         let info = self.world.0.components.get_info(component_id)?;
@@ -475,9 +468,9 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// use this in cases where the actual types are not known at compile time.**
     ///
     /// # Safety
-    /// All [`InteriorMutableEntityRef`] methods take `&self` and thus do not check that there is only one unique reference or multiple shared ones.
-    /// It is the callers responsibility to make sure that there will never be a mutable reference to a value that has other references pointing to it,
-    /// and that no arbitrary safe code can access a `&World` while some value is mutably borrowed.
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
+    /// - no other references to the component exist at the same time
     #[inline]
     pub unsafe fn get_mut_by_id(&self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
         let info = self.world.0.components.get_info(component_id)?;
