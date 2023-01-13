@@ -1,9 +1,9 @@
-use bevy_app::{Plugin, App};
+use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::query::With;
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_ecs::schedule::{SystemLabel, IntoSystemDescriptor};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
 use bevy_ecs::system::{Query, Res};
 use bevy_hierarchy::Children;
 use bevy_input::prelude::MouseButton;

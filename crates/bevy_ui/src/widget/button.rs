@@ -1,4 +1,4 @@
-use bevy_app::{Plugin, App};
+use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::std_traits::ReflectDefault;
@@ -14,8 +14,7 @@ pub struct Button;
 pub struct ButtonPlugin;
 
 impl Plugin for ButtonPlugin {
-	fn build(&self, app: &mut App) {
-		app
-			.register_type::<Button>();
-	}
+    fn build(&self, app: &mut App) {
+        app.register_type::<Button>();
+    }
 }
