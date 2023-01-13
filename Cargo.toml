@@ -411,6 +411,16 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "3d_viewport_to_world"
+path = "examples/3d/3d_viewport_to_world.rs"
+
+[package.metadata.example.3d_viewport_to_world]
+name = "3D Viewport To World"
+description = "Use the cursor to move a cube through the scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
 name = "3d_shapes"
 path = "examples/3d/3d_shapes.rs"
 
