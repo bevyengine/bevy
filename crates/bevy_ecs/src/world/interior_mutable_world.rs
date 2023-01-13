@@ -14,7 +14,7 @@ use crate::{
 use bevy_ptr::Ptr;
 use std::any::TypeId;
 
-/// Variant of the [`World`] where resource and component accesses takes a `&World`, and the responsibility to avoid
+/// Variant of the [`World`] where resource and component accesses take `&self`, and the responsibility to avoid
 /// aliasing violations are given to the caller instead of being checked at compile-time by rust's unique XOR shared rule.
 ///
 /// ### Rationale
@@ -46,9 +46,9 @@ use std::any::TypeId;
 /// use bevy_ecs::system::Resource;
 /// use bevy_ecs::world::interior_mutable_world::InteriorMutableWorld;
 ///
-/// // INVARIANT: existance of this struct means that users of it are the only ones being able to access resources in the world
+/// // INVARIANT: existence of this struct means that users of it are the only ones being able to access resources in the world
 /// struct OnlyResourceAccessWorld<'w>(InteriorMutableWorld<'w>);
-/// // INVARIANT: existance of this struct means that users of it are the only ones being able to access components in the world
+/// // INVARIANT: existence of this struct means that users of it are the only ones being able to access components in the world
 /// struct OnlyComponentAccessWorld<'w>(InteriorMutableWorld<'w>);
 ///
 /// impl<'w> OnlyResourceAccessWorld<'w> {
