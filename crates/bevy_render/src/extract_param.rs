@@ -46,6 +46,11 @@ where
     item: SystemParamItem<'w, 's, P>,
 }
 
+unsafe impl<'w, 's, P> ReadOnlySystemParam for Extract<'w, 's, P> where
+    P: ReadOnlySystemParam + 'static
+{
+}
+
 #[doc(hidden)]
 pub struct ExtractState<P: SystemParam + 'static> {
     state: SystemState<P>,
