@@ -34,6 +34,7 @@ use std::{
     future::Future,
     hash::{BuildHasher, Hash, Hasher},
     marker::PhantomData,
+    mem::ManuallyDrop,
     ops::Deref,
     pin::Pin,
 };
@@ -231,5 +232,28 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
                 value
             }
         }
+    }
+}
+
+/// A type which calls a function when dropped.
+/// This can be used to ensure that cleanup code is run even in case of a panic.
+pub struct OnDrop<F: FnOnce()> {
+    callback: ManuallyDrop<F>,
+}
+
+impl<F: FnOnce()> OnDrop<F> {
+    /// Returns an object that will invoke the specified callback when dropped.
+    pub fn new(callback: F) -> Self {
+        Self {
+            callback: ManuallyDrop::new(callback),
+        }
+    }
+}
+
+impl<F: FnOnce()> Drop for OnDrop<F> {
+    fn drop(&mut self) {
+        // SAFETY: We may move out of `self`, since this instance can never be observed after it's dropped.
+        let callback = unsafe { ManuallyDrop::take(&mut self.callback) };
+        callback();
     }
 }
