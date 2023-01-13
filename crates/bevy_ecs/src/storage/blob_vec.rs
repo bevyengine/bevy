@@ -179,9 +179,9 @@ impl BlobVec {
             // This closusure will run in case `drop()` panics, which is similar to
             // the `try ... catch` construct in languages like C++.
             // This ensures that `value` does not get forgotten in case of a panic.
-            let on_unwind = OnDrop::new(|| (drop)(value));
+            let on_unwind = OnDrop::new(|| drop(value));
 
-            (drop)(old_value);
+            drop(old_value);
 
             // If the above code does not panic, make sure that `value` doesn't get dropped.
             core::mem::forget(on_unwind);
