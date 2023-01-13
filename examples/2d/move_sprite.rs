@@ -12,7 +12,7 @@ fn main() {
 }
 
 /// A component for any moving entity.
-#[derive(Component)]
+#[derive(Component, Deref, DerefMut)]
 struct Velocity(Vec2);
 
 /// A marker component for our particular sprite.
@@ -36,7 +36,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 fn apply_velocity(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
     let delta = time.delta_seconds();
     for (velocity, mut transform) in &mut query {
-        transform.translation += velocity.0.extend(0.0) * delta;
+        transform.translation += velocity.extend(0.) * delta;
     }
 }
 
