@@ -19,6 +19,34 @@ mod test {
         Jennifer,
     }
 
+    #[macro_export]
+    macro_rules! graph_tests {
+        ($($graph:ident )::+) => {
+            use $crate::graphs::simple::test::{self, Person};
+
+            #[test]
+            fn nodes() {
+                test::nodes(<$($graph)::+ <Person, i32, false>>::new())
+            }
+            #[test]
+            fn undirected_edges() {
+                test::undirected_edges(<$($graph)::+ <Person, i32, false>>::new())
+            }
+            #[test]
+            fn directed_edges() {
+                test::directed_edges(<$($graph)::+ <Person, i32, true>>::new())
+            }
+            #[test]
+            fn remove_node_undirected() {
+                test::remove_node_undirected(<$($graph)::+ <Person, i32, false>>::new())
+            }
+            #[test]
+            fn remove_node_directed() {
+                test::remove_node_directed(<$($graph)::+ <Person, i32, true>>::new())
+            }
+        };
+    }
+
     pub fn nodes(mut graph: impl Graph<Person, i32>) {
         let jake = graph.new_node(Person::Jake);
         let michael = graph.new_node(Person::Michael);

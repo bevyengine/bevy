@@ -172,28 +172,7 @@ impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
-    use crate::graphs::simple::test::{self, Person};
+    use crate::graph_tests;
 
-    use super::SimpleMapGraph;
-
-    #[test]
-    fn nodes() {
-        test::nodes(SimpleMapGraph::<Person, i32, false>::new())
-    }
-    #[test]
-    fn undirected_edges() {
-        test::undirected_edges(SimpleMapGraph::<Person, i32, false>::new())
-    }
-    #[test]
-    fn directed_edges() {
-        test::directed_edges(SimpleMapGraph::<Person, i32, true>::new())
-    }
-    #[test]
-    fn remove_node_undirected() {
-        test::remove_node_undirected(SimpleMapGraph::<Person, i32, false>::new())
-    }
-    #[test]
-    fn remove_node_directed() {
-        test::remove_node_directed(SimpleMapGraph::<Person, i32, true>::new())
-    }
+    graph_tests!(super::SimpleMapGraph);
 }

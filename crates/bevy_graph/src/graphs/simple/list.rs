@@ -195,28 +195,7 @@ fn find_edge(list: &[(NodeIdx, EdgeIdx)], node: NodeIdx) -> Option<usize> {
 
 #[cfg(test)]
 mod test {
-    use crate::graphs::simple::test::{self, Person};
+    use crate::graph_tests;
 
-    use super::SimpleListGraph;
-
-    #[test]
-    fn nodes() {
-        test::nodes(SimpleListGraph::<Person, i32, false>::new())
-    }
-    #[test]
-    fn undirected_edges() {
-        test::undirected_edges(SimpleListGraph::<Person, i32, false>::new())
-    }
-    #[test]
-    fn directed_edges() {
-        test::directed_edges(SimpleListGraph::<Person, i32, true>::new())
-    }
-    #[test]
-    fn remove_node_undirected() {
-        test::remove_node_undirected(SimpleListGraph::<Person, i32, false>::new())
-    }
-    #[test]
-    fn remove_node_directed() {
-        test::remove_node_directed(SimpleListGraph::<Person, i32, true>::new())
-    }
+    graph_tests!(super::SimpleListGraph);
 }
