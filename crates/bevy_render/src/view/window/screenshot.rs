@@ -70,7 +70,7 @@ impl ScreenshotManager {
             Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
                 Ok(format) => {
                     if let Err(e) = dyn_img.save_with_format(path, format) {
-                        error!("Cannot save screenshot, IO error: {e}")
+                        error!("Cannot save screenshot, IO error: {e}");
                     }
                 }
                 Err(e) => error!("Cannot save screenshot, requested format not recognized: {e}"),
