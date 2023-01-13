@@ -1,3 +1,4 @@
+use bevy_app::{Plugin, App};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_reflect::std_traits::ReflectDefault;
@@ -7,3 +8,14 @@ use bevy_reflect::Reflect;
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
 #[reflect(Component, Default)]
 pub struct Button;
+
+/// A plugin for button widgets
+#[derive(Default)]
+pub struct ButtonPlugin;
+
+impl Plugin for ButtonPlugin {
+	fn build(&self, app: &mut App) {
+		app
+			.register_type::<Button>();
+	}
+}

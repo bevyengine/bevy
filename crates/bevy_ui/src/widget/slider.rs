@@ -1,8 +1,9 @@
+use bevy_app::{Plugin, App};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::query::With;
 use bevy_ecs::reflect::ReflectComponent;
-use bevy_ecs::schedule::SystemLabel;
+use bevy_ecs::schedule::{SystemLabel, IntoSystemDescriptor};
 use bevy_ecs::system::{Query, Res};
 use bevy_hierarchy::Children;
 use bevy_input::prelude::MouseButton;
@@ -173,6 +174,17 @@ pub fn update_slider_handle(
                 );
             }
         }
+    }
+}
+
+/// A plugin for adding sliders
+#[derive(Default)]
+pub struct SliderPlugin;
+
+impl Plugin for SliderPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system(update_slider_value.label(UpdateSliderValue))
+            .add_system(update_slider_handle.after(UpdateSliderValue));
     }
 }
 

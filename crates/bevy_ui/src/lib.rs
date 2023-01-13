@@ -14,7 +14,7 @@ pub mod node_bundles;
 pub mod update;
 pub mod widget;
 
-use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponentPlugin};
+use bevy_render::extract_component::ExtractComponentPlugin;
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
@@ -41,6 +41,7 @@ use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
+use widget::WidgetPlugin;
 
 use crate::prelude::UiCameraConfig;
 
@@ -78,6 +79,7 @@ impl Default for UiScale {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
+            .add_plugin(WidgetPlugin::default())
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
@@ -104,45 +106,9 @@ impl Plugin for UiPlugin {
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
             .register_type::<Val>()
-            .register_type::<widget::Button>()
             .add_system_to_stage(
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
-            )
-            // add these stages to front because these must run before transform update systems
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                widget::text_system
-                    .before(UiSystem::Flex)
-                    .after(ModifiesWindows)
-                    // Potential conflict: `Assets<Image>`
-                    // In practice, they run independently since `bevy_render::camera_update_system`
-                    // will only ever observe its own render target, and `widget::text_system`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem)
-                    // Potential conflict: `Assets<Image>`
-                    // Since both systems will only ever insert new [`Image`] assets,
-                    // they will never observe each other's effects.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                widget::update_image_calculated_size_system
-                    .before(UiSystem::Flex)
-                    // Potential conflicts: `Assets<Image>`
-                    // They run independently since `widget::image_node_system` will only ever observe
-                    // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(bevy_text::update_text2d_layout)
-                    .ambiguous_with(widget::text_system),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                widget::update_slider_value.label(widget::UpdateSliderValue),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                widget::update_slider_handle.after(widget::UpdateSliderValue),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
