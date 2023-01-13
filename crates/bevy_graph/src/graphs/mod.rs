@@ -24,6 +24,7 @@ pub trait Graph<N, E> {
 
     // Edges
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx>;
+    unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx;
 
     fn get_edge(&self, edge: EdgeIdx) -> GraphResult<&E>;
     fn get_edge_mut(&mut self, edge: EdgeIdx) -> GraphResult<&mut E>;

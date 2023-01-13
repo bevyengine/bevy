@@ -120,16 +120,9 @@ impl_graph! {
                         if other_edges.iter().any(|(n, _)| *n == node) {
                             Err(GraphError::EdgeAlreadyExists(other, node))
                         } else {
-                            let idx = self.edges.insert(Edge {
-                                src: node,
-                                dst: other,
-                                data: edge,
-                            });
                             unsafe {
-                                self.adjacencies.get_unchecked_mut(node).push((other, idx));
-                                self.adjacencies.get_unchecked_mut(other).push((node, idx));
+                                Ok(self.new_edge_unchecked(node, other, edge))
                             }
-                            Ok(idx)
                         }
                     } else {
                         Err(GraphError::NodeDoesntExist(other))
@@ -138,6 +131,17 @@ impl_graph! {
             } else {
                 Err(GraphError::NodeDoesntExist(node))
             }
+        }
+
+        unsafe fn new_edge_unchecked(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
+            let idx = self.edges.insert(Edge {
+                src: node,
+                dst: other,
+                data: edge,
+            });
+            self.adjacencies.get_unchecked_mut(node).push((other, idx));
+            self.adjacencies.get_unchecked_mut(other).push((node, idx));
+            idx
         }
 
         fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
@@ -186,15 +190,9 @@ impl_graph! {
                     Err(GraphError::EdgeAlreadyExists(from, to))
                 } else {
                     if self.has_node(to) {
-                        let idx = self.edges.insert(Edge {
-                            src: from,
-                            dst: to,
-                            data: edge,
-                        });
                         unsafe {
-                            self.adjacencies.get_unchecked_mut(from).push((to, idx));
+                            Ok(self.new_edge_unchecked(from, to, edge))
                         }
-                        Ok(idx)
                     } else {
                         Err(GraphError::NodeDoesntExist(to))
                     }
@@ -202,6 +200,16 @@ impl_graph! {
             } else {
                 Err(GraphError::NodeDoesntExist(from))
             }
+        }
+
+        unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+            let idx = self.edges.insert(Edge {
+                src: from,
+                dst: to,
+                data: edge,
+            });
+            self.adjacencies.get_unchecked_mut(from).push((to, idx));
+            idx
         }
 
         fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
