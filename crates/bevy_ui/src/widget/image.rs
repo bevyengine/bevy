@@ -1,11 +1,14 @@
-use crate::{CalculatedSize, Size, UiImage, Val};
+use crate::{CalculatedSize, Size, UiImage, Val, UiSystem};
+use bevy_app::{App, Plugin, CoreStage};
 use bevy_asset::Assets;
 use bevy_ecs::{
     query::Without,
-    system::{Query, Res},
+    system::{Query, Res}, schedule::IntoSystemDescriptor,
 };
 use bevy_render::texture::Image;
 use bevy_text::Text;
+
+use super::text_system;
 
 /// Updates calculated size of the node based on the image provided
 pub fn update_image_calculated_size_system(
@@ -24,5 +27,25 @@ pub fn update_image_calculated_size_system(
                 calculated_size.preserve_aspect_ratio = true;
             }
         }
+    }
+}
+
+/// A plugin for image widgets
+#[derive(Default)]
+pub struct ImagePlugin;
+
+impl Plugin for ImagePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_system_to_stage(
+            CoreStage::PostUpdate,
+            update_image_calculated_size_system
+                .before(UiSystem::Flex)
+                // Potential conflicts: `Assets<Image>`
+                // They run independently since `widget::image_node_system` will only ever observe
+                // its own UiImage, and `widget::text_system` & `bevy_text::update_text2d_layout`
+                // will never modify a pre-existing `Image` asset.
+                .ambiguous_with(bevy_text::update_text2d_layout)
+                .ambiguous_with(text_system),
+        );
     }
 }
