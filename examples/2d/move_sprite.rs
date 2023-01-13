@@ -7,7 +7,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(update_moveables)
-        .add_system(update_birds)
+        .add_system(update_birds.before(update_moveables))
         .run();
 }
 
