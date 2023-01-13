@@ -201,6 +201,7 @@ pub struct WindowSurfaces {
 ///   another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
 ///   [`Backends::GL`](crate::settings::Backends::GL) if your GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or
 ///   later.
+#[allow(clippy::too_many_arguments)]
 pub fn prepare_windows(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS s
