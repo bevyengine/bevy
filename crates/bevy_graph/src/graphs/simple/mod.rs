@@ -105,7 +105,7 @@ mod test {
             graph.edge_between(jake, jennifer)
         );
 
-        graph.get_edge_mut(mo).map(|edge| *edge = 10);
+        *graph.get_edge_mut(mo).unwrap() = 10;
 
         assert_eq!(graph.get_edge(jm).unwrap(), &2);
         assert_eq!(graph.get_edge(jj).unwrap(), &7);
@@ -147,7 +147,7 @@ mod test {
         assert!(!graph.edge_between(jennifer, jake).is_null());
         assert!(graph.edge_between(jake, jennifer).is_null());
 
-        graph.get_edge_mut(mo).map(|edge| *edge = 10);
+        *graph.get_edge_mut(mo).unwrap() = 10;
 
         assert_eq!(graph.get_edge(jm).unwrap(), &2);
         assert_eq!(graph.get_edge(jj).unwrap(), &7);
