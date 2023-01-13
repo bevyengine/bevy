@@ -1,9 +1,7 @@
 use crate::{
-    array_debug, enum_debug, impl_type_path_stored, list_debug, map_debug,
-    serde::Serializable,
-    struct_debug, tuple_debug, tuple_struct_debug,
-    utility::{NonGenericTypePathCell, TypePathStorage},
-    Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed, ValueInfo,
+    array_debug, enum_debug, impl_type_path_stored, list_debug, map_debug, serde::Serializable,
+    struct_debug, tuple_debug, tuple_struct_debug, utility::TypePathStorage, Array, Enum, List,
+    Map, Struct, Tuple, TupleStruct, TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},

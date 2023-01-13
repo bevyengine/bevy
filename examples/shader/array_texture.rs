@@ -1,7 +1,7 @@
 use bevy::{
     asset::LoadState,
     prelude::*,
-    reflect::{TypeUuid, TypePath},
+    reflect::{TypePath, TypeUuid},
     render::render_resource::{AsBindGroup, ShaderRef},
 };
 

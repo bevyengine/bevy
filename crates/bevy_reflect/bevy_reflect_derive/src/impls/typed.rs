@@ -1,8 +1,8 @@
-
 use crate::utility::{extend_where_clause, WhereClauseOptions};
 use crate::ReflectMeta;
 use proc_macro2::Ident;
 use quote::quote;
+use crate::derive_data::{type_path_generator, PathToType, ReflectMeta};
 
 fn static_typed_cell(
     meta: &ReflectMeta,
@@ -43,7 +43,10 @@ pub(crate) enum TypedProperty {
     TypePath,
 }
 
-pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_type_path(
+    meta: &ReflectMeta,
+    where_clause_options: &WhereClauseOptions,
+) -> proc_macro2::TokenStream {
     let path_to_type = meta.path_to_type();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
@@ -55,8 +58,23 @@ pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     // Add Typed bound for each active field
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
+    let primitive_assert = if let PathToType::Primitive(_) = path_to_type {
+        Some(quote! {
+            const _: () = {
+                mod private_scope {
+                    // compiles if it can be named with its ident when there are no imports.
+                    type AssertIsPrimitive = #path_to_type;
+                }
+            };
+        })
+    } else {
+        None
+    };
+
     quote! {
         const _: () = {
+            #primitive_assert
+
             trait GetStorage {
                 fn get_storage() -> &'static #bevy_reflect_path::utility::TypePathStorage;
             }
@@ -110,10 +128,9 @@ pub(crate) fn impl_typed(
     let path_to_type = meta.path_to_type();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
-    let type_path_impl = impl_type_path(meta);
+    let type_path_impl = impl_type_path(meta, where_clause_options);
 
-    let type_info_cell =
-        static_typed_cell(meta, TypedProperty::TypeInfo, type_info_generator);
+    let type_info_cell = static_typed_cell(meta, TypedProperty::TypeInfo, type_info_generator);
 
     let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
 

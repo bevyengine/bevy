@@ -4,7 +4,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{TypeUuid, TypePath};
+use bevy_reflect::{TypePath, TypeUuid};
 
 use crate::{DynamicScene, InstanceInfo, SceneSpawnError};
 

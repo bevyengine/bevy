@@ -646,7 +646,7 @@ mod test {
     use crate::{loader::LoadedAsset, update_asset_storage_system};
     use bevy_app::App;
     use bevy_ecs::prelude::*;
-    use bevy_reflect::{TypeUuid, TypePath};
+    use bevy_reflect::{TypePath, TypeUuid};
     use bevy_utils::BoxedFuture;
 
     #[derive(Debug, TypeUuid, TypePath)]

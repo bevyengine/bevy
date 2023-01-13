@@ -1,7 +1,7 @@
 use super::ShaderDefVal;
 use crate::define_atomic_id;
 use bevy_asset::{AssetLoader, AssetPath, Handle, LoadContext, LoadedAsset};
-use bevy_reflect::{TypeUuid, TypePath};
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::{tracing::error, BoxedFuture, HashMap};
 use naga::{back::wgsl::WriterFlags, valid::Capabilities, valid::ModuleInfo, Module};
 use once_cell::sync::Lazy;

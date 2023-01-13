@@ -1,9 +1,8 @@
-use crate::utility::{NonGenericTypeInfoCell, impl_type_path_stored, TypePathStorage};
+use crate::utility::{impl_type_path_stored, NonGenericTypeInfoCell, TypePathStorage};
 use crate::{
-    self as bevy_reflect,
-    impl_type_path,
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut,
-    ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed, UnnamedField, TypePath,
+    self as bevy_reflect, impl_type_path, DynamicInfo, FromReflect, GetTypeRegistration, Reflect,
+    ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, TypeRegistration, Typed,
+    UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -380,7 +379,7 @@ impl Typed for DynamicTuple {
     }
 }
 
-impl_type_path!(DynamicTuple as bevy_reflect::DynamicTuple);
+impl_type_path!(DynamicTuple in bevy_reflect);
 
 /// Applies the elements of `b` to the corresponding elements of `a`.
 ///
@@ -583,7 +582,7 @@ macro_rules! impl_reflect_tuple {
                 })
             }
         }
-        
+
         impl_type_path_stored!(
             || TypePathStorage::new_anonymous(
                 "(".to_owned() $(+ <$name as TypePath>::type_path())* + ")",
@@ -591,7 +590,7 @@ macro_rules! impl_reflect_tuple {
             ),
             impl { $($name: Reflect + TypePath),* } for ($($name,)*)
         );
-        
+
 
         impl<$($name: Reflect + TypePath),*> GetTypeRegistration for ($($name,)*) {
             fn get_type_registration() -> TypeRegistration {

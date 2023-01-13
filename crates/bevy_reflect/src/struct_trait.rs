@@ -1,7 +1,7 @@
-use crate::utility::{NonGenericTypeInfoCell, NonGenericTypePathCell};
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect,
-    DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, TypePath,
+    self as bevy_reflect, DynamicInfo, NamedField, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, Typed,
 };
 use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
@@ -483,7 +483,7 @@ impl Typed for DynamicStruct {
     }
 }
 
-impl_type_path!(DynamicStruct as bevy_reflect::DynamicStruct);
+impl_type_path!(DynamicStruct in bevy_reflect);
 
 /// Compares a [`Struct`] with a [`Reflect`] value.
 ///

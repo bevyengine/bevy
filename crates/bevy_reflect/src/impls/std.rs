@@ -1,16 +1,14 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned, impl_type_path_stored};
+use crate::{self as bevy_reflect, impl_type_path_stored, ReflectFromPtr, ReflectOwned};
 use crate::{
-    map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap,
-    Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo,
-    MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize,
-    TupleVariantInfo, TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField,
-    ValueInfo, VariantFieldIter, VariantInfo, VariantType, TypePath, impl_type_path,
+    impl_type_path, map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum,
+    DynamicMap, Enum, EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map,
+    MapInfo, MapIter, Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize,
+    TupleVariantInfo, TypeInfo, TypePath, TypeRegistration, Typed, UnitVariantInfo, UnnamedField,
+    ValueInfo, VariantFieldIter, VariantInfo, VariantType,
 };
 
-use crate::utility::{
-    GenericTypeInfoCell, GenericTypePathCell, NonGenericTypeInfoCell, NonGenericTypePathCell, TypePathStorage,
-};
+use crate::utility::{GenericTypeInfoCell, NonGenericTypeInfoCell, TypePathStorage};
 use bevy_reflect_derive::{impl_from_reflect_value, impl_reflect_value};
 use bevy_utils::{Duration, Instant};
 use bevy_utils::{HashMap, HashSet};
@@ -94,7 +92,7 @@ impl_reflect_value!(String(
     Deserialize,
     Default
 ));
-impl_reflect_value!(PathBuf(
+impl_reflect_value!(::std::path::PathBuf(
     Debug,
     Hash,
     PartialEq,
@@ -102,15 +100,18 @@ impl_reflect_value!(PathBuf(
     Deserialize,
     Default
 ));
-impl_reflect_value!(Result<T: Clone + Reflect + TypePath + 'static, E: Clone + Reflect + TypePath + 'static>());
-impl_reflect_value!(HashSet<T: TypePath + Hash + Eq + Clone + Send + Sync + 'static>());
-impl_reflect_value!(Range<T: TypePath + Clone + Send + Sync + 'static>());
-impl_reflect_value!(RangeInclusive<T: TypePath + Clone + Send + Sync + 'static>());
-impl_reflect_value!(RangeFrom<T: TypePath + Clone + Send + Sync + 'static>());
-impl_reflect_value!(RangeTo<T: TypePath + Clone + Send + Sync + 'static>());
-impl_reflect_value!(RangeToInclusive<T: TypePath + Clone + Send + Sync + 'static>());
-impl_reflect_value!(RangeFull());
-impl_reflect_value!(Duration(
+impl_reflect_value!(
+    ::core::result::Result < T: Clone + Reflect + TypePath,
+    E: Clone + Reflect + TypePath > ()
+);
+impl_reflect_value!(::bevy_utils::HashSet<T: TypePath + Hash + Eq + Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::Range<T: TypePath + Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeInclusive<T: TypePath + Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeFrom<T: TypePath + Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeTo<T: TypePath + Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeToInclusive<T: TypePath + Clone + Send + Sync>());
+impl_reflect_value!(::core::ops::RangeFull());
+impl_reflect_value!(::core::time::Duration(
     Debug,
     Hash,
     PartialEq,
@@ -118,26 +119,104 @@ impl_reflect_value!(Duration(
     Deserialize,
     Default
 ));
-impl_reflect_value!(Instant(Debug, Hash, PartialEq));
-impl_reflect_value!(NonZeroI128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU128(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroIsize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroUsize(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU64(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI32(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU16(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroU8(Debug, Hash, PartialEq, Serialize, Deserialize));
-impl_reflect_value!(NonZeroI8(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(::std::time::Instant(Debug, Hash, PartialEq));
+impl_reflect_value!(::core::num::NonZeroI128(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroU128(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroIsize(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroUsize(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroI64(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroU64(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroU32(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroI32(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroI16(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroU16(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroU8(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
+impl_reflect_value!(::core::num::NonZeroI8(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
 
 // `Serialize` and `Deserialize` only for platforms supported by serde:
 // https://github.com/serde-rs/serde/blob/3ffb86fc70efd3d329519e2dddfa306cc04f167c/serde/src/de/impls.rs#L1732
 #[cfg(any(unix, windows))]
-impl_reflect_value!(OsString(Debug, Hash, PartialEq, Serialize, Deserialize));
+impl_reflect_value!(::std::ffi::OsString(
+    Debug,
+    Hash,
+    PartialEq,
+    Serialize,
+    Deserialize
+));
 #[cfg(not(any(unix, windows)))]
-impl_reflect_value!(OsString(Debug, Hash, PartialEq));
+impl_reflect_value!(::std::ffi::OsString(Debug, Hash, PartialEq));
 
 impl_from_reflect_value!(bool);
 impl_from_reflect_value!(char);
@@ -317,9 +396,9 @@ macro_rules! impl_reflect_for_veclike {
             fn type_info() -> &'static TypeInfo {
                 static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
-            }    
+            }
         }
-        
+
         impl_type_path!($ty where T: FromReflect + TypePath);
 
         impl<T: FromReflect + TypePath> GetTypeRegistration for $ty {
@@ -517,7 +596,7 @@ impl<K: FromReflect + TypePath + Eq + Hash, V: FromReflect + TypePath> Typed for
     }
 }
 
-impl_type_path!(HashMap<K: FromReflect + TypePath + Eq + Hash, V: FromReflect + TypePath> as hashbrown::HashMap);
+impl_type_path!(HashMap<K: FromReflect + TypePath + Eq + Hash, V: FromReflect + TypePath> in bevy_utils);
 
 impl<K, V> GetTypeRegistration for HashMap<K, V>
 where
@@ -531,7 +610,9 @@ where
     }
 }
 
-impl<K: FromReflect + TypePath + Eq + Hash, V: FromReflect + TypePath> FromReflect for HashMap<K, V> {
+impl<K: FromReflect + TypePath + Eq + Hash, V: FromReflect + TypePath> FromReflect
+    for HashMap<K, V>
+{
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
         if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
             let mut new_map = Self::with_capacity(ref_map.len());

@@ -1,7 +1,7 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_reflect::{TypeUuid, TypePath};
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 use std::marker::PhantomData;

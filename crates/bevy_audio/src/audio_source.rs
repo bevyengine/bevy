@@ -1,6 +1,6 @@
 use anyhow::Result;
 use bevy_asset::{Asset, AssetLoader, LoadContext, LoadedAsset};
-use bevy_reflect::{TypeUuid, TypePath};
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_utils::BoxedFuture;
 use std::{io::Cursor, sync::Arc};
 

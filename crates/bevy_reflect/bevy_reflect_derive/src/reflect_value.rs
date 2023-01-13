@@ -1,10 +1,8 @@
 use crate::container_attributes::ReflectTraits;
-use crate::type_path::{parse_path_leading_colon, parse_path_no_leading_colon};
-use proc_macro2::Ident;
+use crate::type_path::AliasDef;
 use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
-use syn::token::{Colon2, Paren, Where};
-use syn::{parenthesized, Attribute, Generics, Path, PathSegment, Token};
+use syn::token::Paren;
+use syn::{parenthesized, Attribute, Generics, Path};
 
 /// A struct used to define a simple reflected value type (such as primitives).
 ///
@@ -28,7 +26,7 @@ pub(crate) struct ReflectValueDef {
     pub type_path: Path,
     pub generics: Generics,
     pub traits: Option<ReflectTraits>,
-    pub alias: Option<Path>,
+    pub alias: AliasDef,
 }
 
 impl Parse for ReflectValueDef {
@@ -44,18 +42,13 @@ impl Parse for ReflectValueDef {
             parenthesized!(content in input);
             traits = Some(content.parse::<ReflectTraits>()?);
         }
-        
-        let mut alias = None;
-        if input.peek(Token![as]) {
-            alias = Some(parse_path_no_leading_colon(input)?);
-        };
+
+        let alias: AliasDef = input.parse()?;
 
         Ok(ReflectValueDef {
             attrs,
             type_path,
-            generics: Generics {
-                ..generics
-            },
+            generics: Generics { ..generics },
             traits,
             alias,
         })

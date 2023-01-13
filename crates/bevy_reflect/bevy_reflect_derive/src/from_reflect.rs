@@ -78,7 +78,6 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
     let fqoption = FQOption.into_token_stream();
 
     let struct_path = reflect_struct.meta().path_to_type();
-    let generics = reflect_struct.meta().generics();
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
     let ref_struct = Ident::new("__ref_struct", Span::call_site());
@@ -117,7 +116,8 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
         )
     };
 
-    let (impl_generics, ty_generics, where_clause) = reflect_struct.meta().generics().split_for_impl();
+    let (impl_generics, ty_generics, where_clause) =
+        reflect_struct.meta().generics().split_for_impl();
 
     // Add FromReflect bound for each active field
     let mut where_from_reflect_clause = if where_clause.is_some() {

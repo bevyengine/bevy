@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use crate::container_attributes::ReflectTraits;
 use crate::field_attributes::{parse_field_attrs, ReflectFieldAttr};
 use crate::type_path::parse_path_no_leading_colon;
@@ -10,14 +8,14 @@ use bit_set::BitSet;
 use quote::{quote, ToTokens};
 
 use crate::{
-    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
+    utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
+    TYPE_PATH_ATTRIBUTE_NAME,
 };
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::{
-    parse_str, AngleBracketedGenericArguments, Data, DeriveInput, Field, Fields, GenericParam,
-    Generics, Ident, ImplGenerics, Lit, LitStr, Meta, Path, PathSegment, Token, Type, TypeGenerics,
-    TypePath, Variant, WhereClause,
+    parse_str, Data, DeriveInput, Field, Fields, GenericParam, Generics, Ident, Lit, LitStr, Meta,
+    Path, PathSegment, Token, Type, Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -143,7 +141,9 @@ impl<'a> ReflectDerive<'a> {
         // Should indicate whether `#[reflect_value]` was used.
         let mut reflect_mode = None;
         // Should indicate whether `#[type_path = "..."]` was used.
-        let mut type_path_alias: Option<Path> = None;
+        let mut alias_type_path: Option<Path> = None;
+
+        let mut alias_type_name: Option<Ident> = None;
 
         #[cfg(feature = "documentation")]
         let mut doc = crate::documentation::Documentation::default();
@@ -185,15 +185,6 @@ impl<'a> ReflectDerive<'a> {
                     reflect_mode = Some(ReflectMode::Value);
                 }
                 Meta::NameValue(pair) if pair.path.is_ident(TYPE_PATH_ATTRIBUTE_NAME) => {
-                    if type_path_alias.is_some() {
-                        return Err(syn::Error::new(
-                            pair.span(),
-                            format_args!(
-                                "cannot use multuple `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attributes"
-                            ),
-                        ));
-                    }
-
                     let Lit::Str(lit) = pair.lit else {
                         return Err(syn::Error::new(
                             pair.span(),
@@ -201,10 +192,20 @@ impl<'a> ReflectDerive<'a> {
                         ));
                     };
 
-                    type_path_alias = Some(syn::parse::Parser::parse_str(
+                    alias_type_path = Some(syn::parse::Parser::parse_str(
                         parse_path_no_leading_colon,
                         &lit.value(),
                     )?);
+                }
+                Meta::NameValue(pair) if pair.path.is_ident(TYPE_NAME_ATTRIBUTE_NAME) => {
+                    let Lit::Str(lit) = pair.lit else {
+                        return Err(syn::Error::new(
+                            pair.span(),
+                            format_args!("`#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` must be a string literal"),
+                        ));
+                    };
+
+                    alias_type_name = Some(parse_str(&lit.value())?);
                 }
                 #[cfg(feature = "documentation")]
                 Meta::NameValue(pair) if pair.path.is_ident("doc") => {
@@ -215,8 +216,20 @@ impl<'a> ReflectDerive<'a> {
                 _ => continue,
             }
         }
-        
-        let path_to_type = PathToType::Internal { ident: &input.ident, alias: type_path_alias };
+        if let Some(path) = &mut alias_type_path {
+            let ident = alias_type_name.unwrap_or(input.ident.clone());
+            path.segments.push(PathSegment::from(ident));
+        } else if let Some(name) = alias_type_name {
+            return Err(syn::Error::new(
+                name.span(),
+                format!("cannot use `#[{TYPE_NAME_ATTRIBUTE_NAME} = \"...\"]` without a `#[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"]` attribute."),
+            ));
+        }
+
+        let path_to_type = PathToType::Internal {
+            ident: &input.ident,
+            alias: alias_type_path,
+        };
 
         let meta = ReflectMeta::new(path_to_type, &input.generics, traits);
 
@@ -556,7 +569,7 @@ impl<'a> EnumVariant<'a> {
 
 pub(crate) enum PathToType<'a> {
     /// Types without a crate/module (e.g. `bool`).
-    Primtive(&'a Ident),
+    Primitive(&'a Ident),
     /// Using `::my_crate::foo::Bar` syntax.
     ///
     /// May have a seperate alias path used for the `TypePath` implementation.
@@ -570,6 +583,7 @@ pub(crate) enum PathToType<'a> {
         alias: Option<Path>,
     },
     /// Any [`syn::Type`] with only a defined `type_path` and `short_type_path`.
+    #[allow(dead_code)]
     Anonymous {
         qualified_type: Type,
         long_type_path: proc_macro2::TokenStream,
@@ -605,9 +619,21 @@ impl<'a> PathToType<'a> {
     /// or [`None`] if anonymous or a non-aliased [`PathToType::Internal`].
     fn named_as_path(&self) -> Option<&Path> {
         match self {
-            Self::Internal { ident, alias } => alias.as_ref(),
+            Self::Internal { alias, .. } => alias.as_ref(),
             Self::External { path, alias } => Some(alias.as_ref().unwrap_or(path)),
             _ => None,
+        }
+    }
+
+    /// Returns whether this [internal] or [external] path is aliased.
+    ///
+    /// [internal]: PathToType::Internal
+    /// [external]: PathToType::External
+    pub fn is_alias(&self) -> bool {
+        match self {
+            Self::Internal { alias, .. } => alias.is_some(),
+            Self::External { alias, .. } => alias.is_some(),
+            _ => false,
         }
     }
 
@@ -615,9 +641,9 @@ impl<'a> PathToType<'a> {
     /// and [`module_path`](PathToType::module_path) return [`Some`].
     ///
     /// This is false for primitives and anonymous paths.
-    pub fn has_module(&self) -> bool {
+    pub fn is_named(&self) -> bool {
         match self {
-            Self::Primtive(_) | Self::Anonymous { .. } => false,
+            Self::Primitive(_) | Self::Anonymous { .. } => false,
             _ => true,
         }
     }
@@ -653,7 +679,7 @@ impl<'a> PathToType<'a> {
         }
 
         match self {
-            Self::Primtive(ident) => {
+            Self::Primitive(ident) => {
                 let ident = LitStr::new(&ident.to_string(), ident.span());
                 quote! {
                     #ident.to_owned()
@@ -693,7 +719,7 @@ impl<'a> PathToType<'a> {
     /// Returns the name of the type. This is not necessarily a valid qualified path to the type.
     pub fn ident(&self) -> Option<&Ident> {
         self.named_as_ident().or_else(|| match self {
-            Self::Primtive(ident) => Some(ident),
+            Self::Primitive(ident) => Some(ident),
             _ => None,
         })
     }
@@ -702,7 +728,7 @@ impl<'a> PathToType<'a> {
 impl<'a> ToTokens for PathToType<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
-            Self::Internal { ident, .. } | Self::Primtive(ident) => ident.to_tokens(tokens),
+            Self::Internal { ident, .. } | Self::Primitive(ident) => ident.to_tokens(tokens),
             Self::External { path, .. } => path.to_tokens(tokens),
             Self::Anonymous { qualified_type, .. } => qualified_type.to_tokens(tokens),
         }
@@ -770,7 +796,7 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
         }
     };
 
-    if !path_to_type.has_module() {
+    if !path_to_type.is_named() {
         quote! {
             #bevy_reflect_path::utility::TypePathStorage::new_anonymous(
                 #path,

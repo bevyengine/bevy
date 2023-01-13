@@ -6,7 +6,7 @@ use bevy_ecs::{
     reflect::ReflectMapEntities,
 };
 use bevy_math::Mat4;
-use bevy_reflect::{Reflect, TypeUuid, TypePath};
+use bevy_reflect::{Reflect, TypePath, TypeUuid};
 use std::ops::Deref;
 
 #[derive(Component, Debug, Default, Clone, Reflect)]

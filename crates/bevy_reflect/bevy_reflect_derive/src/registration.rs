@@ -2,11 +2,9 @@
 
 use crate::utility::{extend_where_clause, WhereClauseOptions};
 use bit_set::BitSet;
-use proc_macro2::Ident;
 use quote::quote;
-use syn::{Generics, Path};
 
-use crate::derive_data::{PathToType, ReflectMeta};
+use crate::derive_data::ReflectMeta;
 
 /// Creates the `GetTypeRegistration` impl for the given type data.
 #[allow(clippy::too_many_arguments)]

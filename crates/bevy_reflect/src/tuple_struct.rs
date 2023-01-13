@@ -2,8 +2,8 @@ use bevy_reflect_derive::impl_type_path;
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect,
-    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
+    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -383,10 +383,10 @@ impl Typed for DynamicTupleStruct {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
-    }   
+    }
 }
 
-impl_type_path!(DynamicTupleStruct as bevy_reflect::DynamicTupleStruct);
+impl_type_path!(DynamicTupleStruct in bevy_reflect);
 
 /// Compares a [`TupleStruct`] with a [`Reflect`] value.
 ///

@@ -7,8 +7,7 @@ use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect,
-    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
     Typed,
 };
 
@@ -356,7 +355,7 @@ impl Typed for DynamicMap {
     }
 }
 
-impl_type_path!(DynamicMap as bevy_reflect::DynamicMap);
+impl_type_path!(DynamicMap in bevy_reflect);
 
 /// An iterator over the key-value pairs of a [`Map`].
 pub struct MapIter<'a> {

@@ -6,7 +6,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid, TypePath};
+use bevy_reflect::{Reflect, TypePath, TypeRegistryArc, TypeUuid};
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;

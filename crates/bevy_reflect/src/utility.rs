@@ -1,6 +1,6 @@
 //! Helpers for working with Bevy reflection.
 
-use crate::{TypeInfo, TypePath};
+use crate::TypeInfo;
 use bevy_utils::HashMap;
 use once_cell::race::OnceBox;
 use parking_lot::RwLock;
@@ -209,10 +209,7 @@ impl TypePathStorage {
         }
     }
 
-    pub fn new_anonymous<A: AsRef<str>, B: AsRef<str>>(
-        path: A,
-        short_path: B,
-    ) -> Self {
+    pub fn new_anonymous<A: AsRef<str>, B: AsRef<str>>(path: A, short_path: B) -> Self {
         Self {
             path: path.as_ref().to_owned(),
             short_path: short_path.as_ref().to_owned(),
@@ -295,7 +292,7 @@ macro_rules! impl_type_path_stored {
             trait GetStorage {
                 fn get_storage() -> &'static $crate::utility::TypePathStorage;
             }
-            
+
             impl$(< $($param)* >)? GetStorage for $($impl_tt)+ {
                 #[inline]
                 fn get_storage() -> &'static $crate::utility::TypePathStorage {
@@ -347,5 +344,3 @@ macro_rules! impl_type_path_stored {
     }
 }
 pub use impl_type_path_stored;
-
-struct TyPath;

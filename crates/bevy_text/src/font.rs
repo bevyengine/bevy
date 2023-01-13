@@ -1,5 +1,5 @@
 use ab_glyph::{FontArc, FontVec, InvalidFont, OutlinedGlyph};
-use bevy_reflect::{TypeUuid, TypePath};
+use bevy_reflect::{TypePath, TypeUuid};
 use bevy_render::{
     render_resource::{Extent3d, TextureDimension, TextureFormat},
     texture::Image,

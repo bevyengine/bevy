@@ -109,8 +109,8 @@ mod tests {
         ser::{to_string_pretty, PrettyConfig},
         Deserializer,
     };
-    use std::{any::TypeId, marker::PhantomData};
     use std::fmt::{Debug, Formatter};
+    use std::{any::TypeId, marker::PhantomData};
 
     use super::prelude::*;
     use super::*;
@@ -650,36 +650,41 @@ mod tests {
             std::any::type_name::<TestTupleStruct>()
         );
     }
-    
+
     #[test]
     fn reflect_type_path() {
         #[derive(TypePath)]
         struct A;
-        
+
         #[derive(TypePath)]
-        #[type_path = "my_alias::B"]
+        #[type_path = "my_alias"]
         struct B;
-        
+
         #[derive(TypePath)]
         struct C<T: TypePath>(PhantomData<T>);
-        
+
         #[derive(TypePath)]
-        #[type_path = "my_alias::D"]
+        #[type_path = "my_alias"]
         struct D<T: TypePath>(PhantomData<T>);
-        
+
+        #[derive(TypePath)]
+        #[type_path = "my_alias"]
+        #[type_name = "Eee"]
+        struct E<T: TypePath>(PhantomData<T>);
+
         // struct E;
         // impl_type_path!(E);
-        
+
         // struct F;
         // impl_type_path!(F as my_alias::F);
-        
+
         // struct G<T: TypePath>(PhantomData<T>);
         // impl_type_path!(G<T>);
-        
+
         // struct H<T: TypePath>(PhantomData<T>);
         // impl_type_path!(H<T> as my_alias::H);
-        
-        A::type_path();
+
+        assert_eq!(A::type_path(), "bevy_reflect::tests::A");
         B::type_path();
         C::<A>::type_path();
         D::<A>::type_path();
