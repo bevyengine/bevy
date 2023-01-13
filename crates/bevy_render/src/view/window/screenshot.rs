@@ -69,7 +69,10 @@ impl ScreenshotManager {
         self.take_screenshot(window, move |img| match img.try_into_dynamic() {
             Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
                 Ok(format) => {
-                    if let Err(e) = dyn_img.save_with_format(path, format) {
+                    // discard the alpha channel which stores brightness values when HDR is enabled to make sure
+                    // the screenshot looks right
+                    let img = dyn_img.to_rgb8();
+                    if let Err(e) = img.save_with_format(path, format) {
                         error!("Cannot save screenshot, IO error: {e}");
                     }
                 }
