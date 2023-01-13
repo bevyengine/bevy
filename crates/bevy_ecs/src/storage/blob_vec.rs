@@ -154,27 +154,41 @@ impl BlobVec {
     /// [`BlobVec`]'s `item_layout`
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
-        // If `drop` panics, then when the collection is dropped during stack unwinding, the
-        // collection's `Drop` impl will call `drop` again for the old value (which is still stored
-        // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
-        // done.
-        let old_len = self.len;
+
         let drop = self.drop;
+
+        // Temporarily set the length to zero, so that uninitialized bytes won't
+        // get observed in case this function panics.
+        let old_len = self.len;
         self.len = 0;
 
+        // Transfer ownership of the old value out of the vector, so it can be dropped.
+        // SAFETY:
+        // * The caller has promized that `index` fits in this vector.
+        // * The storage location will get overwritten with `value` later, which ensures
+        //   that the element will not get observed or double dropped later.
+        // * If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
+        //   does not occur. Instead, all elements will be forgotten.
         let old_value = self.get_unchecked_mut(index).promote();
+
         let dst_addr = old_value.as_ptr();
         let src_addr = value.as_ptr();
-        // Drop the old value, then write back, justifying the promotion
-        // If the drop impl for the old value panics then we run the drop impl for `value` too.
+
         if let Some(drop) = drop {
+            // This closusure will run in case `drop()` panics, which is similar to
+            // the `try ... catch` construct in languages like C++.
+            // This ensures that `value` does not get forgotten in case of a panic.
             let on_unwind = OnDrop::new(|| (drop)(value));
 
             (drop)(old_value);
 
+            // If the above code does not panic, make sure that `value` doesn't get dropped.
             core::mem::forget(on_unwind);
         }
+        // Copy the new value into the vector, overwriting the previous value which has been moved.
         std::ptr::copy_nonoverlapping::<u8>(src_addr, dst_addr, self.item_layout.size());
+
+        // Now that each entry in the vector is fully initialized again, restore its length.
         self.len = old_len;
     }
 
