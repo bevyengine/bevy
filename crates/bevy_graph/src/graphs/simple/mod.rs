@@ -143,7 +143,7 @@ mod test {
         assert_eq!(graph.get_edge(jo).unwrap(), &5);
         assert_eq!(graph.get_edge(mo).unwrap(), &1);
 
-        assert!(!graph.edge_between(jennifer, jake).is_err());
+        assert!(graph.edge_between(jennifer, jake).is_ok());
         assert!(graph.edge_between(jake, jennifer).is_err());
 
         *graph.get_edge_mut(mo).unwrap() = 10;
