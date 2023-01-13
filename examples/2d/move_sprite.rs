@@ -34,8 +34,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 /// Update everything that has both a velocity *and* a transform.
 fn update_moveables(time: Res<Time>, mut query: Query<(&Velocity, &mut Transform)>) {
-    for (v, mut trf) in &mut query {
-        trf.translation += Vec3::from((v.0 * time.delta_seconds(), 0.));
+    let delta = time.delta_seconds();
+    for (velocity, mut transform) in &mut query {
+        transform.translation += velocity.0.extend(0.0) * delta;
     }
 }
 
