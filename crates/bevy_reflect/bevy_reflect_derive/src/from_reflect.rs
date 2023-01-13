@@ -23,7 +23,7 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     let path_to_type = meta.path_to_type();
     let bevy_reflect_path = meta.bevy_reflect_path();
-    let (impl_generics, ty_generics, where_clause) = meta.split_generics_for_impl();
+    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #path_to_type #ty_generics #where_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
@@ -47,7 +47,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     } = get_variant_constructors(reflect_enum, &ref_value, false);
 
     let (impl_generics, ty_generics, where_clause) =
-        reflect_enum.meta().split_generics_for_impl();
+        reflect_enum.meta().generics().split_for_impl();
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #enum_path #ty_generics #where_clause  {
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQOption<Self> {
@@ -117,7 +117,7 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
         )
     };
 
-    let (impl_generics, ty_generics, where_clause) = reflect_struct.meta().split_generics_for_impl();
+    let (impl_generics, ty_generics, where_clause) = reflect_struct.meta().generics().split_for_impl();
 
     // Add FromReflect bound for each active field
     let mut where_from_reflect_clause = if where_clause.is_some() {

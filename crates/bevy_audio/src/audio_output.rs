@@ -1,7 +1,7 @@
 use crate::{Audio, AudioSource, Decodable};
 use bevy_asset::{Asset, Assets};
 use bevy_ecs::system::{Res, ResMut, Resource};
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypeUuid, TypePath};
 use bevy_utils::tracing::warn;
 use rodio::{OutputStream, OutputStreamHandle, Sink, Source};
 use std::marker::PhantomData;
@@ -127,7 +127,7 @@ pub fn play_queued_audio_system<Source: Asset + Decodable>(
 /// }
 /// ```
 ///
-#[derive(TypeUuid)]
+#[derive(TypeUuid, TypePath)]
 #[uuid = "8BEE570C-57C2-4FC0-8CFB-983A22F7D981"]
 pub struct AudioSink {
     // This field is an Option in order to allow us to have a safe drop that will detach the sink.

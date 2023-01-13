@@ -19,7 +19,7 @@ use bevy_ecs::{
     },
     world::FromWorld,
 };
-use bevy_reflect::TypeUuid;
+use bevy_reflect::{TypeUuid, TypePath};
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     mesh::{Mesh, MeshVertexBufferLayout},
@@ -106,7 +106,7 @@ use std::marker::PhantomData;
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
 /// ```
-pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + Sized + 'static {
+pub trait Material: AsBindGroup + Send + Sync + Clone + TypeUuid + TypePath + Sized + 'static {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {

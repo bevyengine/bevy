@@ -72,7 +72,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
         }
     };
 
-    let string_name = struct_path.name().to_string();
+    let string_name = struct_path.ident().unwrap().to_string();
 
     #[cfg(feature = "documentation")]
     let info_generator = {
@@ -102,7 +102,7 @@ pub(crate) fn impl_struct(reflect_struct: &ReflectStruct) -> TokenStream {
 
     let get_type_registration_impl = reflect_struct.get_type_registration(&where_clause_options);
     let (impl_generics, ty_generics, where_clause) =
-        reflect_struct.meta().split_generics_for_impl();
+        reflect_struct.meta().generics().split_for_impl();
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 

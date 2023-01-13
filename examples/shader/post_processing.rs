@@ -6,7 +6,7 @@
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypeUuid, TypePath},
     render::{
         camera::RenderTarget,
         render_resource::{
@@ -171,7 +171,7 @@ fn main_camera_cube_rotator_system(
 // Region below declares of the custom material handling post processing effect
 
 /// Our custom post processing material
-#[derive(AsBindGroup, TypeUuid, Clone)]
+#[derive(AsBindGroup, TypeUuid, TypePath, Clone)]
 #[uuid = "bc2f08eb-a0fb-43f1-a908-54871ea597d5"]
 struct PostProcessingMaterial {
     /// In this example, this image will be the result of the main camera.

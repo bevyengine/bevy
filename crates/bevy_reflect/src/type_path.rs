@@ -1,72 +1,26 @@
-pub trait WithPath {
-    /// Returns the [path] of the underlying type.
+pub trait TypePath: 'static {
+    /// Returns the fully qualified path of the underlying type.
     ///
-    /// [path]: TypePath
-    fn type_path() -> &'static TypePath;
-}
-
-pub struct TypePath {
-    path: String,
-    short_path: String,
-    ident: Option<String>,
-    crate_name: Option<String>,
-    module_path: Option<String>,
-}
-
-impl TypePath {
-    pub fn new_primitive(name: String) -> Self {
-        Self {
-            path: name.clone(),
-            short_path: name.clone(),
-            ident: Some(name),
-            crate_name: None,
-            module_path: None,
-            
-        }
-    }
+    /// For [`Option<()>`], this is `core::option::Option::<()>`. 
+    fn type_path() -> &'static str;
     
-    pub fn new_anonymous(path: String, short_path: String) -> Self {
-        Self {
-            path,
-            short_path,
-            ident: None,
-            crate_name: None,
-            module_path: None,
-        }
-    }
+    /// Returns a short pretty-print enabled path to the type.
+    ///
+    /// For [`Option<()>`], this is `Option<()>`. 
+    fn short_type_path() -> &'static str;
     
-    pub fn new_named(path: String, short_path: String, ident: String, crate_name: String, module_path: String) -> Self {
-        Self {
-            path,
-            short_path,
-            ident: Some(ident),
-            crate_name: Some(crate_name),
-            module_path: Some(module_path),
-        }
-    }
+    /// Returns the name of the type, or [`None`] if it is anonymous.
+    ///
+    /// For [`Option<()>`], this is `Option`. 
+    fn type_ident() -> Option<&'static str>;
     
-    #[inline]
-    pub fn path(&self) -> &str {
-        &self.path
-    }
-
-    #[inline]
-    pub fn short_path(&self) -> &str {
-        &self.short_path
-    }
-
-    #[inline]
-    pub fn ident(&self) -> Option<&str> {
-        self.ident.as_deref()
-    }
-
-    #[inline]
-    pub fn crate_name(&self) -> Option<&str> {
-        self.crate_name.as_deref()
-    }
-
-    #[inline]
-    pub fn module_path(&self) -> Option<&str> {
-        self.module_path.as_deref()
-    }
+    /// Returns the name of the crate the type is in, or [`None`] if it is anonymous or a primitive.
+    ///
+    /// For [`Option<()>`], this is `core`. 
+    fn crate_name() -> Option<&'static str>;
+    
+    /// Returns the path to the moudle the type is in, or [`None`] if it is anonymous or a primitive.
+    ///
+    /// For [`Option<()>`], this is `core::option`. 
+    fn module_path() -> Option<&'static str>;
 }

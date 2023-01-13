@@ -18,7 +18,7 @@ pub(crate) fn impl_get_type_registration(
     let path_to_type = meta.path_to_type();
     let bevy_reflect_path = meta.bevy_reflect_path();
     let registration_data = meta.traits().idents();
-    let (impl_generics, ty_generics, where_clause) = meta.split_generics_for_impl();
+    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
     let serialization_data = serialization_denylist.map(|denylist| {
         let denylist = denylist.into_iter();
         quote! {

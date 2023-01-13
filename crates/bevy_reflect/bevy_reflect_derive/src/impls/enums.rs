@@ -59,7 +59,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             }
         });
 
-    let string_name = enum_path.name().to_string();
+    let string_name = enum_path.ident().unwrap().to_string();
 
     #[cfg(feature = "documentation")]
     let info_generator = {
@@ -90,7 +90,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         .meta()
         .get_type_registration(&where_clause_options);
     let (impl_generics, ty_generics, where_clause) =
-        reflect_enum.meta().split_generics_for_impl();
+        reflect_enum.meta().generics().split_for_impl();
 
     let where_reflect_clause = extend_where_clause(where_clause, &where_clause_options);
 

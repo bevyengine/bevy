@@ -1,9 +1,10 @@
 use crate::container_attributes::ReflectTraits;
+use crate::type_path::{parse_path_leading_colon, parse_path_no_leading_colon};
 use proc_macro2::Ident;
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::token::{Colon2, Paren, Where};
-use syn::{parenthesized, Attribute, Generics, Path, PathSegment};
+use syn::{parenthesized, Attribute, Generics, Path, PathSegment, Token};
 
 /// A struct used to define a simple reflected value type (such as primitives).
 ///
@@ -27,49 +28,36 @@ pub(crate) struct ReflectValueDef {
     pub type_path: Path,
     pub generics: Generics,
     pub traits: Option<ReflectTraits>,
+    pub alias: Option<Path>,
 }
 
 impl Parse for ReflectValueDef {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let attrs = input.call(Attribute::parse_outer)?;
-        let type_path = {
-            let lookahead = input.lookahead1();
-            if lookahead.peek(Colon2) {
-                // This parses `::foo::Foo` from `::foo::Foo<T>` (leaving the generics).
-                Path::parse_mod_style(input)?
-            } else {
-                let ident = input.parse::<Ident>()?;
-                let mut segments = Punctuated::new();
-                segments.push(PathSegment::from(ident));
-                Path {
-                    leading_colon: None,
-                    segments,
-                }
-            }
-        };
-        let generics = input.parse::<Generics>()?;
-        let mut lookahead = input.lookahead1();
-        let mut where_clause = None;
-        if lookahead.peek(Where) {
-            where_clause = Some(input.parse()?);
-            lookahead = input.lookahead1();
-        }
+        let type_path = Path::parse_mod_style(input)?;
+        let mut generics = input.parse::<Generics>()?;
+        generics.where_clause = input.parse()?;
 
         let mut traits = None;
-        if lookahead.peek(Paren) {
+        if input.peek(Paren) {
             let content;
             parenthesized!(content in input);
             traits = Some(content.parse::<ReflectTraits>()?);
         }
+        
+        let mut alias = None;
+        if input.peek(Token![as]) {
+            alias = Some(parse_path_no_leading_colon(input)?);
+        };
 
         Ok(ReflectValueDef {
             attrs,
             type_path,
             generics: Generics {
-                where_clause,
                 ..generics
             },
             traits,
+            alias,
         })
     }
 }

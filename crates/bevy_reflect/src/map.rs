@@ -2,13 +2,14 @@ use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 
-use bevy_reflect_derive::type_path_for;
+use bevy_reflect_derive::impl_type_path;
 use bevy_utils::{Entry, HashMap};
 
-use crate::utility::{NonGenericTypeInfoCell, NonGenericTypePathCell};
+use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    self as bevy_reflect, DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
-    TypePath, Typed,
+    self as bevy_reflect,
+    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
+    Typed,
 };
 
 /// An ordered mapping between [`Reflect`] values.
@@ -353,12 +354,9 @@ impl Typed for DynamicMap {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Dynamic(DynamicInfo::new::<Self>()))
     }
-
-    fn type_path() -> &'static TypePath {
-        static CELL: NonGenericTypePathCell = NonGenericTypePathCell::new();
-        CELL.get_or_set(|| type_path_for!(::bevy_reflect::DynamicMap))
-    }
 }
+
+impl_type_path!(DynamicMap as bevy_reflect::DynamicMap);
 
 /// An iterator over the key-value pairs of a [`Map`].
 pub struct MapIter<'a> {

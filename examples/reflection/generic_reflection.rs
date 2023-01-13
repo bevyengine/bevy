@@ -1,6 +1,6 @@
 //! Demonstrates how reflection is used with generic Rust types.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, reflect::TypePath};
 use std::any::TypeId;
 
 fn main() {
@@ -13,7 +13,7 @@ fn main() {
 }
 
 #[derive(Reflect)]
-struct MyType<T: Reflect> {
+struct MyType<T: Reflect + TypePath> {
     value: T,
 }
 

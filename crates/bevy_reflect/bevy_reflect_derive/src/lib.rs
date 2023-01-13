@@ -24,7 +24,7 @@ mod fq_std;
 mod from_reflect;
 mod impls;
 mod reflect_value;
-mod with_path;
+mod type_path;
 mod registration;
 mod trait_reflection;
 mod type_uuid;
@@ -37,8 +37,8 @@ use proc_macro::TokenStream;
 use quote::quote;
 use reflect_value::ReflectValueDef;
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, DeriveInput};
-use with_path::WithPathDef;
+use syn::{parse_macro_input, DeriveInput, Generics};
+use type_path::NamedTypePathDef;
 
 pub(crate) static REFLECT_ATTRIBUTE_NAME: &str = "reflect";
 pub(crate) static REFLECT_VALUE_ATTRIBUTE_NAME: &str = "reflect_value";
@@ -89,15 +89,15 @@ pub fn derive_from_reflect(input: TokenStream) -> TokenStream {
     }
 }
 
-#[proc_macro_derive(WithPath, attributes(type_path))]
-pub fn derive_with_path(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(TypePath, attributes(type_path))]
+pub fn derive_type_path(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     let derive_data = match ReflectDerive::from_input(&ast) {
         Ok(data) => data,
         Err(err) => return err.into_compile_error().into(),
     };
     
-    impls::impl_with_path(derive_data.meta()).into()
+    impls::impl_type_path(derive_data.meta()).into()
 }
 
 // From https://github.com/randomPoison/type-uuid
@@ -114,9 +114,8 @@ pub fn reflect_trait(args: TokenStream, input: TokenStream) -> TokenStream {
 #[proc_macro]
 pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
-
     let path_to_type = if def.type_path.leading_colon.is_some() {
-        PathToType::External(&def.type_path)
+        PathToType::External { path: &def.type_path, alias: def.alias }
     } else {
         PathToType::Primtive(&def.type_path.segments.first().unwrap().ident)
     };
@@ -199,7 +198,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
     let path_to_type = if def.type_path.leading_colon.is_some() {
-        PathToType::External(&def.type_path)
+        PathToType::External { path: &def.type_path, alias: def.alias }
     } else {
         PathToType::Primtive(&def.type_path.segments.first().unwrap().ident)
     };
@@ -212,18 +211,17 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
 }
 
 #[proc_macro]
-pub fn impl_with_path(input: TokenStream) -> TokenStream {
-    let def = parse_macro_input!(input as WithPathDef);
+pub fn impl_type_path(input: TokenStream) -> TokenStream {
+    let def = parse_macro_input!(input as NamedTypePathDef);
     
     let (path_to_type, generics) = match def {
-        WithPathDef::External { ref path, ref generics } => (PathToType::External(path), generics),
-        WithPathDef::AliasedAnonymous { alias, ty, ref generics } => (PathToType::AliasedAnonymous { ty, alias }, generics),
-        WithPathDef::AliasedNamed { alias, ty, ref generics } => (PathToType::AliasedNamed { ty, alias }, generics),
+        NamedTypePathDef::External { ref path, alias, generics } => (PathToType::External { path, alias }, generics),
+        NamedTypePathDef::Primtive(ref ident) => (PathToType::Primtive(ident), Generics::default())
     };
     
-    impls::impl_with_path(&ReflectMeta::new(
+    impls::impl_type_path(&ReflectMeta::new(
         path_to_type,
-        generics,
+        &generics,
         ReflectTraits::default(),
     )).into()
 }

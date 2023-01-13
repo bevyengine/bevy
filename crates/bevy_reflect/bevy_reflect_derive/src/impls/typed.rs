@@ -3,7 +3,6 @@ use crate::utility::{extend_where_clause, WhereClauseOptions};
 use crate::ReflectMeta;
 use proc_macro2::Ident;
 use quote::quote;
-use syn::spanned::Spanned;
 
 fn static_typed_cell(
     meta: &ReflectMeta,
@@ -44,24 +43,62 @@ pub(crate) enum TypedProperty {
     TypePath,
 }
 
-pub(crate) fn impl_with_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+pub(crate) fn impl_type_path(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let path_to_type = meta.path_to_type();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
     let type_path_cell =
         static_typed_cell(meta, TypedProperty::TypePath, type_path_generator(meta));
 
-    let (impl_generics, ty_generics, where_clause) = meta.split_generics_for_impl();
+    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
 
     // Add Typed bound for each active field
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
     quote! {
-        impl #impl_generics #bevy_reflect_path::WithPath for #path_to_type #ty_generics #where_reflect_clause {
-            fn type_path() -> &'static #bevy_reflect_path::TypePath {
-                #type_path_cell
+        const _: () = {
+            trait GetStorage {
+                fn get_storage() -> &'static #bevy_reflect_path::utility::TypePathStorage;
             }
-        }
+
+            impl #impl_generics GetStorage for #path_to_type #ty_generics #where_reflect_clause {
+                #[inline]
+                fn get_storage() -> &'static #bevy_reflect_path::utility::TypePathStorage {
+                    #type_path_cell
+                }
+            }
+
+            impl #impl_generics #bevy_reflect_path::TypePath for #path_to_type #ty_generics #where_reflect_clause {
+                fn type_path() -> &'static str {
+                    &Self::get_storage().path()
+                }
+
+                fn short_type_path() -> &'static str {
+                    &Self::get_storage().short_path()
+                }
+
+                fn type_ident() -> Option<&'static str> {
+                    match Self::get_storage().ident() {
+                        Some(x) => Some(x),
+                        None => None
+                    }
+                }
+
+                fn crate_name() -> Option<&'static str> {
+                    match Self::get_storage().crate_name() {
+                        Some(x) => Some(x),
+                        None => None
+                    }
+                }
+
+                fn module_path() -> Option<&'static str> {
+                    match Self::get_storage().module_path() {
+                        Some(x) => Some(x),
+                        None => None
+                    }
+                }
+            }
+        };
     }
 }
 
@@ -73,16 +110,17 @@ pub(crate) fn impl_typed(
     let path_to_type = meta.path_to_type();
     let bevy_reflect_path = meta.bevy_reflect_path();
 
-    let with_path_impl = impl_with_path(meta);
+    let type_path_impl = impl_type_path(meta);
 
-    let type_info_cell = static_typed_cell(meta, TypedProperty::TypeInfo, type_info_generator);
+    let type_info_cell =
+        static_typed_cell(meta, TypedProperty::TypeInfo, type_info_generator);
 
-    let (impl_generics, ty_generics, where_clause) = meta.split_generics_for_impl();
+    let (impl_generics, ty_generics, where_clause) = meta.generics().split_for_impl();
 
     let where_reflect_clause = extend_where_clause(where_clause, where_clause_options);
 
     quote! {
-        #with_path_impl
+        #type_path_impl
 
         impl #impl_generics #bevy_reflect_path::Typed for #path_to_type #ty_generics #where_reflect_clause {
             fn type_info() -> &'static #bevy_reflect_path::TypeInfo {

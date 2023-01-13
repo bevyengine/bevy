@@ -646,10 +646,10 @@ mod test {
     use crate::{loader::LoadedAsset, update_asset_storage_system};
     use bevy_app::App;
     use bevy_ecs::prelude::*;
-    use bevy_reflect::TypeUuid;
+    use bevy_reflect::{TypeUuid, TypePath};
     use bevy_utils::BoxedFuture;
 
-    #[derive(Debug, TypeUuid)]
+    #[derive(Debug, TypeUuid, TypePath)]
     #[uuid = "a5189b72-0572-4290-a2e0-96f73a491c44"]
     struct PngAsset;
 

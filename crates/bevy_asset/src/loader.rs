@@ -5,6 +5,7 @@ use crate::{
 use anyhow::Error;
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
+use bevy_reflect::TypePath;
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
 use bevy_utils::{BoxedFuture, HashMap};
 use crossbeam_channel::{Receiver, Sender};
@@ -47,13 +48,13 @@ pub trait AssetLoader: Send + Sync + 'static {
 ///
 /// In order to load assets into your game you must either add them manually to an asset storage
 /// with [`Assets::add`] or load them from the filesystem with [`AssetServer::load`].
-pub trait Asset: TypeUuid + AssetDynamic {}
+pub trait Asset: TypeUuid + TypePath + AssetDynamic {}
 
 /// An untyped version of the [`Asset`] trait.
 pub trait AssetDynamic: Downcast + TypeUuidDynamic + Send + Sync + 'static {}
 impl_downcast!(AssetDynamic);
 
-impl<T> Asset for T where T: TypeUuid + AssetDynamic + TypeUuidDynamic {}
+impl<T> Asset for T where T: TypeUuid + TypePath + AssetDynamic + TypeUuidDynamic {}
 
 impl<T> AssetDynamic for T where T: Send + Sync + 'static + TypeUuidDynamic {}
 

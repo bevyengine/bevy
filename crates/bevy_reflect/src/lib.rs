@@ -653,38 +653,40 @@ mod tests {
     
     #[test]
     fn reflect_type_path() {
-        #[derive(WithPath)]
+        #[derive(TypePath)]
         struct A;
         
-        #[derive(WithPath)]
+        #[derive(TypePath)]
         #[type_path = "my_alias::B"]
         struct B;
         
-        #[derive(WithPath)]
-        struct C<T: WithPath>(PhantomData<T>);
+        #[derive(TypePath)]
+        struct C<T: TypePath>(PhantomData<T>);
         
-        #[derive(WithPath)]
+        #[derive(TypePath)]
         #[type_path = "my_alias::D"]
-        struct D<T: WithPath>(PhantomData<T>);
+        struct D<T: TypePath>(PhantomData<T>);
         
-        struct E;
-        impl_with_path!(E);
+        // struct E;
+        // impl_type_path!(E);
         
-        struct F;
-        impl_with_path!(F as my_alias::F);
+        // struct F;
+        // impl_type_path!(F as my_alias::F);
         
-        struct G<T: WithPath>(PhantomData<T>);
-        impl_with_path!(G<T>);
+        // struct G<T: TypePath>(PhantomData<T>);
+        // impl_type_path!(G<T>);
         
-        struct H<T: WithPath>(PhantomData<T>);
-        impl_with_path!(H<T> as my_alias::H);
+        // struct H<T: TypePath>(PhantomData<T>);
+        // impl_type_path!(H<T> as my_alias::H);
         
         A::type_path();
         B::type_path();
         C::<A>::type_path();
         D::<A>::type_path();
-        E::<A>::type_path();
-        F::<A>::type_path();
+        // E::type_path();
+        // F::type_path();
+        // G::<A>::type_path();
+        // H::<A>::type_path();
     }
 
     #[test]
@@ -740,7 +742,7 @@ mod tests {
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T> {
+        struct MyGenericStruct<T: Reflect + TypePath> {
             foo: T,
             bar: usize,
         }

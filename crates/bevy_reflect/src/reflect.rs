@@ -1,7 +1,9 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo, TypePath, utility::{NonGenericTypePathCell},
+    array_debug, enum_debug, impl_type_path_stored, list_debug, map_debug,
+    serde::Serializable,
+    struct_debug, tuple_debug, tuple_struct_debug,
+    utility::{NonGenericTypePathCell, TypePathStorage},
+    Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -226,12 +228,12 @@ impl Typed for dyn Reflect {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
         CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
     }
-
-    fn type_path() -> &'static TypePath {
-        static CELL: NonGenericTypePathCell = NonGenericTypePathCell::new();
-        CELL.get_or_set(|| TypePath::new_anonymous("dyn bevy_reflect::Reflect".to_owned(), "dyn Reflect".to_owned()))
-    }
 }
+
+impl_type_path_stored!(|| TypePathStorage::new_anonymous(
+    "dyn bevy_reflect::Reflect",
+    "dyn Reflect"
+), impl for dyn Reflect);
 
 #[deny(rustdoc::broken_intra_doc_links)]
 impl dyn Reflect {
