@@ -1557,6 +1557,16 @@ category = "Window"
 wasm = true
 
 [[example]]
+name = "screenshot"
+path = "examples/window/screenshot.rs"
+
+[package.metadata.example.screenshot]
+name = "Screenshot"
+description = "Shows how to save screenshots to disk"
+category = "Window"
+wasm = false
+
+[[example]]
 name = "transparent_window"
 path = "examples/window/transparent_window.rs"
 
