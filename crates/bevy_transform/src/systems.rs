@@ -1,5 +1,8 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
+use bevy_ecs::{
+    change_detection::Ref,
+    prelude::{Changed, DetectChanges, Entity, Query, With, Without},
+};
 use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
@@ -24,32 +27,26 @@ pub fn sync_simple_transforms(
 /// to propagate transforms correctly.
 pub fn propagate_transforms(
     mut root_query: Query<
-        (
-            Entity,
-            &Children,
-            &Transform,
-            Changed<Transform>,
-            Changed<Children>,
-            &mut GlobalTransform,
-        ),
+        (Entity, Ref<Children>, Ref<Transform>, &mut GlobalTransform),
         Without<Parent>,
     >,
-    transform_query: Query<(&Transform, Changed<Transform>, &mut GlobalTransform), With<Parent>>,
+    transform_query: Query<(Ref<Transform>, &mut GlobalTransform), With<Parent>>,
     parent_query: Query<&Parent>,
-    children_query: Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
+    children_query: Query<Ref<Children>, (With<Parent>, With<GlobalTransform>)>,
 ) {
     root_query.par_for_each_mut(
         // The differing depths and sizes of hierarchy trees causes the work for each root to be
         // different. A batch size of 1 ensures that each tree gets it's own task and multiple
         // large trees are not clumped together.
         1,
-        |(entity, children, transform, mut changed, children_changed, mut global_transform)| {
+        |(entity, children, transform, mut global_transform)| {
+            let mut changed = transform.is_changed();
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
 
             // If our `Children` has changed, we need to recalculate everything below us
-            changed |= children_changed;
+            changed |= children.is_changed();
 
             for child in children.iter() {
                 // SAFETY:
@@ -87,12 +84,9 @@ pub fn propagate_transforms(
 /// nor any of its descendants.
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
-    unsafe_transform_query: &Query<
-        (&Transform, Changed<Transform>, &mut GlobalTransform),
-        With<Parent>,
-    >,
+    unsafe_transform_query: &Query<(Ref<Transform>, &mut GlobalTransform), With<Parent>>,
     parent_query: &Query<&Parent>,
-    children_query: &Query<(&Children, Changed<Children>), (With<Parent>, With<GlobalTransform>)>,
+    children_query: &Query<Ref<Children>, (With<Parent>, With<GlobalTransform>)>,
     expected_parent: Entity,
     entity: Entity,
     mut changed: bool,
@@ -106,7 +100,7 @@ unsafe fn propagate_recursive(
     );
 
     let global_matrix = {
-        let Ok((transform, transform_changed, mut global_transform)) =
+        let Ok((transform, mut global_transform)) =
             // SAFETY: This call cannot create aliased mutable references.
             //   - The top level iteration parallelizes on the roots of the hierarchy.
             //   - The above assertion ensures that each child has one and only one unique parent throughout the entire
@@ -137,19 +131,19 @@ unsafe fn propagate_recursive(
                 return;
             };
 
-        changed |= transform_changed;
+        changed |= transform.is_changed();
         if changed {
             *global_transform = parent.mul_transform(*transform);
         }
         *global_transform
     };
 
-    let Ok((children, changed_children)) = children_query.get(entity) else {
+    let Ok(children) = children_query.get(entity) else {
         return
     };
     // If our `Children` has changed, we need to recalculate everything below us
-    changed |= changed_children;
-    for child in children {
+    changed |= children.is_changed();
+    for child in &children {
         // SAFETY: The caller guarantees that `unsafe_transform_query` will not be fetched
         // for any descendants of `entity`, so it is safe to call `propagate_recursive` for each child.
         unsafe {

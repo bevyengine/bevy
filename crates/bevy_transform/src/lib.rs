@@ -2,6 +2,7 @@
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![doc = include_str!("../README.md")]
 
+pub mod commands;
 /// The basic components of the transform crate
 pub mod components;
 mod systems;
@@ -9,7 +10,9 @@ mod systems;
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{components::*, TransformBundle, TransformPlugin};
+    pub use crate::{
+        commands::BuildChildrenTransformExt, components::*, TransformBundle, TransformPlugin,
+    };
 }
 
 use bevy_app::prelude::*;
