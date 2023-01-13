@@ -46,7 +46,7 @@ impl_graph! {
             if let Some(node) = self.nodes.get(idx) {
                 Ok(node)
             } else {
-                Err(GraphError::NodeDoesntExist(idx))
+                Err(GraphError::NodeIdxDoesntExist(idx))
             }
         }
 
@@ -55,7 +55,7 @@ impl_graph! {
             if let Some(node) = self.nodes.get_mut(idx) {
                 Ok(node)
             } else {
-                Err(GraphError::NodeDoesntExist(idx))
+                Err(GraphError::NodeIdxDoesntExist(idx))
             }
         }
 
@@ -68,7 +68,7 @@ impl_graph! {
         fn get_edge(&self, edge: EdgeIdx) -> GraphResult<&E> {
             match self.edges.get(edge) {
                 Some(e) => Ok(&e.data),
-                None => Err(GraphError::EdgeDoesntExist(edge))
+                None => Err(GraphError::EdgeIdxDoesntExist(edge))
             }
         }
 
@@ -76,54 +76,65 @@ impl_graph! {
         fn get_edge_mut(&mut self, edge: EdgeIdx) -> GraphResult<&mut E> {
             match self.edges.get_mut(edge) {
                 Some(e) => Ok(&mut e.data),
-                None => Err(GraphError::EdgeDoesntExist(edge))
+                None => Err(GraphError::EdgeIdxDoesntExist(edge))
             }
         }
 
         #[inline]
-        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+        fn edge_between(&self, _from: NodeIdx, _to: NodeIdx) -> GraphResult<EdgeIdx> {
+            todo!()
+        }
+
+        unsafe fn edge_between_unchecked(&self, _from: NodeIdx, _to: NodeIdx) -> EdgeIdx {
             todo!()
         }
 
         #[inline]
-        fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
+        fn edges_of(&self, _node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
             todo!()
         }
     }
 
     impl undirected {
-        fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
+        fn remove_node(&mut self, _node: NodeIdx) -> GraphResult<N> {
             todo!()
         }
 
-        fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
+        fn new_edge(&mut self, _from: NodeIdx, _to: NodeIdx, _edge: E) -> GraphResult<EdgeIdx> {
             todo!()
         }
 
-        unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+        unsafe fn new_edge_unchecked(&mut self, _from: NodeIdx, _to: NodeIdx, _edge: E) -> EdgeIdx {
             todo!()
         }
 
-        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+        fn remove_edge(&mut self, _edge: EdgeIdx) -> GraphResult<E> {
             todo!()
         }
     }
 
     impl directed {
-        fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
+        fn remove_node(&mut self, _node: NodeIdx) -> GraphResult<N> {
             todo!()
         }
 
-        fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
+        fn new_edge(&mut self, _from: NodeIdx, _to: NodeIdx, _edge: E) -> GraphResult<EdgeIdx> {
             todo!()
         }
 
-        unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+        unsafe fn new_edge_unchecked(&mut self, _from: NodeIdx, _to: NodeIdx, _edge: E) -> EdgeIdx {
             todo!()
         }
 
-        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+        fn remove_edge(&mut self, _edge: EdgeIdx) -> GraphResult<E> {
             todo!()
         }
+    }
+}
+
+impl<N, E, const DIRECTED: bool> Default for MultiMapGraph<N, E, DIRECTED> {
+    #[inline]
+    fn default() -> Self {
+        Self::new()
     }
 }

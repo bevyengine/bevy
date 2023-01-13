@@ -2,9 +2,10 @@ use crate::graphs::keys::{EdgeIdx, NodeIdx};
 
 #[derive(Debug)]
 pub enum GraphError {
-    NodeDoesntExist(NodeIdx),
-    EdgeDoesntExist(EdgeIdx),
-    EdgeAlreadyExists(NodeIdx, NodeIdx),
+    NodeIdxDoesntExist(NodeIdx),
+    EdgeIdxDoesntExist(EdgeIdx),
+    EdgeBetweenDoesntExist(NodeIdx, NodeIdx),
+    EdgeBetweenAlreadyExists(NodeIdx, NodeIdx),
 }
 
 pub type GraphResult<T> = Result<T, GraphError>;

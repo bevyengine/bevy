@@ -45,7 +45,7 @@ impl_graph! {
             if let Some(node) = self.nodes.get(idx) {
                 Ok(node)
             } else {
-                Err(GraphError::NodeDoesntExist(idx))
+                Err(GraphError::NodeIdxDoesntExist(idx))
             }
         }
 
@@ -54,7 +54,7 @@ impl_graph! {
             if let Some(node) = self.nodes.get_mut(idx) {
                 Ok(node)
             } else {
-                Err(GraphError::NodeDoesntExist(idx))
+                Err(GraphError::NodeIdxDoesntExist(idx))
             }
         }
 
@@ -67,7 +67,7 @@ impl_graph! {
         fn get_edge(&self, edge: EdgeIdx) -> GraphResult<&E> {
             match self.edges.get(edge) {
                 Some(e) => Ok(&e.data),
-                None => Err(GraphError::EdgeDoesntExist(edge))
+                None => Err(GraphError::EdgeIdxDoesntExist(edge))
             }
         }
 
@@ -75,17 +75,28 @@ impl_graph! {
         fn get_edge_mut(&mut self, edge: EdgeIdx) -> GraphResult<&mut E> {
             match self.edges.get_mut(edge) {
                 Some(e) => Ok(&mut e.data),
-                None => Err(GraphError::EdgeDoesntExist(edge))
+                None => Err(GraphError::EdgeIdxDoesntExist(edge))
             }
         }
 
         #[inline]
-        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
-            if let Some(idx) = self
-                .adjacencies
-                .get(from)
-                .unwrap()
-                .iter()
+        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx> {
+            if self.adjacencies.contains_key(from) {
+                unsafe {
+                    let idx = self.edge_between_unchecked(from, to);
+                    if idx.is_null() {
+                        Err(GraphError::EdgeBetweenDoesntExist(from, to))
+                    } else {
+                        Ok(idx)
+                    }
+                }
+            } else {
+                Err(GraphError::NodeIdxDoesntExist(from))
+            }
+        }
+
+        unsafe fn edge_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+            if let Some(idx) = self.adjacencies.get_unchecked(from).iter()
                 .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None })
             {
                 idx
@@ -107,27 +118,27 @@ impl_graph! {
             }
             match self.nodes.remove(node) {
                 Some(n) => Ok(n),
-                None => Err(GraphError::NodeDoesntExist(node))
+                None => Err(GraphError::NodeIdxDoesntExist(node))
             }
         }
 
         fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
             if let Some(node_edges) = self.adjacencies.get(node) {
                 if node_edges.iter().any(|(n, _)| *n == other) {
-                    Err(GraphError::EdgeAlreadyExists(node, other))
+                    Err(GraphError::EdgeBetweenAlreadyExists(node, other))
                 } else if let Some(other_edges) = self.adjacencies.get(other) {
                     if other_edges.iter().any(|(n, _)| *n == node) {
-                        Err(GraphError::EdgeAlreadyExists(other, node))
+                        Err(GraphError::EdgeBetweenAlreadyExists(other, node))
                     } else {
                         unsafe {
                             Ok(self.new_edge_unchecked(node, other, edge))
                         }
                     }
                 } else {
-                    Err(GraphError::NodeDoesntExist(other))
+                    Err(GraphError::NodeIdxDoesntExist(other))
                 }
             } else {
-                Err(GraphError::NodeDoesntExist(node))
+                Err(GraphError::NodeIdxDoesntExist(node))
             }
         }
 
@@ -156,10 +167,10 @@ impl_graph! {
 
                     Ok(self.edges.remove(edge).unwrap().data)
                 } else {
-                    Err(GraphError::EdgeDoesntExist(edge))
+                    Err(GraphError::EdgeIdxDoesntExist(edge))
                 }
             } else {
-                Err(GraphError::EdgeDoesntExist(edge))
+                Err(GraphError::EdgeIdxDoesntExist(edge))
             }
         }
     }
@@ -178,23 +189,23 @@ impl_graph! {
             }
             match self.nodes.remove(node) {
                 Some(n) => Ok(n),
-                None => Err(GraphError::NodeDoesntExist(node))
+                None => Err(GraphError::NodeIdxDoesntExist(node))
             }
         }
 
         fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
             if let Some(from_edges) = self.adjacencies.get(from) {
                 if from_edges.iter().any(|(n, _)| *n == to) {
-                    Err(GraphError::EdgeAlreadyExists(from, to))
+                    Err(GraphError::EdgeBetweenAlreadyExists(from, to))
                 } else if self.has_node(to) {
                     unsafe {
                         Ok(self.new_edge_unchecked(from, to, edge))
                     }
                 } else {
-                    Err(GraphError::NodeDoesntExist(to))
+                    Err(GraphError::NodeIdxDoesntExist(to))
                 }
             } else {
-                Err(GraphError::NodeDoesntExist(from))
+                Err(GraphError::NodeIdxDoesntExist(from))
             }
         }
 
@@ -217,10 +228,10 @@ impl_graph! {
 
                     Ok(self.edges.remove(edge).unwrap().data)
                 } else {
-                    Err(GraphError::EdgeDoesntExist(edge))
+                    Err(GraphError::EdgeIdxDoesntExist(edge))
                 }
             } else {
-                Err(GraphError::EdgeDoesntExist(edge))
+                Err(GraphError::EdgeIdxDoesntExist(edge))
             }
         }
     }
