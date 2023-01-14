@@ -190,7 +190,7 @@ impl BlobVec {
         // SAFETY:
         // - `src` and `dst` were obtained from `OwningPtr`s, which ensures they are
         //   valid for both reads and writes.
-        // - The data behind `src` will only be dropped if the above branch panics,
+        // - The value behind `src` will only be dropped if the above branch panics,
         //   so it must still be initialized and it is safe to transfer ownership into the vector.
         // - `src` and `dst` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
