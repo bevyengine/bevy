@@ -65,7 +65,6 @@ pub struct World {
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
     pub(crate) last_check_tick: u32,
-    main_thread_validator: MainThreadValidator,
 }
 
 impl Default for World {

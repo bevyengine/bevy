@@ -7,14 +7,14 @@ pub type BoxedCondition = BoxedSystem<(), bool>;
 /// A system that determines if one or more scheduled systems should run.
 ///
 /// Implemented for functions and closures that convert into [`System<In=(), Out=bool>`](crate::system::System)
-/// with [read-only](crate::system::ReadOnlySystemParamFetch) parameters.
+/// with [read-only](crate::system::ReadOnlySystemParam) parameters.
 pub trait Condition<Params>: sealed::Condition<Params> {}
 
 impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 
 mod sealed {
     use crate::system::{
-        IntoSystem, IsFunctionSystem, ReadOnlySystemParamFetch, SystemParam, SystemParamFunction,
+        IntoSystem, IsFunctionSystem, ReadOnlySystemParam, SystemParam, SystemParamFunction,
     };
 
     pub trait Condition<Params>: IntoSystem<(), bool, Params> {}
@@ -22,8 +22,7 @@ mod sealed {
     impl<Params, Marker, F> Condition<(IsFunctionSystem, Params, Marker)> for F
     where
         F: SystemParamFunction<(), bool, Params, Marker> + Send + Sync + 'static,
-        Params: SystemParam + 'static,
-        Params::Fetch: ReadOnlySystemParamFetch,
+        Params: SystemParam + ReadOnlySystemParam + 'static,
         Marker: 'static,
     {
     }
