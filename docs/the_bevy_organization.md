@@ -1,4 +1,4 @@
-## The Bevy Organization
+# The Bevy Organization
 
 The Bevy Organization is the group of people responsible for stewarding the Bevy project. It handles things like merging pull requests, choosing project direction, managing bugs / issues / feature requests, running the Bevy website, controlling access to secrets, defining and enforcing best practices, etc.
 
@@ -6,13 +6,13 @@ Note that you _do not_ need to be a member of the Bevy Organization to contribut
 
 The Bevy Organization is currently broken up into the following roles:
 
-### Project Lead
+## Project Lead
 
 Project Leads have the final call on all design and code changes within Bevy. This is to ensure a coherent vision and consistent quality of code. They are responsible for representing the project publicly and interacting with other entities (companies, organizations, etc) on behalf of the project. They choose how the project is organized, which includes how responsibility is delegated. Project Leads implicitly have the power of other roles (Maintainer, Subject Matter Expert, etc).
 
 @cart is, for now, our singular project lead. @cart tries to be accountable: open to new ideas and to changing his mind in the face of compelling arguments or community consensus.
 
-### Maintainer
+## Maintainer
 
 Maintainers have merge rights in Bevy repos. They assess the scope of pull requests and whether they fit into the Bevy project's vision. They also serve as representatives of the Bevy project and are often the interface between the Bevy community and the Bevy project. They assist the Project Leads in moderating the community, handling administrative tasks, defining best practices, choosing project direction, and deciding how the project is organized.
 
@@ -41,7 +41,7 @@ Our current Maintainers:
 * François Mockers (@mockersf)
 * Rob Swain (@superdump)
 
-### Subject Matter Expert (SME)
+## Subject Matter Expert (SME)
 
 Subject Matter Experts are members of the Bevy Organization that have proven themselves to be experts in a given development area (Rendering, Assets, ECS, UI, etc) and have a solid understanding of the Bevy Organization's vision for that area. They are great people to reach out to if you have questions about a given area of Bevy.
 
@@ -61,7 +61,7 @@ Our current Subject Matter Experts:
 
 (Finalizing this list now)
 
-### Bevy Org Member / Triage Team
+## Bevy Org Member / Triage Team
 
 [Bevy Org members](https://github.com/orgs/bevyengine/people) are contributors who:
 
@@ -72,7 +72,7 @@ Our current Subject Matter Experts:
 All Bevy Org members are also Triage Team members. The Triage Team can label and close issues and PRs but do not have merge rights or any special authority within the community.
 Org members also have the ability to use `bors try`, causing our build system to evaluate the PR again and run additional (more computationally expensive) CI steps to verify that the PR is ready to merge.
 
-### Role Rotation
+## Role Rotation
 
 All Bevy Organization roles (excluding the Triage Team) have the potential for "role rotation". Roles like Project Lead, Maintainer, and SME are intentionally kept in limited supply to ensure a cohesive project vision. However these roles can be taxing, and qualified motivated people deserve a chance to lead. To resolve these issues, we plan on building in "role rotation". What this looks like hasn't yet been determined (as this issue hasn't come up yet and we are still in the process of scaling out our team), but we will try to appropriately balance the needs and desires of both current and future leaders, while also ensuring consistent vision and continuity for Bevy.
 
