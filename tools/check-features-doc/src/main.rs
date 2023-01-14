@@ -8,8 +8,10 @@ enum FeaturesDocError {
     NoOptionalFeaturesTable,
     ManifestParsingFailed(String),
     DocParsingFailed(String),
-    UndocumentedFeature(Vec<String>),
-    NonExistantFeature(Vec<String>),
+    UndocumentedFeature(String),
+    NonExistantFeature(String),
+    FeatureNotDefault(String),
+    FeatureIsDefault(String),
 }
 
 #[derive(Default)]
@@ -63,37 +65,47 @@ fn main() -> Result<(), FeaturesDocError> {
         return Err(FeaturesDocError::NoOptionalFeaturesTable);
     }
 
-    let undocumented: Vec<String> = manifest_features
-        .all
-        .iter()
-        .flat_map(|feature| {
-            let default = manifest_features.default.contains(feature);
+    let mut errors = vec![];
 
-            if default {
-                if !doc_tables.first_col_contains(DEFAULT_FEATURES_HEADING, feature) {
-                    return Some(feature.clone());
-                }
-            } else if !doc_tables.first_col_contains(OPTIONAL_FEATURES_HEADING, feature) {
-                return Some(feature.clone());
-            }
+    // Check for features that are defined in the manifest, but nowhere to be found in the docs.
+    for feature in &manifest_features.all {
+        let in_default = doc_tables.first_col_contains(DEFAULT_FEATURES_HEADING, feature);
+        let in_optional = doc_tables.first_col_contains(OPTIONAL_FEATURES_HEADING, feature);
 
-            None
-        })
-        .collect();
-
-    if !undocumented.is_empty() {
-        return Err(FeaturesDocError::UndocumentedFeature(undocumented));
+        if !in_default && !in_optional {
+            errors.push(FeaturesDocError::UndocumentedFeature(feature.clone()))
+        }
     }
 
-    let non_existant: Vec<String> = doc_tables
-        .iter_first_col(DEFAULT_FEATURES_HEADING)
-        .chain(doc_tables.iter_first_col(OPTIONAL_FEATURES_HEADING))
-        .filter(|feature| !manifest_features.all.contains(*feature))
-        .cloned()
-        .collect();
+    // Check for features in the docs that are not defined in the manifest or are miscategorized.
 
-    if !non_existant.is_empty() {
-        return Err(FeaturesDocError::NonExistantFeature(non_existant));
+    for feature in doc_tables.iter_first_col(DEFAULT_FEATURES_HEADING) {
+        let default = manifest_features.default.contains(feature);
+        let is_feature = manifest_features.all.contains(feature);
+
+        match (default, is_feature) {
+            (false, false) => errors.push(FeaturesDocError::NonExistantFeature(feature.clone())),
+            (false, true) => errors.push(FeaturesDocError::FeatureNotDefault(feature.clone())),
+            _ => {}
+        }
+    }
+
+    for feature in doc_tables.iter_first_col(OPTIONAL_FEATURES_HEADING) {
+        let default = manifest_features.default.contains(feature);
+        let is_feature = manifest_features.all.contains(feature);
+
+        match (default, is_feature) {
+            (true, _) => errors.push(FeaturesDocError::FeatureIsDefault(feature.clone())),
+            (_, false) => errors.push(FeaturesDocError::NonExistantFeature(feature.clone())),
+            _ => {}
+        }
+    }
+
+    if !errors.is_empty() {
+        for error in errors {
+            eprintln!("{:?}", error);
+        }
+        std::process::exit(1);
     }
 
     Ok(())
