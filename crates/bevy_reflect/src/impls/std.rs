@@ -214,7 +214,7 @@ macro_rules! impl_reflect_for_veclike {
         impl<T: FromReflect> List for $ty {
             fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
                 let value = value.take::<T>().unwrap_or_else(|value| {
-                    T::from_reflect(&*value).unwrap_or_else(|| {
+                    T::from_reflect(&*value).unwrap_or_else(|_| {
                         panic!(
                             "Attempted to insert invalid value of type {}.",
                             value.type_name()

@@ -52,7 +52,7 @@ where
 {
     fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
-            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|_| {
                 panic!(
                     "Attempted to insert invalid value of type {}.",
                     value.type_name()
