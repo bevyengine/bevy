@@ -5,7 +5,7 @@ pub mod edge;
 pub mod impl_graph;
 pub mod keys;
 
-use crate::algos::bfs::BreadthFirstSearch;
+use crate::algos::{bfs::BreadthFirstSearch, dfs::DepthFirstSearch};
 use crate::error::GraphResult;
 
 use self::keys::{EdgeIdx, NodeIdx};
@@ -52,5 +52,9 @@ pub trait Graph<N, E> {
     #[inline]
     fn algo_bfs(&self, start: NodeIdx) -> BreadthFirstSearch {
         BreadthFirstSearch::new(start, self.count())
+    }
+    #[inline]
+    fn algo_dfs(&self, start: NodeIdx) -> DepthFirstSearch {
+        DepthFirstSearch::new(start, self.count())
     }
 }

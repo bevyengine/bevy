@@ -1,31 +1,29 @@
-use std::collections::VecDeque;
-
 use hashbrown::HashSet;
 
 use crate::graphs::{keys::NodeIdx, Graph};
 
-pub struct BreadthFirstSearch {
-    queue: VecDeque<NodeIdx>,
+pub struct DepthFirstSearch {
+    stack: Vec<NodeIdx>,
     visited: HashSet<NodeIdx>,
 }
 
-impl BreadthFirstSearch {
+impl DepthFirstSearch {
     pub fn new(start: NodeIdx, count: usize) -> Self {
-        let mut queue = VecDeque::new();
+        let mut stack = Vec::new();
         let mut visited = HashSet::with_capacity(count);
 
         visited.insert(start);
-        queue.push_back(start);
+        stack.push(start);
 
-        Self { queue, visited }
+        Self { stack, visited }
     }
 
     pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
-        if let Some(node) = self.queue.pop_front() {
+        if let Some(node) = self.stack.pop() {
             for (idx, _) in graph.edges_of(node) {
                 if !self.visited.contains(&idx) {
                     self.visited.insert(idx);
-                    self.queue.push_back(idx);
+                    self.stack.push(idx);
                 }
             }
             Some(graph.get_node(node).unwrap())
@@ -35,11 +33,11 @@ impl BreadthFirstSearch {
     }
 
     pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
-        if let Some(node) = self.queue.pop_front() {
+        if let Some(node) = self.stack.pop() {
             for (idx, _) in graph.edges_of(node) {
                 if !self.visited.contains(&idx) {
                     self.visited.insert(idx);
-                    self.queue.push_back(idx);
+                    self.stack.push(idx);
                 }
             }
             Some(graph.get_node_mut(node).unwrap())
@@ -54,7 +52,7 @@ mod test {
     use crate::graphs::{simple::SimpleMapGraph, Graph};
 
     #[test]
-    fn bfs() {
+    fn dfs() {
         let mut map = SimpleMapGraph::<i32, (), true>::new();
 
         let zero = map.new_node(0);
@@ -68,12 +66,12 @@ mod test {
         map.new_edge(two, zero, ()).unwrap();
         map.new_edge(two, three, ()).unwrap();
 
-        let elements = vec![0, 2, 1, 3];
+        let elements = vec![0, 1, 2, 3];
 
         let mut counted_elements = Vec::with_capacity(4);
 
-        let mut bfs = map.algo_bfs(zero);
-        while let Some(node) = bfs.next(&map) {
+        let mut dfs = map.algo_dfs(zero);
+        while let Some(node) = dfs.next(&map) {
             counted_elements.push(*node)
         }
 
