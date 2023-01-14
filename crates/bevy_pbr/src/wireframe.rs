@@ -136,7 +136,7 @@ fn queue_wireframes(
                     };
                     opaque_phase.add(Opaque3d {
                         entity,
-                        pipeline: pipeline_id,
+                        pipeline_id,
                         draw_function: draw_custom,
                         distance: rangefinder.distance(&mesh_uniform.transform),
                     });

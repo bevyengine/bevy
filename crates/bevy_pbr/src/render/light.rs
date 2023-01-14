@@ -19,8 +19,8 @@ use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::{
-        CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand,
-        RenderCommandResult, RenderPhase, SetItemPipeline, TrackedRenderPass,
+        DrawFunctionId, DrawFunctions, PhaseItem, RenderCommand, RenderCommandResult, RenderPhase,
+        SetItemPipeline, TrackedRenderPass,
     },
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
@@ -1762,7 +1762,7 @@ pub fn queue_shadows(
 
                         shadow_phase.add(Shadow {
                             draw_function: draw_shadow_mesh,
-                            pipeline: pipeline_id,
+                            pipeline_id,
                             entity,
                             distance: 0.0, // TODO: sort back-to-front
                         });
@@ -1776,7 +1776,7 @@ pub fn queue_shadows(
 pub struct Shadow {
     pub distance: f32,
     pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -1799,15 +1799,13 @@ impl PhaseItem for Shadow {
     }
 
     #[inline]
+    fn pipeline_id(&self) -> CachedRenderPipelineId {
+        self.pipeline_id
+    }
+
+    #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl CachedRenderPipelinePhaseItem for Shadow {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
     }
 }
 

@@ -94,7 +94,7 @@ impl Node for UiPassNode {
 pub struct TransparentUi {
     pub sort_key: FloatOrd,
     pub entity: Entity,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
 }
 
@@ -115,12 +115,10 @@ impl PhaseItem for TransparentUi {
     fn draw_function(&self) -> DrawFunctionId {
         self.draw_function
     }
-}
 
-impl CachedRenderPipelinePhaseItem for TransparentUi {
     #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
+    fn pipeline_id(&self) -> CachedRenderPipelineId {
+        self.pipeline_id
     }
 }
 

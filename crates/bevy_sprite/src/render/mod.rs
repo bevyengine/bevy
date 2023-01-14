@@ -527,12 +527,12 @@ pub fn queue_sprites(
                     }
                 }
             }
-            let pipeline = pipelines.specialize(
+            let pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &sprite_pipeline,
                 view_key | SpritePipelineKey::from_colored(false),
             );
-            let colored_pipeline = pipelines.specialize(
+            let colored_pipeline_id = pipelines.specialize(
                 &pipeline_cache,
                 &sprite_pipeline,
                 view_key | SpritePipelineKey::from_colored(true),
@@ -654,7 +654,7 @@ pub fn queue_sprites(
 
                     transparent_phase.add(Transparent2d {
                         draw_function: draw_sprite_function,
-                        pipeline: colored_pipeline,
+                        pipeline_id: colored_pipeline_id,
                         entity: current_batch_entity,
                         sort_key,
                         batch_range: Some(item_start..item_end),
@@ -672,7 +672,7 @@ pub fn queue_sprites(
 
                     transparent_phase.add(Transparent2d {
                         draw_function: draw_sprite_function,
-                        pipeline,
+                        pipeline_id,
                         entity: current_batch_entity,
                         sort_key,
                         batch_range: Some(item_start..item_end),

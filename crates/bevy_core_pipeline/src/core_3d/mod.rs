@@ -29,10 +29,7 @@ use bevy_render::{
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
-    render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
-        RenderPhase,
-    },
+    render_phase::{sort_phase_system, DrawFunctionId, DrawFunctions, PhaseItem, RenderPhase},
     render_resource::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
@@ -130,7 +127,7 @@ impl Plugin for Core3dPlugin {
 
 pub struct Opaque3d {
     pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -155,22 +152,20 @@ impl PhaseItem for Opaque3d {
     }
 
     #[inline]
+    fn pipeline_id(&self) -> CachedRenderPipelineId {
+        self.pipeline_id
+    }
+
+    #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
-impl CachedRenderPipelinePhaseItem for Opaque3d {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
-    }
-}
-
 pub struct AlphaMask3d {
     pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -195,22 +190,20 @@ impl PhaseItem for AlphaMask3d {
     }
 
     #[inline]
+    fn pipeline_id(&self) -> CachedRenderPipelineId {
+        self.pipeline_id
+    }
+
+    #[inline]
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
     }
 }
 
-impl CachedRenderPipelinePhaseItem for AlphaMask3d {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
-    }
-}
-
 pub struct Transparent3d {
     pub distance: f32,
-    pub pipeline: CachedRenderPipelineId,
+    pub pipeline_id: CachedRenderPipelineId,
     pub entity: Entity,
     pub draw_function: DrawFunctionId,
 }
@@ -235,15 +228,13 @@ impl PhaseItem for Transparent3d {
     }
 
     #[inline]
+    fn pipeline_id(&self) -> CachedRenderPipelineId {
+        self.pipeline_id
+    }
+
+    #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl CachedRenderPipelinePhaseItem for Transparent3d {
-    #[inline]
-    fn cached_pipeline(&self) -> CachedRenderPipelineId {
-        self.pipeline
     }
 }
 
