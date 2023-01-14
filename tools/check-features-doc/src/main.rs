@@ -73,7 +73,7 @@ fn main() -> Result<(), FeaturesDocError> {
         let in_optional = doc_tables.first_col_contains(OPTIONAL_FEATURES_HEADING, feature);
 
         if !in_default && !in_optional {
-            errors.push(FeaturesDocError::UndocumentedFeature(feature.clone()))
+            errors.push(FeaturesDocError::UndocumentedFeature(feature.clone()));
         }
     }
 
