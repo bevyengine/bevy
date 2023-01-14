@@ -23,7 +23,7 @@ pub mod prelude {
 
 use bevy_app::prelude::*;
 use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel, SystemSet};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromReflect, PartialReflect, Reflect};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{
     mouse_button_input_system, MouseButton, MouseButtonInput, MouseMotion, MouseScrollUnit,

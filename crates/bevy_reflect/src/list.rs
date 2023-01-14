@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
+    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, PartialReflect, ReflectMut, ReflectOwned,
     ReflectRef, TypeInfo, Typed,
 };
 
@@ -18,28 +18,28 @@ use crate::{
 ///
 /// [`push`](List::push) and [`pop`](List::pop) have default implementations,
 /// however it may be faster to implement them manually.
-pub trait List: Reflect + Array {
+pub trait List: PartialReflect + Array {
     /// Inserts an element at position `index` within the list,
     /// shifting all elements after it towards the back of the list.
     ///
     /// # Panics
     /// Panics if `index > len`.
-    fn insert(&mut self, index: usize, element: Box<dyn Reflect>);
+    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>);
 
     /// Removes and returns the element at position `index` within the list,
     /// shifting all elements before it towards the front of the list.
     ///
     /// # Panics
     /// Panics if `index` is out of bounds.
-    fn remove(&mut self, index: usize) -> Box<dyn Reflect>;
+    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect>;
 
     /// Appends an element to the _back_ of the list.
-    fn push(&mut self, value: Box<dyn Reflect>) {
+    fn push(&mut self, value: Box<dyn PartialReflect>) {
         self.insert(self.len(), value);
     }
 
     /// Removes the _back_ element from the list and returns it, or [`None`] if it is empty.
-    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
         if self.is_empty() {
             None
         } else {
@@ -131,7 +131,7 @@ impl ListInfo {
 #[derive(Default)]
 pub struct DynamicList {
     name: String,
-    values: Vec<Box<dyn Reflect>>,
+    values: Vec<Box<dyn PartialReflect>>,
 }
 
 impl DynamicList {
@@ -152,22 +152,22 @@ impl DynamicList {
     }
 
     /// Appends a typed value to the list.
-    pub fn push<T: Reflect>(&mut self, value: T) {
+    pub fn push<T: PartialReflect>(&mut self, value: T) {
         self.values.push(Box::new(value));
     }
 
     /// Appends a [`Reflect`] trait object to the list.
-    pub fn push_box(&mut self, value: Box<dyn Reflect>) {
+    pub fn push_box(&mut self, value: Box<dyn PartialReflect>) {
         self.values.push(value);
     }
 }
 
 impl Array for DynamicList {
-    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+    fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
         self.values.get(index).map(|value| &**value)
     }
 
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
         self.values.get_mut(index).map(|value| &mut **value)
     }
 
@@ -179,7 +179,7 @@ impl Array for DynamicList {
         ArrayIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
         self.values
     }
 
@@ -196,19 +196,19 @@ impl Array for DynamicList {
 }
 
 impl List for DynamicList {
-    fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
+    fn insert(&mut self, index: usize, element: Box<dyn PartialReflect>) {
         self.values.insert(index, element);
     }
 
-    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
         self.values.remove(index)
     }
 
-    fn push(&mut self, value: Box<dyn Reflect>) {
+    fn push(&mut self, value: Box<dyn PartialReflect>) {
         DynamicList::push_box(self, value);
     }
 
-    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
         self.values.pop()
     }
 
@@ -224,7 +224,7 @@ impl List for DynamicList {
     }
 }
 
-impl Reflect for DynamicList {
+impl PartialReflect for DynamicList {
     #[inline]
     fn type_name(&self) -> &str {
         self.name.as_str()
@@ -251,26 +251,26 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
     #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
+    fn as_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         list_apply(self, value);
     }
 
     #[inline]
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
         *self = value.take()?;
         Ok(())
     }
@@ -291,7 +291,7 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(List::clone_dynamic(self))
     }
 
@@ -300,7 +300,7 @@ impl Reflect for DynamicList {
         crate::array_hash(self)
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         list_partial_eq(self, value)
     }
 
@@ -325,7 +325,7 @@ impl Typed for DynamicList {
 }
 
 impl IntoIterator for DynamicList {
-    type Item = Box<dyn Reflect>;
+    type Item = Box<dyn PartialReflect>;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -342,7 +342,7 @@ impl IntoIterator for DynamicList {
 ///
 /// This function panics if `b` is not a list.
 #[inline]
-pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
+pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
     if let ReflectRef::List(list_value) = b.reflect_ref() {
         for (i, value) in list_value.iter().enumerate() {
             if i < a.len() {
@@ -367,7 +367,7 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn Reflect) {
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
-pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
+pub fn list_partial_eq<L: List>(a: &L, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::List(list) = b.reflect_ref() else {
         return Some(false);
     };
@@ -390,9 +390,9 @@ pub fn list_partial_eq<L: List>(a: &L, b: &dyn Reflect) -> Option<bool> {
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::Reflect;
+/// use bevy_reflect::PartialReflect;
 ///
-/// let my_list: &dyn Reflect = &vec![1, 2, 3];
+/// let my_list: &dyn PartialReflect = &vec![1, 2, 3];
 /// println!("{:#?}", my_list);
 ///
 /// // Output:

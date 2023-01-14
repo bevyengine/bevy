@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     reflect::{
         serde::{ReflectSerializer, UntypedReflectDeserializer},
-        DynamicStruct,
+        DynamicStruct, Reflect,
     },
 };
 use serde::de::DeserializeSeed;
@@ -56,7 +56,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     assert_eq!(value.a, 2);
     assert_eq!(*value.get_field::<usize>("a").unwrap(), 2);
 
-    // You can also get the &dyn Reflect value of a field like this
+    // You can also get the &dyn PartialReflect value of a field like this
     let field = value.field("a").unwrap();
 
     // you can downcast Reflect values like this:
@@ -85,7 +85,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-    // Deserializing returns a Box<dyn Reflect> value. Generally, deserializing a value will return
+    // Deserializing returns a Box<dyn PartialReflect> value. Generally, deserializing a value will return
     // the "dynamic" variant of a type. For example, deserializing a struct will return the
     // DynamicStruct type. "Value types" will be deserialized as themselves.
     let _deserialized_struct = reflect_value.downcast_ref::<DynamicStruct>();

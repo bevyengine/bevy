@@ -1,6 +1,6 @@
 use crate::{ButtonState, Input};
 use bevy_ecs::{change_detection::DetectChangesMut, event::EventReader, system::ResMut};
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromReflect, PartialReflect, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};

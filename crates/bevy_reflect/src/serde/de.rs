@@ -1,7 +1,7 @@
 use crate::serde::SerializationData;
 use crate::{
     ArrayInfo, DynamicArray, DynamicEnum, DynamicList, DynamicMap, DynamicStruct, DynamicTuple,
-    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, Reflect,
+    DynamicTupleStruct, DynamicVariant, EnumInfo, ListInfo, Map, MapInfo, NamedField, PartialReflect,
     ReflectDeserialize, StructInfo, StructVariantInfo, Tuple, TupleInfo, TupleStruct,
     TupleStructInfo, TupleVariantInfo, TypeInfo, TypeRegistration, TypeRegistry, UnnamedField,
     VariantInfo,
@@ -20,7 +20,7 @@ pub trait DeserializeValue {
     fn deserialize(
         deserializer: &mut dyn Deserializer,
         type_registry: &TypeRegistry,
-    ) -> Result<Box<dyn Reflect>, erased_serde::Error>;
+    ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>;
 }
 
 trait StructLikeInfo {
@@ -212,7 +212,7 @@ impl<'de> Visitor<'de> for U32Visitor {
 
 /// A general purpose deserializer for reflected types.
 ///
-/// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
+/// This will return a [`Box<dyn PartialReflect>`] containing the deserialized data.
 /// For non-value types, this `Box` will contain the dynamic equivalent. For example, a
 /// deserialized struct will return a [`DynamicStruct`] and a `Vec` will return a
 /// [`DynamicList`]. For value types, this `Box` will contain the actual value.
@@ -229,7 +229,7 @@ impl<'de> Visitor<'de> for U32Visitor {
 /// If the type is already known and the [`TypeInfo`] for it can be retrieved,
 /// [`TypedReflectDeserializer`] may be used instead to avoid requiring these entries.
 ///
-/// [`Box<dyn Reflect>`]: crate::Reflect
+/// [`Box<dyn PartialReflect>`]: crate::PartialReflect
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [`DynamicList`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
@@ -245,7 +245,7 @@ impl<'a> UntypedReflectDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
-    type Value = Box<dyn Reflect>;
+    type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -310,7 +310,7 @@ struct UntypedReflectDeserializerVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
-    type Value = Box<dyn Reflect>;
+    type Value = Box<dyn PartialReflect>;
 
     fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
         formatter.write_str("map containing `type` and `value` entries for the reflected value")
@@ -333,7 +333,7 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
 
 /// A deserializer for reflected types whose [`TypeInfo`] is known.
 ///
-/// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
+/// This will return a [`Box<dyn PartialReflect>`] containing the deserialized data.
 /// For non-value types, this `Box` will contain the dynamic equivalent. For example, a
 /// deserialized struct will return a [`DynamicStruct`] and a `Vec` will return a
 /// [`DynamicList`]. For value types, this `Box` will contain the actual value.
@@ -345,7 +345,7 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
 /// If the type is not known ahead of time, use [`UntypedReflectDeserializer`] instead.
 ///
 /// [`TypeInfo`]: crate::TypeInfo
-/// [`Box<dyn Reflect>`]: crate::Reflect
+/// [`Box<dyn PartialReflect>`]: crate::PartialReflect
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [`DynamicList`]: crate::DynamicList
 /// [`FromReflect`]: crate::FromReflect
@@ -364,7 +364,7 @@ impl<'a> TypedReflectDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
-    type Value = Box<dyn Reflect>;
+    type Value = Box<dyn PartialReflect>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -1085,6 +1085,7 @@ fn get_registration<'a, E: Error>(
 
 #[cfg(test)]
 mod tests {
+    use bevy_reflect_derive::Reflect;
     use bincode::Options;
     use std::any::TypeId;
     use std::f32::consts::PI;
@@ -1096,7 +1097,7 @@ mod tests {
 
     use crate as bevy_reflect;
     use crate::serde::{TypedReflectDeserializer, UntypedReflectDeserializer};
-    use crate::{DynamicEnum, FromReflect, Reflect, ReflectDeserialize, TypeRegistry};
+    use crate::{DynamicEnum, FromReflect, PartialReflect, ReflectDeserialize, TypeRegistry};
 
     #[derive(Reflect, FromReflect, Debug, PartialEq)]
     struct MyStruct {

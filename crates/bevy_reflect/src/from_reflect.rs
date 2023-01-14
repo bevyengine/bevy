@@ -1,4 +1,4 @@
-use crate::{FromType, Reflect};
+use crate::{FromType, PartialReflect};
 
 /// A trait for types which can be constructed from a reflected type.
 ///
@@ -10,9 +10,9 @@ use crate::{FromType, Reflect};
 /// attribute will be constructed using the `Default` implementation of the
 /// field type, rather than the corresponding field value (if any) of the
 /// reflected value.
-pub trait FromReflect: Reflect + Sized {
+pub trait FromReflect: PartialReflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self>;
 
     /// Attempts to downcast the given value to `Self` using,
     /// constructing the value using [`from_reflect`] if that fails.
@@ -24,7 +24,7 @@ pub trait FromReflect: Reflect + Sized {
     /// [`from_reflect`]: Self::from_reflect
     /// [`DynamicStruct`]: crate::DynamicStruct
     /// [`DynamicList`]: crate::DynamicList
-    fn take_from_reflect(reflect: Box<dyn Reflect>) -> Result<Self, Box<dyn Reflect>> {
+    fn take_from_reflect(reflect: Box<dyn PartialReflect>) -> Result<Self, Box<dyn PartialReflect>> {
         match reflect.take::<Self>() {
             Ok(value) => Ok(value),
             Err(value) => match Self::from_reflect(value.as_ref()) {
@@ -78,7 +78,7 @@ pub trait FromReflect: Reflect + Sized {
 /// let registration = registry.get_with_name(reflected.type_name()).unwrap();
 /// let rfr = registration.data::<ReflectFromReflect>().unwrap();
 ///
-/// let concrete: Box<dyn Reflect> = rfr.from_reflect(&reflected).unwrap();
+/// let concrete: Box<dyn PartialReflect> = rfr.from_reflect(&reflected).unwrap();
 ///
 /// assert_eq!(Foo(123), concrete.take::<Foo>().unwrap());
 /// ```
@@ -87,16 +87,16 @@ pub trait FromReflect: Reflect + Sized {
 /// [`DynamicEnum`]: crate::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {
-    from_reflect: fn(&dyn Reflect) -> Option<Box<dyn Reflect>>,
+    from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn PartialReflect>>,
 }
 
 impl ReflectFromReflect {
     /// Perform a [`FromReflect::from_reflect`] conversion on the given reflection object.
     ///
     /// This will convert the object to a concrete type if it wasn't already, and return
-    /// the value as `Box<dyn Reflect>`.
+    /// the value as `Box<dyn PartialReflect>`.
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_reflect(&self, reflect_value: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+    pub fn from_reflect(&self, reflect_value: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
         (self.from_reflect)(reflect_value)
     }
 }
@@ -105,7 +105,7 @@ impl<T: FromReflect> FromType<T> for ReflectFromReflect {
     fn from_type() -> Self {
         Self {
             from_reflect: |reflect_value| {
-                T::from_reflect(reflect_value).map(|value| Box::new(value) as Box<dyn Reflect>)
+                T::from_reflect(reflect_value).map(|value| Box::new(value) as Box<dyn PartialReflect>)
             },
         }
     }

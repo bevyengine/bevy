@@ -1,8 +1,9 @@
 use super::GlobalTransform;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_math::{Affine3A, Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::prelude::*;
 use bevy_reflect::Reflect;
+use bevy_reflect::prelude::*;
+use bevy_reflect::PartialReflect;
 use std::ops::Mul;
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative

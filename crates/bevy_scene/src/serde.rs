@@ -3,7 +3,7 @@ use anyhow::Result;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
 use bevy_reflect::{
     serde::{TypeRegistrationDeserializer, UntypedReflectDeserializer},
-    Reflect, TypeRegistry, TypeRegistryArc,
+    PartialReflect, TypeRegistry, TypeRegistryArc,
 };
 use bevy_utils::HashSet;
 use serde::ser::SerializeMap;
@@ -95,7 +95,7 @@ impl<'a> Serialize for EntitySerializer<'a> {
 }
 
 pub struct ComponentsSerializer<'a> {
-    pub components: &'a [Box<dyn Reflect>],
+    pub components: &'a [Box<dyn PartialReflect>],
     pub registry: &'a TypeRegistryArc,
 }
 
@@ -326,7 +326,7 @@ pub struct ComponentDeserializer<'a> {
 }
 
 impl<'a, 'de> DeserializeSeed<'de> for ComponentDeserializer<'a> {
-    type Value = Vec<Box<dyn Reflect>>;
+    type Value = Vec<Box<dyn PartialReflect>>;
 
     fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
     where
@@ -343,7 +343,7 @@ struct ComponentVisitor<'a> {
 }
 
 impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
-    type Value = Vec<Box<dyn Reflect>>;
+    type Value = Vec<Box<dyn PartialReflect>>;
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str("map of components")
@@ -395,7 +395,7 @@ mod tests {
     use bevy_app::AppTypeRegistry;
     use bevy_ecs::entity::EntityMap;
     use bevy_ecs::prelude::{Component, ReflectComponent, World};
-    use bevy_reflect::{FromReflect, Reflect, ReflectSerialize};
+    use bevy_reflect::{FromReflect, PartialReflect, ReflectSerialize, Reflect};
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;

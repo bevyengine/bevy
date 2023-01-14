@@ -1,6 +1,6 @@
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::std_traits::ReflectDefault;
-use bevy_reflect::{FromReflect, Reflect};
+use bevy_reflect::{FromReflect, PartialReflect, Reflect};
 
 // TODO: add discussion about performance.
 /// Sets how a material's base color alpha channel is used for transparency.

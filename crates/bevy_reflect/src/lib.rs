@@ -40,7 +40,7 @@ pub mod prelude {
     pub use crate::std_traits::*;
     #[doc(hidden)]
     pub use crate::{
-        reflect_trait, FromReflect, GetField, GetTupleStructField, Reflect, ReflectDeserialize,
+        reflect_trait, FromReflect, GetField, GetTupleStructField, PartialReflect, ReflectDeserialize,
         ReflectSerialize, Struct, TupleStruct,
     };
 }
@@ -563,7 +563,7 @@ mod tests {
             t: ([3.0, 2.0, 1.0], "Tuple String".to_string()),
         };
 
-        let foo2: Box<dyn Reflect> = Box::new(foo.clone());
+        let foo2: Box<dyn PartialReflect> = Box::new(foo.clone());
 
         assert_eq!(foo, *foo2.downcast::<Foo>().unwrap());
     }
@@ -599,7 +599,7 @@ mod tests {
             x: u32,
         }
 
-        let x: Box<dyn Reflect> = Box::new(Bar { x: 2 });
+        let x: Box<dyn PartialReflect> = Box::new(Bar { x: 2 });
         let y = x.take::<Bar>().unwrap();
         assert_eq!(y, Bar { x: 2 });
     }
@@ -656,12 +656,12 @@ mod tests {
 
         // TypeInfo (unsized)
         assert_eq!(
-            std::any::TypeId::of::<dyn Reflect>(),
-            <dyn Reflect as Typed>::type_info().type_id()
+            std::any::TypeId::of::<dyn PartialReflect>(),
+            <dyn PartialReflect as Typed>::type_info().type_id()
         );
 
         // TypeInfo (instance)
-        let value: &dyn Reflect = &123_i32;
+        let value: &dyn PartialReflect = &123_i32;
         let info = value.get_type_info();
         assert!(info.is::<i32>());
 
@@ -694,13 +694,13 @@ mod tests {
             panic!("Expected `TypeInfo::Struct`");
         }
 
-        let value: &dyn Reflect = &MyStruct { foo: 123, bar: 321 };
+        let value: &dyn PartialReflect = &MyStruct { foo: 123, bar: 321 };
         let info = value.get_type_info();
         assert!(info.is::<MyStruct>());
 
         // Struct (generic)
         #[derive(Reflect)]
-        struct MyGenericStruct<T: Reflect> {
+        struct MyGenericStruct<T: PartialReflect> {
             foo: T,
             bar: usize,
         }
@@ -725,7 +725,7 @@ mod tests {
             panic!("Expected `TypeInfo::Struct`");
         }
 
-        let value: &dyn Reflect = &MyGenericStruct {
+        let value: &dyn PartialReflect = &MyGenericStruct {
             foo: String::from("Hello!"),
             bar: 321,
         };
@@ -764,7 +764,7 @@ mod tests {
             panic!("Expected `TypeInfo::Tuple`");
         }
 
-        let value: &dyn Reflect = &(123_u32, 1.23_f32, String::from("Hello!"));
+        let value: &dyn PartialReflect = &(123_u32, 1.23_f32, String::from("Hello!"));
         let info = value.get_type_info();
         assert!(info.is::<MyTuple>());
 
@@ -781,7 +781,7 @@ mod tests {
             panic!("Expected `TypeInfo::List`");
         }
 
-        let value: &dyn Reflect = &vec![123_usize];
+        let value: &dyn PartialReflect = &vec![123_usize];
         let info = value.get_type_info();
         assert!(info.is::<MyList>());
 
@@ -801,7 +801,7 @@ mod tests {
             }
 
             let value: MySmallVec = smallvec::smallvec![String::default(); 2];
-            let value: &dyn Reflect = &value;
+            let value: &dyn PartialReflect = &value;
             let info = value.get_type_info();
             assert!(info.is::<MySmallVec>());
         }
@@ -820,7 +820,7 @@ mod tests {
             panic!("Expected `TypeInfo::Array`");
         }
 
-        let value: &dyn Reflect = &[1usize, 2usize, 3usize];
+        let value: &dyn PartialReflect = &[1usize, 2usize, 3usize];
         let info = value.get_type_info();
         assert!(info.is::<MyArray>());
 
@@ -839,7 +839,7 @@ mod tests {
             panic!("Expected `TypeInfo::Map`");
         }
 
-        let value: &dyn Reflect = &MyMap::new();
+        let value: &dyn PartialReflect = &MyMap::new();
         let info = value.get_type_info();
         assert!(info.is::<MyMap>());
 
@@ -854,7 +854,7 @@ mod tests {
             panic!("Expected `TypeInfo::Value`");
         }
 
-        let value: &dyn Reflect = &String::from("Hello!");
+        let value: &dyn PartialReflect = &String::from("Hello!");
         let info = value.get_type_info();
         assert!(info.is::<MyValue>());
 
@@ -869,7 +869,7 @@ mod tests {
             panic!("Expected `TypeInfo::Dynamic`");
         }
 
-        let value: &dyn Reflect = &DynamicList::default();
+        let value: &dyn PartialReflect = &DynamicList::default();
         let info = value.get_type_info();
         assert!(info.is::<MyDynamic>());
     }
@@ -1030,7 +1030,7 @@ mod tests {
 
     #[test]
     fn into_reflect() {
-        trait TestTrait: Reflect {}
+        trait TestTrait: PartialReflect {}
 
         #[derive(Reflect)]
         struct TestStruct;
@@ -1045,7 +1045,7 @@ mod tests {
 
     #[test]
     fn as_reflect() {
-        trait TestTrait: Reflect {}
+        trait TestTrait: PartialReflect {}
 
         #[derive(Reflect)]
         struct TestStruct;
@@ -1120,7 +1120,7 @@ mod tests {
             ignored: 321,
         };
 
-        let reflected: &dyn Reflect = &test;
+        let reflected: &dyn PartialReflect = &test;
         let expected = r#"
 bevy_reflect::tests::should_reflect_debug::Test {
     value: 123,
@@ -1170,7 +1170,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         }
 
         let foo = Foo(123);
-        let foo: &dyn Reflect = &foo;
+        let foo: &dyn PartialReflect = &foo;
 
         assert!(foo.reflect_hash().is_some());
         assert_eq!(Some(true), foo.reflect_partial_eq(foo));
@@ -1191,7 +1191,7 @@ bevy_reflect::tests::should_reflect_debug::Test {
         }
 
         let foo = Foo(123);
-        let foo: &dyn Reflect = &foo;
+        let foo: &dyn PartialReflect = &foo;
 
         assert!(foo.reflect_hash().is_some());
         assert_eq!(Some(true), foo.reflect_partial_eq(foo));

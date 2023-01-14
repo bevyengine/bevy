@@ -11,7 +11,7 @@ use crate::{
 };
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, Reflect, ReflectDeserialize, ReflectSerialize,
+    std_traits::ReflectDefault, FromReflect, PartialReflect, ReflectDeserialize, ReflectSerialize, Reflect,
 };
 use bevy_utils::Uuid;
 use crossbeam_channel::{Receiver, Sender};

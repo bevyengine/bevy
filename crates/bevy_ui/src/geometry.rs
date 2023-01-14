@@ -1,5 +1,5 @@
 use crate::Val;
-use bevy_reflect::Reflect;
+use bevy_reflect::{PartialReflect, Reflect};
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 /// A type which is commonly used to define positions, margins, paddings and borders.

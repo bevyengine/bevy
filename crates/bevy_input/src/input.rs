@@ -1,5 +1,5 @@
 use bevy_ecs::system::Resource;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::{std_traits::ReflectDefault, PartialReflect, Reflect};
 use bevy_utils::HashSet;
 use std::hash::Hash;
 

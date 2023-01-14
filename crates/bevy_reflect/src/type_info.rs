@@ -1,5 +1,5 @@
 use crate::{
-    ArrayInfo, EnumInfo, ListInfo, MapInfo, Reflect, StructInfo, TupleInfo, TupleStructInfo,
+    ArrayInfo, EnumInfo, ListInfo, MapInfo, PartialReflect, StructInfo, TupleInfo, TupleStructInfo,
 };
 use std::any::{Any, TypeId};
 
@@ -53,20 +53,20 @@ use std::any::{Any, TypeId};
 /// #   fn into_any(self: Box<Self>) -> Box<dyn Any> { todo!() }
 /// #   fn as_any(&self) -> &dyn Any { todo!() }
 /// #   fn as_any_mut(&mut self) -> &mut dyn Any { todo!() }
-/// #   fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> { todo!() }
-/// #   fn as_reflect(&self) -> &dyn Reflect { todo!() }
-/// #   fn as_reflect_mut(&mut self) -> &mut dyn Reflect { todo!() }
-/// #   fn apply(&mut self, value: &dyn Reflect) { todo!() }
-/// #   fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> { todo!() }
+/// #   fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> { todo!() }
+/// #   fn as_reflect(&self) -> &dyn PartialReflect { todo!() }
+/// #   fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect { todo!() }
+/// #   fn apply(&mut self, value: &dyn PartialReflect) { todo!() }
+/// #   fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> { todo!() }
 /// #   fn reflect_ref(&self) -> ReflectRef { todo!() }
 /// #   fn reflect_mut(&mut self) -> ReflectMut { todo!() }
 /// #   fn reflect_owned(self: Box<Self>) -> ReflectOwned { todo!() }
-/// #   fn clone_value(&self) -> Box<dyn Reflect> { todo!() }
+/// #   fn clone_value(&self) -> Box<dyn PartialReflect> { todo!() }
 /// # }
 /// ```
 ///
 /// [utility]: crate::utility
-pub trait Typed: Reflect {
+pub trait Typed: PartialReflect {
     /// Returns the compile-time [info] for the underlying type.
     ///
     /// [info]: TypeInfo
@@ -83,7 +83,7 @@ pub trait Typed: Reflect {
 ///
 /// Each return a static reference to [`TypeInfo`], but they all have their own use cases.
 /// For example, if you know the type at compile time, [`Typed::type_info`] is probably
-/// the simplest. If all you have is a `dyn Reflect`, you'll probably want [`Reflect::get_type_info`].
+/// the simplest. If all you have is a `dyn PartialReflect`, you'll probably want [`Reflect::get_type_info`].
 /// Lastly, if all you have is a [`TypeId`] or [type name], you will need to go through
 /// [`TypeRegistry::get_type_info`].
 ///
@@ -91,7 +91,7 @@ pub trait Typed: Reflect {
 /// it can be more performant. This is because those other methods may require attaining a lock on
 /// the static [`TypeInfo`], while the registry simply checks a map.
 ///
-/// [`Reflect::get_type_info`]: crate::Reflect::get_type_info
+/// [`Reflect::get_type_info`]: crate::PartialReflect::get_type_info
 /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
 /// [`TypeId`]: std::any::TypeId
 /// [type name]: std::any::type_name
@@ -183,7 +183,7 @@ pub struct ValueInfo {
 }
 
 impl ValueInfo {
-    pub fn new<T: Reflect + ?Sized>() -> Self {
+    pub fn new<T: PartialReflect + ?Sized>() -> Self {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),
@@ -239,7 +239,7 @@ pub struct DynamicInfo {
 }
 
 impl DynamicInfo {
-    pub fn new<T: Reflect>() -> Self {
+    pub fn new<T: PartialReflect>() -> Self {
         Self {
             type_name: std::any::type_name::<T>(),
             type_id: TypeId::of::<T>(),

@@ -2,7 +2,7 @@
 use std::fs::File;
 use std::io::Write;
 
-use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration};
+use bevy::{prelude::*, tasks::IoTaskPool, utils::Duration, reflect::Reflect};
 
 fn main() {
     App::new()

@@ -1,6 +1,6 @@
 //! Allows reflection with trait objects.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, reflect::Reflect};
 
 fn main() {
     App::new()
@@ -28,8 +28,8 @@ pub trait DoThing {
 }
 
 fn setup(type_registry: Res<AppTypeRegistry>) {
-    // First, lets box our type as a Box<dyn Reflect>
-    let reflect_value: Box<dyn Reflect> = Box::new(MyType {
+    // First, lets box our type as a Box<dyn PartialReflect>
+    let reflect_value: Box<dyn PartialReflect> = Box::new(MyType {
         value: "Hello".to_string(),
     });
 
@@ -48,7 +48,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
         .get_type_data::<ReflectDoThing>(reflect_value.type_id())
         .unwrap();
 
-    // We can use this generated type to convert our `&dyn Reflect` reference to a `&dyn DoThing`
+    // We can use this generated type to convert our `&dyn PartialReflect` reference to a `&dyn DoThing`
     // reference
     let my_trait: &dyn DoThing = reflect_do_thing.get(&*reflect_value).unwrap();
 
@@ -57,6 +57,6 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
 
     // This works because the #[reflect(MyTrait)] we put on MyType informed the Reflect derive to
     // insert a new instance of ReflectDoThing into MyType's registration. The instance knows
-    // how to cast &dyn Reflect to &dyn MyType, because it knows that &dyn Reflect should first
+    // how to cast &dyn PartialReflect to &dyn MyType, because it knows that &dyn PartialReflect should first
     // be downcasted to &MyType, which can then be safely casted to &dyn MyType
 }

@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 /// # use bevy_ecs::{
 /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
 /// # };
-/// # use bevy_reflect::Reflect;
+/// # use bevy_reflect::PartialReflect;
 /// # #[derive(Component, Reflect, Default, Eq, PartialEq, Debug)]
 /// # #[reflect(Component)]
 /// # struct ComponentA;
@@ -95,7 +95,7 @@ impl<'w> DynamicSceneBuilder<'w> {
     /// # use bevy_ecs::{
     /// #     component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
     /// # };
-    /// # use bevy_reflect::Reflect;
+    /// # use bevy_reflect::PartialReflect;
     /// #[derive(Component, Default, Reflect)]
     /// #[reflect(Component)]
     /// struct MyComponent;
@@ -153,7 +153,7 @@ mod tests {
         component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
     };
 
-    use bevy_reflect::Reflect;
+    use bevy_reflect::{PartialReflect, Reflect};
 
     use super::DynamicSceneBuilder;
 

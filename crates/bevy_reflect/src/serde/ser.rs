@@ -1,5 +1,5 @@
 use crate::{
-    Array, Enum, List, Map, Reflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
+    Array, Enum, List, Map, PartialReflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
     TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
@@ -29,7 +29,7 @@ impl<'a> Serializable<'a> {
 }
 
 fn get_serializable<'a, E: serde::ser::Error>(
-    reflect_value: &'a dyn Reflect,
+    reflect_value: &'a dyn PartialReflect,
     type_registry: &TypeRegistry,
 ) -> Result<Serializable<'a>, E> {
     let reflect_serialize = type_registry
@@ -71,12 +71,12 @@ fn get_type_info<E: Error>(
 ///
 /// [type name]: std::any::type_name
 pub struct ReflectSerializer<'a> {
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
     pub registry: &'a TypeRegistry,
 }
 
 impl<'a> ReflectSerializer<'a> {
-    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
         ReflectSerializer { value, registry }
     }
 }
@@ -98,12 +98,12 @@ impl<'a> Serialize for ReflectSerializer<'a> {
 /// A serializer for reflected types whose type is known and does not require
 /// serialization to include other metadata about it.
 pub struct TypedReflectSerializer<'a> {
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
     pub registry: &'a TypeRegistry,
 }
 
 impl<'a> TypedReflectSerializer<'a> {
-    pub fn new(value: &'a dyn Reflect, registry: &'a TypeRegistry) -> Self {
+    pub fn new(value: &'a dyn PartialReflect, registry: &'a TypeRegistry) -> Self {
         TypedReflectSerializer { value, registry }
     }
 }
@@ -162,7 +162,7 @@ impl<'a> Serialize for TypedReflectSerializer<'a> {
 
 pub struct ReflectValueSerializer<'a> {
     pub registry: &'a TypeRegistry,
-    pub value: &'a dyn Reflect,
+    pub value: &'a dyn PartialReflect,
 }
 
 impl<'a> Serialize for ReflectValueSerializer<'a> {
@@ -464,7 +464,8 @@ impl<'a> Serialize for ArraySerializer<'a> {
 mod tests {
     use crate as bevy_reflect;
     use crate::serde::ReflectSerializer;
-    use crate::{FromReflect, Reflect, ReflectSerialize, TypeRegistry};
+    use crate::{FromReflect, PartialReflect, ReflectSerialize, TypeRegistry};
+    use bevy_reflect_derive::Reflect;
     use bevy_utils::HashMap;
     use ron::extensions::Extensions;
     use ron::ser::PrettyConfig;

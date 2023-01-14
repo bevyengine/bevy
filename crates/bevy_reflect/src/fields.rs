@@ -1,4 +1,4 @@
-use crate::Reflect;
+use crate::PartialReflect;
 use std::any::{Any, TypeId};
 
 /// The named field of a reflected struct.
@@ -13,7 +13,7 @@ pub struct NamedField {
 
 impl NamedField {
     /// Create a new [`NamedField`].
-    pub fn new<T: Reflect>(name: &'static str) -> Self {
+    pub fn new<T: PartialReflect>(name: &'static str) -> Self {
         Self {
             name,
             type_name: std::any::type_name::<T>(),
@@ -69,7 +69,7 @@ pub struct UnnamedField {
 }
 
 impl UnnamedField {
-    pub fn new<T: Reflect>(index: usize) -> Self {
+    pub fn new<T: PartialReflect>(index: usize) -> Self {
         Self {
             index,
             type_name: std::any::type_name::<T>(),

@@ -1,4 +1,4 @@
-use bevy_reflect::Reflect;
+use bevy_reflect::PartialReflect;
 
 // Reason: Reflection relies on `Any` which requires `'static`
 #[derive(Reflect)]

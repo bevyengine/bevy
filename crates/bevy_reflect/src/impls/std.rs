@@ -1,9 +1,9 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned};
+use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned, Reflect};
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
-    Reflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TupleVariantInfo,
+    PartialReflect, ReflectDeserialize, ReflectMut, ReflectRef, ReflectSerialize, TupleVariantInfo,
     TypeInfo, TypeRegistration, Typed, UnitVariantInfo, UnnamedField, ValueInfo, VariantFieldIter,
     VariantInfo, VariantType,
 };
@@ -100,7 +100,7 @@ impl_reflect_value!(PathBuf(
     Deserialize,
     Default
 ));
-impl_reflect_value!(Result<T: Clone + Reflect + 'static, E: Clone + Reflect + 'static>());
+impl_reflect_value!(Result<T: Clone + PartialReflect + 'static, E: Clone + PartialReflect + 'static>());
 impl_reflect_value!(HashSet<T: Hash + Eq + Clone + Send + Sync + 'static>());
 impl_reflect_value!(Range<T: Clone + Send + Sync + 'static>());
 impl_reflect_value!(RangeInclusive<T: Clone + Send + Sync + 'static>());
@@ -180,15 +180,15 @@ impl_from_reflect_value!(NonZeroI8);
 
 macro_rules! impl_reflect_for_veclike {
     ($ty:ty, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
-        impl<T: FromReflect> Array for $ty {
+        impl<T: Reflect + FromReflect> Array for $ty {
             #[inline]
-            fn get(&self, index: usize) -> Option<&dyn Reflect> {
-                <$sub>::get(self, index).map(|value| value as &dyn Reflect)
+            fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
+                <$sub>::get(self, index).map(|value| value as &dyn PartialReflect)
             }
 
             #[inline]
-            fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-                <$sub>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
+            fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+                <$sub>::get_mut(self, index).map(|value| value as &mut dyn PartialReflect)
             }
 
             #[inline]
@@ -202,15 +202,15 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             #[inline]
-            fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+            fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
                 self.into_iter()
-                    .map(|value| Box::new(value) as Box<dyn Reflect>)
+                    .map(|value| Box::new(value) as Box<dyn PartialReflect>)
                     .collect()
             }
         }
 
-        impl<T: FromReflect> List for $ty {
-            fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
+        impl<T: Reflect + FromReflect> List for $ty {
+            fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
                 let value = value.take::<T>().unwrap_or_else(|value| {
                     T::from_reflect(&*value).unwrap_or_else(|| {
                         panic!(
@@ -222,11 +222,11 @@ macro_rules! impl_reflect_for_veclike {
                 $insert(self, index, value);
             }
 
-            fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+            fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
                 Box::new($remove(self, index))
             }
 
-            fn push(&mut self, value: Box<dyn Reflect>) {
+            fn push(&mut self, value: Box<dyn PartialReflect>) {
                 let value = T::take_from_reflect(value).unwrap_or_else(|value| {
                     panic!(
                         "Attempted to push invalid value of type {}.",
@@ -236,12 +236,12 @@ macro_rules! impl_reflect_for_veclike {
                 $push(self, value);
             }
 
-            fn pop(&mut self) -> Option<Box<dyn Reflect>> {
-                $pop(self).map(|value| Box::new(value) as Box<dyn Reflect>)
+            fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
+                $pop(self).map(|value| Box::new(value) as Box<dyn PartialReflect>)
             }
         }
 
-        impl<T: FromReflect> Reflect for $ty {
+        impl<T: Reflect + FromReflect> PartialReflect for $ty {
             fn type_name(&self) -> &str {
                 std::any::type_name::<Self>()
             }
@@ -262,23 +262,23 @@ macro_rules! impl_reflect_for_veclike {
                 self
             }
 
-            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+            fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
                 self
             }
 
-            fn as_reflect(&self) -> &dyn Reflect {
+            fn as_reflect(&self) -> &dyn PartialReflect {
                 self
             }
 
-            fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+            fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
                 self
             }
 
-            fn apply(&mut self, value: &dyn Reflect) {
+            fn apply(&mut self, value: &dyn PartialReflect) {
                 crate::list_apply(self, value);
             }
 
-            fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+            fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
                 *self = value.take()?;
                 Ok(())
             }
@@ -295,7 +295,7 @@ macro_rules! impl_reflect_for_veclike {
                 ReflectOwned::List(self)
             }
 
-            fn clone_value(&self) -> Box<dyn Reflect> {
+            fn clone_value(&self) -> Box<dyn PartialReflect> {
                 Box::new(List::clone_dynamic(self))
             }
 
@@ -303,19 +303,19 @@ macro_rules! impl_reflect_for_veclike {
                 crate::array_hash(self)
             }
 
-            fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+            fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
                 crate::list_partial_eq(self, value)
             }
         }
 
-        impl<T: FromReflect> Typed for $ty {
+        impl<T: Reflect + FromReflect> Typed for $ty {
             fn type_info() -> &'static TypeInfo {
                 static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
                 CELL.get_or_insert::<Self, _>(|| TypeInfo::List(ListInfo::new::<Self, T>()))
             }
         }
 
-        impl<T: FromReflect> GetTypeRegistration for $ty {
+        impl<T: Reflect + FromReflect> GetTypeRegistration for $ty {
             fn get_type_registration() -> TypeRegistration {
                 let mut registration = TypeRegistration::of::<Vec<T>>();
                 registration.insert::<ReflectFromPtr>(FromType::<Vec<T>>::from_type());
@@ -323,8 +323,8 @@ macro_rules! impl_reflect_for_veclike {
             }
         }
 
-        impl<T: FromReflect> FromReflect for $ty {
-            fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+        impl<T: Reflect + FromReflect> FromReflect for $ty {
+            fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
                 if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
                     let mut new_list = Self::with_capacity(ref_list.len());
                     for field in ref_list.iter() {
@@ -336,6 +336,8 @@ macro_rules! impl_reflect_for_veclike {
                 }
             }
         }
+
+        impl<T: Reflect + FromReflect> Reflect for $ty {}
     };
 }
 
@@ -349,23 +351,23 @@ impl_reflect_for_veclike!(
     VecDeque::<T>
 );
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
-    fn get(&self, key: &dyn Reflect) -> Option<&dyn Reflect> {
+impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> Map for HashMap<K, V> {
+    fn get(&self, key: &dyn PartialReflect) -> Option<&dyn PartialReflect> {
         key.downcast_ref::<K>()
             .and_then(|key| HashMap::get(self, key))
-            .map(|value| value as &dyn Reflect)
+            .map(|value| value as &dyn PartialReflect)
     }
 
-    fn get_mut(&mut self, key: &dyn Reflect) -> Option<&mut dyn Reflect> {
+    fn get_mut(&mut self, key: &dyn PartialReflect) -> Option<&mut dyn PartialReflect> {
         key.downcast_ref::<K>()
             .and_then(move |key| HashMap::get_mut(self, key))
-            .map(|value| value as &mut dyn Reflect)
+            .map(|value| value as &mut dyn PartialReflect)
     }
 
-    fn get_at(&self, index: usize) -> Option<(&dyn Reflect, &dyn Reflect)> {
+    fn get_at(&self, index: usize) -> Option<(&dyn PartialReflect, &dyn PartialReflect)> {
         self.iter()
             .nth(index)
-            .map(|(key, value)| (key as &dyn Reflect, value as &dyn Reflect))
+            .map(|(key, value)| (key as &dyn PartialReflect, value as &dyn PartialReflect))
     }
 
     fn len(&self) -> usize {
@@ -379,12 +381,12 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
         }
     }
 
-    fn drain(self: Box<Self>) -> Vec<(Box<dyn Reflect>, Box<dyn Reflect>)> {
+    fn drain(self: Box<Self>) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
         self.into_iter()
             .map(|(key, value)| {
                 (
-                    Box::new(key) as Box<dyn Reflect>,
-                    Box::new(value) as Box<dyn Reflect>,
+                    Box::new(key) as Box<dyn PartialReflect>,
+                    Box::new(value) as Box<dyn PartialReflect>,
                 )
             })
             .collect()
@@ -401,9 +403,9 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
 
     fn insert_boxed(
         &mut self,
-        key: Box<dyn Reflect>,
-        value: Box<dyn Reflect>,
-    ) -> Option<Box<dyn Reflect>> {
+        key: Box<dyn PartialReflect>,
+        value: Box<dyn PartialReflect>,
+    ) -> Option<Box<dyn PartialReflect>> {
         let key = K::take_from_reflect(key).unwrap_or_else(|key| {
             panic!(
                 "Attempted to insert invalid key of type {}.",
@@ -417,10 +419,10 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
             )
         });
         self.insert(key, value)
-            .map(|old_value| Box::new(old_value) as Box<dyn Reflect>)
+            .map(|old_value| Box::new(old_value) as Box<dyn PartialReflect>)
     }
 
-    fn remove(&mut self, key: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+    fn remove(&mut self, key: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
         let mut from_reflect = None;
         key.downcast_ref::<K>()
             .or_else(|| {
@@ -428,11 +430,11 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
                 from_reflect.as_ref()
             })
             .and_then(|key| self.remove(key))
-            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
     }
 }
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
+impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> PartialReflect for HashMap<K, V> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -454,23 +456,23 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
     }
 
     #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
-    fn as_reflect(&self) -> &dyn Reflect {
+    fn as_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         map_apply(self, value);
     }
 
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
         *self = value.take()?;
         Ok(())
     }
@@ -487,16 +489,18 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Reflect for HashMap<K, V> {
         ReflectOwned::Map(self)
     }
 
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone_dynamic())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         map_partial_eq(self, value)
     }
 }
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> Typed for HashMap<K, V> {
+impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> Reflect for HashMap<K, V> {}
+
+impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> Typed for HashMap<K, V> {
     fn type_info() -> &'static TypeInfo {
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| TypeInfo::Map(MapInfo::new::<Self, K, V>()))
@@ -505,8 +509,8 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Typed for HashMap<K, V> {
 
 impl<K, V> GetTypeRegistration for HashMap<K, V>
 where
-    K: FromReflect + Eq + Hash,
-    V: FromReflect,
+    K: Reflect + FromReflect + Eq + Hash,
+    V: Reflect + FromReflect,
 {
     fn get_type_registration() -> TypeRegistration {
         let mut registration = TypeRegistration::of::<HashMap<K, V>>();
@@ -515,8 +519,8 @@ where
     }
 }
 
-impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> FromReflect for HashMap<K, V> {
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         if let ReflectRef::Map(ref_map) = reflect.reflect_ref() {
             let mut new_map = Self::with_capacity(ref_map.len());
             for (key, value) in ref_map.iter() {
@@ -533,13 +537,13 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> FromReflect for HashMap<K, V> {
 
 impl<T: Reflect, const N: usize> Array for [T; N] {
     #[inline]
-    fn get(&self, index: usize) -> Option<&dyn Reflect> {
-        <[T]>::get(self, index).map(|value| value as &dyn Reflect)
+    fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
+        <[T]>::get(self, index).map(|value| value as &dyn PartialReflect)
     }
 
     #[inline]
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
-        <[T]>::get_mut(self, index).map(|value| value as &mut dyn Reflect)
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
+        <[T]>::get_mut(self, index).map(|value| value as &mut dyn PartialReflect)
     }
 
     #[inline]
@@ -553,14 +557,14 @@ impl<T: Reflect, const N: usize> Array for [T; N] {
     }
 
     #[inline]
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
         self.into_iter()
-            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
             .collect()
     }
 }
 
-impl<T: Reflect, const N: usize> Reflect for [T; N] {
+impl<T: Reflect, const N: usize> PartialReflect for [T; N] {
     #[inline]
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -586,27 +590,27 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
     #[inline]
-    fn as_reflect(&self) -> &dyn Reflect {
+    fn as_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         crate::array_apply(self, value);
     }
 
     #[inline]
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
         *self = value.take()?;
         Ok(())
     }
@@ -627,7 +631,7 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone_dynamic())
     }
 
@@ -637,13 +641,13 @@ impl<T: Reflect, const N: usize> Reflect for [T; N] {
     }
 
     #[inline]
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         crate::array_partial_eq(self, value)
     }
 }
 
-impl<T: FromReflect, const N: usize> FromReflect for [T; N] {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+impl<T: Reflect + FromReflect, const N: usize> FromReflect for [T; N] {
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         if let ReflectRef::Array(ref_array) = reflect.reflect_ref() {
             let mut temp_vec = Vec::with_capacity(ref_array.len());
             for field in ref_array.iter() {
@@ -664,6 +668,8 @@ impl<T: Reflect, const N: usize> Typed for [T; N] {
 }
 
 // TODO:
+
+// TODO:
 // `FromType::from_type` requires `Deserialize<'de>` to be implemented for `T`.
 // Currently serde only supports `Deserialize<'de>` for arrays up to size 32.
 // This can be changed to use const generics once serde utilizes const generics for arrays.
@@ -671,11 +677,13 @@ impl<T: Reflect, const N: usize> Typed for [T; N] {
 macro_rules! impl_array_get_type_registration {
     ($($N:expr)+) => {
         $(
-            impl<T: Reflect > GetTypeRegistration for [T; $N] {
+            impl<T: Reflect> GetTypeRegistration for [T; $N] {
                 fn get_type_registration() -> TypeRegistration {
                     TypeRegistration::of::<[T; $N]>()
                 }
             }
+
+            impl<T: Reflect> Reflect for [T; $N] {}
         )+
     };
 }
@@ -694,22 +702,22 @@ impl<T: FromReflect> GetTypeRegistration for Option<T> {
 }
 
 impl<T: FromReflect> Enum for Option<T> {
-    fn field(&self, _name: &str) -> Option<&dyn Reflect> {
+    fn field(&self, _name: &str) -> Option<&dyn PartialReflect> {
         None
     }
 
-    fn field_at(&self, index: usize) -> Option<&dyn Reflect> {
+    fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
         match self {
             Some(value) if index == 0 => Some(value),
             _ => None,
         }
     }
 
-    fn field_mut(&mut self, _name: &str) -> Option<&mut dyn Reflect> {
+    fn field_mut(&mut self, _name: &str) -> Option<&mut dyn PartialReflect> {
         None
     }
 
-    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+    fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
         match self {
             Some(value) if index == 0 => Some(value),
             _ => None,
@@ -764,7 +772,7 @@ impl<T: FromReflect> Enum for Option<T> {
     }
 }
 
-impl<T: FromReflect> Reflect for Option<T> {
+impl<T: FromReflect> PartialReflect for Option<T> {
     #[inline]
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
@@ -791,20 +799,20 @@ impl<T: FromReflect> Reflect for Option<T> {
     }
 
     #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
-    fn as_reflect(&self) -> &dyn Reflect {
+    fn as_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
     #[inline]
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         if let ReflectRef::Enum(value) = value.reflect_ref() {
             if self.variant_name() == value.variant_name() {
                 // Same variant -> just update fields
@@ -847,7 +855,7 @@ impl<T: FromReflect> Reflect for Option<T> {
     }
 
     #[inline]
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
         *self = value.take()?;
         Ok(())
     }
@@ -865,7 +873,7 @@ impl<T: FromReflect> Reflect for Option<T> {
     }
 
     #[inline]
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(Enum::clone_dynamic(self))
     }
 
@@ -873,13 +881,15 @@ impl<T: FromReflect> Reflect for Option<T> {
         crate::enum_hash(self)
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         crate::enum_partial_eq(self, value)
     }
 }
 
+impl<T: FromReflect> Reflect for Option<T> {}
+
 impl<T: FromReflect> FromReflect for Option<T> {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         if let ReflectRef::Enum(dyn_enum) = reflect.reflect_ref() {
             match dyn_enum.variant_name() {
                 "Some" => {
@@ -931,7 +941,7 @@ impl<T: FromReflect> Typed for Option<T> {
     }
 }
 
-impl Reflect for Cow<'static, str> {
+impl PartialReflect for Cow<'static, str> {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -952,19 +962,19 @@ impl Reflect for Cow<'static, str> {
         self
     }
 
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
-    fn as_reflect(&self) -> &dyn Reflect {
+    fn as_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             *self = value.clone();
@@ -973,7 +983,7 @@ impl Reflect for Cow<'static, str> {
         }
     }
 
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
         *self = value.take()?;
         Ok(())
     }
@@ -990,7 +1000,7 @@ impl Reflect for Cow<'static, str> {
         ReflectOwned::Value(self)
     }
 
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone())
     }
 
@@ -1001,7 +1011,7 @@ impl Reflect for Cow<'static, str> {
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             Some(std::cmp::PartialEq::eq(self, value))
@@ -1010,6 +1020,8 @@ impl Reflect for Cow<'static, str> {
         }
     }
 }
+
+impl Reflect for Cow<'static, str> {}
 
 impl Typed for Cow<'static, str> {
     fn type_info() -> &'static TypeInfo {
@@ -1029,7 +1041,7 @@ impl GetTypeRegistration for Cow<'static, str> {
 }
 
 impl FromReflect for Cow<'static, str> {
-    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
+    fn from_reflect(reflect: &dyn crate::PartialReflect) -> Option<Self> {
         Some(
             reflect
                 .as_any()
@@ -1039,7 +1051,7 @@ impl FromReflect for Cow<'static, str> {
     }
 }
 
-impl Reflect for &'static Path {
+impl PartialReflect for &'static Path {
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -1060,19 +1072,19 @@ impl Reflect for &'static Path {
         self
     }
 
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
-    fn as_reflect(&self) -> &dyn Reflect {
+    fn as_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         let value = value.as_any();
         if let Some(&value) = value.downcast_ref::<Self>() {
             *self = value;
@@ -1081,7 +1093,7 @@ impl Reflect for &'static Path {
         }
     }
 
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
         *self = value.take()?;
         Ok(())
     }
@@ -1098,7 +1110,7 @@ impl Reflect for &'static Path {
         ReflectOwned::Value(self)
     }
 
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(*self)
     }
 
@@ -1109,7 +1121,7 @@ impl Reflect for &'static Path {
         Some(hasher.finish())
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         let value = value.as_any();
         if let Some(value) = value.downcast_ref::<Self>() {
             Some(std::cmp::PartialEq::eq(self, value))
@@ -1118,6 +1130,8 @@ impl Reflect for &'static Path {
         }
     }
 }
+
+impl Reflect for &'static Path {}
 
 impl Typed for &'static Path {
     fn type_info() -> &'static TypeInfo {
@@ -1135,7 +1149,7 @@ impl GetTypeRegistration for &'static Path {
 }
 
 impl FromReflect for &'static Path {
-    fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
+    fn from_reflect(reflect: &dyn crate::PartialReflect) -> Option<Self> {
         reflect.as_any().downcast_ref::<Self>().copied()
     }
 }
@@ -1144,9 +1158,10 @@ impl FromReflect for &'static Path {
 mod tests {
     use crate as bevy_reflect;
     use crate::{
-        Enum, FromReflect, Reflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
+        Enum, FromReflect, PartialReflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
         VariantType,
     };
+    use bevy_reflect_derive::Reflect;
     use bevy_utils::HashMap;
     use bevy_utils::{Duration, Instant};
     use std::f32::consts::{PI, TAU};
@@ -1165,45 +1180,45 @@ mod tests {
 
     #[test]
     fn should_partial_eq_char() {
-        let a: &dyn Reflect = &'x';
-        let b: &dyn Reflect = &'x';
-        let c: &dyn Reflect = &'o';
+        let a: &dyn PartialReflect = &'x';
+        let b: &dyn PartialReflect = &'x';
+        let c: &dyn PartialReflect = &'o';
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]
     fn should_partial_eq_i32() {
-        let a: &dyn Reflect = &123_i32;
-        let b: &dyn Reflect = &123_i32;
-        let c: &dyn Reflect = &321_i32;
+        let a: &dyn PartialReflect = &123_i32;
+        let b: &dyn PartialReflect = &123_i32;
+        let c: &dyn PartialReflect = &321_i32;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]
     fn should_partial_eq_f32() {
-        let a: &dyn Reflect = &PI;
-        let b: &dyn Reflect = &PI;
-        let c: &dyn Reflect = &TAU;
+        let a: &dyn PartialReflect = &PI;
+        let b: &dyn PartialReflect = &PI;
+        let c: &dyn PartialReflect = &TAU;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]
     fn should_partial_eq_string() {
-        let a: &dyn Reflect = &String::from("Hello");
-        let b: &dyn Reflect = &String::from("Hello");
-        let c: &dyn Reflect = &String::from("World");
+        let a: &dyn PartialReflect = &String::from("Hello");
+        let b: &dyn PartialReflect = &String::from("Hello");
+        let c: &dyn PartialReflect = &String::from("World");
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]
     fn should_partial_eq_vec() {
-        let a: &dyn Reflect = &vec![1, 2, 3];
-        let b: &dyn Reflect = &vec![1, 2, 3];
-        let c: &dyn Reflect = &vec![3, 2, 1];
+        let a: &dyn PartialReflect = &vec![1, 2, 3];
+        let b: &dyn PartialReflect = &vec![1, 2, 3];
+        let c: &dyn PartialReflect = &vec![3, 2, 1];
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
@@ -1216,17 +1231,17 @@ mod tests {
         let mut c = HashMap::new();
         c.insert(0usize, 3.21_f64);
 
-        let a: &dyn Reflect = &a;
-        let b: &dyn Reflect = &b;
-        let c: &dyn Reflect = &c;
+        let a: &dyn PartialReflect = &a;
+        let b: &dyn PartialReflect = &b;
+        let c: &dyn PartialReflect = &c;
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         assert!(!a.reflect_partial_eq(c).unwrap_or_default());
     }
 
     #[test]
     fn should_partial_eq_option() {
-        let a: &dyn Reflect = &Some(123);
-        let b: &dyn Reflect = &Some(123);
+        let a: &dyn PartialReflect = &Some(123);
+        let b: &dyn PartialReflect = &Some(123);
         assert_eq!(Some(true), a.reflect_partial_eq(b));
     }
 
@@ -1277,28 +1292,28 @@ mod tests {
         // === None on None === //
         let patch = None::<Foo>;
         let mut value = None;
-        Reflect::apply(&mut value, &patch);
+        PartialReflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "None apply onto None");
 
         // === Some on None === //
         let patch = Some(Foo(123));
         let mut value = None;
-        Reflect::apply(&mut value, &patch);
+        PartialReflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "Some apply onto None");
 
         // === None on Some === //
         let patch = None::<Foo>;
         let mut value = Some(Foo(321));
-        Reflect::apply(&mut value, &patch);
+        PartialReflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "None apply onto Some");
 
         // === Some on Some === //
         let patch = Some(Foo(123));
         let mut value = Some(Foo(321));
-        Reflect::apply(&mut value, &patch);
+        PartialReflect::apply(&mut value, &patch);
 
         assert_eq!(patch, value, "Some apply onto Some");
     }
@@ -1337,8 +1352,8 @@ mod tests {
     }
     #[test]
     fn nonzero_usize_impl_reflect_from_reflect() {
-        let a: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
-        let b: &dyn Reflect = &std::num::NonZeroUsize::new(42).unwrap();
+        let a: &dyn PartialReflect = &std::num::NonZeroUsize::new(42).unwrap();
+        let b: &dyn PartialReflect = &std::num::NonZeroUsize::new(42).unwrap();
         assert!(a.reflect_partial_eq(b).unwrap_or_default());
         let forty_two: std::num::NonZeroUsize = crate::FromReflect::from_reflect(a).unwrap();
         assert_eq!(forty_two, std::num::NonZeroUsize::new(42).unwrap());

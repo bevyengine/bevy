@@ -8,7 +8,7 @@ use bevy_ecs::{
     system::{ResMut, Resource},
     world::FromWorld,
 };
-use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
+use bevy_reflect::{FromReflect, GetTypeRegistration, PartialReflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
 use std::fmt::Debug;
@@ -286,7 +286,7 @@ pub trait AddAsset {
     /// This enables reflection code to access assets. For detailed information, see the docs on [`ReflectAsset`] and [`ReflectHandle`].
     fn register_asset_reflect<T>(&mut self) -> &mut Self
     where
-        T: Asset + Reflect + FromReflect + GetTypeRegistration;
+        T: Asset + PartialReflect + FromReflect + GetTypeRegistration;
 
     /// Registers `T` as a supported internal asset in the application.
     ///
@@ -343,7 +343,7 @@ impl AddAsset for App {
 
     fn register_asset_reflect<T>(&mut self) -> &mut Self
     where
-        T: Asset + Reflect + FromReflect + GetTypeRegistration,
+        T: Asset + PartialReflect + FromReflect + GetTypeRegistration,
     {
         let type_registry = self.world.resource::<AppTypeRegistry>();
         {

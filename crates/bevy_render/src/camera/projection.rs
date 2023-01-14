@@ -4,8 +4,8 @@ use bevy_app::{App, CoreStage, Plugin, StartupStage};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
 use bevy_reflect::{
-    std_traits::ReflectDefault, FromReflect, GetTypeRegistration, Reflect, ReflectDeserialize,
-    ReflectSerialize,
+    std_traits::ReflectDefault, FromReflect, GetTypeRegistration, PartialReflect, ReflectDeserialize,
+    ReflectSerialize, Reflect,
 };
 use bevy_window::ModifiesWindows;
 use serde::{Deserialize, Serialize};

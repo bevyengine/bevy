@@ -1,5 +1,5 @@
 use crate::Stopwatch;
-use bevy_reflect::prelude::*;
+use bevy_reflect::{prelude::*, Reflect};
 use bevy_utils::Duration;
 
 /// Tracks elapsed time. Enters the finished state once `duration` is reached.

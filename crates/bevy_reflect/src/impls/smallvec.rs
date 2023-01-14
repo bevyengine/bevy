@@ -3,7 +3,7 @@ use std::any::Any;
 
 use crate::utility::GenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
+    Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, PartialReflect,
     ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
 };
 
@@ -11,17 +11,17 @@ impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
 where
     T::Item: FromReflect,
 {
-    fn get(&self, index: usize) -> Option<&dyn Reflect> {
+    fn get(&self, index: usize) -> Option<&dyn PartialReflect> {
         if index < SmallVec::len(self) {
-            Some(&self[index] as &dyn Reflect)
+            Some(&self[index] as &dyn PartialReflect)
         } else {
             None
         }
     }
 
-    fn get_mut(&mut self, index: usize) -> Option<&mut dyn Reflect> {
+    fn get_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
         if index < SmallVec::len(self) {
-            Some(&mut self[index] as &mut dyn Reflect)
+            Some(&mut self[index] as &mut dyn PartialReflect)
         } else {
             None
         }
@@ -35,9 +35,9 @@ where
         ArrayIter::new(self)
     }
 
-    fn drain(self: Box<Self>) -> Vec<Box<dyn Reflect>> {
+    fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>> {
         self.into_iter()
-            .map(|value| Box::new(value) as Box<dyn Reflect>)
+            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
             .collect()
     }
 }
@@ -46,7 +46,7 @@ impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {
-    fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
+    fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
@@ -58,11 +58,11 @@ where
         SmallVec::insert(self, index, value);
     }
 
-    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+    fn remove(&mut self, index: usize) -> Box<dyn PartialReflect> {
         Box::new(self.remove(index))
     }
 
-    fn push(&mut self, value: Box<dyn Reflect>) {
+    fn push(&mut self, value: Box<dyn PartialReflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
@@ -74,12 +74,12 @@ where
         SmallVec::push(self, value);
     }
 
-    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
-        self.pop().map(|value| Box::new(value) as Box<dyn Reflect>)
+    fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
+        self.pop().map(|value| Box::new(value) as Box<dyn PartialReflect>)
     }
 }
 
-impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+impl<T: smallvec::Array + Send + Sync + 'static> PartialReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
@@ -103,23 +103,23 @@ where
         self
     }
 
-    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
-    fn as_reflect(&self) -> &dyn Reflect {
+    fn as_reflect(&self) -> &dyn PartialReflect {
         self
     }
 
-    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
 
-    fn apply(&mut self, value: &dyn Reflect) {
+    fn apply(&mut self, value: &dyn PartialReflect) {
         crate::list_apply(self, value);
     }
 
-    fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
+    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
         *self = value.take()?;
         Ok(())
     }
@@ -136,11 +136,11 @@ where
         ReflectOwned::List(self)
     }
 
-    fn clone_value(&self) -> Box<dyn Reflect> {
+    fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(List::clone_dynamic(self))
     }
 
-    fn reflect_partial_eq(&self, value: &dyn Reflect) -> Option<bool> {
+    fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
     }
 }
@@ -159,7 +159,7 @@ impl<T: smallvec::Array + Send + Sync + 'static> FromReflect for SmallVec<T>
 where
     T::Item: FromReflect,
 {
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self> {
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self> {
         if let ReflectRef::List(ref_list) = reflect.reflect_ref() {
             let mut new_list = Self::with_capacity(ref_list.len());
             for field in ref_list.iter() {

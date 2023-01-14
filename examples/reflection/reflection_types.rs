@@ -4,7 +4,7 @@
 
 use bevy::{
     prelude::*,
-    reflect::{DynamicList, ReflectRef},
+    reflect::{DynamicList, ReflectRef, Reflect},
     utils::HashMap,
 };
 use serde::{Deserialize, Serialize};
@@ -65,7 +65,7 @@ pub enum F {
 fn setup() {
     let mut z = HashMap::default();
     z.insert("Hello".to_string(), 1.0);
-    let value: Box<dyn Reflect> = Box::new(A {
+    let value: Box<dyn PartialReflect> = Box::new(A {
         x: 1,
         y: vec![1, 2],
         z,

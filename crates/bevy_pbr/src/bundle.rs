@@ -4,7 +4,7 @@ use crate::{
 };
 use bevy_asset::Handle;
 use bevy_ecs::{bundle::Bundle, component::Component, prelude::Entity, reflect::ReflectComponent};
-use bevy_reflect::Reflect;
+use bevy_reflect::{PartialReflect, Reflect};
 use bevy_render::{
     mesh::Mesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum},

@@ -12,8 +12,9 @@ mod tests {
     use crate::{
         serde::{ReflectSerializer, UntypedReflectDeserializer},
         type_registry::TypeRegistry,
-        DynamicStruct, Reflect,
+        DynamicStruct, PartialReflect,
     };
+    use bevy_reflect_derive::Reflect;
     use serde::de::DeserializeSeed;
 
     #[test]

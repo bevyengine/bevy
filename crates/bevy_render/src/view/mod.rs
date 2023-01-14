@@ -18,7 +18,7 @@ use crate::{
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, UVec4, Vec3, Vec4};
-use bevy_reflect::Reflect;
+use bevy_reflect::{PartialReflect, Reflect};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};

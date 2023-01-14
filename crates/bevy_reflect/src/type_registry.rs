@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, Reflect, TypeInfo, Typed};
+use crate::{serde::Serializable, PartialReflect, TypeInfo, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
@@ -124,7 +124,7 @@ impl TypeRegistry {
     /// type_registry.register_type_data::<Option<String>, ReflectSerialize>();
     /// type_registry.register_type_data::<Option<String>, ReflectDeserialize>();
     /// ```
-    pub fn register_type_data<T: Reflect + 'static, D: TypeData + FromType<T>>(&mut self) {
+    pub fn register_type_data<T: PartialReflect + 'static, D: TypeData + FromType<T>>(&mut self) {
         let data = self.get_mut(TypeId::of::<T>()).unwrap_or_else(|| {
             panic!(
                 "attempted to call `TypeRegistry::register_type_data` for type `{T}` with data `{D}` without registering `{T}` first",
@@ -268,8 +268,8 @@ impl TypeRegistryArc {
 ///
 /// [short name]: bevy_utils::get_short_name
 /// [`TypeInfo`]: crate::TypeInfo
-/// [0]: crate::Reflect
-/// [1]: crate::Reflect
+/// [0]: crate::PartialReflect
+/// [1]: crate::PartialReflect
 pub struct TypeRegistration {
     short_name: String,
     data: HashMap<TypeId, Box<dyn TypeData>>,
@@ -327,7 +327,7 @@ impl TypeRegistration {
     }
 
     /// Creates type registration information for `T`.
-    pub fn of<T: Reflect + Typed>() -> Self {
+    pub fn of<T: PartialReflect + Typed>() -> Self {
         let type_name = std::any::type_name::<T>();
         Self {
             data: HashMap::default(),
@@ -396,10 +396,10 @@ pub trait FromType<T> {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectSerialize {
-    get_serializable: for<'a> fn(value: &'a dyn Reflect) -> Serializable,
+    get_serializable: for<'a> fn(value: &'a dyn PartialReflect) -> Serializable,
 }
 
-impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
+impl<T: PartialReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
     fn from_type() -> Self {
         ReflectSerialize {
             get_serializable: |value| {
@@ -414,7 +414,7 @@ impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
 
 impl ReflectSerialize {
     /// Turn the value into a serializable representation
-    pub fn get_serializable<'a>(&self, value: &'a dyn Reflect) -> Serializable<'a> {
+    pub fn get_serializable<'a>(&self, value: &'a dyn PartialReflect) -> Serializable<'a> {
         (self.get_serializable)(value)
     }
 }
@@ -427,7 +427,7 @@ impl ReflectSerialize {
 pub struct ReflectDeserialize {
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
-    ) -> Result<Box<dyn Reflect>, erased_serde::Error>,
+    ) -> Result<Box<dyn PartialReflect>, erased_serde::Error>,
 }
 
 impl ReflectDeserialize {
@@ -436,7 +436,7 @@ impl ReflectDeserialize {
     /// The underlying type of the reflected value, and thus the expected
     /// structure of the serialized data, is determined by the type used to
     /// construct this `ReflectDeserialize` value.
-    pub fn deserialize<'de, D>(&self, deserializer: D) -> Result<Box<dyn Reflect>, D::Error>
+    pub fn deserialize<'de, D>(&self, deserializer: D) -> Result<Box<dyn PartialReflect>, D::Error>
     where
         D: serde::Deserializer<'de>,
     {
@@ -446,7 +446,7 @@ impl ReflectDeserialize {
     }
 }
 
-impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
+impl<T: for<'a> Deserialize<'a> + PartialReflect> FromType<T> for ReflectDeserialize {
     fn from_type() -> Self {
         ReflectDeserialize {
             func: |deserializer| Ok(Box::new(T::deserialize(deserializer)?)),
@@ -456,10 +456,10 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 
 /// [`Reflect`] values are commonly used in situations where the actual types of values
 /// are not known at runtime. In such situations you might have access to a `*const ()` pointer
-/// that you know implements [`Reflect`], but have no way of turning it into a `&dyn Reflect`.
+/// that you know implements [`Reflect`], but have no way of turning it into a `&dyn PartialReflect`.
 ///
 /// This is where [`ReflectFromPtr`] comes in, when creating a [`ReflectFromPtr`] for a given type `T: Reflect`.
-/// Internally, this saves a concrete function `*const T -> const dyn Reflect` which lets you create a trait object of [`Reflect`]
+/// Internally, this saves a concrete function `*const T -> const dyn PartialReflect` which lets you create a trait object of [`Reflect`]
 /// from a pointer.
 ///
 /// # Example
@@ -487,8 +487,8 @@ impl<T: for<'a> Deserialize<'a> + Reflect> FromType<T> for ReflectDeserialize {
 #[derive(Clone)]
 pub struct ReflectFromPtr {
     type_id: TypeId,
-    to_reflect: for<'a> unsafe fn(Ptr<'a>) -> &'a dyn Reflect,
-    to_reflect_mut: for<'a> unsafe fn(PtrMut<'a>) -> &'a mut dyn Reflect,
+    to_reflect: for<'a> unsafe fn(Ptr<'a>) -> &'a dyn PartialReflect,
+    to_reflect_mut: for<'a> unsafe fn(PtrMut<'a>) -> &'a mut dyn PartialReflect,
 }
 
 impl ReflectFromPtr {
@@ -501,7 +501,7 @@ impl ReflectFromPtr {
     ///
     /// `val` must be a pointer to value of the type that the [`ReflectFromPtr`] was constructed for.
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect_ptr<'a>(&self, val: Ptr<'a>) -> &'a dyn Reflect {
+    pub unsafe fn as_reflect_ptr<'a>(&self, val: Ptr<'a>) -> &'a dyn PartialReflect {
         (self.to_reflect)(val)
     }
 
@@ -509,24 +509,24 @@ impl ReflectFromPtr {
     ///
     /// `val` must be a pointer to a value of the type that the [`ReflectFromPtr`] was constructed for
     /// This can be verified by checking that the type id returned by [`ReflectFromPtr::type_id`] is the expected one.
-    pub unsafe fn as_reflect_ptr_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn Reflect {
+    pub unsafe fn as_reflect_ptr_mut<'a>(&self, val: PtrMut<'a>) -> &'a mut dyn PartialReflect {
         (self.to_reflect_mut)(val)
     }
 }
 
-impl<T: Reflect> FromType<T> for ReflectFromPtr {
+impl<T: PartialReflect> FromType<T> for ReflectFromPtr {
     fn from_type() -> Self {
         ReflectFromPtr {
             type_id: std::any::TypeId::of::<T>(),
             to_reflect: |ptr| {
                 // SAFE: only called from `as_reflect`, where the `ptr` is guaranteed to be of type `T`,
                 // and `as_reflect_ptr`, where the caller promises to call it with type `T`
-                unsafe { ptr.deref::<T>() as &dyn Reflect }
+                unsafe { ptr.deref::<T>() as &dyn PartialReflect }
             },
             to_reflect_mut: |ptr| {
                 // SAFE: only called from `as_reflect_mut`, where the `ptr` is guaranteed to be of type `T`,
                 // and `as_reflect_ptr_mut`, where the caller promises to call it with type `T`
-                unsafe { ptr.deref_mut::<T>() as &mut dyn Reflect }
+                unsafe { ptr.deref_mut::<T>() as &mut dyn PartialReflect }
             },
         }
     }
@@ -534,12 +534,12 @@ impl<T: Reflect> FromType<T> for ReflectFromPtr {
 
 #[cfg(test)]
 mod test {
-    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration};
+    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration, Reflect};
     use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
-    use crate::Reflect;
+    use crate::PartialReflect;
 
     #[test]
     fn test_reflect_from_ptr() {

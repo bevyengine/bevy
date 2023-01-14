@@ -6,7 +6,7 @@ use bevy_ecs::{
     reflect::{ReflectComponent, ReflectMapEntities},
     world::World,
 };
-use bevy_reflect::{Reflect, TypeRegistryArc, TypeUuid};
+use bevy_reflect::{PartialReflect, TypeRegistryArc, TypeUuid};
 
 #[cfg(feature = "serialize")]
 use crate::serde::SceneSerializer;
@@ -32,7 +32,7 @@ pub struct DynamicEntity {
     pub entity: u32,
     /// A vector of boxed components that belong to the given entity and
     /// implement the `Reflect` trait.
-    pub components: Vec<Box<dyn Reflect>>,
+    pub components: Vec<Box<dyn PartialReflect>>,
 }
 
 impl DynamicScene {
