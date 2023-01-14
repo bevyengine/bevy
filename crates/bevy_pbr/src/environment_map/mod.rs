@@ -49,7 +49,7 @@ impl Plugin for EnvironmentMapPlugin {
 ///
 /// When added to a 3D camera, this component adds indirect light
 /// to every point of the scene (including inside, enclosed areas) based on
-/// an environment cubemap texture. This is similiar to [`AmbientLight`], but
+/// an environment cubemap texture. This is similiar to [`crate::AmbientLight`], but
 /// higher quality, and is intended for outdoor scenes.
 ///
 /// The environment map must be prefiltered into a diffuse and specular map based on the
