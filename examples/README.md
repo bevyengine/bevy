@@ -55,6 +55,7 @@ git checkout v0.4.0
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
+  - [Widget](#widget)
   - [Window](#window)
 
 - [Tests](#tests)
@@ -310,15 +311,20 @@ Example | Description
 
 Example | Description
 --- | ---
-[Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-[Text](../examples/ui/text.rs) | Illustrates creating and updating text
-[Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
 [UI](../examples/ui/ui.rs) | Illustrates various features of Bevy UI
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
+
+## Widget
+
+Example | Description
+--- | ---
+[Button](../examples/widget/button.rs) | Illustrates creating and updating a button
+[Text](../examples/widget/text.rs) | Illustrates creating and updating text
+[Text Debug](../examples/widget/text_debug.rs) | An example for debugging text layout
 
 ## Window
 
