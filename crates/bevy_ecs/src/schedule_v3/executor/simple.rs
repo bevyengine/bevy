@@ -3,7 +3,7 @@ use bevy_utils::tracing::info_span;
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    schedule_v3::{ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule_v3::{BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule},
     world::World,
 };
 
@@ -43,16 +43,10 @@ impl SystemExecutor for SimpleExecutor {
                 }
 
                 // evaluate system set's conditions
-                let set_conditions_met = schedule.set_conditions[set_idx]
-                    .borrow_mut()
-                    .iter_mut()
-                    .map(|condition| {
-                        #[cfg(feature = "trace")]
-                        let _condition_span =
-                            info_span!("condition", name = &*condition.name()).entered();
-                        condition.run((), world)
-                    })
-                    .fold(true, |acc, res| acc && res);
+                let set_conditions_met = evaluate_and_fold_conditions(
+                    schedule.set_conditions[set_idx].get_mut().as_mut(),
+                    world,
+                );
 
                 if !set_conditions_met {
                     self.completed_systems
@@ -64,16 +58,10 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             // evaluate system's conditions
-            let system_conditions_met = schedule.system_conditions[system_index]
-                .borrow_mut()
-                .iter_mut()
-                .map(|condition| {
-                    #[cfg(feature = "trace")]
-                    let _condition_span =
-                        info_span!("condition", name = &*condition.name()).entered();
-                    condition.run((), world)
-                })
-                .fold(true, |acc, res| acc && res);
+            let system_conditions_met = evaluate_and_fold_conditions(
+                schedule.system_conditions[system_index].get_mut().as_mut(),
+                world,
+            );
 
             should_run &= system_conditions_met;
 
@@ -111,4 +99,17 @@ impl SimpleExecutor {
             completed_systems: FixedBitSet::new(),
         }
     }
+}
+
+fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &mut World) -> bool {
+    // not short-circuiting is intentional
+    #[allow(clippy::unnecessary_fold)]
+    conditions
+        .iter_mut()
+        .map(|condition| {
+            #[cfg(feature = "trace")]
+            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
+            condition.run((), world)
+        })
+        .fold(true, |acc, res| acc && res)
 }

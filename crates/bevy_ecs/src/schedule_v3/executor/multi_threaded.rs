@@ -10,7 +10,9 @@ use fixedbitset::FixedBitSet;
 use crate::{
     archetype::ArchetypeComponentId,
     query::Access,
-    schedule_v3::{is_apply_system_buffers, ExecutorKind, SystemExecutor, SystemSchedule},
+    schedule_v3::{
+        is_apply_system_buffers, BoxedCondition, ExecutorKind, SystemExecutor, SystemSchedule,
+    },
     world::World,
 };
 
@@ -400,17 +402,10 @@ impl MultiThreadedExecutor {
             }
 
             // evaluate system set's conditions
-            let set_conditions_met = schedule.set_conditions[set_idx]
-                .borrow_mut()
-                .iter_mut()
-                .map(|condition| {
-                    #[cfg(feature = "trace")]
-                    let _condition_span =
-                        info_span!("condition", name = &*condition.name()).entered();
-                    // SAFETY: access is compatible
-                    unsafe { condition.run_unsafe((), world) }
-                })
-                .fold(true, |acc, res| acc && res);
+            let set_conditions_met = evaluate_and_fold_conditions(
+                schedule.set_conditions[set_idx].borrow_mut().as_mut(),
+                world,
+            );
 
             if !set_conditions_met {
                 self.skipped_systems
@@ -422,16 +417,12 @@ impl MultiThreadedExecutor {
         }
 
         // evaluate system's conditions
-        let system_conditions_met = schedule.system_conditions[system_index]
-            .borrow_mut()
-            .iter_mut()
-            .map(|condition| {
-                #[cfg(feature = "trace")]
-                let _condition_span = info_span!("condition", name = &*condition.name()).entered();
-                // SAFETY: access is compatible
-                unsafe { condition.run_unsafe((), world) }
-            })
-            .fold(true, |acc, res| acc && res);
+        let system_conditions_met = evaluate_and_fold_conditions(
+            schedule.system_conditions[system_index]
+                .borrow_mut()
+                .as_mut(),
+            world,
+        );
 
         if !system_conditions_met {
             self.skipped_systems.insert(system_index);
@@ -497,4 +488,18 @@ impl MultiThreadedExecutor {
 
         unapplied_systems.clear();
     }
+}
+
+fn evaluate_and_fold_conditions(conditions: &mut [BoxedCondition], world: &World) -> bool {
+    // not short-circuiting is intentional
+    #[allow(clippy::unnecessary_fold)]
+    conditions
+        .iter_mut()
+        .map(|condition| {
+            #[cfg(feature = "trace")]
+            let _condition_span = info_span!("condition", name = &*condition.name()).entered();
+            // SAFETY: caller ensures system access is compatible
+            unsafe { condition.run_unsafe((), world) }
+        })
+        .fold(true, |acc, res| acc && res)
 }

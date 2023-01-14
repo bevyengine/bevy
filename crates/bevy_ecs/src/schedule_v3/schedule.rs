@@ -582,7 +582,7 @@ impl ScheduleGraph {
             {
                 let name_a = self.get_node_name(&a);
                 let name_b = self.get_node_name(&b);
-                return Err(BuildError::CrossDependency(name_a.into(), name_b.into()));
+                return Err(BuildError::CrossDependency(name_a, name_b));
             }
         }
 
