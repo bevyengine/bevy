@@ -1,8 +1,12 @@
+//! A reimplementation of the currently unstable [`std::cell::SyncUnsafeCell`]
+//!
+//! [`std::cell::SyncUnsafeCell`]: https://doc.rust-lang.org/nightly/std/cell/struct.SyncUnsafeCell.html
+
 pub use core::cell::UnsafeCell;
 
 /// [`UnsafeCell`], but [`Sync`].
 ///
-/// See [tracking issue](https://github.com/rust-lang/rust/issues/95439) for upcoming [`core`] impl,
+/// See [tracking issue](https://github.com/rust-lang/rust/issues/95439) for upcoming native impl,
 /// which should replace this one entirely (except `from_mut`).
 ///
 /// This is just an `UnsafeCell`, except it implements `Sync`
