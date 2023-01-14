@@ -253,6 +253,15 @@ impl dyn PartialReflect {
     pub fn try_downcast_mut<T: Reflect>(&mut self) -> Option<&mut T> {
         self.as_full_mut()?.downcast_mut()
     }
+
+    /// Returns `true` if the underlying value represents a value of type `T`, or `false`
+    /// otherwise.
+    ///
+    /// Read `is` for more information on underlying values and represented types.
+    #[inline]
+    pub fn represents<T: Reflect>(&self) -> bool {
+        self.type_name() == any::type_name::<T>()
+    }
 }
 
 #[deny(rustdoc::broken_intra_doc_links)]
@@ -273,15 +282,6 @@ impl dyn Reflect {
     /// If the underlying value is not of type `T`, returns `Err(self)`.
     pub fn take<T: Reflect>(self: Box<dyn Reflect>) -> Result<T, Box<dyn Reflect>> {
         self.downcast::<T>().map(|value| *value)
-    }
-
-    /// Returns `true` if the underlying value represents a value of type `T`, or `false`
-    /// otherwise.
-    ///
-    /// Read `is` for more information on underlying values and represented types.
-    #[inline]
-    pub fn represents<T: Reflect>(&self) -> bool {
-        self.type_name() == any::type_name::<T>()
     }
 
     /// Returns `true` if the underlying value is of type `T`, or `false`
@@ -320,7 +320,7 @@ mod sealed {
     pub(crate) trait Sealed {}
 }
 
-impl<T: GetTypeRegistration + Typed> sealed::Sealed for T {}
+impl<T: Typed> sealed::Sealed for T {}
 impl<T: sealed::Sealed> Reflectable for T {}
 
 pub trait Reflectable {}

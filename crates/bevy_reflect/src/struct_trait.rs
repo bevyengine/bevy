@@ -22,7 +22,7 @@ use std::{
 /// # Example
 ///
 /// ```
-/// use bevy_reflect::{Reflect, Struct};
+/// use bevy_reflect::{PartialReflect, Reflect, Struct};
 ///
 /// #[derive(Reflect)]
 /// struct Foo {
@@ -499,7 +499,7 @@ pub fn struct_partial_eq<S: Struct>(a: &S, b: &dyn PartialReflect) -> Option<boo
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::PartialReflect;
+/// use bevy_reflect::{PartialReflect, Reflect};
 /// #[derive(Reflect)]
 /// struct MyStruct {
 ///   foo: usize

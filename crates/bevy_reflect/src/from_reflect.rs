@@ -27,10 +27,10 @@ pub trait FromReflect: Reflect + Sized {
     fn take_from_reflect(
         reflect: Box<dyn PartialReflect>,
     ) -> Result<Self, Box<dyn PartialReflect>> {
-        match reflect.into_full()?.take::<Self>() {
+        match reflect.try_take::<Self>() {
             Ok(value) => Ok(value),
-            Err(value) => match Self::from_reflect(value.as_partial_reflect()) {
-                None => Err(value.into_partial_reflect()),
+            Err(value) => match Self::from_reflect(&*value) {
+                None => Err(value),
                 Some(value) => Ok(value),
             },
         }
@@ -66,7 +66,7 @@ pub trait FromReflect: Reflect + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect, ReflectFromReflect, TypeRegistry};
+/// # use bevy_reflect::{DynamicTupleStruct, FromReflect, Reflect, PartialReflect, ReflectFromReflect, TypeRegistry};
 /// # #[derive(Reflect, FromReflect, PartialEq, Eq, Debug)]
 /// # #[reflect(FromReflect)]
 /// # struct Foo(#[reflect(default = "default_value")] usize);
@@ -82,7 +82,7 @@ pub trait FromReflect: Reflect + Sized {
 ///
 /// let concrete: Box<dyn PartialReflect> = rfr.from_reflect(&reflected).unwrap();
 ///
-/// assert_eq!(Foo(123), concrete.take::<Foo>().unwrap());
+/// assert_eq!(Foo(123), concrete.try_take::<Foo>().unwrap());
 /// ```
 ///
 /// [`DynamicStruct`]: crate::DynamicStruct

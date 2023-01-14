@@ -397,7 +397,7 @@ pub fn tuple_struct_partial_eq<S: TupleStruct>(a: &S, b: &dyn PartialReflect) ->
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::PartialReflect;
+/// use bevy_reflect::{PartialReflect, Reflect};
 /// #[derive(Reflect)]
 /// struct MyTupleStruct(usize);
 ///

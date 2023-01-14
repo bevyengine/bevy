@@ -1446,6 +1446,8 @@ mod tests {
     fn option_should_from_reflect() {
         #[derive(Reflect, FromReflect, PartialEq, Debug)]
         struct Foo(usize);
+        
+        println!("{:?}", PartialReflect::into_full(Box::new(Foo(123))));
 
         let expected = Some(Foo(123));
         let output = <Option<Foo> as FromReflect>::from_reflect(&expected).unwrap();

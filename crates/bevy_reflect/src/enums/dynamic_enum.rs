@@ -56,14 +56,14 @@ impl From<()> for DynamicVariant {
 /// # Example
 ///
 /// ```
-/// # use bevy_reflect::{DynamicEnum, DynamicVariant, Reflect};
+/// # use bevy_reflect::{DynamicEnum, DynamicVariant, PartialReflect, Reflect};
 ///
 /// // The original enum value
 /// let mut value: Option<usize> = Some(123);
 ///
 /// // Create a DynamicEnum to represent the new value
 /// let mut dyn_enum = DynamicEnum::new(
-///   Reflect::type_name(&value),
+///   PartialReflect::type_name(&value),
 ///   "None",
 ///   DynamicVariant::Unit
 /// );

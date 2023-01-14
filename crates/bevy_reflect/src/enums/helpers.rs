@@ -80,7 +80,7 @@ pub fn enum_partial_eq<TEnum: Enum>(a: &TEnum, b: &dyn PartialReflect) -> Option
 ///
 /// # Example
 /// ```
-/// use bevy_reflect::PartialReflect;
+/// use bevy_reflect::{PartialReflect, Reflect};
 /// #[derive(Reflect)]
 /// enum MyEnum {
 ///   A,
