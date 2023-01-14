@@ -225,6 +225,114 @@ impl MultiThreadedExecutor {
         }
     }
 
+    fn can_run(&mut self, system_index: usize, schedule: &SystemSchedule, world: &World) -> bool {
+        #[cfg(feature = "trace")]
+        let name = schedule.systems[system_index].borrow().name();
+        #[cfg(feature = "trace")]
+        let _span = info_span!("check_access", name = &*name).entered();
+
+        // TODO: an earlier out if archetypes did not change
+        let system_meta = &mut self.system_task_meta[system_index];
+
+        if system_meta.is_exclusive && !self.running_systems.is_clear() {
+            return false;
+        }
+
+        if !system_meta.is_send && self.local_thread_running {
+            return false;
+        }
+
+        for set_idx in schedule.sets_of_systems[system_index].difference(&self.evaluated_sets) {
+            for condition in schedule.set_conditions[set_idx].borrow_mut().iter_mut() {
+                condition.update_archetype_component_access(world);
+                if !condition
+                    .archetype_component_access()
+                    .is_compatible(&self.active_access)
+                {
+                    return false;
+                }
+            }
+        }
+
+        for condition in schedule.system_conditions[system_index]
+            .borrow_mut()
+            .iter_mut()
+        {
+            condition.update_archetype_component_access(world);
+            if !condition
+                .archetype_component_access()
+                .is_compatible(&self.active_access)
+            {
+                return false;
+            }
+        }
+
+        if !self.skipped_systems.contains(system_index) {
+            let mut system = schedule.systems[system_index].borrow_mut();
+            system.update_archetype_component_access(world);
+            if !system
+                .archetype_component_access()
+                .is_compatible(&self.active_access)
+            {
+                return false;
+            }
+
+            // TODO: avoid allocation by keeping count of readers
+            system_meta.archetype_component_access = system.archetype_component_access().clone();
+        }
+
+        true
+    }
+
+    fn should_run(
+        &mut self,
+        system_index: usize,
+        schedule: &SystemSchedule,
+        world: &World,
+    ) -> bool {
+        #[cfg(feature = "trace")]
+        let name = schedule.systems[system_index].borrow().name();
+        #[cfg(feature = "trace")]
+        let _span = info_span!("check_conditions", name = &*name).entered();
+
+        let mut should_run = !self.skipped_systems.contains(system_index);
+        for set_idx in schedule.sets_of_systems[system_index].ones() {
+            if self.evaluated_sets.contains(set_idx) {
+                continue;
+            }
+
+            // evaluate system set's conditions
+            let set_conditions_met = evaluate_and_fold_conditions(
+                schedule.set_conditions[set_idx].borrow_mut().as_mut(),
+                world,
+            );
+
+            if !set_conditions_met {
+                self.skipped_systems
+                    .union_with(&schedule.systems_in_sets[set_idx]);
+            }
+
+            should_run &= set_conditions_met;
+            self.evaluated_sets.insert(set_idx);
+        }
+
+        // evaluate system's conditions
+        let system_conditions_met = evaluate_and_fold_conditions(
+            schedule.system_conditions[system_index]
+                .borrow_mut()
+                .as_mut(),
+            world,
+        );
+
+        if !system_conditions_met {
+            self.skipped_systems.insert(system_index);
+        }
+
+        should_run &= system_conditions_met;
+
+        should_run
+    }
+
     fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
@@ -323,114 +431,6 @@ impl MultiThreadedExecutor {
 
         self.local_thread_running = true;
         self.exclusive_running = true;
-    }
-
-    fn can_run(&mut self, system_index: usize, schedule: &SystemSchedule, world: &World) -> bool {
-        #[cfg(feature = "trace")]
-        let name = schedule.systems[system_index].borrow().name();
-        #[cfg(feature = "trace")]
-        let _span = info_span!("check_access", name = &*name).entered();
-
-        // TODO: an earlier out if archetypes did not change
-        let system_meta = &mut self.system_task_meta[system_index];
-
-        if system_meta.is_exclusive && !self.running_systems.is_clear() {
-            return false;
-        }
-
-        if !system_meta.is_send && self.local_thread_running {
-            return false;
-        }
-
-        for set_idx in schedule.sets_of_systems[system_index].difference(&self.evaluated_sets) {
-            for condition in schedule.set_conditions[set_idx].borrow_mut().iter_mut() {
-                condition.update_archetype_component_access(world);
-                if !condition
-                    .archetype_component_access()
-                    .is_compatible(&self.active_access)
-                {
-                    return false;
-                }
-            }
-        }
-
-        for condition in schedule.system_conditions[system_index]
-            .borrow_mut()
-            .iter_mut()
-        {
-            condition.update_archetype_component_access(world);
-            if !condition
-                .archetype_component_access()
-                .is_compatible(&self.active_access)
-            {
-                return false;
-            }
-        }
-
-        if !self.skipped_systems.contains(system_index) {
-            let mut system = schedule.systems[system_index].borrow_mut();
-            system.update_archetype_component_access(world);
-            if !system
-                .archetype_component_access()
-                .is_compatible(&self.active_access)
-            {
-                return false;
-            }
-
-            // TODO: avoid allocation by keeping count of readers
-            system_meta.archetype_component_access = system.archetype_component_access().clone();
-        }
-
-        true
-    }
-
-    fn should_run(
-        &mut self,
-        system_index: usize,
-        schedule: &SystemSchedule,
-        world: &World,
-    ) -> bool {
-        #[cfg(feature = "trace")]
-        let name = schedule.systems[system_index].borrow().name();
-        #[cfg(feature = "trace")]
-        let _span = info_span!("check_conditions", name = &*name).entered();
-
-        let mut should_run = !self.completed_systems.contains(system_index);
-        for set_idx in schedule.sets_of_systems[system_index].ones() {
-            if self.evaluated_sets.contains(set_idx) {
-                continue;
-            }
-
-            // evaluate system set's conditions
-            let set_conditions_met = evaluate_and_fold_conditions(
-                schedule.set_conditions[set_idx].borrow_mut().as_mut(),
-                world,
-            );
-
-            if !set_conditions_met {
-                self.skipped_systems
-                    .union_with(&schedule.systems_in_sets[set_idx]);
-            }
-
-            should_run &= set_conditions_met;
-            self.evaluated_sets.insert(set_idx);
-        }
-
-        // evaluate system's conditions
-        let system_conditions_met = evaluate_and_fold_conditions(
-            schedule.system_conditions[system_index]
-                .borrow_mut()
-                .as_mut(),
-            world,
-        );
-
-        if !system_conditions_met {
-            self.skipped_systems.insert(system_index);
-        }
-
-        should_run &= system_conditions_met;
-
-        should_run
     }
 
     fn finish_system_and_signal_dependents(&mut self, system_index: usize) {
