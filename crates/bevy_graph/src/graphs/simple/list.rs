@@ -42,20 +42,34 @@ impl_graph! {
 
         #[inline]
         fn get_node(&self, idx: NodeIdx) -> GraphResult<&N> {
-            if let Some(node) = self.nodes.get(idx) {
-                Ok(node)
+            if self.nodes.contains_key(idx) {
+                unsafe {
+                    Ok(self.get_node_unchecked(idx))
+                }
             } else {
                 Err(GraphError::NodeIdxDoesntExist(idx))
             }
         }
 
         #[inline]
+        unsafe fn get_node_unchecked(&self, idx: NodeIdx) -> &N {
+            self.nodes.get_unchecked(idx)
+        }
+
+        #[inline]
         fn get_node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N> {
-            if let Some(node) = self.nodes.get_mut(idx) {
-                Ok(node)
+            if self.nodes.contains_key(idx) {
+                unsafe {
+                    Ok(self.get_node_unchecked_mut(idx))
+                }
             } else {
                 Err(GraphError::NodeIdxDoesntExist(idx))
             }
+        }
+
+        #[inline]
+        unsafe fn get_node_unchecked_mut(&mut self, idx: NodeIdx) -> &mut N {
+            self.nodes.get_unchecked_mut(idx)
         }
 
         #[inline]

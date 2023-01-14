@@ -19,7 +19,15 @@ pub trait Graph<N, E> {
     fn new_node(&mut self, node: N) -> NodeIdx;
 
     fn get_node(&self, idx: NodeIdx) -> GraphResult<&N>;
+    /// # Safety
+    ///
+    /// This function should only be called when the Node for the NodeIdx exists.
+    unsafe fn get_node_unchecked(&self, idx: NodeIdx) -> &N;
     fn get_node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N>;
+    /// # Safety
+    ///
+    /// This function should only be called when the Node for the NodeIdx exists.
+    unsafe fn get_node_unchecked_mut(&mut self, idx: NodeIdx) -> &mut N;
 
     fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N>;
 
