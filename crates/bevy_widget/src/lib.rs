@@ -1,3 +1,7 @@
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+//! This crate contains UI widgets like buttons
+
 mod widget;
 mod widget_bundles;
 
