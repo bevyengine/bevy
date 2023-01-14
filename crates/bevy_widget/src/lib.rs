@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
-//! This crate contains UI widgets like buttons
+//! The official collection of user interface widgets for `bevy_ui`.
 
 mod button;
 mod image;
