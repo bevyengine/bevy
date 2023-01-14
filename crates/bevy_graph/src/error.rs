@@ -6,6 +6,7 @@ pub enum GraphError {
     EdgeIdxDoesntExist(EdgeIdx),
     EdgeBetweenDoesntExist(NodeIdx, NodeIdx),
     EdgeBetweenAlreadyExists(NodeIdx, NodeIdx),
+    EdgeBetweenSameNode(NodeIdx),
 }
 
 pub type GraphResult<T> = Result<T, GraphError>;

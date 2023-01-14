@@ -136,7 +136,9 @@ impl_graph! {
         }
 
         fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
-            if let Some(node_edges) = self.adjacencies.get(node) {
+            if node == other {
+                Err(GraphError::EdgeBetweenSameNode(node))
+            } else if let Some(node_edges) = self.adjacencies.get(node) {
                 if node_edges.contains_key(&other) {
                     Err(GraphError::EdgeBetweenAlreadyExists(node, other))
                 } else if let Some(other_edges) = self.adjacencies.get(other) {
@@ -197,7 +199,9 @@ impl_graph! {
         }
 
         fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
-            if let Some(from_edges) = self.adjacencies.get(from) {
+            if from == to {
+                Err(GraphError::EdgeBetweenSameNode(from))
+            } else if let Some(from_edges) = self.adjacencies.get(from) {
                 if from_edges.contains_key(&to) {
                     Err(GraphError::EdgeBetweenAlreadyExists(from, to))
                 } else if self.has_node(to) {

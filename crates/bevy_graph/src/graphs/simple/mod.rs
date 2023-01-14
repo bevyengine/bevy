@@ -9,7 +9,7 @@ mod test {
     use hashbrown::HashSet;
     use std::hash::Hash;
 
-    use crate::graphs::Graph;
+    use crate::{error::GraphError, graphs::Graph};
 
     #[derive(PartialEq, Debug)]
     pub enum Person {
@@ -42,6 +42,14 @@ mod test {
             #[test]
             fn remove_node_directed() {
                 test::remove_node_directed(<$($graph)::+ <Person, i32, true>>::new())
+            }
+            #[test]
+            fn edge_between_same_node_undirected() {
+                test::edge_between_same_node(<$($graph)::+ <Person, i32, false>>::new())
+            }
+            #[test]
+            fn edge_between_same_node_directed() {
+                test::edge_between_same_node(<$($graph)::+ <Person, i32, true>>::new())
             }
         };
     }
@@ -225,6 +233,15 @@ mod test {
         assert!(graph.get_edge(edge).is_err());
         assert!(graph.edge_between(jake, michael).is_err());
         assert!(graph.edge_between(michael, jake).is_err());
+    }
+
+    pub fn edge_between_same_node(mut graph: impl Graph<Person, i32>) {
+        let jake = graph.new_node(Person::Jake);
+
+        assert!(matches!(
+            graph.new_edge(jake, jake, 20),
+            Err(GraphError::EdgeBetweenSameNode(node)) if node == jake
+        ));
     }
 
     fn unordered_eq<T>(a: &[T], b: &[T]) -> bool
