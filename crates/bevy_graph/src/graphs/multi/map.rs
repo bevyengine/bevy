@@ -95,11 +95,17 @@ impl_graph! {
         }
 
         #[inline]
-        fn edge_between(&self, _from: NodeIdx, _to: NodeIdx) -> GraphResult<EdgeIdx> {
+        fn edges_between(&self, _from: NodeIdx, _to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
             todo!()
         }
 
-        unsafe fn edge_between_unchecked(&self, _from: NodeIdx, _to: NodeIdx) -> EdgeIdx {
+        #[inline]
+        fn edge_between(&self, _from: NodeIdx, _to: NodeIdx) -> GraphResult<EdgeIdx> {
+            Err(GraphError::CanHaveMultipleEdges)
+        }
+
+        #[inline]
+        unsafe fn edges_between_unchecked(&self, _from: NodeIdx, _to: NodeIdx) -> Vec<EdgeIdx> {
             todo!()
         }
 

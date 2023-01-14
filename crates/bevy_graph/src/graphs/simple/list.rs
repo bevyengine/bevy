@@ -1,4 +1,4 @@
-use slotmap::{HopSlotMap, Key, SecondaryMap};
+use slotmap::{HopSlotMap, SecondaryMap};
 
 use crate::{
     error::{GraphError, GraphResult},
@@ -94,11 +94,11 @@ impl_graph! {
         }
 
         #[inline]
-        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx> {
+        fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
             if self.adjacencies.contains_key(from) {
                 unsafe {
-                    let idx = self.edge_between_unchecked(from, to);
-                    if idx.is_null() {
+                    let idx = self.edges_between_unchecked(from, to);
+                    if idx.is_empty() {
                         Err(GraphError::EdgeBetweenDoesntExist(from, to))
                     } else {
                         Ok(idx)
@@ -109,13 +109,22 @@ impl_graph! {
             }
         }
 
-        unsafe fn edge_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+        #[inline]
+        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx> {
+            match self.edges_between(from, to) {
+                Ok(edges) => Ok(edges[0]),
+                Err(err) => Err(err)
+            }
+        }
+
+        #[inline]
+        unsafe fn edges_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> Vec<EdgeIdx> {
             if let Some(idx) = self.adjacencies.get_unchecked(from).iter()
-                .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None })
+                .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None }) // we know it simple graph can only have 1 edge so `find_map` is enough
             {
-                idx
+                vec![idx]
             } else {
-                EdgeIdx::null()
+                vec![]
             }
         }
 

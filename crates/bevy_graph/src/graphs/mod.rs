@@ -47,11 +47,12 @@ pub trait Graph<N, E> {
 
     fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E>;
 
+    fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>>;
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx>;
     /// # Safety
     ///
-    /// This function should only be called when the nodes and the edge between exists.
-    unsafe fn edge_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx;
+    /// This function should only be called when the nodes and the edges between exists.
+    unsafe fn edges_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> Vec<EdgeIdx>;
     fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)>; // TODO: can we use other type than Vec? maybe directly iterator?
 
     ////////////////////////////
