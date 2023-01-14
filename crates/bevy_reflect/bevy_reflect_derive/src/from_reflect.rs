@@ -259,7 +259,7 @@ fn get_active_fields(
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {
                         (||
-                            if let #FQResult::OK(field) = #get_field {
+                            if let #FQResult::Ok(field) = #get_field {
                                 <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field).map_err(#error)
                             } else {
                                 #FQResult::Ok(#path())
