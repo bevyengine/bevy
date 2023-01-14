@@ -170,6 +170,8 @@ impl BlobVec {
             // Transfer ownership of the old value out of the vector, so it can be dropped.
             // SAFETY:
             // - The caller ensures that `index` fits in this vector.
+            // - `size` must be a multiple of the erased type's alignment,
+            //   so adding a multiple of `size` will preserve alignment.
             // - The storage location will get overwritten with `value` later, which ensures
             //   that the element will not get observed or double dropped later.
             // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
