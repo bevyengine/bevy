@@ -670,7 +670,7 @@ mod tests {
 
         #[derive(TypePath)]
         #[type_path = "my_alias"]
-        struct DerivePathG<T: TypePath>(PhantomData<T>);
+        struct DerivePathG<T: TypePath, const N: usize>(PhantomData<T>);
 
         #[derive(TypePath)]
         #[type_path = "my_alias"]
@@ -683,8 +683,8 @@ mod tests {
         struct MacroName;
         impl_type_path!(MacroName in my_alias as MyMacroName);
 
-        struct MacroG<T: TypePath>(PhantomData<T>);
-        impl_type_path!(MacroG<T: TypePath> in my_alias);
+        struct MacroG<T: TypePath, const N: usize>(PhantomData<T>);
+        impl_type_path!(MacroG<T: TypePath, const N: usize> in my_alias);
 
         struct MacroNameG<T: TypePath>(PhantomData<T>);
         impl_type_path!(MacroNameG<T: TypePath> in my_alias as MyMacroNameG);
@@ -698,8 +698,8 @@ mod tests {
             "bevy_reflect::tests::DeriveG::<()>"
         );
         assert_eq!(
-            DerivePathG::<()>::type_path(),
-            "my_alias::DerivePathG::<()>"
+            DerivePathG::<(), 10>::type_path(),
+            "my_alias::DerivePathG::<(), 10>"
         );
         assert_eq!(
             DerivePathNameG::<()>::type_path(),
@@ -708,7 +708,7 @@ mod tests {
 
         assert_eq!(Macro::type_path(), "my_alias::Macro");
         assert_eq!(MacroName::type_path(), "my_alias::MyMacroName");
-        assert_eq!(MacroG::<()>::type_path(), "my_alias::MacroG::<()>");
+        assert_eq!(MacroG::<(), 10>::type_path(), "my_alias::MacroG::<(), 10>");
         assert_eq!(
             MacroNameG::<()>::type_path(),
             "my_alias::MyMacroNameG::<()>"

@@ -55,7 +55,7 @@
 /// // Generics are also supported.
 /// #[derive(TypePath)]
 /// #[type_path = "my_crate::foo"]
-/// struct StableGenericTypePath<T: TypePath>(T);
+/// struct StableGenericTypePath<T: TypePath, const N: usize>([T; N]);
 /// ```
 ///
 /// [utility]: crate::utility
