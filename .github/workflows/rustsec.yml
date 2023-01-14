@@ -1,0 +1,14 @@
+name: cargo-audit
+
+on:
+  shedule:
+    - cron: '0 0 * * *'
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: rustsec/audit-check@v0.1.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
