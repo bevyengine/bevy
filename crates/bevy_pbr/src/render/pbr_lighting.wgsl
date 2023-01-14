@@ -160,7 +160,7 @@ fn perceptualRoughnessToRoughness(perceptualRoughness: f32) -> f32 {
 
 fn point_light(
     world_position: vec3<f32>,
-    light: PointLight,
+    light_id: u32,
     roughness: f32,
     NdotV: f32,
     N: vec3<f32>,
@@ -216,7 +216,7 @@ fn point_light(
 
     // NOTE: (*light).color.rgb is premultiplied with (*light).intensity / 4 π (which would be the luminous intensity) on the CPU
 
-    return ((diffuse + specular_light) * light.color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
+    return ((diffuse + specular_light) * (*light).color_inverse_square_range.rgb) * (rangeAttenuation * NoL);
 }
 
 fn spot_light(

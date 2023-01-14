@@ -5,16 +5,13 @@ use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::With,
-    system::{
-        lifetimeless::{Read, SQuery},
-        Commands, Query, Res, SystemParamItem,
-    },
+    system::{lifetimeless::Read, Commands, Query, Res, SystemParamItem},
 };
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
-    render_phase::{EntityRenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
         BindGroupLayoutEntry, BindingResource, BindingType, SamplerBindingType, Shader,
@@ -165,17 +162,19 @@ pub fn new_environment_map_bind_group_layout(render_device: &RenderDevice) -> Bi
 }
 
 pub struct SetMeshViewEnvironmentMapBindGroup<const I: usize>;
-impl<const I: usize> EntityRenderCommand for SetMeshViewEnvironmentMapBindGroup<I> {
-    type Param = SQuery<Read<EnvironmentMapBindGroup>>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewEnvironmentMapBindGroup<I> {
+    type Param = ();
+    type ViewWorldQuery = Read<EnvironmentMapBindGroup>;
+    type ItemWorldQuery = ();
+
     #[inline]
     fn render<'w>(
-        view: Entity,
-        _item: Entity,
-        view_query: SystemParamItem<'w, '_, Self::Param>,
+        _item: &P,
+        environment_map: bevy_ecs::query::ROQueryItem<'w, Self::ViewWorldQuery>,
+        _entity: bevy_ecs::query::ROQueryItem<'w, Self::ItemWorldQuery>,
+        _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let environment_map = view_query.get_inner(view).unwrap();
-
         pass.set_bind_group(I, &environment_map.bind_group, &[]);
 
         RenderCommandResult::Success
