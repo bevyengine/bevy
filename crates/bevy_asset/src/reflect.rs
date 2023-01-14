@@ -311,7 +311,7 @@ mod tests {
         let asset = reflect_asset
             .get(&app.world, fetched_handle.clone_weak())
             .unwrap();
-        assert_eq!(asset.downcast_ref::<AssetType>().unwrap().field, "edited");
+        assert_eq!(asset.try_downcast_ref::<AssetType>().unwrap().field, "edited");
 
         reflect_asset
             .remove(&mut app.world, fetched_handle)

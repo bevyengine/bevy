@@ -60,7 +60,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let field = value.field("a").unwrap();
 
     // you can downcast Reflect values like this:
-    assert_eq!(*field.downcast_ref::<usize>().unwrap(), 2);
+    assert_eq!(*field.try_downcast_ref::<usize>().unwrap(), 2);
 
     // DynamicStruct also implements the `Struct` and `Reflect` traits.
     let mut patch = DynamicStruct::default();
@@ -84,11 +84,6 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let reflect_deserializer = UntypedReflectDeserializer::new(&type_registry);
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-
-    // Deserializing returns a Box<dyn PartialReflect> value. Generally, deserializing a value will return
-    // the "dynamic" variant of a type. For example, deserializing a struct will return the
-    // DynamicStruct type. "Value types" will be deserialized as themselves.
-    let _deserialized_struct = reflect_value.downcast_ref::<DynamicStruct>();
 
     // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves
     // like normal `partial_eq`, but it treats "dynamic" and "non-dynamic" types the same. The

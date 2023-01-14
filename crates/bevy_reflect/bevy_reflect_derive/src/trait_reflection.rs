@@ -75,7 +75,7 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
             }
         }
 
-        impl<T: #trait_ident + #bevy_reflect_path::PartialReflect> #bevy_reflect_path::FromType<T> for #reflect_trait_ident {
+        impl<T: #trait_ident + #bevy_reflect_path::Reflect> #bevy_reflect_path::FromType<T> for #reflect_trait_ident {
             fn from_type() -> Self {
                 Self {
                     get_func: |reflect_value| {

@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(scene.entities.len(), 1);
         assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 1);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
+        assert!(scene.entities[0].components[0].as_full().unwrap().represents::<ComponentA>());
     }
 
     #[test]
@@ -202,7 +202,7 @@ mod tests {
         assert_eq!(scene.entities.len(), 1);
         assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 1);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
+        assert!(scene.entities[0].components[0].as_full().unwrap().represents::<ComponentA>());
     }
 
     #[test]
@@ -226,8 +226,8 @@ mod tests {
         assert_eq!(scene.entities.len(), 1);
         assert_eq!(scene.entities[0].entity, entity.index());
         assert_eq!(scene.entities[0].components.len(), 2);
-        assert!(scene.entities[0].components[0].represents::<ComponentA>());
-        assert!(scene.entities[0].components[1].represents::<ComponentB>());
+        assert!(scene.entities[0].components[0].as_full().unwrap().represents::<ComponentA>());
+        assert!(scene.entities[0].components[1].as_full().unwrap().represents::<ComponentB>());
     }
 
     #[test]

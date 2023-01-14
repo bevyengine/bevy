@@ -4,7 +4,7 @@ use crate::{
     PartialReflect, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple, TypeInfo, Typed,
     VariantFieldIter, VariantType,
 };
-use std::any::Any;
+
 use std::fmt::Formatter;
 
 /// A dynamic representation of an enum variant.
