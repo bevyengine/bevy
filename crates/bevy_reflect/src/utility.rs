@@ -138,9 +138,9 @@ impl<T: TypedProperty> GenericTypedCell<T> {
         Self(OnceBox::new())
     }
 
-    /// Returns a reference to the [`TypeInfo`]/[`TypePath`] stored in the cell.
+    /// Returns a reference to the [`TypeInfo`]/[`TypePathStorage`] stored in the cell.
     ///
-    /// This method will then return the correct [`TypeInfo`]/[`TypePath`] reference for the given type `T`.
+    /// This method will then return the correct [`TypeInfo`]/[`TypePathStorage`] reference for the given type `T`.
     /// If there is no entry found, a new one will be generated from the given function.
     pub fn get_or_insert<G, F>(&self, f: F) -> &T
     where

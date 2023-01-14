@@ -111,7 +111,7 @@ impl_reflect_value!(::core::ops::RangeFrom<T: TypePath + Clone + Send + Sync>())
 impl_reflect_value!(::core::ops::RangeTo<T: TypePath + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeToInclusive<T: TypePath + Clone + Send + Sync>());
 impl_reflect_value!(::core::ops::RangeFull());
-impl_reflect_value!(::core::time::Duration(
+impl_reflect_value!(::bevy_utils::Duration(
     Debug,
     Hash,
     PartialEq,
@@ -119,7 +119,7 @@ impl_reflect_value!(::core::time::Duration(
     Deserialize,
     Default
 ));
-impl_reflect_value!(::std::time::Instant(Debug, Hash, PartialEq));
+impl_reflect_value!(::bevy_utils::Instant(Debug, Hash, PartialEq));
 impl_reflect_value!(::core::num::NonZeroI128(
     Debug,
     Hash,

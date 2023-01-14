@@ -597,7 +597,7 @@ pub(crate) enum PathToType<'a> {
 }
 
 impl<'a> PathToType<'a> {
-    /// Returns the path interpreted as an [`Ident`],
+    /// Returns the path interpreted as an [`struct@Ident`],
     /// or [`None`] if anonymous or primitive.
     fn named_as_ident(&self) -> Option<&Ident> {
         match self {
