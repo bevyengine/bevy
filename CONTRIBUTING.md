@@ -50,7 +50,7 @@ Bevy is a completely free and open source game engine built in Rust. It currentl
 Bevy also currently has the following "development process" goals:
 
 * **Rapid experimentation over API stability**: We need the freedom to experiment and iterate in order to build the best engine we can. This will change over time as APIs prove their staying power.
-* **Consistent vision**: The engine needs to feel consistent and cohesive. This takes precedent over democratic and/or decentralized processes. See [*How we're organized*](#how-were-organized) for more details.
+* **Consistent vision**: The engine needs to feel consistent and cohesive. This takes precedent over democratic and/or decentralized processes. See our [*Bevy Organization doc*](/docs/the_bevy_organization.md) for more details.
 * **Flexibility over bureaucracy**: Developers should feel productive and unencumbered by development processes.
 * **Focus**: The Bevy Org should focus on building a small number of features excellently over merging every new community-contributed feature quickly. Sometimes this means pull requests will sit unmerged for a long time. This is the price of focus and we are willing to pay it. Fortunately Bevy is modular to its core. 3rd party plugins are a great way to work around this policy.
 * **User-facing API ergonomics come first**: Solid user experience should receive significant focus and investment. It should rarely be compromised in the interest of internal implementation details.  
@@ -70,7 +70,7 @@ Bevy also currently has the following "development process" goals:
 
 The Bevy Organization is the group of people responsible for stewarding the Bevy project. It handles things like merging pull requests, choosing project direction, managing bugs / issues / feature requests, running the Bevy website, controlling access to secrets, defining and enforcing best practices, etc.
 
-Note that you _do not_ need to be a member of the Bevy Organization to contribute to Bevy. Community contributors (this means you) can freely open issues, submit pull requests, and review pull requests.
+Note that you *do not* need to be a member of the Bevy Organization to contribute to Bevy. Community contributors (this means you) can freely open issues, submit pull requests, and review pull requests.
 
 Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization.md) to learn more about how we're organized.
 
@@ -120,10 +120,10 @@ Most changes don't require much "process". If your change is relatively straight
     * [GitHub Discussions]: An informal discussion with the community. This is the place to start if you want to propose a feature or specific implementation.
     * [Issue](https://github.com/bevyengine/bevy/issues): A formal way for us to track a bug or feature. Please look for duplicates before opening a new issue and consider starting with a Discussion.
     * [Pull Request](https://github.com/bevyengine/bevy/pulls) (or PR for short): A request to merge code changes. This starts our "review process". You are welcome to start with a pull request, but consider starting with an Issue or Discussion for larger changes (or if you aren't certain about a design). We don't want anyone to waste their time on code that didn't have a chance to be merged! But conversely, sometimes PRs are the most efficient way to propose a change. Just use your own judgement here.
-2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pulled into a thread using `@mentions`. If your PR has been quiet for a while and is ready for review, feel free to leave a message to "bump" the thread, or bring it up on [Discord] in an appropriate engine development channel.
+2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pulled into a thread using `@mentions`. If your PR has been quiet for a while and is ready for review, feel free to leave a message to "bump" the thread, or bring it up on [Discord](https://discord.gg/bevy) in an appropriate engine development channel.
 3. Once they're content with the pull request (design, code quality, documentation, tests), individual reviewers leave "Approved" reviews.
 4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the [S-Ready-For-Final-Review](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AS-Ready-For-Final-Review) label is added.
-5. When they find time, [someone with merge rights](#how-were-organized) performs a final code review and merges the PR using [Bors](https://bors.tech/) by typing `bors r+`.
+5. When they find time, someone with merge rights performs a final code review and merges the PR using [Bors](https://bors.tech/) by typing `bors r+`.
 
 ### Complex changes
 
@@ -254,7 +254,7 @@ Not even our project lead is exempt from reviews and RFCs!
 By giving feedback on this work (and related supporting work), you can help us make sure our releases are both high-quality and timely.
 
 Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
-As discussed in [*How we're organized*](#how-were-organized), this role only requires good faith and a basic understanding of our development process.
+As discussed in our [*Bevy Organization doc*](/docs/the_bevy_organization.md), this role only requires good faith and a basic understanding of our development process.
 
 ### How to adopt pull requests
 
@@ -308,7 +308,7 @@ If you end up adding a new official Bevy crate to the `bevy` repo:
 
 When contributing, please:
 
-* Try to loosely follow the workflow in [*How we work together*](#how-we-work-together).
+* Try to loosely follow the workflow in [*Making changes to Bevy*](#making-changes-to-bevy).
 * Consult the [style guide](.github/contributing/engine_style_guide.md) to help keep our code base tidy.
 * Explain what you're doing and why.
 * Document new code with doc comments.
