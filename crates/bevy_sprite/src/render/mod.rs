@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, num::NonZeroU64};
+use std::cmp::Ordering;
 
 use crate::{
     texture_atlas::{TextureAtlas, TextureAtlasSprite},
@@ -7,7 +7,7 @@ use crate::{
 use bevy_asset::{AssetEvent, Assets, Handle, HandleId};
 use bevy_core_pipeline::{
     core_2d::Transparent2d,
-    picking::{BatchVertexOffsets, BatchVertexOffsetsLayout},
+    picking::{EntityIndex, EntityIndexLayout},
     tonemapping::Tonemapping,
 };
 use bevy_ecs::{
@@ -44,53 +44,10 @@ use fixedbitset::FixedBitSet;
 #[derive(Resource)]
 pub struct SpritePipeline {
     view_layout: BindGroupLayout,
+    entity_index_layout: BindGroupLayout,
     material_layout: BindGroupLayout,
-    batch_layout: BindGroupLayout,
-    batch_offsets_layout: BindGroupLayout,
     pub dummy_white_gpu_image: GpuImage,
 }
-
-#[derive(Clone, ShaderType)]
-pub struct SpriteEntityIndex {
-    entity_index: u32,
-    // a: u32,
-    // b: u32,
-    // c: u32,
-}
-
-impl SpriteEntityIndex {
-    pub fn new(entity_index: u32) -> Self {
-        Self {
-            entity_index,
-            // a: 100,
-            // b: 101,
-            // c: 102,
-        }
-    }
-}
-
-// pub struct SpriteEntityIndexUniforms {
-//     uniforms: BufferVec<u32>,
-// }
-
-// impl SpriteEntityIndexUniforms {
-//     pub fn new() -> Self {
-//         Self {
-//             uniforms: BufferVec::new(BufferUsages::STORAGE),
-//         }
-//     }
-// }
-
-// impl std::default::Default for SpriteEntityIndexUniforms {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
-
-// #[derive(Component)]
-// pub struct SpriteEntityIndexBindGroup {
-//     bind_group: BindGroup,
-// }
 
 impl FromWorld for SpritePipeline {
     fn from_world(world: &mut World) -> Self {
@@ -98,9 +55,9 @@ impl FromWorld for SpritePipeline {
             Res<RenderDevice>,
             Res<DefaultImageSampler>,
             Res<RenderQueue>,
-            Res<BatchVertexOffsetsLayout>,
+            Res<EntityIndexLayout>,
         )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue, batch_offsets) =
+        let (render_device, default_sampler, render_queue, entity_index_layout) =
             system_state.get_mut(world);
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
@@ -137,35 +94,6 @@ impl FromWorld for SpritePipeline {
                 },
             ],
             label: Some("sprite_material_layout"),
-        });
-
-        let batch_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
-                // BindGroupLayoutEntry {
-                //     binding: 0,
-                //     visibility: ShaderStages::VERTEX,
-                //     ty: BindingType::Buffer {
-                //         ty: BufferBindingType::Uniform,
-                //         has_dynamic_offset: false,
-                //         min_binding_size: Some(
-                //             NonZeroU64::new(std::mem::size_of::<u32>()).unwrap(),
-                //         ),
-                //     },
-                //     count: None,
-                // },
-                BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Storage { read_only: true },
-                        has_dynamic_offset: false,
-                        // min_binding_size: None,
-                        min_binding_size: Some(SpriteEntityIndex::min_size()),
-                    },
-                    count: None,
-                },
-            ],
-            label: Some("sprite_batch_uniform_layout"),
         });
 
         let dummy_white_gpu_image = {
@@ -217,10 +145,11 @@ impl FromWorld for SpritePipeline {
 
         SpritePipeline {
             view_layout,
+            entity_index_layout: entity_index_layout.layout.clone(),
             material_layout,
             dummy_white_gpu_image,
-            batch_layout,
-            batch_offsets_layout: batch_offsets.layout.clone(),
+            // batch_layout,
+            // batch_offsets_layout: batch_offsets.layout.clone(),
         }
     }
 }
@@ -344,9 +273,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
             }),
             layout: Some(vec![
                 self.view_layout.clone(),
+                self.entity_index_layout.clone(),
                 self.material_layout.clone(),
-                self.batch_layout.clone(),
-                self.batch_offsets_layout.clone(),
             ]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
@@ -500,16 +428,26 @@ struct ColoredSpriteVertex {
 #[derive(Resource)]
 pub struct SpriteMeta {
     vertices: BufferVec<SpriteVertex>,
+    pub entity_indices: BufferVec<EntityIndex>,
+
     colored_vertices: BufferVec<ColoredSpriteVertex>,
+    pub colored_entity_indices: BufferVec<EntityIndex>,
+
     view_bind_group: Option<BindGroup>,
+    entity_indices_bind_group: Option<BindGroup>,
+    colored_entity_indices_bind_group: Option<BindGroup>,
 }
 
 impl Default for SpriteMeta {
     fn default() -> Self {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
+            entity_indices: BufferVec::new(BufferUsages::STORAGE),
             colored_vertices: BufferVec::new(BufferUsages::VERTEX),
+            colored_entity_indices: BufferVec::new(BufferUsages::STORAGE),
             view_bind_group: None,
+            entity_indices_bind_group: None,
+            colored_entity_indices_bind_group: None,
         }
     }
 }
@@ -539,7 +477,6 @@ pub struct SpriteBatch {
 #[derive(Resource, Default)]
 pub struct BatchBindGroups {
     images: HashMap<Handle<Image>, BindGroup>,
-    entity_index_bind_groups: HashMap<Entity, BindGroup>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -585,6 +522,8 @@ pub fn queue_sprites(
         // Clear the vertex buffers
         sprite_meta.vertices.clear();
         sprite_meta.colored_vertices.clear();
+        sprite_meta.entity_indices.clear();
+        sprite_meta.colored_entity_indices.clear();
 
         sprite_meta.view_bind_group = Some(render_device.create_bind_group(&BindGroupDescriptor {
             entries: &[BindGroupEntry {
@@ -619,7 +558,7 @@ pub fn queue_sprites(
         });
         let batch_bind_groups = &mut *batch_bind_groups;
 
-        let mut batch_uniforms = HashMap::new();
+        // let mut batch_uniforms = HashMap::new();
 
         for (mut transparent_phase, visible_entities, view, tonemapping, picking) in &mut views {
             let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
@@ -697,6 +636,7 @@ pub fn queue_sprites(
                                             binding: 1,
                                             resource: BindingResource::Sampler(&gpu_image.sampler),
                                         },
+                                        // ADDY
                                     ],
                                     label: Some("sprite_material_bind_group"),
                                     layout: &sprite_pipeline.material_layout,
@@ -706,14 +646,9 @@ pub fn queue_sprites(
                         // Skip this item if the texture is not ready
                         continue;
                     }
-
-                    // if current_batch_entity != Entity::PLACEHOLDER {
-                    //     todo!()
-                    // }
                 }
 
                 // Calculate vertex data for this item
-
                 let mut uvs = QUAD_UVS;
                 if extracted_sprite.flip_x {
                     uvs = [uvs[1], uvs[0], uvs[3], uvs[2]];
@@ -752,13 +687,8 @@ pub fn queue_sprites(
                 // These items will be sorted by depth with other phase items
                 let sort_key = FloatOrd(extracted_sprite.transform.translation().z);
 
-                // TODO: We think that if item_start != 0, we get messed up.
-                // We should have a separate uniform which tells us the item_start,
-                // which we can then subtract from the index in the shader.
-
                 // Store the vertex data and add the item to the render phase
-                if current_batch.colored {
-                    // unimplemented!();
+                let entity_index_buffer = if current_batch.colored {
                     for i in QUAD_INDICES {
                         sprite_meta.colored_vertices.push(ColoredSpriteVertex {
                             position: positions[i],
@@ -777,6 +707,8 @@ pub fn queue_sprites(
                         sort_key,
                         batch_range: Some(item_start..item_end),
                     });
+
+                    &mut sprite_meta.colored_entity_indices
                 } else {
                     for i in QUAD_INDICES {
                         sprite_meta.vertices.push(SpriteVertex {
@@ -795,93 +727,58 @@ pub fn queue_sprites(
                         sort_key,
                         batch_range: Some(item_start..item_end),
                     });
-                }
 
-                // current_batch_uniforms
-                //     .uniforms
-                //     .push(SpriteEntityIndex::new(extracted_sprite.entity.index()));
-                // current_batch_uniforms
-                //     .uniforms
-                //     .push(extracted_sprite.entity.index());
+                    &mut sprite_meta.entity_indices
+                };
 
-                batch_uniforms
-                    .entry(current_batch_entity)
-                    .or_insert_with(|| BufferVec::<u32>::new(BufferUsages::STORAGE))
-                    .push(extracted_sprite.entity.index());
+                entity_index_buffer.push(EntityIndex::new(extracted_sprite.entity));
             }
-
-            // if current_batch_entity != Entity::PLACEHOLDER {
-            //     use bevy_log::info;
-            //     let mut current = std::mem::take(&mut current_batch_uniforms);
-            //     // info!("We writin'. Len: {}", current.uniforms.len());
-            //     current.uniforms.write_buffer(&render_device, &render_queue);
-
-            //     // let binding = current.uniforms.binding().unwrap();
-            //     let size = (current.uniforms.len() * std::mem::size_of::<u32>()) as u64;
-            //     // info!("Binding: {binding:#?}");
-            //     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-            //         entries: &[BindGroupEntry {
-            //             binding: 0,
-            //             // resource: binding,
-            //             resource: BindingResource::Buffer(BufferBinding {
-            //                 buffer: current.uniforms.buffer().unwrap(),
-            //                 offset: 0,
-            //                 size: Some(NonZeroU64::new(size).unwrap()),
-            //             }),
-            //         }],
-            //         label: Some("sprite_batch_bind_group"),
-            //         layout: &sprite_pipeline.batch_layout,
-            //     });
-
-            //     batch_bind_groups
-            //         .entity_index_bind_groups
-            //         .insert(current_batch_entity, bind_group);
-            // }
-        }
-
-        for (batch_entity, mut batch_uniform) in batch_uniforms.into_iter() {
-            // if current_batch_entity != Entity::PLACEHOLDER {
-            // use bevy_log::info;
-            // let mut current = std::mem::take(&mut current_batch_uniforms);
-            // info!("We writin'. Len: {}", current.uniforms.len());
-            batch_uniform
-                // .uniforms
-                .write_buffer(&render_device, &render_queue);
-
-            let size = (batch_uniform.len() * std::mem::size_of::<u32>()) as u64;
-            let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: BindingResource::Buffer(BufferBinding {
-                        buffer: batch_uniform.buffer().unwrap(),
-                        offset: 0,
-                        size: Some(NonZeroU64::new(size).unwrap()),
-                    }),
-                }],
-                label: Some("sprite_batch_bind_group"),
-                layout: &sprite_pipeline.batch_layout,
-            });
-
-            batch_bind_groups
-                .entity_index_bind_groups
-                .insert(batch_entity, bind_group);
         }
 
         sprite_meta
             .vertices
             .write_buffer(&render_device, &render_queue);
         sprite_meta
+            .entity_indices
+            .write_buffer(&render_device, &render_queue);
+        sprite_meta
             .colored_vertices
             .write_buffer(&render_device, &render_queue);
+        sprite_meta
+            .colored_entity_indices
+            .write_buffer(&render_device, &render_queue);
+
+        if let Some(buffer) = sprite_meta.colored_entity_indices.buffer() {
+            sprite_meta.colored_entity_indices_bind_group =
+                Some(render_device.create_bind_group(&BindGroupDescriptor {
+                    entries: &[BindGroupEntry {
+                        binding: 0,
+                        resource: buffer.as_entire_binding(),
+                    }],
+                    label: Some("colored_sprite_entity_indices_bind_group"),
+                    layout: &sprite_pipeline.entity_index_layout,
+                }));
+        }
+
+        if let Some(buffer) = sprite_meta.entity_indices.buffer() {
+            sprite_meta.entity_indices_bind_group =
+                Some(render_device.create_bind_group(&BindGroupDescriptor {
+                    entries: &[BindGroupEntry {
+                        binding: 0,
+                        resource: buffer.as_entire_binding(),
+                    }],
+                    label: Some("sprite_entity_indices_bind_group"),
+                    layout: &sprite_pipeline.entity_index_layout,
+                }));
+        }
     }
 }
 
 pub type DrawSprite = (
     SetItemPipeline,
     SetSpriteViewBindGroup<0>,
-    SetSpriteTextureBindGroup<1>,
-    SetSpriteBatchBindGroup<2>,
-    SetSpriteBatchOffsetsBindGroup<3>,
+    SetSpriteEntityIndexBindGroup<1>,
+    SetSpriteTextureBindGroup<2>,
     DrawSpriteBatch,
 );
 
@@ -906,6 +803,40 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteViewBindGroup<I
         RenderCommandResult::Success
     }
 }
+
+pub struct SetSpriteEntityIndexBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteEntityIndexBindGroup<I> {
+    type Param = SRes<SpriteMeta>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<SpriteBatch>;
+
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        sprite_batch: &'_ SpriteBatch,
+        sprite_meta: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        let bind_group = if sprite_batch.colored {
+            sprite_meta
+                .into_inner()
+                .colored_entity_indices_bind_group
+                .as_ref()
+                .unwrap()
+        } else {
+            sprite_meta
+                .into_inner()
+                .entity_indices_bind_group
+                .as_ref()
+                .unwrap()
+        };
+
+        pass.set_bind_group(I, bind_group, &[]);
+
+        RenderCommandResult::Success
+    }
+}
+
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
     type Param = SRes<BatchBindGroups>;
@@ -916,15 +847,14 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
         _item: &P,
         _view: (),
         sprite_batch: &'_ SpriteBatch,
-        image_bind_groups: SystemParamItem<'w, '_, Self::Param>,
+        batch_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let image_bind_groups = image_bind_groups.into_inner();
+        let images = &batch_bind_groups.into_inner().images;
 
         pass.set_bind_group(
             I,
-            image_bind_groups
-                .images
+            images
                 .get(&Handle::weak(sprite_batch.image_handle_id))
                 .unwrap(),
             &[],
@@ -933,52 +863,47 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
     }
 }
 
-pub struct SetSpriteBatchBindGroup<const I: usize>;
-impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteBatchBindGroup<I> {
-    type Param = SRes<BatchBindGroups>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+// pub struct SetSpriteEntityIndexBindGroup<const I: usize>;
+// impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteEntityIndexBindGroup<I> {
+//     type Param = SRes<BatchBindGroups>;
+//     type ViewWorldQuery = ();
+//     type ItemWorldQuery = Read<SpriteBatch>;
 
-    fn render<'w>(
-        item: &P,
-        _view: (),
-        _sprite_batch: &'_ SpriteBatch,
-        batch_bind_groups: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let batch_bind_groups = batch_bind_groups.into_inner();
+//     fn render<'w>(
+//         item: &P,
+//         _view: (),
+//         _sprite_batch: &'_ SpriteBatch,
+//         batch_bind_groups: SystemParamItem<'w, '_, Self::Param>,
+//         pass: &mut TrackedRenderPass<'w>,
+//     ) -> RenderCommandResult {
+//         // TODO: Only need 1
+//         let entity_indices = &batch_bind_groups.into_inner().entity_indices;
+//         let colored_entity_indices = &batch_bind_groups.into_inner().colored_entity_indices;
 
-        pass.set_bind_group(
-            I,
-            batch_bind_groups
-                .entity_index_bind_groups
-                .get(&item.entity())
-                .unwrap(),
-            &[],
-        );
-        RenderCommandResult::Success
-    }
-}
+//         pass.set_bind_group(I, entity_indices.get(&item.entity()).unwrap(), &[]);
+//         RenderCommandResult::Success
+//     }
+// }
 
-pub struct SetSpriteBatchOffsetsBindGroup<const I: usize>;
-impl<P: BatchedPhaseItem, const I: usize> RenderCommand<P> for SetSpriteBatchOffsetsBindGroup<I> {
-    type Param = SRes<BatchVertexOffsets>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = Read<SpriteBatch>;
+// pub struct SetSpriteBatchOffsetsBindGroup<const I: usize>;
+// impl<P: BatchedPhaseItem, const I: usize> RenderCommand<P> for SetSpriteBatchOffsetsBindGroup<I> {
+//     type Param = SRes<BatchVertexOffsets>;
+//     type ViewWorldQuery = ();
+//     type ItemWorldQuery = Read<SpriteBatch>;
 
-    fn render<'w>(
-        item: &P,
-        _view: (),
-        _sprite_batch: &'_ SpriteBatch,
-        batch_offsets: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        let offset_bind_group = batch_offsets.into_inner().get(&item.entity()).unwrap();
+//     fn render<'w>(
+//         item: &P,
+//         _view: (),
+//         _sprite_batch: &'_ SpriteBatch,
+//         batch_offsets: SystemParamItem<'w, '_, Self::Param>,
+//         pass: &mut TrackedRenderPass<'w>,
+//     ) -> RenderCommandResult {
+//         let offset_bind_group = batch_offsets.into_inner().get(&item.entity()).unwrap();
 
-        pass.set_bind_group(I, offset_bind_group, &[]);
-        RenderCommandResult::Success
-    }
-}
+//         pass.set_bind_group(I, offset_bind_group, &[]);
+//         RenderCommandResult::Success
+//     }
+// }
 
 pub struct DrawSpriteBatch;
 impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {

@@ -32,7 +32,7 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
-use std::ops::Range;
+use std::{num::NonZeroU64, ops::Range};
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -384,7 +384,6 @@ struct UiVertex {
     pub position: [f32; 3],
     pub uv: [f32; 2],
     pub color: [f32; 4],
-    pub entity_index: u32,
 }
 
 #[derive(Resource)]
@@ -418,12 +417,21 @@ pub struct UiBatch {
     pub z: f32,
 }
 
+#[derive(Resource, Default)]
+pub struct EntityIndexBindGroups {
+    // Maps a UiBatch's entity to its bind group
+    // which holds entity indices for each uinode in the batch.
+    inner: HashMap<Entity, BindGroup>,
+}
+
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
+    // ui_pipeline: Res<UiPipeline>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    // mut entity_index_bind_groups: ResMut<EntityIndexBindGroups>,
 ) {
     ui_meta.vertices.clear();
 
@@ -435,15 +443,20 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_handle = Default::default();
+    let mut current_batch_entity = Entity::PLACEHOLDER;
     let mut last_z = 0.0;
+    let mut batch_uniforms = HashMap::new();
+
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
-                commands.spawn(UiBatch {
-                    range: start..end,
-                    image: current_batch_handle,
-                    z: last_z,
-                });
+                current_batch_entity = commands
+                    .spawn(UiBatch {
+                        range: start..end,
+                        image: current_batch_handle,
+                        z: last_z,
+                    })
+                    .id();
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
@@ -538,12 +551,16 @@ pub fn prepare_uinodes(
                 position: positions_clipped[i].into(),
                 uv: uvs[i].into(),
                 color: extracted_uinode.background_color.as_linear_rgba_f32(),
-                entity_index: extracted_uinode.entity.index(),
             });
         }
 
         last_z = extracted_uinode.transform.w_axis[2];
         end += QUAD_INDICES.len() as u32;
+
+        batch_uniforms
+            .entry(current_batch_entity)
+            .or_insert_with(|| BufferVec::<u32>::new(BufferUsages::STORAGE))
+            .push(extracted_uinode.entity.index());
     }
 
     // if start != end, there is one last batch to process
@@ -554,6 +571,28 @@ pub fn prepare_uinodes(
             z: last_z,
         });
     }
+
+    // for (batch_entity, mut batch_uniform) in batch_uniforms.into_iter() {
+    //     batch_uniform.write_buffer(&render_device, &render_queue);
+
+    //     let size = (batch_uniform.len() * std::mem::size_of::<u32>()) as u64;
+    //     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
+    //         entries: &[BindGroupEntry {
+    //             binding: 0,
+    //             resource: BindingResource::Buffer(BufferBinding {
+    //                 buffer: batch_uniform.buffer().unwrap(),
+    //                 offset: 0,
+    //                 size: Some(NonZeroU64::new(size).unwrap()),
+    //             }),
+    //         }],
+    //         label: Some("sprite_batch_bind_group"),
+    //         layout: &sprite_pipeline.batch_layout,
+    //     });
+
+    //     entity_index_bind_groups
+    //         .inner
+    //         .insert(batch_entity, bind_group);
+    // }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
 }

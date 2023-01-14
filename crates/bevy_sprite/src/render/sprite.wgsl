@@ -21,15 +21,13 @@ struct View {
 var<uniform> view: View;
 
 @group(1) @binding(0)
-var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1)
-var sprite_sampler: sampler;
-
-@group(2) @binding(0)
 var<storage, read> entity_indices: array<u32>;
 
-@group(3) @binding(0)
-var<uniform> entity_indices_offset: u32;
+@group(2) @binding(0)
+var sprite_texture: texture_2d<f32>;
+@group(2) @binding(1)
+var sprite_sampler: sampler;
+
 
 struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -52,7 +50,7 @@ fn vertex(
     var out: VertexOutput;
     out.uv = vertex_uv;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
-    out.vertex_index = u32((vertex_index - entity_indices_offset) / 6u);
+    out.vertex_index = u32(vertex_index / 6u);
 #ifdef COLORED
     out.color = vertex_color;
 #endif

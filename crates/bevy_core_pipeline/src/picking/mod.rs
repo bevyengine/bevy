@@ -1,5 +1,3 @@
-use std::num::NonZeroU64;
-
 use bevy_app::{CoreStage, Plugin};
 use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
@@ -16,12 +14,14 @@ use bevy_render::{
     render_phase::{batch_phase_system, BatchedPhaseItem, RenderPhase},
     render_resource::{
         BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BufferBindingType, Shader, ShaderStages, UniformBuffer,
+        BindGroupLayoutEntry, BindingType, BufferBindingType, Shader, ShaderStages, ShaderType,
+        UniformBuffer,
     },
     renderer::{RenderDevice, RenderQueue},
     RenderApp, RenderStage,
 };
 use bevy_utils::HashMap;
+use bytemuck::{Pod, Zeroable};
 
 use crate::core_2d::Transparent2d;
 
@@ -39,13 +39,14 @@ impl Plugin for PickingPlugin {
         // Return early if no render app, this can happen in headless situations.
         let Ok(render_app) = app.get_sub_app_mut(RenderApp) else { return };
         render_app
-            .init_resource::<BatchVertexOffsets>()
-            .init_resource::<BatchVertexOffsetsLayout>()
-            .add_system_to_stage(RenderStage::Prepare, picking::prepare_picking_targets)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                batch_item_add_range_start.after(batch_phase_system::<Transparent2d>),
-            );
+            // .init_resource::<BatchVertexOffsets>()
+            // .init_resource::<BatchVertexOffsetsLayout>()
+            .init_resource::<EntityIndexLayout>()
+            .add_system_to_stage(RenderStage::Prepare, picking::prepare_picking_targets);
+        // .add_system_to_stage(
+        //     RenderStage::PhaseSort,
+        //     batch_item_add_range_start.after(batch_phase_system::<Transparent2d>),
+        // );
 
         app.add_plugin(ExtractComponentPlugin::<Picking>::default())
             .add_system_to_stage(CoreStage::PreUpdate, picking::map_buffers)
@@ -53,81 +54,119 @@ impl Plugin for PickingPlugin {
     }
 }
 
-/// This system batches the [`PhaseItem`]s of all [`RenderPhase`]s of this type.
-// pub fn batch_phase_system<I: BatchedPhaseItem>(mut render_phases: Query<&mut RenderPhase<I>>) {
-//     for mut phase in &mut render_phases {
-//         phase.batch();
-//     }
-// }
+#[repr(C)]
+#[derive(Copy, Clone, Pod, Zeroable, ShaderType)]
+pub struct EntityIndex {
+    entity_index: u32,
+}
 
-#[derive(Debug, Resource, Deref, DerefMut, Default)]
-pub struct BatchVertexOffsets {
-    pub offset: HashMap<Entity, BindGroup>,
+impl EntityIndex {
+    pub fn new(entity: Entity) -> Self {
+        Self {
+            entity_index: entity.index(),
+        }
+    }
 }
 
 #[derive(Debug, Resource, Deref, DerefMut)]
-pub struct BatchVertexOffsetsLayout {
+pub struct EntityIndexLayout {
     pub layout: BindGroupLayout,
 }
 
-impl FromWorld for BatchVertexOffsetsLayout {
+impl FromWorld for EntityIndexLayout {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
                 binding: 0,
-                visibility: ShaderStages::VERTEX,
+                visibility: ShaderStages::FRAGMENT,
                 ty: BindingType::Buffer {
-                    ty: BufferBindingType::Uniform,
+                    ty: BufferBindingType::Storage { read_only: true },
                     has_dynamic_offset: false,
-                    min_binding_size: Some(
-                        NonZeroU64::new(std::mem::size_of::<u32>() as u64).unwrap(),
-                    ),
+                    min_binding_size: Some(EntityIndex::min_size()),
                 },
                 count: None,
             }],
-            label: Some("batch_offsets_layout"),
+            label: Some("entity_index_layout"),
         });
 
-        BatchVertexOffsetsLayout { layout }
+        EntityIndexLayout { layout }
     }
 }
+
+// #[derive(Debug, Resource, Deref, DerefMut, Default)]
+// pub struct BatchVertexOffsets {
+//     pub offset: HashMap<Entity, BindGroup>,
+// }
+
+// A single batch, e.g. `[SpriteBatch]` or `[UiBatch]` will have some offset into a storage buffer.
+// When a draw call is issued, the starting vertex is tied to the range of the batch.
+// E.g. if a draw call draws vertices (100..200), the starting vertex is 100.
+// However the storage buffer bound is unique to the batch, so the starting vertex is 100 + the offset.
+// #[derive(Debug, Resource, Deref, DerefMut)]
+// pub struct BatchVertexOffsetsLayout {
+//     pub layout: BindGroupLayout,
+// }
+
+// impl FromWorld for BatchVertexOffsetsLayout {
+//     fn from_world(world: &mut World) -> Self {
+//         let render_device = world.resource::<RenderDevice>();
+
+//         let layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+//             entries: &[BindGroupLayoutEntry {
+//                 binding: 0,
+//                 visibility: ShaderStages::VERTEX,
+//                 ty: BindingType::Buffer {
+//                     ty: BufferBindingType::Uniform,
+//                     has_dynamic_offset: false,
+//                     min_binding_size: Some(
+//                         NonZeroU64::new(std::mem::size_of::<u32>() as u64).unwrap(),
+//                     ),
+//                 },
+//                 count: None,
+//             }],
+//             label: Some("batch_offsets_layout"),
+//         });
+
+//         BatchVertexOffsetsLayout { layout }
+//     }
+// }
 
 // Bind group insertion
-fn batch_item_add_range_start(
-    // mut commands: Commands,
-    device: Res<RenderDevice>,
-    queue: Res<RenderQueue>,
-    bind_group_layout: Res<BatchVertexOffsetsLayout>,
-    mut offsets: ResMut<BatchVertexOffsets>,
-    render_phases: Query<&RenderPhase<Transparent2d>>,
-) {
-    offsets.clear();
+// fn batch_item_add_range_start(
+//     // mut commands: Commands,
+//     device: Res<RenderDevice>,
+//     queue: Res<RenderQueue>,
+//     bind_group_layout: Res<BatchVertexOffsetsLayout>,
+//     mut offsets: ResMut<BatchVertexOffsets>,
+//     render_phases: Query<&RenderPhase<Transparent2d>>,
+// ) {
+//     offsets.clear();
 
-    for phase in &render_phases {
-        for item in &phase.items {
-            let Some(range) = item.batch_range().as_ref() else { continue };
+//     for phase in &render_phases {
+//         for item in &phase.items {
+//             let Some(range) = item.batch_range().as_ref() else { continue };
 
-            let mut buffer = UniformBuffer::default();
+//             let mut buffer = UniformBuffer::default();
 
-            buffer.set(range.start);
-            buffer.write_buffer(&device, &queue);
+//             buffer.set(range.start);
+//             buffer.write_buffer(&device, &queue);
 
-            let bind_group = device.create_bind_group(&BindGroupDescriptor {
-                label: Some("BatchVertexOffset"),
-                layout: &bind_group_layout.layout,
-                entries: &[BindGroupEntry {
-                    binding: 0,
-                    resource: buffer.binding().unwrap(),
-                }],
-            });
+//             let bind_group = device.create_bind_group(&BindGroupDescriptor {
+//                 label: Some("BatchVertexOffset"),
+//                 layout: &bind_group_layout.layout,
+//                 entries: &[BindGroupEntry {
+//                     binding: 0,
+//                     resource: buffer.binding().unwrap(),
+//                 }],
+//             });
 
-            offsets.insert(item.entity, bind_group);
+//             offsets.insert(item.entity, bind_group);
 
-            // commands.entity(item.entity).insert(BatchVertexOffset {
-            //     offset: range.start,
-            // });
-        }
-    }
-}
+//             // commands.entity(item.entity).insert(BatchVertexOffset {
+//             //     offset: range.start,
+//             // });
+//         }
+//     }
+// }

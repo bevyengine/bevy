@@ -131,7 +131,7 @@ impl Picking {
 
         let slice = resources.pick_buffer.slice(..);
 
-        let entity_index = coords_to_data(
+        let virtual_entity_index = coords_to_data(
             coordinates,
             camera,
             &resources.size,
@@ -152,10 +152,11 @@ impl Picking {
             },
         );
 
-        if entity_index == u32::MAX {
+        // See picking.wgsl for the explanation of the virtual entity index.
+        if virtual_entity_index == 0 {
             None
         } else {
-            Some(Entity::from_raw(entity_index))
+            Some(Entity::from_raw(virtual_entity_index - 1))
         }
     }
 
@@ -253,7 +254,8 @@ impl PickingTextures {
         // that there is no entity at the given pixel.
         // It is more likely that a user sees an entity with index 0 than with index u32::MAX,
         // so make u32::MAX the default value (i.e. no entity) value.
-        Color::rgba_u8(0xFF, 0xFF, 0xFF, 0xFF).into()
+        // Color::rgba_u8(0xFF, 0xFF, 0xFF, 0xFF).into()
+        Color::rgba_u8(0x00, 0x00, 0x00, 0x00).into()
     }
 
     /// Retrieve this target's color attachment. This will use [`Self::sampled`] and resolve to [`Self::main`] if

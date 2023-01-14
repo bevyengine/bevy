@@ -12,12 +12,18 @@ fn picking_alpha(a: f32) -> f32 {
 
 // TODO: Describe why/what
 fn entity_index_to_vec3_f32(entity_index: u32) -> vec3<f32> {
+    // Such that the CPU side can know if there is an entity at a given pixel.
+    // The CPU-side entity index 0 is represented as index 1 in the texture.
+    // CPU-side can then identify index 0 in the texture as "no entity",
+    // and index 1 as entity 0.
+    let virtual_entity_index = entity_index + 1u;
+
     let mask_8 = 0x000000FFu;
     let mask_12 = 0x00000FFFu;
 
-    let lower_8 = entity_index & mask_8;
-    let mid_12 = (entity_index >> 8u) & mask_12;
-    let up_12 = (entity_index >> 20u) & mask_12;
+    let lower_8 = virtual_entity_index & mask_8;
+    let mid_12 = (virtual_entity_index >> 8u) & mask_12;
+    let up_12 = (virtual_entity_index >> 20u) & mask_12;
 
     return vec3(
         f32(lower_8),

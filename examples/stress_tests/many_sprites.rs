@@ -101,7 +101,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    // return;
+    return;
     camera_transform.rotate_z(time.delta_seconds() * 0.5);
     *camera_transform = *camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
@@ -121,7 +121,7 @@ fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites:
     timer.tick(time.delta());
 
     if timer.just_finished() {
-        // info!("Sprites: {}", sprites.iter().count(),);
+        info!("Sprites: {}", sprites.iter().count());
     }
 }
 
@@ -152,9 +152,15 @@ fn picking(
 
     let Some(e) = picking.get_entity(camera, mouse_position) else { return };
 
+    let Ok((_, mut image_handle)) = sprites.get_mut(e) else { 
+        if e.index() == 1048833 {
+            warn!("It's that one..");
+        } else {
+            error!("Picked entity with no matching sprite: {e:?}");
+        }
+        return
+    };
     info!("Picked: {:?}", e);
-
-    let Ok((_, mut image_handle)) = sprites.get_mut(e) else { panic!("Picked entity with no matching sprite") };
 
     // sprite.color = Color::GREEN;
     *image_handle = assets.load("branding/icon2.png");

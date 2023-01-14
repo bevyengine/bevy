@@ -11,6 +11,7 @@ use bevy_render::{
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
+    // pub batch_layout: BindGroupLayout,
 }
 
 impl FromWorld for UiPipeline {
@@ -56,6 +57,7 @@ impl FromWorld for UiPipeline {
         UiPipeline {
             view_layout,
             image_layout,
+            // batch_layout: todo!(),
         }
     }
 }

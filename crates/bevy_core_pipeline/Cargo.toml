@@ -31,3 +31,4 @@ bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
 serde = { version = "1", features = ["derive"] }
 bitflags = "1.2"
 radsort = "0.1"
+bytemuck = { version = "1.5", features = ["derive"] }
