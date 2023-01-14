@@ -32,6 +32,27 @@ impl DepthFirstSearch {
         }
     }
 
+    /// # Safety
+    ///
+    /// This function should only be called when the node from the edge exists.
+    /// This can happen when a node or edge gets removed but its index is still present in the DFS.
+    pub unsafe fn next_unchecked<'g, N, E>(
+        &mut self,
+        graph: &'g impl Graph<N, E>,
+    ) -> Option<&'g N> {
+        if let Some(node) = self.stack.pop() {
+            for (idx, _) in graph.edges_of(node) {
+                if !self.visited.contains(&idx) {
+                    self.visited.insert(idx);
+                    self.stack.push(idx);
+                }
+            }
+            Some(graph.get_node_unchecked(node))
+        } else {
+            None
+        }
+    }
+
     pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
         if let Some(node) = self.stack.pop() {
             for (idx, _) in graph.edges_of(node) {
@@ -41,6 +62,27 @@ impl DepthFirstSearch {
                 }
             }
             Some(graph.get_node_mut(node).unwrap())
+        } else {
+            None
+        }
+    }
+
+    /// # Safety
+    ///
+    /// This function should only be called when the node from the edge exists.
+    /// This can happen when a node or edge gets removed but its index is still present in the DFS.
+    pub unsafe fn next_unchecked_mut<'g, N, E>(
+        &mut self,
+        graph: &'g mut impl Graph<N, E>,
+    ) -> Option<&'g mut N> {
+        if let Some(node) = self.stack.pop() {
+            for (idx, _) in graph.edges_of(node) {
+                if !self.visited.contains(&idx) {
+                    self.visited.insert(idx);
+                    self.stack.push(idx);
+                }
+            }
+            Some(graph.get_node_unchecked_mut(node))
         } else {
             None
         }
