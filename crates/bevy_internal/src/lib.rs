@@ -157,8 +157,14 @@ pub mod text {
 
 #[cfg(feature = "bevy_ui")]
 pub mod ui {
-    //! User interface components and widgets.
+    //! User interface components.
     pub use bevy_ui::*;
+}
+
+#[cfg(feature = "bevy_widget")]
+pub mod widget {
+    //! User interface widgets.
+    pub use bevy_widget::*;
 }
 
 #[cfg(feature = "bevy_winit")]

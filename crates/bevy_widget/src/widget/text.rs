@@ -1,19 +1,20 @@
-use crate::{CalculatedSize, Size, Style, UiScale, Val, UiSystem};
-use bevy_app::{App, Plugin, CoreStage};
+use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
     query::{Changed, Or, With},
-    system::{Commands, Local, ParamSet, Query, Res, ResMut}, schedule::IntoSystemDescriptor,
+    schedule::IntoSystemDescriptor,
+    system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
-use bevy_render::{texture::Image, camera::CameraUpdateSystem};
+use bevy_render::{camera::CameraUpdateSystem, texture::Image};
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
     Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
     TextSettings, YAxisOrientation,
 };
-use bevy_window::{Windows, ModifiesWindows};
+use bevy_ui::{CalculatedSize, Size, Style, UiScale, UiSystem, Val};
+use bevy_window::{ModifiesWindows, Windows};
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -164,21 +165,20 @@ pub struct TextPlugin;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                text_system
-                    .before(UiSystem::Flex)
-                    .after(ModifiesWindows)
-                    // Potential conflict: `Assets<Image>`
-                    // In practice, they run independently since `bevy_render::camera_update_system`
-                    // will only ever observe its own render target, and `widget::text_system`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(CameraUpdateSystem)
-                    // Potential conflict: `Assets<Image>`
-                    // Since both systems will only ever insert new [`Image`] assets,
-                    // they will never observe each other's effects.
-                    .ambiguous_with(bevy_text::update_text2d_layout),
-            );
+        app.add_system_to_stage(
+            CoreStage::PostUpdate,
+            text_system
+                .before(UiSystem::Flex)
+                .after(ModifiesWindows)
+                // Potential conflict: `Assets<Image>`
+                // In practice, they run independently since `bevy_render::camera_update_system`
+                // will only ever observe its own render target, and `widget::text_system`
+                // will never modify a pre-existing `Image` asset.
+                .ambiguous_with(CameraUpdateSystem)
+                // Potential conflict: `Assets<Image>`
+                // Since both systems will only ever insert new [`Image`] assets,
+                // they will never observe each other's effects.
+                .ambiguous_with(bevy_text::update_text2d_layout),
+        );
     }
 }

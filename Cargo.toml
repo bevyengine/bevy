@@ -40,6 +40,7 @@ default = [
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
+  "bevy_widget",
   "png",
   "hdr",
   "vorbis",
@@ -64,6 +65,7 @@ bevy_scene = ["bevy_internal/bevy_scene"]
 bevy_sprite = ["bevy_internal/bevy_sprite"]
 bevy_text = ["bevy_internal/bevy_text"]
 bevy_ui = ["bevy_internal/bevy_ui"]
+bevy_widget = ["bevy_internal/bevy_widget"]
 bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Tracing features

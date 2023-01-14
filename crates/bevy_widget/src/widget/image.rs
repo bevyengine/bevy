@@ -1,12 +1,13 @@
-use crate::{CalculatedSize, Size, UiImage, Val, UiSystem};
-use bevy_app::{App, Plugin, CoreStage};
+use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::Assets;
 use bevy_ecs::{
     query::Without,
-    system::{Query, Res}, schedule::IntoSystemDescriptor,
+    schedule::IntoSystemDescriptor,
+    system::{Query, Res},
 };
 use bevy_render::texture::Image;
 use bevy_text::Text;
+use bevy_ui::{CalculatedSize, Size, UiImage, UiSystem, Val};
 
 use super::text_system;
 

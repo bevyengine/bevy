@@ -12,7 +12,6 @@ mod ui_node;
 pub mod camera_config;
 pub mod node_bundles;
 pub mod update;
-pub mod widget;
 
 use bevy_render::extract_component::ExtractComponentPlugin;
 pub use flex::*;
@@ -25,8 +24,7 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
-        UiScale,
+        camera_config::*, geometry::*, node_bundles::*, ui_node::*, Interaction, UiScale,
     };
 }
 
@@ -41,7 +39,6 @@ use bevy_window::ModifiesWindows;
 use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::update_clipping_system;
-use widget::WidgetPlugin;
 
 use crate::prelude::UiCameraConfig;
 
@@ -79,7 +76,6 @@ impl Default for UiScale {
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
-            .add_plugin(WidgetPlugin::default())
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
