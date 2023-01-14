@@ -218,6 +218,18 @@ where
     }
 }
 
+impl<M: Material2d> Clone for Material2dPipeline<M> {
+    fn clone(&self) -> Self {
+        Self {
+            mesh2d_pipeline: self.mesh2d_pipeline.clone(),
+            material2d_layout: self.material2d_layout.clone(),
+            vertex_shader: self.vertex_shader.clone(),
+            fragment_shader: self.fragment_shader.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<M: Material2d> SpecializedMeshPipeline for Material2dPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
