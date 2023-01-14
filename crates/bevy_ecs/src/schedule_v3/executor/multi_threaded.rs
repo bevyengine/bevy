@@ -153,6 +153,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 debug_assert!(self.unapplied_systems.is_clear());
                 self.active_access.clear();
                 self.evaluated_sets.clear();
+                self.skipped_systems.clear();
                 self.completed_systems.clear();
             };
 
