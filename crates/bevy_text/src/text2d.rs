@@ -1,10 +1,10 @@
 use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::{DetectChanges, Ref},
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::Changed,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -166,8 +166,7 @@ pub fn update_text2d_layout(
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Changed<Text>,
-        &Text,
+        Ref<Text>,
         Option<&Text2dBounds>,
         &mut Text2dSize,
         Option<&mut TextLayoutInfo>,
@@ -177,10 +176,8 @@ pub fn update_text2d_layout(
     let factor_changed = scale_factor_changed.iter().last().is_some();
     let scale_factor = windows.scale_factor(WindowId::primary());
 
-    for (entity, text_changed, text, maybe_bounds, mut calculated_size, text_layout_info) in
-        &mut text_query
-    {
-        if factor_changed || text_changed || queue.remove(&entity) {
+    for (entity, text, maybe_bounds, mut calculated_size, text_layout_info) in &mut text_query {
+        if factor_changed || text.is_changed() || queue.remove(&entity) {
             let text_bounds = match maybe_bounds {
                 Some(bounds) => Vec2::new(
                     scale_value(bounds.size.x, scale_factor),

@@ -1,6 +1,6 @@
 use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
 use bevy_ecs::{
-    change_detection::DetectChanges,
+    change_detection::DetectChangesMut,
     entity::Entity,
     prelude::Component,
     query::WorldQuery,
@@ -31,9 +31,7 @@ use smallvec::SmallVec;
 ///
 /// Note that you can also control the visibility of a node using the [`Display`](crate::ui_node::Display) property,
 /// which fully collapses it during layout calculations.
-#[derive(
-    Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
-)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum Interaction {
     /// The node has been clicked
@@ -41,22 +39,39 @@ pub enum Interaction {
     /// The node has been hovered over
     Hovered,
     /// Nothing has happened
-    #[default]
     None,
 }
 
+impl Interaction {
+    const DEFAULT: Self = Self::None;
+}
+
+impl Default for Interaction {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Describes whether the node should block interactions with lower nodes
-#[derive(
-    Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
-)]
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum FocusPolicy {
     /// Blocks interaction
-    #[default]
     Block,
     /// Lets interaction pass through
     Pass,
 }
+
+impl FocusPolicy {
+    const DEFAULT: Self = Self::Pass;
+}
+
+impl Default for FocusPolicy {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// Contains entities whose Interaction should be set to None
 #[derive(Default)]
 pub struct State {
@@ -149,9 +164,7 @@ pub fn ui_focus_system(
                         // Reset their interaction to None to avoid strange stuck state
                         if let Some(mut interaction) = node.interaction {
                             // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
-                            if *interaction != Interaction::None {
-                                *interaction = Interaction::None;
-                            }
+                            interaction.set_if_neq(Interaction::None);
                         }
 
                         return None;

@@ -178,7 +178,7 @@ impl_from_reflect_value!(NonZeroU8);
 impl_from_reflect_value!(NonZeroI8);
 
 macro_rules! impl_reflect_for_veclike {
-    ($ty:ty, $push:expr, $pop:expr, $sub:ty) => {
+    ($ty:ty, $insert:expr, $remove:expr, $push:expr, $pop:expr, $sub:ty) => {
         impl<T: FromReflect> Array for $ty {
             #[inline]
             fn get(&self, index: usize) -> Option<&dyn Reflect> {
@@ -212,6 +212,22 @@ macro_rules! impl_reflect_for_veclike {
         }
 
         impl<T: FromReflect> List for $ty {
+            fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
+                let value = value.take::<T>().unwrap_or_else(|value| {
+                    T::from_reflect(&*value).unwrap_or_else(|| {
+                        panic!(
+                            "Attempted to insert invalid value of type {}.",
+                            value.type_name()
+                        )
+                    })
+                });
+                $insert(self, index, value);
+            }
+
+            fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+                Box::new($remove(self, index))
+            }
+
             fn push(&mut self, value: Box<dyn Reflect>) {
                 let value = T::take_from_reflect(value).unwrap_or_else(|value| {
                     panic!(
@@ -342,9 +358,11 @@ macro_rules! impl_reflect_for_veclike {
     };
 }
 
-impl_reflect_for_veclike!(Vec<T>, Vec::push, Vec::pop, [T]);
+impl_reflect_for_veclike!(Vec<T>, Vec::insert, Vec::remove, Vec::push, Vec::pop, [T]);
 impl_reflect_for_veclike!(
     VecDeque<T>,
+    VecDeque::insert,
+    VecDeque::remove,
     VecDeque::push_back,
     VecDeque::pop_back,
     VecDeque::<T>
