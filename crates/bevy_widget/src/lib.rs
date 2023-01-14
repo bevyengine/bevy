@@ -15,7 +15,7 @@ use bevy_app::{App, Plugin};
 #[doc(hidden)]
 pub mod prelude {
     #[doc(hidden)]
-    pub use super::{ButtonBundle, ImageBundle, TextBundle, Button};
+    pub use super::{Button, ButtonBundle, ImageBundle, TextBundle};
 }
 
 /// The plugin for UI widgets
