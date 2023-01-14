@@ -25,8 +25,9 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
         .params
         .iter()
         .all(|param| matches!(param, GenericParam::Lifetime(_)));
-        
-    let ty_generic_paths: Vec<_> = generics.type_params()
+
+    let ty_generic_paths: Vec<_> = generics
+        .type_params()
         .map(|param| {
             let ident = &param.ident;
             quote! {
@@ -34,28 +35,30 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
             }
         })
         .collect();
-        
-    let const_generic_strings: Vec<_> = generics.const_params().map(|param| {
-       let ident = &param.ident; 
-       let ty = &param.ty;
-       
-       quote! {
-           &<#ty as ::std::string::ToString>::to_string(&#ident)
-       }
-    }).collect();
-        
+
+    let const_generic_strings: Vec<_> = generics
+        .const_params()
+        .map(|param| {
+            let ident = &param.ident;
+            let ty = &param.ty;
+
+            quote! {
+                &<#ty as ::std::string::ToString>::to_string(&#ident)
+            }
+        })
+        .collect();
+
     let comma = quote! {
         ", "
     };
-        
+
     let combine_generics = |ty_generics: Vec<proc_macro2::TokenStream>| {
-        let mut generics = ty_generics.into_iter().map(Cow::Owned).chain(const_generic_strings.iter().map(Cow::Borrowed)).flat_map(|t| {
-            [
-                Cow::Borrowed(&comma),
-                t
-            ]
-        });
-        generics.next(); // Skip first comma. 
+        let mut generics = ty_generics
+            .into_iter()
+            .map(Cow::Owned)
+            .chain(const_generic_strings.iter().map(Cow::Borrowed))
+            .flat_map(|t| [Cow::Borrowed(&comma), t]);
+        generics.next(); // Skip first comma.
         generics
     };
 
@@ -66,12 +69,15 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
         let path = path_to_type.long_type_path();
 
         if is_generic {
-            let ty_generics: Vec<_> = ty_generic_paths.iter().map(|type_path| {
-                quote! {
-                    #type_path::type_path()
-                }
-            }).collect();
-            
+            let ty_generics: Vec<_> = ty_generic_paths
+                .iter()
+                .map(|type_path| {
+                    quote! {
+                        #type_path::type_path()
+                    }
+                })
+                .collect();
+
             let generics = combine_generics(ty_generics);
 
             quote! {
@@ -89,12 +95,15 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
 
     let short_path = {
         if is_generic {
-            let ty_generics: Vec<_> = ty_generic_paths.iter().map(|type_path| {
-                quote! {
-                    #type_path::short_type_path()
-                }
-            }).collect();
-            
+            let ty_generics: Vec<_> = ty_generic_paths
+                .iter()
+                .map(|type_path| {
+                    quote! {
+                        #type_path::short_type_path()
+                    }
+                })
+                .collect();
+
             let generics = combine_generics(ty_generics);
 
             quote! {
