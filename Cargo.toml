@@ -1428,16 +1428,6 @@ wasm = true
 
 # UI (User Interface)
 [[example]]
-name = "button"
-path = "examples/ui/button.rs"
-
-[package.metadata.example.button]
-name = "Button"
-description = "Illustrates creating and updating a button"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
 name = "window_fallthrough"
 path = "examples/ui/window_fallthrough.rs"
 
@@ -1454,26 +1444,6 @@ path = "examples/ui/font_atlas_debug.rs"
 [package.metadata.example.font_atlas_debug]
 name = "Font Atlas Debug"
 description = "Illustrates how FontAtlases are populated (used to optimize text rendering internally)"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "text"
-path = "examples/ui/text.rs"
-
-[package.metadata.example.text]
-name = "Text"
-description = "Illustrates creating and updating text"
-category = "UI (User Interface)"
-wasm = true
-
-[[example]]
-name = "text_debug"
-path = "examples/ui/text_debug.rs"
-
-[package.metadata.example.text_debug]
-name = "Text Debug"
-description = "An example for debugging text layout"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1516,6 +1486,38 @@ name = "UI Scaling"
 description = "Illustrates how to scale the UI"
 category = "UI (User Interface)"
 wasm = true
+
+# Widget
+[[example]]
+name = "button"
+path = "examples/widget/button.rs"
+
+[package.metadata.example.button]
+name = "Button"
+description = "Illustrates creating and updating a button"
+category = "Widget"
+wasm = true
+
+[[example]]
+name = "text"
+path = "examples/widget/text.rs"
+
+[package.metadata.example.text]
+name = "Text"
+description = "Illustrates creating and updating text"
+category = "Widget"
+wasm = true
+
+[[example]]
+name = "text_debug"
+path = "examples/widget/text_debug.rs"
+
+[package.metadata.example.text_debug]
+name = "Text Debug"
+description = "An example for debugging text layout"
+category = "Widget"
+wasm = true
+
 
 # Window
 [[example]]
