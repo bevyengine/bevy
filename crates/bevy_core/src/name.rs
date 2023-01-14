@@ -82,11 +82,9 @@ impl std::fmt::Display for Name {
     }
 }
 
-/// An extension trait for [`Query`] that attempts to give a user friendly
-/// name for an entity if available.
+/// An extension trait for [`Query`] for more user friendly debug information about an entity.
 pub trait DebugNameQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    /// Give the name of an entity if it has one, otherwise use the entity id
-    /// as the name.
+    /// Give the [`Name`] of an entity if it has one, otherwise return the [`Entity`].
     fn debug_name(&'w self, entity: Entity) -> Box<dyn std::fmt::Debug + 'w>
     where
         Q::ReadOnly: WorldQuery<Item<'w> = &'w Name>;
