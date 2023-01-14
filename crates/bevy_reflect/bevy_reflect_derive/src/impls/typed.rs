@@ -2,8 +2,103 @@ use crate::utility::{extend_where_clause, WhereClauseOptions};
 use crate::ReflectMeta;
 use proc_macro2::Ident;
 use quote::quote;
-use crate::derive_data::{type_path_generator, PathToType, ReflectMeta};
+use crate::derive_data::{PathToType, ReflectMeta};
+use syn::{GenericParam, LitStr, spanned::Spanned};
 
+/// Returns an expression for a `TypePathStorage`.
+pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStream {
+    let path_to_type = meta.path_to_type();
+    let generics = meta.generics();
+    let bevy_reflect_path = meta.bevy_reflect_path();
+    // Whether to use `GenericTypedCell` is not dependent on lifetimes
+    // (which all have to be 'static anyway).
+    let is_generic = !generics
+        .params
+        .iter()
+        .all(|param| matches!(param, GenericParam::Lifetime(_)));
+    let generic_type_paths: Vec<proc_macro2::TokenStream> = generics
+        .type_params()
+        .map(|param| {
+            let ident = &param.ident;
+            quote! {
+                <#ident as #bevy_reflect_path::TypePath>
+            }
+        })
+        .collect();
+
+    let ident = path_to_type.ident().unwrap().to_string();
+    let ident = LitStr::new(&ident, path_to_type.span());
+
+    let path = {
+        let path = path_to_type.long_type_path();
+
+        if is_generic {
+            let generics = generic_type_paths.iter().map(|type_path| {
+                quote! {
+                    #type_path::type_path()
+                }
+            });
+
+            quote! {
+                #path + "::<" #(+ #generics)* + ">"
+            }
+        } else {
+            quote! {
+                #path
+            }
+        }
+    };
+
+    let short_path = {
+        if is_generic {
+            let generics = generic_type_paths.iter().map(|type_path| {
+                quote! {
+                    #type_path::short_type_path()
+                }
+            });
+
+            quote! {
+                ::core::concat!(#ident, "<").to_owned() #(+ #generics)* + ">"
+            }
+        } else {
+            quote! {
+                #ident.to_owned()
+            }
+        }
+    };
+
+    if let PathToType::Primitive(name) = path_to_type {
+        quote! {
+            #bevy_reflect_path::utility::TypePathStorage::new_primitive(
+                #path,
+                #short_path,
+                #name,
+            )
+        }
+    } else if !path_to_type.is_named() {
+        quote! {
+            #bevy_reflect_path::utility::TypePathStorage::new_anonymous(
+                #path,
+                #short_path,
+            )
+        }
+    } else {
+        let crate_name = path_to_type.crate_name();
+        let module_path = path_to_type.module_path();
+
+        quote! {
+            #bevy_reflect_path::utility::TypePathStorage::new_named(
+                #path,
+                #short_path,
+                #ident.to_owned(),
+                #crate_name.to_owned(),
+                #module_path.to_owned(),
+            )
+        }
+    }
+}
+
+/// Returns an expression for a `NonGenericTypedCell` or `GenericTypedCell`.
 fn static_typed_cell(
     meta: &ReflectMeta,
     property: TypedProperty,
@@ -62,7 +157,7 @@ pub(crate) fn impl_type_path(
         Some(quote! {
             const _: () = {
                 mod private_scope {
-                    // compiles if it can be named with its ident when there are no imports.
+                    // Compiles if it can be named with its ident when there are no imports.
                     type AssertIsPrimitive = #path_to_type;
                 }
             };

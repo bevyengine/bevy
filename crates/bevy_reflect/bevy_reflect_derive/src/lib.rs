@@ -175,7 +175,7 @@ pub fn impl_reflect_struct(input: TokenStream) -> TokenStream {
 
     match derive_data {
         ReflectDerive::Struct(struct_data) => {
-            if !struct_data.meta().path_to_type().is_alias() {
+            if !struct_data.meta().path_to_type().is_aliased() {
                 return syn::Error::new(
                     struct_data.meta().path_to_type().span(),
                     format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using `impl_reflect_struct`")

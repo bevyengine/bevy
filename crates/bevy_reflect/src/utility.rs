@@ -18,7 +18,7 @@ mod sealed {
 }
 pub use sealed::TypedProperty;
 
-/// A container for [`TypeInfo`] or [`TypePath`] over non-generic types, allowing instances to be stored statically.
+/// A container for [`TypeInfo`] or [`TypePathStorage`] over non-generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with _non_-generic types. If your type _is_ generic,
 /// then use [`GenericTypedCell`] instead. Otherwise, it will not take into account all
@@ -42,19 +42,6 @@ pub use sealed::TypedProperty;
 ///             let fields = [NamedField::new::<i32>("bar")];
 ///             let info = StructInfo::new::<Self>("Foo", &fields);
 ///             TypeInfo::Struct(info)
-///         })
-///     }
-///
-///     fn type_path() -> &'static TypePath {
-///         static CELL: NonGenericTypePathCell = NonGenericTypePathCell::new();
-///         CELL.get_or_set(|| {
-///             TypePath::new_named(
-///                 "my_crate::Foo".to_owned(),
-///                 "Foo".to_owned(),
-///                 "Foo".to_owned(),
-///                 "my_crate".to_owned(),
-///                 "my_crate".to_owned(),
-///             )
 ///         })
 ///     }
 /// }
@@ -87,7 +74,7 @@ impl<T: TypedProperty> NonGenericTypedCell<T> {
         Self(OnceBox::new())
     }
 
-    /// Returns a reference to the [`TypeInfo`]/[`TypePath`] stored in the cell.
+    /// Returns a reference to the [`TypeInfo`]/[`TypePathStorage`] stored in the cell.
     ///
     /// If there is no entry found, a new one will be generated from the given function.
     pub fn get_or_set<F>(&self, f: F) -> &T
@@ -98,7 +85,7 @@ impl<T: TypedProperty> NonGenericTypedCell<T> {
     }
 }
 
-/// A container for [`TypeInfo`] or [`TypePath`] over generic types, allowing instances to be stored statically.
+/// A container for [`TypeInfo`] or [`TypePathStorage`] over generic types, allowing instances to be stored statically.
 ///
 /// This is specifically meant for use with generic types. If your type isn't generic,
 /// then use [`NonGenericTypedCell`] instead as it should be much more performant.
@@ -119,19 +106,6 @@ impl<T: TypedProperty> NonGenericTypedCell<T> {
 ///             let fields = [UnnamedField::new::<T>(0)];
 ///             let info = TupleStructInfo::new::<Self>("Foo", &fields);
 ///             TypeInfo::TupleStruct(info)
-///         })
-///     }
-///
-///     fn type_path() -> &'static TypePath {
-///         static CELL: GenericTypePathCell = GenericTypePathCell::new();
-///         CELL.get_or_insert::<Self, _>(|| {
-///             TypePath::new_named(
-///                 "my_crate::Foo::<".to_owned() + T::type_path().path() + ">",
-///                 "Foo<".to_owned() + T::type_path().short_path() + ">",
-///                 "Foo".to_owned(),
-///                 "my_crate".to_owned(),
-///                 "my_crate".to_owned(),
-///             )
 ///         })
 ///     }
 /// }

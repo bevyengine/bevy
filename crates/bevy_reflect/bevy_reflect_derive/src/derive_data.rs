@@ -5,7 +5,7 @@ use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::utility::{members_to_serialization_denylist, WhereClauseOptions};
 use crate::utility::members_to_serialization_denylist;
 use bit_set::BitSet;
-use quote::{quote, ToTokens};
+use quote::{quote, ToTokens, TokenStreamExt};
 
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,
@@ -227,7 +227,7 @@ impl<'a> ReflectDerive<'a> {
         }
 
         let path_to_type = PathToType::Internal {
-            ident: &input.ident,
+            name: &input.ident,
             alias: alias_type_path,
         };
 
@@ -567,23 +567,27 @@ impl<'a> EnumVariant<'a> {
     }
 }
 
+/// Represents a path to a type.
 pub(crate) enum PathToType<'a> {
-    /// Types without a crate/module (e.g. `bool`).
+    /// Types without a crate/module that can be named from any scope (e.g. `bool`).
     Primitive(&'a Ident),
     /// Using `::my_crate::foo::Bar` syntax.
     ///
     /// May have a seperate alias path used for the `TypePath` implementation.
     External { path: &'a Path, alias: Option<Path> },
-    /// The name of a type relative to itself.
-    /// Module and crate are found with [`module_path!()`](core::module_path).
+    /// The name of a type relative to its scope.
+    /// The type must be able to be named from just its name.
     ///
     /// May have a seperate alias path used for the `TypePath` implementation.
+    /// 
+    /// Module and crate are found with [`module_path!()`](core::module_path),
+    /// if there is no alias specified.
     Internal {
-        ident: &'a Ident,
+        name: &'a Ident,
         alias: Option<Path>,
     },
     /// Any [`syn::Type`] with only a defined `type_path` and `short_type_path`.
-    #[allow(dead_code)]
+    #[allow(dead_code)] // Not currently used but may be useful in the future due to its generality.
     Anonymous {
         qualified_type: Type,
         long_type_path: proc_macro2::TokenStream,
@@ -593,10 +597,10 @@ pub(crate) enum PathToType<'a> {
 
 impl<'a> PathToType<'a> {
     /// Returns the path interpreted as an [`Ident`],
-    /// or [`None`] if anonymous.
+    /// or [`None`] if anonymous or primitive.
     fn named_as_ident(&self) -> Option<&Ident> {
         match self {
-            Self::Internal { ident, alias } => Some(
+            Self::Internal { name: ident, alias } => Some(
                 alias
                     .as_ref()
                     .map(|path| &path.segments.last().unwrap().ident)
@@ -616,7 +620,7 @@ impl<'a> PathToType<'a> {
     }
 
     /// Returns the path interpreted as a [`Path`],
-    /// or [`None`] if anonymous or a non-aliased [`PathToType::Internal`].
+    /// or [`None`] if anonymous, primitive, or a non-aliased [`PathToType::Internal`].
     fn named_as_path(&self) -> Option<&Path> {
         match self {
             Self::Internal { alias, .. } => alias.as_ref(),
@@ -629,7 +633,7 @@ impl<'a> PathToType<'a> {
     ///
     /// [internal]: PathToType::Internal
     /// [external]: PathToType::External
-    pub fn is_alias(&self) -> bool {
+    pub fn is_aliased(&self) -> bool {
         match self {
             Self::Internal { alias, .. } => alias.is_some(),
             Self::External { alias, .. } => alias.is_some(),
@@ -728,93 +732,9 @@ impl<'a> PathToType<'a> {
 impl<'a> ToTokens for PathToType<'a> {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         match self {
-            Self::Internal { ident, .. } | Self::Primitive(ident) => ident.to_tokens(tokens),
+            Self::Internal { name: ident, .. } | Self::Primitive(ident) => ident.to_tokens(tokens),
             Self::External { path, .. } => path.to_tokens(tokens),
             Self::Anonymous { qualified_type, .. } => qualified_type.to_tokens(tokens),
-        }
-    }
-}
-
-pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStream {
-    let path_to_type = meta.path_to_type();
-    let generics = meta.generics();
-    let bevy_reflect_path = meta.bevy_reflect_path();
-    // Whether to use `GenericTypedCell` is not dependent on lifetimes
-    // (which all have to be 'static anyway).
-    let is_generic = !generics
-        .params
-        .iter()
-        .all(|param| matches!(param, GenericParam::Lifetime(_)));
-    let generic_type_paths: Vec<proc_macro2::TokenStream> = generics
-        .type_params()
-        .map(|param| {
-            let ident = &param.ident;
-            quote! {
-                <#ident as #bevy_reflect_path::TypePath>
-            }
-        })
-        .collect();
-
-    let ident = path_to_type.ident().unwrap().to_string();
-    let ident = LitStr::new(&ident, path_to_type.span());
-
-    let path = {
-        let path = path_to_type.long_type_path();
-
-        if is_generic {
-            let generics = generic_type_paths.iter().map(|type_path| {
-                quote! {
-                    #type_path::type_path()
-                }
-            });
-
-            quote! {
-                #path + "::<" #(+ #generics)* + ">"
-            }
-        } else {
-            quote! {
-                #path
-            }
-        }
-    };
-
-    let short_path = {
-        if is_generic {
-            let generics = generic_type_paths.iter().map(|type_path| {
-                quote! {
-                    #type_path::short_type_path()
-                }
-            });
-
-            quote! {
-                ::core::concat!(#ident, "<").to_owned() #(+ #generics)* + ">"
-            }
-        } else {
-            quote! {
-                #ident.to_owned()
-            }
-        }
-    };
-
-    if !path_to_type.is_named() {
-        quote! {
-            #bevy_reflect_path::utility::TypePathStorage::new_anonymous(
-                #path,
-                #short_path,
-            )
-        }
-    } else {
-        let crate_name = path_to_type.crate_name();
-        let module_path = path_to_type.module_path();
-
-        quote! {
-            #bevy_reflect_path::utility::TypePathStorage::new_named(
-                #path,
-                #short_path,
-                #ident.to_owned(),
-                #crate_name.to_owned(),
-                #module_path.to_owned(),
-            )
         }
     }
 }
