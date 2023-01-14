@@ -22,6 +22,7 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 use bevy_ui::{CalculatedSize, FocusPolicy, Node, Size, Style, UiScale, UiSystem, Val, ZIndex};
 use bevy_window::{ModifiesWindows, Windows};
 
+/// Text entities queued for further processing
 #[derive(Debug, Default)]
 pub struct QueuedText {
     entities: Vec<Entity>,
