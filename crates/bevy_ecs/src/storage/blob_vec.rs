@@ -155,27 +155,28 @@ impl BlobVec {
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
 
-        let drop = self.drop;
         let size = self.item_layout.size();
 
-        // Temporarily set the length to zero, so that uninitialized bytes won't
-        // get observed in case this function panics.
-        let old_len = self.len;
-        self.len = 0;
-
-        // Transfer ownership of the old value out of the vector, so it can be dropped.
-        // SAFETY:
-        // * The caller ensures that `index` fits in this vector.
-        // * The storage location will get overwritten with `value` later, which ensures
-        //   that the element will not get observed or double dropped later.
-        // * If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
-        //   does not occur. Instead, all elements will be forgotten.
-        let old_value = self.get_ptr_mut().byte_add(index * size).promote();
-
-        let dst = old_value.as_ptr();
+        // Pointer to the value in the vector that will get replaced.
+        let dst;
         let src = value.as_ptr();
 
-        if let Some(drop) = drop {
+        if let Some(drop) = self.drop {
+            // Temporarily set the length to zero, so that uninitialized bytes won't
+            // get observed in case a panic causes this function to exit early.
+            let old_len = self.len;
+            self.len = 0;
+
+            // Transfer ownership of the old value out of the vector, so it can be dropped.
+            // SAFETY:
+            // * The caller ensures that `index` fits in this vector.
+            // * The storage location will get overwritten with `value` later, which ensures
+            //   that the element will not get observed or double dropped later.
+            // * If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
+            //   does not occur. Instead, all elements will be forgotten.
+            let old_value = self.get_ptr_mut().byte_add(index * size).promote();
+            dst = old_value.as_ptr();
+
             // This closusure will run in case `drop()` panics, which is similar to
             // the `try ... catch` construct in languages like C++.
             // This ensures that `value` does not get forgotten in case of a panic.
@@ -185,7 +186,15 @@ impl BlobVec {
 
             // If the above code does not panic, make sure that `value` doesn't get dropped.
             core::mem::forget(on_unwind);
+
+            // Make the vector's contents observable again, since panics are no longer possible.
+            self.len = old_len;
+        } else {
+            // SAFETY:
+            // - The caller ensures that `index` fits in this vector.
+            dst = self.get_ptr_mut().as_ptr().add(index * size);
         }
+
         // Copy the new value into the vector, overwriting the previous value which has been moved.
         // SAFETY:
         // - `src` and `dst` were obtained from `OwningPtr`s, which ensures they are
@@ -195,9 +204,6 @@ impl BlobVec {
         // - `src` and `dst` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
         std::ptr::copy_nonoverlapping::<u8>(src, dst, size);
-
-        // Now that each entry in the vector is fully initialized again, restore its length.
-        self.len = old_len;
     }
 
     /// Pushes a value to the [`BlobVec`].
