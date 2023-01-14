@@ -250,11 +250,6 @@ impl SystemSetMeta {
     pub fn is_system_type(&self) -> bool {
         self.set.is_system_type()
     }
-
-    // TODO: rename
-    pub fn dyn_clone(&self) -> BoxedSystemSet {
-        self.set.dyn_clone()
-    }
 }
 
 /// Uninitialized systems associated with a graph node, stored in a [`ScheduleGraph`].
@@ -352,7 +347,7 @@ impl ScheduleGraph {
 
         if graph_info.sets.is_empty() {
             if let Some(default) = self.default_set.as_ref() {
-                graph_info.sets.insert(default.dyn_clone());
+                graph_info.sets.push(default.dyn_clone());
             }
         }
 
@@ -410,7 +405,7 @@ impl ScheduleGraph {
         if !already_configured && graph_info.sets.is_empty() {
             if let Some(default) = self.default_set.as_ref() {
                 info!("adding system set `{:?}` to default: `{:?}`", set, default);
-                graph_info.sets.insert(default.dyn_clone());
+                graph_info.sets.push(default.dyn_clone());
             }
         }
 
@@ -431,7 +426,7 @@ impl ScheduleGraph {
     }
 
     fn check_sets(&mut self, id: &NodeId, graph_info: &GraphInfo) -> Result<(), BuildError> {
-        for set in graph_info.sets.iter() {
+        for set in &graph_info.sets {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
@@ -448,7 +443,7 @@ impl ScheduleGraph {
     }
 
     fn check_edges(&mut self, id: &NodeId, graph_info: &GraphInfo) -> Result<(), BuildError> {
-        for (_, set) in graph_info.dependencies.iter() {
+        for (_, set) in &graph_info.dependencies {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
@@ -462,7 +457,7 @@ impl ScheduleGraph {
         }
 
         if let Ambiguity::IgnoreWithSet(ambiguous_with) = &graph_info.ambiguous_with {
-            for set in ambiguous_with.iter() {
+            for set in ambiguous_with {
                 if !self.system_set_ids.contains_key(set) {
                     self.add_set(set.dyn_clone());
                 }
@@ -630,7 +625,7 @@ impl ScheduleGraph {
                     .edges_directed(set, Direction::Outgoing)
                     .count();
                 if systems.len() > 1 && (ambiguities > 0 || dependencies > 0) {
-                    let type_set = self.system_sets[&set].dyn_clone();
+                    let type_set = self.system_sets[&set].set.dyn_clone();
                     return Err(BuildError::SystemTypeSetAmbiguity(type_set));
                 }
             }

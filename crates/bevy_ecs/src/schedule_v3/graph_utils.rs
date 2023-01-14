@@ -41,16 +41,16 @@ pub(crate) enum DependencyEdgeKind {
 pub(crate) enum Ambiguity {
     #[default]
     Check,
-    /// Ignore warnings with systems in any of these system sets.
-    IgnoreWithSet(HashSet<BoxedSystemSet>),
+    /// Ignore warnings with systems in any of these system sets. May contain duplicates.
+    IgnoreWithSet(Vec<BoxedSystemSet>),
     /// Ignore all warnings.
     IgnoreAll,
 }
 
 #[derive(Clone)]
 pub(crate) struct GraphInfo {
-    pub(crate) sets: HashSet<BoxedSystemSet>,
-    pub(crate) dependencies: HashSet<(DependencyEdgeKind, BoxedSystemSet)>,
+    pub(crate) sets: Vec<BoxedSystemSet>,
+    pub(crate) dependencies: Vec<(DependencyEdgeKind, BoxedSystemSet)>,
     pub(crate) ambiguous_with: Ambiguity,
 }
 

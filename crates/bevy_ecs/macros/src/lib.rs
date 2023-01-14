@@ -5,7 +5,7 @@ mod fetch;
 
 use crate::fetch::derive_world_query_impl;
 use bevy_macro_utils::{
-    derive_label, derive_old_style_label, derive_set, get_named_struct_fields, BevyManifest,
+    derive_boxed_label, derive_label, derive_set, get_named_struct_fields, BevyManifest,
 };
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -578,7 +578,7 @@ pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
     trait_path
         .segments
         .push(format_ident!("ScheduleLabel").into());
-    derive_old_style_label(input, &trait_path)
+    derive_boxed_label(input, &trait_path)
 }
 
 /// Derive macro generating an impl of the trait `SystemSet`.

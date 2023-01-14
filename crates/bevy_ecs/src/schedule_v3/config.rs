@@ -1,5 +1,4 @@
 use bevy_utils::prelude::default;
-use bevy_utils::HashSet;
 
 use crate::{
     schedule_v3::{
@@ -28,8 +27,8 @@ pub(super) fn new_set_unchecked(set: BoxedSystemSet) -> SystemSetConfig {
     SystemSetConfig {
         set,
         graph_info: GraphInfo {
-            sets: HashSet::new(),
-            dependencies: HashSet::new(),
+            sets: Vec::new(),
+            dependencies: Vec::new(),
             ambiguous_with: default(),
         },
         conditions: Vec::new(),
@@ -50,7 +49,7 @@ fn new_system(system: BoxedSystem) -> SystemConfig {
         system,
         graph_info: GraphInfo {
             sets,
-            dependencies: HashSet::new(),
+            dependencies: Vec::new(),
             ambiguous_with: default(),
         },
         conditions: Vec::new(),
@@ -99,31 +98,31 @@ where
     S: SystemSet + sealed::IntoSystemSetConfig,
 {
     fn into_config(self) -> SystemSetConfig {
-        new_set(self.dyn_clone())
+        new_set(Box::new(self))
     }
 
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
-        new_set(self.dyn_clone()).in_set(set)
+        new_set(Box::new(self)).in_set(set)
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(self.dyn_clone()).before(set)
+        new_set(Box::new(self)).before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(self.dyn_clone()).after(set)
+        new_set(Box::new(self)).after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
-        new_set(self.dyn_clone()).run_if(condition)
+        new_set(Box::new(self)).run_if(condition)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(self.dyn_clone()).ambiguous_with(set)
+        new_set(Box::new(self)).ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemSetConfig {
-        new_set(self.dyn_clone()).ambiguous_with_all()
+        new_set(Box::new(self)).ambiguous_with_all()
     }
 }
 
@@ -164,21 +163,21 @@ impl IntoSystemSetConfig for SystemSetConfig {
 
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(!set.is_system_type(), "invalid use of system type set");
-        self.graph_info.sets.insert(Box::new(set));
+        self.graph_info.sets.push(Box::new(set));
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info
             .dependencies
-            .insert((DependencyEdgeKind::Before, Box::new(set.into_system_set())));
+            .push((DependencyEdgeKind::Before, Box::new(set.into_system_set())));
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info
             .dependencies
-            .insert((DependencyEdgeKind::After, Box::new(set.into_system_set())));
+            .push((DependencyEdgeKind::After, Box::new(set.into_system_set())));
         self
     }
 
@@ -190,14 +189,14 @@ impl IntoSystemSetConfig for SystemSetConfig {
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         match &mut self.graph_info.ambiguous_with {
             detection @ Ambiguity::Check => {
-                let mut ambiguous_with = HashSet::new();
+                let mut ambiguous_with = Vec::new();
                 let boxed: Box<dyn SystemSet> = Box::new(set.into_system_set());
-                ambiguous_with.insert(boxed);
+                ambiguous_with.push(boxed);
                 *detection = Ambiguity::IgnoreWithSet(ambiguous_with);
             }
             Ambiguity::IgnoreWithSet(ambiguous_with) => {
                 let boxed: Box<dyn SystemSet> = Box::new(set.into_system_set());
-                ambiguous_with.insert(boxed);
+                ambiguous_with.push(boxed);
             }
             Ambiguity::IgnoreAll => (),
         }
@@ -308,21 +307,21 @@ impl IntoSystemConfig<()> for SystemConfig {
 
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(!set.is_system_type(), "invalid use of system type set");
-        self.graph_info.sets.insert(Box::new(set));
+        self.graph_info.sets.push(Box::new(set));
         self
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info
             .dependencies
-            .insert((DependencyEdgeKind::Before, Box::new(set.into_system_set())));
+            .push((DependencyEdgeKind::Before, Box::new(set.into_system_set())));
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         self.graph_info
             .dependencies
-            .insert((DependencyEdgeKind::After, Box::new(set.into_system_set())));
+            .push((DependencyEdgeKind::After, Box::new(set.into_system_set())));
         self
     }
 
@@ -334,14 +333,14 @@ impl IntoSystemConfig<()> for SystemConfig {
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
         match &mut self.graph_info.ambiguous_with {
             detection @ Ambiguity::Check => {
-                let mut ambiguous_with = HashSet::new();
+                let mut ambiguous_with = Vec::new();
                 let boxed: Box<dyn SystemSet> = Box::new(set.into_system_set());
-                ambiguous_with.insert(boxed);
+                ambiguous_with.push(boxed);
                 *detection = Ambiguity::IgnoreWithSet(ambiguous_with);
             }
             Ambiguity::IgnoreWithSet(ambiguous_with) => {
                 let boxed: Box<dyn SystemSet> = Box::new(set.into_system_set());
-                ambiguous_with.insert(boxed);
+                ambiguous_with.push(boxed);
             }
             Ambiguity::IgnoreAll => (),
         }
@@ -428,7 +427,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(!set.is_system_type(), "invalid use of system type set");
         for config in &mut self.systems {
-            config.graph_info.sets.insert(set.dyn_clone());
+            config.graph_info.sets.push(set.dyn_clone());
         }
 
         self
@@ -440,7 +439,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             config
                 .graph_info
                 .dependencies
-                .insert((DependencyEdgeKind::Before, set.dyn_clone()));
+                .push((DependencyEdgeKind::Before, set.dyn_clone()));
         }
 
         self
@@ -452,7 +451,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             config
                 .graph_info
                 .dependencies
-                .insert((DependencyEdgeKind::After, set.dyn_clone()));
+                .push((DependencyEdgeKind::After, set.dyn_clone()));
         }
 
         self
@@ -511,7 +510,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     fn in_set(mut self, set: impl SystemSet) -> Self {
         assert!(!set.is_system_type(), "invalid use of system type set");
         for config in &mut self.sets {
-            config.graph_info.sets.insert(set.dyn_clone());
+            config.graph_info.sets.push(set.dyn_clone());
         }
 
         self
@@ -523,7 +522,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             config
                 .graph_info
                 .dependencies
-                .insert((DependencyEdgeKind::Before, set.dyn_clone()));
+                .push((DependencyEdgeKind::Before, set.dyn_clone()));
         }
 
         self
@@ -535,7 +534,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             config
                 .graph_info
                 .dependencies
-                .insert((DependencyEdgeKind::After, set.dyn_clone()));
+                .push((DependencyEdgeKind::After, set.dyn_clone()));
         }
 
         self
