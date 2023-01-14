@@ -22,6 +22,7 @@ members = [
   "tools/spancmp",
   "tools/build-example-pages",
   "tools/build-wasm-example",
+  "tools/check-features-doc",
   "errors",
 ]
 
