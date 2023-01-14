@@ -2,7 +2,7 @@ use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
-use crate::fq_std::{FQAny, FQClone, FQDefault, FQOption, FQResult};
+use crate::fq_std::{FQAny, FQBox, FQClone, FQDefault, FQResult};
 use crate::{ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -27,7 +27,14 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::Reflect) -> #FQResult<Self, #bevy_reflect_path::FromReflectError> {
-                #FQResult::Ok(#FQClone::clone(<dyn #FQAny>::downcast_ref::<#type_name #ty_generics>(<dyn #bevy_reflect_path::Reflect>::as_any(reflect)).ok_or(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::Value })?))
+                #FQResult::Ok(#FQClone::clone(
+                    <dyn #FQAny>::downcast_ref::<#type_name #ty_generics>(<dyn #bevy_reflect_path::Reflect>::as_any(reflect))
+                    .ok_or_else(|| #bevy_reflect_path::FromReflectError::InvalidType {
+                        from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
+                        from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
+                        to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                    })?
+                ))
             }
         }
     })
@@ -36,6 +43,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 /// Implements `FromReflect` for the given enum type
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let fqresult = FQResult.into_token_stream();
+    let fqbox = FQBox.into_token_stream();
 
     let type_name = reflect_enum.meta().type_name();
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -53,11 +61,28 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
             fn from_reflect(#ref_value: &dyn #bevy_reflect_path::Reflect) -> #FQResult<Self, #bevy_reflect_path::FromReflectError> {
                 if let #bevy_reflect_path::ReflectRef::Enum(#ref_value) = #bevy_reflect_path::Reflect::reflect_ref(#ref_value) {
                     match #bevy_reflect_path::Enum::variant_name(#ref_value) {
-                        #(#variant_names => #fqresult::Ok(#variant_constructors),)*
-                        name => panic!("variant with name `{}` does not exist on enum `{}`", name, ::core::any::type_name::<Self>()),
+                        #(#variant_names => (|| #fqresult::Ok(#variant_constructors))().map_err(|err| {
+                            #bevy_reflect_path::FromReflectError::VariantError {
+                                from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
+                                from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                                to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                                variant: #variant_names.to_string(),
+                                source: #fqbox::new(err),
+                            }
+                        }),)*
+                        name => #FQResult::Err(#bevy_reflect_path::FromReflectError::MissingVariant {
+                            from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                            to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                            variant: name.to_string(),
+                        }),
                     }
                 } else {
-                    #FQResult::Err(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(#ref_value), to_type: #bevy_reflect_path::ReflectType::Enum })
+                    #FQResult::Err(#bevy_reflect_path::FromReflectError::InvalidType {
+                        from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
+                        from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                        to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                    })
                 }
             }
         }
@@ -92,11 +117,11 @@ fn impl_struct_internal(reflect_struct: &ReflectStruct, is_tuple: bool) -> Token
     let MemberValuePair(active_members, active_values) =
         get_active_fields(reflect_struct, &ref_struct, &ref_struct_type, is_tuple);
 
-    let error = if is_tuple {
-        quote!(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::TupleStruct })
-    } else {
-        quote!(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::Struct })
-    };
+    let error = quote!(#bevy_reflect_path::FromReflectError::InvalidType {
+        from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
+        from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
+        to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+    });
 
     let constructor = if reflect_struct.meta().traits().contains(REFLECT_DEFAULT) {
         quote!(
@@ -185,12 +210,6 @@ fn get_active_fields(
 ) -> MemberValuePair {
     let bevy_reflect_path = reflect_struct.meta().bevy_reflect_path();
 
-    let error = if is_tuple {
-        quote!(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::TupleStruct })
-    } else {
-        quote!(#bevy_reflect_path::FromReflectError{ from_type_name: #bevy_reflect_path::Reflect::type_name(reflect), to_type: #bevy_reflect_path::ReflectType::Struct })
-    };
-
     MemberValuePair::new(
         reflect_struct
             .active_fields()
@@ -199,15 +218,49 @@ fn get_active_fields(
                 let accessor = get_field_accessor(field.data, field.index, is_tuple);
                 let ty = field.data.ty.clone();
 
+                let missing_error = if is_tuple {
+                    quote!(|| #bevy_reflect_path::FromReflectError::MissingIndex {
+                        from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
+                        from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
+                        to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                        index: #accessor,
+                    })
+                } else {
+                    quote!(|| #bevy_reflect_path::FromReflectError::MissingField {
+                        from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
+                        from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
+                        to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                        field: #accessor,
+                    })
+                };
+
                 let get_field = quote! {
-                    #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor)
+                    #bevy_reflect_path::#struct_type::field(#dyn_struct_name, #accessor).ok_or_else(#missing_error)
+                };
+
+                let error = if is_tuple {
+                    quote!(|err| #bevy_reflect_path::FromReflectError::IndexError {
+                        from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
+                        from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
+                        to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                        index: #accessor,
+                        source: #FQBox::new(err),
+                    })
+                } else {
+                    quote!(|err| #bevy_reflect_path::FromReflectError::FieldError {
+                        from_type: #bevy_reflect_path::Reflect::get_type_info(reflect),
+                        from_kind: #bevy_reflect_path::Reflect::reflect_kind(reflect),
+                        to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                        field: #accessor,
+                        source: #FQBox::new(err),
+                    })
                 };
 
                 let value = match &field.attrs.default {
                     DefaultBehavior::Func(path) => quote! {
                         (||
-                            if let #FQOption::Some(field) = #get_field {
-                                <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                            if let #FQResult::OK(field) = #get_field {
+                                <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field).map_err(#error)
                             } else {
                                 #FQResult::Ok(#path())
                             }
@@ -215,15 +268,15 @@ fn get_active_fields(
                     },
                     DefaultBehavior::Default => quote! {
                         (||
-                            if let #FQOption::Some(field) = #get_field {
-                                <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field)
+                            if let #FQResult::Ok(field) = #get_field {
+                                <#ty as #bevy_reflect_path::FromReflect>::from_reflect(field).map_err(#error)
                             } else {
                                 #FQResult::Ok(#FQDefault::default())
                             }
                         )
                     },
                     DefaultBehavior::Required => quote! {
-                        (|| <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field.ok_or(#error)?))
+                        (|| <#ty as #bevy_reflect_path::FromReflect>::from_reflect(#get_field?).map_err(#error))
                     },
                 };
 

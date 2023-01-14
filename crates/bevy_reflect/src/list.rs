@@ -3,8 +3,8 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
-    ReflectRef, TypeInfo, Typed,
+    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectKind, ReflectMut,
+    ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
@@ -243,6 +243,11 @@ impl Reflect for DynamicList {
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>> {
         *self = value.take()?;
         Ok(())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
     }
 
     #[inline]

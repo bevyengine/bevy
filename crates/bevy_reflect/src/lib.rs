@@ -64,6 +64,176 @@ pub use type_uuid::*;
 pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
+use thiserror::Error;
+
+/// An Error for failed conversion of reflected type to original type in [`FromReflect::from_reflect`].
+///
+/// Within variants `FieldError`, `IndexError`, `VariantError`, `KeyError` and `ValueError`;
+/// [`Error::source`](std::error::Error::source) must be used to trace the underlying error.
+#[derive(Error, Debug)]
+pub enum FromReflectError {
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` of kind {} due to mismatched types or kinds", 
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), self.display_to_kind())]
+    InvalidType {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to source type having length of {} and target type having length of {}",
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .from_len, .to_len)]
+    InvalidSize {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        from_len: usize,
+        to_len: usize,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing field `{}`", 
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .field)]
+    MissingField {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        field: &'static str,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing value at index {}",
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
+    MissingIndex {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        index: usize,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to a missing variant `{}`",
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .variant)]
+    MissingVariant {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        variant: String,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the field `{}`", 
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .field)]
+    FieldError {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        field: &'static str,
+        source: Box<FromReflectError>,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the value at index `{}`",
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .index)]
+    IndexError {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        index: usize,
+        source: Box<FromReflectError>,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the variant `{}`", 
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .variant)]
+    VariantError {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        variant: String,
+        source: Box<FromReflectError>,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in a key of the Map",
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name())]
+    KeyError {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        source: Box<FromReflectError>,
+    },
+    #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in a value of the Map",
+            .from_type.type_name(), self.display_from_kind(), .to_type.type_name())]
+    ValueError {
+        from_type: &'static TypeInfo,
+        from_kind: ReflectKind,
+        to_type: &'static TypeInfo,
+        source: Box<FromReflectError>,
+    },
+}
+
+impl FromReflectError {
+    /// Returns the [`TypeInfo`] of the source type
+    pub fn from_type(&self) -> &'static TypeInfo {
+        match self {
+            Self::InvalidType { from_type, .. }
+            | Self::InvalidSize { from_type, .. }
+            | Self::MissingField { from_type, .. }
+            | Self::MissingIndex { from_type, .. }
+            | Self::MissingVariant { from_type, .. }
+            | Self::FieldError { from_type, .. }
+            | Self::IndexError { from_type, .. }
+            | Self::VariantError { from_type, .. }
+            | Self::KeyError { from_type, .. }
+            | Self::ValueError { from_type, .. } => from_type,
+        }
+    }
+
+    /// Returns the [`TypeInfo`] of the target type
+    pub fn to_type(&self) -> &'static TypeInfo {
+        match self {
+            Self::InvalidType { to_type, .. }
+            | Self::InvalidSize { to_type, .. }
+            | Self::MissingField { to_type, .. }
+            | Self::MissingIndex { to_type, .. }
+            | Self::MissingVariant { to_type, .. }
+            | Self::FieldError { to_type, .. }
+            | Self::IndexError { to_type, .. }
+            | Self::VariantError { to_type, .. }
+            | Self::KeyError { to_type, .. }
+            | Self::ValueError { to_type, .. } => to_type,
+        }
+    }
+
+    /// Returns the [`ReflectKind`] of the source type
+    pub fn from_kind(&self) -> ReflectKind {
+        *match self {
+            Self::InvalidType { from_kind, .. }
+            | Self::InvalidSize { from_kind, .. }
+            | Self::MissingField { from_kind, .. }
+            | Self::MissingIndex { from_kind, .. }
+            | Self::MissingVariant { from_kind, .. }
+            | Self::FieldError { from_kind, .. }
+            | Self::IndexError { from_kind, .. }
+            | Self::VariantError { from_kind, .. }
+            | Self::KeyError { from_kind, .. }
+            | Self::ValueError { from_kind, .. } => from_kind,
+        }
+    }
+
+    /// Returns the "kind" of source type for display purposes
+    fn display_from_kind(&self) -> String {
+        let prefix = if let TypeInfo::Dynamic(_) = self.from_type() {
+            "(Dynamic)"
+        } else {
+            ""
+        };
+
+        format!("{}{:?}", prefix, self.from_kind())
+    }
+
+    /// Returns the "kind" of target type for display purposes
+    fn display_to_kind(&self) -> String {
+        match self.to_type() {
+            TypeInfo::Struct(_) => "Struct",
+            TypeInfo::TupleStruct(_) => "TupleStruct",
+            TypeInfo::Tuple(_) => "Tuple",
+            TypeInfo::List(_) => "List",
+            TypeInfo::Array(_) => "Array",
+            TypeInfo::Map(_) => "Map",
+            TypeInfo::Enum(_) => "Enum",
+            TypeInfo::Value(_) => "Value",
+            TypeInfo::Dynamic(_) => "Dynamic",
+        }
+        .to_string()
+    }
+}
+
 #[doc(hidden)]
 pub mod __macro_exports {
     use crate::Uuid;

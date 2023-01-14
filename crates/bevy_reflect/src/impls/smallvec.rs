@@ -4,7 +4,7 @@ use std::any::Any;
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     Array, ArrayIter, FromReflect, FromReflectError, FromType, GetTypeRegistration, List, ListInfo,
-    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, ReflectType, TypeInfo,
+    Reflect, ReflectFromPtr, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo,
     TypeRegistration, Typed,
 };
 
@@ -112,6 +112,10 @@ where
         Ok(())
     }
 
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::List
+    }
+
     fn reflect_ref(&self) -> ReflectRef {
         ReflectRef::List(self)
     }
@@ -155,9 +159,10 @@ where
             }
             Ok(new_list)
         } else {
-            Err(FromReflectError {
-                from_type_name: reflect.type_name(),
-                to_type: ReflectType::List,
+            Err(FromReflectError::InvalidType {
+                from_type: reflect.get_type_info(),
+                from_kind: reflect.reflect_kind(),
+                to_type: Self::type_info(),
             })
         }
     }

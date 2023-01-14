@@ -1,4 +1,4 @@
-use crate::fq_std::FQDefault;
+use crate::fq_std::{FQBox, FQDefault};
 use crate::{
     derive_data::{EnumVariantFields, ReflectEnum},
     utility::ident_or_index,
@@ -53,18 +53,62 @@ pub(crate) fn get_variant_constructors(
                     );
                     quote!(.expect(#type_err_message))
                 } else {
-                    quote!(?)
+                    match &field.data.ident {
+                        Some(ident) => {
+                            let name = ident.to_string();
+                            quote!(.map_err(|err| #bevy_reflect_path::FromReflectError::FieldError {
+                                from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
+                                from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                                to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                                field: #name,
+                                source: #FQBox::new(err),
+                            })?)
+                        },
+                        None => quote!(.map_err(|err| #bevy_reflect_path::FromReflectError::IndexError {
+                            from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
+                            from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                            to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                            index: #reflect_index,
+                            source: #FQBox::new(err),
+                        })?)
+                    }
                 };
                 let field_accessor = match &field.data.ident {
                     Some(ident) => {
                         let name = ident.to_string();
-                        quote!(.field(#name))
+                        if can_panic {
+                            quote!(.field(#name))
+                        } else {
+                            quote!(.field(#name)
+                                   .ok_or_else(|| #bevy_reflect_path::FromReflectError::MissingField {
+                                       from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
+                                       from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                                       to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                                       field: #name,
+                                   })
+                            )
+                        }
                     }
-                    None => quote!(.field_at(#reflect_index)),
+                    None => if can_panic {
+                        quote!(.field_at(#reflect_index))
+                    } else {
+                        quote!(.field_at(#reflect_index)
+                               .ok_or_else(|| #bevy_reflect_path::FromReflectError::MissingIndex {
+                                   from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
+                                   from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
+                                   to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
+                                   index: #reflect_index,
+                               })
+                        )
+                    }
                 };
                 reflect_index += 1;
                 let missing_field_err_message = format!("the field {error_repr} was not declared");
-                let accessor = quote!(#field_accessor .expect(#missing_field_err_message));
+                let accessor = if can_panic {
+                    quote!(#field_accessor .expect(#missing_field_err_message))
+                } else {
+                    quote!(#field_accessor?)
+                };
                 quote! {
                     #bevy_reflect_path::FromReflect::from_reflect(#ref_value #accessor)
                     #unwrapper

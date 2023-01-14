@@ -1,6 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed, UnnamedField,
+    DynamicInfo, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+    UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -325,6 +326,11 @@ impl Reflect for DynamicTupleStruct {
     #[inline]
     fn clone_value(&self) -> Box<dyn Reflect> {
         Box::new(self.clone_dynamic())
+    }
+
+    #[inline]
+    fn reflect_kind(&self) -> ReflectKind {
+        ReflectKind::TupleStruct
     }
 
     #[inline]

@@ -1,5 +1,4 @@
-use crate::{FromType, Reflect};
-use thiserror::Error;
+use crate::{FromReflectError, FromType, Reflect};
 
 /// A trait for types which can be constructed from a reflected type.
 ///
@@ -14,28 +13,6 @@ use thiserror::Error;
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &dyn Reflect) -> Result<Self, FromReflectError>;
-}
-
-/// An enum representing all the kinds of types that a value implementing [`Reflect`] could be.
-/// This enum is primarily used in [`FromReflectError`].
-#[derive(Debug)]
-pub enum ReflectType {
-    Struct,
-    TupleStruct,
-    Tuple,
-    List,
-    Array,
-    Map,
-    Enum,
-    Value,
-}
-
-/// An Error for failed conversion of reflected type to original type in [`FromReflect::from_reflect`].
-#[derive(Error, Debug)]
-#[error("The reflected type of `{}` cannot be converted to {:?}", .from_type_name, .to_type)]
-pub struct FromReflectError<'a> {
-    pub from_type_name: &'a str,
-    pub to_type: ReflectType,
 }
 
 /// Type data that represents the [`FromReflect`] trait and allows it to be used dynamically.

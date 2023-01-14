@@ -11,6 +11,22 @@ use std::{
 use crate::utility::NonGenericTypeInfoCell;
 pub use bevy_utils::AHasher as ReflectHasher;
 
+/// A simple enumeration of "kinds" of type, without any associated object.
+///
+/// A `ReflectKind` is obtained via [`Reflect::reflect_kind`].
+#[derive(Copy, Clone, Debug)]
+pub enum ReflectKind {
+    Struct,
+    TupleStruct,
+    Tuple,
+    List,
+    Array,
+    Map,
+    Enum,
+    Value,
+    Dynamic,
+}
+
 /// An immutable enumeration of "kinds" of reflected type.
 ///
 /// Each variant contains a trait object with methods specific to a kind of
@@ -149,7 +165,12 @@ pub trait Reflect: Any + Send + Sync {
     /// containing the trait object.
     fn set(&mut self, value: Box<dyn Reflect>) -> Result<(), Box<dyn Reflect>>;
 
-    /// Returns an enumeration of "kinds" of type.
+    /// Returns a simple enumeration of "kinds" of type, without any associated object.
+    ///
+    /// See [`ReflectKind`].
+    fn reflect_kind(&self) -> ReflectKind;
+
+    /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
     fn reflect_ref(&self) -> ReflectRef;

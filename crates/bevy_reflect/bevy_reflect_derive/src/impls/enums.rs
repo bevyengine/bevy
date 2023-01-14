@@ -262,6 +262,10 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                 }
             }
 
+            fn reflect_kind(&self) -> #bevy_reflect_path::ReflectKind {
+                #bevy_reflect_path::ReflectKind::Enum
+            }
+
             fn reflect_ref(&self) -> #bevy_reflect_path::ReflectRef {
                 #bevy_reflect_path::ReflectRef::Enum(self)
             }
