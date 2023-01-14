@@ -2,18 +2,24 @@ use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
+    prelude::Bundle,
     query::{Changed, Or, With},
     schedule::IntoSystemDescriptor,
     system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
-use bevy_render::{camera::CameraUpdateSystem, texture::Image};
+use bevy_render::{
+    camera::CameraUpdateSystem,
+    texture::Image,
+    view::{ComputedVisibility, Visibility},
+};
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextAlignment, TextError, TextLayoutInfo,
+    TextPipeline, TextSection, TextSettings, TextStyle, YAxisOrientation,
 };
-use bevy_ui::{CalculatedSize, Size, Style, UiScale, UiSystem, Val};
+use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_ui::{CalculatedSize, FocusPolicy, Node, Size, Style, UiScale, UiSystem, Val, ZIndex};
 use bevy_window::{ModifiesWindows, Windows};
 
 #[derive(Debug, Default)]
@@ -180,5 +186,70 @@ impl Plugin for TextPlugin {
                 // they will never observe each other's effects.
                 .ambiguous_with(bevy_text::update_text2d_layout),
         );
+    }
+}
+
+/// A UI node that is text
+#[derive(Bundle, Clone, Debug, Default)]
+pub struct TextBundle {
+    /// Describes the size of the node
+    pub node: Node,
+    /// Describes the style including flexbox settings
+    pub style: Style,
+    /// Contains the text of the node
+    pub text: Text,
+    /// The calculated size based on the given image
+    pub calculated_size: CalculatedSize,
+    /// Whether this node should block interaction with lower nodes
+    pub focus_policy: FocusPolicy,
+    /// The transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub transform: Transform,
+    /// The global transform of the node
+    ///
+    /// This field is automatically managed by the UI layout system.
+    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    pub global_transform: GlobalTransform,
+    /// Describes the visibility properties of the node
+    pub visibility: Visibility,
+    /// Algorithmically-computed indication of whether an entity is visible and should be extracted for rendering
+    pub computed_visibility: ComputedVisibility,
+    /// Indicates the depth at which the node should appear in the UI
+    pub z_index: ZIndex,
+}
+
+impl TextBundle {
+    /// Create a [`TextBundle`] from a single section.
+    ///
+    /// See [`Text::from_section`] for usage.
+    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
+        Self {
+            text: Text::from_section(value, style),
+            ..Default::default()
+        }
+    }
+
+    /// Create a [`TextBundle`] from a list of sections.
+    ///
+    /// See [`Text::from_sections`] for usage.
+    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
+        Self {
+            text: Text::from_sections(sections),
+            ..Default::default()
+        }
+    }
+
+    /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
+    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
+        self.text.alignment = alignment;
+        self
+    }
+
+    /// Returns this [`TextBundle`] with a new [`Style`].
+    pub const fn with_style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
     }
 }
