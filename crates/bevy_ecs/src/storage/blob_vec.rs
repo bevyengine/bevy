@@ -169,10 +169,10 @@ impl BlobVec {
 
             // Transfer ownership of the old value out of the vector, so it can be dropped.
             // SAFETY:
-            // * The caller ensures that `index` fits in this vector.
-            // * The storage location will get overwritten with `value` later, which ensures
+            // - The caller ensures that `index` fits in this vector.
+            // - The storage location will get overwritten with `value` later, which ensures
             //   that the element will not get observed or double dropped later.
-            // * If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
+            // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
             //   does not occur. Instead, all elements will be forgotten.
             let old_value = self.get_ptr_mut().byte_add(index * size).promote();
             dst = old_value.as_ptr();
