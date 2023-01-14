@@ -10,7 +10,7 @@ fn view_z_to_z_slice(view_z: f32, is_orthographic: bool) -> u32 {
         // NOTE: had to use -view_z to make it positive else log(negative) is nan
         z_slice = u32(log(-view_z) * lights.cluster_factors.z - lights.cluster_factors.w + 1.0);
     }
-    // NOTE: We use min as we may limit the far z plane used for clustering to be closeer than
+    // NOTE: We use min as we may limit the far z plane used for clustering to be closer than
     // the furthest thing being drawn. This means that we need to limit to the maximum cluster.
     return min(z_slice, lights.cluster_dimensions.z - 1u);
 }

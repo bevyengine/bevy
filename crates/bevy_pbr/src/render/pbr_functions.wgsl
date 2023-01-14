@@ -200,10 +200,9 @@ fn pbr(
     // Point lights (direct) 
     for (var i: u32 = offset_and_counts[0]; i < offset_and_counts[0] + offset_and_counts[1]; i = i + 1u) {
         let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
         if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_point_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = point_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
@@ -213,10 +212,9 @@ fn pbr(
     // Spot lights (direct)
     for (var i: u32 = offset_and_counts[0] + offset_and_counts[1]; i < offset_and_counts[0] + offset_and_counts[1] + offset_and_counts[2]; i = i + 1u) {
         let light_id = get_light_id(i);
-        let light = point_lights.data[light_id];
         var shadow: f32 = 1.0;
         if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (point_lights.data[light_id].flags & POINT_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_spot_shadow(light_id, in.world_position, in.world_normal);
         }
         let light_contrib = spot_light(in.world_position.xyz, light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);
@@ -226,10 +224,9 @@ fn pbr(
     // Directional lights (direct)
     let n_directional_lights = lights.n_directional_lights;
     for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
-        let light = lights.directional_lights[i];
         var shadow: f32 = 1.0;
         if ((mesh.flags & MESH_FLAGS_SHADOW_RECEIVER_BIT) != 0u
-                && (light.flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
+                && (lights.directional_lights[i].flags & DIRECTIONAL_LIGHT_FLAGS_SHADOWS_ENABLED_BIT) != 0u) {
             shadow = fetch_directional_shadow(i, in.world_position, in.world_normal);
         }
         let light_contrib = directional_light(light, roughness, NdotV, in.N, in.V, R, F0, f_ab, diffuse_color);

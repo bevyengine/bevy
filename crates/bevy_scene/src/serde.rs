@@ -1,7 +1,10 @@
 use crate::{DynamicEntity, DynamicScene};
 use anyhow::Result;
 use bevy_reflect::serde::{TypedReflectDeserializer, TypedReflectSerializer};
-use bevy_reflect::{serde::UntypedReflectDeserializer, Reflect, TypeRegistry, TypeRegistryArc};
+use bevy_reflect::{
+    serde::{TypeRegistrationDeserializer, UntypedReflectDeserializer},
+    Reflect, TypeRegistry, TypeRegistryArc,
+};
 use bevy_utils::HashSet;
 use serde::ser::SerializeMap;
 use serde::{
@@ -352,15 +355,16 @@ impl<'a, 'de> Visitor<'de> for ComponentVisitor<'a> {
     {
         let mut added = HashSet::new();
         let mut components = Vec::new();
-        while let Some(key) = map.next_key::<&str>()? {
-            if !added.insert(key) {
-                return Err(Error::custom(format!("duplicate component: `{key}`")));
+        while let Some(registration) =
+            map.next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
+        {
+            if !added.insert(registration.type_id()) {
+                return Err(Error::custom(format_args!(
+                    "duplicate component: `{}`",
+                    registration.type_name()
+                )));
             }
 
-            let registration = self
-                .registry
-                .get_with_name(key)
-                .ok_or_else(|| Error::custom(format!("no registration found for `{key}`")))?;
             components.push(
                 map.next_value_seed(TypedReflectDeserializer::new(registration, self.registry))?,
             );
@@ -394,6 +398,8 @@ mod tests {
     use bevy_reflect::{FromReflect, Reflect, ReflectSerialize};
     use bincode::Options;
     use serde::de::DeserializeSeed;
+    use serde::Serialize;
+    use std::io::BufReader;
 
     #[derive(Component, Reflect, Default)]
     #[reflect(Component)]
@@ -568,6 +574,49 @@ mod tests {
     }
 
     #[test]
+    fn should_roundtrip_messagepack() {
+        let mut world = create_world();
+
+        world.spawn(MyComponent {
+            foo: [1, 2, 3],
+            bar: (1.3, 3.7),
+            baz: MyEnum::Tuple("Hello World!".to_string()),
+        });
+
+        let registry = world.resource::<AppTypeRegistry>();
+
+        let scene = DynamicScene::from_world(&world, registry);
+
+        let scene_serializer = SceneSerializer::new(&scene, &registry.0);
+        let mut buf = Vec::new();
+        let mut ser = rmp_serde::Serializer::new(&mut buf);
+        scene_serializer.serialize(&mut ser).unwrap();
+
+        assert_eq!(
+            vec![
+                145, 129, 0, 145, 129, 217, 37, 98, 101, 118, 121, 95, 115, 99, 101, 110, 101, 58,
+                58, 115, 101, 114, 100, 101, 58, 58, 116, 101, 115, 116, 115, 58, 58, 77, 121, 67,
+                111, 109, 112, 111, 110, 101, 110, 116, 147, 147, 1, 2, 3, 146, 202, 63, 166, 102,
+                102, 202, 64, 108, 204, 205, 129, 165, 84, 117, 112, 108, 101, 172, 72, 101, 108,
+                108, 111, 32, 87, 111, 114, 108, 100, 33
+            ],
+            buf
+        );
+
+        let scene_deserializer = SceneDeserializer {
+            type_registry: &registry.0.read(),
+        };
+        let mut reader = BufReader::new(buf.as_slice());
+
+        let deserialized_scene = scene_deserializer
+            .deserialize(&mut rmp_serde::Deserializer::new(&mut reader))
+            .unwrap();
+
+        assert_eq!(1, deserialized_scene.entities.len());
+        assert_scene_eq(&scene, &deserialized_scene);
+    }
+
+    #[test]
     fn should_roundtrip_bincode() {
         let mut world = create_world();
 
@@ -639,9 +688,7 @@ mod tests {
                     expected
                         .reflect_partial_eq(received.as_ref())
                         .unwrap_or_default(),
-                    "components did not match: (expected: `{:?}`, received: `{:?}`)",
-                    expected,
-                    received
+                    "components did not match: (expected: `{expected:?}`, received: `{received:?}`)",
                 );
             }
         }
