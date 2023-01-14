@@ -228,65 +228,58 @@ impl Dag {
     }
 }
 
-/// Metadata for a [`SystemSet`], stored in a [`ScheduleGraph`].
-struct SystemSetMeta {
-    set: BoxedSystemSet,
+/// A [`SystemSet`] with metadata, stored in a [`ScheduleGraph`].
+struct SystemSetNode {
+    inner: BoxedSystemSet,
     /// `true` if this system set was modified with `configure_set`
     configured: bool,
 }
 
-impl SystemSetMeta {
+impl SystemSetNode {
     pub fn new(set: BoxedSystemSet) -> Self {
         Self {
-            set,
+            inner: set,
             configured: false,
         }
     }
 
     pub fn name(&self) -> String {
-        format!("{:?}", &self.set)
+        format!("{:?}", &self.inner)
     }
 
     pub fn is_system_type(&self) -> bool {
-        self.set.is_system_type()
+        self.inner.is_system_type()
     }
-}
-
-/// Uninitialized systems associated with a graph node, stored in a [`ScheduleGraph`].
-enum UninitNode {
-    System(BoxedSystem, Vec<BoxedCondition>),
-    SystemSet(Vec<BoxedCondition>),
 }
 
 /// Metadata for a [`Schedule`].
 #[derive(Default)]
 struct ScheduleGraph {
+    systems: Vec<Option<BoxedSystem>>,
+    system_conditions: Vec<Option<Vec<BoxedCondition>>>,
+    system_sets: Vec<SystemSetNode>,
+    system_set_conditions: Vec<Option<Vec<BoxedCondition>>>,
     system_set_ids: HashMap<BoxedSystemSet, NodeId>,
-    system_sets: HashMap<NodeId, SystemSetMeta>,
-    systems: HashMap<NodeId, BoxedSystem>,
-    conditions: HashMap<NodeId, Vec<BoxedCondition>>,
-
+    uninit: Vec<(NodeId, usize)>,
     hierarchy: Dag,
     dependency: Dag,
     dependency_flattened: Dag,
-
     ambiguous_with: UnGraphMap<NodeId, ()>,
     ambiguous_with_flattened: UnGraphMap<NodeId, ()>,
     ambiguous_with_all: HashSet<NodeId>,
-
     default_set: Option<BoxedSystemSet>,
-    next_node_id: u64,
     changed: bool,
-    uninit: Vec<(NodeId, UninitNode)>,
 }
 
 impl ScheduleGraph {
     pub fn new() -> Self {
         Self {
+            systems: Vec::new(),
+            system_conditions: Vec::new(),
+            system_sets: Vec::new(),
+            system_set_conditions: Vec::new(),
             system_set_ids: HashMap::new(),
-            system_sets: HashMap::new(),
-            systems: HashMap::new(),
-            conditions: HashMap::new(),
+            uninit: Vec::new(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),
             dependency_flattened: Dag::new(),
@@ -294,16 +287,8 @@ impl ScheduleGraph {
             ambiguous_with_flattened: UnGraphMap::new(),
             ambiguous_with_all: HashSet::new(),
             default_set: None,
-            next_node_id: 0,
             changed: false,
-            uninit: Vec::new(),
         }
-    }
-
-    fn next_id(&mut self) -> u64 {
-        let id = self.next_node_id;
-        self.next_node_id = self.next_node_id.checked_add(1).unwrap();
-        id
     }
 
     fn set_default_set(&mut self, set: impl SystemSet) {
@@ -343,7 +328,7 @@ impl ScheduleGraph {
             conditions,
         } = system.into_config();
 
-        let id = NodeId::System(self.next_id());
+        let id = NodeId::System(self.systems.len());
 
         if graph_info.sets.is_empty() {
             if let Some(default) = self.default_set.as_ref() {
@@ -355,8 +340,9 @@ impl ScheduleGraph {
         self.update_graphs(id, graph_info)?;
 
         // system init has to be deferred (need `&mut World`)
-        self.uninit
-            .push((id, UninitNode::System(system, conditions)));
+        self.uninit.push((id, 0));
+        self.systems.push(Some(system));
+        self.system_conditions.push(Some(conditions));
 
         Ok(id)
     }
@@ -387,7 +373,7 @@ impl ScheduleGraph {
         let SystemSetConfig {
             set,
             mut graph_info,
-            conditions,
+            mut conditions,
         } = set.into_config();
 
         let id = match self.system_set_ids.get(&set) {
@@ -395,12 +381,10 @@ impl ScheduleGraph {
             None => self.add_set(set.dyn_clone()),
         };
 
-        let already_configured = self
-            .system_sets
-            .get_mut(&id)
-            .map_or(false, |meta| std::mem::replace(&mut meta.configured, true));
+        let meta = &mut self.system_sets[id.index()];
+        let already_configured = std::mem::replace(&mut meta.configured, true);
 
-        // system set can be configured multiple times, so this "default check"
+        // a system set can be configured multiple times, so this "default check"
         // should only happen the first time `configure_set` is called on it
         if !already_configured && graph_info.sets.is_empty() {
             if let Some(default) = self.default_set.as_ref() {
@@ -413,15 +397,19 @@ impl ScheduleGraph {
         self.update_graphs(id, graph_info)?;
 
         // system init has to be deferred (need `&mut World`)
-        self.uninit.push((id, UninitNode::SystemSet(conditions)));
+        let system_set_conditions =
+            self.system_set_conditions[id.index()].get_or_insert_with(Vec::new);
+        self.uninit.push((id, system_set_conditions.len()));
+        system_set_conditions.append(&mut conditions);
 
         Ok(id)
     }
 
     fn add_set(&mut self, set: BoxedSystemSet) -> NodeId {
-        let id = NodeId::Set(self.next_id());
-        self.system_set_ids.insert(set.dyn_clone(), id);
-        self.system_sets.insert(id, SystemSetMeta::new(set));
+        let id = NodeId::Set(self.system_sets.len());
+        self.system_sets.push(SystemSetNode::new(set.dyn_clone()));
+        self.system_set_conditions.push(None);
+        self.system_set_ids.insert(set, id);
         id
     }
 
@@ -520,26 +508,22 @@ impl ScheduleGraph {
     }
 
     fn initialize(&mut self, world: &mut World) {
-        for (id, uninit) in self.uninit.drain(..) {
-            match uninit {
-                UninitNode::System(mut system, mut conditions) => {
-                    debug_assert!(id.is_system());
-                    system.initialize(world);
-                    self.systems.insert(id, system);
-                    for condition in &mut conditions {
-                        condition.initialize(world);
-                    }
-                    self.conditions.insert(id, conditions);
+        for (id, i) in self.uninit.drain(..) {
+            match id {
+                NodeId::System(index) => {
+                    self.systems[index].as_mut().unwrap().initialize(world);
+                    self.system_conditions[index].as_mut().map(|v| {
+                        for condition in v.iter_mut() {
+                            condition.initialize(world);
+                        }
+                    });
                 }
-                UninitNode::SystemSet(mut conditions) => {
-                    debug_assert!(id.is_set());
-                    for condition in &mut conditions {
-                        condition.initialize(world);
-                    }
-                    self.conditions
-                        .entry(id)
-                        .or_insert_with(Vec::new)
-                        .append(&mut conditions);
+                NodeId::Set(index) => {
+                    self.system_set_conditions[index].as_mut().map(|v| {
+                        for condition in v.iter_mut().skip(i) {
+                            condition.initialize(world);
+                        }
+                    });
                 }
             }
         }
@@ -582,7 +566,7 @@ impl ScheduleGraph {
         }
 
         // map system sets to all their member systems
-        let mut systems = HashMap::with_capacity(self.system_sets.len());
+        let mut systems_in_sets = HashMap::with_capacity(self.system_sets.len());
         // iterate in reverse topological order (bottom-up)
         for &id in self.hierarchy.topsort.iter().rev() {
             if id.is_system() {
@@ -590,7 +574,7 @@ impl ScheduleGraph {
             }
 
             let set = id;
-            systems.insert(set, Vec::new());
+            systems_in_sets.insert(set, Vec::new());
 
             for child in self
                 .hierarchy
@@ -599,10 +583,11 @@ impl ScheduleGraph {
             {
                 match child {
                     NodeId::System(_) => {
-                        systems.get_mut(&set).unwrap().push(child);
+                        systems_in_sets.get_mut(&set).unwrap().push(child);
                     }
                     NodeId::Set(_) => {
-                        let [sys, child_sys] = systems.get_many_mut([&set, &child]).unwrap();
+                        let [sys, child_sys] =
+                            systems_in_sets.get_many_mut([&set, &child]).unwrap();
                         sys.extend_from_slice(child_sys);
                     }
                 }
@@ -610,8 +595,9 @@ impl ScheduleGraph {
         }
 
         // can't depend on or be ambiguous with system type sets that have many instances
-        for (&set, systems) in systems.iter() {
-            if self.system_sets[&set].is_system_type() {
+        for (&set, systems) in systems_in_sets.iter() {
+            let node = &self.system_sets[set.index()];
+            if node.is_system_type() {
                 let ambiguities = self.ambiguous_with.edges(set).count();
                 let mut dependencies = 0;
                 dependencies += self
@@ -625,8 +611,7 @@ impl ScheduleGraph {
                     .edges_directed(set, Direction::Outgoing)
                     .count();
                 if systems.len() > 1 && (ambiguities > 0 || dependencies > 0) {
-                    let type_set = self.system_sets[&set].set.dyn_clone();
-                    return Err(BuildError::SystemTypeSetAmbiguity(type_set));
+                    return Err(BuildError::SystemTypeSetAmbiguity(node.inner.dyn_clone()));
                 }
             }
         }
@@ -644,18 +629,18 @@ impl ScheduleGraph {
                     dependency_flattened.add_edge(lhs, rhs, ());
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in &systems[&lhs] {
+                    for &lhs_ in &systems_in_sets[&lhs] {
                         dependency_flattened.add_edge(lhs_, rhs, ());
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in &systems[&rhs] {
+                    for &rhs_ in &systems_in_sets[&rhs] {
                         dependency_flattened.add_edge(lhs, rhs_, ());
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in &systems[&lhs] {
-                        for &rhs_ in &systems[&rhs] {
+                    for &lhs_ in &systems_in_sets[&lhs] {
+                        for &rhs_ in &systems_in_sets[&rhs] {
                             dependency_flattened.add_edge(lhs_, rhs_, ());
                         }
                     }
@@ -687,18 +672,18 @@ impl ScheduleGraph {
                     ambiguous_with_flattened.add_edge(lhs, rhs, ());
                 }
                 (NodeId::Set(_), NodeId::System(_)) => {
-                    for &lhs_ in &systems[&lhs] {
+                    for &lhs_ in &systems_in_sets[&lhs] {
                         ambiguous_with_flattened.add_edge(lhs_, rhs, ());
                     }
                 }
                 (NodeId::System(_), NodeId::Set(_)) => {
-                    for &rhs_ in &systems[&rhs] {
+                    for &rhs_ in &systems_in_sets[&rhs] {
                         ambiguous_with_flattened.add_edge(lhs, rhs_, ());
                     }
                 }
                 (NodeId::Set(_), NodeId::Set(_)) => {
-                    for &lhs_ in &systems[&lhs] {
-                        for &rhs_ in &systems[&rhs] {
+                    for &lhs_ in &systems_in_sets[&lhs] {
+                        for &rhs_ in &systems_in_sets[&rhs] {
                             ambiguous_with_flattened.add_edge(lhs_, rhs_, ());
                         }
                     }
@@ -718,8 +703,8 @@ impl ScheduleGraph {
                 continue;
             }
 
-            let system_a = self.systems.get(&a).unwrap();
-            let system_b = self.systems.get(&b).unwrap();
+            let system_a = self.systems[a.index()].as_ref().unwrap();
+            let system_b = self.systems[b.index()].as_ref().unwrap();
             if system_a.is_exclusive() || system_b.is_exclusive() {
                 conflicting_systems.push((a, b, Vec::new()));
             } else {
@@ -764,7 +749,11 @@ impl ScheduleGraph {
             .filter(|&(_i, id)| {
                 // ignore system sets that have no conditions
                 // ignore system type sets (already covered, they don't have conditions)
-                id.is_set() && self.conditions.get(&id).filter(|v| !v.is_empty()).is_some()
+                id.is_set()
+                    && self.system_set_conditions[id.index()]
+                        .as_ref()
+                        .filter(|v| !v.is_empty())
+                        .is_some()
             })
             .unzip();
 
@@ -845,8 +834,8 @@ impl ScheduleGraph {
             .zip(schedule.systems.drain(..))
             .zip(schedule.system_conditions.drain(..))
         {
-            self.systems.insert(id, system.into_inner());
-            self.conditions.insert(id, conditions.into_inner());
+            self.systems[id.index()] = Some(system.into_inner());
+            self.system_conditions[id.index()] = Some(conditions.into_inner());
         }
 
         for (id, conditions) in schedule
@@ -854,21 +843,21 @@ impl ScheduleGraph {
             .drain(..)
             .zip(schedule.set_conditions.drain(..))
         {
-            self.conditions.insert(id, conditions.into_inner());
+            self.system_set_conditions[id.index()] = Some(conditions.into_inner());
         }
 
         *schedule = self.build_schedule()?;
 
         // move systems into new schedule
         for &id in &schedule.system_ids {
-            let system = self.systems.remove(&id).unwrap();
-            let conditions = self.conditions.remove(&id).unwrap();
+            let system = self.systems[id.index()].take().unwrap();
+            let conditions = self.system_conditions[id.index()].take().unwrap();
             schedule.systems.push(RefCell::new(system));
             schedule.system_conditions.push(RefCell::new(conditions));
         }
 
         for &id in &schedule.set_ids {
-            let conditions = self.conditions.remove(&id).unwrap();
+            let conditions = self.system_set_conditions[id.index()].take().unwrap();
             schedule.set_conditions.push(RefCell::new(conditions));
         }
 
@@ -880,8 +869,12 @@ impl ScheduleGraph {
 impl ScheduleGraph {
     fn get_node_name(&self, id: &NodeId) -> String {
         match id {
-            NodeId::System(_) => self.systems[id].name().to_string(),
-            NodeId::Set(_) => self.system_sets[id].name(),
+            NodeId::System(_) => self.systems[id.index()]
+                .as_ref()
+                .unwrap()
+                .name()
+                .to_string(),
+            NodeId::Set(_) => self.system_sets[id.index()].name(),
         }
     }
 

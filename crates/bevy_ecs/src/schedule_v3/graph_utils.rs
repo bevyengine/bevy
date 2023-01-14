@@ -11,11 +11,19 @@ use crate::schedule_v3::set::*;
 /// Unique identifier for a system or system set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) enum NodeId {
-    System(u64),
-    Set(u64),
+    System(usize),
+    Set(usize),
 }
 
 impl NodeId {
+    /// Returns the internal integer value.
+    pub fn index(&self) -> usize {
+        match self {
+            NodeId::System(index) => *index,
+            NodeId::Set(index) => *index,
+        }
+    }
+
     /// Returns `true` if the identified node is a system.
     pub const fn is_system(&self) -> bool {
         matches!(self, NodeId::System(_))
