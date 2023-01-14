@@ -10,7 +10,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_math::{Vec2, Vec3};
-use bevy_reflect::{PartialReflect, Reflect};
+use bevy_reflect::Reflect;
 use bevy_render::{
     prelude::Color,
     texture::Image,

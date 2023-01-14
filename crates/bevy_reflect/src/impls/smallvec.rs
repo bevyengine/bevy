@@ -75,7 +75,8 @@ where
     }
 
     fn pop(&mut self) -> Option<Box<dyn PartialReflect>> {
-        self.pop().map(|value| Box::new(value) as Box<dyn PartialReflect>)
+        self.pop()
+            .map(|value| Box::new(value) as Box<dyn PartialReflect>)
     }
 }
 

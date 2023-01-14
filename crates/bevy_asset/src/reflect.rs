@@ -43,7 +43,11 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::get`]
-    pub fn get<'w>(&self, world: &'w World, handle: HandleUntyped) -> Option<&'w dyn PartialReflect> {
+    pub fn get<'w>(
+        &self,
+        world: &'w World,
+        handle: HandleUntyped,
+    ) -> Option<&'w dyn PartialReflect> {
         (self.get)(world, handle)
     }
 
@@ -108,7 +112,11 @@ impl ReflectAsset {
     }
 
     /// Equivalent of [`Assets::remove`]
-    pub fn remove(&self, world: &mut World, handle: HandleUntyped) -> Option<Box<dyn PartialReflect>> {
+    pub fn remove(
+        &self,
+        world: &mut World,
+        handle: HandleUntyped,
+    ) -> Option<Box<dyn PartialReflect>> {
         (self.remove)(world, handle)
     }
 
@@ -250,7 +258,7 @@ mod tests {
     use std::any::TypeId;
 
     use bevy_app::{App, AppTypeRegistry};
-    use bevy_reflect::{FromReflect, PartialReflect, ReflectMut, TypeUuid, Reflect};
+    use bevy_reflect::{FromReflect, Reflect, ReflectMut, TypeUuid};
 
     use crate::{AddAsset, AssetPlugin, HandleUntyped, ReflectAsset};
 

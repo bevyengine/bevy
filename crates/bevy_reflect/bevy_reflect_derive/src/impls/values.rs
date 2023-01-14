@@ -44,7 +44,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 
     TokenStream::from(quote! {
         #impl_full_reflect
-        
+
         #get_type_registration_impl
 
         #typed_impl

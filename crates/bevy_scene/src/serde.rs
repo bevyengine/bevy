@@ -395,7 +395,7 @@ mod tests {
     use bevy_app::AppTypeRegistry;
     use bevy_ecs::entity::EntityMap;
     use bevy_ecs::prelude::{Component, ReflectComponent, World};
-    use bevy_reflect::{FromReflect, PartialReflect, ReflectSerialize, Reflect};
+    use bevy_reflect::{FromReflect, Reflect, ReflectSerialize};
     use bincode::Options;
     use serde::de::DeserializeSeed;
     use serde::Serialize;

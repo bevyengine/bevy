@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use bevy_ecs::entity::Entity;
 use bevy_math::{IVec2, Vec2};
-use bevy_reflect::{FromReflect, PartialReflect, Reflect};
+use bevy_reflect::{FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};

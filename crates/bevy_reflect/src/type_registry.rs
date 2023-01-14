@@ -534,12 +534,11 @@ impl<T: PartialReflect> FromType<T> for ReflectFromPtr {
 
 #[cfg(test)]
 mod test {
-    use crate::{GetTypeRegistration, ReflectFromPtr, TypeRegistration, Reflect};
+    use crate::{GetTypeRegistration, Reflect, ReflectFromPtr, TypeRegistration};
     use bevy_ptr::{Ptr, PtrMut};
     use bevy_utils::HashMap;
 
     use crate as bevy_reflect;
-    use crate::PartialReflect;
 
     #[test]
     fn test_reflect_from_ptr() {

@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
-    ValueInfo, GetTypeRegistration,
+    tuple_struct_debug, Array, Enum, GetTypeRegistration, List, Map, Struct, Tuple, TupleStruct,
+    TypeInfo, Typed, ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -233,7 +233,9 @@ impl dyn PartialReflect {
     /// Downcasts the value to type `T`, consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
-    pub fn downcast<T: PartialReflect>(self: Box<dyn PartialReflect>) -> Result<Box<T>, Box<dyn PartialReflect>> {
+    pub fn downcast<T: PartialReflect>(
+        self: Box<dyn PartialReflect>,
+    ) -> Result<Box<T>, Box<dyn PartialReflect>> {
         if self.is::<T>() {
             Ok(self.into_any().downcast().unwrap())
         } else {
@@ -244,7 +246,9 @@ impl dyn PartialReflect {
     /// Downcasts the value to type `T`, unboxing and consuming the trait object.
     ///
     /// If the underlying value is not of type `T`, returns `Err(self)`.
-    pub fn take<T: PartialReflect>(self: Box<dyn PartialReflect>) -> Result<T, Box<dyn PartialReflect>> {
+    pub fn take<T: PartialReflect>(
+        self: Box<dyn PartialReflect>,
+    ) -> Result<T, Box<dyn PartialReflect>> {
         self.downcast::<T>().map(|value| *value)
     }
 

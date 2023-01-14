@@ -1,6 +1,6 @@
 use crate::{
-    Array, Enum, List, Map, PartialReflect, ReflectRef, ReflectSerialize, Struct, Tuple, TupleStruct,
-    TypeInfo, TypeRegistry, VariantInfo, VariantType,
+    Array, Enum, List, Map, PartialReflect, ReflectRef, ReflectSerialize, Struct, Tuple,
+    TupleStruct, TypeInfo, TypeRegistry, VariantInfo, VariantType,
 };
 use serde::ser::{
     Error, SerializeStruct, SerializeStructVariant, SerializeTuple, SerializeTupleStruct,
@@ -464,7 +464,7 @@ impl<'a> Serialize for ArraySerializer<'a> {
 mod tests {
     use crate as bevy_reflect;
     use crate::serde::ReflectSerializer;
-    use crate::{FromReflect, PartialReflect, ReflectSerialize, TypeRegistry};
+    use crate::{FromReflect, ReflectSerialize, TypeRegistry};
     use bevy_reflect_derive::Reflect;
     use bevy_utils::HashMap;
     use ron::extensions::Extensions;

@@ -153,7 +153,7 @@ mod tests {
         component::Component, prelude::Entity, query::With, reflect::ReflectComponent, world::World,
     };
 
-    use bevy_reflect::{PartialReflect, Reflect};
+    use bevy_reflect::Reflect;
 
     use super::DynamicSceneBuilder;
 

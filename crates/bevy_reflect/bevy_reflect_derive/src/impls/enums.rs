@@ -93,7 +93,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
         .get_type_registration(&where_clause_options);
         
     let impl_full_reflect = impl_full_reflect(reflect_enum.meta());
-    
+
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().generics().split_for_impl();
 
@@ -101,7 +101,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
 
     TokenStream::from(quote! {
         #impl_full_reflect
-        
+
         #get_type_registration_impl
 
         #typed_impl

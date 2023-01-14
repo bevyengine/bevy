@@ -24,7 +24,9 @@ pub trait FromReflect: PartialReflect + Sized {
     /// [`from_reflect`]: Self::from_reflect
     /// [`DynamicStruct`]: crate::DynamicStruct
     /// [`DynamicList`]: crate::DynamicList
-    fn take_from_reflect(reflect: Box<dyn PartialReflect>) -> Result<Self, Box<dyn PartialReflect>> {
+    fn take_from_reflect(
+        reflect: Box<dyn PartialReflect>,
+    ) -> Result<Self, Box<dyn PartialReflect>> {
         match reflect.take::<Self>() {
             Ok(value) => Ok(value),
             Err(value) => match Self::from_reflect(value.as_ref()) {
@@ -96,7 +98,10 @@ impl ReflectFromReflect {
     /// This will convert the object to a concrete type if it wasn't already, and return
     /// the value as `Box<dyn PartialReflect>`.
     #[allow(clippy::wrong_self_convention)]
-    pub fn from_reflect(&self, reflect_value: &dyn PartialReflect) -> Option<Box<dyn PartialReflect>> {
+    pub fn from_reflect(
+        &self,
+        reflect_value: &dyn PartialReflect,
+    ) -> Option<Box<dyn PartialReflect>> {
         (self.from_reflect)(reflect_value)
     }
 }
@@ -105,7 +110,8 @@ impl<T: FromReflect> FromType<T> for ReflectFromReflect {
     fn from_type() -> Self {
         Self {
             from_reflect: |reflect_value| {
-                T::from_reflect(reflect_value).map(|value| Box::new(value) as Box<dyn PartialReflect>)
+                T::from_reflect(reflect_value)
+                    .map(|value| Box::new(value) as Box<dyn PartialReflect>)
             },
         }
     }

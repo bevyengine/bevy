@@ -9,7 +9,7 @@ use bevy_app::prelude::*;
 use bevy_asset::{AddAsset, Handle};
 use bevy_ecs::{prelude::Component, reflect::ReflectComponent};
 use bevy_pbr::StandardMaterial;
-use bevy_reflect::{PartialReflect, TypeUuid, Reflect};
+use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::mesh::Mesh;
 use bevy_scene::Scene;
 

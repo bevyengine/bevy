@@ -1,5 +1,5 @@
 use crate::std_traits::ReflectDefault;
-use crate::{self as bevy_reflect, ReflectFromPtr, ReflectOwned, Reflect};
+use crate::{self as bevy_reflect, Reflect, ReflectFromPtr, ReflectOwned};
 use crate::{
     map_apply, map_partial_eq, Array, ArrayInfo, ArrayIter, DynamicEnum, DynamicMap, Enum,
     EnumInfo, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Map, MapInfo, MapIter,
@@ -278,7 +278,10 @@ macro_rules! impl_reflect_for_veclike {
                 crate::list_apply(self, value);
             }
 
-            fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
+            fn set(
+                &mut self,
+                value: Box<dyn PartialReflect>,
+            ) -> Result<(), Box<dyn PartialReflect>> {
                 *self = value.take()?;
                 Ok(())
             }
@@ -434,7 +437,9 @@ impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> Map for Has
     }
 }
 
-impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> PartialReflect for HashMap<K, V> {
+impl<K: Reflect + FromReflect + Eq + Hash, V: Reflect + FromReflect> PartialReflect
+    for HashMap<K, V>
+{
     fn type_name(&self) -> &str {
         std::any::type_name::<Self>()
     }
@@ -1158,8 +1163,8 @@ impl FromReflect for &'static Path {
 mod tests {
     use crate as bevy_reflect;
     use crate::{
-        Enum, FromReflect, PartialReflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed, VariantInfo,
-        VariantType,
+        Enum, FromReflect, PartialReflect, ReflectSerialize, TypeInfo, TypeRegistry, Typed,
+        VariantInfo, VariantType,
     };
     use bevy_reflect_derive::Reflect;
     use bevy_utils::HashMap;
