@@ -138,7 +138,8 @@ impl CachedRenderPipelinePhaseItem for TransparentUi {
 pub type DrawUi = (
     SetItemPipeline,
     SetUiViewBindGroup<0>,
-    SetUiTextureBindGroup<1>,
+    SetUiEntityIndexBindGroup<1>,
+    SetUiTextureBindGroup<2>,
     DrawUiNode,
 );
 
@@ -163,6 +164,34 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiViewBindGroup<I> {
         RenderCommandResult::Success
     }
 }
+
+pub struct SetUiEntityIndexBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiEntityIndexBindGroup<I> {
+    type Param = SRes<UiMeta>;
+    type ViewWorldQuery = ();
+    type ItemWorldQuery = Read<UiBatch>;
+
+    fn render<'w>(
+        _item: &P,
+        _view: (),
+        _ui_batch: &'_ UiBatch,
+        ui_meta: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(
+            I,
+            ui_meta
+                .into_inner()
+                .entity_indices_bind_group
+                .as_ref()
+                .unwrap(),
+            &[],
+        );
+
+        RenderCommandResult::Success
+    }
+}
+
 pub struct SetUiTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetUiTextureBindGroup<I> {
     type Param = SRes<UiImageBindGroups>;

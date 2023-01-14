@@ -7,13 +7,7 @@
 //! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
 //! in multiple batches, reducing performance but useful for testing.
 
-use bevy::{
-    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    prelude::*,
-    render::picking::Picking,
-    utils::HashSet,
-    window::PresentMode,
-};
+use bevy::{prelude::*, render::picking::Picking, window::PresentMode};
 
 use rand::Rng;
 
@@ -101,7 +95,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 // System for rotating and translating the camera
 fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
     let mut camera_transform = camera_query.single_mut();
-    return;
     camera_transform.rotate_z(time.delta_seconds() * 0.5);
     *camera_transform = *camera_transform
         * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
@@ -152,13 +145,8 @@ fn picking(
 
     let Some(e) = picking.get_entity(camera, mouse_position) else { return };
 
-    let Ok((_, mut image_handle)) = sprites.get_mut(e) else { 
-        if e.index() == 1048833 {
-            warn!("It's that one..");
-        } else {
-            error!("Picked entity with no matching sprite: {e:?}");
-        }
-        return
+    let Ok((_, mut image_handle)) = sprites.get_mut(e) else {
+        panic!("Picked entity with no matching sprite: {e:?}");
     };
     info!("Picked: {:?}", e);
 

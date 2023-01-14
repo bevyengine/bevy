@@ -1,7 +1,7 @@
 //! This example illustrates how to override the window scale factor imposed by the
 //! operating system.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::picking::Picking};
 
 fn main() {
     App::new()
@@ -21,7 +21,7 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn((Camera2dBundle::default(), Picking::default()));
     // root node
     commands
         .spawn(NodeBundle {

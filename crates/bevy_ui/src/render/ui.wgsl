@@ -20,10 +20,12 @@ struct VertexOutput {
     @builtin(position) position: vec4<f32>,
     @location(0) uv: vec2<f32>,
     @location(1) color: vec4<f32>,
+    @location(2) vertex_index: u32,
 };
 
 @vertex
 fn vertex(
+    @builtin(vertex_index) vertex_index: u32,
     @location(0) vertex_position: vec3<f32>,
     @location(1) vertex_uv: vec2<f32>,
     @location(2) vertex_color: vec4<f32>,
@@ -32,12 +34,16 @@ fn vertex(
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
     out.uv = vertex_uv;
     out.color = vertex_color;
+    out.vertex_index = u32(vertex_index / 6u);
     return out;
 }
 
 @group(1) @binding(0)
+var<storage, read> entity_indices: array<u32>;
+
+@group(2) @binding(0)
 var sprite_texture: texture_2d<f32>;
-@group(1) @binding(1)
+@group(2) @binding(1)
 var sprite_sampler: sampler;
 
 struct FragmentOutput {
@@ -57,7 +63,7 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     out.color = color;
 
 #ifdef PICKING
-    // out.picking = vec4(entity_index_to_vec3_f32(in.entity_index), picking_alpha(color.a));
+    out.picking = vec4(entity_index_to_vec3_f32(entity_indices[in.vertex_index]), picking_alpha(color.a));
 #endif
 
     return out;

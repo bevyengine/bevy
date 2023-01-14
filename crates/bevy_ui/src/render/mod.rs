@@ -1,7 +1,7 @@
 mod pipeline;
 mod render_pass;
 
-use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
+use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d, picking::EntityIndex};
 use bevy_render::picking::Picking;
 pub use pipeline::*;
 pub use render_pass::*;
@@ -32,7 +32,7 @@ use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
 use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
-use std::{num::NonZeroU64, ops::Range};
+use std::ops::Range;
 
 pub mod node {
     pub const UI_PASS_DRIVER: &str = "ui_pass_driver";
@@ -389,7 +389,11 @@ struct UiVertex {
 #[derive(Resource)]
 pub struct UiMeta {
     vertices: BufferVec<UiVertex>,
+
     view_bind_group: Option<BindGroup>,
+
+    entity_indices: BufferVec<EntityIndex>,
+    entity_indices_bind_group: Option<BindGroup>,
 }
 
 impl Default for UiMeta {
@@ -397,6 +401,8 @@ impl Default for UiMeta {
         Self {
             vertices: BufferVec::new(BufferUsages::VERTEX),
             view_bind_group: None,
+            entity_indices: BufferVec::new(BufferUsages::STORAGE),
+            entity_indices_bind_group: None,
         }
     }
 }
@@ -417,23 +423,24 @@ pub struct UiBatch {
     pub z: f32,
 }
 
-#[derive(Resource, Default)]
-pub struct EntityIndexBindGroups {
-    // Maps a UiBatch's entity to its bind group
-    // which holds entity indices for each uinode in the batch.
-    inner: HashMap<Entity, BindGroup>,
-}
+// #[derive(Resource, Default)]
+// pub struct EntityIndexBindGroups {
+//     // Maps a UiBatch's entity to its bind group
+//     // which holds entity indices for each uinode in the batch.
+//     inner: HashMap<Entity, BindGroup>,
+// }
 
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
-    // ui_pipeline: Res<UiPipeline>,
+    ui_pipeline: Res<UiPipeline>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     // mut entity_index_bind_groups: ResMut<EntityIndexBindGroups>,
 ) {
     ui_meta.vertices.clear();
+    ui_meta.entity_indices.clear();
 
     // sort by ui stack index, starting from the deepest node
     extracted_uinodes
@@ -443,20 +450,16 @@ pub fn prepare_uinodes(
     let mut start = 0;
     let mut end = 0;
     let mut current_batch_handle = Default::default();
-    let mut current_batch_entity = Entity::PLACEHOLDER;
     let mut last_z = 0.0;
-    let mut batch_uniforms = HashMap::new();
 
     for extracted_uinode in &extracted_uinodes.uinodes {
         if current_batch_handle != extracted_uinode.image {
             if start != end {
-                current_batch_entity = commands
-                    .spawn(UiBatch {
-                        range: start..end,
-                        image: current_batch_handle,
-                        z: last_z,
-                    })
-                    .id();
+                commands.spawn(UiBatch {
+                    range: start..end,
+                    image: current_batch_handle,
+                    z: last_z,
+                });
                 start = end;
             }
             current_batch_handle = extracted_uinode.image.clone_weak();
@@ -557,10 +560,9 @@ pub fn prepare_uinodes(
         last_z = extracted_uinode.transform.w_axis[2];
         end += QUAD_INDICES.len() as u32;
 
-        batch_uniforms
-            .entry(current_batch_entity)
-            .or_insert_with(|| BufferVec::<u32>::new(BufferUsages::STORAGE))
-            .push(extracted_uinode.entity.index());
+        ui_meta
+            .entity_indices
+            .push(EntityIndex::new(extracted_uinode.entity));
     }
 
     // if start != end, there is one last batch to process
@@ -595,6 +597,21 @@ pub fn prepare_uinodes(
     // }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
+    ui_meta
+        .entity_indices
+        .write_buffer(&render_device, &render_queue);
+
+    if let Some(buffer) = ui_meta.entity_indices.buffer() {
+        ui_meta.entity_indices_bind_group =
+            Some(render_device.create_bind_group(&BindGroupDescriptor {
+                entries: &[BindGroupEntry {
+                    binding: 0,
+                    resource: buffer.as_entire_binding(),
+                }],
+                label: Some("ui_entity_indices_bind_group"),
+                layout: &ui_pipeline.entity_index_layout,
+            }));
+    }
 }
 
 #[derive(Resource, Default)]

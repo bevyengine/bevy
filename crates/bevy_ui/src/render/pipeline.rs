@@ -1,3 +1,4 @@
+use bevy_core_pipeline::picking::EntityIndexLayout;
 use bevy_ecs::prelude::*;
 use bevy_render::{
     picking::PICKING_TEXTURE_FORMAT,
@@ -11,12 +12,13 @@ use bevy_render::{
 pub struct UiPipeline {
     pub view_layout: BindGroupLayout,
     pub image_layout: BindGroupLayout,
-    // pub batch_layout: BindGroupLayout,
+    pub entity_index_layout: BindGroupLayout,
 }
 
 impl FromWorld for UiPipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
+        let entity_index_layout = world.resource::<EntityIndexLayout>();
 
         let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             entries: &[BindGroupLayoutEntry {
@@ -55,9 +57,9 @@ impl FromWorld for UiPipeline {
         });
 
         UiPipeline {
-            view_layout,
+            entity_index_layout: entity_index_layout.layout.clone(),
             image_layout,
-            // batch_layout: todo!(),
+            view_layout,
         }
     }
 }
@@ -85,7 +87,7 @@ impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mut vertex_formats = vec![
+        let vertex_formats = vec![
             // position
             VertexFormat::Float32x3,
             // uv
@@ -94,15 +96,9 @@ impl SpecializedRenderPipeline for UiPipeline {
             VertexFormat::Float32x4,
         ];
 
-        // TODO: Find shader locs of color etc.
-
         let mut shader_defs = Vec::new();
 
         if key.contains(UiPipelineKey::PICKING) {
-            vertex_formats.push(
-                // entity index
-                VertexFormat::Uint32,
-            );
             shader_defs.push("PICKING".into());
         }
 
@@ -127,7 +123,7 @@ impl SpecializedRenderPipeline for UiPipeline {
                 // TODO: Check this is supported
                 blend,
                 write_mask: ColorWrites::ALL,
-            }))
+            }));
         }
 
         RenderPipelineDescriptor {
@@ -143,7 +139,11 @@ impl SpecializedRenderPipeline for UiPipeline {
                 entry_point: "fragment".into(),
                 targets,
             }),
-            layout: Some(vec![self.view_layout.clone(), self.image_layout.clone()]),
+            layout: Some(vec![
+                self.view_layout.clone(),
+                self.entity_index_layout.clone(),
+                self.image_layout.clone(),
+            ]),
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,

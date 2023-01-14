@@ -1,7 +1,4 @@
-use std::{
-    mem::size_of,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 use bevy_derive::Deref;
 use bevy_ecs::{prelude::*, query::QueryItem};
@@ -26,7 +23,7 @@ use crate::{
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 
-/// See [https://www.w3.org/TR/webgpu/#texture-format-caps](here) for texture format capabilities.
+/// See [WebGPU format capabilities].
 ///
 /// We have to:
 /// 1. Use a texture format that supports blending. This implies "float" in the sample type in the link above.
@@ -34,8 +31,10 @@ use bevy_utils::tracing::info_span;
 /// 3. Have enough precision to be able to decompose an entity index across channels.
 /// The entity index is a u32, so across three channels we could do e.g. 12 bits, 12 bits, 8 bits.
 /// The largest possible number stored in a single channel is then 2^12 = 4096, which is well within the limits of 16 bit floats
-/// according to https://en.wikipedia.org/wiki/Half-precision_floating-point_format
+/// according to [Wikipedia half precision floating point].
 ///
+/// [WebGPU format capabilities]: https://www.w3.org/TR/webgpu/#texture-format-caps
+/// [Wikipedia half precision floating point]: https://en.wikipedia.org/wiki/Half-precision_floating-point_format
 pub const PICKING_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rgba16Float;
 
 pub fn copy_to_buffer(
@@ -45,11 +44,8 @@ pub fn copy_to_buffer(
     render_context: &mut RenderContext,
 ) {
     let mut binding = picking.try_lock().expect("TODO: Can we lock here?");
-    let mut picking_resources = binding.as_mut().expect("Buffer should have been prepared");
+    let picking_resources = binding.as_mut().expect("Buffer should have been prepared");
 
-    // Why every n only?
-    // Just experimenting with perf.
-    // if picking_resources.n % 10 == 0 {
     let size = &picking_resources.size;
 
     render_context.command_encoder.copy_texture_to_buffer(
@@ -71,29 +67,27 @@ pub fn copy_to_buffer(
         },
     );
 
-    // bevy_log::info!("Copying to buffer.");
-
-    // render_context.command_encoder.copy_texture_to_buffer(
-    //     depth.texture.as_image_copy(),
-    //     ImageCopyBuffer {
-    //         buffer: &picking_resources.depth_buffer,
-    //         layout: ImageDataLayout {
-    //             offset: 0,
-    //             bytes_per_row: Some(
-    //                 std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
-    //             ),
-    //             rows_per_image: None,
-    //         },
-    //     },
-    //     Extent3d {
-    //         width: size.texture_size.x,
-    //         height: size.texture_size.y,
-    //         depth_or_array_layers: 1,
-    //     },
-    // );
-    // }
-
-    picking_resources.n += 1;
+    // Only `Some(...)` if picking from 3D cameras.
+    if let Some(depth) = depth {
+        render_context.command_encoder.copy_texture_to_buffer(
+            depth.texture.as_image_copy(),
+            ImageCopyBuffer {
+                buffer: &picking_resources.depth_buffer,
+                layout: ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: Some(
+                        std::num::NonZeroU32::new(size.padded_bytes_per_row as u32).unwrap(),
+                    ),
+                    rows_per_image: None,
+                },
+            },
+            Extent3d {
+                width: size.texture_size.x,
+                height: size.texture_size.y,
+                depth_or_array_layers: 1,
+            },
+        );
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -103,9 +97,6 @@ pub struct PickingResources {
 
     // Accompanies the above. Allows reading the depth too.
     depth_buffer: Buffer,
-
-    // How many times we've requested to copy to texture
-    n: usize,
 
     // A wrapper around the rendered size.
     // The buffer might be larger due to padding.
@@ -168,8 +159,6 @@ impl Picking {
         let resources = guard.as_ref().expect("Resources should have been prepared");
 
         let slice = resources.depth_buffer.slice(..);
-
-        todo!();
 
         let depth = coords_to_data(
             coordinates,
@@ -440,7 +429,6 @@ pub fn prepare_picking_targets(
                         pick_buffer: make_buffer(),
                         depth_buffer: make_buffer(),
                         size: size.into(),
-                        n: 0,
                     });
                 }
             }

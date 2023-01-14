@@ -3,27 +3,21 @@ use bevy_asset::HandleUntyped;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::Entity,
-    schedule::IntoSystemDescriptor,
-    system::{Query, Res, ResMut, Resource},
+    system::Resource,
     world::{FromWorld, World},
 };
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
     picking::{self, Picking},
-    render_phase::{batch_phase_system, BatchedPhaseItem, RenderPhase},
     render_resource::{
-        BindGroup, BindGroupDescriptor, BindGroupEntry, BindGroupLayout, BindGroupLayoutDescriptor,
-        BindGroupLayoutEntry, BindingType, BufferBindingType, Shader, ShaderStages, ShaderType,
-        UniformBuffer,
+        BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
+        BufferBindingType, Shader, ShaderStages, ShaderType,
     },
-    renderer::{RenderDevice, RenderQueue},
+    renderer::RenderDevice,
     RenderApp, RenderStage,
 };
-use bevy_utils::HashMap;
 use bytemuck::{Pod, Zeroable};
-
-use crate::core_2d::Transparent2d;
 
 pub mod node;
 

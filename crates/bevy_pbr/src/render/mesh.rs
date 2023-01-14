@@ -669,7 +669,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 // TODO: Check that we support both pipelines
                 blend,
                 write_mask: ColorWrites::ALL,
-            }))
+            }));
         }
 
         Ok(RenderPipelineDescriptor {

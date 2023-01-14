@@ -50,10 +50,10 @@ fn vertex(
     var out: VertexOutput;
     out.uv = vertex_uv;
     out.position = view.view_proj * vec4<f32>(vertex_position, 1.0);
-    out.vertex_index = u32(vertex_index / 6u);
 #ifdef COLORED
     out.color = vertex_color;
 #endif
+    out.vertex_index = u32(vertex_index / 6u);
     return out;
 }
 
