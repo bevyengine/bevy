@@ -91,6 +91,7 @@ impl Color {
     /// <div style="background-color:rgb(0%, 0%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const NAVY: Color = Color::rgb(0.0, 0.0, 0.5);
     /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    #[doc(alias = "transparent")]
     pub const NONE: Color = Color::rgba(0.0, 0.0, 0.0, 0.0);
     /// <div style="background-color:rgb(50%, 50%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const OLIVE: Color = Color::rgb(0.5, 0.5, 0.0);
@@ -250,10 +251,14 @@ impl Color {
     /// # use bevy_render::color::Color;
     /// let color = Color::hex("FF00FF").unwrap(); // fuchsia
     /// let color = Color::hex("FF00FF7F").unwrap(); // partially transparent fuchsia
+    ///
+    /// // A standard hex color notation is also available
+    /// assert_eq!(Color::hex("#FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
         let hex = hex.as_ref();
+        let hex = hex.strip_prefix('#').unwrap_or(hex);
 
         // RGB
         if hex.len() == 3 {

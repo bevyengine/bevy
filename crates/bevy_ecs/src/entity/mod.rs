@@ -586,7 +586,7 @@ impl Entities {
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
-        // SAFETY: Caller guarentees that `index` a valid entity index
+        // SAFETY: Caller guarantees that `index` a valid entity index
         self.meta.get_unchecked_mut(index as usize).location = location;
     }
 

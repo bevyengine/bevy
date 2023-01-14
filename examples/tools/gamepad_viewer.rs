@@ -3,7 +3,9 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    input::gamepad::{GamepadButton, GamepadSettings},
+    input::gamepad::{
+        GamepadAxisChangedEvent, GamepadButton, GamepadButtonChangedEvent, GamepadSettings,
+    },
     prelude::*,
     sprite::{MaterialMesh2dBundle, Mesh2dHandle},
 };
@@ -468,42 +470,40 @@ fn update_buttons(
 }
 
 fn update_button_values(
-    mut events: EventReader<GamepadEvent>,
+    mut events: EventReader<GamepadButtonChangedEvent>,
     mut query: Query<(&mut Text, &TextWithButtonValue)>,
 ) {
-    for event in events.iter() {
-        if let GamepadEventType::ButtonChanged(button_type, value) = event.event_type {
-            for (mut text, text_with_button_value) in query.iter_mut() {
-                if button_type == **text_with_button_value {
-                    text.sections[0].value = format!("{value:.3}");
-                }
+    for button_event in events.iter() {
+        for (mut text, text_with_button_value) in query.iter_mut() {
+            if button_event.button_type == **text_with_button_value {
+                text.sections[0].value = format!("{:.3}", button_event.value);
             }
         }
     }
 }
 
 fn update_axes(
-    mut events: EventReader<GamepadEvent>,
+    mut axis_events: EventReader<GamepadAxisChangedEvent>,
     mut query: Query<(&mut Transform, &MoveWithAxes)>,
     mut text_query: Query<(&mut Text, &TextWithAxes)>,
 ) {
-    for event in events.iter() {
-        if let GamepadEventType::AxisChanged(axis_type, value) = event.event_type {
-            for (mut transform, move_with) in query.iter_mut() {
-                if axis_type == move_with.x_axis {
-                    transform.translation.x = value * move_with.scale;
-                }
-                if axis_type == move_with.y_axis {
-                    transform.translation.y = value * move_with.scale;
-                }
+    for axis_event in axis_events.iter() {
+        let axis_type = axis_event.axis_type;
+        let value = axis_event.value;
+        for (mut transform, move_with) in query.iter_mut() {
+            if axis_type == move_with.x_axis {
+                transform.translation.x = value * move_with.scale;
             }
-            for (mut text, text_with_axes) in text_query.iter_mut() {
-                if axis_type == text_with_axes.x_axis {
-                    text.sections[0].value = format!("{value:.3}");
-                }
-                if axis_type == text_with_axes.y_axis {
-                    text.sections[2].value = format!("{value:.3}");
-                }
+            if axis_type == move_with.y_axis {
+                transform.translation.y = value * move_with.scale;
+            }
+        }
+        for (mut text, text_with_axes) in text_query.iter_mut() {
+            if axis_type == text_with_axes.x_axis {
+                text.sections[0].value = format!("{value:.3}");
+            }
+            if axis_type == text_with_axes.y_axis {
+                text.sections[2].value = format!("{value:.3}");
             }
         }
     }
