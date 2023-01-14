@@ -5,7 +5,7 @@ use crate::fq_std::{FQAny, FQDefault, FQSend, FQSync};
 use crate::utility::{members_to_serialization_denylist, WhereClauseOptions};
 use crate::utility::members_to_serialization_denylist;
 use bit_set::BitSet;
-use quote::{quote, ToTokens, TokenStreamExt};
+use quote::{quote, ToTokens};
 
 use crate::{
     utility, REFLECT_ATTRIBUTE_NAME, REFLECT_VALUE_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME,

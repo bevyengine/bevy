@@ -10,6 +10,14 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
     let path_to_type = meta.path_to_type();
     let generics = meta.generics();
     let bevy_reflect_path = meta.bevy_reflect_path();
+    
+    if let PathToType::Primitive(name) = path_to_type {
+        let name = LitStr::new(&name.to_string(), name.span());
+        return quote! {
+            #bevy_reflect_path::utility::TypePathStorage::new_primitive(#name)
+        };
+    }
+    
     // Whether to use `GenericTypedCell` is not dependent on lifetimes
     // (which all have to be 'static anyway).
     let is_generic = !generics
@@ -67,15 +75,7 @@ pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStrea
         }
     };
 
-    if let PathToType::Primitive(name) = path_to_type {
-        quote! {
-            #bevy_reflect_path::utility::TypePathStorage::new_primitive(
-                #path,
-                #short_path,
-                #name,
-            )
-        }
-    } else if !path_to_type.is_named() {
+    if !path_to_type.is_named() {
         quote! {
             #bevy_reflect_path::utility::TypePathStorage::new_anonymous(
                 #path,
@@ -155,12 +155,10 @@ pub(crate) fn impl_type_path(
 
     let primitive_assert = if let PathToType::Primitive(_) = path_to_type {
         Some(quote! {
-            const _: () = {
-                mod private_scope {
-                    // Compiles if it can be named with its ident when there are no imports.
-                    type AssertIsPrimitive = #path_to_type;
-                }
-            };
+            mod private_scope {
+                // Compiles if it can be named with its ident when there are no imports.
+                type AssertIsPrimitive = #path_to_type;
+            }
         })
     } else {
         None
