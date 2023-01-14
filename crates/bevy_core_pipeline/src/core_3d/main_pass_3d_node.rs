@@ -3,7 +3,6 @@ use crate::{
     core_3d::{AlphaMask3d, Camera3d, Opaque3d, Transparent3d},
 };
 use bevy_ecs::prelude::*;
-use bevy_render::render_phase::TrackedRenderPass;
 use bevy_render::{
     camera::ExtractedCamera,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
@@ -70,7 +69,8 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_opaque_pass_3d"),
                 // NOTE: The opaque pass loads the color
                 // buffer as well as writing to it.
@@ -94,12 +94,7 @@ impl Node for MainPass3dNode {
                     }),
                     stencil_ops: None,
                 }),
-            };
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            });
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
@@ -113,7 +108,8 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_alpha_mask_pass_3d_span = info_span!("main_alpha_mask_pass_3d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
                 color_attachments: &[Some(target.get_color_attachment(Operations {
@@ -129,12 +125,7 @@ impl Node for MainPass3dNode {
                     }),
                     stencil_ops: None,
                 }),
-            };
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            });
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
@@ -148,7 +139,8 @@ impl Node for MainPass3dNode {
             // NOTE: Scoped to drop the mutable borrow of render_context
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
-            let pass_descriptor = RenderPassDescriptor {
+
+            let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
                 color_attachments: &[Some(target.get_color_attachment(Operations {
@@ -169,12 +161,7 @@ impl Node for MainPass3dNode {
                     }),
                     stencil_ops: None,
                 }),
-            };
-
-            let render_pass = render_context
-                .command_encoder
-                .begin_render_pass(&pass_descriptor);
-            let mut render_pass = TrackedRenderPass::new(render_pass);
+            });
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);
