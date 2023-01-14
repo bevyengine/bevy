@@ -114,7 +114,7 @@ mod test {
 
         let mut dfs = map.algo_dfs(zero);
         while let Some(node) = dfs.next(&map) {
-            counted_elements.push(*node)
+            counted_elements.push(*node);
         }
 
         assert_eq!(elements, counted_elements);

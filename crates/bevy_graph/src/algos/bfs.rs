@@ -116,7 +116,7 @@ mod test {
 
         let mut bfs = map.algo_bfs(zero);
         while let Some(node) = bfs.next(&map) {
-            counted_elements.push(*node)
+            counted_elements.push(*node);
         }
 
         assert_eq!(elements, counted_elements);
