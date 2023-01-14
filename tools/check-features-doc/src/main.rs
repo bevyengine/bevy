@@ -9,6 +9,7 @@ enum FeaturesDocError {
     ManifestParsingFailed(String),
     DocParsingFailed(String),
     UndocumentedFeature(Vec<String>),
+    NonExistantFeature(Vec<String>),
 }
 
 #[derive(Default)]
@@ -18,12 +19,16 @@ struct DocTables {
 
 impl DocTables {
     fn first_col_contains(&self, section: &str, val: &str) -> bool {
+        self.iter_first_col(section)
+            .any(|first_cell| first_cell == val)
+    }
+
+    fn iter_first_col(&self, section: &str) -> impl Iterator<Item = &String> + '_ {
         self.sections
             .get(section)
             .unwrap()
             .iter()
             .flat_map(|row| row.get(0))
-            .any(|first_cell| first_cell == val)
     }
 
     fn has_section(&self, section: &str) -> bool {
@@ -78,6 +83,17 @@ fn main() -> Result<(), FeaturesDocError> {
 
     if !undocumented.is_empty() {
         return Err(FeaturesDocError::UndocumentedFeature(undocumented));
+    }
+
+    let non_existant: Vec<String> = doc_tables
+        .iter_first_col(DEFAULT_FEATURES_HEADING)
+        .chain(doc_tables.iter_first_col(OPTIONAL_FEATURES_HEADING))
+        .filter(|feature| !manifest_features.all.contains(*feature))
+        .cloned()
+        .collect();
+
+    if !non_existant.is_empty() {
+        return Err(FeaturesDocError::NonExistantFeature(non_existant));
     }
 
     Ok(())
