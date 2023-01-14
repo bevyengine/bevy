@@ -2,22 +2,22 @@ use crate::utility::{extend_where_clause, WhereClauseOptions};
 use crate::ReflectMeta;
 use proc_macro2::Ident;
 use quote::quote;
+use syn::{spanned::Spanned, GenericParam, LitStr};
 use crate::derive_data::{PathToType, ReflectMeta};
-use syn::{GenericParam, LitStr, spanned::Spanned};
 
 /// Returns an expression for a `TypePathStorage`.
 pub(crate) fn type_path_generator(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let path_to_type = meta.path_to_type();
     let generics = meta.generics();
     let bevy_reflect_path = meta.bevy_reflect_path();
-    
+
     if let PathToType::Primitive(name) = path_to_type {
         let name = LitStr::new(&name.to_string(), name.span());
         return quote! {
             #bevy_reflect_path::utility::TypePathStorage::new_primitive(#name)
         };
     }
-    
+
     // Whether to use `GenericTypedCell` is not dependent on lifetimes
     // (which all have to be 'static anyway).
     let is_generic = !generics

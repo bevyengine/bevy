@@ -97,7 +97,7 @@ pub struct AssetServerInternal {
 /// use bevy_asset::{AssetServer, Handle};
 /// use bevy_ecs::prelude::{Commands, Res};
 ///
-/// # #[derive(Debug, bevy_reflect::TypeUuid)]
+/// # #[derive(Debug, bevy_reflect::TypeUuid, bevy_reflect::TypePath)]
 /// # #[uuid = "00000000-0000-0000-0000-000000000000"]
 /// # struct Image;
 ///

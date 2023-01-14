@@ -1133,9 +1133,9 @@ impl_type_path_stored!(|| TypePathStorage::new_named(
     "core::borrow"
 ), impl for Cow<'static, str>);
 
-impl GetTypeRegistration for Cow<'static, str>c Path {
+impl GetTypeRegistration for Cow<'static, str> {
     fn get_type_registration() -> TypeRegistration {
-        let mut registration = TypeRegistration:Cow<'static, str>>();
+        let mut registration = TypeRegistration::of::<Cow<'static, str>>();
         registration.insert::<ReflectDeserialize>(FromType::<Cow<'static, str>>::from_type());
         registration.insert::<ReflectFromPtr>(FromType::<Cow<'static, str>>::from_type());
         registration.insert::<ReflectSerialize>(FromType::<Cow<'static, str>>::from_type());
@@ -1143,9 +1143,9 @@ impl GetTypeRegistration for Cow<'static, str>c Path {
     }
 }
 
-impl FromReflect for Cow<'static, str>c Path {
+impl FromReflect for Cow<'static, str> {
     fn from_reflect(reflect: &dyn crate::Reflect) -> Option<Self> {
-  Some(
+        Some(
             reflect
                 .as_any()
                 .downcast_ref::<Cow<'static, str>>()?
@@ -1242,8 +1242,6 @@ impl Typed for &'static Path {
 }
 
 impl_type_path_stored!(|| TypePathStorage::new_anonymous("&std::path::Path", "&Path"), impl for &'static Path);
-
-impl
 
 impl GetTypeRegistration for &'static Path {
     fn get_type_registration() -> TypeRegistration {
@@ -1475,4 +1473,5 @@ mod tests {
         let path = Path::new("hello_world.rs");
         let output = <&'static Path as FromReflect>::from_reflect(&path).unwrap();
         assert_eq!(path, output);
-  
+    }
+}

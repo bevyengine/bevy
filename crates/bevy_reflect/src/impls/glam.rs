@@ -59,7 +59,6 @@ impl_reflect_struct!(
         w: u32,
     }
 );
-
 impl_reflect_struct!(
     #[reflect(Debug, PartialEq, Default)]
     #[type_path = "glam"]

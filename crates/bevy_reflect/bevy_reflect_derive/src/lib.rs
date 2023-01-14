@@ -120,7 +120,7 @@ pub fn impl_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
-    let path_to_type = if !def.type_path.leading_colon.is_some() && def.alias.is_empty() {
+    let path_to_type = if def.type_path.leading_colon.is_none() && def.alias.is_empty() {
         PathToType::Primitive(default_name)
     } else {
         PathToType::External {
@@ -217,7 +217,7 @@ pub fn impl_from_reflect_value(input: TokenStream) -> TokenStream {
     let def = parse_macro_input!(input as ReflectValueDef);
 
     let default_name = &def.type_path.segments.last().unwrap().ident;
-    let path_to_type = if !def.type_path.leading_colon.is_some() && def.alias.is_empty() {
+    let path_to_type = if def.type_path.leading_colon.is_none() && def.alias.is_empty() {
         PathToType::Primitive(default_name)
     } else {
         PathToType::External {

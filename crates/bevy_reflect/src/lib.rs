@@ -1022,7 +1022,7 @@ mod tests {
             struct SomePrimitive;
             impl_reflect_value!(
                 /// Some primitive for which we have attributed custom documentation.
-                SomePrimitive
+                SomePrimitive in bevy_reflect::tests
             );
 
             let info = <SomePrimitive as Typed>::type_info();

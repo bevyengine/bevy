@@ -7,7 +7,7 @@ use bevy::{
     input::mouse::MouseMotion,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
-    reflect::TypeUuid,
+    reflect::{TypePath, TypeUuid},
     render::{
         mesh::MeshVertexBufferLayout,
         render_asset::RenderAssets,
@@ -196,7 +196,7 @@ fn animate_light_direction(
     }
 }
 
-#[derive(Debug, Clone, TypeUuid)]
+#[derive(Debug, Clone, TypeUuid, TypePath)]
 #[uuid = "9509a0f8-3c05-48ee-a13e-a93226c7f488"]
 struct CubemapMaterial {
     base_color_texture: Option<Handle<Image>>,

@@ -59,11 +59,11 @@ use std::marker::PhantomData;
 /// ```
 /// # use bevy_pbr::{Material, MaterialMeshBundle};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_reflect::TypeUuid;
+/// # use bevy_reflect::{TypeUuid, TypePath};
 /// # use bevy_render::{render_resource::{AsBindGroup, ShaderRef}, texture::Image, color::Color};
 /// # use bevy_asset::{Handle, AssetServer, Assets};
 ///
-/// #[derive(AsBindGroup, TypeUuid, Debug, Clone)]
+/// #[derive(AsBindGroup, TypeUuid, TypePath, Debug, Clone)]
 /// #[uuid = "f690fdae-d598-45ab-8225-97e2a3f056e0"]
 /// pub struct CustomMaterial {
 ///     // Uniform bindings must implement `ShaderType`, which will be used to convert the value to

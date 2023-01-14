@@ -217,7 +217,7 @@ impl<'a> ReflectDerive<'a> {
             }
         }
         if let Some(path) = &mut alias_type_path {
-            let ident = alias_type_name.unwrap_or(input.ident.clone());
+            let ident = alias_type_name.unwrap_or_else(|| input.ident.clone());
             path.segments.push(PathSegment::from(ident));
         } else if let Some(name) = alias_type_name {
             return Err(syn::Error::new(
@@ -275,9 +275,9 @@ impl<'a> ReflectDerive<'a> {
 
     pub fn meta(&self) -> &ReflectMeta<'a> {
         match self {
-            ReflectDerive::Struct(data) => data.meta(),
-            ReflectDerive::TupleStruct(data) => data.meta(),
-            ReflectDerive::UnitStruct(data) => data.meta(),
+            ReflectDerive::Struct(data)
+            | ReflectDerive::TupleStruct(data)
+            | ReflectDerive::UnitStruct(data) => data.meta(),
             ReflectDerive::Enum(data) => data.meta(),
             ReflectDerive::Value(meta) => meta,
         }
@@ -579,7 +579,7 @@ pub(crate) enum PathToType<'a> {
     /// The type must be able to be named from just its name.
     ///
     /// May have a seperate alias path used for the `TypePath` implementation.
-    /// 
+    ///
     /// Module and crate are found with [`module_path!()`](core::module_path),
     /// if there is no alias specified.
     Internal {
@@ -587,7 +587,8 @@ pub(crate) enum PathToType<'a> {
         alias: Option<Path>,
     },
     /// Any [`syn::Type`] with only a defined `type_path` and `short_type_path`.
-    #[allow(dead_code)] // Not currently used but may be useful in the future due to its generality.
+    #[allow(dead_code)]
+    // Not currently used but may be useful in the future due to its generality.
     Anonymous {
         qualified_type: Type,
         long_type_path: proc_macro2::TokenStream,
@@ -635,8 +636,7 @@ impl<'a> PathToType<'a> {
     /// [external]: PathToType::External
     pub fn is_aliased(&self) -> bool {
         match self {
-            Self::Internal { alias, .. } => alias.is_some(),
-            Self::External { alias, .. } => alias.is_some(),
+            Self::Internal { alias, .. } | Self::External { alias, .. } => alias.is_some(),
             _ => false,
         }
     }
@@ -646,10 +646,7 @@ impl<'a> PathToType<'a> {
     ///
     /// This is false for primitives and anonymous paths.
     pub fn is_named(&self) -> bool {
-        match self {
-            Self::Primitive(_) | Self::Anonymous { .. } => false,
-            _ => true,
-        }
+        matches!(self, Self::Internal { .. } | Self::External { .. })
     }
 
     /// Returns an expression for an `AsRef<str>`.
@@ -722,7 +719,7 @@ impl<'a> PathToType<'a> {
 
     /// Returns the name of the type. This is not necessarily a valid qualified path to the type.
     pub fn ident(&self) -> Option<&Ident> {
-        self.named_as_ident().or_else(|| match self {
+        self.named_as_ident().or(match self {
             Self::Primitive(ident) => Some(ident),
             _ => None,
         })
