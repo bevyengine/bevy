@@ -483,7 +483,7 @@ mod tests {
 
     #[test]
     fn enum_should_set() {
-        let mut value: Box<dyn PartialReflect> = Box::new(MyEnum::A);
+        let mut value: Box<dyn Reflect> = Box::new(MyEnum::A);
 
         // === MyEnum::A -> MyEnum::A === //
         value.set(Box::new(MyEnum::A)).unwrap();

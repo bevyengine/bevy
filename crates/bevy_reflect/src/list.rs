@@ -235,44 +235,20 @@ impl PartialReflect for DynamicList {
         <Self as Typed>::type_info()
     }
 
-    #[inline]
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
+    fn as_full(&self) -> Option<&dyn crate::Reflect> {
+        None
     }
 
-    #[inline]
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn as_full_mut(&mut self) -> Option<&mut dyn crate::Reflect> {
+        None
     }
 
-    #[inline]
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
+    fn into_full(self: Box<Self>) -> Result<Box<dyn crate::Reflect>, Box<dyn PartialReflect>> {
+        Err(self)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
         list_apply(self, value);
-    }
-
-    #[inline]
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.take()?;
-        Ok(())
     }
 
     #[inline]
@@ -425,7 +401,11 @@ mod tests {
         list.push(2usize);
         let items = list.into_iter();
         for (index, item) in items.into_iter().enumerate() {
-            let value = item.take::<usize>().expect("couldn't downcast to usize");
+            let value = item
+                .into_full()
+                .unwrap()
+                .take::<usize>()
+                .expect("couldn't downcast to usize");
             assert_eq!(index, value);
         }
     }

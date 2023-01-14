@@ -250,8 +250,7 @@ impl ReflectTraits {
         match &self.partial_eq {
             &TraitImpl::Implemented(span) => Some(quote_spanned! {span=>
                 fn reflect_partial_eq(&self, value: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<bool> {
-                    let value = <dyn #bevy_reflect_path::PartialReflect>::as_any(value);
-                    if let #FQOption::Some(value) = <dyn #FQAny>::downcast_ref::<Self>(value) {
+                    if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(value) {
                         #FQOption::Some(::core::cmp::PartialEq::eq(self, value))
                     } else {
                         #FQOption::Some(false)

@@ -28,7 +28,11 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
     TokenStream::from(quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_name #ty_generics #where_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                #FQOption::Some(#FQClone::clone(<dyn #FQAny>::downcast_ref::<#type_name #ty_generics>(<dyn #bevy_reflect_path::PartialReflect>::as_any(reflect))?))
+                #FQOption::Some(
+                    #FQClone::clone(
+                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<Self>(reflect)?
+                    )
+                )
             }
         }
     })

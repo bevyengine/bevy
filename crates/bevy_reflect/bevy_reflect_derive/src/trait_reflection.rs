@@ -79,13 +79,13 @@ pub(crate) fn reflect_trait(_args: &TokenStream, input: TokenStream) -> TokenStr
             fn from_type() -> Self {
                 Self {
                     get_func: |reflect_value| {
-                        <dyn #bevy_reflect_path::PartialReflect>::downcast_ref::<T>(reflect_value).map(|value| value as &dyn #trait_ident)
+                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<T>(reflect_value).map(|value| value as &dyn #trait_ident)
                     },
                     get_mut_func: |reflect_value| {
-                        <dyn #bevy_reflect_path::PartialReflect>::downcast_mut::<T>(reflect_value).map(|value| value as &mut dyn #trait_ident)
+                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_mut::<T>(reflect_value).map(|value| value as &mut dyn #trait_ident)
                     },
                     get_boxed_func: |reflect_value| {
-                        <dyn #bevy_reflect_path::PartialReflect>::downcast::<T>(reflect_value).map(|value| value as #FQBox<dyn #trait_ident>)
+                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast::<T>(reflect_value).map(|value| value as #FQBox<dyn #trait_ident>)
                     }
                 }
             }

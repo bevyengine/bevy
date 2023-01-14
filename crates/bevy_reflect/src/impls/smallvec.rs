@@ -4,7 +4,8 @@ use std::any::Any;
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, PartialReflect,
-    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    Reflect, ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration,
+    Typed,
 };
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
@@ -47,7 +48,7 @@ where
     T::Item: FromReflect,
 {
     fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
-        let value = value.take::<T::Item>().unwrap_or_else(|value| {
+        let value = value.try_take().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to insert invalid value of type {}.",
@@ -63,7 +64,7 @@ where
     }
 
     fn push(&mut self, value: Box<dyn PartialReflect>) {
-        let value = value.take::<T::Item>().unwrap_or_else(|value| {
+        let value = value.try_take().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
                 panic!(
                     "Attempted to push invalid value of type {}.",
@@ -92,37 +93,20 @@ where
         <Self as Typed>::type_info()
     }
 
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
+    fn as_full(&self) -> Option<&dyn Reflect> {
+        Some(self)
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+        Some(self)
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    fn as_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
+    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Ok(self)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
         crate::list_apply(self, value);
-    }
-
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.take()?;
-        Ok(())
     }
 
     fn reflect_ref(&self) -> ReflectRef {
@@ -143,6 +127,52 @@ where
 
     fn reflect_partial_eq(&self, value: &dyn PartialReflect) -> Option<bool> {
         crate::list_partial_eq(self, value)
+    }
+}
+
+impl<T: smallvec::Array + Send + Sync + 'static> Reflect for SmallVec<T>
+where
+    T::Item: FromReflect,
+{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
+    fn into_any(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+
+    fn as_reflect(&self) -> &dyn Reflect {
+        self
+    }
+
+    fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
+        self
+    }
+
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    fn as_partial_reflect(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+
+    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
+        *self = value.try_take()?;
+        Ok(())
     }
 }
 

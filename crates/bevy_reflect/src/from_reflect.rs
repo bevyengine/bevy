@@ -1,4 +1,4 @@
-use crate::{FromType, PartialReflect};
+use crate::{FromType, PartialReflect, Reflect};
 
 /// A trait for types which can be constructed from a reflected type.
 ///
@@ -10,7 +10,7 @@ use crate::{FromType, PartialReflect};
 /// attribute will be constructed using the `Default` implementation of the
 /// field type, rather than the corresponding field value (if any) of the
 /// reflected value.
-pub trait FromReflect: PartialReflect + Sized {
+pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self>;
 
@@ -27,10 +27,10 @@ pub trait FromReflect: PartialReflect + Sized {
     fn take_from_reflect(
         reflect: Box<dyn PartialReflect>,
     ) -> Result<Self, Box<dyn PartialReflect>> {
-        match reflect.take::<Self>() {
+        match reflect.into_full()?.take::<Self>() {
             Ok(value) => Ok(value),
-            Err(value) => match Self::from_reflect(value.as_ref()) {
-                None => Err(value),
+            Err(value) => match Self::from_reflect(value.as_partial_reflect()) {
+                None => Err(value.into_partial_reflect()),
                 Some(value) => Ok(value),
             },
         }

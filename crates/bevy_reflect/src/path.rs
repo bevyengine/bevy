@@ -212,7 +212,7 @@ pub trait GetPath {
     /// [`DynamicStruct`]: crate::DynamicStruct
     fn path<'r, 'p, T: Reflect>(&'r self, path: &'p str) -> Result<&'r T, ReflectPathError<'p>> {
         self.reflect_path(path).and_then(|p| {
-            p.downcast_ref::<T>()
+            p.try_downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }
@@ -229,7 +229,7 @@ pub trait GetPath {
         path: &'p str,
     ) -> Result<&'r mut T, ReflectPathError<'p>> {
         self.reflect_path_mut(path).and_then(|p| {
-            p.downcast_mut::<T>()
+            p.try_downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }
@@ -389,7 +389,7 @@ impl ParsedPath {
         root: &'r dyn PartialReflect,
     ) -> Result<&'r T, ReflectPathError<'p>> {
         self.reflect_element(root).and_then(|p| {
-            p.downcast_ref::<T>()
+            p.try_downcast_ref::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }
@@ -404,7 +404,7 @@ impl ParsedPath {
         root: &'r mut dyn PartialReflect,
     ) -> Result<&'r mut T, ReflectPathError<'p>> {
         self.reflect_element_mut(root).and_then(|p| {
-            p.downcast_mut::<T>()
+            p.try_downcast_mut::<T>()
                 .ok_or(ReflectPathError::InvalidDowncast)
         })
     }

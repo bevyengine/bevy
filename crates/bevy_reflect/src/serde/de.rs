@@ -1305,7 +1305,7 @@ mod tests {
             .deserialize(&mut ron_deserializer)
             .unwrap();
         let output = dynamic_output
-            .take::<f32>()
+            .try_take::<f32>()
             .expect("underlying type should be f32");
         assert_eq!(1.23, output);
     }

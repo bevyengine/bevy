@@ -184,10 +184,21 @@ mod tests {
 
         let mut map = DynamicMap::default();
         map.insert(key_a, 10u32);
-        assert_eq!(10, *map.get(&key_b).unwrap().downcast_ref::<u32>().unwrap());
+        assert_eq!(
+            10,
+            *map.get(&key_b).unwrap().try_downcast_ref::<u32>().unwrap()
+        );
         assert!(map.get(&key_c).is_none());
-        *map.get_mut(&key_b).unwrap().downcast_mut::<u32>().unwrap() = 20;
-        assert_eq!(20, *map.get(&key_b).unwrap().downcast_ref::<u32>().unwrap());
+        *map.get_mut(&key_b)
+            .unwrap()
+            .as_full_mut()
+            .unwrap()
+            .downcast_mut::<u32>()
+            .unwrap() = 20;
+        assert_eq!(
+            20,
+            *map.get(&key_b).unwrap().try_downcast_ref::<u32>().unwrap()
+        );
     }
 
     #[test]
@@ -203,16 +214,22 @@ mod tests {
         let mut patch = DynamicTupleStruct::default();
         patch.insert(3u32);
         patch.insert(4u64);
-        assert_eq!(3, *patch.field(0).unwrap().downcast_ref::<u32>().unwrap());
-        assert_eq!(4, *patch.field(1).unwrap().downcast_ref::<u64>().unwrap());
+        assert_eq!(
+            3,
+            *patch.field(0).unwrap().try_downcast_ref::<u32>().unwrap()
+        );
+        assert_eq!(
+            4,
+            *patch.field(1).unwrap().try_downcast_ref::<u64>().unwrap()
+        );
 
         foo.apply(&patch);
         assert_eq!(3, foo.0);
         assert_eq!(4, foo.1);
 
         let mut iter = patch.iter_fields();
-        assert_eq!(3, *iter.next().unwrap().downcast_ref::<u32>().unwrap());
-        assert_eq!(4, *iter.next().unwrap().downcast_ref::<u64>().unwrap());
+        assert_eq!(3, *iter.next().unwrap().try_downcast_ref::<u32>().unwrap());
+        assert_eq!(4, *iter.next().unwrap().try_downcast_ref::<u64>().unwrap());
     }
 
     #[test]
@@ -242,7 +259,7 @@ mod tests {
 
         let values: Vec<u32> = foo
             .iter_fields()
-            .map(|value| *value.downcast_ref::<u32>().unwrap())
+            .map(|value| *value.try_downcast_ref::<u32>().unwrap())
             .collect();
         assert_eq!(values, vec![1]);
     }
@@ -534,9 +551,8 @@ mod tests {
         let mut deserializer = Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
         let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let dynamic_struct = value.take::<DynamicStruct>().unwrap();
 
-        assert!(foo.reflect_partial_eq(&dynamic_struct).unwrap());
+        assert!(foo.reflect_partial_eq(&*value).unwrap());
     }
 
     #[test]
@@ -565,7 +581,7 @@ mod tests {
 
         let foo2: Box<dyn PartialReflect> = Box::new(foo.clone());
 
-        assert_eq!(foo, *foo2.downcast::<Foo>().unwrap());
+        assert_eq!(foo, *foo2.into_full().unwrap().downcast::<Foo>().unwrap());
     }
 
     #[test]
@@ -600,7 +616,7 @@ mod tests {
         }
 
         let x: Box<dyn PartialReflect> = Box::new(Bar { x: 2 });
-        let y = x.take::<Bar>().unwrap();
+        let y = x.into_full().unwrap().take::<Bar>().unwrap();
         assert_eq!(y, Bar { x: 2 });
     }
 
@@ -1030,7 +1046,7 @@ mod tests {
 
     #[test]
     fn into_reflect() {
-        trait TestTrait: PartialReflect {}
+        trait TestTrait: Reflect {}
 
         #[derive(Reflect)]
         struct TestStruct;
@@ -1045,7 +1061,7 @@ mod tests {
 
     #[test]
     fn as_reflect() {
-        trait TestTrait: PartialReflect {}
+        trait TestTrait: Reflect {}
 
         #[derive(Reflect)]
         struct TestStruct;
@@ -1275,14 +1291,11 @@ bevy_reflect::tests::should_reflect_debug::Test {
             let mut v = vec3(1.0, 2.0, 3.0);
 
             assert_eq!(
-                *v.reflect_path("x").unwrap().downcast_ref::<f32>().unwrap(),
+                *v.reflect_path("x").unwrap().try_downcast_ref::<f32>().unwrap(),
                 1.0
             );
 
-            *v.reflect_path_mut("y")
-                .unwrap()
-                .downcast_mut::<f32>()
-                .unwrap() = 6.0;
+            *v.reflect_path_mut("y").unwrap().try_downcast_mut::<f32>().unwrap() = 6.0;
 
             assert_eq!(v.y, 6.0);
         }

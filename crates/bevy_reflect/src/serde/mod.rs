@@ -50,11 +50,10 @@ mod tests {
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let deserialized = value.take::<DynamicStruct>().unwrap();
+        let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert!(
-            expected.reflect_partial_eq(&deserialized).unwrap(),
+            expected.reflect_partial_eq(&*deserialized).unwrap(),
             "Expected {expected:?} found {deserialized:?}"
         );
     }
@@ -85,11 +84,10 @@ mod tests {
 
         let mut deserializer = ron::de::Deserializer::from_str(&serialized).unwrap();
         let reflect_deserializer = UntypedReflectDeserializer::new(&registry);
-        let value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
-        let deserialized = value.take::<DynamicTupleStruct>().unwrap();
+        let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
         assert!(
-            expected.reflect_partial_eq(&deserialized).unwrap(),
+            expected.reflect_partial_eq(&*deserialized).unwrap(),
             "Expected {expected:?} found {deserialized:?}"
         );
     }

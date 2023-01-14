@@ -77,7 +77,7 @@ assert_eq!(value, 3.14);
 ```rust ignore
 for (i, value: &Reflect) in foo.iter_fields().enumerate() {
     let field_name = foo.name_at(i).unwrap();
-    if let Some(value) = value.downcast_ref::<u32>() {
+    if let Some(value) = value.try_downcast_ref::<u32>() {
         println!("{} is a u32 with the value: {}", field_name, *value);
     }
 }
@@ -133,8 +133,9 @@ let reflect_value: Box<dyn PartialReflect> = Box::new(MyType {
 });
 
 // This means we no longer have direct access to MyType or its methods. We can only call Reflect methods on reflect_value.
-// What if we want to call `do_thing` on our type? We could downcast using reflect_value.downcast_ref::<MyType>(), but what if we
-// don't know the type at compile time?
+// What if we want to call `do_thing` on our type?
+// We could downcast using reflect_value.try_downcast_ref::<MyType>(),
+// but what if we don't know the type at compile time?
 
 // Normally in rust we would be out of luck at this point. Lets use our new reflection powers to do something cool!
 let mut type_registry = TypeRegistry::default();

@@ -1,4 +1,4 @@
-use crate::{serde::Serializable, PartialReflect, TypeInfo, Typed};
+use crate::{serde::Serializable, PartialReflect, Reflect, TypeInfo, Typed};
 use bevy_ptr::{Ptr, PtrMut};
 use bevy_utils::{HashMap, HashSet};
 use downcast_rs::{impl_downcast, Downcast};
@@ -399,11 +399,11 @@ pub struct ReflectSerialize {
     get_serializable: for<'a> fn(value: &'a dyn PartialReflect) -> Serializable,
 }
 
-impl<T: PartialReflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
+impl<T: Reflect + erased_serde::Serialize> FromType<T> for ReflectSerialize {
     fn from_type() -> Self {
         ReflectSerialize {
             get_serializable: |value| {
-                let value = value.downcast_ref::<T>().unwrap_or_else(|| {
+                let value = value.try_downcast_ref::<T>().unwrap_or_else(|| {
                     panic!("ReflectSerialize::get_serialize called with type `{}`, even though it was created for `{}`", value.type_name(), std::any::type_name::<T>())
                 });
                 Serializable::Borrowed(value)
@@ -482,7 +482,7 @@ impl<T: for<'a> Deserialize<'a> + PartialReflect> FromType<T> for ReflectDeseria
 /// // SAFE: `value` is of type `Reflected`, which the `ReflectFromPtr` was created for
 /// let value = unsafe { reflect_from_ptr.as_reflect_ptr(value) };
 ///
-/// assert_eq!(value.downcast_ref::<Reflected>().unwrap().0, "Hello world!");
+/// assert_eq!(value.try_downcast_ref::<Reflected>().unwrap().0, "Hello world!");
 /// ```
 #[derive(Clone)]
 pub struct ReflectFromPtr {
@@ -573,7 +573,11 @@ mod test {
             let dyn_reflect = unsafe { reflect_from_ptr.as_reflect_ptr(Ptr::from(&value)) };
             match dyn_reflect.reflect_ref() {
                 bevy_reflect::ReflectRef::Struct(strukt) => {
-                    let a = strukt.field("a").unwrap().downcast_ref::<f32>().unwrap();
+                    let a = strukt
+                        .field("a")
+                        .unwrap()
+                        .try_downcast_ref::<f32>()
+                        .unwrap();
                     assert_eq!(*a, 2.0);
                 }
                 _ => panic!("invalid reflection"),

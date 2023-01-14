@@ -145,45 +145,21 @@ pub(crate) fn impl_tuple_struct(reflect_struct: &ReflectStruct) -> TokenStream {
                 <Self as #bevy_reflect_path::Typed>::type_info()
             }
 
-            #[inline]
-            fn into_any(self: #FQBox<Self>) -> #FQBox<dyn #FQAny> {
-                self
+            fn as_full(&self) -> #FQOption<&dyn #bevy_reflect_path::Reflect> {
+                Some(self)
             }
 
-            #[inline]
-            fn as_any(&self) -> &dyn #FQAny {
-                self
+            fn as_full_mut(&mut self) -> #FQOption<&mut dyn #bevy_reflect_path::Reflect> {
+                Some(self)
             }
 
-            #[inline]
-            fn as_any_mut(&mut self) -> &mut dyn #FQAny {
-                self
-            }
-
-            #[inline]
-            fn into_reflect(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
-                self
-            }
-
-            #[inline]
-            fn as_reflect(&self) -> &dyn #bevy_reflect_path::PartialReflect {
-                self
-            }
-
-            #[inline]
-            fn as_reflect_mut(&mut self) -> &mut dyn #bevy_reflect_path::PartialReflect {
-                self
+            fn into_full(self: Box<Self>) -> #FQResult<Box<dyn #bevy_reflect_path::Reflect>, Box<dyn #bevy_reflect_path::PartialReflect>> {
+                Ok(self)
             }
 
             #[inline]
             fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
                 #FQBox::new(#bevy_reflect_path::TupleStruct::clone_dynamic(self))
-            }
-
-            #[inline]
-            fn set(&mut self, value: #FQBox<dyn #bevy_reflect_path::PartialReflect>) -> #FQResult<(), #FQBox<dyn #bevy_reflect_path::PartialReflect>> {
-                *self = <dyn #bevy_reflect_path::PartialReflect>::take(value)?;
-                #FQResult::Ok(())
             }
 
             #[inline]

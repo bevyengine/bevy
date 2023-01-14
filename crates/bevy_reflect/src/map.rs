@@ -5,7 +5,9 @@ use std::hash::Hash;
 use bevy_utils::{Entry, HashMap};
 
 use crate::utility::NonGenericTypeInfoCell;
-use crate::{DynamicInfo, PartialReflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed};
+use crate::{
+    DynamicInfo, PartialReflect, Reflect, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, Typed,
+};
 
 /// An ordered mapping between [`Reflect`] values.
 ///
@@ -275,40 +277,20 @@ impl PartialReflect for DynamicMap {
         <Self as Typed>::type_info()
     }
 
-    fn into_any(self: Box<Self>) -> Box<dyn Any> {
-        self
+    fn as_full(&self) -> Option<&dyn Reflect> {
+        None
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    fn as_full_mut(&mut self) -> Option<&mut dyn Reflect> {
+        None
     }
 
-    fn as_any_mut(&mut self) -> &mut dyn Any {
-        self
-    }
-
-    #[inline]
-    fn into_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-        self
-    }
-
-    #[inline]
-    fn as_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    #[inline]
-    fn as_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
+    fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
+        Err(self)
     }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
         map_apply(self, value);
-    }
-
-    fn set(&mut self, value: Box<dyn PartialReflect>) -> Result<(), Box<dyn PartialReflect>> {
-        *self = value.take()?;
-        Ok(())
     }
 
     fn reflect_ref(&self) -> ReflectRef {
@@ -478,9 +460,16 @@ mod tests {
         map.insert(2usize, expected[2].to_string());
 
         for (index, item) in map.into_iter().enumerate() {
-            let key = item.0.take::<usize>().expect("couldn't downcast to usize");
+            let key = item
+                .0
+                .into_full()
+                .unwrap()
+                .take::<usize>()
+                .expect("couldn't downcast to usize");
             let value = item
                 .1
+                .into_full()
+                .unwrap()
                 .take::<String>()
                 .expect("couldn't downcast to String");
             assert_eq!(index, key);
