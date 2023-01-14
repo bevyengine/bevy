@@ -40,6 +40,7 @@ fn nodes_10_000_undirected(c: &mut Criterion) {
                 black_box(
                     graph
                         .edge_between(nodes[i - 1], nodes[i])
+                        .unwrap()
                         .remove(&mut graph)
                         .unwrap(),
                 );
