@@ -6,7 +6,6 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
-    extract_resource::ExtractResource,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
@@ -280,14 +279,9 @@ impl Default for AmbientLight {
     }
 }
 
-pub fn add_ambient_lights(
-    mut commands: Commands,
-    cameras: Query<Entity, With<Camera>>,
-) {
+pub fn add_ambient_lights(mut commands: Commands, cameras: Query<Entity, With<Camera>>) {
     for entity in &cameras {
-        commands
-            .entity(entity)
-            .insert(AmbientLight::default());
+        commands.entity(entity).insert(AmbientLight::default());
     }
 }
 

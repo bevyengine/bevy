@@ -43,7 +43,6 @@ use bevy_ecs::prelude::*;
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     camera::CameraUpdateSystem,
-    extract_resource::ExtractResourcePlugin,
     prelude::Color,
     render_graph::RenderGraph,
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},

@@ -389,11 +389,12 @@ pub fn extract_ambient_light(
     views: Extract<Query<(Entity, &AmbientLight), With<Camera>>>,
 ) {
     for (entity, ambient_light) in &views {
-        commands.get_or_spawn(entity).insert((
-            ExtractedAmbientLight {
-                ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32()) * ambient_light.brightness,
-            },
-        ));
+        commands
+            .get_or_spawn(entity)
+            .insert((ExtractedAmbientLight {
+                ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
+                    * ambient_light.brightness,
+            },));
     }
 }
 
@@ -782,7 +783,12 @@ pub fn prepare_lights(
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
-        (Entity, &ExtractedView, &ExtractedClusterConfig, &ExtractedAmbientLight),
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            &ExtractedAmbientLight,
+        ),
         With<RenderPhase<Transparent3d>>,
     >,
     point_light_shadow_map: Res<PointLightShadowMap>,
@@ -1047,7 +1053,6 @@ pub fn prepare_lights(
             clusters.dimensions.z as f32,
             is_orthographic,
         );
-
 
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
         let gpu_lights = GpuLights {
