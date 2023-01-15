@@ -239,9 +239,12 @@ impl MultiThreadedExecutor {
         ready_systems: &FixedBitSet,
     ) {
         for system_index in ready_systems.ones() {
+            // SAFETY: this system is not running, no other reference exists
+            let system = unsafe { &mut *systems[system_index].get() };
+
             // SAFETY: no exclusive system is running
             let world = unsafe { &*cell.get() };
-            if !self.can_run(system_index, systems, conditions, world) {
+            if !self.can_run(system_index, system, conditions, world) {
                 // NOTE: exclusive systems with ambiguities are susceptible to
                 // being significantly displaced here (compared to single-threaded order)
                 // if systems after them in topological order can run
@@ -252,7 +255,7 @@ impl MultiThreadedExecutor {
             // system is either going to run or be skipped
             self.ready_systems.set(system_index, false);
 
-            if !self.should_run(system_index, systems, conditions, world) {
+            if !self.should_run(system_index, system, conditions, world) {
                 self.skip_system_and_signal_dependents(system_index);
                 continue;
             }
@@ -275,19 +278,14 @@ impl MultiThreadedExecutor {
     fn can_run(
         &mut self,
         system_index: usize,
-        systems: &[SyncUnsafeCell<BoxedSystem>],
+        system: &mut BoxedSystem,
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
         #[cfg(feature = "trace")]
-        // SAFETY: this system is not running, no other reference exists
-        let system = unsafe { &*systems[system_index].get() };
-        #[cfg(feature = "trace")]
         let _span = info_span!("check_access", name = &*system.name()).entered();
 
-        // TODO: an earlier out if archetypes did not change
-        let system_meta = &mut self.system_task_metadata[system_index];
-
+        let system_meta = &self.system_task_metadata[system_index];
         if system_meta.is_exclusive && self.num_running_systems > 0 {
             return false;
         }
@@ -296,6 +294,7 @@ impl MultiThreadedExecutor {
             return false;
         }
 
+        // TODO: an earlier out if world's archetypes did not change
         for set_idx in conditions.sets_of_systems[system_index].difference(&self.evaluated_sets) {
             for condition in &mut conditions.set_conditions[set_idx] {
                 condition.update_archetype_component_access(world);
@@ -319,8 +318,6 @@ impl MultiThreadedExecutor {
         }
 
         if !self.skipped_systems.contains(system_index) {
-            // SAFETY: this system is not running, no other reference exists
-            let system = unsafe { &mut *systems[system_index].get() };
             system.update_archetype_component_access(world);
             if !system
                 .archetype_component_access()
@@ -329,8 +326,9 @@ impl MultiThreadedExecutor {
                 return false;
             }
 
-            // TODO: avoid allocation by keeping count of readers
-            system_meta.archetype_component_access = system.archetype_component_access().clone();
+            // TODO: avoid allocation
+            self.system_task_metadata[system_index].archetype_component_access =
+                system.archetype_component_access().clone();
         }
 
         true
@@ -339,13 +337,10 @@ impl MultiThreadedExecutor {
     fn should_run(
         &mut self,
         system_index: usize,
-        #[allow(unused_variables)] systems: &[SyncUnsafeCell<BoxedSystem>],
+        #[allow(unused_variables)] system: &BoxedSystem,
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
-        #[cfg(feature = "trace")]
-        // SAFETY: this system is not running, no other reference exists
-        let system = unsafe { &*systems[system_index].get() };
         #[cfg(feature = "trace")]
         let _span = info_span!("check_conditions", name = &*system.name()).entered();
 
@@ -477,17 +472,17 @@ impl MultiThreadedExecutor {
             scope.spawn_on_scope(task);
         }
 
-        self.local_thread_running = true;
         self.exclusive_running = true;
+        self.local_thread_running = true;
     }
 
     fn finish_system_and_signal_dependents(&mut self, system_index: usize) {
-        if !self.system_task_metadata[system_index].is_send {
-            self.local_thread_running = false;
-        }
-
         if self.system_task_metadata[system_index].is_exclusive {
             self.exclusive_running = false;
+        }
+
+        if !self.system_task_metadata[system_index].is_send {
+            self.local_thread_running = false;
         }
 
         debug_assert!(self.num_running_systems >= 1);
