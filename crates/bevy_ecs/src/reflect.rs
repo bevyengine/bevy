@@ -5,7 +5,7 @@ use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     system::Resource,
-    world::{unsafe_world_cell::UnsafeWorldCell, FromWorld, World},
+    world::{unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef, FromWorld, World},
 };
 use bevy_reflect::{
     impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
@@ -44,13 +44,15 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::insert()`].
     pub insert: fn(&mut World, Entity, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(&mut World, Entity, &dyn Reflect),
+    pub apply: fn(EntityMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
     pub apply_or_insert: fn(&mut World, Entity, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::remove()`].
-    pub remove: fn(&mut World, Entity),
+    pub remove: fn(EntityMut),
+    /// Function pointer implementing [`ReflectComponent::contains()`].
+    pub contains: fn(EntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(&World, Entity) -> Option<&dyn Reflect>,
+    pub reflect: fn(EntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
     ///
     /// # Safety
@@ -85,9 +87,9 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no [`Component`] of the given type or the `entity` does not exist.
-    pub fn apply(&self, world: &mut World, entity: Entity, component: &dyn Reflect) {
-        (self.0.apply)(world, entity, component);
+    /// Panics if there is no [`Component`] of the given type.
+    pub fn apply(&self, entity: EntityMut, component: &dyn Reflect) {
+        (self.0.apply)(entity, component);
     }
 
     /// Uses reflection to set the value of this [`Component`] type in the entity to the given value or insert a new one if it does not exist.
@@ -103,14 +105,19 @@ impl ReflectComponent {
     ///
     /// # Panics
     ///
-    /// Panics if there is no [`Component`] of the given type or the `entity` does not exist.
-    pub fn remove(&self, world: &mut World, entity: Entity) {
-        (self.0.remove)(world, entity);
+    /// Panics if there is no [`Component`] of the given type.
+    pub fn remove(&self, entity: EntityMut) {
+        (self.0.remove)(entity);
+    }
+
+    /// Returns whether entity contains this [`Component`]
+    pub fn contains(&self, entity: EntityRef) -> bool {
+        (self.0.contains)(entity)
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, world: &'a World, entity: Entity) -> Option<&'a dyn Reflect> {
-        (self.0.reflect)(world, entity)
+    pub fn reflect<'a>(&self, entity: EntityRef<'a>) -> Option<&'a dyn Reflect> {
+        (self.0.reflect)(entity)
     }
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
@@ -181,8 +188,8 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 component.apply(reflected_component);
                 world.entity_mut(entity).insert(component);
             },
-            apply: |world, entity, reflected_component| {
-                let mut component = world.get_mut::<C>(entity).unwrap();
+            apply: |mut entity, reflected_component| {
+                let mut component = entity.get_mut::<C>().unwrap();
                 component.apply(reflected_component);
             },
             apply_or_insert: |world, entity, reflected_component| {
@@ -194,9 +201,10 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     world.entity_mut(entity).insert(component);
                 }
             },
-            remove: |world, entity| {
-                world.entity_mut(entity).remove::<C>();
+            remove: |mut entity| {
+                entity.remove::<C>();
             },
+            contains: |entity| entity.contains::<C>(),
             copy: |source_world, destination_world, source_entity, destination_entity| {
                 let source_component = source_world.get::<C>(source_entity).unwrap();
                 let mut destination_component = C::from_world(destination_world);
@@ -205,12 +213,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .entity_mut(destination_entity)
                     .insert(destination_component);
             },
-            reflect: |world, entity| {
-                world
-                    .get_entity(entity)?
-                    .get::<C>()
-                    .map(|c| c as &dyn Reflect)
-            },
+            reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |world, entity| {
                 // SAFETY: reflect_mut is an unsafe function pointer used by
                 // 1. `reflect_unchecked_mut` which must be called with an UnsafeWorldCell with access to the the component `C` on the `entity`, and
