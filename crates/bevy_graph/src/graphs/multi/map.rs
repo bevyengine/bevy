@@ -138,8 +138,21 @@ impl_graph! {
             idx
         }
 
-        fn remove_edge(&mut self, _edge: EdgeIdx) -> GraphResult<E> {
-            todo!()
+        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+            if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
+                let adjas = self.adjacencies.get_mut(node).unwrap().get_mut(&other).unwrap();
+                if let Some(pos) = adjas.iter().position(|e| *e == edge) {
+                    adjas.swap_remove(pos);
+                }
+                let adjas = self.adjacencies.get_mut(other).unwrap().get_mut(&node).unwrap();
+                if let Some(pos) = adjas.iter().position(|e| *e == edge) {
+                    adjas.swap_remove(pos);
+                }
+
+                Ok(self.edges.remove(edge).unwrap().data)
+            } else {
+                Err(GraphError::EdgeIdxDoesntExist(edge))
+            }
         }
     }
 
@@ -172,8 +185,17 @@ impl_graph! {
             idx
         }
 
-        fn remove_edge(&mut self, _edge: EdgeIdx) -> GraphResult<E> {
-            todo!()
+        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+            if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
+                let adjas = self.adjacencies.get_mut(node).unwrap().get_mut(&other).unwrap();
+                if let Some(pos) = adjas.iter().position(|e| *e == edge) {
+                    adjas.swap_remove(pos);
+                }
+
+                Ok(self.edges.remove(edge).unwrap().data)
+            } else {
+                Err(GraphError::EdgeIdxDoesntExist(edge))
+            }
         }
     }
 }
