@@ -14,8 +14,7 @@ pub fn dds_buffer_to_image(
     let texture_format = dds_format_to_texture_format(&dds, is_srgb)?;
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
-            "Format not supported by this GPU: {:?}",
-            texture_format
+            "Format not supported by this GPU: {texture_format:?}",
         )));
     }
     let mut image = Image::default();
@@ -116,8 +115,7 @@ pub fn dds_format_to_texture_format(
             | D3DFormat::YUY2
             | D3DFormat::CXV8U8 => {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    d3d_format
+                    "{d3d_format:?}",
                 )))
             }
         }
@@ -227,8 +225,7 @@ pub fn dds_format_to_texture_format(
             }
             _ => {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    dxgi_format
+                    "{dxgi_format:?}",
                 )))
             }
         }

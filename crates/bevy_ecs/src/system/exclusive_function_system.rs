@@ -5,9 +5,8 @@ use crate::{
     query::Access,
     schedule::{SystemLabel, SystemLabelId},
     system::{
-        check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamFetch,
-        ExclusiveSystemParamItem, ExclusiveSystemParamState, IntoSystem, System, SystemMeta,
-        SystemTypeIdLabel,
+        check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamItem,
+        IntoSystem, System, SystemMeta, SystemTypeIdLabel,
     },
     world::{World, WorldId},
 };
@@ -25,7 +24,7 @@ where
     Param: ExclusiveSystemParam,
 {
     func: F,
-    param_state: Option<Param::Fetch>,
+    param_state: Option<Param::State>,
     system_meta: SystemMeta,
     world_id: Option<WorldId>,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
@@ -95,7 +94,7 @@ where
         let saved_last_tick = world.last_change_tick;
         world.last_change_tick = self.system_meta.last_change_tick;
 
-        let params = <Param as ExclusiveSystemParam>::Fetch::get_param(
+        let params = Param::get_param(
             self.param_state.as_mut().expect(PARAM_MESSAGE),
             &self.system_meta,
         );
@@ -103,7 +102,7 @@ where
 
         let change_tick = world.change_tick.get_mut();
         self.system_meta.last_change_tick = *change_tick;
-        *change_tick += 1;
+        *change_tick = change_tick.wrapping_add(1);
         world.last_change_tick = saved_last_tick;
     }
 
@@ -123,17 +122,14 @@ where
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(PARAM_MESSAGE);
-        param_state.apply(world);
+        Param::apply(param_state, world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::Fetch as ExclusiveSystemParamState>::init(
-            world,
-            &mut self.system_meta,
-        ));
+        self.param_state = Some(Param::init(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, _world: &World) {}

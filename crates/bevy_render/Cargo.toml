@@ -50,6 +50,7 @@ image = { version = "0.24", default-features = false }
 
 # misc
 wgpu = { version = "0.14.0", features = ["spirv"] }
+wgpu-hal = "0.14.1"
 codespan-reporting = "0.11.0"
 naga = { version = "0.10.0", features = ["glsl-in", "spv-in", "spv-out", "wgsl-in", "wgsl-out"] }
 serde = { version = "1", features = ["derive"] }

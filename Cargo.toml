@@ -10,11 +10,13 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+rust-version = "1.66.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
+exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
 members = [
   "crates/*",
+  "examples/android",
   "examples/ios",
   "tools/ci",
   "tools/spancmp",
@@ -31,7 +33,13 @@ default = [
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
-  "render",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
   "png",
   "hdr",
   "vorbis",
@@ -41,17 +49,6 @@ default = [
 
 # Force dynamic linking, which improves iterative compile times
 dynamic = ["bevy_dylib"]
-
-# Rendering support
-render = [
-  "bevy_internal/bevy_core_pipeline",
-  "bevy_internal/bevy_pbr",
-  "bevy_internal/bevy_gltf",
-  "bevy_internal/bevy_render",
-  "bevy_internal/bevy_sprite",
-  "bevy_internal/bevy_text",
-  "bevy_internal/bevy_ui",
-]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -93,6 +90,13 @@ flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
+symphonia-aac = ["bevy_internal/symphonia-aac"]
+symphonia-all = ["bevy_internal/symphonia-all"]
+symphonia-flac = ["bevy_internal/symphonia-flac"]
+symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
+symphonia-mp3 = ["bevy_internal/symphonia-mp3"]
+symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
+symphonia-wav = ["bevy_internal/symphonia-wav"]
 
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_internal/filesystem_watcher"]
@@ -1383,7 +1387,7 @@ wasm = true
 # Tools
 [[example]]
 name = "scene_viewer"
-path = "examples/tools/scene_viewer.rs"
+path = "examples/tools/scene_viewer/main.rs"
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -1400,17 +1404,6 @@ name = "Gamepad Viewer"
 description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
 wasm = false
-
-# Transforms
-[[example]]
-name = "global_vs_local_translation"
-path = "examples/transforms/global_vs_local_translation.rs"
-
-[package.metadata.example.global_vs_local_translation]
-name = "Global / Local Translation"
-description = "Illustrates the difference between direction of a translation in respect to local object or global object Transform"
-category = "Transforms"
-wasm = true
 
 [[example]]
 name = "3d_rotation"
@@ -1628,31 +1621,13 @@ description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
 wasm = true
 
-# Android
-[[example]]
-crate-type = ["cdylib"]
-name = "android_example"
-path = "examples/android/android.rs"
-
-[package.metadata.example.android_example]
-hidden = true
-
-[package.metadata.android]
-package = "org.bevyengine.example"
-apk_name = "bevyexample"
-assets = "assets"
-resources = "assets/android-res"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
-
-[package.metadata.android.application]
-icon = "@mipmap/ic_launcher"
-label = "Bevy Example"
-
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[profile.stress-test]
+inherits = "release"
+lto = "fat"
+panic = "abort"

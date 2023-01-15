@@ -19,9 +19,7 @@ use bevy_utils::{
 };
 use std::{hash::Hash, iter::FusedIterator, mem, ops::Deref};
 use thiserror::Error;
-use wgpu::{
-    BufferBindingType, PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout,
-};
+use wgpu::{PipelineLayoutDescriptor, VertexBufferLayout as RawVertexBufferLayout};
 
 use crate::render_resource::resource_macros::*;
 
@@ -125,6 +123,7 @@ struct ShaderCache {
 pub enum ShaderDefVal {
     Bool(String, bool),
     Int(String, i32),
+    UInt(String, u32),
 }
 
 impl From<&str> for ShaderDefVal {
@@ -136,6 +135,16 @@ impl From<&str> for ShaderDefVal {
 impl From<String> for ShaderDefVal {
     fn from(key: String) -> Self {
         ShaderDefVal::Bool(key, true)
+    }
+}
+
+impl ShaderDefVal {
+    pub fn value_as_string(&self) -> String {
+        match self {
+            ShaderDefVal::Bool(_, def) => def.to_string(),
+            ShaderDefVal::Int(_, def) => def.to_string(),
+            ShaderDefVal::UInt(_, def) => def.to_string(),
+        }
     }
 }
 
@@ -178,17 +187,10 @@ impl ShaderCache {
                     shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
                 }
 
-                // 3 is the value from CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT declared in bevy_pbr
-                // Using the value directly here to avoid the cyclic dependency
-                if matches!(
-                    render_device.get_supported_read_only_binding_type(3),
-                    BufferBindingType::Storage { .. }
-                ) {
-                    shader_defs.push(ShaderDefVal::Int(
-                        String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                        3,
-                    ));
-                }
+                shader_defs.push(ShaderDefVal::UInt(
+                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+                    render_device.limits().max_storage_buffers_per_shader_stage,
+                ));
 
                 debug!(
                     "processing shader {:?}, with shader defs {:?}",
@@ -216,7 +218,7 @@ impl ShaderCache {
                 let error = render_device.wgpu_device().pop_error_scope();
 
                 // `now_or_never` will return Some if the future is ready and None otherwise.
-                // On native platforms, wgpu will yield the error immediatly while on wasm it may take longer since the browser APIs are asynchronous.
+                // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
                 // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
                 // and on wasm the error will be handled by wgpu and crash the application.
                 if let Some(Some(wgpu::Error::Validation { description, .. })) =
