@@ -540,18 +540,18 @@ impl ScheduleGraph {
             match id {
                 NodeId::System(index) => {
                     self.systems[index].as_mut().unwrap().initialize(world);
-                    self.system_conditions[index].as_mut().map(|v| {
+                    if let Some(v) = self.system_conditions[index].as_mut() {
                         for condition in v.iter_mut() {
                             condition.initialize(world);
                         }
-                    });
+                    }
                 }
                 NodeId::Set(index) => {
-                    self.system_set_conditions[index].as_mut().map(|v| {
+                    if let Some(v) = self.system_set_conditions[index].as_mut() {
                         for condition in v.iter_mut().skip(i) {
                             condition.initialize(world);
                         }
-                    });
+                    }
                 }
             }
         }

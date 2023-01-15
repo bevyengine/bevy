@@ -19,8 +19,7 @@ impl NodeId {
     /// Returns the internal integer value.
     pub fn index(&self) -> usize {
         match self {
-            NodeId::System(index) => *index,
-            NodeId::Set(index) => *index,
+            NodeId::System(index) | NodeId::Set(index) => *index,
         }
     }
 
