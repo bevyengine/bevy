@@ -72,6 +72,20 @@ fn new_condition<P>(condition: impl Condition<P>) -> BoxedCondition {
     Box::new(condition_system)
 }
 
+fn ambiguous_with(graph_info: &mut GraphInfo, set: BoxedSystemSet) {
+    match &mut graph_info.ambiguous_with {
+        detection @ Ambiguity::Check => {
+            let mut ambiguous_with = Vec::new();
+            ambiguous_with.push(set);
+            *detection = Ambiguity::IgnoreWithSet(ambiguous_with);
+        }
+        Ambiguity::IgnoreWithSet(ambiguous_with) => {
+            ambiguous_with.push(set);
+        }
+        Ambiguity::IgnoreAll => (),
+    }
+}
+
 /// Types that can be converted into a [`SystemSetConfig`].
 ///
 /// This has been implemented for all types that implement [`SystemSet`] and boxed trait objects.
@@ -195,20 +209,7 @@ impl IntoSystemSetConfig for SystemSetConfig {
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        match &mut self.graph_info.ambiguous_with {
-            detection @ Ambiguity::Check => {
-                let mut ambiguous_with = Vec::new();
-                let boxed: Box<dyn SystemSet> = Box::new(set.into_system_set());
-                ambiguous_with.push(boxed);
-                *detection = Ambiguity::IgnoreWithSet(ambiguous_with);
-            }
-            Ambiguity::IgnoreWithSet(ambiguous_with) => {
-                let boxed: Box<dyn SystemSet> = Box::new(set.into_system_set());
-                ambiguous_with.push(boxed);
-            }
-            Ambiguity::IgnoreAll => (),
-        }
-
+        ambiguous_with(&mut self.graph_info, Box::new(set.into_system_set()));
         self
     }
 
@@ -342,24 +343,11 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 
     fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        match &mut self.graph_info.ambiguous_with {
-            detection @ Ambiguity::Check => {
-                let mut ambiguous_with = Vec::new();
-                let boxed: Box<dyn SystemSet> = Box::new(set.into_system_set());
-                ambiguous_with.push(boxed);
-                *detection = Ambiguity::IgnoreWithSet(ambiguous_with);
-            }
-            Ambiguity::IgnoreWithSet(ambiguous_with) => {
-                let boxed: Box<dyn SystemSet> = Box::new(set.into_system_set());
-                ambiguous_with.push(boxed);
-            }
-            Ambiguity::IgnoreAll => (),
-        }
-
+        ambiguous_with(&mut self.graph_info, Box::new(set.into_system_set()));
         self
     }
 
-    fn ambiguous_with_all(mut self) -> SystemConfig {
+    fn ambiguous_with_all(mut self) -> Self {
         self.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
         self
     }
@@ -422,6 +410,18 @@ where
         self.into_configs().after(set)
     }
 
+    /// Suppress warnings and errors that would result from these systems having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfigs {
+        self.into_configs().ambiguous_with(set)
+    }
+
+    /// Suppress warnings and errors that would result from these systems having ambiguities
+    /// (conflicting access but indeterminate order) with any other system.
+    fn ambiguous_with_all(self) -> SystemConfigs {
+        self.into_configs().ambiguous_with_all()
+    }
+
     /// Treat this collection as a sequence of systems.
     ///
     /// Ordering constraints will be applied between the successive elements.
@@ -471,6 +471,23 @@ impl IntoSystemConfigs<()> for SystemConfigs {
         self
     }
 
+    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        for config in &mut self.systems {
+            ambiguous_with(&mut config.graph_info, set.dyn_clone());
+        }
+
+        self
+    }
+
+    fn ambiguous_with_all(mut self) -> Self {
+        for config in &mut self.systems {
+            config.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
+        }
+
+        self
+    }
+
     fn chain(mut self) -> Self {
         self.chained = true;
         self
@@ -506,6 +523,18 @@ where
     /// Run after all systems in `set`.
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
         self.into_configs().after(set)
+    }
+
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with systems in `set`.
+    fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfigs {
+        self.into_configs().ambiguous_with(set)
+    }
+
+    /// Suppress warnings and errors that would result from systems in these sets having ambiguities
+    /// (conflicting access but indeterminate order) with any other system.
+    fn ambiguous_with_all(self) -> SystemSetConfigs {
+        self.into_configs().ambiguous_with_all()
     }
 
     /// Treat this collection as a sequence of system sets.
@@ -552,6 +581,23 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
                 .graph_info
                 .dependencies
                 .push((DependencyEdgeKind::After, set.dyn_clone()));
+        }
+
+        self
+    }
+
+    fn ambiguous_with<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
+        let set = set.into_system_set();
+        for config in &mut self.sets {
+            ambiguous_with(&mut config.graph_info, set.dyn_clone());
+        }
+
+        self
+    }
+
+    fn ambiguous_with_all(mut self) -> Self {
+        for config in &mut self.sets {
+            config.graph_info.ambiguous_with = Ambiguity::IgnoreAll;
         }
 
         self
