@@ -4,7 +4,7 @@ use bevy_utils::default;
 use crate::{
     schedule_v3::{
         condition::{BoxedCondition, Condition},
-        graph_utils::{Ambiguity, DependencyEdgeKind, GraphInfo},
+        graph_utils::{Ambiguity, Dependency, DependencyKind, GraphInfo},
         set::{BoxedSystemSet, IntoSystemSet, SystemSet},
     },
     system::{BoxedSystem, IntoSystem, System},
@@ -190,16 +190,18 @@ impl IntoSystemSetConfig for SystemSetConfig {
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        self.graph_info
-            .dependencies
-            .push((DependencyEdgeKind::Before, Box::new(set.into_system_set())));
+        self.graph_info.dependencies.push(Dependency::new(
+            DependencyKind::Before,
+            Box::new(set.into_system_set()),
+        ));
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        self.graph_info
-            .dependencies
-            .push((DependencyEdgeKind::After, Box::new(set.into_system_set())));
+        self.graph_info.dependencies.push(Dependency::new(
+            DependencyKind::After,
+            Box::new(set.into_system_set()),
+        ));
         self
     }
 
@@ -324,16 +326,18 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 
     fn before<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        self.graph_info
-            .dependencies
-            .push((DependencyEdgeKind::Before, Box::new(set.into_system_set())));
+        self.graph_info.dependencies.push(Dependency::new(
+            DependencyKind::Before,
+            Box::new(set.into_system_set()),
+        ));
         self
     }
 
     fn after<M>(mut self, set: impl IntoSystemSet<M>) -> Self {
-        self.graph_info
-            .dependencies
-            .push((DependencyEdgeKind::After, Box::new(set.into_system_set())));
+        self.graph_info.dependencies.push(Dependency::new(
+            DependencyKind::After,
+            Box::new(set.into_system_set()),
+        ));
         self
     }
 
@@ -453,7 +457,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             config
                 .graph_info
                 .dependencies
-                .push((DependencyEdgeKind::Before, set.dyn_clone()));
+                .push(Dependency::new(DependencyKind::Before, set.dyn_clone()));
         }
 
         self
@@ -465,7 +469,7 @@ impl IntoSystemConfigs<()> for SystemConfigs {
             config
                 .graph_info
                 .dependencies
-                .push((DependencyEdgeKind::After, set.dyn_clone()));
+                .push(Dependency::new(DependencyKind::After, set.dyn_clone()));
         }
 
         self
@@ -568,7 +572,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             config
                 .graph_info
                 .dependencies
-                .push((DependencyEdgeKind::Before, set.dyn_clone()));
+                .push(Dependency::new(DependencyKind::Before, set.dyn_clone()));
         }
 
         self
@@ -580,7 +584,7 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
             config
                 .graph_info
                 .dependencies
-                .push((DependencyEdgeKind::After, set.dyn_clone()));
+                .push(Dependency::new(DependencyKind::After, set.dyn_clone()));
         }
 
         self

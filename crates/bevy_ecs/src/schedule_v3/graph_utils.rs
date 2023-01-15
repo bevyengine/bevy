@@ -34,13 +34,26 @@ impl NodeId {
     }
 }
 
-/// Specifies what kind of edge should be inserted in the dependency graph.
+/// Specifies what kind of edge should be added to the dependency graph.
 #[derive(Debug, Clone, Copy, Eq, PartialEq, PartialOrd, Ord, Hash)]
-pub(crate) enum DependencyEdgeKind {
+pub(crate) enum DependencyKind {
     /// A node that should be preceded.
     Before,
     /// A node that should be succeeded.
     After,
+}
+
+/// An edge to be added to the dependency graph.
+#[derive(Clone)]
+pub(crate) struct Dependency {
+    pub(crate) kind: DependencyKind,
+    pub(crate) set: BoxedSystemSet,
+}
+
+impl Dependency {
+    pub fn new(kind: DependencyKind, set: BoxedSystemSet) -> Self {
+        Self { kind, set }
+    }
 }
 
 /// Configures ambiguity detection for a single system.
@@ -57,7 +70,7 @@ pub(crate) enum Ambiguity {
 #[derive(Clone)]
 pub(crate) struct GraphInfo {
     pub(crate) sets: Vec<BoxedSystemSet>,
-    pub(crate) dependencies: Vec<(DependencyEdgeKind, BoxedSystemSet)>,
+    pub(crate) dependencies: Vec<Dependency>,
     pub(crate) ambiguous_with: Ambiguity,
 }
 

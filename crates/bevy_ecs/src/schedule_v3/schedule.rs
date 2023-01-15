@@ -457,7 +457,7 @@ impl ScheduleGraph {
         id: &NodeId,
         graph_info: &GraphInfo,
     ) -> Result<(), ScheduleBuildError> {
-        for (_, set) in &graph_info.dependencies {
+        for Dependency { kind: _, set } in &graph_info.dependencies {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
@@ -508,13 +508,13 @@ impl ScheduleGraph {
             self.dependency.graph.add_node(id);
         }
 
-        for (edge_kind, set) in dependencies
+        for (kind, set) in dependencies
             .into_iter()
-            .map(|(edge_kind, set)| (edge_kind, self.system_set_ids[&set]))
+            .map(|Dependency { kind, set }| (kind, self.system_set_ids[&set]))
         {
-            let (lhs, rhs) = match edge_kind {
-                DependencyEdgeKind::Before => (id, set),
-                DependencyEdgeKind::After => (set, id),
+            let (lhs, rhs) = match kind {
+                DependencyKind::Before => (id, set),
+                DependencyKind::After => (set, id),
             };
             self.dependency.graph.add_edge(lhs, rhs, ());
         }
