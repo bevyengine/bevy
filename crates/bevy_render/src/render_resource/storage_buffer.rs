@@ -217,7 +217,6 @@ impl<T: ShaderType + WriteInto> DynamicStorageBuffer<T> {
     #[inline]
     pub fn write_buffer(&mut self, device: &RenderDevice, queue: &RenderQueue) {
         let size = self.scratch.as_ref().len();
-        bevy_log::info!("Size is: {size:?}");
 
         if self.capacity < size || self.label_changed {
             self.buffer = Some(device.create_buffer_with_data(&BufferInitDescriptor {

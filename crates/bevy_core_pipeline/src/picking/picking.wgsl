@@ -1,16 +1,18 @@
 #define_import_path bevy_core_pipeline::picking
 
+// If e.g. a sprite has slightly transparent pixels, we make that opaque (by setting alpha to 1.0)
+// for picking purposes.
+// If we don't do this, blending will occur on the entity index value, which makes no sense.
+//
+// An alternative is to truncate the alpha to 0.0 unless it's 1.0, but that would shrink
+// which parts of the translucent entity are pickable. We just have to make a choice,
+// and here we expand the pickable area instead of shrinking it.
 fn picking_alpha(a: f32) -> f32 {
-    // If e.g. a sprite has slightly transparent pixels, we make that opaque (by setting alpha to 1.0)
-    // for picking purposes.
-    // If we don't do this, blending will occur on the entity index value, which makes no sense.
-    //
-    // An alternative is to truncate the alpha to 0.0 unless it's 1.0, but that would shrink
-    // which parts of the translucent entity are pickable, which is not desirable.
     return ceil(a);
 }
 
-// TODO: Describe why/what
+// In short, this is to pack a u32 into a vec3<f32>.
+// See bevy_render/src/picking/mod.rs for further explanation.
 fn entity_index_to_vec3_f32(entity_index: u32) -> vec3<f32> {
     // Such that the CPU side can know if there is an entity at a given pixel.
     // The CPU-side entity index 0 is represented as index 1 in the texture.

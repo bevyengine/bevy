@@ -7,7 +7,12 @@
 //! Add the `--colored` arg to run with color tinted sprites. This will cause the sprites to be rendered
 //! in multiple batches, reducing performance but useful for testing.
 
-use bevy::{prelude::*, render::picking::Picking, window::PresentMode};
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+    render::picking::Picking,
+    window::PresentMode,
+};
 
 use rand::Rng;
 
@@ -24,8 +29,8 @@ fn main() {
             std::env::args().nth(1).unwrap_or_default() == "--colored",
         ))
         // Since this is also used as a benchmark, we want it to display performance data.
-        // .add_plugin(LogDiagnosticsPlugin::default())
-        // .add_plugin(FrameTimeDiagnosticsPlugin::default())
+        .add_plugin(LogDiagnosticsPlugin::default())
+        .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             window: WindowDescriptor {
                 present_mode: PresentMode::AutoNoVsync,
@@ -33,7 +38,6 @@ fn main() {
             },
             ..default()
         }))
-        // .init_resource::<Picked>()
         .init_resource::<MousePosition>()
         .add_system(mouse_position)
         .add_system(picking.after(mouse_position))
@@ -118,9 +122,6 @@ fn print_sprite_count(time: Res<Time>, mut timer: Local<PrintingTimer>, sprites:
     }
 }
 
-// #[derive(Debug, Default, Resource, Deref, DerefMut)]
-// struct Picked(HashSet<Entity>);
-
 #[derive(Debug, Default, Resource, Deref, DerefMut)]
 struct MousePosition(Option<UVec2>);
 
@@ -148,8 +149,6 @@ fn picking(
     let Ok((_, mut image_handle)) = sprites.get_mut(e) else {
         panic!("Picked entity with no matching sprite: {e:?}");
     };
-    info!("Picked: {:?}", e);
 
-    // sprite.color = Color::GREEN;
     *image_handle = assets.load("branding/icon2.png");
 }

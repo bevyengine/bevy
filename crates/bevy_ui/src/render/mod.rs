@@ -423,13 +423,6 @@ pub struct UiBatch {
     pub z: f32,
 }
 
-// #[derive(Resource, Default)]
-// pub struct EntityIndexBindGroups {
-//     // Maps a UiBatch's entity to its bind group
-//     // which holds entity indices for each uinode in the batch.
-//     inner: HashMap<Entity, BindGroup>,
-// }
-
 pub fn prepare_uinodes(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -437,7 +430,6 @@ pub fn prepare_uinodes(
     mut ui_meta: ResMut<UiMeta>,
     ui_pipeline: Res<UiPipeline>,
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
-    // mut entity_index_bind_groups: ResMut<EntityIndexBindGroups>,
 ) {
     ui_meta.vertices.clear();
     ui_meta.entity_indices.clear();
@@ -573,28 +565,6 @@ pub fn prepare_uinodes(
             z: last_z,
         });
     }
-
-    // for (batch_entity, mut batch_uniform) in batch_uniforms.into_iter() {
-    //     batch_uniform.write_buffer(&render_device, &render_queue);
-
-    //     let size = (batch_uniform.len() * std::mem::size_of::<u32>()) as u64;
-    //     let bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-    //         entries: &[BindGroupEntry {
-    //             binding: 0,
-    //             resource: BindingResource::Buffer(BufferBinding {
-    //                 buffer: batch_uniform.buffer().unwrap(),
-    //                 offset: 0,
-    //                 size: Some(NonZeroU64::new(size).unwrap()),
-    //             }),
-    //         }],
-    //         label: Some("sprite_batch_bind_group"),
-    //         layout: &sprite_pipeline.batch_layout,
-    //     });
-
-    //     entity_index_bind_groups
-    //         .inner
-    //         .insert(batch_entity, bind_group);
-    // }
 
     ui_meta.vertices.write_buffer(&render_device, &render_queue);
     ui_meta

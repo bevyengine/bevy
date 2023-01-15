@@ -110,7 +110,6 @@ pub struct ViewUniform {
     world_position: Vec3,
     // viewport(x_origin, y_origin, width, height)
     viewport: Vec4,
-    entity_index: u32,
 }
 
 #[derive(Resource, Default)]
@@ -256,7 +255,6 @@ fn prepare_view_uniforms(
                 inverse_projection,
                 world_position: camera.transform.translation(),
                 viewport: camera.viewport.as_vec4(),
-                entity_index: entity.index(),
             }),
         };
 

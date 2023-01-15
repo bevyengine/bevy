@@ -14,7 +14,7 @@ use bevy::{
 fn main() {
     App::new()
         // TODO: Support MSAA != 1 with depth texture copies
-        // .insert_resource(Msaa { samples: 1 })
+        .insert_resource(Msaa { samples: 1 })
         .add_plugins(DefaultPlugins)
         .init_resource::<MousePosition>()
         .init_resource::<Hovered>()
@@ -279,28 +279,6 @@ fn rotate_shapes(mut query: Query<&mut Transform, With<Shape>>, time: Res<Time>)
         transform.rotate_y(time.delta_seconds() / 2.);
     }
 }
-
-// fn picking_events(
-//     mut cursor_moved: EventReader<CursorMoved>,
-//     picking_camera: Query<(&Picking, &Camera)>,
-//     mut picked: ResMut<Picked>,
-// ) {
-//     let (picking, camera) = picking_camera.single();
-
-//     let picked_this_frame = HashSet::from_iter(
-//         cursor_moved
-//             .iter()
-//             .map(|moved| moved.position.as_uvec2())
-//             .filter_map(|coordinates| picking.get_entity(camera, coordinates)),
-//     );
-
-//     // Since we rely on cursor _movement_ to update what is picked,
-//     // only update if something interesting happened.
-//     // Else picking will only last one frame.
-//     if !picked_this_frame.is_empty() {
-//         **picked = picked_this_frame;
-//     }
-// }
 
 #[derive(Debug, Default, Resource, Deref, DerefMut)]
 struct MousePosition(Option<UVec2>);

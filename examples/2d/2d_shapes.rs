@@ -14,8 +14,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    // TODO: Fix s.t. no crash, vertex attr stuff likely.
-    // Then try storage buf.
     commands.spawn((Camera2dBundle::default(), Picking::default()));
 
     // Circle

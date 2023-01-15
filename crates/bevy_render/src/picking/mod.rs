@@ -239,12 +239,7 @@ pub struct PickingTextures {
 
 impl PickingTextures {
     pub fn clear_color() -> wgpu::Color {
-        // An entity index is u32. The picking buffer needs to have a value which indicates
-        // that there is no entity at the given pixel.
-        // It is more likely that a user sees an entity with index 0 than with index u32::MAX,
-        // so make u32::MAX the default value (i.e. no entity) value.
-        // Color::rgba_u8(0xFF, 0xFF, 0xFF, 0xFF).into()
-        Color::rgba_u8(0x00, 0x00, 0x00, 0x00).into()
+        Color::BLACK.into()
     }
 
     /// Retrieve this target's color attachment. This will use [`Self::sampled`] and resolve to [`Self::main`] if

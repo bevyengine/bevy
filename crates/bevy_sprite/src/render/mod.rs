@@ -148,8 +148,6 @@ impl FromWorld for SpritePipeline {
             entity_index_layout: entity_index_layout.layout.clone(),
             material_layout,
             dummy_white_gpu_image,
-            // batch_layout,
-            // batch_offsets_layout: batch_offsets.layout.clone(),
         }
     }
 }
@@ -242,10 +240,13 @@ impl SpecializedRenderPipeline for SpritePipeline {
             false => TextureFormat::bevy_default(),
         };
 
+        let blend = Some(BlendState::ALPHA_BLENDING);
+        let write_mask = ColorWrites::ALL;
+
         let mut targets = vec![Some(ColorTargetState {
             format,
-            blend: Some(BlendState::ALPHA_BLENDING),
-            write_mask: ColorWrites::ALL,
+            blend,
+            write_mask,
         })];
 
         if key.contains(SpritePipelineKey::PICKING) {
@@ -253,8 +254,8 @@ impl SpecializedRenderPipeline for SpritePipeline {
 
             targets.push(Some(ColorTargetState {
                 format: PICKING_TEXTURE_FORMAT,
-                blend: Some(BlendState::ALPHA_BLENDING),
-                write_mask: ColorWrites::ALL,
+                blend,
+                write_mask,
             }));
         }
 
@@ -475,8 +476,8 @@ pub struct SpriteBatch {
 }
 
 #[derive(Resource, Default)]
-pub struct BatchBindGroups {
-    images: HashMap<Handle<Image>, BindGroup>,
+pub struct ImageBindGroups {
+    values: HashMap<Handle<Image>, BindGroup>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -491,7 +492,7 @@ pub fn queue_sprites(
     sprite_pipeline: Res<SpritePipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<SpritePipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
-    mut batch_bind_groups: ResMut<BatchBindGroups>,
+    mut batch_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
     msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
@@ -509,7 +510,7 @@ pub fn queue_sprites(
         match event {
             AssetEvent::Created { .. } => None,
             AssetEvent::Modified { handle } | AssetEvent::Removed { handle } => {
-                batch_bind_groups.images.remove(handle)
+                batch_bind_groups.values.remove(handle)
             }
         };
     }
@@ -621,7 +622,7 @@ pub fn queue_sprites(
                         current_batch_entity = commands.spawn(current_batch).id();
 
                         batch_bind_groups
-                            .images
+                            .values
                             .entry(Handle::weak(current_batch.image_handle_id))
                             .or_insert_with(|| {
                                 render_device.create_bind_group(&BindGroupDescriptor {
@@ -636,7 +637,6 @@ pub fn queue_sprites(
                                             binding: 1,
                                             resource: BindingResource::Sampler(&gpu_image.sampler),
                                         },
-                                        // ADDY
                                     ],
                                     label: Some("sprite_material_bind_group"),
                                     layout: &sprite_pipeline.material_layout,
@@ -839,7 +839,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteEntityIndexBind
 
 pub struct SetSpriteTextureBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGroup<I> {
-    type Param = SRes<BatchBindGroups>;
+    type Param = SRes<ImageBindGroups>;
     type ViewWorldQuery = ();
     type ItemWorldQuery = Read<SpriteBatch>;
 
@@ -850,7 +850,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
         batch_bind_groups: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let images = &batch_bind_groups.into_inner().images;
+        let images = &batch_bind_groups.into_inner().values;
 
         pass.set_bind_group(
             I,
@@ -862,48 +862,6 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteTextureBindGrou
         RenderCommandResult::Success
     }
 }
-
-// pub struct SetSpriteEntityIndexBindGroup<const I: usize>;
-// impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetSpriteEntityIndexBindGroup<I> {
-//     type Param = SRes<BatchBindGroups>;
-//     type ViewWorldQuery = ();
-//     type ItemWorldQuery = Read<SpriteBatch>;
-
-//     fn render<'w>(
-//         item: &P,
-//         _view: (),
-//         _sprite_batch: &'_ SpriteBatch,
-//         batch_bind_groups: SystemParamItem<'w, '_, Self::Param>,
-//         pass: &mut TrackedRenderPass<'w>,
-//     ) -> RenderCommandResult {
-//         // TODO: Only need 1
-//         let entity_indices = &batch_bind_groups.into_inner().entity_indices;
-//         let colored_entity_indices = &batch_bind_groups.into_inner().colored_entity_indices;
-
-//         pass.set_bind_group(I, entity_indices.get(&item.entity()).unwrap(), &[]);
-//         RenderCommandResult::Success
-//     }
-// }
-
-// pub struct SetSpriteBatchOffsetsBindGroup<const I: usize>;
-// impl<P: BatchedPhaseItem, const I: usize> RenderCommand<P> for SetSpriteBatchOffsetsBindGroup<I> {
-//     type Param = SRes<BatchVertexOffsets>;
-//     type ViewWorldQuery = ();
-//     type ItemWorldQuery = Read<SpriteBatch>;
-
-//     fn render<'w>(
-//         item: &P,
-//         _view: (),
-//         _sprite_batch: &'_ SpriteBatch,
-//         batch_offsets: SystemParamItem<'w, '_, Self::Param>,
-//         pass: &mut TrackedRenderPass<'w>,
-//     ) -> RenderCommandResult {
-//         let offset_bind_group = batch_offsets.into_inner().get(&item.entity()).unwrap();
-
-//         pass.set_bind_group(I, offset_bind_group, &[]);
-//         RenderCommandResult::Success
-//     }
-// }
 
 pub struct DrawSpriteBatch;
 impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
@@ -925,7 +883,6 @@ impl<P: BatchedPhaseItem> RenderCommand<P> for DrawSpriteBatch {
             pass.set_vertex_buffer(0, sprite_meta.vertices.buffer().unwrap().slice(..));
         }
         let range = item.batch_range().as_ref().unwrap().clone();
-        // bevy_log::info!("Drawing range: {:?}", range);
         pass.draw(range, 0..1);
         RenderCommandResult::Success
     }

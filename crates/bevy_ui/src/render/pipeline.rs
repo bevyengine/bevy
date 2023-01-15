@@ -106,6 +106,7 @@ impl SpecializedRenderPipeline for UiPipeline {
             VertexBufferLayout::from_vertex_formats(VertexStepMode::Vertex, vertex_formats);
 
         let blend = Some(BlendState::ALPHA_BLENDING);
+        let write_mask = ColorWrites::ALL;
 
         let mut targets = vec![Some(ColorTargetState {
             format: if key.contains(UiPipelineKey::HDR) {
@@ -114,15 +115,14 @@ impl SpecializedRenderPipeline for UiPipeline {
                 TextureFormat::bevy_default()
             },
             blend,
-            write_mask: ColorWrites::ALL,
+            write_mask,
         })];
 
         if key.contains(UiPipelineKey::PICKING) {
             targets.push(Some(ColorTargetState {
                 format: PICKING_TEXTURE_FORMAT,
-                // TODO: Check this is supported
                 blend,
-                write_mask: ColorWrites::ALL,
+                write_mask,
             }));
         }
 
