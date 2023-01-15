@@ -38,7 +38,10 @@ pub(super) fn new_set_unchecked(set: BoxedSystemSet) -> SystemSetConfig {
 fn new_set(set: BoxedSystemSet) -> SystemSetConfig {
     // system type sets are automatically populated
     // to avoid unintentionally broad changes, they cannot be configured
-    assert!(!set.is_system_type(), "invalid use of system type set");
+    assert!(
+        !set.is_system_type(),
+        "configuring system type sets is not allowed"
+    );
     new_set_unchecked(set)
 }
 
@@ -162,7 +165,10 @@ impl IntoSystemSetConfig for SystemSetConfig {
     }
 
     fn in_set(mut self, set: impl SystemSet) -> Self {
-        assert!(!set.is_system_type(), "invalid use of system type set");
+        assert!(
+            !set.is_system_type(),
+            "adding arbitrary systems to a system type set is not allowed"
+        );
         self.graph_info.sets.push(Box::new(set));
         self
     }
@@ -306,7 +312,10 @@ impl IntoSystemConfig<()> for SystemConfig {
     }
 
     fn in_set(mut self, set: impl SystemSet) -> Self {
-        assert!(!set.is_system_type(), "invalid use of system type set");
+        assert!(
+            !set.is_system_type(),
+            "adding arbitrary systems to a system type set is not allowed"
+        );
         self.graph_info.sets.push(Box::new(set));
         self
     }
@@ -425,7 +434,10 @@ impl IntoSystemConfigs<()> for SystemConfigs {
     }
 
     fn in_set(mut self, set: impl SystemSet) -> Self {
-        assert!(!set.is_system_type(), "invalid use of system type set");
+        assert!(
+            !set.is_system_type(),
+            "adding arbitrary systems to a system type set is not allowed"
+        );
         for config in &mut self.systems {
             config.graph_info.sets.push(set.dyn_clone());
         }
@@ -508,7 +520,10 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
     }
 
     fn in_set(mut self, set: impl SystemSet) -> Self {
-        assert!(!set.is_system_type(), "invalid use of system type set");
+        assert!(
+            !set.is_system_type(),
+            "adding arbitrary systems to a system type set is not allowed"
+        );
         for config in &mut self.sets {
             config.graph_info.sets.push(set.dyn_clone());
         }

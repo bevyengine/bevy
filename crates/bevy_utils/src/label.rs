@@ -65,11 +65,11 @@ where
 /// # Example
 ///
 /// ```
-/// # use bevy_utils::define_old_style_label;
-/// define_old_style_label!(MyNewLabelTrait);
+/// # use bevy_utils::define_boxed_label;
+/// define_boxed_label!(MyNewLabelTrait);
 /// ```
 #[macro_export]
-macro_rules! define_old_style_label {
+macro_rules! define_boxed_label {
     ($label_trait_name:ident) => {
         /// A strongly-typed label.
         pub trait $label_trait_name:

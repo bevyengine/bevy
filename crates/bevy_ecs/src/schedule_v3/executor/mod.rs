@@ -29,6 +29,9 @@ pub(super) trait SystemExecutor: Send + Sync {
 #[derive(PartialEq, Eq, Default)]
 pub enum ExecutorKind {
     /// Runs the schedule using a single thread.
+    ///
+    /// Useful if you're dealing with a single-threaded environment, saving your threads for
+    /// other things, or just trying minimize overhead.
     SingleThreaded,
     /// Like [`SingleThreaded`](ExecutorKind::SingleThreaded) but calls [`apply_buffers`](crate::system::System::apply_buffers)
     /// immediately after running each system.
@@ -38,6 +41,8 @@ pub enum ExecutorKind {
     MultiThreaded,
 }
 
+// NOTE: This type and the executor implementations were designed as a pair.
+// Do not make them pub.
 #[derive(Default)]
 pub(super) struct SystemSchedule {
     pub(super) systems: Vec<RefCell<BoxedSystem>>,
@@ -70,7 +75,7 @@ impl SystemSchedule {
 // SAFETY:
 // - MultiThreadedExecutor is the only type that uses SystemSchedule across multiple threads.
 // - MultiThreadedExecutor cannot alias any of the RefCells.
-// - SystemSchedule is not made pub in any way
+// - SystemSchedule is not made pub in any way.
 unsafe impl Sync for SystemSchedule {}
 
 /// Instructs the executor to call [`apply_buffers`](crate::system::System::apply_buffers)

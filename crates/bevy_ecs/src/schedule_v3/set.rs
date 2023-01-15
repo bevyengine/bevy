@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
 pub use bevy_ecs_macros::{ScheduleLabel, SystemSet};
-use bevy_utils::define_old_style_label;
+use bevy_utils::define_boxed_label;
 use bevy_utils::label::DynHash;
 
 use crate::system::{
@@ -11,7 +11,7 @@ use crate::system::{
     IsFunctionSystem, SystemParam, SystemParamFunction,
 };
 
-define_old_style_label!(ScheduleLabel);
+define_boxed_label!(ScheduleLabel);
 
 pub type BoxedSystemSet = Box<dyn SystemSet>;
 pub type BoxedScheduleLabel = Box<dyn ScheduleLabel>;

@@ -10,6 +10,9 @@ use crate::{
 };
 
 /// Runs the schedule using a single thread.
+///
+/// Useful if you're dealing with a single-threaded environment, saving your threads for
+/// other things, or just trying minimize overhead.
 #[derive(Default)]
 pub struct SingleThreadedExecutor {
     /// System sets whose conditions have been evaluated.

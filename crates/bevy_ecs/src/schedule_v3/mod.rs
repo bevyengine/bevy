@@ -471,8 +471,4 @@ mod tests {
             assert!(matches!(result, Err(ScheduleBuildError::Ambiguity)));
         }
     }
-
-    mod system_ambiguity_errors {
-        // TODO
-    }
 }

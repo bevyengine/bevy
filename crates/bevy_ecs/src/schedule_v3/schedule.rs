@@ -301,7 +301,10 @@ impl ScheduleGraph {
     }
 
     fn set_default_set(&mut self, set: impl SystemSet) {
-        assert!(!set.is_system_type(), "invalid use of system type set");
+        assert!(
+            !set.is_system_type(),
+            "adding arbitrary systems to a system type set is not allowed"
+        );
         self.default_set = Some(Box::new(set));
     }
 
@@ -1057,6 +1060,7 @@ pub enum ScheduleBuildError {
     Uninitialized,
 }
 
+/// Specifies how schedule construction should respond to detecting a certain kind of issue.
 pub enum LogLevel {
     /// Occurrences are logged only.
     Warn,

@@ -72,6 +72,7 @@ pub(crate) fn row_col(index: usize, num_cols: usize) -> (usize, usize) {
     (index / num_cols, index % num_cols)
 }
 
+/// Stores the results of the graph analysis.
 pub(crate) struct CheckGraphResults<V> {
     /// Boolean reachability matrix for the graph.
     pub(crate) reachable: FixedBitSet,
@@ -82,9 +83,9 @@ pub(crate) struct CheckGraphResults<V> {
     /// Edges that are redundant because a longer path exists.
     pub(crate) transitive_edges: Vec<(V, V)>,
     /// Variant of the graph with no transitive edges.
-    #[allow(dead_code)]
     pub(crate) transitive_reduction: DiGraphMap<V, ()>,
     /// Variant of the graph with all possible transitive edges.
+    // TODO: this will very likely be used by "if-needed" ordering
     #[allow(dead_code)]
     pub(crate) transitive_closure: DiGraphMap<V, ()>,
 }
@@ -102,7 +103,7 @@ impl<V: NodeTrait + Debug> Default for CheckGraphResults<V> {
     }
 }
 
-/// Processes a DAG and computes:
+/// Processes a DAG and computes its:
 /// - transitive reduction (along with the set of removed edges)
 /// - transitive closure
 /// - reachability matrix (as a bitset)
