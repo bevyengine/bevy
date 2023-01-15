@@ -484,7 +484,7 @@ impl PipelineCache {
     /// [`get_compute_pipeline_state()`]: PipelineCache::get_compute_pipeline_state
     /// [`get_compute_pipeline()`]: PipelineCache::get_compute_pipeline
     pub fn queue_compute_pipeline(
-        &mut self,
+        &self,
         descriptor: ComputePipelineDescriptor,
     ) -> CachedComputePipelineId {
         let mut new_pipelines = self.new_pipelines.lock();
