@@ -13,7 +13,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Buffer, Resource, SystemBuffer, SystemMeta};
+use super::{Deferred, Resource, SystemBuffer, SystemMeta};
 
 /// A [`World`] mutation.
 ///
@@ -99,7 +99,7 @@ pub trait Command: Send + 'static {
 /// [`System::apply_buffers`]: crate::system::System::apply_buffers
 #[derive(SystemParam)]
 pub struct Commands<'w, 's> {
-    queue: Buffer<'s, CommandQueue>,
+    queue: Deferred<'s, CommandQueue>,
     entities: &'w Entities,
 }
 
@@ -131,7 +131,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// [system parameter]: crate::system::SystemParam
     pub fn new_from_entities(queue: &'s mut CommandQueue, entities: &'w Entities) -> Self {
         Self {
-            queue: Buffer(queue),
+            queue: Deferred(queue),
             entities,
         }
     }

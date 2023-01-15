@@ -839,7 +839,7 @@ unsafe impl<'a, T: FromWorld + Send + 'static> SystemParam for Local<'a, T> {
     }
 }
 
-/// Types that can be used with [`Buffer<T>`] in systems.
+/// Types that can be used with [`Deferred<T>`] in systems.
 /// This allows storing system-local data which is used to defer [`World`] mutations.
 ///
 /// When implementing `SystemBuffer`, you should take care to perform as many
@@ -854,7 +854,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// By using this to defer mutations, you can avoid mutable `World` data access within a system
 /// and allow it to run in parallel with more systems.
 ///
-/// The most common example of this pattern is [`Commands`], which uses [`Buffer<T>`] to defer mutations.
+/// The most common example of this pattern is [`Commands`], which uses [`Deferred<T>`] to defer mutations.
 ///
 /// [`Commands`]: crate::system::Commands
 ///
@@ -874,7 +874,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// #[derive(Component)]
 /// pub struct Monster;
 ///
-/// use bevy_ecs::system::{Buffer, SystemBuffer, SystemMeta};
+/// use bevy_ecs::system::{Deferred, SystemBuffer, SystemMeta};
 ///
 /// // Uses deferred mutations to allow signalling the alarm from multiple systems in parallel.
 /// #[derive(Resource, Default)]
@@ -892,7 +892,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// // Sound the alarm if there is a criminal.
 /// fn alert_criminal(
 ///     criminals: Query<&Criminal>,
-///     mut alarm: Buffer<AlarmFlag>
+///     mut alarm: Deferred<AlarmFlag>
 /// ) {
 ///     if criminals.iter().next().is_some() {
 ///         alarm.0 = true;
@@ -902,7 +902,7 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// // Sound the alarm if there is a monster.
 /// fn alert_monster(
 ///     monsters: Query<&Monster>,
-///     mut alarm: Buffer<AlarmFlag>
+///     mut alarm: Deferred<AlarmFlag>
 /// ) {
 ///     if monsters.iter().next().is_some() {
 ///         alarm.0 = true;
@@ -935,9 +935,9 @@ pub trait SystemBuffer: FromWorld + Send + 'static {
 /// stage.run(&mut world);
 /// assert_eq!(world.resource::<Alarm>().0, true);
 /// ```
-pub struct Buffer<'a, T: SystemBuffer>(pub(crate) &'a mut T);
+pub struct Deferred<'a, T: SystemBuffer>(pub(crate) &'a mut T);
 
-impl<'a, T: SystemBuffer> Deref for Buffer<'a, T> {
+impl<'a, T: SystemBuffer> Deref for Deferred<'a, T> {
     type Target = T;
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -945,7 +945,7 @@ impl<'a, T: SystemBuffer> Deref for Buffer<'a, T> {
     }
 }
 
-impl<'a, T: SystemBuffer> DerefMut for Buffer<'a, T> {
+impl<'a, T: SystemBuffer> DerefMut for Deferred<'a, T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.0
@@ -953,12 +953,12 @@ impl<'a, T: SystemBuffer> DerefMut for Buffer<'a, T> {
 }
 
 // SAFETY: Only local state is accessed.
-unsafe impl<T: SystemBuffer> ReadOnlySystemParam for Buffer<'_, T> {}
+unsafe impl<T: SystemBuffer> ReadOnlySystemParam for Deferred<'_, T> {}
 
 // SAFETY: Only local state is accessed.
-unsafe impl<T: SystemBuffer> SystemParam for Buffer<'_, T> {
+unsafe impl<T: SystemBuffer> SystemParam for Deferred<'_, T> {
     type State = SyncCell<T>;
-    type Item<'w, 's> = Buffer<'s, T>;
+    type Item<'w, 's> = Deferred<'s, T>;
     fn init_state(world: &mut World, _system_meta: &mut SystemMeta) -> Self::State {
         SyncCell::new(T::from_world(world))
     }
@@ -971,7 +971,7 @@ unsafe impl<T: SystemBuffer> SystemParam for Buffer<'_, T> {
         _world: &'w World,
         _change_tick: u32,
     ) -> Self::Item<'w, 's> {
-        Buffer(state.get())
+        Deferred(state.get())
     }
 }
 

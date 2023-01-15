@@ -6,7 +6,7 @@ use crate::{
     self as bevy_ecs,
     entity::Entities,
     prelude::World,
-    system::{Buffer, SystemBuffer, SystemMeta, SystemParam},
+    system::{Deferred, SystemBuffer, SystemMeta, SystemParam},
 };
 
 use super::{CommandQueue, Commands};
@@ -44,7 +44,7 @@ struct ParallelCommandQueue {
 ///```
 #[derive(SystemParam)]
 pub struct ParallelCommands<'w, 's> {
-    state: Buffer<'s, ParallelCommandQueue>,
+    state: Deferred<'s, ParallelCommandQueue>,
     entities: &'w Entities,
 }
 
