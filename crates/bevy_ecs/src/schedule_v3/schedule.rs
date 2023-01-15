@@ -50,7 +50,7 @@ impl Schedules {
         self.inner.insert(label, schedule)
     }
 
-    /// Removes the `label` entry from the map, returning its schedule if one existed.
+    /// Removes the schedule corresponding to the `label` from the map, returning it if it existed.
     pub fn remove(&mut self, label: &dyn ScheduleLabel) -> Option<Schedule> {
         if !self.inner.contains_key(label) {
             warn!("schedule with label {:?} not found", label);

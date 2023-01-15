@@ -1,7 +1,7 @@
 use crate::schedule_v3::*;
 use crate::world::World;
 
-/// New "stageless" `App` methods.
+/// Temporary "stageless" `App` methods.
 pub trait AppExt {
     /// Sets the [`Schedule`] that will be modified by default when you call `App::add_system`
     /// and similar methods.
@@ -22,7 +22,7 @@ pub trait AppExt {
     fn add_state<S: Statelike>(&mut self) -> &mut Self;
 }
 
-/// New "stageless" [`World`] methods.
+/// Temporary "stageless" [`World`] methods.
 pub trait WorldExt {
     /// Runs the [`Schedule`] associated with `label`.
     fn run_schedule(&mut self, label: impl ScheduleLabel);

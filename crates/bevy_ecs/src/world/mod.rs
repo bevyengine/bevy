@@ -1590,7 +1590,7 @@ impl World {
     ///
     /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
     /// times since the previous pass.
-    // TODO: perf
+    // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
         let last_check_tick = self.last_check_tick;
         let change_tick = self.change_tick();
