@@ -1,4 +1,4 @@
-//! A shader and a material that uses it.
+//! A shader that overrides a core pbr function for a material
 
 use bevy::{
     pbr::{MaterialPipelineKey, StandardMaterialKey},

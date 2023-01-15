@@ -1246,7 +1246,7 @@ path = "examples/shader/pbr_global_override.rs"
 
 [package.metadata.example.pbr_global_override]
 name = "core function default override"
-description = "a global override for pbr functions for all materials"
+description = "A global override for pbr functions for all materials"
 category = "Shaders"
 wasm = true
 

@@ -1,5 +1,4 @@
-//! Illustrates different lights of various types and colors, some static, some moving over
-//! a simple scene.
+//! Example of a global override for pbr functions for all materials
 
 use bevy::{pbr::PbrShaderFunctionOverrides, prelude::*};
 
