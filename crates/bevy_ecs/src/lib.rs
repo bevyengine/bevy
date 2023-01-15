@@ -40,8 +40,9 @@ pub mod prelude {
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
-            Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
-            ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
+            Commands, Deferred, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut,
+            ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System,
+            SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
