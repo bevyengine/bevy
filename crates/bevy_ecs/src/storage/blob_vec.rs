@@ -155,14 +155,9 @@ impl BlobVec {
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
 
-        let size = self.item_layout.size();
-
         // Pointer to the value in the vector that will get replaced.
-        // SAFETY:
-        // - The caller ensures that `index` fits in this vector.
-        // - `size` must be a multiple of the erased type's alignment,
-        //   so adding a multiple of `size` will preserve alignment.
-        let dst = NonNull::from(self.get_ptr_mut().byte_add(index * size));
+        // SAFETY: The caller ensures that `index` fits in this vector.
+        let dst = NonNull::from(self.get_unchecked_mut(index));
         let src = value.as_ptr();
 
         if let Some(drop) = self.drop {
@@ -203,7 +198,7 @@ impl BlobVec {
         //   so it must still be initialized and it is safe to transfer ownership into the vector.
         // - `src` and `dst` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
-        std::ptr::copy_nonoverlapping::<u8>(src, dst.as_ptr(), size);
+        std::ptr::copy_nonoverlapping::<u8>(src, dst.as_ptr(), self.item_layout.size());
     }
 
     /// Pushes a value to the [`BlobVec`].
