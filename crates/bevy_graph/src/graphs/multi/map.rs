@@ -113,8 +113,19 @@ impl_graph! {
         }
 
         #[inline]
-        fn edges_of(&self, _node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
-            todo!()
+        fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)> {
+            if let Some(map) = self.adjacencies.get(node) {
+                // TODO: can this be done with iterators?
+                let mut result = Vec::new();
+                for (target, edges) in map {
+                    for edge in edges {
+                        result.push((*target, *edge));
+                    }
+                }
+                result
+            } else {
+                Vec::new()
+            }
         }
     }
 
