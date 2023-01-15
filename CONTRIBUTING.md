@@ -111,6 +111,7 @@ Here are some useful pull request queries:
 ### Prioritizing PRs and issues
 
 We use [Milestones](https://github.com/bevyengine/bevy/milestones) to track issues and PRs that:
+
 * Need to be merged/fixed before the next release. This is generally for extremely bad bugs i.e. UB or important functionality being broken.
 * Would have higher user impact and are almost ready to be merged/fixed.
 
