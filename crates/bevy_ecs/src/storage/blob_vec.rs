@@ -180,9 +180,8 @@ impl BlobVec {
             //   does not occur. Instead, all elements will be forgotten.
             let old_value = OwningPtr::new(dst);
 
-            // This closure will run in case `drop()` panics, which is similar to
-            // the `try ... catch` construct in languages like C++.
-            // This ensures that `value` does not get forgotten in case of a panic.
+            // This closure will run in case `drop()` panics,
+            // which ensures that `value` does not get forgotten.
             let on_unwind = OnDrop::new(|| drop(value));
 
             drop(old_value);
