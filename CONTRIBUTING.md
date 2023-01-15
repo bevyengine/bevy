@@ -108,9 +108,13 @@ Here are some useful pull request queries:
 * [Uncontroversial pull requests which have been reviewed and are ready for maintainers to merge](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+-label%3AS-Controversial+-label%3AS-Blocked+-label%3AS-Adopt-Me+)
 * [Controversial pull requests which have been reviewed and are ready for final input from a Project Lead or SME](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+label%3AS-Controversial+)
 
-### Preparing Releases
+### Prioritizing PRs and issues
 
-We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
+We use [Milestones](https://github.com/bevyengine/bevy/milestones) to track issues and PRs that:
+- Need to be merged/fixed before the next release. This is generally for extremely bad bugs i.e. UB or important functionality being broken.
+- Would have higher user impact and are almost ready to be merged/fixed.
+
+There are also two priority labels: `P-Critical` and `P-High` that can be used to find issues and PRs that need to be resolved urgently. 
 
 ## Making changes to Bevy
 
