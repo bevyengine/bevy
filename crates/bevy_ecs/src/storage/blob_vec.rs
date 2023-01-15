@@ -195,7 +195,7 @@ impl BlobVec {
             self.len = old_len;
         }
 
-        // Copy the new value into the vector, overwriting the previous value which has been moved.
+        // Copy the new value into the vector, overwriting the previous value.
         // SAFETY:
         // - `src` and `dst` were obtained from `OwningPtr`s, which ensures they are
         //   valid for both reads and writes.
