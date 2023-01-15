@@ -316,15 +316,12 @@ impl BlobVec {
             for i in 0..len {
                 // SAFETY:
                 // * 0 <= `i` < `len`, so `i * size` must be in bounds for the allocation.
+                // * `size` is a multiple of the erased type's alignment,
+                //   so adding a multiple of `size` will preserve alignment.
                 // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
-                unsafe {
-                    // NOTE: this doesn't use self.get_unchecked(i) because the debug_assert on index
-                    // will panic here due to self.len being set to 0
-                    // SAFETY: `size` is a multiple of the erased type's alignment,
-                    // so adding a multiple of `size` will preserve alignment.
-                    let ptr = self.get_ptr_mut().byte_add(i * size).promote();
-                    (drop)(ptr);
-                }
+                let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
+                // SAFETY: `item` was obtained from this `BlobVec`, so its underlying type must match `drop`.
+                unsafe { drop(item) };
             }
         }
     }
