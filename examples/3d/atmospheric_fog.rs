@@ -92,7 +92,7 @@ fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
         "Press Spacebar to Toggle Atmospheric Fog.\nPress S to Toggle Directional Light Fog Influence.",
         TextStyle {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 12.0,
+            font_size: 15.0,
             color: Color::WHITE,
         },
     )

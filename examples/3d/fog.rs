@@ -141,7 +141,7 @@ fn setup_instructions(mut commands: Commands, asset_server: Res<AssetServer>) {
         "",
         TextStyle {
             font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-            font_size: 12.0,
+            font_size: 15.0,
             color: Color::WHITE,
         },
     )
