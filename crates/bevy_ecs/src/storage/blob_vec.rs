@@ -158,7 +158,11 @@ impl BlobVec {
         let size = self.item_layout.size();
 
         // Pointer to the value in the vector that will get replaced.
-        let dst;
+        // SAFETY:
+        // - The caller ensures that `index` fits in this vector.
+        // - `size` must be a multiple of the erased type's alignment,
+        //   so adding a multiple of `size` will preserve alignment.
+        let dst = NonNull::from(self.get_ptr_mut().byte_add(index * size));
         let src = value.as_ptr();
 
         if let Some(drop) = self.drop {
@@ -170,15 +174,11 @@ impl BlobVec {
 
             // Transfer ownership of the old value out of the vector, so it can be dropped.
             // SAFETY:
-            // - The caller ensures that `index` fits in this vector.
-            // - `size` must be a multiple of the erased type's alignment,
-            //   so adding a multiple of `size` will preserve alignment.
             // - The storage location will get overwritten with `value` later, which ensures
             //   that the element will not get observed or double dropped later.
             // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
             //   does not occur. Instead, all elements will be forgotten.
-            let old_value = self.get_ptr_mut().byte_add(index * size).promote();
-            dst = old_value.as_ptr();
+            let old_value = OwningPtr::new(dst);
 
             // This closure will run in case `drop()` panics, which is similar to
             // the `try ... catch` construct in languages like C++.
@@ -192,9 +192,6 @@ impl BlobVec {
 
             // Make the vector's contents observable again, since panics are no longer possible.
             self.len = old_len;
-        } else {
-            // SAFETY: The caller ensures that `index` fits in this vector.
-            dst = self.get_ptr_mut().as_ptr().add(index * size);
         }
 
         // Copy the new value into the vector, overwriting the previous value which has been moved.
@@ -205,7 +202,7 @@ impl BlobVec {
         //   so it must still be initialized and it is safe to transfer ownership into the vector.
         // - `src` and `dst` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
-        std::ptr::copy_nonoverlapping::<u8>(src, dst, size);
+        std::ptr::copy_nonoverlapping::<u8>(src, dst.as_ptr(), size);
     }
 
     /// Pushes a value to the [`BlobVec`].
