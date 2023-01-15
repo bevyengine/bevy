@@ -32,7 +32,7 @@ impl SystemExecutor for SimpleExecutor {
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         for system_index in 0..schedule.systems.len() {
             #[cfg(feature = "trace")]
-            let name = schedule.systems[system_index].get_mut().name();
+            let name = schedule.systems[system_index].name();
             #[cfg(feature = "trace")]
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
@@ -43,10 +43,8 @@ impl SystemExecutor for SimpleExecutor {
                 }
 
                 // evaluate system set's conditions
-                let set_conditions_met = evaluate_and_fold_conditions(
-                    schedule.set_conditions[set_idx].get_mut().as_mut(),
-                    world,
-                );
+                let set_conditions_met =
+                    evaluate_and_fold_conditions(&mut schedule.set_conditions[set_idx], world);
 
                 if !set_conditions_met {
                     self.completed_systems
@@ -58,10 +56,8 @@ impl SystemExecutor for SimpleExecutor {
             }
 
             // evaluate system's conditions
-            let system_conditions_met = evaluate_and_fold_conditions(
-                schedule.system_conditions[system_index].get_mut().as_mut(),
-                world,
-            );
+            let system_conditions_met =
+                evaluate_and_fold_conditions(&mut schedule.system_conditions[system_index], world);
 
             should_run &= system_conditions_met;
 
@@ -75,7 +71,7 @@ impl SystemExecutor for SimpleExecutor {
                 continue;
             }
 
-            let system = schedule.systems[system_index].get_mut();
+            let system = &mut schedule.systems[system_index];
             #[cfg(feature = "trace")]
             let system_span = info_span!("system", name = &*name).entered();
             system.run((), world);

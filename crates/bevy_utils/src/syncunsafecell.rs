@@ -83,6 +83,14 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
     }
 }
 
+impl<T> SyncUnsafeCell<[T]> {
+    /// Returns a `&[SyncUnsafeCell<T>]` from a `&SyncUnsafeCell<[T]>`.
+    pub fn as_slice_of_cells(&self) -> &[SyncUnsafeCell<T>] {
+        // SAFETY: `SyncUnsafeCell<T>` has the same memory layout as `T`.
+        unsafe { &*(self as *const SyncUnsafeCell<[T]> as *const [SyncUnsafeCell<T>]) }
+    }
+}
+
 impl<T: Default> Default for SyncUnsafeCell<T> {
     /// Creates an `SyncUnsafeCell`, with the `Default` value for T.
     fn default() -> SyncUnsafeCell<T> {

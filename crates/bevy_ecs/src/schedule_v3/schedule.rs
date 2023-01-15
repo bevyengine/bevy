@@ -1,5 +1,4 @@
 use std::{
-    cell::RefCell,
     fmt::{Debug, Write},
     result::Result,
 };
@@ -200,17 +199,17 @@ impl Schedule {
     /// This prevents overflow and thus prevents false positives.
     pub(crate) fn check_change_ticks(&mut self, change_tick: u32) {
         for system in &mut self.executable.systems {
-            system.borrow_mut().check_change_tick(change_tick);
+            system.check_change_tick(change_tick);
         }
 
         for conditions in &mut self.executable.system_conditions {
-            for system in conditions.borrow_mut().iter_mut() {
+            for system in conditions.iter_mut() {
                 system.check_change_tick(change_tick);
             }
         }
 
         for conditions in &mut self.executable.set_conditions {
-            for system in conditions.borrow_mut().iter_mut() {
+            for system in conditions.iter_mut() {
                 system.check_change_tick(change_tick);
             }
         }
@@ -878,8 +877,8 @@ impl ScheduleGraph {
             .zip(schedule.systems.drain(..))
             .zip(schedule.system_conditions.drain(..))
         {
-            self.systems[id.index()] = Some(system.into_inner());
-            self.system_conditions[id.index()] = Some(conditions.into_inner());
+            self.systems[id.index()] = Some(system);
+            self.system_conditions[id.index()] = Some(conditions);
         }
 
         for (id, conditions) in schedule
@@ -887,7 +886,7 @@ impl ScheduleGraph {
             .drain(..)
             .zip(schedule.set_conditions.drain(..))
         {
-            self.system_set_conditions[id.index()] = Some(conditions.into_inner());
+            self.system_set_conditions[id.index()] = Some(conditions);
         }
 
         *schedule = self.build_schedule()?;
@@ -896,13 +895,13 @@ impl ScheduleGraph {
         for &id in &schedule.system_ids {
             let system = self.systems[id.index()].take().unwrap();
             let conditions = self.system_conditions[id.index()].take().unwrap();
-            schedule.systems.push(RefCell::new(system));
-            schedule.system_conditions.push(RefCell::new(conditions));
+            schedule.systems.push(system);
+            schedule.system_conditions.push(conditions);
         }
 
         for &id in &schedule.set_ids {
             let conditions = self.system_set_conditions[id.index()].take().unwrap();
-            schedule.set_conditions.push(RefCell::new(conditions));
+            schedule.set_conditions.push(conditions);
         }
 
         Ok(())

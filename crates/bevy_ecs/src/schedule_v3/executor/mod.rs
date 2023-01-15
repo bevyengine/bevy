@@ -6,8 +6,6 @@ pub use self::multi_threaded::MultiThreadedExecutor;
 pub use self::simple::SimpleExecutor;
 pub use self::single_threaded::SingleThreadedExecutor;
 
-use std::cell::RefCell;
-
 use fixedbitset::FixedBitSet;
 
 use crate::{
@@ -41,13 +39,13 @@ pub enum ExecutorKind {
     MultiThreaded,
 }
 
-// NOTE: This type and the executor implementations were designed as a pair.
-// To maintain certain safety invariants, it's important to keep this type private.
+/// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order
+/// (along with dependency information for multi-threaded execution).
 #[derive(Default)]
 pub(super) struct SystemSchedule {
-    pub(super) systems: Vec<RefCell<BoxedSystem>>,
-    pub(super) system_conditions: Vec<RefCell<Vec<BoxedCondition>>>,
-    pub(super) set_conditions: Vec<RefCell<Vec<BoxedCondition>>>,
+    pub(super) systems: Vec<BoxedSystem>,
+    pub(super) system_conditions: Vec<Vec<BoxedCondition>>,
+    pub(super) set_conditions: Vec<Vec<BoxedCondition>>,
     pub(super) system_ids: Vec<NodeId>,
     pub(super) set_ids: Vec<NodeId>,
     pub(super) system_dependencies: Vec<usize>,
@@ -71,12 +69,6 @@ impl SystemSchedule {
         }
     }
 }
-
-// SAFETY:
-// - MultiThreadedExecutor is the only type that uses SystemSchedule across multiple threads.
-// - MultiThreadedExecutor cannot alias any of the RefCells.
-// - SystemSchedule is not made pub in any way.
-unsafe impl Sync for SystemSchedule {}
 
 /// Instructs the executor to call [`apply_buffers`](crate::system::System::apply_buffers)
 /// on the systems that have run but not applied their buffers.
