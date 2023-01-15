@@ -1731,10 +1731,56 @@ mod tests {
     pub struct EncapsulatedParam<'w>(Res<'w, PrivateResource>);
 
     #[derive(SystemParam)]
+    #[system_param(infallible)]
+    pub struct ExplicitInfallibleParam<'w> {
+        #[system_param(optional)]
+        _r0: Res<'w, R<0>>,
+        #[system_param(infallible)]
+        _r1: Option<Res<'w, R<1>>>,
+    }
+
+    #[derive(SystemParam)]
     #[system_param(optional)]
     pub struct OptionalParam<'w> {
         _r0: Res<'w, R<0>>,
+        #[system_param(optional)]
         _r1: Res<'w, R<1>>,
+        #[system_param(infallible)]
         _r2: Res<'w, R<2>>,
+    }
+
+    #[derive(SystemParam)]
+    #[system_param(resultful(ResultfulParamErr))]
+    pub struct ResultfulParam<'w> {
+        #[system_param(optional)]
+        _r0: Res<'w, R<0>>,
+        #[system_param(optional)]
+        _r1: Res<'w, R<1>>,
+    }
+
+    #[derive(Debug)]
+    pub enum ResultfulParamErr {
+        R0,
+        R1,
+    }
+
+    impl std::fmt::Display for ResultfulParamErr {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "ResultfulParamErr is here!")
+        }
+    }
+
+    impl std::error::Error for ResultfulParamErr {}
+
+    impl From<SystemParamError<Res<'_, R<0>>>> for ResultfulParamErr {
+        fn from(_: SystemParamError<Res<'_, R<0>>>) -> Self {
+            Self::R0
+        }
+    }
+
+    impl From<SystemParamError<Res<'_, R<1>>>> for ResultfulParamErr {
+        fn from(_: SystemParamError<Res<'_, R<1>>>) -> Self {
+            Self::R1
+        }
     }
 }
