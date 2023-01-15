@@ -143,7 +143,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         }
 
         // using spare bitset to avoid repeated allocations
-        let mut ready_systems = FixedBitSet::with_capacity(self.ready_systems.len());
+        let mut cached_ready_systems = FixedBitSet::with_capacity(self.ready_systems.len());
 
         let world = SyncUnsafeCell::from_mut(world);
         let SyncUnsafeSchedule {
@@ -156,17 +156,13 @@ impl SystemExecutor for MultiThreadedExecutor {
             // alongside systems that claim the local thread
             let executor = async {
                 while self.num_completed_systems < num_systems {
-                    if !self.exclusive_running {
-                        ready_systems.clear();
-                        ready_systems.union_with(&self.ready_systems);
-                        self.spawn_system_tasks(
-                            scope,
-                            systems,
-                            &mut conditions,
-                            world,
-                            &ready_systems,
-                        );
-                    }
+                    self.spawn_system_tasks(
+                        scope,
+                        systems,
+                        &mut conditions,
+                        world,
+                        &mut cached_ready_systems,
+                    );
 
                     if self.num_running_systems > 0 {
                         // wait for systems to complete
@@ -236,9 +232,17 @@ impl MultiThreadedExecutor {
         systems: &'scope [SyncUnsafeCell<BoxedSystem>],
         conditions: &mut Conditions,
         cell: &'scope SyncUnsafeCell<World>,
-        ready_systems: &FixedBitSet,
+        ready_systems: &mut FixedBitSet,
     ) {
+        if self.exclusive_running {
+            return;
+        }
+
+        ready_systems.clear();
+        ready_systems.union_with(&self.ready_systems);
+
         for system_index in ready_systems.ones() {
+            assert!(!self.running_systems.contains(system_index));
             // SAFETY: this system is not running, no other reference exists
             let system = unsafe { &mut *systems[system_index].get() };
 
@@ -266,12 +270,17 @@ impl MultiThreadedExecutor {
 
             if self.system_task_metadata[system_index].is_exclusive {
                 // SAFETY: `can_run` confirmed no other systems are running
-                let world = unsafe { &mut *cell.get() };
-                self.spawn_exclusive_system_task(scope, system_index, systems, world);
+                unsafe {
+                    let world = &mut *cell.get();
+                    self.spawn_exclusive_system_task(scope, system_index, systems, world);
+                }
                 break;
             }
 
-            self.spawn_system_task(scope, system_index, systems, world);
+            // SAFETY: this system is not running, no other reference exists
+            unsafe {
+                self.spawn_system_task(scope, system_index, systems, world);
+            }
         }
     }
 
@@ -337,15 +346,16 @@ impl MultiThreadedExecutor {
     fn should_run(
         &mut self,
         system_index: usize,
-        #[allow(unused_variables)] system: &BoxedSystem,
+        _system: &BoxedSystem,
         conditions: &mut Conditions,
         world: &World,
     ) -> bool {
         #[cfg(feature = "trace")]
-        let _span = info_span!("check_conditions", name = &*system.name()).entered();
+        let _span = info_span!("check_conditions", name = &*_system.name()).entered();
 
         let mut should_run = !self.skipped_systems.contains(system_index);
-        for set_idx in conditions.sets_of_systems[system_index].ones() {
+        let sets_of_system = &conditions.sets_of_systems[system_index];
+        for set_idx in sets_of_system.difference(&self.evaluated_sets) {
             if self.evaluated_sets.contains(set_idx) {
                 continue;
             }
@@ -360,8 +370,9 @@ impl MultiThreadedExecutor {
             }
 
             should_run &= set_conditions_met;
-            self.evaluated_sets.insert(set_idx);
         }
+
+        self.evaluated_sets.union_with(sets_of_system);
 
         // evaluate system's conditions
         let system_conditions_met =
@@ -376,7 +387,8 @@ impl MultiThreadedExecutor {
         should_run
     }
 
-    fn spawn_system_task<'scope>(
+    // SAFETY: caller must not alias systems that are running (those are already mutably borrowed)
+    unsafe fn spawn_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
         system_index: usize,
@@ -420,7 +432,8 @@ impl MultiThreadedExecutor {
         }
     }
 
-    fn spawn_exclusive_system_task<'scope>(
+    // SAFETY: caller must ensure that no systems are running
+    unsafe fn spawn_exclusive_system_task<'scope>(
         &mut self,
         scope: &Scope<'_, 'scope, ()>,
         system_index: usize,

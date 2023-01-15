@@ -78,15 +78,30 @@ impl<T: ?Sized> SyncUnsafeCell<T> {
     #[inline]
     /// Returns a `&SyncUnsafeCell<T>` from a `&mut T`.
     pub fn from_mut(t: &mut T) -> &SyncUnsafeCell<T> {
-        // SAFETY: `&mut` ensures unique access.
+        // SAFETY: `&mut` ensures unique access, and `UnsafeCell<T>` and `SyncUnsafeCell<T>`
+        // have #[repr(transparent)]
         unsafe { &*(t as *mut T as *const SyncUnsafeCell<T>) }
     }
 }
 
 impl<T> SyncUnsafeCell<[T]> {
     /// Returns a `&[SyncUnsafeCell<T>]` from a `&SyncUnsafeCell<[T]>`.
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_utils::syncunsafecell::SyncUnsafeCell;
+    ///
+    /// let slice: &mut [i32] = &mut [1, 2, 3];
+    /// let cell_slice: &SyncUnsafeCell<[i32]> = SyncUnsafeCell::from_mut(slice);
+    /// let slice_cell: &[SyncUnsafeCell<i32>] = cell_slice.as_slice_of_cells();
+    ///
+    /// assert_eq!(slice_cell.len(), 3);
     pub fn as_slice_of_cells(&self) -> &[SyncUnsafeCell<T>] {
-        // SAFETY: `SyncUnsafeCell<T>` has the same memory layout as `T`.
+        // SAFETY: `UnsafeCell<T>` and `SyncUnsafeCell<T>` have #[repr(transparent)]
+        // therefore:
+        // - `SyncUnsafeCell<T>` has the same layout as `T`
+        // - `SyncUnsafeCell<[T]>` has the same layout as `[T]`
+        // - `SyncUnsafeCell<[T]>` has the same layout as `[SyncUnsafeCell<T>]`
         unsafe { &*(self as *const SyncUnsafeCell<[T]> as *const [SyncUnsafeCell<T>]) }
     }
 }

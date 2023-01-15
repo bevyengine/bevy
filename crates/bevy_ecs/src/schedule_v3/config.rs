@@ -16,6 +16,27 @@ pub struct SystemSetConfig {
     pub(super) conditions: Vec<BoxedCondition>,
 }
 
+impl SystemSetConfig {
+    fn new(set: BoxedSystemSet) -> Self {
+        // system type sets are automatically populated
+        // to avoid unintentionally broad changes, they cannot be configured
+        assert!(
+            !set.is_system_type(),
+            "configuring system type sets is not allowed"
+        );
+
+        Self {
+            set,
+            graph_info: GraphInfo {
+                sets: Vec::new(),
+                dependencies: Vec::new(),
+                ambiguous_with: default(),
+            },
+            conditions: Vec::new(),
+        }
+    }
+}
+
 /// A [`System`] with scheduling metadata.
 pub struct SystemConfig {
     pub(super) system: BoxedSystem,
@@ -23,39 +44,19 @@ pub struct SystemConfig {
     pub(super) conditions: Vec<BoxedCondition>,
 }
 
-pub(super) fn new_set_unchecked(set: BoxedSystemSet) -> SystemSetConfig {
-    SystemSetConfig {
-        set,
-        graph_info: GraphInfo {
-            sets: Vec::new(),
-            dependencies: Vec::new(),
-            ambiguous_with: default(),
-        },
-        conditions: Vec::new(),
-    }
-}
-
-fn new_set(set: BoxedSystemSet) -> SystemSetConfig {
-    // system type sets are automatically populated
-    // to avoid unintentionally broad changes, they cannot be configured
-    assert!(
-        !set.is_system_type(),
-        "configuring system type sets is not allowed"
-    );
-    new_set_unchecked(set)
-}
-
-fn new_system(system: BoxedSystem) -> SystemConfig {
-    // include system in its default sets
-    let sets = system.default_system_sets().into_iter().collect();
-    SystemConfig {
-        system,
-        graph_info: GraphInfo {
-            sets,
-            dependencies: Vec::new(),
-            ambiguous_with: default(),
-        },
-        conditions: Vec::new(),
+impl SystemConfig {
+    fn new(system: BoxedSystem) -> Self {
+        // include system in its default sets
+        let sets = system.default_system_sets().into_iter().collect();
+        Self {
+            system,
+            graph_info: GraphInfo {
+                sets,
+                dependencies: Vec::new(),
+                ambiguous_with: default(),
+            },
+            conditions: Vec::new(),
+        }
     }
 }
 
@@ -101,61 +102,61 @@ where
     S: SystemSet + sealed::IntoSystemSetConfig,
 {
     fn into_config(self) -> SystemSetConfig {
-        new_set(Box::new(self))
+        SystemSetConfig::new(Box::new(self))
     }
 
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
-        new_set(Box::new(self)).in_set(set)
+        SystemSetConfig::new(Box::new(self)).in_set(set)
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(Box::new(self)).before(set)
+        SystemSetConfig::new(Box::new(self)).before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(Box::new(self)).after(set)
+        SystemSetConfig::new(Box::new(self)).after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
-        new_set(Box::new(self)).run_if(condition)
+        SystemSetConfig::new(Box::new(self)).run_if(condition)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(Box::new(self)).ambiguous_with(set)
+        SystemSetConfig::new(Box::new(self)).ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemSetConfig {
-        new_set(Box::new(self)).ambiguous_with_all()
+        SystemSetConfig::new(Box::new(self)).ambiguous_with_all()
     }
 }
 
 impl IntoSystemSetConfig for BoxedSystemSet {
     fn into_config(self) -> SystemSetConfig {
-        new_set(self)
+        SystemSetConfig::new(self)
     }
 
     fn in_set(self, set: impl SystemSet) -> SystemSetConfig {
-        new_set(self).in_set(set)
+        SystemSetConfig::new(self).in_set(set)
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(self).before(set)
+        SystemSetConfig::new(self).before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(self).after(set)
+        SystemSetConfig::new(self).after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemSetConfig {
-        new_set(self).run_if(condition)
+        SystemSetConfig::new(self).run_if(condition)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemSetConfig {
-        new_set(self).ambiguous_with(set)
+        SystemSetConfig::new(self).ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemSetConfig {
-        new_set(self).ambiguous_with_all()
+        SystemSetConfig::new(self).ambiguous_with_all()
     }
 }
 
@@ -248,61 +249,61 @@ where
     F: IntoSystem<(), (), Params> + sealed::IntoSystemConfig<Params>,
 {
     fn into_config(self) -> SystemConfig {
-        new_system(Box::new(IntoSystem::into_system(self)))
+        SystemConfig::new(Box::new(IntoSystem::into_system(self)))
     }
 
     fn in_set(self, set: impl SystemSet) -> SystemConfig {
-        new_system(Box::new(IntoSystem::into_system(self))).in_set(set)
+        SystemConfig::new(Box::new(IntoSystem::into_system(self))).in_set(set)
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        new_system(Box::new(IntoSystem::into_system(self))).before(set)
+        SystemConfig::new(Box::new(IntoSystem::into_system(self))).before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        new_system(Box::new(IntoSystem::into_system(self))).after(set)
+        SystemConfig::new(Box::new(IntoSystem::into_system(self))).after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
-        new_system(Box::new(IntoSystem::into_system(self))).run_if(condition)
+        SystemConfig::new(Box::new(IntoSystem::into_system(self))).run_if(condition)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        new_system(Box::new(IntoSystem::into_system(self))).ambiguous_with(set)
+        SystemConfig::new(Box::new(IntoSystem::into_system(self))).ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemConfig {
-        new_system(Box::new(IntoSystem::into_system(self))).ambiguous_with_all()
+        SystemConfig::new(Box::new(IntoSystem::into_system(self))).ambiguous_with_all()
     }
 }
 
 impl IntoSystemConfig<()> for BoxedSystem<(), ()> {
     fn into_config(self) -> SystemConfig {
-        new_system(self)
+        SystemConfig::new(self)
     }
 
     fn in_set(self, set: impl SystemSet) -> SystemConfig {
-        new_system(self).in_set(set)
+        SystemConfig::new(self).in_set(set)
     }
 
     fn before<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        new_system(self).before(set)
+        SystemConfig::new(self).before(set)
     }
 
     fn after<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        new_system(self).after(set)
+        SystemConfig::new(self).after(set)
     }
 
     fn run_if<P>(self, condition: impl Condition<P>) -> SystemConfig {
-        new_system(self).run_if(condition)
+        SystemConfig::new(self).run_if(condition)
     }
 
     fn ambiguous_with<M>(self, set: impl IntoSystemSet<M>) -> SystemConfig {
-        new_system(self).ambiguous_with(set)
+        SystemConfig::new(self).ambiguous_with(set)
     }
 
     fn ambiguous_with_all(self) -> SystemConfig {
-        new_system(self).ambiguous_with_all()
+        SystemConfig::new(self).ambiguous_with_all()
     }
 }
 

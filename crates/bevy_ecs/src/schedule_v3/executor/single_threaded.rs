@@ -45,11 +45,8 @@ impl SystemExecutor for SingleThreadedExecutor {
             let should_run_span = info_span!("check_conditions", name = &*name).entered();
 
             let mut should_run = !self.completed_systems.contains(system_index);
-            for set_idx in schedule.sets_of_systems[system_index].ones() {
-                if self.evaluated_sets.contains(set_idx) {
-                    continue;
-                }
-
+            let sets_of_system = &schedule.sets_of_systems[system_index];
+            for set_idx in sets_of_system.difference(&self.evaluated_sets) {
                 // evaluate system set's conditions
                 let set_conditions_met =
                     evaluate_and_fold_conditions(&mut schedule.set_conditions[set_idx], world);
@@ -60,8 +57,9 @@ impl SystemExecutor for SingleThreadedExecutor {
                 }
 
                 should_run &= set_conditions_met;
-                self.evaluated_sets.insert(set_idx);
             }
+
+            self.evaluated_sets.union_with(sets_of_system);
 
             // evaluate system's conditions
             let system_conditions_met =
@@ -92,7 +90,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 system.run((), world);
                 #[cfg(feature = "trace")]
                 system_span.exit();
-                self.unapplied_systems.set(system_index, true);
+                self.unapplied_systems.insert(system_index);
             }
         }
 

@@ -1594,6 +1594,10 @@ impl World {
     pub fn check_change_ticks(&mut self) {
         let last_check_tick = self.last_check_tick;
         let change_tick = self.change_tick();
+        if change_tick.wrapping_sub(last_check_tick) < CHECK_TICK_THRESHOLD {
+            return;
+        }
+
         let Storages {
             ref mut tables,
             ref mut sparse_sets,
@@ -1601,20 +1605,18 @@ impl World {
             ref mut non_send_resources,
         } = self.storages;
 
-        if change_tick.wrapping_sub(last_check_tick) >= CHECK_TICK_THRESHOLD {
-            #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
-            tables.check_change_ticks(change_tick);
-            sparse_sets.check_change_ticks(change_tick);
-            resources.check_change_ticks(change_tick);
-            non_send_resources.check_change_ticks(change_tick);
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
+        tables.check_change_ticks(change_tick);
+        sparse_sets.check_change_ticks(change_tick);
+        resources.check_change_ticks(change_tick);
+        non_send_resources.check_change_ticks(change_tick);
 
-            if let Some(mut schedules) = self.get_resource_mut::<crate::schedule_v3::Schedules>() {
-                schedules.check_change_ticks(change_tick);
-            }
-
-            self.last_check_tick = change_tick;
+        if let Some(mut schedules) = self.get_resource_mut::<crate::schedule_v3::Schedules>() {
+            schedules.check_change_ticks(change_tick);
         }
+
+        self.last_check_tick = change_tick;
     }
 
     pub fn clear_entities(&mut self) {
