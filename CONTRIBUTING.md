@@ -81,10 +81,10 @@ Our merge strategy relies on the classification of PRs on two axes:
 * How controversial are the design decisions
 * How complex is the implementation
 
-PRs with non trivial design decisions are given the [`S-Controversial`] label. This indicates that
-the PR should either go through an RFC (although in some cases small enough decisions can get by without).
+PRs with non-trivial design decisions are given the [`S-Controversial`] label. This indicates that
+the PR needs more thorough design review or an [RFC](https://github.com/bevyengine/rfcs), if complex enough.
 
-PRs that are non trivial to review are given the [`D-Complex`] label. This indicates that the PR
+PRs that are non-trivial to review are given the [`D-Complex`] label. This indicates that the PR
 should be reviewed more thoroughly and by people with experience in the area that the PR touches.
 
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
