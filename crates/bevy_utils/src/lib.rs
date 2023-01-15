@@ -238,6 +238,10 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
 ///
+/// Note that this only works for panics that [unwind](https://doc.rust-lang.org/nomicon/unwinding.html)
+/// -- any code within `OnDrop` will be skipped if a panic does not unwind.
+/// In most cases, this will just work.
+///
 /// # Examples
 ///
 /// ```
