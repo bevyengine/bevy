@@ -478,7 +478,7 @@ impl Typed for DynamicStruct {
 /// Returns true if and only if all of the following are true:
 /// - `b` is a struct;
 /// - For each field in `a`, `b` contains a field with the same name and
-///   [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two field
+///   [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two field
 ///   values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.

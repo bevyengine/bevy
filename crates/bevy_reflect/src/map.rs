@@ -173,7 +173,7 @@ impl DynamicMap {
     /// Returns the type name of the map.
     ///
     /// The value returned by this method is the same value returned by
-    /// [`Reflect::type_name`].
+    /// [`PartialReflect::type_name`].
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -181,7 +181,7 @@ impl DynamicMap {
     /// Sets the type name of the map.
     ///
     /// The value set by this method is the same value returned by
-    /// [`Reflect::type_name`].
+    /// [`PartialReflect::type_name`].
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
@@ -383,7 +383,7 @@ impl<'a> ExactSizeIterator for MapIter<'a> {}
 /// - `b` is a map;
 /// - `b` is the same length as `a`;
 /// - For each key-value pair in `a`, `b` contains a value for the given key,
-///   and [`Reflect::reflect_partial_eq`] returns `Some(true)` for the two values.
+///   and [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for the two values.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]

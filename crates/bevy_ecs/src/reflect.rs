@@ -30,7 +30,7 @@ pub struct ReflectComponent(ReflectComponentFns);
 /// > **Note:**
 /// > Creating custom implementations of [`ReflectComponent`] is an advanced feature that most users
 /// > will not need.
-/// > Usually a [`ReflectComponent`] is created for a type by deriving [`Reflect`]
+/// > Usually a [`ReflectComponent`] is created for a type by deriving [`Reflect`](bevy_reflect::Reflect)
 /// > and adding the `#[reflect(Component)]` attribute.
 /// > After adding the component to the [`TypeRegistry`][bevy_reflect::TypeRegistry],
 /// > its [`ReflectComponent`] can then be retrieved when needed.
@@ -163,7 +163,8 @@ impl ReflectComponent {
     /// that should not be used by most users
     /// unless you know what you are doing.
     ///
-    /// Usually you should derive [`Reflect`] and add the `#[reflect(Component)]` component
+    /// Usually you should derive [`Reflect`](bevy_reflect::Reflect)
+    /// and add the `#[reflect(Component)]` attribute
     /// to generate a [`ReflectComponent`] implementation automatically.
     ///
     /// See [`ReflectComponentFns`] for more information.
@@ -241,7 +242,7 @@ pub struct ReflectResource(ReflectResourceFns);
 /// > **Note:**
 /// > Creating custom implementations of [`ReflectResource`] is an advanced feature that most users
 /// > will not need.
-/// > Usually a [`ReflectResource`] is created for a type by deriving [`Reflect`]
+/// > Usually a [`ReflectResource`] is created for a type by deriving [`Reflect`](bevy_reflect::Reflect)
 /// > and adding the `#[reflect(Resource)]` attribute.
 /// > After adding the component to the [`TypeRegistry`][bevy_reflect::TypeRegistry],
 /// > its [`ReflectResource`] can then be retrieved when needed.
@@ -351,7 +352,7 @@ impl ReflectResource {
     /// that should not be used by most users
     /// unless you know what you are doing.
     ///
-    /// Usually you should derive [`Reflect`] and add the `#[reflect(Resource)]` component
+    /// Usually you should derive [`Reflect`](bevy_reflect::Reflect) and add the `#[reflect(Resource)]` component
     /// to generate a [`ReflectResource`] implementation automatically.
     ///
     /// See [`ReflectResourceFns`] for more information.

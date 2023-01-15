@@ -85,7 +85,7 @@ use std::slice::Iter;
 /// [reflected]: crate
 /// [`None`]: core::option::Option<T>::None
 /// [`Some`]: core::option::Option<T>::Some
-/// [`Reflect`]: bevy_reflect_derive::PartialReflect
+/// [`Reflect`]: bevy_reflect_derive::Reflect
 pub trait Enum: PartialReflect {
     /// Returns a reference to the value of the field (in the current variant) with the given name.
     ///

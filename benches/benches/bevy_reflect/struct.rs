@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use bevy_reflect::{DynamicStruct, GetField, Reflect, Struct};
+use bevy_reflect::{DynamicStruct, GetField, PartialReflect, Reflect, Struct};
 use criterion::{
     black_box, criterion_group, criterion_main, BatchSize, BenchmarkId, Criterion, Throughput,
 };

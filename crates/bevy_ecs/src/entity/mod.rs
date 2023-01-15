@@ -147,7 +147,7 @@ impl Entity {
     ///
     /// ```no_run
     /// # use bevy_ecs::{prelude::*, component::*};
-    /// # use bevy_reflect::PartialReflect;
+    /// # use bevy_reflect::{PartialReflect, Reflect};
     /// #[derive(Reflect, Component)]
     /// #[reflect(Component)]
     /// pub struct MyStruct {

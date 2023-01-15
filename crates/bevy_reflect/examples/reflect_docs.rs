@@ -6,7 +6,7 @@
 //!
 //! These scenarios can readily be achieved by using `bevy_reflect` with the `documentation` feature.
 
-use bevy_reflect::{PartialReflect, TypeInfo, Typed};
+use bevy_reflect::{Reflect, TypeInfo, Typed};
 
 fn main() {
     //! This function will simply demonstrate how you can access a type's documentation.

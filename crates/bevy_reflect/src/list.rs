@@ -7,7 +7,7 @@ use crate::{
     ReflectOwned, ReflectRef, TypeInfo, Typed,
 };
 
-/// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
+/// An ordered, mutable list of [`Reflect`] items. This corresponds to types like [`std::vec::Vec`].
 ///
 /// This is a sub-trait of [`Array`], however as it implements [insertion](List::insert) and [removal](List::remove),
 /// it's internal size may change.
@@ -18,6 +18,8 @@ use crate::{
 ///
 /// [`push`](List::push) and [`pop`](List::pop) have default implementations,
 /// however it may be faster to implement them manually.
+///
+/// [`Reflect`]: crate::Reflect
 pub trait List: PartialReflect + Array {
     /// Inserts an element at position `index` within the list,
     /// shifting all elements after it towards the back of the list.
@@ -138,7 +140,7 @@ impl DynamicList {
     /// Returns the type name of the list.
     ///
     /// The value returned by this method is the same value returned by
-    /// [`Reflect::type_name`].
+    /// [`PartialReflect::type_name`].
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -146,7 +148,7 @@ impl DynamicList {
     /// Sets the type name of the list.
     ///
     /// The value set by this method is the value returned by
-    /// [`Reflect::type_name`].
+    /// [`PartialReflect::type_name`].
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
@@ -156,7 +158,7 @@ impl DynamicList {
         self.values.push(Box::new(value));
     }
 
-    /// Appends a [`Reflect`] trait object to the list.
+    /// Appends a [`Reflect`](crate::Reflect) trait object to the list.
     pub fn push_box(&mut self, value: Box<dyn PartialReflect>) {
         self.values.push(value);
     }
@@ -351,9 +353,11 @@ pub fn list_apply<L: List>(a: &mut L, b: &dyn PartialReflect) {
 /// Returns true if and only if all of the following are true:
 /// - `b` is a list;
 /// - `b` is the same length as `a`;
-/// - [`Reflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
+/// - [`PartialReflect::reflect_partial_eq`] returns `Some(true)` for pairwise elements of `a` and `b`.
 ///
 /// Returns [`None`] if the comparison couldn't even be performed.
+///
+/// [`Reflect`]: crate::Reflect
 #[inline]
 pub fn list_partial_eq<L: List>(a: &L, b: &dyn PartialReflect) -> Option<bool> {
     let ReflectRef::List(list) = b.reflect_ref() else {

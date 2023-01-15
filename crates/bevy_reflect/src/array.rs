@@ -16,6 +16,7 @@ use std::{
 /// contain more than 32, but the blanket [`GetTypeRegistration`] is only
 /// implemented up to the 32 item limit due to a [limitation] on `Deserialize`.
 ///
+/// [`Reflect`]: crate::Reflect
 /// [`GetTypeRegistration`]: crate::GetTypeRegistration
 /// [limitation]: https://github.com/serde-rs/serde/issues/1937
 pub trait Array: PartialReflect {
@@ -193,15 +194,15 @@ impl PartialReflect for DynamicArray {
     fn into_full(self: Box<Self>) -> Result<Box<dyn crate::Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
-    
+
     fn as_partial(&self) -> &dyn PartialReflect {
         self
     }
-    
+
     fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
-    
+
     fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }

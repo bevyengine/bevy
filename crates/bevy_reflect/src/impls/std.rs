@@ -211,16 +211,14 @@ macro_rules! impl_reflect_for_veclike {
 
         impl<T: Reflect + FromReflect> List for $ty {
             fn insert(&mut self, index: usize, value: Box<dyn PartialReflect>) {
-                let value = value
-                    .try_take()
-                    .unwrap_or_else(|value| {
-                        T::from_reflect(&*value).unwrap_or_else(|| {
-                            panic!(
-                                "Attempted to insert invalid value of type {}.",
-                                value.type_name()
-                            )
-                        })
-                    });
+                let value = value.try_take().unwrap_or_else(|value| {
+                    T::from_reflect(&*value).unwrap_or_else(|| {
+                        panic!(
+                            "Attempted to insert invalid value of type {}.",
+                            value.type_name()
+                        )
+                    })
+                });
                 $insert(self, index, value);
             }
 
@@ -1445,7 +1443,7 @@ mod tests {
     fn option_should_from_reflect() {
         #[derive(Reflect, FromReflect, PartialEq, Debug)]
         struct Foo(usize);
-        
+
         println!("{:?}", PartialReflect::into_full(Box::new(Foo(123))));
 
         let expected = Some(Foo(123));

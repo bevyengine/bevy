@@ -1,7 +1,7 @@
 use crate::{
     array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, Enum, GetTypeRegistration, List, Map, Struct, Tuple, TupleStruct,
-    TypeInfo, Typed, ValueInfo,
+    tuple_struct_debug, Array, Enum, List, Map, Struct, Tuple, TupleStruct, TypeInfo, Typed,
+    ValueInfo,
 };
 use std::{
     any::{self, Any, TypeId},
@@ -16,7 +16,7 @@ pub use bevy_utils::AHasher as ReflectHasher;
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectRef` is obtained via [`Reflect::reflect_ref`].
+/// A `ReflectRef` is obtained via [`PartialReflect::reflect_ref`].
 pub enum ReflectRef<'a> {
     Struct(&'a dyn Struct),
     TupleStruct(&'a dyn TupleStruct),
@@ -33,7 +33,7 @@ pub enum ReflectRef<'a> {
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectMut` is obtained via [`Reflect::reflect_mut`].
+/// A `ReflectMut` is obtained via [`PartialReflect::reflect_mut`].
 pub enum ReflectMut<'a> {
     Struct(&'a mut dyn Struct),
     TupleStruct(&'a mut dyn TupleStruct),
@@ -50,7 +50,7 @@ pub enum ReflectMut<'a> {
 /// Each variant contains a trait object with methods specific to a kind of
 /// type.
 ///
-/// A `ReflectOwned` is obtained via [`Reflect::reflect_owned`].
+/// A `ReflectOwned` is obtained via [`PartialReflect::reflect_owned`].
 pub enum ReflectOwned {
     Struct(Box<dyn Struct>),
     TupleStruct(Box<dyn TupleStruct>),
@@ -62,7 +62,7 @@ pub enum ReflectOwned {
     Value(Box<dyn PartialReflect>),
 }
 
-/// A partially reflected Rust type. See [`Reflect`] for fully reflected types. 
+/// A partially reflected Rust type. See [`Reflect`] for fully reflected types.
 ///
 /// Methods for working with particular kinds of Rust type are available using the [`Array`], [`List`],
 /// [`Map`], [`Tuple`], [`TupleStruct`], [`Struct`], and [`Enum`] subtraits.
@@ -83,25 +83,25 @@ pub trait PartialReflect: Any + Send + Sync {
     /// [`TypeRegistry::get_type_info`]: crate::TypeRegistry::get_type_info
     fn get_type_info(&self) -> &'static TypeInfo;
 
-    /// Returns the value as a [`&dyn Reflect`][Reflect],
+    /// Returns the value as a [`&dyn Reflect`](Reflect),
     /// or [`None`] if the value does not implement it.
     fn as_full(&self) -> Option<&dyn Reflect>;
 
-    /// Returns the value as a [`&mut dyn Reflect`][Reflect],
+    /// Returns the value as a [`&mut dyn Reflect`](Reflect),
     /// or [`None`] if the value does not implement it.
     fn as_full_mut(&mut self) -> Option<&mut dyn Reflect>;
 
-    /// Returns the value as a [`Box<dyn Reflect>`][Reflect],
+    /// Returns the value as a [`Box<dyn Reflect>`](Reflect),
     /// or `Err(self)` if the value does not implement it.
     fn into_full(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>>;
 
-    /// Returns the value as a [`Box<dyn PartialReflect>`][PartialReflect].
+    /// Returns the value as a [`Box<dyn PartialReflect>`](PartialReflect).
     fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect>;
 
-    /// Returns the value as a [`Box<dyn PartialReflect>`][PartialReflect].
+    /// Returns the value as a [`Box<dyn PartialReflect>`](PartialReflect).
     fn as_partial(&self) -> &dyn PartialReflect;
 
-    /// Returns the value as a [`Box<dyn PartialReflect>`][PartialReflect].
+    /// Returns the value as a [`Box<dyn PartialReflect>`](PartialReflect).
     fn as_partial_mut(&mut self) -> &mut dyn PartialReflect;
 
     /// Applies a reflected value to this value.
@@ -330,10 +330,11 @@ pub trait Reflectable {}
 
 mod sealed {
     pub(crate) trait Sealed {}
+    
+    impl<T: crate::Typed> Sealed for T {}
+    impl<T: Sealed> super::Reflectable for T {}
 }
 
-impl<T: Typed> sealed::Sealed for T {}
-impl<T: sealed::Sealed> Reflectable for T {}
 
 /// A fully reflected Rust type.
 ///
@@ -356,14 +357,15 @@ impl<T: sealed::Sealed> Reflectable for T {}
 /// [`reflect_ref`]: PartialReflect::reflect_ref
 /// [`apply`]: PartialReflect::apply
 /// [certain types]: crate::DynamicStruct
+/// [`GetTypeRegistration`]: crate::GetTypeRegistration
 pub trait Reflect: PartialReflect + Reflectable {
-    /// Returns the value as a [`Box<dyn Any>`][Any].
+    /// Returns the value as a [`Box<dyn Any>`](Any).
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
-    /// Returns the value as a [`&dyn Any`][Any].
+    /// Returns the value as a [`&dyn Any`](Any).
     fn as_any(&self) -> &dyn Any;
 
-    /// Returns the value as a [`&mut dyn Any`][Any].
+    /// Returns the value as a [`&mut dyn Any`](Any).
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
     /// Casts this type to a boxed reflected value.
