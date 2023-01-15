@@ -26,7 +26,7 @@ pub enum AlphaMode {
     /// Similar to [`AlphaMode::Blend`], however assumes RGB channel values are
     /// [premultiplied](https://en.wikipedia.org/wiki/Alpha_compositing#Straight_versus_premultiplied).
     ///
-    /// For fixed RGB values, behaves more like [`AlphaMode::Blend`] for
+    /// For otherwise constant RGB values, behaves more like [`AlphaMode::Blend`] for
     /// alpha values closer to 1.0, and more like [`AlphaMode::Add`] for
     /// alpha values closer to 0.0.
     ///
