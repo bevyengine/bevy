@@ -92,6 +92,16 @@ impl_graph! {
             }
         }
 
+        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+            if self.edges.contains_key(edge) {
+                unsafe {
+                    Ok(self.remove_edge_unchecked(edge))
+                }
+            } else {
+                Err(GraphError::EdgeIdxDoesntExist(edge))
+            }
+        }
+
         #[inline]
         fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
             match self.edge_between(from, to) {
@@ -155,16 +165,6 @@ impl_graph! {
             idx
         }
 
-        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
-            if self.edges.contains_key(edge) {
-                unsafe {
-                    Ok(self.remove_edge_unchecked(edge))
-                }
-            } else {
-                Err(GraphError::EdgeIdxDoesntExist(edge))
-            }
-        }
-
         unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E {
             let (node, other) = self.edges.get_unchecked(edge).indices();
             let list = self.adjacencies.get_unchecked_mut(node);
@@ -219,16 +219,6 @@ impl_graph! {
             });
             self.adjacencies.get_unchecked_mut(from).push((to, idx));
             idx
-        }
-
-        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
-            if self.edges.contains_key(edge) {
-                unsafe {
-                    Ok(self.remove_edge_unchecked(edge))
-                }
-            } else {
-                Err(GraphError::EdgeIdxDoesntExist(edge))
-            }
         }
 
         unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E {
