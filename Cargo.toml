@@ -1644,4 +1644,4 @@ lto = "fat"
 panic = "abort"
 
 [patch.crates-io]
-wgpu = { git = "https://github.com/gfx-rs/wgpu" }
+wgpu = { git = "https://github.com/jms55/wgpu" }

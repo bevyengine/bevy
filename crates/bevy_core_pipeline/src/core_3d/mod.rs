@@ -9,6 +9,7 @@ pub mod graph {
     pub mod node {
         pub const PREPASS: &str = "prepass";
         pub const MAIN_PASS: &str = "main_pass";
+        pub const FSR2: &str = "fsr2";
         pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
         pub const FXAA: &str = "fxaa";
@@ -38,8 +39,8 @@ use bevy_render::{
         TextureUsages,
     },
     renderer::RenderDevice,
-    texture::TextureCache,
-    view::ViewDepthTexture,
+    texture::{BevyDefault, CachedTexture, TextureCache},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
     Extract, RenderApp, RenderStage,
 };
 use bevy_utils::{FloatOrd, HashMap};
@@ -68,7 +69,7 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
             .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_phases)
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_depth_textures)
+            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_textures)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
             .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
@@ -268,13 +269,25 @@ pub fn extract_core_3d_camera_phases(
     }
 }
 
-pub fn prepare_core_3d_depth_textures(
+/// Texture rendered to by the main 3d pass if Camera3d::render_resolution is Some.
+#[derive(Component)]
+pub struct MainPass3dTexture {
+    pub texture: CachedTexture,
+}
+
+pub fn prepare_core_3d_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
     msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera, Option<&DepthPrepass>),
+        (
+            Entity,
+            &ExtractedCamera,
+            &ExtractedView,
+            &Camera3d,
+            Option<&DepthPrepass>,
+        ),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -282,13 +295,17 @@ pub fn prepare_core_3d_depth_textures(
         ),
     >,
 ) {
-    let mut textures = HashMap::default();
-    for (entity, camera, depth_prepass) in &views_3d {
+    let mut depth_textures = HashMap::default();
+    for (entity, camera, view, camera_3d, depth_prepass) in &views_3d {
         let Some(physical_target_size) = camera.physical_target_size else {
             continue;
         };
 
-        let cached_texture = textures
+        let mut entity = commands.entity(entity);
+
+        let texture_size = camera_3d.render_resolution.unwrap_or(physical_target_size);
+
+        let depth = depth_textures
             .entry(camera.target.clone())
             .or_insert_with(|| {
                 // Default usage required to write to the depth texture
@@ -298,16 +315,13 @@ pub fn prepare_core_3d_depth_textures(
                     usage |= TextureUsages::COPY_SRC;
                 }
 
-                // The size of the depth texture
-                let size = Extent3d {
-                    depth_or_array_layers: 1,
-                    width: physical_target_size.x,
-                    height: physical_target_size.y,
-                };
-
                 let descriptor = TextureDescriptor {
                     label: Some("view_depth_texture"),
-                    size,
+                    size: Extent3d {
+                        depth_or_array_layers: 1,
+                        width: texture_size.x,
+                        height: texture_size.y,
+                    },
                     mip_level_count: 1,
                     sample_count: msaa.samples,
                     dimension: TextureDimension::D2,
@@ -320,9 +334,34 @@ pub fn prepare_core_3d_depth_textures(
             })
             .clone();
 
-        commands.entity(entity).insert(ViewDepthTexture {
-            texture: cached_texture.texture,
-            view: cached_texture.default_view,
+        entity.insert(ViewDepthTexture {
+            texture: depth.texture,
+            view: depth.default_view,
         });
+
+        if let Some(render_resolution) = camera_3d.render_resolution {
+            if render_resolution != physical_target_size {
+                let descriptor = TextureDescriptor {
+                    label: Some("view_main_pass_3d_texture"),
+                    size: Extent3d {
+                        depth_or_array_layers: 1,
+                        width: texture_size.x,
+                        height: texture_size.y,
+                    },
+                    mip_level_count: 1,
+                    sample_count: msaa.samples,
+                    dimension: TextureDimension::D2,
+                    format: match view.hdr {
+                        true => ViewTarget::TEXTURE_FORMAT_HDR,
+                        false => TextureFormat::bevy_default(),
+                    },
+                    usage: TextureUsages::RENDER_ATTACHMENT,
+                };
+
+                entity.insert(MainPass3dTexture {
+                    texture: texture_cache.get(&render_device, descriptor),
+                });
+            }
+        }
     }
 }
