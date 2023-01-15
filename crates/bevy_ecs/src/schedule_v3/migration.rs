@@ -19,7 +19,7 @@ pub trait AppExt {
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant, and an instance of [`apply_state_transition::<S>`] in
     /// \<insert-`bevy_core`-set-name\> so that transitions happen before `Update`.
-    fn add_state<S: Statelike>(&mut self) -> &mut Self;
+    fn add_state<S: States>(&mut self) -> &mut Self;
 }
 
 /// Temporary "stageless" [`World`] methods.

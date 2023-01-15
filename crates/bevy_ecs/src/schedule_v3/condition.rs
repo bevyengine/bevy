@@ -29,7 +29,7 @@ mod sealed {
 }
 
 mod common_conditions {
-    use crate::schedule_v3::{State, Statelike};
+    use crate::schedule_v3::{State, States};
     use crate::system::{Res, Resource};
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
@@ -70,7 +70,7 @@ mod common_conditions {
 
     /// Generates a [`Condition`](super::Condition)-satisfying closure that returns `true`
     /// if the state machine exists.
-    pub fn state_exists<S: Statelike>() -> impl FnMut(Option<Res<State<S>>>) -> bool {
+    pub fn state_exists<S: States>() -> impl FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| current_state.is_some()
     }
 
@@ -80,7 +80,7 @@ mod common_conditions {
     /// # Panics
     ///
     /// The condition will panic if the resource does not exist.
-    pub fn state_equals<S: Statelike>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
+    pub fn state_equals<S: States>(state: S) -> impl FnMut(Res<State<S>>) -> bool {
         move |current_state: Res<State<S>>| current_state.0 == state
     }
 
@@ -88,7 +88,7 @@ mod common_conditions {
     /// if the state machine exists and is currently in `state`.
     ///
     /// The condition will return `false` if the state does not exist.
-    pub fn state_exists_and_equals<S: Statelike>(
+    pub fn state_exists_and_equals<S: States>(
         state: S,
     ) -> impl FnMut(Option<Res<State<S>>>) -> bool {
         move |current_state: Option<Res<State<S>>>| match current_state {
