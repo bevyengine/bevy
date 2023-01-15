@@ -2167,3 +2167,17 @@ impl Composer {
         }
     }
 }
+
+static COMPOSER: once_cell::sync::Lazy<Composer> = once_cell::sync::Lazy::new(Composer::default);
+
+/// Get module name and all required imports (ignoring shader_defs) from a shader string
+pub fn get_preprocessor_data(source: &str) -> (Option<String>, Vec<ImportDefinition>) {
+    let (name, imports) = COMPOSER.get_preprocessor_data(source);
+    (
+        name,
+        imports
+            .into_iter()
+            .map(|import_with_offset| import_with_offset.definition)
+            .collect(),
+    )
+}
