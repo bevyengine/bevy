@@ -213,7 +213,7 @@ pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
