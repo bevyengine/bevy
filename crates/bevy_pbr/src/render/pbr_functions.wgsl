@@ -281,7 +281,13 @@ fn apply_fog(input_color: vec4<f32>, view_to_world: vec3<f32>) -> vec4<f32> {
         let n_directional_lights = lights.n_directional_lights;
         for (var i: u32 = 0u; i < n_directional_lights; i = i + 1u) {
             let light = lights.directional_lights[i];
-            scattering += pow(max(dot(view_to_world_normalized, light.direction_to_light), 0.0), fog.directional_light_exponent) * light.color.rgb;
+            scattering += pow(
+                max(
+                    dot(view_to_world_normalized, light.direction_to_light),
+                    0.0
+                ),
+                fog.directional_light_exponent
+            ) * light.color.rgb;
         }
     }
 

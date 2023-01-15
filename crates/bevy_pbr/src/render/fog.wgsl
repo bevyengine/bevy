@@ -11,7 +11,11 @@ fn linear_fog(
 ) -> vec4<f32> {
     var fog_color = fog.base_color;
     if (fog.directional_light_color.a > 0.0) {
-        fog_color = vec4<f32>(fog.base_color.rgb + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a, fog_color.a);
+        fog_color = vec4<f32>(
+            fog.base_color.rgb
+                + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a,
+            fog_color.a
+        );
     }
     let start = fog.be.x;
     let end = fog.be.y;
@@ -26,7 +30,11 @@ fn exponential_fog(
 ) -> vec4<f32> {
     var fog_color = fog.base_color;
     if (fog.directional_light_color.a > 0.0) {
-        fog_color = vec4<f32>(fog.base_color.rgb + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a, fog_color.a);
+        fog_color = vec4<f32>(
+            fog.base_color.rgb
+                + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a,
+            fog_color.a
+        );
     }
     let density = fog.be.x;
     fog_color.a *= 1.0 - 1.0 / exp(distance * density);
@@ -40,7 +48,11 @@ fn exponential_squared_fog(
 ) -> vec4<f32> {
     var fog_color = fog.base_color;
     if (fog.directional_light_color.a > 0.0) {
-        fog_color = vec4<f32>(fog.base_color.rgb + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a, fog_color.a);
+        fog_color = vec4<f32>(
+             fog.base_color.rgb
+                 + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a,
+             fog_color.a
+         );
     }
     let density = fog.be.x;
     fog_color.a *= 1.0 - 1.0 / exp(pow(distance * density, 2.0));
@@ -57,10 +69,18 @@ fn atmospheric_fog(
 ) -> vec4<f32> {
     var fog_color = fog.base_color;
     if (fog.directional_light_color.a > 0.0) {
-        fog_color = vec4<f32>(fog.base_color.rgb + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a, fog_color.a);
+        fog_color = vec4<f32>(
+            fog.base_color.rgb
+                + scattering * fog.directional_light_color.rgb * fog.directional_light_color.a,
+            fog_color.a
+        );
     }
     let extinction_factor = 1.0 - 1.0 / exp(distance * fog.be);
     let inscattering_factor = 1.0 - 1.0 / exp(distance * fog.bi);
 
-    return vec4<f32>(input_color.rgb * (1.0 - extinction_factor * fog_color.a) + fog_color.rgb * inscattering_factor * fog_color.a, input_color.a);
+    return vec4<f32>(
+        input_color.rgb * (1.0 - extinction_factor * fog_color.a)
+            + fog_color.rgb * inscattering_factor * fog_color.a,
+        input_color.a
+    );
 }
