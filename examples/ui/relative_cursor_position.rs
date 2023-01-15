@@ -61,20 +61,19 @@ fn relative_cursor_position_system(
 
     let mut output = output_query.single_mut();
 
-	output.sections[0].value = if let Some(relative_cursor_position) = relative_cursor_position.normalized {
-		output.sections[0].style.color = if (0.0..1.).contains(&relative_cursor_position.x)
-			&& (0.0..1.).contains(&relative_cursor_position.y)
-		{
-			Color::rgb(0.1, 0.9, 0.1)
-		} else {
-			Color::rgb(0.9, 0.1, 0.1)
-		};
+    output.sections[0].value =
+        if let Some(relative_cursor_position) = relative_cursor_position.normalized {
+            format!(
+                "({:.1}, {:.1})",
+                relative_cursor_position.x, relative_cursor_position.y
+            )
+        } else {
+            "unknown".to_string()
+        };
 
-		format!(
-			"({:.1}, {:.1})",
-			relative_cursor_position.x, relative_cursor_position.y
-		)
-	} else {
-		"unknown".to_string()
-	}
+    output.sections[0].style.color = if relative_cursor_position.mouse_over() {
+        Color::rgb(0.1, 0.9, 0.1)
+    } else {
+        Color::rgb(0.9, 0.1, 0.1)
+    };
 }

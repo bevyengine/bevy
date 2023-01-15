@@ -76,6 +76,15 @@ pub struct RelativeCursorPosition {
     pub normalized: Option<Vec2>,
 }
 
+impl RelativeCursorPosition {
+    /// A helper function to check if the mouse is over the node
+    pub fn mouse_over(&self) -> bool {
+        self.normalized
+            .map(|position| (0.0..1.).contains(&position.x) && (0.0..1.).contains(&position.y))
+            .unwrap_or(false)
+    }
+}
+
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
@@ -206,28 +215,27 @@ pub fn ui_focus_system(
 
                 // The mouse position relative to the node
                 // (0., 0.) is the upper-left corner, (1., 1.) is the bottom-right corner
-                let relative_cursor_postition = cursor_position.map(|cursor_position| {
+                let relative_cursor_position = cursor_position.map(|cursor_position| {
                     Vec2::new(
                         (cursor_position.x - min.x) / node.node.size().x,
                         (cursor_position.y - min.y) / node.node.size().y,
                     )
                 });
 
-                // Save the relative cursor position to the correct component
-                if let Some(mut relative_cursor_position_component) =
-                    node.relative_cursor_position
-                {
-                    relative_cursor_position_component.normalized = relative_cursor_postition;
-                }
-
                 // If the current cursor position is within the bounds of the node, consider it for
                 // clicking
-                let contains_cursor = if let Some(cursor_position) = relative_cursor_postition {
-                    (0.0..1.0).contains(&cursor_position.x)
-                        && (0.0..1.0).contains(&cursor_position.y)
-                } else {
-                    false
+                let relative_cursor_position_component = RelativeCursorPosition {
+                    normalized: relative_cursor_position,
                 };
+
+                let contains_cursor = relative_cursor_position_component.mouse_over();
+
+                // Save the relative cursor position to the correct component
+                if let Some(mut node_relative_cursor_position_component) =
+                    node.relative_cursor_position
+                {
+                    *node_relative_cursor_position_component = relative_cursor_position_component;
+                }
 
                 if contains_cursor {
                     Some(*entity)
