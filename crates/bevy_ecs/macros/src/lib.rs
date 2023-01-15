@@ -506,7 +506,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     SystemParamFieldUsage::Resultful => quote! { Result<#ty, <#ty as #bevy_ecs::system::ResultfulSystemParam>::Error> },
                     _ => unreachable!(),
                 });
-				field_patterns.push(ident);
+				field_patterns.push(quote! { #ident });
             }
         }
     }
@@ -571,13 +571,17 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let end = Vec::from_iter(field_types.drain(..LIMIT));
         field_types.push(match syn::parse(quote! { (#(#end,)*) }.into()) {
             Ok(o) => o,
-            Err(e) => return e.into_compile_error().into(),
+            Err(e) => return syn::Error::new(Span::call_site(), format!("Failed to compact field types: {e}"))
+                .into_compile_error()
+                .into(),
         });
 
         let end = Vec::from_iter(field_patterns.drain(..LIMIT));
         field_patterns.push(match syn::parse(quote! { (#(#end,)*) }.into()) {
             Ok(o) => o,
-            Err(e) => return e.into_compile_error().into(),
+            Err(e) => return syn::Error::new(Span::call_site(), format!("Failed to compact field patterns: {e}"))
+                .into_compile_error()
+                .into(),
         });
     }
     
@@ -590,7 +594,9 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .predicates
             .push(match syn::parse(quote! { #field_type: #bevy_ecs::system::ReadOnlySystemParam }.into()) {
                 Ok(o) => o,
-                Err(e) => return e.into_compile_error().into(),
+                Err(e) => return syn::Error::new(Span::call_site(), format!("Failed to create read-only predicate: {e}"))
+                    .into_compile_error()
+                    .into(),
             });
     }
 
