@@ -98,12 +98,11 @@ fn setup(
         ..default()
     });
     // camera
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(Msaa::default());
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-2.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        msaa: Msaa::default(),
+        ..default()
+    });
 }
 
 /// Fades the alpha channel of all materials between 0 and 1 over time.

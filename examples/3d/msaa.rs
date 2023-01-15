@@ -37,12 +37,11 @@ fn setup(
         ..default()
     });
     // camera
-    commands
-        .spawn(Camera3dBundle {
-            transform: Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        })
-        .insert(Msaa { samples: 4 });
+    commands.spawn(Camera3dBundle {
+        transform: Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        msaa: Msaa::default(),
+        ..default()
+    });
 }
 
 fn cycle_msaa(input: Res<Input<KeyCode>>, mut msaa: Query<&mut Msaa>) {

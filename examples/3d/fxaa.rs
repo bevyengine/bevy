@@ -102,10 +102,10 @@ fn setup(
             },
             transform: Transform::from_xyz(0.7, 0.7, 1.0)
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+            msaa: Msaa::default(),
             ..default()
         })
-        .insert(Fxaa::default())
-        .insert(Msaa::default());
+        .insert(Fxaa::default());
 }
 
 fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut cameras: Query<(&mut Fxaa, &mut Msaa)>) {
