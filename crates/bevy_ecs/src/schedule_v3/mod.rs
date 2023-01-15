@@ -318,7 +318,7 @@ mod tests {
             schedule.configure_set(TestSet::B.after(TestSet::A));
 
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(BuildError::DependencyCycle)));
+            assert!(matches!(result, Err(ScheduleBuildError::DependencyCycle)));
 
             fn foo() {}
             fn bar() {}
@@ -328,7 +328,7 @@ mod tests {
 
             schedule.add_systems((foo.after(bar), bar.after(foo)));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(BuildError::DependencyCycle)));
+            assert!(matches!(result, Err(ScheduleBuildError::DependencyCycle)));
         }
 
         #[test]
@@ -347,7 +347,7 @@ mod tests {
             schedule.configure_set(TestSet::B.in_set(TestSet::A));
 
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(BuildError::HierarchyCycle)));
+            assert!(matches!(result, Err(ScheduleBuildError::HierarchyCycle)));
         }
 
         #[test]
@@ -373,7 +373,10 @@ mod tests {
             // When there are multiple instances of `foo`, dependencies on
             // `foo` are no longer allowed. Too much ambiguity.
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(BuildError::SystemTypeSetAmbiguity(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::SystemTypeSetAmbiguity(_))
+            ));
 
             // same goes for `ambiguous_with`
             let mut schedule = Schedule::new();
@@ -383,7 +386,10 @@ mod tests {
             assert!(result.is_ok());
             schedule.add_system(foo);
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(BuildError::SystemTypeSetAmbiguity(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::SystemTypeSetAmbiguity(_))
+            ));
         }
 
         #[test]
@@ -405,9 +411,13 @@ mod tests {
         }
 
         #[test]
-        fn hierarchy_conflict() {
+        fn hierarchy_redundancy() {
             let mut world = World::new();
             let mut schedule = Schedule::new();
+
+            schedule.set_build_settings(
+                ScheduleBuildSettings::new().with_hierarchy_detection(LogLevel::Error),
+            );
 
             // Add `A`.
             schedule.configure_set(TestSet::A);
@@ -420,7 +430,10 @@ mod tests {
 
             // `X` cannot be the `A`'s child and grandchild at the same time.
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(BuildError::HierarchyConflict)));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::HierarchyRedundancy)
+            ));
         }
 
         #[test]
@@ -432,7 +445,10 @@ mod tests {
             schedule.configure_set(TestSet::B.in_set(TestSet::A));
             schedule.configure_set(TestSet::B.after(TestSet::A));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(BuildError::CrossDependency(_, _))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::CrossDependency(_, _))
+            ));
         }
 
         #[test]
@@ -446,9 +462,13 @@ mod tests {
             let mut world = World::new();
             let mut schedule = Schedule::new();
 
+            schedule.set_build_settings(
+                ScheduleBuildSettings::new().with_ambiguity_detection(LogLevel::Error),
+            );
+
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(BuildError::Ambiguity)));
+            assert!(matches!(result, Err(ScheduleBuildError::Ambiguity)));
         }
     }
 

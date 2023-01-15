@@ -4,6 +4,7 @@ use std::{
     result::Result,
 };
 
+use bevy_utils::default;
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
 use bevy_utils::{
@@ -135,10 +136,16 @@ impl Schedule {
         self
     }
 
-    /// Sets the system set that new systems and system sets will join by default
+    /// Changes the system set that new systems and system sets will join by default
     /// if they aren't already part of one.
     pub fn set_default_set(&mut self, set: impl SystemSet) -> &mut Self {
         self.graph.set_default_set(set);
+        self
+    }
+
+    /// Changes miscellaneous build settings.
+    pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
+        self.graph.set_build_settings(settings);
         self
     }
 
@@ -172,7 +179,7 @@ impl Schedule {
 
     /// Initializes any newly-added systems and conditions, rebuilds the executable schedule,
     /// and re-initializes the executor.
-    pub fn initialize(&mut self, world: &mut World) -> Result<(), BuildError> {
+    pub fn initialize(&mut self, world: &mut World) -> Result<(), ScheduleBuildError> {
         if self.graph.changed {
             self.graph.initialize(world);
             self.graph.update_schedule(&mut self.executable)?;
@@ -269,6 +276,7 @@ struct ScheduleGraph {
     ambiguous_with_all: HashSet<NodeId>,
     default_set: Option<BoxedSystemSet>,
     changed: bool,
+    settings: ScheduleBuildSettings,
 }
 
 impl ScheduleGraph {
@@ -288,12 +296,17 @@ impl ScheduleGraph {
             ambiguous_with_all: HashSet::new(),
             default_set: None,
             changed: false,
+            settings: default(),
         }
     }
 
     fn set_default_set(&mut self, set: impl SystemSet) {
         assert!(!set.is_system_type(), "invalid use of system type set");
         self.default_set = Some(Box::new(set));
+    }
+
+    fn set_build_settings(&mut self, settings: ScheduleBuildSettings) {
+        self.settings = settings;
     }
 
     fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
@@ -321,7 +334,7 @@ impl ScheduleGraph {
     fn add_system_inner<P>(
         &mut self,
         system: impl IntoSystemConfig<P>,
-    ) -> Result<NodeId, BuildError> {
+    ) -> Result<NodeId, ScheduleBuildError> {
         let SystemConfig {
             system,
             mut graph_info,
@@ -369,7 +382,10 @@ impl ScheduleGraph {
         self.configure_set_inner(set).unwrap();
     }
 
-    fn configure_set_inner(&mut self, set: impl IntoSystemSetConfig) -> Result<NodeId, BuildError> {
+    fn configure_set_inner(
+        &mut self,
+        set: impl IntoSystemSetConfig,
+    ) -> Result<NodeId, ScheduleBuildError> {
         let SystemSetConfig {
             set,
             mut graph_info,
@@ -413,12 +429,16 @@ impl ScheduleGraph {
         id
     }
 
-    fn check_sets(&mut self, id: &NodeId, graph_info: &GraphInfo) -> Result<(), BuildError> {
+    fn check_sets(
+        &mut self,
+        id: &NodeId,
+        graph_info: &GraphInfo,
+    ) -> Result<(), ScheduleBuildError> {
         for set in &graph_info.sets {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
-                        return Err(BuildError::HierarchyLoop(set.dyn_clone()));
+                        return Err(ScheduleBuildError::HierarchyLoop(set.dyn_clone()));
                     }
                 }
                 None => {
@@ -430,12 +450,16 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    fn check_edges(&mut self, id: &NodeId, graph_info: &GraphInfo) -> Result<(), BuildError> {
+    fn check_edges(
+        &mut self,
+        id: &NodeId,
+        graph_info: &GraphInfo,
+    ) -> Result<(), ScheduleBuildError> {
         for (_, set) in &graph_info.dependencies {
             match self.system_set_ids.get(set) {
                 Some(set_id) => {
                     if id == set_id {
-                        return Err(BuildError::DependencyLoop(set.dyn_clone()));
+                        return Err(ScheduleBuildError::DependencyLoop(set.dyn_clone()));
                     }
                 }
                 None => {
@@ -455,7 +479,11 @@ impl ScheduleGraph {
         Ok(())
     }
 
-    fn update_graphs(&mut self, id: NodeId, graph_info: GraphInfo) -> Result<(), BuildError> {
+    fn update_graphs(
+        &mut self,
+        id: NodeId,
+        graph_info: GraphInfo,
+    ) -> Result<(), ScheduleBuildError> {
         self.check_sets(&id, &graph_info)?;
         self.check_edges(&id, &graph_info)?;
         self.changed = true;
@@ -529,12 +557,12 @@ impl ScheduleGraph {
         }
     }
 
-    fn build_schedule(&mut self) -> Result<SystemSchedule, BuildError> {
+    fn build_schedule(&mut self) -> Result<SystemSchedule, ScheduleBuildError> {
         // check hierarchy for cycles
         let hier_scc = tarjan_scc(&self.hierarchy.graph);
         if self.contains_cycles(&hier_scc) {
             self.report_cycles(&hier_scc);
-            return Err(BuildError::HierarchyCycle);
+            return Err(ScheduleBuildError::HierarchyCycle);
         }
 
         self.hierarchy.topsort = hier_scc.into_iter().flatten().rev().collect::<Vec<_>>();
@@ -542,14 +570,19 @@ impl ScheduleGraph {
         let hier_results = check_graph(&self.hierarchy.graph, &self.hierarchy.topsort);
         if self.contains_hierarchy_conflicts(&hier_results.transitive_edges) {
             self.report_hierarchy_conflicts(&hier_results.transitive_edges);
-            return Err(BuildError::HierarchyConflict);
+            if matches!(self.settings.hierarchy_detection, LogLevel::Error) {
+                return Err(ScheduleBuildError::HierarchyRedundancy);
+            }
         }
+
+        // remove redundant edges
+        self.hierarchy.graph = hier_results.transitive_reduction;
 
         // check dependencies for cycles
         let dep_scc = tarjan_scc(&self.dependency.graph);
         if self.contains_cycles(&dep_scc) {
             self.report_cycles(&dep_scc);
-            return Err(BuildError::DependencyCycle);
+            return Err(ScheduleBuildError::DependencyCycle);
         }
 
         self.dependency.topsort = dep_scc.into_iter().flatten().rev().collect::<Vec<_>>();
@@ -561,7 +594,7 @@ impl ScheduleGraph {
             {
                 let name_a = self.get_node_name(&a);
                 let name_b = self.get_node_name(&b);
-                return Err(BuildError::CrossDependency(name_a, name_b));
+                return Err(ScheduleBuildError::CrossDependency(name_a, name_b));
             }
         }
 
@@ -611,7 +644,9 @@ impl ScheduleGraph {
                     .edges_directed(set, Direction::Outgoing)
                     .count();
                 if systems.len() > 1 && (ambiguities > 0 || dependencies > 0) {
-                    return Err(BuildError::SystemTypeSetAmbiguity(node.inner.dyn_clone()));
+                    return Err(ScheduleBuildError::SystemTypeSetAmbiguity(
+                        node.inner.dyn_clone(),
+                    ));
                 }
             }
         }
@@ -623,6 +658,7 @@ impl ScheduleGraph {
                 dependency_flattened.add_node(id);
             }
         }
+
         for (lhs, rhs, _) in self.dependency.graph.all_edges() {
             match (lhs, rhs) {
                 (NodeId::System(_), NodeId::System(_)) => {
@@ -652,7 +688,7 @@ impl ScheduleGraph {
         let flat_scc = tarjan_scc(&dependency_flattened);
         if self.contains_cycles(&flat_scc) {
             self.report_cycles(&flat_scc);
-            return Err(BuildError::DependencyCycle);
+            return Err(ScheduleBuildError::DependencyCycle);
         }
 
         self.dependency_flattened.graph = dependency_flattened;
@@ -663,6 +699,9 @@ impl ScheduleGraph {
             &self.dependency_flattened.graph,
             &self.dependency_flattened.topsort,
         );
+
+        // remove redundant edges
+        self.dependency_flattened.graph = flat_results.transitive_reduction;
 
         // flatten allowed ambiguities
         let mut ambiguous_with_flattened = UnGraphMap::new();
@@ -719,7 +758,9 @@ impl ScheduleGraph {
 
         if self.contains_conflicts(&conflicting_systems) {
             self.report_conflicts(&conflicting_systems);
-            return Err(BuildError::Ambiguity);
+            if matches!(self.settings.ambiguity_detection, LogLevel::Error) {
+                return Err(ScheduleBuildError::Ambiguity);
+            }
         }
 
         // build the schedule
@@ -822,9 +863,9 @@ impl ScheduleGraph {
         })
     }
 
-    fn update_schedule(&mut self, schedule: &mut SystemSchedule) -> Result<(), BuildError> {
+    fn update_schedule(&mut self, schedule: &mut SystemSchedule) -> Result<(), ScheduleBuildError> {
         if !self.uninit.is_empty() {
-            return Err(BuildError::Uninitialized);
+            return Err(ScheduleBuildError::Uninitialized);
         }
 
         // move systems out of old schedule
@@ -979,25 +1020,82 @@ impl ScheduleGraph {
     }
 }
 
+/// Category of errors encountered during schedule construction.
 #[derive(Error, Debug)]
 #[non_exhaustive]
-pub enum BuildError {
+pub enum ScheduleBuildError {
+    /// A system set contains itself.
     #[error("`{0:?}` contains itself.")]
     HierarchyLoop(BoxedSystemSet),
+    /// The hierarchy of system sets contains a cycle.
     #[error("System set hierarchy contains cycle(s).")]
     HierarchyCycle,
-    #[error("System set hierarchy contains conflicting relationships.")]
-    HierarchyConflict,
+    /// The hierarchy of system sets contains redundant edges.
+    ///
+    /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
+    #[error("System set hierarchy contains redundant edges.")]
+    HierarchyRedundancy,
+    /// A system (set) has been told to run before itself.
     #[error("`{0:?}` depends on itself.")]
     DependencyLoop(BoxedSystemSet),
+    /// The dependency graph contains a cycle.
     #[error("System dependencies contain cycle(s).")]
     DependencyCycle,
-    #[error("`{0:?}` and `{1:?}` have both `in_set` and `before`-`after` relationships (possibly transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
+    /// Tried to order a system (set) relative to a system set it belongs to.
+    #[error("`{0:?}` and `{1:?}` have both `in_set` and `before`-`after` relationships (these might be transitive). This combination is unsolvable as a system cannot run before or after a set it belongs to.")]
     CrossDependency(String, String),
+    /// Tried to order a system (set) relative to all instances of some system function.
     #[error("Tried to order against `fn {0:?}` in a schedule that has more than one `{0:?}` instance. `fn {0:?}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(BoxedSystemSet),
+    /// Systems with conflicting access have indeterminate run order.
+    ///
+    /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
     #[error("Systems with conflicting access have indeterminate run order.")]
     Ambiguity,
-    #[error("Schedule is not initialized.")]
+    /// Tried to run a schedule before all of its systems have been initialized.
+    #[error("Systems in schedule have not been initialized.")]
     Uninitialized,
+}
+
+pub enum LogLevel {
+    /// Occurrences are logged only.
+    Warn,
+    /// Occurrences are logged and result in errors.
+    Error,
+}
+
+/// Specifies miscellaneous settings for schedule construction.
+pub struct ScheduleBuildSettings {
+    ambiguity_detection: LogLevel,
+    hierarchy_detection: LogLevel,
+}
+
+impl Default for ScheduleBuildSettings {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ScheduleBuildSettings {
+    pub const fn new() -> Self {
+        Self {
+            ambiguity_detection: LogLevel::Warn,
+            hierarchy_detection: LogLevel::Warn,
+        }
+    }
+
+    /// Determines whether the presence of ambiguities (systems with conflicting access but indeterminate order)
+    /// is only logged or also results in an [`Ambiguity`](ScheduleBuildError::Ambiguity) error.
+    pub fn with_ambiguity_detection(mut self, level: LogLevel) -> Self {
+        self.ambiguity_detection = level;
+        self
+    }
+
+    /// Determines whether the presence of redundant edges in the hierarchy of system sets is only
+    /// logged or also results in a [`HierarchyRedundancy`](ScheduleBuildError::HierarchyRedundancy)
+    /// error.
+    pub fn with_hierarchy_detection(mut self, level: LogLevel) -> Self {
+        self.hierarchy_detection = level;
+        self
+    }
 }

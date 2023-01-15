@@ -1,4 +1,4 @@
-use bevy_utils::prelude::default;
+use bevy_utils::default;
 
 use crate::{
     schedule_v3::{
