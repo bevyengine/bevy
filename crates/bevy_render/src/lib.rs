@@ -198,7 +198,7 @@ impl Plugin for RenderPlugin {
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()
-                        .with_system(PipelineCache::process_pipeline_queue_system)
+                        .with_system(PipelineCache::process_pipeline_queue_system.at_start())
                         .with_system(render_system.at_end()),
                 )
                 .add_stage(
