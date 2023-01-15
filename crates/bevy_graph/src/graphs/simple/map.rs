@@ -28,7 +28,7 @@ impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
 }
 
 impl_graph! {
-    impl common for SimpleMapGraph {
+    impl COMMON for SimpleMapGraph {
         #[inline]
         fn count(&self) -> usize {
             self.nodes.len()
@@ -109,14 +109,6 @@ impl_graph! {
             }
         }
 
-        #[inline]
-        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx> {
-            match self.edges_between(from, to) {
-                Ok(edges) => Ok(edges[0]),
-                Err(err) => Err(err)
-            }
-        }
-
         unsafe fn edges_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> Vec<EdgeIdx> {
             vec![self.adjacencies.get_unchecked(from).get(&to).cloned().unwrap()]
         }
@@ -132,7 +124,7 @@ impl_graph! {
         }
     }
 
-    impl undirected {
+    impl COMMON?undirected {
         fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
             for (_, edge) in self.edges_of(node) {
                 self.remove_edge(edge).unwrap();
@@ -188,7 +180,7 @@ impl_graph! {
         }
     }
 
-    impl directed {
+    impl COMMON?directed {
         fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
             let mut edges = vec![];
             for (edge, data) in &self.edges {

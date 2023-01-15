@@ -10,6 +10,10 @@ use crate::error::GraphResult;
 
 use self::keys::{EdgeIdx, NodeIdx};
 
+// NOTE: There should always be a general API function and a more precise API function for one problem with multiple signatures needed.
+//       Example: `edges_between` is `trait Graph` general and has support for Simple- and Multigraphs.
+//                `edge_between` is only available for `SimpleGraph` but is also called from `edges_between`.
+
 pub trait Graph<N, E> {
     fn count(&self) -> usize;
 
@@ -48,7 +52,6 @@ pub trait Graph<N, E> {
     fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E>;
 
     fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>>;
-    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx>;
     /// # Safety
     ///
     /// This function should only be called when the nodes and the edges between exists.
@@ -66,4 +69,12 @@ pub trait Graph<N, E> {
     fn algo_dfs(&self, start: NodeIdx) -> DepthFirstSearch {
         DepthFirstSearch::new(start, self.count())
     }
+}
+
+pub trait SimpleGraph<N, E>: Graph<N, E> {
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx>;
+    /// # Safety
+    ///
+    /// This function should only be called when the nodes and the edge between exists.
+    unsafe fn edge_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx;
 }

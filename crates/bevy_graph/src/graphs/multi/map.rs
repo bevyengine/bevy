@@ -28,7 +28,7 @@ impl<N, E, const DIRECTED: bool> MultiMapGraph<N, E, DIRECTED> {
 }
 
 impl_graph! {
-    impl common for MultiMapGraph {
+    impl COMMON for MultiMapGraph {
         #[inline]
         fn count(&self) -> usize {
             self.nodes.len()
@@ -100,11 +100,6 @@ impl_graph! {
         }
 
         #[inline]
-        fn edge_between(&self, _from: NodeIdx, _to: NodeIdx) -> GraphResult<EdgeIdx> {
-            Err(GraphError::CanHaveMultipleEdges)
-        }
-
-        #[inline]
         unsafe fn edges_between_unchecked(&self, _from: NodeIdx, _to: NodeIdx) -> Vec<EdgeIdx> {
             todo!()
         }
@@ -115,7 +110,7 @@ impl_graph! {
         }
     }
 
-    impl undirected {
+    impl COMMON?undirected {
         fn remove_node(&mut self, _node: NodeIdx) -> GraphResult<N> {
             todo!()
         }
@@ -133,7 +128,7 @@ impl_graph! {
         }
     }
 
-    impl directed {
+    impl COMMON?directed {
         fn remove_node(&mut self, _node: NodeIdx) -> GraphResult<N> {
             todo!()
         }
