@@ -7,10 +7,6 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 1.0,
-        })
         .add_startup_system(setup)
         .run();
 }
@@ -22,10 +18,16 @@ fn setup(
     mut animations: ResMut<Assets<AnimationClip>>,
 ) {
     // Camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        AmbientLight {
+            color: Color::WHITE,
+            brightness: 1.0,
+        },
+    ));
 
     // The animation API uses the `Name` component to target entities
     let planet = Name::new("planet");

@@ -8,10 +8,6 @@ use bevy::{pbr::AmbientLight, prelude::*, render::mesh::skinning::SkinnedMesh};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 1.0,
-            ..default()
-        })
         .add_startup_system(setup)
         .add_system(joint_animation)
         .run();
@@ -19,10 +15,16 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Create a camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        AmbientLight {
+            brightness: 1.0,
+            ..Default::default()
+        },
+    ));
 
     // Spawn the first scene in `models/SimpleSkin/SimpleSkin.gltf`
     commands.spawn(SceneBundle {

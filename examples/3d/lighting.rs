@@ -91,12 +91,6 @@ fn setup(
         Movable,
     ));
 
-    // ambient light
-    commands.insert_resource(AmbientLight {
-        color: Color::ORANGE_RED,
-        brightness: 0.02,
-    });
-
     // red point light
     commands
         .spawn(PointLightBundle {
@@ -211,10 +205,16 @@ fn setup(
     });
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        AmbientLight {
+            color: Color::ORANGE_RED,
+            brightness: 0.02,
+        },
+    ));
 }
 
 fn animate_light_direction(

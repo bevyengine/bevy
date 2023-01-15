@@ -80,16 +80,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             transform: Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
         },
+        // ambient light
+        // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
+        // environment map, use an appropriate colour and brightness to match
+        AmbientLight {
+            color: Color::rgb_u8(210, 220, 240),
+            brightness: 1.0,
+        },
         CameraController::default(),
     ));
-
-    // ambient light
-    // NOTE: The ambient light is used to scale how bright the environment map is so with a bright
-    // environment map, use an appropriate colour and brightness to match
-    commands.insert_resource(AmbientLight {
-        color: Color::rgb_u8(210, 220, 240),
-        brightness: 1.0,
-    });
 
     commands.insert_resource(Cubemap {
         is_loaded: false,

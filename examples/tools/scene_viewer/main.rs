@@ -19,11 +19,7 @@ use scene_viewer_plugin::{SceneHandle, SceneViewerPlugin};
 
 fn main() {
     let mut app = App::new();
-    app.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 1.0 / 5.0f32,
-    })
-    .add_plugins(
+    app.add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
                 window: WindowDescriptor {
@@ -125,6 +121,10 @@ fn setup_scene_after_load(
                     ..default()
                 },
                 ..default()
+            },
+            AmbientLight {
+                color: Color::WHITE,
+                brightness: 1.0 / 5.0f32,
             },
             camera_controller,
         ));
