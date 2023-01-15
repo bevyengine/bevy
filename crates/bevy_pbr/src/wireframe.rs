@@ -109,19 +109,23 @@ fn queue_wireframes(
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
     mut pipeline_cache: ResMut<PipelineCache>,
-    msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
         Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
         Query<(Entity, &Handle<Mesh>, &MeshUniform), With<Wireframe>>,
     )>,
-    mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<Opaque3d>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &VisibleEntities,
+        &mut RenderPhase<Opaque3d>,
+        &Msaa,
+    )>,
 ) {
     let draw_custom = opaque_3d_draw_functions.read().id::<DrawWireframes>();
-    let msaa_key = MeshPipelineKey::from_msaa_samples(msaa.samples);
-    for (view, visible_entities, mut opaque_phase) in &mut views {
+    for (view, visible_entities, mut opaque_phase, msaa) in &mut views {
         let rangefinder = view.rangefinder3d();
 
-        let view_key = msaa_key | MeshPipelineKey::from_hdr(view.hdr);
+        let view_key =
+            MeshPipelineKey::from_msaa_samples(msaa.samples) | MeshPipelineKey::from_hdr(view.hdr);
         let add_render_phase =
             |(entity, mesh_handle, mesh_uniform): (Entity, &Handle<Mesh>, &MeshUniform)| {
                 if let Some(mesh) = render_meshes.get(mesh_handle) {

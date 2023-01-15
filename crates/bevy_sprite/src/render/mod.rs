@@ -454,13 +454,13 @@ pub fn queue_sprites(
     mut pipeline_cache: ResMut<PipelineCache>,
     mut image_bind_groups: ResMut<ImageBindGroups>,
     gpu_images: Res<RenderAssets<Image>>,
-    msaa: Res<Msaa>,
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut views: Query<(
         &mut RenderPhase<Transparent2d>,
         &VisibleEntities,
         &ExtractedView,
         Option<&Tonemapping>,
+        &Msaa,
     )>,
     events: Res<SpriteAssetEvents>,
 ) {
@@ -473,8 +473,6 @@ pub fn queue_sprites(
             }
         };
     }
-
-    let msaa_key = SpritePipelineKey::from_msaa_samples(msaa.samples);
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {
         let sprite_meta = &mut sprite_meta;
@@ -516,8 +514,9 @@ pub fn queue_sprites(
         });
         let image_bind_groups = &mut *image_bind_groups;
 
-        for (mut transparent_phase, visible_entities, view, tonemapping) in &mut views {
-            let mut view_key = SpritePipelineKey::from_hdr(view.hdr) | msaa_key;
+        for (mut transparent_phase, visible_entities, view, tonemapping, msaa) in &mut views {
+            let mut view_key = SpritePipelineKey::from_hdr(view.hdr)
+                | SpritePipelineKey::from_msaa_samples(msaa.samples);
             if let Some(Tonemapping::Enabled { deband_dither }) = tonemapping {
                 if !view.hdr {
                     view_key |= SpritePipelineKey::TONEMAP_IN_SHADER;

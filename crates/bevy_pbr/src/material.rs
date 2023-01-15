@@ -334,7 +334,6 @@ pub fn queue_material_meshes<M: Material>(
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
     mut pipeline_cache: ResMut<PipelineCache>,
-    msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
     material_meshes: Query<(&Handle<M>, &Handle<Mesh>, &MeshUniform)>,
@@ -345,6 +344,7 @@ pub fn queue_material_meshes<M: Material>(
         &mut RenderPhase<Opaque3d>,
         &mut RenderPhase<AlphaMask3d>,
         &mut RenderPhase<Transparent3d>,
+        &Msaa,
     )>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -356,6 +356,7 @@ pub fn queue_material_meshes<M: Material>(
         mut opaque_phase,
         mut alpha_mask_phase,
         mut transparent_phase,
+        msaa,
     ) in &mut views
     {
         let draw_opaque_pbr = opaque_draw_functions.read().id::<DrawMaterial<M>>();

@@ -6,7 +6,6 @@ pub use window::*;
 
 use crate::{
     camera::ExtractedCamera,
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
@@ -37,9 +36,7 @@ impl Plugin for ViewPlugin {
             .register_type::<RenderLayers>()
             .register_type::<Visibility>()
             .register_type::<VisibleEntities>()
-            .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
-            .add_plugin(ExtractResourcePlugin::<Msaa>::default())
             .add_plugin(VisibilityPlugin);
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -54,18 +51,9 @@ impl Plugin for ViewPlugin {
     }
 }
 
-/// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
-///
-/// # Example
-/// ```
-/// # use bevy_app::prelude::App;
-/// # use bevy_render::prelude::Msaa;
-/// App::new()
-///     .insert_resource(Msaa { samples: 4 })
-///     .run();
-/// ```
-#[derive(Resource, Clone, ExtractResource, Reflect)]
-#[reflect(Resource)]
+/// Configuration component for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
+#[derive(Component, Clone, Reflect)]
+#[reflect(Component)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
     /// smoother edges.
@@ -278,13 +266,12 @@ fn prepare_view_targets(
     mut commands: Commands,
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<Image>>,
-    msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
-    cameras: Query<(Entity, &ExtractedCamera, &ExtractedView)>,
+    cameras: Query<(Entity, &ExtractedCamera, &ExtractedView, &Msaa)>,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera, view) in cameras.iter() {
+    for (entity, camera, view, msaa) in cameras.iter() {
         if let Some(target_size) = camera.physical_target_size {
             if let (Some(out_texture_view), Some(out_texture_format)) = (
                 camera.target.get_texture_view(&windows, &images),

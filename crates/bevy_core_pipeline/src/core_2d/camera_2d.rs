@@ -5,7 +5,7 @@ use bevy_render::{
     camera::{Camera, CameraProjection, CameraRenderGraph, OrthographicProjection},
     extract_component::ExtractComponent,
     primitives::Frustum,
-    view::VisibleEntities,
+    view::{Msaa, VisibleEntities},
 };
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
@@ -36,6 +36,7 @@ pub struct Camera2dBundle {
     pub global_transform: GlobalTransform,
     pub camera_2d: Camera2d,
     pub tonemapping: Tonemapping,
+    pub msaa: Msaa,
 }
 
 impl Default for Camera2dBundle {
@@ -77,6 +78,7 @@ impl Camera2dBundle {
             camera: Camera::default(),
             camera_2d: Camera2d::default(),
             tonemapping: Tonemapping::Disabled,
+            msaa: Msaa::default(),
         }
     }
 }

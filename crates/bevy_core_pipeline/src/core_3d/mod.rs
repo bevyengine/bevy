@@ -250,10 +250,9 @@ pub fn extract_core_3d_camera_phases(
 pub fn prepare_core_3d_depth_textures(
     mut commands: Commands,
     mut texture_cache: ResMut<TextureCache>,
-    msaa: Res<Msaa>,
     render_device: Res<RenderDevice>,
     views_3d: Query<
-        (Entity, &ExtractedCamera),
+        (Entity, &ExtractedCamera, &Msaa),
         (
             With<RenderPhase<Opaque3d>>,
             With<RenderPhase<AlphaMask3d>>,
@@ -262,7 +261,7 @@ pub fn prepare_core_3d_depth_textures(
     >,
 ) {
     let mut textures = HashMap::default();
-    for (entity, camera) in &views_3d {
+    for (entity, camera, msaa) in &views_3d {
         if let Some(physical_target_size) = camera.physical_target_size {
             let cached_texture = textures
                 .entry(camera.target.clone())

@@ -14,7 +14,6 @@ use bevy::{
 fn main() {
     App::new()
         // Disable MSAA be default
-        .insert_resource(Msaa { samples: 1 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(toggle_fxaa)
@@ -105,10 +104,11 @@ fn setup(
                 .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
             ..default()
         })
-        .insert(Fxaa::default());
+        .insert(Fxaa::default())
+        .insert(Msaa::default());
 }
 
-fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa: ResMut<Msaa>) {
+fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut cameras: Query<(&mut Fxaa, &mut Msaa)>) {
     let set_no_aa = keys.just_pressed(KeyCode::Key1);
     let set_msaa = keys.just_pressed(KeyCode::Key2);
     let set_fxaa = keys.just_pressed(KeyCode::Key3);
@@ -118,7 +118,7 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
     let fxaa_ultra = keys.just_pressed(KeyCode::Key9);
     let fxaa_extreme = keys.just_pressed(KeyCode::Key0);
     let set_fxaa = set_fxaa | fxaa_low | fxaa_med | fxaa_high | fxaa_ultra | fxaa_extreme;
-    for mut fxaa in &mut query {
+    for (mut fxaa, mut msaa) in &mut cameras {
         if set_msaa {
             fxaa.enabled = false;
             msaa.samples = 4;

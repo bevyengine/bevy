@@ -10,7 +10,6 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(cycle_msaa)
@@ -38,14 +37,17 @@ fn setup(
         ..default()
     });
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands
+        .spawn(Camera3dBundle {
+            transform: Transform::from_xyz(-3.0, 3.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        })
+        .insert(Msaa { samples: 4 });
 }
 
-fn cycle_msaa(input: Res<Input<KeyCode>>, mut msaa: ResMut<Msaa>) {
+fn cycle_msaa(input: Res<Input<KeyCode>>, mut msaa: Query<&mut Msaa>) {
     if input.just_pressed(KeyCode::M) {
+        let mut msaa = msaa.single_mut();
         if msaa.samples == 4 {
             info!("Not using MSAA");
             msaa.samples = 1;
