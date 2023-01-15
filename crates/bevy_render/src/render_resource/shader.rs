@@ -38,32 +38,11 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn from_wgsl_with_path(
-        source: impl Into<Cow<'static, str>>,
-        path: impl Into<String>,
-    ) -> Shader {
-        Self {
-            path: Some(path.into()),
-            ..Self::from_wgsl(source)
-        }
-    }
-
-    pub fn from_wgsl_with_path_and_defs(
-        source: impl Into<Cow<'static, str>>,
-        path: impl Into<String>,
-        shader_defs: Vec<ShaderDefVal>,
-    ) -> Shader {
-        Self {
-            shader_defs,
-            ..Self::from_wgsl_with_path(source, path)
-        }
-    }
-
-    pub fn from_wgsl(source: impl Into<Cow<'static, str>>) -> Shader {
+    pub fn from_wgsl(source: impl Into<Cow<'static, str>>, path: impl Into<String>) -> Shader {
         let source = source.into();
         let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
         Shader {
-            path: None,
+            path: Some(path.into()),
             imports: shader_imports.imports,
             import_path: shader_imports.import_path,
             source: Source::Wgsl(source),
@@ -72,22 +51,26 @@ impl Shader {
         }
     }
 
-    pub fn from_glsl_with_path(
+    pub fn from_wgsl_with_defs(
+        source: impl Into<Cow<'static, str>>,
+        path: impl Into<String>,
+        shader_defs: Vec<ShaderDefVal>,
+    ) -> Shader {
+        Self {
+            shader_defs,
+            ..Self::from_wgsl(source, path)
+        }
+    }
+
+    pub fn from_glsl(
         source: impl Into<Cow<'static, str>>,
         stage: naga::ShaderStage,
         path: impl Into<String>,
     ) -> Shader {
-        Self {
-            path: Some(path.into()),
-            ..Self::from_glsl(source, stage)
-        }
-    }
-
-    pub fn from_glsl(source: impl Into<Cow<'static, str>>, stage: naga::ShaderStage) -> Shader {
         let source = source.into();
         let shader_imports = SHADER_IMPORT_PROCESSOR.get_imports_from_str(&source);
         Shader {
-            path: None,
+            path: Some(path.into()),
             imports: shader_imports.imports,
             import_path: shader_imports.import_path,
             source: Source::Glsl(source, stage),
@@ -226,16 +209,16 @@ impl AssetLoader for ShaderLoader {
 
             let mut shader = match ext {
                 "spv" => Shader::from_spirv(Vec::from(bytes)),
-                "wgsl" => Shader::from_wgsl_with_path(
+                "wgsl" => Shader::from_wgsl(
                     String::from_utf8(Vec::from(bytes))?,
                     load_context.path().to_string_lossy(),
                 ),
-                "vert" => Shader::from_glsl_with_path(
+                "vert" => Shader::from_glsl(
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Vertex,
                     load_context.path().to_string_lossy(),
                 ),
-                "frag" => Shader::from_glsl_with_path(
+                "frag" => Shader::from_glsl(
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Fragment,
                     load_context.path().to_string_lossy(),
@@ -243,6 +226,7 @@ impl AssetLoader for ShaderLoader {
                 "comp" => Shader::from_glsl(
                     String::from_utf8(Vec::from(bytes))?,
                     naga::ShaderStage::Compute,
+                    load_context.path().to_string_lossy(),
                 ),
                 _ => panic!("unhandled extension: {ext}"),
             };

@@ -1,5 +1,5 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset_with_path, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -58,48 +58,43 @@ pub const MESH2D_SHADER_HANDLE: HandleUntyped =
 
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH2D_VERTEX_OUTPUT,
             "mesh2d_vertex_output.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH2D_VIEW_TYPES_HANDLE,
             "mesh2d_view_types.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH2D_VIEW_BINDINGS_HANDLE,
             "mesh2d_view_bindings.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH2D_TYPES_HANDLE,
             "mesh2d_types.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH2D_BINDINGS_HANDLE,
             "mesh2d_bindings.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH2D_FUNCTIONS_HANDLE,
             "mesh2d_functions.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
-            app,
-            MESH2D_SHADER_HANDLE,
-            "mesh2d.wgsl",
-            Shader::from_wgsl_with_path
-        );
+        load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
 
         app.add_plugin(UniformComponentPlugin::<Mesh2dUniform>::default());
 

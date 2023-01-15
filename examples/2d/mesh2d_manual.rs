@@ -270,7 +270,7 @@ impl Plugin for ColoredMesh2dPlugin {
         let mut shaders = app.world.resource_mut::<Assets<Shader>>();
         shaders.set_untracked(
             COLORED_MESH2D_SHADER_HANDLE,
-            Shader::from_wgsl(COLORED_MESH2D_SHADER),
+            Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
         );
 
         // Register our custom draw function and pipeline, and add our render systems

@@ -27,7 +27,7 @@ use crate::{
     upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::load_internal_asset_with_path;
+use bevy_asset::load_internal_asset;
 use bevy_render::{extract_resource::ExtractResourcePlugin, prelude::Shader};
 
 #[derive(Default)]
@@ -35,11 +35,11 @@ pub struct CorePipelinePlugin;
 
 impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             FULLSCREEN_SHADER_HANDLE,
             "fullscreen_vertex_shader/fullscreen.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
 
         app.register_type::<ClearColor>()

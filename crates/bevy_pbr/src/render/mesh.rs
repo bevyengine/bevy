@@ -4,10 +4,7 @@ use crate::{
     CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
-use bevy_asset::{
-    load_internal_asset_with_path, load_internal_asset_with_path_and_params, Assets, Handle,
-    HandleUntyped,
-};
+use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -61,58 +58,43 @@ pub const SKINNING_HANDLE: HandleUntyped =
 
 impl Plugin for MeshRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH_VERTEX_OUTPUT,
             "mesh_vertex_output.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path_and_params!(
+        load_internal_asset!(
             app,
             MESH_VIEW_TYPES_HANDLE,
             "mesh_view_types.wgsl",
-            Shader::from_wgsl_with_path_and_defs,
+            Shader::from_wgsl_with_defs,
             vec![ShaderDefVal::UInt(
                 "MAX_DIRECTIONAL_LIGHTS".into(),
                 MAX_DIRECTIONAL_LIGHTS as u32
             )]
         );
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH_VIEW_BINDINGS_HANDLE,
             "mesh_view_bindings.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
-            app,
-            MESH_TYPES_HANDLE,
-            "mesh_types.wgsl",
-            Shader::from_wgsl_with_path
-        );
-        load_internal_asset_with_path!(
+        load_internal_asset!(app, MESH_TYPES_HANDLE, "mesh_types.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
             app,
             MESH_BINDINGS_HANDLE,
             "mesh_bindings.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
+        load_internal_asset!(
             app,
             MESH_FUNCTIONS_HANDLE,
             "mesh_functions.wgsl",
-            Shader::from_wgsl_with_path
+            Shader::from_wgsl
         );
-        load_internal_asset_with_path!(
-            app,
-            MESH_SHADER_HANDLE,
-            "mesh.wgsl",
-            Shader::from_wgsl_with_path
-        );
-        load_internal_asset_with_path!(
-            app,
-            SKINNING_HANDLE,
-            "skinning.wgsl",
-            Shader::from_wgsl_with_path
-        );
+        load_internal_asset!(app, MESH_SHADER_HANDLE, "mesh.wgsl", Shader::from_wgsl);
+        load_internal_asset!(app, SKINNING_HANDLE, "skinning.wgsl", Shader::from_wgsl);
 
         app.add_plugin(UniformComponentPlugin::<MeshUniform>::default());
 

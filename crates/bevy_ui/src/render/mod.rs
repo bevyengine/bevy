@@ -7,7 +7,7 @@ pub use render_pass::*;
 
 use crate::{prelude::UiCameraConfig, BackgroundColor, CalculatedClip, Node, UiImage, UiStack};
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset_with_path, AssetEvent, Assets, Handle, HandleUntyped};
+use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle, HandleUntyped};
 use bevy_ecs::prelude::*;
 use bevy_math::{Mat4, Rect, UVec4, Vec2, Vec3, Vec4Swizzles};
 use bevy_reflect::TypeUuid;
@@ -56,12 +56,7 @@ pub enum RenderUiSystem {
 }
 
 pub fn build_ui_render(app: &mut App) {
-    load_internal_asset_with_path!(
-        app,
-        UI_SHADER_HANDLE,
-        "ui.wgsl",
-        Shader::from_wgsl_with_path
-    );
+    load_internal_asset!(app, UI_SHADER_HANDLE, "ui.wgsl", Shader::from_wgsl);
 
     let render_app = match app.get_sub_app_mut(RenderApp) {
         Ok(render_app) => render_app,
