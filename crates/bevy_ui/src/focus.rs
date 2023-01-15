@@ -70,7 +70,9 @@ impl Default for Interaction {
     Deserialize,
 )]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
-pub struct RelativeCursorPosition(pub Vec2);
+pub struct RelativeCursorPosition {
+    pub normalized: Option<Vec2>,
+}
 
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
@@ -209,16 +211,16 @@ pub fn ui_focus_system(
                     )
                 });
 
+                // Save the relative cursor position to the correct component
+                if let Some(mut relative_cursor_position_component) =
+                    node.relative_cursor_position
+                {
+                    relative_cursor_position_component.normalized = relative_cursor_postition;
+                }
+
                 // If the current cursor position is within the bounds of the node, consider it for
                 // clicking
                 let contains_cursor = if let Some(cursor_position) = relative_cursor_postition {
-                    // Save the relative cursor position to the correct component
-                    if let Some(mut relative_cursor_position_component) =
-                        node.relative_cursor_position
-                    {
-                        relative_cursor_position_component.0 = cursor_position;
-                    }
-
                     (0.0..1.0).contains(&cursor_position.x)
                         && (0.0..1.0).contains(&cursor_position.y)
                 } else {
