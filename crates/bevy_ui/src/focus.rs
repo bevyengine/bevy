@@ -73,6 +73,7 @@ impl Default for Interaction {
 )]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub struct RelativeCursorPosition {
+    /// Cursor position relative to size and position of the Node.
     pub normalized: Option<Vec2>,
 }
 
