@@ -547,6 +547,41 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "error[B0001]"]
+    fn or_expanded_nested_or_with_and_disjoint_without() {
+        fn sys(
+            _: Query<&mut D, Or<(Or<(With<A>, With<B>)>, Or<(With<A>, With<C>)>)>>,
+            _: Query<&mut D, Without<A>>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    fn or_expanded_nested_with_and_common_nested_without() {
+        fn sys(
+            _: Query<&mut D, Or<((With<A>, With<B>), (With<B>, With<C>))>>,
+            _: Query<&mut D, Or<(Without<A>, Without<B>)>>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
+    #[should_panic = "error[B0001]"]
+    fn or_expanded_nested_with_and_disjoint_nested_without() {
+        fn sys(
+            _: Query<&mut D, Or<(With<A>, With<B>)>>,
+            _: Query<&mut D, Or<(Without<A>, Without<B>)>>,
+        ) {
+        }
+        let mut world = World::default();
+        run_system(&mut world, sys);
+    }
+
+    #[test]
     fn or_doesnt_remove_unrelated_filter_with() {
         fn sys(_: Query<&mut B, (Or<(With<A>, With<B>)>, With<A>)>, _: Query<&mut B, Without<A>>) {}
         let mut world = World::default();

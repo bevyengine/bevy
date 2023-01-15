@@ -44,28 +44,6 @@ impl<'a, T: SparseSetIndex + fmt::Debug> fmt::Debug for FormattedBitSet<'a, T> {
     }
 }
 
-struct FormattedExpandedOrWithAccesses<'a, T: SparseSetIndex> {
-    with: &'a ExpandedOrWithAccesses,
-    _marker: PhantomData<T>,
-}
-
-impl<'a, T: SparseSetIndex> FormattedExpandedOrWithAccesses<'a, T> {
-    fn new(with: &'a ExpandedOrWithAccesses) -> Self {
-        Self {
-            with,
-            _marker: PhantomData,
-        }
-    }
-}
-
-impl<'a, T: SparseSetIndex + fmt::Debug> fmt::Debug for FormattedExpandedOrWithAccesses<'a, T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list()
-            .entries(self.with.arr.iter().map(FormattedBitSet::<T>::new))
-            .finish()
-    }
-}
-
 /// Tracks read and write access to specific elements in a collection.
 ///
 /// Used internally to ensure soundness during system initialization and execution.
@@ -242,24 +220,11 @@ impl<T: SparseSetIndex> Access<T> {
 /// - `Query<Option<&T>>` accesses nothing
 ///
 /// See comments the `WorldQuery` impls of `AnyOf`/`Option`/`Or` for more information.
-#[derive(Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct FilteredAccess<T: SparseSetIndex> {
     access: Access<T>,
-    with: ExpandedOrWithAccesses,
-    without: FixedBitSet,
-}
-
-impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for FilteredAccess<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("FilteredAccess")
-            .field("access", &self.access)
-            .field(
-                "with",
-                &FormattedExpandedOrWithAccesses::<T>::new(&self.with),
-            )
-            .field("without", &FormattedBitSet::<T>::new(&self.without))
-            .finish()
-    }
+    with: ExpandedOrAccess<WithMarker, T>,
+    without: ExpandedOrAccess<WithoutMarker, T>,
 }
 
 impl<T: SparseSetIndex> Default for FilteredAccess<T> {
@@ -312,12 +277,11 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 
     /// Retains only combinations where the element given by `index` is not present.
     pub fn add_without(&mut self, index: T) {
-        self.without.grow(index.sparse_set_index() + 1);
-        self.without.insert(index.sparse_set_index());
+        self.without.add(index.sparse_set_index());
     }
 
     pub fn extend_intersect_filter(&mut self, other: &FilteredAccess<T>) {
-        self.without.intersect_with(&other.without);
+        self.without.extend_with_or(&other.without);
         self.with.extend_with_or(&other.with);
     }
 
@@ -357,19 +321,38 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
 // A struct to express something like `Or<(With<A>, With<B>)>`.
 // Filters like `(With<A>, Or<(With<B>, With<C>)>` are expanded into `Or<((With<A>, With<B>), (With<A>, With<C>))>`.
 #[derive(Clone, Eq, PartialEq)]
-struct ExpandedOrWithAccesses {
+struct ExpandedOrAccess<T, I> {
     arr: SmallVec<[FixedBitSet; 8]>,
+    // To prevent mixing `With` and `Without` filters.
+    _filter_type: PhantomData<T>,
+    _index_type: PhantomData<I>,
 }
 
-impl Default for ExpandedOrWithAccesses {
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct WithMarker;
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct WithoutMarker;
+
+impl<T, I: SparseSetIndex + fmt::Debug> fmt::Debug for ExpandedOrAccess<T, I> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_list()
+            .entries(self.arr.iter().map(FormattedBitSet::<I>::new))
+            .finish()
+    }
+}
+
+impl<T, I: SparseSetIndex> Default for ExpandedOrAccess<T, I> {
     fn default() -> Self {
         Self {
             arr: smallvec::smallvec![FixedBitSet::default()],
+            _filter_type: PhantomData,
+            _index_type: PhantomData,
         }
     }
 }
 
-impl ExpandedOrWithAccesses {
+impl<T, I: SparseSetIndex> ExpandedOrAccess<T, I> {
     fn add(&mut self, index: usize) {
         for with in &mut self.arr {
             with.grow(index + 1);
@@ -377,12 +360,8 @@ impl ExpandedOrWithAccesses {
         }
     }
 
-    fn extend_with_or(&mut self, other: &ExpandedOrWithAccesses) {
+    fn extend_with_or(&mut self, other: &Self) {
         self.arr.append(&mut other.arr.clone());
-    }
-
-    fn is_disjoint(&self, without: &FixedBitSet) -> bool {
-        self.arr.iter().any(|with| with.is_disjoint(without))
     }
 
     fn union_with(&mut self, other: &Self) {
@@ -402,6 +381,18 @@ impl ExpandedOrWithAccesses {
             }
         }
         self.arr = new_with;
+    }
+}
+
+impl<I: SparseSetIndex> ExpandedOrAccess<WithMarker, I> {
+    fn is_disjoint(&self, other: &ExpandedOrAccess<WithoutMarker, I>) -> bool {
+        // We need to make sure that every `without` variant is disjoint with any `with`.
+        // For example, `Or<(Without<A>, Without<B>)>` is disjoint with `Or<(With<A>, With<B>)>`,
+        // but not with `Or<((With<A>, With<B>), (With<B>, With<C>))>`.
+        other
+            .arr
+            .iter()
+            .all(|without| self.arr.iter().any(|with| with.is_disjoint(without)))
     }
 }
 
@@ -521,9 +512,10 @@ impl<T: SparseSetIndex> Default for FilteredAccessSet<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::query::access::ExpandedOrWithAccesses;
+    use crate::query::access::ExpandedOrAccess;
     use crate::query::{Access, FilteredAccess, FilteredAccessSet};
     use fixedbitset::FixedBitSet;
+    use std::marker::PhantomData;
 
     #[test]
     fn read_all_access_conflicts() {
@@ -632,11 +624,18 @@ mod tests {
         let mut expected = FilteredAccess::<usize>::default();
         expected.add_write(0);
         expected.add_write(1);
-        expected.with = ExpandedOrWithAccesses {
+        expected.with = ExpandedOrAccess {
             arr: smallvec::smallvec![
                 FixedBitSet::with_capacity_and_blocks(4, [0b1011]),
                 FixedBitSet::with_capacity_and_blocks(5, [0b10011]),
             ],
+            _filter_type: PhantomData,
+            _index_type: PhantomData,
+        };
+        expected.without = ExpandedOrAccess {
+            arr: smallvec::smallvec![FixedBitSet::new(), FixedBitSet::new(),],
+            _filter_type: PhantomData,
+            _index_type: PhantomData,
         };
 
         assert_eq!(access_a, expected);
