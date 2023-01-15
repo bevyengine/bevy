@@ -354,8 +354,7 @@ impl MultiThreadedExecutor {
         let _span = info_span!("check_conditions", name = &*_system.name()).entered();
 
         let mut should_run = !self.skipped_systems.contains(system_index);
-        let sets_of_system = &conditions.sets_of_systems[system_index];
-        for set_idx in sets_of_system.difference(&self.evaluated_sets) {
+        for set_idx in conditions.sets_of_systems[system_index].ones() {
             if self.evaluated_sets.contains(set_idx) {
                 continue;
             }
@@ -370,9 +369,8 @@ impl MultiThreadedExecutor {
             }
 
             should_run &= set_conditions_met;
+            self.evaluated_sets.insert(set_idx);
         }
-
-        self.evaluated_sets.union_with(sets_of_system);
 
         // evaluate system's conditions
         let system_conditions_met =
