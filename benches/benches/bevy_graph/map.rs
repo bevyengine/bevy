@@ -41,6 +41,7 @@ fn nodes_10_000_undirected(c: &mut Criterion) {
                     graph
                         .edge_between(nodes[i - 1], nodes[i])
                         .unwrap()
+                        .unwrap()
                         .remove(&mut graph)
                         .unwrap(),
                 );
