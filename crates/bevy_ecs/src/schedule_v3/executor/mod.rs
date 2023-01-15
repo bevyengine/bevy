@@ -42,7 +42,7 @@ pub enum ExecutorKind {
 }
 
 // NOTE: This type and the executor implementations were designed as a pair.
-// Do not make them pub.
+// To maintain certain safety invariants, it's important to keep this type private.
 #[derive(Default)]
 pub(super) struct SystemSchedule {
     pub(super) systems: Vec<RefCell<BoxedSystem>>,
