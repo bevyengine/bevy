@@ -17,18 +17,16 @@ pub struct SimpleListGraph<N, E, const DIRECTED: bool> {
     adjacencies: SecondaryMap<NodeIdx, Vec<(NodeIdx, EdgeIdx)>>,
 }
 
-impl<N, E, const DIRECTED: bool> SimpleListGraph<N, E, DIRECTED> {
-    fn new() -> Self {
-        Self {
-            nodes: HopSlotMap::with_key(),
-            edges: HopSlotMap::with_key(),
-            adjacencies: SecondaryMap::new(),
-        }
-    }
-}
-
 impl_graph! {
     impl COMMON for SimpleListGraph {
+        fn new() -> Self {
+            Self {
+                nodes: HopSlotMap::with_key(),
+                edges: HopSlotMap::with_key(),
+                adjacencies: SecondaryMap::new(),
+            }
+        }
+
         #[inline]
         fn count(&self) -> usize {
             self.nodes.len()
@@ -267,13 +265,6 @@ impl_graph! {
                 EdgeIdx::null()
             }
         }
-    }
-}
-
-impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }
 

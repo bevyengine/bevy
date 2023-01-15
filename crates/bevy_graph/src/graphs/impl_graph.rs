@@ -50,5 +50,19 @@ macro_rules! impl_graph {
                 $($($simple_directed_code)*)?
             }
         )?
+
+        impl<N, E> Default for $name<N, E, false> {
+            #[inline]
+            fn default() -> Self {
+                $crate::graphs::Graph::new()
+            }
+        }
+
+        impl<N, E> Default for $name<N, E, true> {
+            #[inline]
+            fn default() -> Self {
+                $crate::graphs::Graph::new()
+            }
+        }
     }
 }

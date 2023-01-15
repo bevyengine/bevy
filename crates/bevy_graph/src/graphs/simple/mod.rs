@@ -21,7 +21,7 @@ mod test {
     #[macro_export]
     macro_rules! simple_graph_tests {
         ($($graph:ident )::+) => {
-            use $crate::graphs::simple::test::{self, Person};
+            use $crate::graphs::{Graph, simple::test::{self, Person}};
 
             #[test]
             fn nodes() {

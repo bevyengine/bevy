@@ -17,18 +17,16 @@ pub struct MultiMapGraph<N, E, const DIRECTED: bool> {
     adjacencies: SecondaryMap<NodeIdx, HashMap<NodeIdx, Vec<EdgeIdx>>>,
 }
 
-impl<N, E, const DIRECTED: bool> MultiMapGraph<N, E, DIRECTED> {
-    pub fn new() -> Self {
-        Self {
-            nodes: HopSlotMap::with_key(),
-            edges: HopSlotMap::with_key(),
-            adjacencies: SecondaryMap::new(),
-        }
-    }
-}
-
 impl_graph! {
     impl COMMON for MultiMapGraph {
+        fn new() -> Self {
+            Self {
+                nodes: HopSlotMap::with_key(),
+                edges: HopSlotMap::with_key(),
+                adjacencies: SecondaryMap::new(),
+            }
+        }
+
         #[inline]
         fn count(&self) -> usize {
             self.nodes.len()
@@ -144,12 +142,5 @@ impl_graph! {
         fn remove_edge(&mut self, _edge: EdgeIdx) -> GraphResult<E> {
             todo!()
         }
-    }
-}
-
-impl<N, E, const DIRECTED: bool> Default for MultiMapGraph<N, E, DIRECTED> {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }

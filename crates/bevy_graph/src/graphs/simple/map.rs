@@ -18,18 +18,18 @@ pub struct SimpleMapGraph<N, E, const DIRECTED: bool> {
     adjacencies: SecondaryMap<NodeIdx, HashMap<NodeIdx, EdgeIdx>>,
 }
 
-impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {
-    pub fn new() -> Self {
-        Self {
-            nodes: HopSlotMap::with_key(),
-            edges: HopSlotMap::with_key(),
-            adjacencies: SecondaryMap::new(),
-        }
-    }
-}
+impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {}
 
 impl_graph! {
     impl COMMON for SimpleMapGraph {
+        fn new() -> Self {
+            Self {
+                nodes: HopSlotMap::with_key(),
+                edges: HopSlotMap::with_key(),
+                adjacencies: SecondaryMap::new(),
+            }
+        }
+
         #[inline]
         fn count(&self) -> usize {
             self.nodes.len()
@@ -250,13 +250,6 @@ impl_graph! {
         unsafe fn edge_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
             self.adjacencies.get_unchecked(from).get(&to).cloned().unwrap()
         }
-    }
-}
-
-impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
-    #[inline]
-    fn default() -> Self {
-        Self::new()
     }
 }
 

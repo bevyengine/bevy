@@ -15,6 +15,10 @@ use self::keys::{EdgeIdx, NodeIdx};
 //                `edge_between` is only available for `SimpleGraph` but is also called from `edges_between`.
 
 pub trait Graph<N, E> {
+    fn new() -> Self
+    where
+        Self: Sized;
+
     fn count(&self) -> usize;
 
     ////////////////////////////
