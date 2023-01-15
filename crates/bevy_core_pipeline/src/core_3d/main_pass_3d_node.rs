@@ -94,6 +94,7 @@ impl Node for MainPass3dNode {
             if let Some(picking_textures) = picking_textures {
                 color_attachments.push(Some(picking_textures.get_color_attachment(Operations {
                     // If the wish is to not clear the screen, don't clear the picking buffer either.
+                    // This may happen in situations such as a split screen game.
                     load: match camera_3d.clear_color {
                         ClearColorConfig::None => LoadOp::Load,
                         _ => LoadOp::Clear(PickingTextures::clear_color()),
@@ -132,13 +133,19 @@ impl Node for MainPass3dNode {
             #[cfg(feature = "trace")]
             let _main_alpha_mask_pass_3d_span = info_span!("main_alpha_mask_pass_3d").entered();
 
+            let operations = Operations {
+                load: LoadOp::Load,
+                store: true,
+            };
+            let mut color_attachments = vec![Some(target.get_color_attachment(operations))];
+            if let Some(picking_textures) = picking_textures {
+                color_attachments.push(Some(picking_textures.get_color_attachment(operations)));
+            }
+
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_alpha_mask_pass_3d"),
                 // NOTE: The alpha_mask pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &color_attachments,
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: The alpha mask pass loads the depth buffer and possibly overwrites it
@@ -163,13 +170,19 @@ impl Node for MainPass3dNode {
             #[cfg(feature = "trace")]
             let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
 
+            let operations = Operations {
+                load: LoadOp::Load,
+                store: true,
+            };
+            let mut color_attachments = vec![Some(target.get_color_attachment(operations))];
+            if let Some(picking_textures) = picking_textures {
+                color_attachments.push(Some(picking_textures.get_color_attachment(operations)));
+            }
+
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
                 label: Some("main_transparent_pass_3d"),
                 // NOTE: The transparent pass loads the color buffer as well as overwriting it where appropriate.
-                color_attachments: &[Some(target.get_color_attachment(Operations {
-                    load: LoadOp::Load,
-                    store: true,
-                }))],
+                color_attachments: &color_attachments,
                 depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                     view: &depth.view,
                     // NOTE: For the transparent pass we load the depth buffer. There should be no
