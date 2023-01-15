@@ -44,7 +44,7 @@ fn list_apply<M, LBase, LPatch, F1, F2, F3>(
                 let f_base = f_base(size);
                 let patch = f_patch(size);
                 bencher.iter_batched(
-                    || f_base(),
+                    f_base,
                     |mut base| base.apply(black_box(&patch)),
                     BatchSize::SmallInput,
                 );
@@ -58,7 +58,7 @@ fn concrete_list_apply(criterion: &mut Criterion) {
     group.warm_up_time(WARM_UP_TIME);
     group.measurement_time(MEASUREMENT_TIME);
 
-    let empty_base = |_: usize| || Vec::<u64>::new();
+    let empty_base = |_: usize| Vec::<u64>::new;
     let full_base = |size: usize| move || iter::repeat(0).take(size).collect::<Vec<u64>>();
     let patch = |size: usize| iter::repeat(1).take(size).collect::<Vec<u64>>();
 

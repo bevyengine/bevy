@@ -50,7 +50,7 @@ Bevy is a completely free and open source game engine built in Rust. It currentl
 Bevy also currently has the following "development process" goals:
 
 * **Rapid experimentation over API stability**: We need the freedom to experiment and iterate in order to build the best engine we can. This will change over time as APIs prove their staying power.
-* **Consistent vision**: The engine needs to feel consistent and cohesive. This takes precedent over democratic and/or decentralized processes. See [*How we're organized*](#how-were-organized) for more details.
+* **Consistent vision**: The engine needs to feel consistent and cohesive. This takes precedent over democratic and/or decentralized processes. See our [*Bevy Organization doc*](/docs/the_bevy_organization.md) for more details.
 * **Flexibility over bureaucracy**: Developers should feel productive and unencumbered by development processes.
 * **Focus**: The Bevy Org should focus on building a small number of features excellently over merging every new community-contributed feature quickly. Sometimes this means pull requests will sit unmerged for a long time. This is the price of focus and we are willing to pay it. Fortunately Bevy is modular to its core. 3rd party plugins are a great way to work around this policy.
 * **User-facing API ergonomics come first**: Solid user experience should receive significant focus and investment. It should rarely be compromised in the interest of internal implementation details.  
@@ -66,41 +66,19 @@ Bevy also currently has the following "development process" goals:
   * Most new features should have at least one minimal [example](https://github.com/bevyengine/bevy/tree/main/examples). These also serve as simple integration tests, as they are run as part of our CI process.
   * The more complex or "core" a feature is, the more strict we are about unit tests. Use your best judgement here. We will let you know if your pull request needs more tests. We use [Rust's built in testing framework](https://doc.rust-lang.org/book/ch11-01-writing-tests.html).
 
-## How we're organized
+## The Bevy Organization
 
-@cart is, for now, our singular Benevolent Dictator and project lead.
-He makes the final decision on both design and code changes within Bevy in order to ensure a coherent vision and consistent quality of code.
+The Bevy Organization is the group of people responsible for stewarding the Bevy project. It handles things like merging pull requests, choosing project direction, managing bugs / issues / feature requests, running the Bevy website, controlling access to secrets, defining and enforcing best practices, etc.
 
-In practice, @cart serves as a shockingly accountable dictator: open to new ideas and to changing his mind in the face of compelling arguments or community consensus.
-Check out the next section for details on how this plays out.
+Note that you *do not* need to be a member of the Bevy Organization to contribute to Bevy. Community contributors (this means you) can freely open issues, submit pull requests, and review pull requests.
 
-[Bevy Org members](https://github.com/orgs/bevyengine/people) are contributors who:
-
-1. Have actively engaged with Bevy development.
-2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
-3. Have asked to join the Bevy Org. Reach out to @cart on [Discord] or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
-
-All Bevy Org members are also Triage Team members. These people can label and close issues and PRs but do not have merge rights or any special authority within the community.
-
-Merge rights within the org are relatively centralized: this requires a large amount of trust when it comes to ethics, technical ability, and ability to enforce consistent project direction.
-
-The current structure is as follows:
-
-* @cart is our project lead, and has final say on controversial decisions
-* There is a small group of other maintainers (@alice-i-cecile, @mockersf and @superdump), who have merge rights but abide by the following rules:
-  * Trivial PRs can be merged without approvals.
-  * Relatively uncontroversial PRs can be merged following approval from at least two other community members with appropriate expertise.
-  * Controversial PRs are added to a backlog for @cart to address once two maintainers agree that they are ready.
-  * If 45 days elapse without action on a controversial PR (approval, feedback or an explicit request to defer), they can be merged without project lead approval.
-* The Bevy org is made up of trusted community contributors: this is a relatively low bar, and org members help triage and maintain the project.
-* Community contributors (this means you!) can freely open issues, submit PRs and review PRs to improve Bevy.
-  * As discussed above, community reviews on PRs are incredibly helpful to enable maintainers to merge in uncontroversial PRs in a timely fashion.
+Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization.md) to learn more about how we're organized.
 
 ### Classifying PRs
 
-This strategy relies on a classification of PRs into three categories: **trivial**, **uncontroversial** and **controversial**.
+Our merge strategy relies on the classification of PRs into three categories: **trivial**, **uncontroversial** and **controversial**.
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
-PRs that are deemed controversial will receive the `S-Controversial` label, and will have to go through the more thorough review process.
+PRs that are deemed controversial will receive the [`S-Controversial`](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Controversial) label, and will have to go through the more thorough review process.
 
 PRs are trivial if there is no reasonable argument against them. This might include:
 
@@ -125,13 +103,16 @@ PRs are controversial if there is serious design discussion required, or a large
 Finally, changes are "relatively uncontroversial" if they are neither trivial or controversial.
 Most PRs should fall into this category.
 
-## How we work together
+Here are some useful pull request queries:
 
-Making a game engine is a huge project and facilitating collaboration is a lot of work.
-At the moment @cart is our only paid contributor, so [go sponsor him!](https://github.com/sponsors/cart)
+* [Uncontroversial pull requests which have been reviewed and are ready for maintainers to merge](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+-label%3AS-Controversial+-label%3AS-Blocked+-label%3AS-Adopt-Me+)
+* [Controversial pull requests which have been reviewed and are ready for final input from a Project Lead or SME](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+label%3AS-Controversial+)
+
+### Preparing Releases
+
 We track issues and pull requests that must be included in releases using [Milestones](https://github.com/bevyengine/bevy/milestones).
 
-### Making changes to Bevy
+## Making changes to Bevy
 
 Most changes don't require much "process". If your change is relatively straightforward, just do the following:
 
@@ -139,10 +120,10 @@ Most changes don't require much "process". If your change is relatively straight
     * [GitHub Discussions]: An informal discussion with the community. This is the place to start if you want to propose a feature or specific implementation.
     * [Issue](https://github.com/bevyengine/bevy/issues): A formal way for us to track a bug or feature. Please look for duplicates before opening a new issue and consider starting with a Discussion.
     * [Pull Request](https://github.com/bevyengine/bevy/pulls) (or PR for short): A request to merge code changes. This starts our "review process". You are welcome to start with a pull request, but consider starting with an Issue or Discussion for larger changes (or if you aren't certain about a design). We don't want anyone to waste their time on code that didn't have a chance to be merged! But conversely, sometimes PRs are the most efficient way to propose a change. Just use your own judgement here.
-2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pulled into a thread using `@mentions`. If your PR has been quiet for a while and is ready for review, feel free to leave a message to "bump" the thread, or bring it up on [Discord] in an appropriate engine development channel.
+2. Other community members review and comment in an ad-hoc fashion. Active subject matter experts may be pulled into a thread using `@mentions`. If your PR has been quiet for a while and is ready for review, feel free to leave a message to "bump" the thread, or bring it up on [Discord](https://discord.gg/bevy) in an appropriate engine development channel.
 3. Once they're content with the pull request (design, code quality, documentation, tests), individual reviewers leave "Approved" reviews.
 4. After consensus has been reached (typically two approvals from the community or one for extremely simple changes) and CI passes, the [S-Ready-For-Final-Review](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AS-Ready-For-Final-Review) label is added.
-5. When they find time, [someone with merge rights](#how-were-organized) performs a final code review and merges the PR using [Bors](https://bors.tech/) by typing `bors r+`.
+5. When they find time, someone with merge rights performs a final code review and merges the PR using [Bors](https://bors.tech/) by typing `bors r+`.
 
 ### Complex changes
 
@@ -180,7 +161,7 @@ If you release a game on [itch.io](https://itch.io/games/tag-bevy) we'd be thril
 
 ### Teaching others
 
-Bevy is still very young, and light on documentation, tutorials and accumulated expertise.
+Bevy is still very young, and light on documentation, tutorials, and accumulated expertise.
 By helping others with their issues, and teaching them about Bevy, you will naturally learn the engine and codebase in greater depth while also making our community better!
 
 Some of the best ways to do this are:
@@ -273,7 +254,7 @@ Not even our project lead is exempt from reviews and RFCs!
 By giving feedback on this work (and related supporting work), you can help us make sure our releases are both high-quality and timely.
 
 Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
-As discussed in [*How we're organized*](#how-were-organized), this role only requires good faith and a basic understanding of our development process.
+As discussed in our [*Bevy Organization doc*](/docs/the_bevy_organization.md), this role only requires good faith and a basic understanding of our development process.
 
 ### How to adopt pull requests
 
@@ -294,15 +275,6 @@ Then notify org members to close the original.
 * For example, you can reference the original PR by adding the following to your PR description:
 
 `Adopted #number-original-pull-request`
-
-### Maintaining code
-
-Maintainers can merge uncontroversial pull requests that have at least two approvals (or at least one for trivial changes).
-
-These search filters show the requests that can be merged by maintainers, and those which need a final approval from @cart.
-
-1. Pulls requests which are ready for maintainers to merge without consultation: [requests to pull](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+-label%3AS-Controversial+-label%3AS-Blocked+-label%3AS-Adopt-Me+)
-2. Pull requests which need final input from @cart: [requests to verify](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AS-Ready-For-Final-Review+label%3AS-Controversial+)
 
 ### Contributing code
 
@@ -336,7 +308,7 @@ If you end up adding a new official Bevy crate to the `bevy` repo:
 
 When contributing, please:
 
-* Try to loosely follow the workflow in [*How we work together*](#how-we-work-together).
+* Try to loosely follow the workflow in [*Making changes to Bevy*](#making-changes-to-bevy).
 * Consult the [style guide](.github/contributing/engine_style_guide.md) to help keep our code base tidy.
 * Explain what you're doing and why.
 * Document new code with doc comments.

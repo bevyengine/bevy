@@ -12,7 +12,6 @@ use serde::de::{
 };
 use serde::Deserialize;
 use std::any::TypeId;
-use std::borrow::Cow;
 use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::slice::Iter;
@@ -211,13 +210,6 @@ impl<'de> Visitor<'de> for U32Visitor {
     }
 }
 
-/// Helper struct for deserializing strings without allocating (when possible).
-///
-/// Based on [this comment](https://github.com/bevyengine/bevy/pull/6894#discussion_r1045069010).
-#[derive(Deserialize)]
-#[serde(transparent)]
-struct BorrowableCowStr<'a>(#[serde(borrow)] Cow<'a, str>);
-
 /// A general purpose deserializer for reflected types.
 ///
 /// This will return a [`Box<dyn Reflect>`] containing the deserialized data.
@@ -265,6 +257,54 @@ impl<'a, 'de> DeserializeSeed<'de> for UntypedReflectDeserializer<'a> {
     }
 }
 
+/// A deserializer for type registrations.
+///
+/// This will return a [`&TypeRegistration`] corresponding to the given type.
+/// This deserializer expects a string containing the _full_ [type name] of the
+/// type to find the `TypeRegistration` of.
+///
+/// [`&TypeRegistration`]: crate::TypeRegistration
+/// [type name]: std::any::type_name
+pub struct TypeRegistrationDeserializer<'a> {
+    registry: &'a TypeRegistry,
+}
+
+impl<'a> TypeRegistrationDeserializer<'a> {
+    pub fn new(registry: &'a TypeRegistry) -> Self {
+        Self { registry }
+    }
+}
+
+impl<'a, 'de> DeserializeSeed<'de> for TypeRegistrationDeserializer<'a> {
+    type Value = &'a TypeRegistration;
+
+    fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct TypeRegistrationVisitor<'a>(&'a TypeRegistry);
+
+        impl<'de, 'a> Visitor<'de> for TypeRegistrationVisitor<'a> {
+            type Value = &'a TypeRegistration;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("string containing `type` entry for the reflected value")
+            }
+
+            fn visit_str<E>(self, type_name: &str) -> Result<Self::Value, E>
+            where
+                E: Error,
+            {
+                self.0.get_with_name(type_name).ok_or_else(|| {
+                    Error::custom(format_args!("No registration found for `{type_name}`"))
+                })
+            }
+        }
+
+        deserializer.deserialize_str(TypeRegistrationVisitor(self.registry))
+    }
+}
+
 struct UntypedReflectDeserializerVisitor<'a> {
     registry: &'a TypeRegistry,
 }
@@ -280,14 +320,9 @@ impl<'a, 'de> Visitor<'de> for UntypedReflectDeserializerVisitor<'a> {
     where
         A: MapAccess<'de>,
     {
-        let type_name = map
-            .next_key::<BorrowableCowStr>()?
-            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?
-            .0;
-
-        let registration = self.registry.get_with_name(&type_name).ok_or_else(|| {
-            Error::custom(format_args!("No registration found for `{type_name}`"))
-        })?;
+        let registration = map
+            .next_key_seed(TypeRegistrationDeserializer::new(self.registry))?
+            .ok_or_else(|| Error::invalid_length(0, &"at least one entry"))?;
         let value = map.next_value_seed(TypedReflectDeserializer {
             registration,
             registry: self.registry,
@@ -432,16 +467,14 @@ impl<'a, 'de> DeserializeSeed<'de> for TypedReflectDeserializer<'a> {
             TypeInfo::Value(_) => {
                 // This case should already be handled
                 Err(de::Error::custom(format_args!(
-                    "the TypeRegistration for {} doesn't have ReflectDeserialize",
-                    type_name
+                    "the TypeRegistration for {type_name} doesn't have ReflectDeserialize",
                 )))
             }
             TypeInfo::Dynamic(_) => {
                 // We could potentially allow this but we'd have no idea what the actual types of the
                 // fields are and would rely on the deserializer to determine them (e.g. `i32` vs `i64`)
                 Err(de::Error::custom(format_args!(
-                    "cannot deserialize arbitrary dynamic type {}",
-                    type_name
+                    "cannot deserialize arbitrary dynamic type {type_name}",
                 )))
             }
         }
@@ -1045,10 +1078,7 @@ fn get_registration<'a, E: Error>(
     registry: &'a TypeRegistry,
 ) -> Result<&'a TypeRegistration, E> {
     let registration = registry.get(type_id).ok_or_else(|| {
-        Error::custom(format_args!(
-            "no registration found for type `{}`",
-            type_name
-        ))
+        Error::custom(format_args!("no registration found for type `{type_name}`",))
     })?;
     Ok(registration)
 }
