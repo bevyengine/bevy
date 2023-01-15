@@ -249,8 +249,7 @@ There are three main places you can check for things to review:
 2. Pull requests on [bevy](https://github.com/bevyengine/bevy/pulls) and the [bevy-website](https://github.com/bevyengine/bevy-website/pulls) repos.
 3. [RFCs](https://github.com/bevyengine/rfcs), which need extensive thoughtful community input on their design.
 
-Official focus areas and work done by @cart go through this review process as well.
-Not even our project lead is exempt from reviews and RFCs!
+Work done by SMEs, Maintainers and Project Leads go through this review process as well.
 By giving feedback on this work (and related supporting work), you can help us make sure our releases are both high-quality and timely.
 
 Finally, if nothing brings you more satisfaction than seeing every last issue labeled and all resolved issues closed, feel free to message @cart for a Bevy org role to help us keep things tidy.
