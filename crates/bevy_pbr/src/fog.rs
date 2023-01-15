@@ -5,7 +5,7 @@ use bevy_reflect::Reflect;
 use bevy_render::{color::Color, extract_component::ExtractComponent, prelude::Camera};
 
 /// Configures the “classic” computer graphics [distance fog](https://en.wikipedia.org/wiki/Distance_fog) effect,
-/// in which objects appear progressively more covered in atmospheric haze as they move further away from the camera.
+/// in which objects appear progressively more covered in atmospheric haze the further away they are from the camera.
 /// Affects meshes rendered via the PBR [`StandardMaterial`](crate::StandardMaterial).
 ///
 /// ## Falloff
