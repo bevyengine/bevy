@@ -41,7 +41,6 @@ use std::num::{NonZeroU32, NonZeroU64};
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum RenderLightSystems {
     ExtractClusters,
-    ExtractAmbientLights,
     ExtractLights,
     PrepareClusters,
     PrepareLights,
@@ -376,25 +375,6 @@ impl SpecializedMeshPipeline for ShadowPipeline {
             multisample: MultisampleState::default(),
             label: Some("shadow_pipeline".into()),
         })
-    }
-}
-
-#[derive(Component)]
-pub struct ExtractedAmbientLight {
-    ambient_color: Vec4,
-}
-
-pub fn extract_ambient_light(
-    mut commands: Commands,
-    views: Extract<Query<(Entity, &AmbientLight), With<Camera>>>,
-) {
-    for (entity, ambient_light) in &views {
-        commands
-            .get_or_spawn(entity)
-            .insert((ExtractedAmbientLight {
-                ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
-                    * ambient_light.brightness,
-            },));
     }
 }
 
@@ -787,7 +767,7 @@ pub fn prepare_lights(
             Entity,
             &ExtractedView,
             &ExtractedClusterConfig,
-            &ExtractedAmbientLight,
+            Option<&AmbientLight>,
         ),
         With<RenderPhase<Transparent3d>>,
     >,
@@ -1054,10 +1034,17 @@ pub fn prepare_lights(
             is_orthographic,
         );
 
+        let compute_ambient_color = |ambient_light: &AmbientLight| {
+            Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32()) * ambient_light.brightness
+        };
+        let ambient_color = match ambient_light {
+            Some(ambient_light) => compute_ambient_color(ambient_light),
+            None => compute_ambient_color(&AmbientLight::default()),
+        };
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
         let gpu_lights = GpuLights {
             directional_lights: gpu_directional_lights,
-            ambient_color: ambient_light.ambient_color,
+            ambient_color,
             cluster_factors: Vec4::new(
                 clusters.dimensions.x as f32 / extracted_view.viewport.z as f32,
                 clusters.dimensions.y as f32 / extracted_view.viewport.w as f32,

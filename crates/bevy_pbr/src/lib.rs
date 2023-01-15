@@ -148,12 +148,6 @@ impl Plugin for PbrPlugin {
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                add_ambient_lights
-                    .at_start()
-                    .label(SimulationLightSystems::AddAmbientLights),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
@@ -219,10 +213,6 @@ impl Plugin for PbrPlugin {
             .add_system_to_stage(
                 RenderStage::Extract,
                 render::extract_clusters.label(RenderLightSystems::ExtractClusters),
-            )
-            .add_system_to_stage(
-                RenderStage::Extract,
-                render::extract_ambient_light.label(RenderLightSystems::ExtractAmbientLights),
             )
             .add_system_to_stage(
                 RenderStage::Extract,
