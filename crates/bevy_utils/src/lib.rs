@@ -237,6 +237,34 @@ impl<K: Hash + Eq + PartialEq + Clone, V> PreHashMapExt<K, V> for PreHashMap<K, 
 
 /// A type which calls a function when dropped.
 /// This can be used to ensure that cleanup code is run even in case of a panic.
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_utils::OnDrop;
+/// # fn test_panic(do_panic: bool, log: impl FnOnce(&str)) {
+/// // This will print a message when the variable `_catch` gets dropped,
+/// // even if a panic occurs before we reach the end of this scope.
+/// // This is similar to a `try ... catch` block in languages such as C++.
+/// let _catch = OnDrop::new(|| log("Oops, a panic occured and this function didn't complete!"));
+///
+/// // Some code that may panic...
+/// // ...
+/// # if do_panic { panic!() }
+///
+/// // Make sure the message only gets printed if a panic occurs.
+/// // If we remove this line, then the message will be printed regardless of whether a panic occurs
+/// // -- similar to a `try ... finally` block.
+/// std::mem::forget(_catch);
+/// # }
+/// #
+/// # test_panic(false, |_| unreachable!());
+/// # let mut did_log = false;
+/// # std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+/// #   test_panic(true, |_| did_log = true);
+/// # }));
+/// # assert!(did_log);
+/// ```
 pub struct OnDrop<F: FnOnce()> {
     callback: ManuallyDrop<F>,
 }
