@@ -77,6 +77,7 @@ Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization
 ### Classifying PRs
 
 Our merge strategy relies on the classification of PRs on two axes:
+
 * How controversial are the design decisions
 * How complex is the implementation
 
