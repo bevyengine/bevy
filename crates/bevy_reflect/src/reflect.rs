@@ -330,11 +330,10 @@ pub trait Reflectable {}
 
 mod sealed {
     pub(crate) trait Sealed {}
-    
+
     impl<T: crate::Typed> Sealed for T {}
     impl<T: Sealed> super::Reflectable for T {}
 }
-
 
 /// A fully reflected Rust type.
 ///
