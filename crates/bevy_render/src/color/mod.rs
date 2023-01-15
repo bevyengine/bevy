@@ -91,6 +91,7 @@ impl Color {
     /// <div style="background-color:rgb(0%, 0%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const NAVY: Color = Color::rgb(0.0, 0.0, 0.5);
     /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    #[doc(alias = "transparent")]
     pub const NONE: Color = Color::rgba(0.0, 0.0, 0.0, 0.0);
     /// <div style="background-color:rgb(50%, 50%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const OLIVE: Color = Color::rgb(0.5, 0.5, 0.0);

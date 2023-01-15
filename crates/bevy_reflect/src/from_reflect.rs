@@ -13,6 +13,26 @@ use crate::{FromType, Reflect};
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
     fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+
+    /// Attempts to downcast the given value to `Self` using,
+    /// constructing the value using [`from_reflect`] if that fails.
+    ///
+    /// This method is more efficient than using [`from_reflect`] for cases where
+    /// the given value is likely a boxed instance of `Self` (i.e. `Box<Self>`)
+    /// rather than a boxed dynamic type (e.g. [`DynamicStruct`], [`DynamicList`], etc.).
+    ///
+    /// [`from_reflect`]: Self::from_reflect
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [`DynamicList`]: crate::DynamicList
+    fn take_from_reflect(reflect: Box<dyn Reflect>) -> Result<Self, Box<dyn Reflect>> {
+        match reflect.take::<Self>() {
+            Ok(value) => Ok(value),
+            Err(value) => match Self::from_reflect(value.as_ref()) {
+                None => Err(value),
+                Some(value) => Ok(value),
+            },
+        }
+    }
 }
 
 /// Type data that represents the [`FromReflect`] trait and allows it to be used dynamically.

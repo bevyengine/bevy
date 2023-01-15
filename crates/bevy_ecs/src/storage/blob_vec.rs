@@ -46,10 +46,11 @@ impl BlobVec {
         drop: Option<unsafe fn(OwningPtr<'_>)>,
         capacity: usize,
     ) -> BlobVec {
+        let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
+        let data = bevy_ptr::dangling_with_align(align);
         if item_layout.size() == 0 {
-            let align = NonZeroUsize::new(item_layout.align()).expect("alignment must be > 0");
             BlobVec {
-                data: bevy_ptr::dangling_with_align(align),
+                data,
                 capacity: usize::MAX,
                 len: 0,
                 item_layout,
@@ -57,7 +58,7 @@ impl BlobVec {
             }
         } else {
             let mut blob_vec = BlobVec {
-                data: NonNull::dangling(),
+                data,
                 capacity: 0,
                 len: 0,
                 item_layout,

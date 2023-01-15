@@ -17,7 +17,7 @@ use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
     parse::{Parse, ParseStream},
-    parse_macro_input, parse_quote,
+    parse_macro_input,
     punctuated::Punctuated,
     spanned::Spanned,
     token::Comma,
@@ -616,7 +616,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         // <EventReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             #[doc(hidden)]
-            #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*> {
+            #state_struct_visibility struct FetchState <'w, 's, #(#lifetimeless_generics,)*>
+            #where_clause {
                 state: (#(<#field_types as #bevy_ecs::system::SystemParam>::State,)*),
                 marker: std::marker::PhantomData<(
                     <#bevy_ecs::prelude::Query<'w, 's, ()> as #bevy_ecs::system::SystemParam>::State,

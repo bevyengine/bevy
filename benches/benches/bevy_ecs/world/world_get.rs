@@ -273,7 +273,7 @@ pub fn query_get_component_simple(criterion: &mut Criterion) {
 
         bencher.iter(|| {
             for _x in 0..100000 {
-                let mut a = unsafe { query.get_unchecked(&mut world, entity).unwrap() };
+                let mut a = unsafe { query.get_unchecked(&world, entity).unwrap() };
                 a.0 += 1.0;
             }
         });
