@@ -119,8 +119,17 @@ impl_graph! {
     }
 
     impl COMMON?undirected {
-        fn remove_node(&mut self, _node: NodeIdx) -> GraphResult<N> {
-            todo!()
+        fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
+            for (_, edge) in self.edges_of(node) {
+                unsafe {
+                    // SAFETY: we know it must exist
+                    self.remove_edge_unchecked(edge); // TODO: can we have a `remove_edges` function?
+                }
+            }
+            match self.nodes.remove(node) {
+                Some(n) => Ok(n),
+                None => Err(GraphError::NodeIdxDoesntExist(node))
+            }
         }
 
         fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
@@ -159,8 +168,24 @@ impl_graph! {
     }
 
     impl COMMON?directed {
-        fn remove_node(&mut self, _node: NodeIdx) -> GraphResult<N> {
-            todo!()
+        fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
+            let mut edges = vec![];
+            for (edge, data) in &self.edges {
+                let (src, dst) = data.indices();
+                if dst == node || src == node {
+                    edges.push(edge);
+                }
+            }
+            for edge in edges {
+                unsafe {
+                    // SAFETY: we know it must exist
+                    self.remove_edge_unchecked(edge); // TODO: can we have a `remove_edges` function?
+                }
+            }
+            match self.nodes.remove(node) {
+                Some(n) => Ok(n),
+                None => Err(GraphError::NodeIdxDoesntExist(node))
+            }
         }
 
         fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {

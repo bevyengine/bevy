@@ -132,7 +132,10 @@ impl_graph! {
     impl COMMON?undirected {
         fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
             for (_, edge) in self.edges_of(node) {
-                self.remove_edge(edge).unwrap();
+                unsafe {
+                    // SAFETY: we know it must exist
+                    self.remove_edge_unchecked(edge); // TODO: can we have a `remove_edges` function?
+                }
             }
             match self.nodes.remove(node) {
                 Some(n) => Ok(n),
@@ -191,7 +194,10 @@ impl_graph! {
                 }
             }
             for edge in edges {
-                self.remove_edge(edge).unwrap();
+                unsafe {
+                    // SAFETY: we know it must exist
+                    self.remove_edge_unchecked(edge); // TODO: can we have a `remove_edges` function?
+                }
             }
             match self.nodes.remove(node) {
                 Some(n) => Ok(n),
