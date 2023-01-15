@@ -157,8 +157,8 @@ impl BlobVec {
 
         // Pointer to the value in the vector that will get replaced.
         // SAFETY: The caller ensures that `index` fits in this vector.
-        let dst = NonNull::from(self.get_unchecked_mut(index));
-        let src = value.as_ptr();
+        let destination = NonNull::from(self.get_unchecked_mut(index));
+        let source = value.as_ptr();
 
         if let Some(drop) = self.drop {
             // Temporarily set the length to zero, so that if `drop` panics the caller
@@ -169,13 +169,13 @@ impl BlobVec {
 
             // Transfer ownership of the old value out of the vector, so it can be dropped.
             // SAFETY:
-            // - `dst` was obtained from a `PtrMut` in this vector, which ensures it is non-null,
+            // - `destination` was obtained from a `PtrMut` in this vector, which ensures it is non-null,
             //   well-aligned for the underlying type, and has proper provenance.
             // - The storage location will get overwritten with `value` later, which ensures
             //   that the element will not get observed or double dropped later.
             // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
             //   does not occur. Instead, all elements will be forgotten.
-            let old_value = OwningPtr::new(dst);
+            let old_value = OwningPtr::new(destination);
 
             // This closure will run in case `drop()` panics,
             // which ensures that `value` does not get forgotten.
@@ -192,13 +192,13 @@ impl BlobVec {
 
         // Copy the new value into the vector, overwriting the previous value.
         // SAFETY:
-        // - `src` and `dst` were obtained from `OwningPtr`s, which ensures they are
+        // - `source` and `destination` were obtained from `OwningPtr`s, which ensures they are
         //   valid for both reads and writes.
-        // - The value behind `src` will only be dropped if the above branch panics,
+        // - The value behind `source` will only be dropped if the above branch panics,
         //   so it must still be initialized and it is safe to transfer ownership into the vector.
-        // - `src` and `dst` were obtained from different memory locations,
+        // - `source` and `destination` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
-        std::ptr::copy_nonoverlapping::<u8>(src, dst.as_ptr(), self.item_layout.size());
+        std::ptr::copy_nonoverlapping::<u8>(source, destination.as_ptr(), self.item_layout.size());
     }
 
     /// Pushes a value to the [`BlobVec`].
