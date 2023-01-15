@@ -1,3 +1,4 @@
+use bevy_ecs_macros::all_tuples;
 use bevy_utils::default;
 
 use crate::{
@@ -563,8 +564,8 @@ impl IntoSystemSetConfigs for SystemSetConfigs {
 }
 
 macro_rules! impl_system_collection {
-    ($($param: ident, $sys: ident),*) => {
-        impl<$($param, $sys),*> IntoSystemConfigs<($($param),*)> for ($($sys),*)
+    ($(($param: ident, $sys: ident)),*) => {
+        impl<$($param, $sys),*> IntoSystemConfigs<($($param,)*)> for ($($sys,)*)
         where
             $($sys: IntoSystemConfig<$param>),*
         {
@@ -582,7 +583,7 @@ macro_rules! impl_system_collection {
 
 macro_rules! impl_system_set_collection {
     ($($set: ident),*) => {
-        impl<$($set: IntoSystemSetConfig),*> IntoSystemSetConfigs for ($($set),*)
+        impl<$($set: IntoSystemSetConfig),*> IntoSystemSetConfigs for ($($set,)*)
         {
             #[allow(non_snake_case)]
             fn into_configs(self) -> SystemSetConfigs {
@@ -596,53 +597,5 @@ macro_rules! impl_system_set_collection {
     }
 }
 
-impl_system_collection!(P0, T0, P1, T1);
-impl_system_collection!(P0, T0, P1, T1, P2, T2);
-impl_system_collection!(P0, T0, P1, T1, P2, T2, P3, T3);
-impl_system_collection!(P0, T0, P1, T1, P2, T2, P3, T3, P4, T4);
-impl_system_collection!(P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5);
-impl_system_collection!(P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6);
-impl_system_collection!(P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7);
-impl_system_collection!(P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7, P8, T8);
-impl_system_collection!(
-    P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7, P8, T8, P9, T9
-);
-impl_system_collection!(
-    P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7, P8, T8, P9, T9, P10, T10
-);
-impl_system_collection!(
-    P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7, P8, T8, P9, T9, P10, T10, P11,
-    T11
-);
-impl_system_collection!(
-    P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7, P8, T8, P9, T9, P10, T10, P11,
-    T11, P12, T12
-);
-impl_system_collection!(
-    P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7, P8, T8, P9, T9, P10, T10, P11,
-    T11, P12, T12, P13, T13
-);
-impl_system_collection!(
-    P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7, P8, T8, P9, T9, P10, T10, P11,
-    T11, P12, T12, P13, T13, P14, T14
-);
-impl_system_collection!(
-    P0, T0, P1, T1, P2, T2, P3, T3, P4, T4, P5, T5, P6, T6, P7, T7, P8, T8, P9, T9, P10, T10, P11,
-    T11, P12, T12, P13, T13, P14, T14, P15, T15
-);
-
-impl_system_set_collection!(S0, S1);
-impl_system_set_collection!(S0, S1, S2);
-impl_system_set_collection!(S0, S1, S2, S3);
-impl_system_set_collection!(S0, S1, S2, S3, S4);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7, S8);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7, S8, S9);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14);
-impl_system_set_collection!(S0, S1, S2, S3, S4, S5, S6, S7, S8, S9, S10, S11, S12, S13, S14, S15);
+all_tuples!(impl_system_collection, 0, 15, P, S);
+all_tuples!(impl_system_set_collection, 0, 15, S);
