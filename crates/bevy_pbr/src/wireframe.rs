@@ -70,7 +70,7 @@ pub struct WireframeConfig {
     pub global: bool,
 }
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct WireframePipeline {
     mesh_pipeline: MeshPipeline,
     shader: Handle<Shader>,

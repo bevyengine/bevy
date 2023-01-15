@@ -232,6 +232,18 @@ pub struct MaterialPipeline<M: Material> {
     marker: PhantomData<M>,
 }
 
+impl<M: Material> Clone for MaterialPipeline<M> {
+    fn clone(&self) -> Self {
+        Self {
+            mesh_pipeline: self.mesh_pipeline.clone(),
+            material_layout: self.material_layout.clone(),
+            vertex_shader: self.vertex_shader.clone(),
+            fragment_shader: self.fragment_shader.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<M: Material> SpecializedMeshPipeline for MaterialPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
