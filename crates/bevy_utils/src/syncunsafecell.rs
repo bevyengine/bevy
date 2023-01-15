@@ -96,6 +96,7 @@ impl<T> SyncUnsafeCell<[T]> {
     /// let slice_cell: &[SyncUnsafeCell<i32>] = cell_slice.as_slice_of_cells();
     ///
     /// assert_eq!(slice_cell.len(), 3);
+    /// ```
     pub fn as_slice_of_cells(&self) -> &[SyncUnsafeCell<T>] {
         // SAFETY: `UnsafeCell<T>` and `SyncUnsafeCell<T>` have #[repr(transparent)]
         // therefore:

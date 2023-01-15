@@ -1592,9 +1592,8 @@ impl World {
     /// times since the previous pass.
     // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
-        let last_check_tick = self.last_check_tick;
         let change_tick = self.change_tick();
-        if change_tick.wrapping_sub(last_check_tick) < CHECK_TICK_THRESHOLD {
+        if change_tick.wrapping_sub(self.last_check_tick) < CHECK_TICK_THRESHOLD {
             return;
         }
 
