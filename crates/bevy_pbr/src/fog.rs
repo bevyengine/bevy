@@ -180,7 +180,7 @@ pub enum FogFalloff {
     /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
     /// </svg>
     Exponential {
-        /// Unitless multiplier applied to the world distance (within the exponential fog falloff calculation).
+        /// Multiplier applied to the world distance (within the exponential fog falloff calculation).
         density: f32,
     },
 
@@ -228,7 +228,7 @@ pub enum FogFalloff {
     /// <text font-family="sans-serif" transform="translate(10 132) rotate(-90)" fill="currentColor" style="white-space: pre" font-size="12" letter-spacing="0em"><tspan x="0" y="11.8636">fog intensity</tspan></text>
     /// </svg>
     ExponentialSquared {
-        /// Unitless multiplier applied to the world distance (within the exponential squared fog falloff calculation).
+        /// Multiplier applied to the world distance (within the exponential squared fog falloff calculation).
         density: f32,
     },
 
@@ -281,7 +281,7 @@ pub enum FogFalloff {
         /// photons being absorbed by atmospheric particles.
         ///
         /// Each component can be thought of as an independent per `R`/`G`/`B` channel `density` factor from
-        /// [`FogFalloff::Exponential`]: A unitless multiplier applied to the world distance (within the fog
+        /// [`FogFalloff::Exponential`]: Multiplier applied to the world distance (within the fog
         /// falloff calculation) for that specific channel.
         ///
         /// **Note:**
@@ -292,7 +292,7 @@ pub enum FogFalloff {
         /// Controls how much light is added due to light scattering from the sun through the atmosphere.
         ///
         /// Each component can be thought of as an independent per `R`/`G`/`B` channel `density` factor from
-        /// [`FogFalloff::Exponential`]: A unitless multiplier applied to the world distance (within the fog
+        /// [`FogFalloff::Exponential`]: A multiplier applied to the world distance (within the fog
         /// falloff calculation) for that specific channel.
         ///
         /// **Note:**
