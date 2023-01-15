@@ -206,7 +206,7 @@ mod test {
         assert!(graph.get_node(michael).is_err());
         assert!(graph.get_edge(edge).is_err());
         assert!(graph.edge_between(jake, michael).unwrap().is_none());
-        assert!(graph.edge_between(michael, jake).unwrap().is_none());
+        assert!(graph.edge_between(michael, jake).is_err());
     }
 
     pub fn remove_node_directed(mut graph: impl SimpleGraph<Person, i32>) {
@@ -235,7 +235,7 @@ mod test {
         assert!(graph.get_node(michael).is_err());
         assert!(graph.get_edge(edge).is_err());
         assert!(graph.edge_between(jake, michael).unwrap().is_none());
-        assert!(graph.edge_between(michael, jake).unwrap().is_none());
+        assert!(graph.edge_between(michael, jake).is_err());
     }
 
     pub fn edge_between_same_node(mut graph: impl SimpleGraph<Person, i32>) {

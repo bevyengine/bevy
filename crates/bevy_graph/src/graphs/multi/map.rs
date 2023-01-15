@@ -148,7 +148,13 @@ impl_graph! {
                 }
             }
             match self.nodes.remove(node) {
-                Some(n) => Ok(n),
+                Some(n) => {
+                    unsafe {
+                        // SAFETY: it will exist.
+                        self.adjacencies.remove(node).unwrap_unchecked();
+                    }
+                    Ok(n)
+                },
                 None => Err(GraphError::NodeIdxDoesntExist(node))
             }
         }
@@ -204,7 +210,13 @@ impl_graph! {
                 }
             }
             match self.nodes.remove(node) {
-                Some(n) => Ok(n),
+                Some(n) => {
+                    unsafe {
+                        // SAFETY: it will exist.
+                        self.adjacencies.remove(node).unwrap_unchecked();
+                    }
+                    Ok(n)
+                },
                 None => Err(GraphError::NodeIdxDoesntExist(node))
             }
         }
