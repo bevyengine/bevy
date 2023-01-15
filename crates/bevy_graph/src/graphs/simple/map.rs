@@ -6,6 +6,7 @@ use crate::{
     graphs::{
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
+        SimpleGraph,
     },
     impl_graph,
 };
@@ -96,21 +97,15 @@ impl_graph! {
 
         #[inline]
         fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
-            if let Some(from_edges) = self.adjacencies.get(from) {
-                if from_edges.contains_key(&to) {
-                    unsafe {
-                        Ok(self.edges_between_unchecked(from, to))
-                    }
-                } else {
-                    Err(GraphError::EdgeBetweenDoesntExist(from, to))
-                }
-            } else {
-                Err(GraphError::NodeIdxDoesntExist(from))
+            match self.edge_between(from, to) {
+                Ok(idx) => Ok(vec![idx]),
+                Err(e) => Err(e)
             }
         }
 
+        #[inline]
         unsafe fn edges_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> Vec<EdgeIdx> {
-            vec![self.adjacencies.get_unchecked(from).get(&to).cloned().unwrap()]
+            vec![self.edge_between_unchecked(from, to)]
         }
 
         #[inline]
@@ -236,6 +231,26 @@ impl_graph! {
             }
         }
     }
+
+    impl SIMPLE {
+        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx> {
+            if let Some(from_edges) = self.adjacencies.get(from) {
+                if from_edges.contains_key(&to) {
+                    unsafe {
+                        Ok(self.edge_between_unchecked(from, to))
+                    }
+                } else {
+                    Err(GraphError::EdgeBetweenDoesntExist(from, to))
+                }
+            } else {
+                Err(GraphError::NodeIdxDoesntExist(from))
+            }
+        }
+
+        unsafe fn edge_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+            self.adjacencies.get_unchecked(from).get(&to).cloned().unwrap()
+        }
+    }
 }
 
 impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
@@ -247,7 +262,7 @@ impl<N, E, const DIRECTED: bool> Default for SimpleMapGraph<N, E, DIRECTED> {
 
 #[cfg(test)]
 mod test {
-    use crate::graph_tests;
+    use crate::simple_graph_tests;
 
-    graph_tests!(super::SimpleMapGraph);
+    simple_graph_tests!(super::SimpleMapGraph);
 }

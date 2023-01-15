@@ -1,10 +1,11 @@
-use slotmap::{HopSlotMap, SecondaryMap};
+use slotmap::{HopSlotMap, Key, SecondaryMap};
 
 use crate::{
     error::{GraphError, GraphResult},
     graphs::{
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
+        SimpleGraph,
     },
     impl_graph,
 };
@@ -95,29 +96,15 @@ impl_graph! {
 
         #[inline]
         fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
-            if self.adjacencies.contains_key(from) {
-                unsafe {
-                    let idx = self.edges_between_unchecked(from, to);
-                    if idx.is_empty() {
-                        Err(GraphError::EdgeBetweenDoesntExist(from, to))
-                    } else {
-                        Ok(idx)
-                    }
-                }
-            } else {
-                Err(GraphError::NodeIdxDoesntExist(from))
+            match self.edge_between(from, to) {
+                Ok(idx) => Ok(vec![idx]),
+                Err(e) => Err(e),
             }
         }
 
         #[inline]
         unsafe fn edges_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> Vec<EdgeIdx> {
-            if let Some(idx) = self.adjacencies.get_unchecked(from).iter()
-                .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None }) // we know it simple graph can only have 1 edge so `find_map` is enough
-            {
-                vec![idx]
-            } else {
-                vec![]
-            }
+            vec![self.edge_between_unchecked(from, to)]
         }
 
         #[inline]
@@ -254,6 +241,33 @@ impl_graph! {
             }
         }
     }
+
+    impl SIMPLE {
+        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx> {
+            if self.adjacencies.contains_key(from) {
+                unsafe {
+                    let idx = self.edge_between_unchecked(from, to);
+                    if idx.is_null() {
+                        Err(GraphError::EdgeBetweenDoesntExist(from, to))
+                    } else {
+                        Ok(idx)
+                    }
+                }
+            } else {
+                Err(GraphError::NodeIdxDoesntExist(from))
+            }
+        }
+
+        unsafe fn edge_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> EdgeIdx {
+            if let Some(idx) = self.adjacencies.get_unchecked(from).iter()
+                .find_map(|(other_node, idx)| if *other_node == to { Some(*idx) } else { None }) // we know it simple graph can only have 1 edge so `find_map` is enough
+            {
+                idx
+            } else {
+                EdgeIdx::null()
+            }
+        }
+    }
 }
 
 impl<N, E, const DIRECTED: bool> Default for SimpleListGraph<N, E, DIRECTED> {
@@ -272,7 +286,7 @@ fn find_edge(list: &[(NodeIdx, EdgeIdx)], node: NodeIdx) -> Option<usize> {
 
 #[cfg(test)]
 mod test {
-    use crate::graph_tests;
+    use crate::simple_graph_tests;
 
-    graph_tests!(super::SimpleListGraph);
+    simple_graph_tests!(super::SimpleListGraph);
 }

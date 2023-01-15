@@ -9,7 +9,7 @@ mod test {
     use hashbrown::HashSet;
     use std::hash::Hash;
 
-    use crate::{error::GraphError, graphs::Graph};
+    use crate::{error::GraphError, graphs::SimpleGraph};
 
     #[derive(PartialEq, Debug)]
     pub enum Person {
@@ -19,7 +19,7 @@ mod test {
     }
 
     #[macro_export]
-    macro_rules! graph_tests {
+    macro_rules! simple_graph_tests {
         ($($graph:ident )::+) => {
             use $crate::graphs::simple::test::{self, Person};
 
@@ -54,7 +54,7 @@ mod test {
         };
     }
 
-    pub fn nodes(mut graph: impl Graph<Person, i32>) {
+    pub fn nodes(mut graph: impl SimpleGraph<Person, i32>) {
         let jake = graph.new_node(Person::Jake);
         let michael = graph.new_node(Person::Michael);
         let jennifer = graph.new_node(Person::Jennifer);
@@ -86,7 +86,7 @@ mod test {
         assert!(graph.get_node(other_jake).is_err());
     }
 
-    pub fn undirected_edges(mut graph: impl Graph<Person, i32>) {
+    pub fn undirected_edges(mut graph: impl SimpleGraph<Person, i32>) {
         let jake = graph.new_node(Person::Jake);
         let michael = graph.new_node(Person::Michael);
         let jennifer = graph.new_node(Person::Jennifer);
@@ -130,7 +130,7 @@ mod test {
         assert!(graph.get_edge(mo).is_err());
     }
 
-    pub fn directed_edges(mut graph: impl Graph<Person, i32>) {
+    pub fn directed_edges(mut graph: impl SimpleGraph<Person, i32>) {
         let jake = graph.new_node(Person::Jake);
         let michael = graph.new_node(Person::Michael);
         let jennifer = graph.new_node(Person::Jennifer);
@@ -172,7 +172,7 @@ mod test {
         assert!(graph.get_edge(mo).is_err());
     }
 
-    pub fn remove_node_undirected(mut graph: impl Graph<Person, i32>) {
+    pub fn remove_node_undirected(mut graph: impl SimpleGraph<Person, i32>) {
         let jake = graph.new_node(Person::Jake);
         let michael = graph.new_node(Person::Michael);
 
@@ -207,7 +207,7 @@ mod test {
         assert!(graph.edge_between(michael, jake).is_err());
     }
 
-    pub fn remove_node_directed(mut graph: impl Graph<Person, i32>) {
+    pub fn remove_node_directed(mut graph: impl SimpleGraph<Person, i32>) {
         let jake = graph.new_node(Person::Jake);
         let michael = graph.new_node(Person::Michael);
 
@@ -235,7 +235,7 @@ mod test {
         assert!(graph.edge_between(michael, jake).is_err());
     }
 
-    pub fn edge_between_same_node(mut graph: impl Graph<Person, i32>) {
+    pub fn edge_between_same_node(mut graph: impl SimpleGraph<Person, i32>) {
         let jake = graph.new_node(Person::Jake);
 
         assert!(matches!(
