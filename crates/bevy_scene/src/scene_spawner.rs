@@ -12,7 +12,7 @@ use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
 
-/// Informations about a scene instance.
+/// Information about a scene instance.
 #[derive(Debug)]
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.

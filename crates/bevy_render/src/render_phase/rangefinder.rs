@@ -6,15 +6,16 @@ pub struct ViewRangefinder3d {
 }
 
 impl ViewRangefinder3d {
-    /// Creates a 3D rangefinder for a view matrix
+    /// Creates a 3D rangefinder for a view matrix.
     pub fn from_view_matrix(view_matrix: &Mat4) -> ViewRangefinder3d {
         let inverse_view_matrix = view_matrix.inverse();
+
         ViewRangefinder3d {
             inverse_view_row_2: inverse_view_matrix.row(2),
         }
     }
 
-    /// Calculates the distance, or view-space `Z` value, for a transform
+    /// Calculates the distance, or view-space `Z` value, for the given `transform`.
     #[inline]
     pub fn distance(&self, transform: &Mat4) -> f32 {
         // NOTE: row 2 of the inverse view matrix dotted with column 3 of the model matrix

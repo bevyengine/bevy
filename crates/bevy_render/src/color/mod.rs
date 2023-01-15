@@ -91,6 +91,7 @@ impl Color {
     /// <div style="background-color:rgb(0%, 0%, 50%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const NAVY: Color = Color::rgb(0.0, 0.0, 0.5);
     /// <div style="background-color:rgba(0%, 0%, 0%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
+    #[doc(alias = "transparent")]
     pub const NONE: Color = Color::rgba(0.0, 0.0, 0.0, 0.0);
     /// <div style="background-color:rgb(50%, 50%, 0%); width: 10px; padding: 10px; border: 1px solid;"></div>
     pub const OLIVE: Color = Color::rgb(0.5, 0.5, 0.0);
@@ -250,10 +251,14 @@ impl Color {
     /// # use bevy_render::color::Color;
     /// let color = Color::hex("FF00FF").unwrap(); // fuchsia
     /// let color = Color::hex("FF00FF7F").unwrap(); // partially transparent fuchsia
+    ///
+    /// // A standard hex color notation is also available
+    /// assert_eq!(Color::hex("#FFFFFF").unwrap(), Color::rgb(1.0, 1.0, 1.0));
     /// ```
     ///
     pub fn hex<T: AsRef<str>>(hex: T) -> Result<Color, HexColorError> {
         let hex = hex.as_ref();
+        let hex = hex.strip_prefix('#').unwrap_or(hex);
 
         // RGB
         if hex.len() == 3 {
@@ -358,6 +363,13 @@ impl Color {
         self
     }
 
+    /// Returns this color with red set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_r(mut self, r: f32) -> Self {
+        self.set_r(r);
+        self
+    }
+
     /// Set green in sRGB colorspace.
     pub fn set_g(&mut self, g: f32) -> &mut Self {
         *self = self.as_rgba();
@@ -368,6 +380,13 @@ impl Color {
         self
     }
 
+    /// Returns this color with green set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_g(mut self, g: f32) -> Self {
+        self.set_g(g);
+        self
+    }
+
     /// Set blue in sRGB colorspace.
     pub fn set_b(&mut self, b: f32) -> &mut Self {
         *self = self.as_rgba();
@@ -375,6 +394,13 @@ impl Color {
             Color::Rgba { blue, .. } => *blue = b,
             _ => unreachable!(),
         }
+        self
+    }
+
+    /// Returns this color with blue set to a new value in sRGB colorspace.
+    #[must_use]
+    pub fn with_b(mut self, b: f32) -> Self {
+        self.set_b(b);
         self
     }
 
@@ -397,6 +423,13 @@ impl Color {
                 *alpha = a;
             }
         }
+        self
+    }
+
+    /// Returns this color with a new alpha value.
+    #[must_use]
+    pub fn with_a(mut self, a: f32) -> Self {
+        self.set_a(a);
         self
     }
 

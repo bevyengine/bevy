@@ -73,6 +73,8 @@ pub struct App {
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
+    /// A private marker to prevent incorrect calls to `App::run()` from `Plugin::build()`
+    is_building_plugin: bool,
 }
 
 impl Debug for App {
@@ -88,7 +90,20 @@ impl Debug for App {
 /// Each `SubApp` has its own [`Schedule`] and [`World`], enabling a separation of concerns.
 struct SubApp {
     app: App,
-    runner: Box<dyn Fn(&mut World, &mut App)>,
+    extract: Box<dyn Fn(&mut World, &mut App)>,
+}
+
+impl SubApp {
+    /// Runs the `SubApp`'s schedule.
+    pub fn run(&mut self) {
+        self.app.schedule.run(&mut self.app.world);
+        self.app.world.clear_trackers();
+    }
+
+    /// Extracts data from main world to this sub-app.
+    pub fn extract(&mut self, main_world: &mut World) {
+        (self.extract)(main_world, &mut self.app);
+    }
 }
 
 impl Debug for SubApp {
@@ -107,9 +122,7 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_stages()
-            .add_event::<AppExit>()
-            .add_system_to_stage(CoreStage::Last, World::clear_trackers);
+        app.add_default_stages().add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -138,6 +151,7 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
+            is_building_plugin: false,
         }
     }
 
@@ -150,20 +164,39 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
         self.schedule.run(&mut self.world);
+
         for sub_app in self.sub_apps.values_mut() {
-            (sub_app.runner)(&mut self.world, &mut sub_app.app);
+            sub_app.extract(&mut self.world);
+            sub_app.run();
         }
+
+        self.world.clear_trackers();
     }
 
     /// Starts the application by calling the app's [runner function](Self::set_runner).
     ///
     /// Finalizes the [`App`] configuration. For general usage, see the example on the item
     /// level documentation.
+    ///
+    /// # Panics
+    ///
+    /// Panics if called from `Plugin::build()`, because it would prevent other plugins to properly build.
     pub fn run(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_app_run_span = info_span!("bevy_app").entered();
 
         let mut app = std::mem::replace(self, App::empty());
+        if app.is_building_plugin {
+            panic!("App::run() was called from within Plugin::Build(), which is not allowed.");
+        }
+
+        // temporarily remove the plugin registry to run each plugin's setup function on app.
+        let mut plugin_registry = std::mem::take(&mut app.plugin_registry);
+        for plugin in &plugin_registry {
+            plugin.setup(&mut app);
+        }
+        std::mem::swap(&mut app.plugin_registry, &mut plugin_registry);
+
         let runner = std::mem::replace(&mut app.runner, Box::new(run_once));
         (runner)(app);
     }
@@ -839,8 +872,7 @@ impl App {
         match self.add_boxed_plugin(Box::new(plugin)) {
             Ok(app) => app,
             Err(AppError::DuplicatePlugin { plugin_name }) => panic!(
-                "Error adding plugin {}: : plugin was already added in application",
-                plugin_name
+                "Error adding plugin {plugin_name}: : plugin was already added in application"
             ),
         }
     }
@@ -856,7 +888,9 @@ impl App {
                 plugin_name: plugin.name().to_string(),
             })?;
         }
+        self.is_building_plugin = true;
         plugin.build(self);
+        self.is_building_plugin = false;
         self.plugin_registry.push(plugin);
         Ok(self)
     }
@@ -983,20 +1017,20 @@ impl App {
 
     /// Adds an [`App`] as a child of the current one.
     ///
-    /// The provided function `f` is called by the [`update`](Self::update) method. The [`World`]
+    /// The provided function `sub_app_runner` is called by the [`update`](Self::update) method. The [`World`]
     /// parameter represents the main app world, while the [`App`] parameter is just a mutable
     /// reference to the `SubApp` itself.
     pub fn add_sub_app(
         &mut self,
         label: impl AppLabel,
         app: App,
-        sub_app_runner: impl Fn(&mut World, &mut App) + 'static,
+        extract: impl Fn(&mut World, &mut App) + 'static,
     ) -> &mut Self {
         self.sub_apps.insert(
             label.as_label(),
             SubApp {
                 app,
-                runner: Box::new(sub_app_runner),
+                extract: Box::new(extract),
             },
         );
         self
@@ -1102,5 +1136,17 @@ mod tests {
     #[test]
     fn can_add_twice_the_same_plugin_not_unique() {
         App::new().add_plugin(PluginD).add_plugin(PluginD);
+    }
+
+    #[test]
+    #[should_panic]
+    fn cant_call_app_run_from_plugin_build() {
+        struct PluginRun;
+        impl Plugin for PluginRun {
+            fn build(&self, app: &mut crate::App) {
+                app.run();
+            }
+        }
+        App::new().add_plugin(PluginRun);
     }
 }

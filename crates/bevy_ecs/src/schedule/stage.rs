@@ -229,12 +229,10 @@ impl SystemStage {
     }
 
     pub fn apply_buffers(&mut self, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("stage::apply_buffers").entered();
         for container in &mut self.parallel {
-            let system = container.system_mut();
-            #[cfg(feature = "trace")]
-            let _span = bevy_utils::tracing::info_span!("system_commands", name = &*system.name())
-                .entered();
-            system.apply_buffers(world);
+            container.system_mut().apply_buffers(world);
         }
     }
 
@@ -289,10 +287,9 @@ impl SystemStage {
                     .then(|| descriptor.system.name())
                 {
                     panic!(
-                        "The system {} has a run criteria, but its `SystemSet` also has a run \
+                        "The system {name} has a run criteria, but its `SystemSet` also has a run \
                         criteria. This is not supported. Consider moving the system into a \
-                        different `SystemSet` or calling `add_system()` instead.",
-                        name
+                        different `SystemSet` or calling `add_system()` instead."
                     )
                 }
             }
@@ -461,8 +458,7 @@ impl SystemStage {
                         writeln!(message, " - {}", nodes[*index].name()).unwrap();
                         writeln!(
                             message,
-                            "    wants to be after (because of labels: {:?})",
-                            labels,
+                            "    wants to be after (because of labels: {labels:?})",
                         )
                         .unwrap();
                     }
@@ -567,10 +563,7 @@ impl SystemStage {
             if let RunCriteriaInner::Piped { input: parent, .. } = &mut criteria.inner {
                 let label = &criteria.after[0];
                 *parent = *labels.get(label).unwrap_or_else(|| {
-                    panic!(
-                        "Couldn't find run criteria labelled {:?} to pipe from.",
-                        label
-                    )
+                    panic!("Couldn't find run criteria labelled {label:?} to pipe from.",)
                 });
             }
         }
@@ -781,15 +774,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 
@@ -813,15 +798,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 
@@ -829,12 +806,6 @@ impl Stage for SystemStage {
                 if self.apply_buffers {
                     for container in &mut self.parallel {
                         if container.should_run {
-                            #[cfg(feature = "trace")]
-                            let _span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
                             container.system_mut().apply_buffers(world);
                         }
                     }
@@ -852,15 +823,7 @@ impl Stage for SystemStage {
                             .entered();
                             container.system_mut().run((), world);
                         }
-                        {
-                            #[cfg(feature = "trace")]
-                            let _system_span = bevy_utils::tracing::info_span!(
-                                "system_commands",
-                                name = &*container.name()
-                            )
-                            .entered();
-                            container.system_mut().apply_buffers(world);
-                        }
+                        container.system_mut().apply_buffers(world);
                     }
                 }
 

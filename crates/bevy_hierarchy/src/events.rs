@@ -3,7 +3,7 @@ use bevy_ecs::prelude::Entity;
 /// An [`Event`] that is fired whenever there is a change in the world's hierarchy.
 ///
 /// [`Event`]: bevy_ecs::event::Event
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum HierarchyEvent {
     /// Fired whenever an [`Entity`] is added as a child to a parent.
     ChildAdded {

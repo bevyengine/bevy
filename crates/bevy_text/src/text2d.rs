@@ -1,10 +1,10 @@
 use bevy_asset::Assets;
 use bevy_ecs::{
     bundle::Bundle,
+    change_detection::{DetectChanges, Ref},
     component::Component,
     entity::Entity,
     event::EventReader,
-    query::Changed,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };
@@ -22,8 +22,8 @@ use bevy_utils::HashSet;
 use bevy_window::{WindowId, WindowScaleFactorChanged, Windows};
 
 use crate::{
-    Font, FontAtlasSet, HorizontalAlign, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, VerticalAlign, YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, HorizontalAlign, Text, TextError, TextLayoutInfo,
+    TextPipeline, TextSettings, VerticalAlign, YAxisOrientation,
 };
 
 /// The calculated size of text drawn in 2D scene.
@@ -159,14 +159,14 @@ pub fn update_text2d_layout(
     fonts: Res<Assets<Font>>,
     windows: Res<Windows>,
     text_settings: Res<TextSettings>,
+    mut font_atlas_warning: ResMut<FontAtlasWarning>,
     mut scale_factor_changed: EventReader<WindowScaleFactorChanged>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
-        Changed<Text>,
-        &Text,
+        Ref<Text>,
         Option<&Text2dBounds>,
         &mut Text2dSize,
         Option<&mut TextLayoutInfo>,
@@ -176,10 +176,8 @@ pub fn update_text2d_layout(
     let factor_changed = scale_factor_changed.iter().last().is_some();
     let scale_factor = windows.scale_factor(WindowId::primary());
 
-    for (entity, text_changed, text, maybe_bounds, mut calculated_size, text_layout_info) in
-        &mut text_query
-    {
-        if factor_changed || text_changed || queue.remove(&entity) {
+    for (entity, text, maybe_bounds, mut calculated_size, text_layout_info) in &mut text_query {
+        if factor_changed || text.is_changed() || queue.remove(&entity) {
             let text_bounds = match maybe_bounds {
                 Some(bounds) => Vec2::new(
                     scale_value(bounds.size.x, scale_factor),
@@ -198,6 +196,7 @@ pub fn update_text2d_layout(
                 &mut texture_atlases,
                 &mut textures,
                 text_settings.as_ref(),
+                &mut font_atlas_warning,
                 YAxisOrientation::BottomToTop,
             ) {
                 Err(TextError::NoSuchFont) => {
@@ -205,8 +204,7 @@ pub fn update_text2d_layout(
                     // queue for further processing
                     queue.insert(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_))
-                | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
+                Err(e @ TextError::FailedToAddGlyph(_)) => {
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
