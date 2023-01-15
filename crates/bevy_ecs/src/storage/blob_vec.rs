@@ -162,8 +162,9 @@ impl BlobVec {
         let src = value.as_ptr();
 
         if let Some(drop) = self.drop {
-            // Temporarily set the length to zero, so that uninitialized bytes won't
-            // get observed in case a panic causes this function to exit early.
+            // Temporarily set the length to zero, so that if `drop` panics the caller
+            // will not be left with a `BlobVec` containing a dropped element within
+            // its initialized range.
             let old_len = self.len;
             self.len = 0;
 
@@ -179,7 +180,7 @@ impl BlobVec {
             let old_value = self.get_ptr_mut().byte_add(index * size).promote();
             dst = old_value.as_ptr();
 
-            // This closusure will run in case `drop()` panics, which is similar to
+            // This closure will run in case `drop()` panics, which is similar to
             // the `try ... catch` construct in languages like C++.
             // This ensures that `value` does not get forgotten in case of a panic.
             let on_unwind = OnDrop::new(|| drop(value));
