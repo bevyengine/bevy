@@ -1,6 +1,6 @@
 use crate::PBR_OVERRIDE_HANDLE;
 use bevy_asset::{AssetEvent, Assets, Handle};
-use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource};
+use bevy_ecs::prelude::{EventReader, Res, ResMut, Resource, DetectChanges};
 use bevy_render::render_resource::{Shader, ShaderImport};
 use bevy_utils::tracing::warn;
 use naga_oil::compose::ImportDefinition;
