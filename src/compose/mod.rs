@@ -138,7 +138,7 @@ use std::{
     ops::Range,
 };
 use thiserror::Error;
-use tracing::{debug, info, warn};
+use tracing::{debug, trace, warn};
 
 use crate::{
     derive::DerivedModule,
@@ -435,8 +435,8 @@ impl ComposerError {
         let source = self.source.source(composer);
         let source_offset = self.source.offset();
 
-        debug!("source:\n~{}~", source);
-        debug!("source offset: {}", source_offset);
+        trace!("source:\n~{}~", source);
+        trace!("source offset: {}", source_offset);
 
         let map_span = |rng: Range<usize>| -> Range<usize> {
             ((rng.start & ((1 << SPAN_SHIFT) - 1)).saturating_sub(source_offset))
@@ -455,7 +455,7 @@ impl ComposerError {
             | ComposerErrorInner::ShaderValidationError(v) => (
                 v.spans()
                     .map(|(span, desc)| {
-                        debug!(
+                        trace!(
                             "mapping span {:?} -> {:?}",
                             span.to_range().unwrap(),
                             map_span(span.to_range().unwrap_or(0..0))
@@ -776,7 +776,7 @@ impl Composer {
         imports: &[ImportDefinition],
         shader_defs: &HashMap<String, ShaderDefValue>,
     ) -> Result<IrBuildResult, ComposerError> {
-        info!("creating IR for {} with defs: {:?}", name, shader_defs);
+        debug!("creating IR for {} with defs: {:?}", name, shader_defs);
 
         let mut module_string = match language {
             ShaderLanguage::Wgsl => String::new(),
@@ -792,11 +792,11 @@ impl Composer {
             }
             added_imports.insert(import.import.clone());
             // // we must have ensured these exist with Composer::ensure_imports()
-            debug!("looking for {}", import.import);
+            trace!("looking for {}", import.import);
             let import_module_set = self.module_sets.get(&import.import).unwrap();
-            debug!("with defs {:?}", shader_defs);
+            trace!("with defs {:?}", shader_defs);
             let module = import_module_set.get_module(shader_defs).unwrap();
-            debug!("ok");
+            trace!("ok");
 
             // add header string
             module_string.push_str(module.headers.get(&language).unwrap().as_str());
@@ -826,7 +826,7 @@ impl Composer {
 
         module_string.push_str(&source);
 
-        debug!(
+        trace!(
             "parsing {}: {}, header len {}, total len {}",
             name,
             module_string,
@@ -880,6 +880,7 @@ impl Composer {
         let mut name = None;
         let mut offset = 0;
 
+        #[cfg(debug)]
         let len = shader_str.len();
 
         // this code broadly stolen from bevy_render::ShaderProcessor
@@ -1057,10 +1058,9 @@ impl Composer {
             return Err(ComposerErrorInner::NotEnoughEndIfs(offset));
         }
 
-        let revised_len = final_string.len();
-
+        #[cfg(debug)]
         if validate_len {
-            debug!("1~{}~\n2~{}~\n", shader_str, final_string);
+            let revised_len = final_string.len();
             assert_eq!(len, revised_len);
         }
 
@@ -1147,7 +1147,7 @@ impl Composer {
             .collect();
         imports.extend(module_definition.additional_imports.to_vec());
 
-        debug!(
+        trace!(
             "create composable module {}: source len {}",
             module_definition.name,
             source.len()
@@ -1247,8 +1247,8 @@ impl Composer {
             return Err(err);
         }
 
-        debug!("local overrides: {:?}", local_override_functions);
-        debug!(
+        trace!("local overrides: {:?}", local_override_functions);
+        trace!(
             "create composable module {}: source len {}",
             module_definition.name,
             source.len()
@@ -1431,9 +1431,11 @@ impl Composer {
             if let Some(name) = constant.name.as_mut() {
                 if name.contains(DECORATION_PRE) && !name.contains(&module_decoration) {
                     let rename = format!("{}{}", module_decoration, name);
-                    debug!(
+                    trace!(
                         "{}: header rename {} -> {}",
-                        module_definition.name, name, rename
+                        module_definition.name,
+                        name,
+                        rename
                     );
                     renamed_consts.insert(name.clone(), rename.clone());
                     *name = rename;
@@ -1443,9 +1445,11 @@ impl Composer {
         for (_, constant) in module_ir.constants.iter_mut() {
             if let Some(name) = constant.name.as_mut() {
                 if let Some(rename) = renamed_consts.get(name) {
-                    debug!(
+                    trace!(
                         "{}: module rename {} -> {}",
-                        module_definition.name, name, rename
+                        module_definition.name,
+                        name,
+                        rename
                     );
                     *name = rename.clone();
                 }
@@ -1561,9 +1565,10 @@ impl Composer {
                         // strip version decl and main() impl
                         let lines: Vec<_> = string.lines().collect();
                         let string = lines[1..lines.len() - 3].join("\n");
-                        debug!(
+                        trace!(
                             "glsl header for {}:\n\"\n{:?}\n\"",
-                            module_definition.name, string
+                            module_definition.name,
+                            string
                         );
                         string
                     },
@@ -1661,7 +1666,7 @@ impl Composer {
         already_added: &mut HashSet<String>,
     ) {
         if already_added.contains(&import.import) {
-            debug!("skipping {}, already added", import.import);
+            trace!("skipping {}, already added", import.import);
             return;
         }
 
@@ -1829,7 +1834,7 @@ impl Composer {
         }
         let module_name = module_name.unwrap();
 
-        info!(
+        debug!(
             "adding module definition for {} with defs: {:?}",
             module_name, shader_defs
         );
