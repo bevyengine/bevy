@@ -193,8 +193,7 @@ impl BlobVec {
             // Make the vector's contents observable again, since panics are no longer possible.
             self.len = old_len;
         } else {
-            // SAFETY:
-            // - The caller ensures that `index` fits in this vector.
+            // SAFETY: The caller ensures that `index` fits in this vector.
             dst = self.get_ptr_mut().as_ptr().add(index * size);
         }
 
