@@ -54,6 +54,10 @@ pub trait Graph<N, E> {
     fn get_edge_mut(&mut self, edge: EdgeIdx) -> GraphResult<&mut E>;
 
     fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E>;
+    /// # Safety
+    ///
+    /// This function should only be called when the edge exists.
+    unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E;
 
     fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>>;
     /// # Safety

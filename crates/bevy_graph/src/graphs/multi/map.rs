@@ -139,20 +139,22 @@ impl_graph! {
         }
 
         fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
-            if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
-                let adjas = self.adjacencies.get_mut(node).unwrap().get_mut(&other).unwrap();
-                if let Some(pos) = adjas.iter().position(|e| *e == edge) {
-                    adjas.swap_remove(pos);
+            if self.edges.contains_key(edge) {
+                unsafe {
+                    Ok(self.remove_edge_unchecked(edge))
                 }
-                let adjas = self.adjacencies.get_mut(other).unwrap().get_mut(&node).unwrap();
-                if let Some(pos) = adjas.iter().position(|e| *e == edge) {
-                    adjas.swap_remove(pos);
-                }
-
-                Ok(self.edges.remove(edge).unwrap().data)
             } else {
                 Err(GraphError::EdgeIdxDoesntExist(edge))
             }
+        }
+
+        unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E {
+            let (node, other) = self.edges.get_unchecked(edge).indices();
+            let adjas = self.adjacencies.get_unchecked_mut(node).get_mut(&other).unwrap();
+            adjas.swap_remove(adjas.iter().position(|e| *e == edge).unwrap()); // TODO: remove or swap_remove ?
+            let adjas = self.adjacencies.get_unchecked_mut(other).get_mut(&node).unwrap();
+            adjas.swap_remove(adjas.iter().position(|e| *e == edge).unwrap()); // TODO: remove or swap_remove ?
+            self.edges.remove(edge).unwrap().data
         }
     }
 
@@ -186,16 +188,20 @@ impl_graph! {
         }
 
         fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
-            if let Some((node, other)) = self.edges.get(edge).map(|e| e.indices()) {
-                let adjas = self.adjacencies.get_mut(node).unwrap().get_mut(&other).unwrap();
-                if let Some(pos) = adjas.iter().position(|e| *e == edge) {
-                    adjas.swap_remove(pos);
+            if self.edges.contains_key(edge) {
+                unsafe {
+                    Ok(self.remove_edge_unchecked(edge))
                 }
-
-                Ok(self.edges.remove(edge).unwrap().data)
             } else {
                 Err(GraphError::EdgeIdxDoesntExist(edge))
             }
+        }
+
+        unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E {
+            let (from, to) = self.edges.get_unchecked(edge).indices();
+            let adjas = self.adjacencies.get_unchecked_mut(from).get_mut(&to).unwrap();
+            adjas.swap_remove(adjas.iter().position(|e| *e == edge).unwrap()); // TODO: remove or swap_remove ?
+            self.edges.remove(edge).unwrap().data
         }
     }
 }
