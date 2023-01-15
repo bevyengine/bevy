@@ -113,12 +113,29 @@ impl_graph! {
             todo!()
         }
 
-        fn new_edge(&mut self, _from: NodeIdx, _to: NodeIdx, _edge: E) -> GraphResult<EdgeIdx> {
-            todo!()
+        fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
+            if self.has_node(node) {
+                if self.has_node(other) {
+                    unsafe {
+                        Ok(self.new_edge_unchecked(node, other, edge))
+                    }
+                } else {
+                    Err(GraphError::NodeIdxDoesntExist(other))
+                }
+            } else {
+                Err(GraphError::NodeIdxDoesntExist(node))
+            }
         }
 
-        unsafe fn new_edge_unchecked(&mut self, _from: NodeIdx, _to: NodeIdx, _edge: E) -> EdgeIdx {
-            todo!()
+        unsafe fn new_edge_unchecked(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> EdgeIdx {
+            let idx = self.edges.insert(Edge {
+                src: node,
+                dst: other,
+                data: edge,
+            });
+            self.adjacencies.get_unchecked_mut(node).entry(other).or_default().push(idx);
+            self.adjacencies.get_unchecked_mut(other).entry(node).or_default().push(idx);
+            idx
         }
 
         fn remove_edge(&mut self, _edge: EdgeIdx) -> GraphResult<E> {
@@ -131,12 +148,28 @@ impl_graph! {
             todo!()
         }
 
-        fn new_edge(&mut self, _from: NodeIdx, _to: NodeIdx, _edge: E) -> GraphResult<EdgeIdx> {
-            todo!()
+        fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
+            if self.has_node(from) {
+                if self.has_node(to) {
+                    unsafe {
+                        Ok(self.new_edge_unchecked(from, to, edge))
+                    }
+                } else {
+                    Err(GraphError::NodeIdxDoesntExist(to))
+                }
+            } else {
+                Err(GraphError::NodeIdxDoesntExist(from))
+            }
         }
 
-        unsafe fn new_edge_unchecked(&mut self, _from: NodeIdx, _to: NodeIdx, _edge: E) -> EdgeIdx {
-            todo!()
+        unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+            let idx = self.edges.insert(Edge {
+                src: from,
+                dst: to,
+                data: edge,
+            });
+            self.adjacencies.get_unchecked_mut(from).entry(to).or_default().push(idx);
+            idx
         }
 
         fn remove_edge(&mut self, _edge: EdgeIdx) -> GraphResult<E> {
