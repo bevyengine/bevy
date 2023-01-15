@@ -1,7 +1,7 @@
 use bevy_graph::graphs::{
     keys::{EdgeIdx, NodeIdx},
     simple::SimpleMapGraph,
-    Graph,
+    Graph, SimpleGraph,
 };
 use bevy_utils::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
