@@ -223,8 +223,10 @@ impl BlobVec {
         }
         self.len = new_len;
         // Cannot use get_unchecked here as this is technically out of bounds after changing len.
-        // SAFETY: `size` is a multiple of the erased type's alignment,
-        // so adding a multiple of `size` will preserve alignment.
+        // SAFETY:
+        // - `new_len` is less than the old len, so it must fit in this vector's allocation.
+        // - `size` is a multiple of the erased type's alignment,
+        //   so adding a multiple of `size` will preserve alignment.
         self.get_ptr_mut().byte_add(new_len * size).promote()
     }
 
@@ -267,8 +269,11 @@ impl BlobVec {
     pub unsafe fn get_unchecked(&self, index: usize) -> Ptr<'_> {
         debug_assert!(index < self.len());
         let size = self.item_layout.size();
-        // SAFETY: `size` is a multiple of the erased type's alignment,
-        // so adding a multiple of `size` will preserve alignment.
+        // SAFETY:
+        // - The caller ensures that `index` fits in this vector,
+        //   so this operation will not overflow the original allocation.
+        // - `size` is a multiple of the erased type's alignment,
+        //  so adding a multiple of `size` will preserve alignment.
         self.get_ptr().byte_add(index * size)
     }
 
@@ -278,8 +283,11 @@ impl BlobVec {
     pub unsafe fn get_unchecked_mut(&mut self, index: usize) -> PtrMut<'_> {
         debug_assert!(index < self.len());
         let size = self.item_layout.size();
-        // SAFETY: `size` is a multiple of the erased type's alignment,
-        // so adding a multiple of `size` will preserve alignment.
+        // SAFETY:
+        // - The caller ensures that `index` fits in this vector,
+        //   so this operation will not overflow the original allocation.
+        // - `size` is a multiple of the erased type's alignment,
+        //  so adding a multiple of `size` will preserve alignment.
         self.get_ptr_mut().byte_add(index * size)
     }
 
