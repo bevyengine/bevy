@@ -370,8 +370,12 @@ unsafe impl<T: ResultfulSystemParam> SystemParam for Result<T, T::Error> {
 /// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParam::get_param`]
 pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
+// SAFETY: the system param is read-only by the trait bound
+// and so maybe getting it will never cause write-access to be granted.
 unsafe impl<T: ReadOnlySystemParam + OptionalSystemParam> ReadOnlySystemParam for Option<T> {}
 
+// SAFETY: the system param is read-only by the trait bound
+// and so maybe getting it will never cause write-access to be granted.
 unsafe impl<T: ReadOnlySystemParam + ResultfulSystemParam> ReadOnlySystemParam
     for Result<T, T::Error>
 {
@@ -380,6 +384,7 @@ unsafe impl<T: ReadOnlySystemParam + ResultfulSystemParam> ReadOnlySystemParam
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
+/// An error returned when a system parameter of type `T` could not be fetched as part of a [`ResultfulSystemParam`].
 pub struct SystemParamError<T> {
     _marker: PhantomData<T>,
 }
