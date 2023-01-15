@@ -252,7 +252,7 @@ where
 }
 
 /// Render pipeline data for a given [`Material`].
-#[derive(Resource, Clone)]
+#[derive(Resource)]
 pub struct MaterialPipeline<M: Material> {
     pub mesh_pipeline: MeshPipeline,
     pub material_layout: BindGroupLayout,
