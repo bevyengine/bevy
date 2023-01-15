@@ -241,3 +241,10 @@ impl_graph! {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::multi_graph_tests;
+
+    multi_graph_tests!(super::MultiMapGraph);
+}
