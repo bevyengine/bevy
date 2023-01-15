@@ -327,6 +327,8 @@ impl BlobVec {
                 // * `size` is a multiple of the erased type's alignment,
                 //   so adding a multiple of `size` will preserve alignment.
                 // * The item is left unreachable so it can be safely promoted to an `OwningPtr`.
+                // NOTE: `self.get_unchecked_mut(i)` cannot be used here, since the `debug_assert`
+                // would get panic due to `self.len` being set to 0.
                 let item = unsafe { self.get_ptr_mut().byte_add(i * size).promote() };
                 // SAFETY: `item` was obtained from this `BlobVec`, so its underlying type must match `drop`.
                 unsafe { drop(item) };
