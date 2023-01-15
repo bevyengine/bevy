@@ -937,7 +937,6 @@ impl ScheduleGraph {
     }
 
     fn report_hierarchy_conflicts(&self, transitive_edges: &[(NodeId, NodeId)]) {
-        // TODO: warn but fix with transitive reduction
         let mut message = String::from("hierarchy contains redundant edge(s)");
         for (parent, child) in transitive_edges {
             writeln!(
