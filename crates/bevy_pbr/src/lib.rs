@@ -136,11 +136,9 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
-            .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
-            .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
             .add_system_to_stage(
                 CoreStage::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so
@@ -148,6 +146,12 @@ impl Plugin for PbrPlugin {
                 add_clusters
                     .at_start()
                     .label(SimulationLightSystems::AddClusters),
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                add_ambient_lights
+                    .at_start()
+                    .label(SimulationLightSystems::AddAmbientLights),
             )
             .add_system_to_stage(
                 CoreStage::PostUpdate,
@@ -216,6 +220,10 @@ impl Plugin for PbrPlugin {
             .add_system_to_stage(
                 RenderStage::Extract,
                 render::extract_clusters.label(RenderLightSystems::ExtractClusters),
+            )
+            .add_system_to_stage(
+                RenderStage::Extract,
+                render::extract_ambient_light.label(RenderLightSystems::ExtractAmbientLights),
             )
             .add_system_to_stage(
                 RenderStage::Extract,

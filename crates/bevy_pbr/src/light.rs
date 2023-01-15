@@ -263,8 +263,8 @@ impl Default for DirectionalLightShadowMap {
 }
 
 /// An ambient light, which lights the entire scene equally.
-#[derive(Resource, Clone, Debug, ExtractResource, Reflect)]
-#[reflect(Resource)]
+#[derive(Component, Debug, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
 pub struct AmbientLight {
     pub color: Color,
     /// A direct scale factor multiplied with `color` before being passed to the shader.
@@ -280,6 +280,17 @@ impl Default for AmbientLight {
     }
 }
 
+pub fn add_ambient_lights(
+    mut commands: Commands,
+    cameras: Query<Entity, With<Camera>>,
+) {
+    for entity in &cameras {
+        commands
+            .entity(entity)
+            .insert(AmbientLight::default());
+    }
+}
+
 /// Add this component to make a [`Mesh`](bevy_render::mesh::Mesh) not cast shadows.
 #[derive(Component, Reflect, Default)]
 #[reflect(Component, Default)]
@@ -292,6 +303,7 @@ pub struct NotShadowReceiver;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum SimulationLightSystems {
     AddClusters,
+    AddAmbientLights,
     AssignLightsToClusters,
     UpdateLightFrusta,
     CheckLightVisibility,

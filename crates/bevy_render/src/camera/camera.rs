@@ -16,7 +16,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res},
 };
-use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
+use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
@@ -478,6 +478,11 @@ pub struct ExtractedCamera {
     pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
     pub order: isize,
+}
+
+#[derive(Component, Debug)]
+pub struct ExtractedCameraLighting {
+    pub ambient_color: Vec4,
 }
 
 pub fn extract_cameras(
