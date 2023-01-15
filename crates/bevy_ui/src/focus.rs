@@ -54,9 +54,10 @@ impl Default for Interaction {
 }
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the upper-left corner and (1., 1.) being the bottom-right
-///
-/// I can be used alongside interaction to get the position of the press.
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
+/// A None value means that the cursor position is unknown.
+///
+/// It can be used alongside interaction to get the position of the press.
 #[derive(
     Component,
     Deref,
