@@ -115,7 +115,7 @@ We use [Milestones](https://github.com/bevyengine/bevy/milestones) to track issu
 * Need to be merged/fixed before the next release. This is generally for extremely bad bugs i.e. UB or important functionality being broken.
 * Would have higher user impact and are almost ready to be merged/fixed.
 
-There are also two priority labels: [`P-Critical`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-Critical) and [`P-High`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-High) that can be used to find issues and PRs that need to be resolved urgently. 
+There are also two priority labels: [`P-Critical`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-Critical) and [`P-High`](https://github.com/bevyengine/bevy/issues?q=is%3Aopen+is%3Aissue+label%3AP-High) that can be used to find issues and PRs that need to be resolved urgently.
 
 ## Making changes to Bevy
 
