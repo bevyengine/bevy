@@ -77,19 +77,20 @@ Check out our dedicated [Bevy Organization document](/docs/the_bevy_organization
 ### Classifying PRs
 
 Our merge strategy relies on the classification of PRs on two axes:
-- How controversial are the design decisions
-- How complex is the implementation
-
+* How controversial are the design decisions
+* How complex is the implementation
 
 PRs with non trivial design decisions are given the [`S-Controversial`] label. This indicates that
-the PR should either go through an RFC (although in some cases small enough decisions can get by without).  
-PRs that are non trivial to review are given the [`D-Complex`] label. This indicates that the PR 
+the PR should either go through an RFC (although in some cases small enough decisions can get by without).
+
+PRs that are non trivial to review are given the [`D-Complex`] label. This indicates that the PR
 should be reviewed more thoroughly and by people with experience in the area that the PR touches.
 
 When making PRs, try to split out more controversial changes from less controversial ones, in order to make your work easier to review and merge.
 It is also a good idea to try and split out simple changes from more complex changes if it is not helpful for then to be reviewed together.
 
 Some things that are reason to apply the [`S-Controversial`] label to a PR:
+
 1. Changes to a project-wide workflow or style.
 2. New architecture for a large feature.
 3. Serious tradeoffs were made.
@@ -100,11 +101,13 @@ Some things that are reason to apply the [`S-Controversial`] label to a PR:
 8. Adding root-level files (due to the high level of visibility)
 
 Some things that are reason to apply the [`D-Complex`] label to a PR:
+
 1. Introduction or modification of soundness relevent code (for example `unsafe` code)
 2. High levels of technical complexity.
 3. Large-scale code reorganization
 
 Examples of PRs that are not [`S-Controversial`] or [`D-Complex`]:
+
 * Fixing dead links.
 * Removing dead code or unused dependencies.
 * Typo and grammar fixes.
@@ -112,17 +115,21 @@ Examples of PRs that are not [`S-Controversial`] or [`D-Complex`]:
 * [Add `Res::clone`](https://github.com/bevyengine/bevy/pull/4109)
 
 Examples of PRs that are [`S-Controversial`] but not [`D-Complex`]:
+
 * [Implement and require `#[derive(Component)]` on all component structs](https://github.com/bevyengine/bevy/pull/2254)
 * [Use default serde impls for Entity](https://github.com/bevyengine/bevy/pull/6194)
 
 Examples of PRs that are not [`S-Controversial`] but are [`D-Complex`]:
+
 * [Ensure `Ptr`/`PtrMut`/`OwningPtr` are aligned in debug builds](https://github.com/bevyengine/bevy/pull/7117)
 * [Replace `BlobVec`'s `swap_scratch` with a `swap_nonoverlapping`](https://github.com/bevyengine/bevy/pull/4853)
 
 Examples of PRs that are both [`S-Controversial`] and [`D-Complex`]:
+
 * [bevy_reflect: Binary formats](https://github.com/bevyengine/bevy/pull/6140)
 
 Some useful pull request queries:
+
 * [PRs which need reviews and are not `D-Complex`](https://github.com/bevyengine/bevy/pulls?q=is%3Apr+-label%3AD-Complex+-label%3AS-Ready-For-Final-Review+-label%3AS-Blocked++)
 * [`D-Complex` PRs which need reviews](https://github.com/bevyengine/bevy/pulls?q=is%3Apr+label%3AD-Complex+-label%3AS-Ready-For-Final-Review+-label%3AS-Blocked)
 
