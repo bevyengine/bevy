@@ -41,6 +41,9 @@ pub enum ExecutorKind {
 
 /// Holds systems and conditions of a [`Schedule`](super::Schedule) sorted in topological order
 /// (along with dependency information for multi-threaded execution).
+///
+/// Since the arrays are sorted in the same order, elements are referenced by their index.
+/// `FixedBitSet` is used as a smaller, more efficient substitute of `HashSet<usize>`.
 #[derive(Default)]
 pub(super) struct SystemSchedule {
     pub(super) systems: Vec<BoxedSystem>,
