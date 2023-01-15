@@ -67,7 +67,7 @@ Our current Subject Matter Experts:
 
 1. Have actively engaged with Bevy development.
 2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
-3. Have asked to join the Bevy Org. Reach out to @cart on [Discord] or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
+3. Have asked to join the Bevy Org. Reach out to @cart on [Discord](https://discord.gg/bevy) or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
 
 All Bevy Org members are also Triage Team members. The Triage Team can label and close issues and PRs but do not have merge rights or any special authority within the community.
 Org members also have the ability to use `bors try`, causing our build system to evaluate the PR again and run additional (more computationally expensive) CI steps to verify that the PR is ready to merge.
