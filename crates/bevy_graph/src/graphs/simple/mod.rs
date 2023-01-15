@@ -151,8 +151,8 @@ mod test {
         assert_eq!(graph.get_edge(jo).unwrap(), &5);
         assert_eq!(graph.get_edge(mo).unwrap(), &1);
 
-        assert!(graph.edge_between(jennifer, jake).is_ok());
-        assert!(graph.edge_between(jake, jennifer).is_err());
+        assert!(graph.edge_between(jennifer, jake).unwrap().is_some());
+        assert!(graph.edge_between(jake, jennifer).unwrap().is_none());
 
         *graph.get_edge_mut(mo).unwrap() = 10;
 
@@ -185,6 +185,7 @@ mod test {
             graph
                 .edge_between(jake, michael)
                 .unwrap()
+                .unwrap()
                 .get(&graph)
                 .unwrap(),
             &20
@@ -192,6 +193,7 @@ mod test {
         assert_eq!(
             graph
                 .edge_between(michael, jake)
+                .unwrap()
                 .unwrap()
                 .get(&graph)
                 .unwrap(),
@@ -203,8 +205,8 @@ mod test {
         assert!(graph.get_node(jake).is_ok());
         assert!(graph.get_node(michael).is_err());
         assert!(graph.get_edge(edge).is_err());
-        assert!(graph.edge_between(jake, michael).is_err());
-        assert!(graph.edge_between(michael, jake).is_err());
+        assert!(graph.edge_between(jake, michael).unwrap().is_none());
+        assert!(graph.edge_between(michael, jake).unwrap().is_none());
     }
 
     pub fn remove_node_directed(mut graph: impl SimpleGraph<Person, i32>) {
@@ -220,19 +222,20 @@ mod test {
             graph
                 .edge_between(jake, michael)
                 .unwrap()
+                .unwrap()
                 .get(&graph)
                 .unwrap(),
             &20
         );
-        assert!(graph.edge_between(michael, jake).is_err());
+        assert!(graph.edge_between(michael, jake).unwrap().is_none());
 
         assert!(graph.remove_node(michael).is_ok());
 
         assert!(graph.get_node(jake).is_ok());
         assert!(graph.get_node(michael).is_err());
         assert!(graph.get_edge(edge).is_err());
-        assert!(graph.edge_between(jake, michael).is_err());
-        assert!(graph.edge_between(michael, jake).is_err());
+        assert!(graph.edge_between(jake, michael).unwrap().is_none());
+        assert!(graph.edge_between(michael, jake).unwrap().is_none());
     }
 
     pub fn edge_between_same_node(mut graph: impl SimpleGraph<Person, i32>) {

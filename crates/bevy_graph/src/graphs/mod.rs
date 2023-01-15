@@ -80,7 +80,7 @@ pub trait Graph<N, E> {
 }
 
 pub trait SimpleGraph<N, E>: Graph<N, E> {
-    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx>;
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Option<EdgeIdx>>;
     /// # Safety
     ///
     /// This function should only be called when the nodes and the edge between exists.

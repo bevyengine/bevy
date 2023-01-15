@@ -105,7 +105,8 @@ impl_graph! {
         #[inline]
         fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
             match self.edge_between(from, to) {
-                Ok(idx) => Ok(vec![idx]),
+                Ok(Some(idx)) => Ok(vec![idx]),
+                Ok(None) => Ok(vec![]),
                 Err(e) => Err(e),
             }
         }
@@ -236,14 +237,14 @@ impl_graph! {
     }
 
     impl SIMPLE {
-        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<EdgeIdx> {
+        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Option<EdgeIdx>> {
             if self.adjacencies.contains_key(from) {
                 unsafe {
                     let idx = self.edge_between_unchecked(from, to);
                     if idx.is_null() {
-                        Err(GraphError::EdgeBetweenDoesntExist(from, to))
+                        Ok(None)
                     } else {
-                        Ok(idx)
+                        Ok(Some(idx))
                     }
                 }
             } else {
