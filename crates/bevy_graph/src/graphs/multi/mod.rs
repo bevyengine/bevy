@@ -1,6 +1,9 @@
 mod map;
 pub use map::*;
 
+mod list;
+pub use list::*;
+
 #[cfg(test)]
 mod test {
     use hashbrown::HashSet;
