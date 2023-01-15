@@ -103,13 +103,23 @@ impl_graph! {
         }
 
         #[inline]
-        fn edges_between(&self, _from: NodeIdx, _to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
-            todo!()
+        fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
+            if let Some(from_edges) = self.adjacencies.get(from) {
+                if from_edges.contains_key(&to) {
+                    unsafe {
+                        Ok(self.edges_between_unchecked(from, to))
+                    }
+                } else {
+                    Ok(vec![])
+                }
+            } else {
+                Err(GraphError::NodeIdxDoesntExist(from))
+            }
         }
 
         #[inline]
-        unsafe fn edges_between_unchecked(&self, _from: NodeIdx, _to: NodeIdx) -> Vec<EdgeIdx> {
-            todo!()
+        unsafe fn edges_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> Vec<EdgeIdx> {
+            self.adjacencies.get_unchecked(from).get(&to).cloned().unwrap()
         }
 
         #[inline]
