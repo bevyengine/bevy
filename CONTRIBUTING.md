@@ -95,10 +95,11 @@ PRs are controversial if there is serious design discussion required, or a large
 5. New ways for users to make mistakes (footguns).
 6. Introductions of `unsafe` code.
 7. Large-scale code reorganization.
-8. High levels of technical complexity.
-9. Adding a dependency.
-10. Touching licensing information (due to the level of precision required).
-11. Adding root-level files (due to the high level of visibility).
+8. Adding a dependency.
+9. Touching licensing information (due to the level of precision required).
+10. Adding root-level files (due to the high level of visibility).
+
+PRs that are technically complex are not inherently controversial: instead they receive the [`D-Complex`](https://github.com/bevyengine/bevy/pulls?q=is%3Aopen+is%3Apr+label%3AD-Complex) label to ensure they receive appropriate expert review.
 
 Finally, changes are "relatively uncontroversial" if they are neither trivial or controversial.
 Most PRs should fall into this category.
