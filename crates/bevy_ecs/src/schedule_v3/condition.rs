@@ -13,16 +13,14 @@ pub trait Condition<Params>: sealed::Condition<Params> {}
 impl<Params, F> Condition<Params> for F where F: sealed::Condition<Params> {}
 
 mod sealed {
-    use crate::system::{
-        IntoSystem, IsFunctionSystem, ReadOnlySystemParam, SystemParam, SystemParamFunction,
-    };
+    use crate::system::{IntoSystem, IsFunctionSystem, ReadOnlySystemParam, SystemParamFunction};
 
     pub trait Condition<Params>: IntoSystem<(), bool, Params> {}
 
     impl<Params, Marker, F> Condition<(IsFunctionSystem, Params, Marker)> for F
     where
         F: SystemParamFunction<(), bool, Params, Marker> + Send + Sync + 'static,
-        Params: SystemParam + ReadOnlySystemParam + 'static,
+        Params: ReadOnlySystemParam + 'static,
         Marker: 'static,
     {
     }
