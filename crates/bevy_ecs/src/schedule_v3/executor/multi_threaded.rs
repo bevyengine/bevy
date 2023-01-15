@@ -65,14 +65,18 @@ pub struct MultiThreadedExecutor {
     receiver: Receiver<usize>,
     /// Metadata for scheduling and running system tasks.
     system_task_metadata: Vec<SystemTaskMetadata>,
-    /// The number of dependencies each system has that have not completed.
-    dependencies_remaining: Vec<usize>,
     /// Union of the accesses of all currently running systems.
     active_access: Access<ArchetypeComponentId>,
     /// Returns `true` if a system with non-`Send` access is running.
     local_thread_running: bool,
     /// Returns `true` if an exclusive system is running.
     exclusive_running: bool,
+    /// The number of systems that are running.
+    num_running_systems: usize,
+    /// The number of systems that have completed.
+    num_completed_systems: usize,
+    /// The number of dependencies each system has that have not completed.
+    num_dependencies_remaining: Vec<usize>,
     /// System sets whose conditions have been evaluated.
     evaluated_sets: FixedBitSet,
     /// Systems that have no remaining dependencies and are waiting to run.
@@ -120,16 +124,19 @@ impl SystemExecutor for MultiThreadedExecutor {
             });
         }
 
-        self.dependencies_remaining = Vec::with_capacity(sys_count);
+        self.num_dependencies_remaining = Vec::with_capacity(sys_count);
     }
 
     fn run(&mut self, schedule: &mut SystemSchedule, world: &mut World) {
         // reset counts
-        self.dependencies_remaining.clear();
-        self.dependencies_remaining
+        let num_systems = schedule.systems.len();
+        self.num_running_systems = 0;
+        self.num_completed_systems = 0;
+        self.num_dependencies_remaining.clear();
+        self.num_dependencies_remaining
             .extend_from_slice(&schedule.system_dependencies);
 
-        for (system_index, dependencies) in self.dependencies_remaining.iter_mut().enumerate() {
+        for (system_index, dependencies) in self.num_dependencies_remaining.iter_mut().enumerate() {
             if *dependencies == 0 {
                 self.ready_systems.insert(system_index);
             }
@@ -148,7 +155,7 @@ impl SystemExecutor for MultiThreadedExecutor {
             // the executor itself is a `Send` future so that it can run
             // alongside systems that claim the local thread
             let executor = async {
-                while self.completed_systems.count_ones(..) != self.completed_systems.len() {
+                while self.num_completed_systems < num_systems {
                     if !self.exclusive_running {
                         ready_systems.clear();
                         ready_systems.union_with(&self.ready_systems);
@@ -161,7 +168,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                         );
                     }
 
-                    if !self.running_systems.is_clear() {
+                    if self.num_running_systems > 0 {
                         // wait for systems to complete
                         let index = self
                             .receiver
@@ -208,7 +215,9 @@ impl MultiThreadedExecutor {
             sender,
             receiver,
             system_task_metadata: Vec::new(),
-            dependencies_remaining: Vec::new(),
+            num_running_systems: 0,
+            num_completed_systems: 0,
+            num_dependencies_remaining: Vec::new(),
             active_access: default(),
             local_thread_running: false,
             exclusive_running: false,
@@ -250,6 +259,7 @@ impl MultiThreadedExecutor {
 
             // system is starting
             self.running_systems.insert(system_index);
+            self.num_running_systems += 1;
 
             if self.system_task_metadata[system_index].is_exclusive {
                 // SAFETY: `can_run` confirmed no other systems are running
@@ -278,7 +288,7 @@ impl MultiThreadedExecutor {
         // TODO: an earlier out if archetypes did not change
         let system_meta = &mut self.system_task_metadata[system_index];
 
-        if system_meta.is_exclusive && !self.running_systems.is_clear() {
+        if system_meta.is_exclusive && self.num_running_systems > 0 {
             return false;
         }
 
@@ -480,6 +490,9 @@ impl MultiThreadedExecutor {
             self.exclusive_running = false;
         }
 
+        debug_assert!(self.num_running_systems >= 1);
+        self.num_running_systems -= 1;
+        self.num_completed_systems += 1;
         self.running_systems.set(system_index, false);
         self.completed_systems.insert(system_index);
         self.unapplied_systems.insert(system_index);
@@ -487,6 +500,7 @@ impl MultiThreadedExecutor {
     }
 
     fn skip_system_and_signal_dependents(&mut self, system_index: usize) {
+        self.num_completed_systems += 1;
         self.completed_systems.insert(system_index);
         self.signal_dependents(system_index);
     }
@@ -495,10 +509,10 @@ impl MultiThreadedExecutor {
         #[cfg(feature = "trace")]
         let _span = info_span!("signal_dependents").entered();
         for &dep_idx in &self.system_task_metadata[system_index].dependents {
-            let dependencies = &mut self.dependencies_remaining[dep_idx];
-            debug_assert!(*dependencies >= 1);
-            *dependencies -= 1;
-            if *dependencies == 0 && !self.completed_systems.contains(dep_idx) {
+            let remaining = &mut self.num_dependencies_remaining[dep_idx];
+            debug_assert!(*remaining >= 1);
+            *remaining -= 1;
+            if *remaining == 0 && !self.completed_systems.contains(dep_idx) {
                 self.ready_systems.insert(dep_idx);
             }
         }
