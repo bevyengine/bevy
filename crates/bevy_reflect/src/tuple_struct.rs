@@ -305,6 +305,18 @@ impl PartialReflect for DynamicTupleStruct {
         Err(self)
     }
 
+    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+
+    fn as_partial(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
     #[inline]
     fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone_dynamic())

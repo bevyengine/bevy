@@ -193,6 +193,18 @@ impl PartialReflect for DynamicArray {
     fn into_full(self: Box<Self>) -> Result<Box<dyn crate::Reflect>, Box<dyn PartialReflect>> {
         Err(self)
     }
+    
+    fn as_partial(&self) -> &dyn PartialReflect {
+        self
+    }
+    
+    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+    
+    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
 
     fn apply(&mut self, value: &dyn PartialReflect) {
         array_apply(self, value);

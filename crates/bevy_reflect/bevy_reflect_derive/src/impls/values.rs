@@ -71,6 +71,18 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
             fn into_full(self: Box<Self>) -> #FQResult<Box<dyn #bevy_reflect_path::Reflect>, Box<dyn #bevy_reflect_path::PartialReflect>> {
                 Ok(self)
             }
+    
+            fn as_partial(&self) -> &dyn #bevy_reflect_path::PartialReflect {
+                self
+            }
+            
+            fn as_partial_mut(&mut self) -> &mut dyn #bevy_reflect_path::PartialReflect {
+                self
+            }
+            
+            fn into_partial(self: #FQBox<Self>) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {
+                self
+            }
 
             #[inline]
             fn clone_value(&self) -> #FQBox<dyn #bevy_reflect_path::PartialReflect> {

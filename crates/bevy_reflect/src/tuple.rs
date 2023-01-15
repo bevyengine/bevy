@@ -313,6 +313,18 @@ impl PartialReflect for DynamicTuple {
         Err(self)
     }
 
+    fn as_partial(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+
     #[inline]
     fn clone_value(&self) -> Box<dyn PartialReflect> {
         Box::new(self.clone_dynamic())
@@ -502,6 +514,18 @@ macro_rules! impl_reflect_tuple {
                 Ok(self)
             }
 
+            fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+                self
+            }
+
+            fn as_partial(&self) -> &dyn PartialReflect {
+                self
+            }
+
+            fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+                self
+            }
+
             fn apply(&mut self, value: &dyn PartialReflect) {
                 crate::tuple_apply(self, value);
             }
@@ -549,18 +573,6 @@ macro_rules! impl_reflect_tuple {
             }
 
             fn as_reflect_mut(&mut self) -> &mut dyn Reflect {
-                self
-            }
-
-            fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
-                self
-            }
-
-            fn as_partial_reflect(&self) -> &dyn PartialReflect {
-                self
-            }
-
-            fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
                 self
             }
 

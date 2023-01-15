@@ -105,6 +105,18 @@ where
         Ok(self)
     }
 
+    fn as_partial(&self) -> &dyn PartialReflect {
+        self
+    }
+
+    fn as_partial_mut(&mut self) -> &mut dyn PartialReflect {
+        self
+    }
+
+    fn into_partial(self: Box<Self>) -> Box<dyn PartialReflect> {
+        self
+    }
+
     fn apply(&mut self, value: &dyn PartialReflect) {
         crate::list_apply(self, value);
     }
@@ -155,18 +167,6 @@ where
     }
 
     fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
-        self
-    }
-
-    fn as_partial_reflect(&self) -> &dyn PartialReflect {
-        self
-    }
-
-    fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
-        self
-    }
-
-    fn into_partial_reflect(self: Box<Self>) -> Box<dyn PartialReflect> {
         self
     }
 
