@@ -174,6 +174,8 @@ impl BlobVec {
 
             // Transfer ownership of the old value out of the vector, so it can be dropped.
             // SAFETY:
+            // - `dst` was obtained from a `PtrMut` in this vector, which ensures it is non-null,
+            //   well-aligned for the underlying type, and has proper provenance.
             // - The storage location will get overwritten with `value` later, which ensures
             //   that the element will not get observed or double dropped later.
             // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
