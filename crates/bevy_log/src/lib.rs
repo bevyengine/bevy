@@ -62,6 +62,8 @@ use tracing_subscriber::{prelude::*, registry::Registry, EnvFilter};
 ///
 /// Log level can also be changed using the `RUST_LOG` environment variable.
 /// For example, using `RUST_LOG=wgpu=error,bevy_render=info,bevy_ecs=trace cargo run ..`
+/// Note that the default Bevy Cargo feature `release_max_level_debug` will statically
+/// disable trace level logging to reduce overhead in release mode.
 ///
 /// It has the same syntax as the field [`LogPlugin::filter`], see [`EnvFilter`].
 /// If you define the `RUST_LOG` environment variable, the [`LogPlugin`] settings

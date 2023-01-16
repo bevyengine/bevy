@@ -30,21 +30,22 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
-  "bevy_gilrs",
-  "bevy_scene",
-  "bevy_winit",
   "bevy_core_pipeline",
-  "bevy_pbr",
+  "bevy_gilrs",
   "bevy_gltf",
+  "bevy_pbr",
   "bevy_render",
+  "bevy_scene",
   "bevy_sprite",
   "bevy_text",
   "bevy_ui",
-  "png",
+  "bevy_winit",
+  "filesystem_watcher",
   "hdr",
+  "png",
+  "release_max_level_debug",
   "vorbis",
   "x11",
-  "filesystem_watcher",
 ]
 
 # Force dynamic linking, which improves iterative compile times
@@ -118,6 +119,11 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 
 # Enable animation support, and glTF animation loading
 animation = ["bevy_internal/animation"]
+
+# Statically disables trace level at compile time.
+# The overhead of checking of even checking that trace level is enabled at runtime
+# can be significant in tight inner loops.
+release_max_level_debug = ["bevy_internal/release_max_level_debug"]
 
 [dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
