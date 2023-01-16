@@ -148,7 +148,7 @@ fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
 
         render_app.extract(world);
 
-        let sender = world.get_resource::<MainToRenderAppSender>().unwrap();
+        let sender = world.resource::<MainToRenderAppSender>();
         sender.0.send_blocking(render_app).unwrap();
     });
 }
