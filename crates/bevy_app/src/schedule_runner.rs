@@ -62,16 +62,12 @@ impl ScheduleRunnerSettings {
 /// Configures an [`App`] to run its [`Schedule`](bevy_ecs::schedule::Schedule) according to a given
 /// [`RunMode`].
 ///
-/// [`ScheduleRunnerPlugin`] is the only plugin that is included in the group of *minimal* *Bevy* plugins
-/// ([`MinimalPlugins`](bevy_internal::MinimalPlugins)) but excluded from [`DefaultPlugins`](bevy_internal::DefaultPlugins).
+/// [`ScheduleRunnerPlugin`] is included in the [`MinimalPlugins`](bevy_internal::MinimalPlugins) plugin group.
 ///
-/// Whereas windowed applications are usually driven by some kind of *event loop* or *message loop* –
-/// *Bevy's* being no exception, employing that provided by `winit` (see [`WinitPlugin`](bevy_winit::WinitPlugin))
-/// by default – *headless* programs and other, minimal cases require a schedule runner such as this.
-/// [`ScheduleRunnerPlugin`] is not required by apps that use the [`DefaultPlugins`](bevy_internal::DefaultPlugins)
-/// group because they typically include a *window* and presentation components.
-///
-/// See also: the [*Bevy* *headless* example](https://github.com/bevyengine/bevy/blob/main/examples/app/headless.rs)
+/// [`ScheduleRunnerPlugin`] is *not* included in the [`DefaultPlugins`](bevy_internal::DefaultPlugins) plugin
+/// group which assumes that the [`Schedule`](bevy_ecs::schedule::Schedule) will be executed by other means:
+/// typically, the `winit` event loop (see [`WinitPlugin`](bevy_winit::WinitPlugin)) executes the
+/// [`Schedule`](bevy_ecs::schedule::Schedule) rendering [`ScheduleRunnerPlugin`] unnecessary.
 #[derive(Default)]
 pub struct ScheduleRunnerPlugin;
 
