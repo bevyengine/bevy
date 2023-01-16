@@ -1,12 +1,19 @@
+/// All graph types implementing a `MultiGraph`
 pub mod multi;
+/// All graph types implementing a `SimpleGraph`
 pub mod simple;
 
+/// An edge between nodes that store data of type `E`.
 pub mod edge;
+/// An util macro for implementing `Graph` and neighbour traits
 pub mod impl_graph;
+/// The `NodeIdx` and `EdgeIdx` structs
 pub mod keys;
 
-use crate::algos::{bfs::BreadthFirstSearch, dfs::DepthFirstSearch};
-use crate::error::GraphResult;
+use crate::{
+    algos::{bfs::BreadthFirstSearch, dfs::DepthFirstSearch},
+    error::GraphError,
+};
 
 use self::keys::{EdgeIdx, NodeIdx};
 
@@ -20,6 +27,7 @@ pub trait Graph<N, E> {
     where
         Self: Sized;
 
+    /// Returns the count of nodes in this graph
     fn count(&self) -> usize;
 
     ////////////////////////////
@@ -30,7 +38,7 @@ pub trait Graph<N, E> {
     fn new_node(&mut self, node: N) -> NodeIdx;
 
     /// Returns a reference to the value of a given node
-    fn get_node(&self, idx: NodeIdx) -> GraphResult<&N>;
+    fn get_node(&self, idx: NodeIdx) -> Result<&N, GraphError>;
 
     /// Returns a reference to the value of a given node
     ///
@@ -40,7 +48,7 @@ pub trait Graph<N, E> {
     unsafe fn get_node_unchecked(&self, idx: NodeIdx) -> &N;
 
     /// Returns a mutable reference to the value of a given node
-    fn get_node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N>;
+    fn get_node_mut(&mut self, idx: NodeIdx) -> Result<&mut N, GraphError>;
 
     /// Returns a mutable reference to the value of a given node
     ///
@@ -50,7 +58,7 @@ pub trait Graph<N, E> {
     unsafe fn get_node_unchecked_mut(&mut self, idx: NodeIdx) -> &mut N;
 
     /// Removes a node from the graph by its `NodeIdx`
-    fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N>;
+    fn remove_node(&mut self, node: NodeIdx) -> Result<N, GraphError>;
 
     /// Returns true as long as the node from the given `NodeIdx` is preset
     fn has_node(&self, node: NodeIdx) -> bool;
@@ -60,7 +68,7 @@ pub trait Graph<N, E> {
     ////////////////////////////
 
     /// Creates a new edge between the two nodes and with the given value in the graph and returns its `EdgeIdx`
-    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx>;
+    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> Result<EdgeIdx, GraphError>;
 
     /// Creates a new edge between the two nodes and with the given value in the graph and returns its `EdgeIdx`
     ///
@@ -82,7 +90,7 @@ pub trait Graph<N, E> {
     /// let edge = graph.new_edge(from, to, 12).unwrap();
     /// assert_eq!(edge.get(&graph).unwrap(), &12);
     /// ```
-    fn get_edge(&self, edge: EdgeIdx) -> GraphResult<&E>;
+    fn get_edge(&self, edge: EdgeIdx) -> Result<&E, GraphError>;
 
     /// Returns a mutable reference to the value of a given edge
     ///
@@ -97,7 +105,7 @@ pub trait Graph<N, E> {
     /// let edge = graph.new_edge(from, to, 12).unwrap();
     /// assert_eq!(edge.get_mut(&mut graph).unwrap(), &12);
     /// ```
-    fn get_edge_mut(&mut self, edge: EdgeIdx) -> GraphResult<&mut E>;
+    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Result<&mut E, GraphError>;
 
     /// Remove an edge by its `EdgeIdx` and returns the edge data
     ///
@@ -112,7 +120,7 @@ pub trait Graph<N, E> {
     /// let edge = graph.new_edge(from, to, 12).unwrap();
     /// assert_eq!(edge.remove(&mut graph).unwrap(), 12);
     /// ```
-    fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E>;
+    fn remove_edge(&mut self, edge: EdgeIdx) -> Result<E, GraphError>;
 
     /// Remove an edge by its `EdgeIdx` and returns the edge data
     ///
@@ -122,7 +130,7 @@ pub trait Graph<N, E> {
     unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E;
 
     /// Returns a `Vec` of all edges between two nodes as `EdgeIdx`
-    fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>>;
+    fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> Result<Vec<EdgeIdx>, GraphError>;
 
     /// Returns a `Vec` of all edges between two nodes as `EdgeIdx`
     ///
@@ -153,7 +161,7 @@ pub trait Graph<N, E> {
 
 pub trait SimpleGraph<N, E>: Graph<N, E> {
     /// Returns an edge between two nodes as `EdgeIdx`
-    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Option<EdgeIdx>>;
+    fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> Result<Option<EdgeIdx>, GraphError>;
 
     /// Returns an edge between two nodes as `EdgeIdx`
     ///

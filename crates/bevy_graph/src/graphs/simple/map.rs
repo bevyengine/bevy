@@ -2,7 +2,7 @@ use hashbrown::HashMap;
 use slotmap::{HopSlotMap, SecondaryMap};
 
 use crate::{
-    error::{GraphError, GraphResult},
+    error::GraphError,
     graphs::{
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
@@ -44,7 +44,7 @@ impl_graph! {
         }
 
         #[inline]
-        fn get_node(&self, idx: NodeIdx) -> GraphResult<&N> {
+        fn get_node(&self, idx: NodeIdx) -> Result<&N, GraphError> {
             if self.nodes.contains_key(idx) {
                 unsafe {
                     Ok(self.get_node_unchecked(idx))
@@ -60,7 +60,7 @@ impl_graph! {
         }
 
         #[inline]
-        fn get_node_mut(&mut self, idx: NodeIdx) -> GraphResult<&mut N> {
+        fn get_node_mut(&mut self, idx: NodeIdx) -> Result<&mut N, GraphError> {
             if self.nodes.contains_key(idx) {
                 unsafe {
                     Ok(self.get_node_unchecked_mut(idx))
@@ -81,7 +81,7 @@ impl_graph! {
         }
 
         #[inline]
-        fn get_edge(&self, edge: EdgeIdx) -> GraphResult<&E> {
+        fn get_edge(&self, edge: EdgeIdx) -> Result<&E, GraphError> {
             match self.edges.get(edge) {
                 Some(e) => Ok(&e.data),
                 None => Err(GraphError::EdgeIdxDoesntExist(edge))
@@ -89,14 +89,14 @@ impl_graph! {
         }
 
         #[inline]
-        fn get_edge_mut(&mut self, edge: EdgeIdx) -> GraphResult<&mut E> {
+        fn get_edge_mut(&mut self, edge: EdgeIdx) -> Result<&mut E, GraphError> {
             match self.edges.get_mut(edge) {
                 Some(e) => Ok(&mut e.data),
                 None => Err(GraphError::EdgeIdxDoesntExist(edge))
             }
         }
 
-        fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E> {
+        fn remove_edge(&mut self, edge: EdgeIdx) -> Result<E, GraphError> {
             if self.edges.contains_key(edge) {
                 unsafe {
                     Ok(self.remove_edge_unchecked(edge))
@@ -107,7 +107,7 @@ impl_graph! {
         }
 
         #[inline]
-        fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Vec<EdgeIdx>> {
+        fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> Result<Vec<EdgeIdx>, GraphError> {
             match self.edge_between(from, to) {
                 Ok(Some(idx)) => Ok(vec![idx]),
                 Ok(None) => Ok(vec![]),
@@ -132,7 +132,7 @@ impl_graph! {
     }
 
     impl COMMON?undirected {
-        fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
+        fn remove_node(&mut self, node: NodeIdx) -> Result<N, GraphError> {
             for (_, edge) in self.edges_of(node) {
                 unsafe {
                     // SAFETY: we know it must exist
@@ -151,7 +151,7 @@ impl_graph! {
             }
         }
 
-        fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
+        fn new_edge(&mut self, node: NodeIdx, other: NodeIdx, edge: E) -> Result<EdgeIdx, GraphError> {
             if node == other {
                 Err(GraphError::EdgeBetweenSameNode(node))
             } else if let Some(node_edges) = self.adjacencies.get(node) {
@@ -193,7 +193,7 @@ impl_graph! {
     }
 
     impl COMMON?directed {
-        fn remove_node(&mut self, node: NodeIdx) -> GraphResult<N> {
+        fn remove_node(&mut self, node: NodeIdx) -> Result<N, GraphError> {
             let mut edges = vec![];
             for (edge, data) in &self.edges {
                 let (src, dst) = data.indices();
@@ -219,7 +219,7 @@ impl_graph! {
             }
         }
 
-        fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> GraphResult<EdgeIdx> {
+        fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> Result<EdgeIdx, GraphError> {
             if from == to {
                 Err(GraphError::EdgeBetweenSameNode(from))
             } else if let Some(from_edges) = self.adjacencies.get(from) {
@@ -255,7 +255,7 @@ impl_graph! {
     }
 
     impl SIMPLE {
-        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> GraphResult<Option<EdgeIdx>> {
+        fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> Result<Option<EdgeIdx>, GraphError> {
             if let Some(from_edges) = self.adjacencies.get(from) {
                 if from_edges.contains_key(&to) {
                     unsafe {

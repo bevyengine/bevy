@@ -1,3 +1,4 @@
+/// An util macro for implementing `Graph` and neighbour traits
 #[macro_export]
 macro_rules! impl_graph {
     (impl COMMON for $name:ident {
