@@ -1,4 +1,5 @@
 use crate::{camera_config::UiCameraConfig, CalculatedClip, Node, UiStack};
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
@@ -52,6 +53,39 @@ impl Default for Interaction {
     }
 }
 
+/// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
+/// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
+/// A None value means that the cursor position is unknown.
+///
+/// It can be used alongside interaction to get the position of the press.
+#[derive(
+    Component,
+    Deref,
+    DerefMut,
+    Copy,
+    Clone,
+    Default,
+    PartialEq,
+    Debug,
+    Reflect,
+    Serialize,
+    Deserialize,
+)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
+pub struct RelativeCursorPosition {
+    /// Cursor position relative to size and position of the Node.
+    pub normalized: Option<Vec2>,
+}
+
+impl RelativeCursorPosition {
+    /// A helper function to check if the mouse is over the node
+    pub fn mouse_over(&self) -> bool {
+        self.normalized
+            .map(|position| (0.0..1.).contains(&position.x) && (0.0..1.).contains(&position.y))
+            .unwrap_or(false)
+    }
+}
+
 /// Describes whether the node should block interactions with lower nodes
 #[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
@@ -86,6 +120,7 @@ pub struct NodeQuery {
     node: &'static Node,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
+    relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
     computed_visibility: Option<&'static ComputedVisibility>,
@@ -175,19 +210,33 @@ pub fn ui_focus_system(
                 let ui_position = position.truncate();
                 let extents = node.node.size() / 2.0;
                 let mut min = ui_position - extents;
-                let mut max = ui_position + extents;
                 if let Some(clip) = node.calculated_clip {
                     min = Vec2::max(min, clip.clip.min);
-                    max = Vec2::min(max, clip.clip.max);
                 }
-                // if the current cursor position is within the bounds of the node, consider it for
+
+                // The mouse position relative to the node
+                // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
+                let relative_cursor_position = cursor_position.map(|cursor_position| {
+                    Vec2::new(
+                        (cursor_position.x - min.x) / node.node.size().x,
+                        (cursor_position.y - min.y) / node.node.size().y,
+                    )
+                });
+
+                // If the current cursor position is within the bounds of the node, consider it for
                 // clicking
-                let contains_cursor = if let Some(cursor_position) = cursor_position {
-                    (min.x..max.x).contains(&cursor_position.x)
-                        && (min.y..max.y).contains(&cursor_position.y)
-                } else {
-                    false
+                let relative_cursor_position_component = RelativeCursorPosition {
+                    normalized: relative_cursor_position,
                 };
+
+                let contains_cursor = relative_cursor_position_component.mouse_over();
+
+                // Save the relative cursor position to the correct component
+                if let Some(mut node_relative_cursor_position_component) =
+                    node.relative_cursor_position
+                {
+                    *node_relative_cursor_position_component = relative_cursor_position_component;
+                }
 
                 if contains_cursor {
                     Some(*entity)

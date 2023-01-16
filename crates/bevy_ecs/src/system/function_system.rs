@@ -316,7 +316,7 @@ where
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> (In, Out, Marker)>,
+    marker: PhantomData<fn(In) -> (Out, Marker)>,
 }
 
 pub struct IsFunctionSystem;
