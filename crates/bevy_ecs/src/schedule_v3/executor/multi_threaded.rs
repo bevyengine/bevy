@@ -82,7 +82,7 @@ pub struct MultiThreadedExecutor {
     /// Systems that have no remaining dependencies and are waiting to run.
     ready_systems: FixedBitSet,
     /// copy of `ready_systems`
-    ready_systems_copy: Option<FixedBitSet>,
+    ready_systems_copy: FixedBitSet,
     /// Systems that are running.
     running_systems: FixedBitSet,
     /// Systems that got skipped.
@@ -111,7 +111,7 @@ impl SystemExecutor for MultiThreadedExecutor {
 
         self.evaluated_sets = FixedBitSet::with_capacity(set_count);
         self.ready_systems = FixedBitSet::with_capacity(sys_count);
-        self.ready_systems_copy = Some(FixedBitSet::with_capacity(sys_count));
+        self.ready_systems_copy = FixedBitSet::with_capacity(sys_count);
         self.running_systems = FixedBitSet::with_capacity(sys_count);
         self.completed_systems = FixedBitSet::with_capacity(sys_count);
         self.skipped_systems = FixedBitSet::with_capacity(sys_count);
@@ -216,7 +216,7 @@ impl MultiThreadedExecutor {
             exclusive_running: false,
             evaluated_sets: FixedBitSet::new(),
             ready_systems: FixedBitSet::new(),
-            ready_systems_copy: Some(FixedBitSet::new()),
+            ready_systems_copy: FixedBitSet::new(),
             running_systems: FixedBitSet::new(),
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
@@ -239,7 +239,7 @@ impl MultiThreadedExecutor {
         }
 
         // can't borrow since loop mutably borrows `self`
-        let mut ready_systems = self.ready_systems_copy.take().unwrap();
+        let mut ready_systems = std::mem::take(&mut self.ready_systems_copy);
         ready_systems.clear();
         ready_systems.union_with(&self.ready_systems);
 
@@ -287,7 +287,7 @@ impl MultiThreadedExecutor {
         }
 
         // give back
-        self.ready_systems_copy = Some(ready_systems);
+        self.ready_systems_copy = ready_systems;
     }
 
     fn can_run(
