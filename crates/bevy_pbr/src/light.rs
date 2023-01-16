@@ -6,10 +6,11 @@ use bevy_reflect::prelude::*;
 use bevy_render::{
     camera::{Camera, CameraProjection, OrthographicProjection},
     color::Color,
+    extract_component::ExtractComponent,
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{ComputedVisibility, RenderLayers, VisibleEntities}, extract_component::ExtractComponent,
+    view::{ComputedVisibility, RenderLayers, VisibleEntities},
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::tracing::warn;
@@ -285,7 +286,7 @@ impl ExtractComponent for AmbientLight {
     type Out = Self;
 
     fn extract_component(item: bevy_ecs::query::QueryItem<'_, Self::Query>) -> Option<Self::Out> {
-        Some(item.clone())
+        Some(*item)
     }
 }
 
