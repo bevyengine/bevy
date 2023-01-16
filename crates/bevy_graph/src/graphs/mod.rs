@@ -76,11 +76,11 @@ pub trait Graph<N, E> {
     /// This function can also be directly called by the `EdgeIdx`:
     /// ```
     /// # use bevy_graph::graphs::{Graph, simple::SimpleMapGraph};
-    /// # let graph = SimpleMapGraph::new();
-    /// let from = graph.new_node();
-    /// let to = graph.new_node();
+    /// # let mut graph = SimpleMapGraph::<(), i32, true>::new();
+    /// let from = graph.new_node(());
+    /// let to = graph.new_node(());
     /// let edge = graph.new_edge(from, to, 12).unwrap();
-    /// assert_eq!(edge.get(&graph), &12);
+    /// assert_eq!(edge.get(&graph).unwrap(), &12);
     /// ```
     fn get_edge(&self, edge: EdgeIdx) -> GraphResult<&E>;
 
@@ -91,11 +91,11 @@ pub trait Graph<N, E> {
     /// This function can also be directly called by the `EdgeIdx`:
     /// ```
     /// # use bevy_graph::graphs::{Graph, simple::SimpleMapGraph};
-    /// # let graph = SimpleMapGraph::new();
-    /// let from = graph.new_node();
-    /// let to = graph.new_node();
+    /// # let mut graph = SimpleMapGraph::<(), i32, true>::new();
+    /// let from = graph.new_node(());
+    /// let to = graph.new_node(());
     /// let edge = graph.new_edge(from, to, 12).unwrap();
-    /// assert_eq!(edge.get_mut(&graph), &12);
+    /// assert_eq!(edge.get_mut(&mut graph).unwrap(), &12);
     /// ```
     fn get_edge_mut(&mut self, edge: EdgeIdx) -> GraphResult<&mut E>;
 
@@ -106,27 +106,15 @@ pub trait Graph<N, E> {
     /// This function can also be directly called by the `EdgeIdx`:
     /// ```
     /// # use bevy_graph::graphs::{Graph, simple::SimpleMapGraph};
-    /// # let graph = SimpleMapGraph::new();
-    /// let from = graph.new_node();
-    /// let to = graph.new_node();
+    /// # let mut graph = SimpleMapGraph::<(), i32, true>::new();
+    /// let from = graph.new_node(());
+    /// let to = graph.new_node(());
     /// let edge = graph.new_edge(from, to, 12).unwrap();
-    /// assert_eq!(edge.remove(&graph).unwrap(), 12);
+    /// assert_eq!(edge.remove(&mut graph).unwrap(), 12);
     /// ```
     fn remove_edge(&mut self, edge: EdgeIdx) -> GraphResult<E>;
 
     /// Remove an edge by its `EdgeIdx` and returns the edge data
-    ///
-    /// ## Inline helper
-    ///
-    /// This function can also be directly called by the `EdgeIdx`:
-    /// ```
-    /// # use bevy_graph::graphs::{Graph, simple::SimpleMapGraph};
-    /// # let graph = SimpleMapGraph::new();
-    /// let from = graph.new_node();
-    /// let to = graph.new_node();
-    /// let edge = graph.new_edge(from, to, 12).unwrap();
-    /// assert_eq!(edge.remove(&graph).unwrap(), 12);
-    /// ```
     ///
     /// # Safety
     ///
