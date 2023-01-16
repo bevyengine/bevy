@@ -54,7 +54,9 @@ pub fn propagate_transforms(
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
                 );
                 // SAFETY:
-                // - We may operate as if the hierarchy is consistent, since the above assertion will panic before 
+                // - `child` must have consistent parentage, or the above assertion would panic.
+                // Since `child` is parented to a root entity, the entire hierarchy leading to it is consistent.
+                // - We may operate as if all descendants are consistent, since `propagate_recursive` will panic before 
                 //   continuing to propagate if it encounters an entity with inconsistent parentage.
                 // - Since each root entity is unique and the hierarchy is consistent and forest-like,
                 //   other root entities' `propagate_recursive` calls will not conflict with this one.
