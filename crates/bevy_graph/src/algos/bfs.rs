@@ -4,7 +4,7 @@ use hashbrown::HashSet;
 
 use crate::graphs::{keys::NodeIdx, Graph};
 
-/// Implementation of the `BFS` algorythm
+/// Implementation of the [`BFS` algorythm](https://www.geeksforgeeks.org/breadth-first-search-or-bfs-for-a-graph/)
 ///
 /// when `d` is the distance between a node and the startnode,
 /// it will evaluate every node with `d=1`, then continue with `d=2` and so on.

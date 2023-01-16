@@ -2,7 +2,7 @@ use hashbrown::HashSet;
 
 use crate::graphs::{keys::NodeIdx, Graph};
 
-/// Implementation of the `DFS` algorythm
+/// Implementation of the [`DFS` algorythm](https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/)
 ///
 /// it will evaluate every node from the start as deep as it can and then up till the next node.
 pub struct DepthFirstSearch {
