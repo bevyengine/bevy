@@ -11,3 +11,4 @@ keywords = ["bevy"]
 [dependencies]
 hashbrown = "0.13.1"
 slotmap = "1.0.6"
+thiserror = "1.0.38"
