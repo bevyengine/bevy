@@ -31,7 +31,7 @@ impl<'w> EntityRef<'w> {
     #[inline]
     pub(crate) unsafe fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
         debug_assert!(world.entities().contains(entity));
-        debug_assert_eq!(world.entities().get(entity.index()), Some(location));
+        debug_assert_eq!(world.entities().get(entity), Some(location));
 
         Self {
             world,
@@ -229,7 +229,7 @@ impl<'w> EntityMut<'w> {
         location: EntityLocation,
     ) -> Self {
         debug_assert!(world.entities().contains(entity));
-        debug_assert_eq!(world.entities().get(entity.index()), Some(location));
+        debug_assert_eq!(world.entities().get(entity), Some(location));
 
         EntityMut {
             world,
