@@ -282,6 +282,11 @@ impl TaskPool {
     /// This allows passing an external executor to spawn tasks on. When you pass an external executor
     /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`ThreadExecutor`] is being ticked on.
     /// If [`None`] is passed the scope will use a [`ThreadExecutor`] that is ticked on the current thread.
+    ///
+    /// When `tick_task_pool_executor` is set to `true`, the multithreaded task stealing executor is ticked on the scope
+    /// thread. Disabling this can be useful when finishing the scope is latancy sensitive. Pulling tasks from
+    /// global excutor can run tasks unrelated to the scoape and delay when the scope returns.
+    ///
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(
         &self,
