@@ -24,7 +24,10 @@ pub struct EntityRef<'w> {
 impl<'w> EntityRef<'w> {
     /// # Safety
     ///
-    /// Entity and location _must_ be valid for the provided world.
+    ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
+    ///  - `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`
+    ///
+    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
     #[inline]
     pub(crate) unsafe fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
         debug_assert!(world.entities().contains(entity));
@@ -215,7 +218,10 @@ pub struct EntityMut<'w> {
 impl<'w> EntityMut<'w> {
     /// # Safety
     ///
-    /// Entity and location _must_ be valid for the provided world.
+    ///  - `entity` must be valid for `world`: the generation should match that of the entity at the same index.
+    ///  - `location` must be sourced from `world`'s `Entities` and must exactly match the location for `entity`
+    ///
+    ///  The above is trivially satisfied if `location` was sourced from `world.entities().get(entity)`.
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w mut World,
