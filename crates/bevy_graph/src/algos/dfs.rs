@@ -33,7 +33,7 @@ impl DepthFirstSearch {
         Self { stack, visited }
     }
 
-    /// Gets a reference to the value of the next node from the algorythm
+    /// Gets a reference to the value of the next node from the algorithm.
     pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
         if let Some(node) = self.stack.pop() {
             for (idx, _) in graph.edges_of(node) {
