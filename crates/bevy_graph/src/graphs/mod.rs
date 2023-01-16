@@ -5,8 +5,6 @@ pub mod simple;
 
 /// An edge between nodes that store data of type `E`.
 pub mod edge;
-/// An util macro for implementing `Graph` and neighbour traits
-pub mod impl_graph;
 /// The `NodeIdx` and `EdgeIdx` structs
 pub mod keys;
 
