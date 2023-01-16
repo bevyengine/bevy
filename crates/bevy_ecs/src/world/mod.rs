@@ -317,7 +317,10 @@ impl World {
     #[inline]
     pub fn get_entity(&self, entity: Entity) -> Option<EntityRef> {
         let location = self.entities.get(entity)?;
-        Some(EntityRef::new(self, entity, location))
+        // SAFETY: if the Entity is invalid, the function returns early.
+        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
+        let entity_ref = unsafe { EntityRef::new(self, entity, location) };
+        Some(entity_ref)
     }
 
     /// Returns an [`Entity`] iterator of current entities.
@@ -331,13 +334,16 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(|(archetype_row, archetype_entity)| {
+                    let entity = archetype_entity.entity();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
                         table_id: archetype.table_id(),
                         table_row: archetype_entity.table_row(),
                     };
-                    EntityRef::new(self, archetype_entity.entity(), location)
+
+                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored
+                    unsafe { EntityRef::new(self, entity, location) }
                 })
         })
     }
