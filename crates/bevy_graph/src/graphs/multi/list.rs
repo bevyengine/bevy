@@ -184,25 +184,19 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
     }
 
     unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+        let idx = self.edges.insert(Edge {
+            src: from,
+            dst: to,
+            data: edge,
+        });
         if DIRECTED {
-            let idx = self.edges.insert(Edge {
-                src: from,
-                dst: to,
-                data: edge,
-            });
             let adjs = self.adjacencies.get_unchecked_mut(from);
             if let Some(list) = find_edge_list_mut(adjs, to) {
                 list.push(idx);
             } else {
                 adjs.push((to, vec![idx]));
             }
-            idx
         } else {
-            let idx = self.edges.insert(Edge {
-                src: from,
-                dst: to,
-                data: edge,
-            });
             let adjs = self.adjacencies.get_unchecked_mut(from);
             if let Some(list) = find_edge_list_mut(adjs, to) {
                 list.push(idx);
@@ -215,8 +209,8 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
             } else {
                 adjs.push((from, vec![idx]));
             }
-            idx
         }
+        idx
     }
 
     unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E {
@@ -225,7 +219,6 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
             let list = self.adjacencies.get_unchecked_mut(from);
             let list = find_edge_list_mut(list, to).unwrap();
             list.swap_remove(find_edge(list, edge).unwrap()); // TODO: remove or swap_remove ?
-            self.edges.remove(edge).unwrap().data
         } else {
             let (from, to) = self.edges.get_unchecked(edge).indices();
 
@@ -236,9 +229,8 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
             let list = self.adjacencies.get_unchecked_mut(to);
             let list = find_edge_list_mut(list, from).unwrap();
             list.swap_remove(find_edge(list, edge).unwrap()); // TODO: remove or swap_remove ?
-
-            self.edges.remove(edge).unwrap().data
         }
+        self.edges.remove(edge).unwrap().data
     }
 }
 

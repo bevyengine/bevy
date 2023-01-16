@@ -168,10 +168,10 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     }
 
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> Result<EdgeIdx, GraphError> {
-        if DIRECTED {
-            if from == to {
-                Err(GraphError::EdgeBetweenSameNode(from))
-            } else if let Some(from_edges) = self.adjacencies.get(from) {
+        if from == to {
+            Err(GraphError::EdgeBetweenSameNode(from))
+        } else if DIRECTED {
+            if let Some(from_edges) = self.adjacencies.get(from) {
                 if from_edges.contains_key(&to) {
                     Err(GraphError::EdgeBetweenAlreadyExists(from, to))
                 } else if self.has_node(to) {
@@ -182,8 +182,6 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
             } else {
                 Err(GraphError::NodeIdxDoesntExist(from))
             }
-        } else if from == to {
-            Err(GraphError::EdgeBetweenSameNode(from))
         } else if let Some(node_edges) = self.adjacencies.get(from) {
             if node_edges.contains_key(&to) {
                 Err(GraphError::EdgeBetweenAlreadyExists(from, to))
@@ -202,43 +200,36 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     }
 
     unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+        let idx = self.edges.insert(Edge {
+            src: from,
+            dst: to,
+            data: edge,
+        });
         if DIRECTED {
-            let idx = self.edges.insert(Edge {
-                src: from,
-                dst: to,
-                data: edge,
-            });
             self.adjacencies
                 .get_unchecked_mut(from)
                 .insert_unique_unchecked(to, idx);
-            idx
         } else {
-            let idx = self.edges.insert(Edge {
-                src: from,
-                dst: to,
-                data: edge,
-            });
             self.adjacencies
                 .get_unchecked_mut(from)
                 .insert_unique_unchecked(to, idx);
             self.adjacencies
                 .get_unchecked_mut(to)
                 .insert_unique_unchecked(from, idx);
-            idx
         }
+        idx
     }
 
     unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E {
         if DIRECTED {
             let (from, to) = self.edges.get_unchecked(edge).indices();
             self.adjacencies.get_unchecked_mut(from).remove(&to);
-            self.edges.remove(edge).unwrap().data
         } else {
             let (node, other) = self.edges.get_unchecked(edge).indices();
             self.adjacencies.get_unchecked_mut(node).remove(&other);
             self.adjacencies.get_unchecked_mut(other).remove(&node);
-            self.edges.remove(edge).unwrap().data
         }
+        self.edges.remove(edge).unwrap().data
     }
 }
 

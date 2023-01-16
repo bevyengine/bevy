@@ -194,24 +194,18 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     }
 
     unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx {
+        let idx = self.edges.insert(Edge {
+            src: from,
+            dst: to,
+            data: edge,
+        });
         if DIRECTED {
-            let idx = self.edges.insert(Edge {
-                src: from,
-                dst: to,
-                data: edge,
-            });
             self.adjacencies
                 .get_unchecked_mut(from)
                 .entry(to)
                 .or_default()
                 .push(idx);
-            idx
         } else {
-            let idx = self.edges.insert(Edge {
-                src: from,
-                dst: to,
-                data: edge,
-            });
             self.adjacencies
                 .get_unchecked_mut(from)
                 .entry(to)
@@ -222,8 +216,8 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
                 .entry(from)
                 .or_default()
                 .push(idx);
-            idx
         }
+        idx
     }
 
     unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E {
@@ -235,7 +229,6 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
                 .get_mut(&to)
                 .unwrap();
             adjas.swap_remove(adjas.iter().position(|e| *e == edge).unwrap()); // TODO: remove or swap_remove ?
-            self.edges.remove(edge).unwrap().data
         } else {
             let (node, other) = self.edges.get_unchecked(edge).indices();
             let adjas = self
@@ -250,8 +243,8 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
                 .get_mut(&node)
                 .unwrap();
             adjas.swap_remove(adjas.iter().position(|e| *e == edge).unwrap()); // TODO: remove or swap_remove ?
-            self.edges.remove(edge).unwrap().data
         }
+        self.edges.remove(edge).unwrap().data
     }
 }
 
