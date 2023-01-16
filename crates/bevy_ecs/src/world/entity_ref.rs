@@ -22,8 +22,11 @@ pub struct EntityRef<'w> {
 }
 
 impl<'w> EntityRef<'w> {
+    /// # Safety
+    ///
+    /// Entity and location _must_ be valid for the provided world.
     #[inline]
-    pub(crate) fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
+    pub(crate) unsafe fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
         Self {
             world,
             entity,
@@ -193,7 +196,9 @@ impl<'w> EntityRef<'w> {
 
 impl<'w> From<EntityMut<'w>> for EntityRef<'w> {
     fn from(entity_mut: EntityMut<'w>) -> EntityRef<'w> {
-        EntityRef::new(entity_mut.world, entity_mut.entity, entity_mut.location)
+        // SAFETY: the safety invariants on EntityMut and EntityRef are identical
+        // and EntityMut is promised to be valid by construction.
+        unsafe { EntityRef::new(entity_mut.world, entity_mut.entity, entity_mut.location) }
     }
 }
 
@@ -206,7 +211,8 @@ pub struct EntityMut<'w> {
 
 impl<'w> EntityMut<'w> {
     /// # Safety
-    /// entity and location _must_ be valid
+    ///
+    /// Entity and location _must_ be valid for the provided world.
     #[inline]
     pub(crate) unsafe fn new(
         world: &'w mut World,
