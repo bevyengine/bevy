@@ -1456,6 +1456,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "relative_cursor_position"
+path = "examples/ui/relative_cursor_position.rs"
+
+[package.metadata.example.relative_cursor_position]
+name = "Relative Cursor Position"
+description = "Showcases the RelativeCursorPosition component"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text"
 path = "examples/ui/text.rs"
 

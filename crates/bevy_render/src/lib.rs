@@ -12,7 +12,6 @@ pub mod globals;
 pub mod mesh;
 pub mod pipelined_rendering;
 pub mod primitives;
-pub mod rangefinder;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
@@ -209,6 +208,8 @@ impl Plugin for RenderPlugin {
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()
+                        // Note: Must run before `render_system` in order to
+                        // processed newly queued pipelines.
                         .with_system(PipelineCache::process_pipeline_queue_system)
                         .with_system(render_system.at_end()),
                 )
