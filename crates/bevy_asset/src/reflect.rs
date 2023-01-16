@@ -204,7 +204,7 @@ impl<A: Asset + FromReflect> FromType<A> for ReflectAsset {
 ///     let reflect_handle = type_registry.get_type_data::<ReflectHandle>(handle.type_id()).unwrap();
 ///     let reflect_asset = type_registry.get_type_data::<ReflectAsset>(reflect_handle.asset_type_id()).unwrap();
 ///
-///     let handle = reflect_handle.downcast_handle_untyped(handle.as_any()).unwrap();
+///     let handle = reflect_handle.downcast_handle_untyped(handle.as_full().unwrap().as_any()).unwrap();
 ///     let value = reflect_asset.get(world, handle).unwrap();
 ///     println!("{value:?}");
 /// }
