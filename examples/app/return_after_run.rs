@@ -8,8 +8,8 @@
 //! to read the documentation on both `App::run()` and `WinitSettings::return_from_run`
 //! for caveats and further details:
 //!
-//! - https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.run
-//! - https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run
+//! - <https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.run>
+//! - <https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run>
 
 use bevy::{prelude::*, winit::WinitSettings};
 
