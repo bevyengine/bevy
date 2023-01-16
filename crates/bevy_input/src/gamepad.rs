@@ -583,7 +583,7 @@ impl ButtonSettings {
 /// Otherwise, values will not be rounded.
 ///
 /// The valid range is `[-1.0, 1.0]`.
-#[derive(Debug, Clone, Reflect, FromReflect)]
+#[derive(Debug, Clone, Reflect, FromReflect, PartialEq)]
 #[reflect(Debug, Default)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to -1.0.
@@ -611,7 +611,7 @@ impl Default for AxisSettings {
 }
 
 impl AxisSettings {
-    /// Creates a new `AxisSettings` instance.
+    /// Creates a new [`AxisSettings`] instance.
     ///
     /// # Arguments
     ///
@@ -622,9 +622,10 @@ impl AxisSettings {
     /// + `threshold` - the minimum value by which input must change before the change is registered.
     ///
     /// Restrictions:
-    /// + `-1.0 <= ``livezone_lowerbound`` <= ``deadzone_lowerbound`` <= 0.0 <= ``deadzone_upperbound`` <=
-    /// ``livezone_upperbound`` <= 1.0`
-    /// + `0.0 <= ``threshold`` <= 2.0`
+    ///
+    /// + `-1.0 <= livezone_lowerbound <= deadzone_lowerbound <= 0.0`
+    /// + `0.0 <= deadzone_upperbound <= livezone_upperbound <= 1.0`
+    /// + `0.0 <= threshold <= 2.0`
     ///
     /// # Errors
     ///
@@ -646,11 +647,11 @@ impl AxisSettings {
             Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(
                 deadzone_lowerbound,
             ))
-        } else if !(-1.0..=0.0).contains(&deadzone_upperbound) {
+        } else if !(0.0..=1.0).contains(&deadzone_upperbound) {
             Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(
                 deadzone_upperbound,
             ))
-        } else if !(-1.0..=0.0).contains(&livezone_upperbound) {
+        } else if !(0.0..=1.0).contains(&livezone_upperbound) {
             Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(
                 livezone_upperbound,
             ))
@@ -1489,6 +1490,16 @@ mod tests {
     #[test]
     fn test_try_out_of_range_axis_settings() {
         let mut axis_settings = AxisSettings::default();
+        assert_eq!(
+            AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.001),
+            Ok(AxisSettings {
+                livezone_lowerbound: -0.95,
+                deadzone_lowerbound: -0.05,
+                deadzone_upperbound: 0.05,
+                livezone_upperbound: 0.95,
+                threshold: 0.001,
+            })
+        );
         assert_eq!(
             Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(-2.0)),
             axis_settings.try_set_livezone_lowerbound(-2.0)
