@@ -5,7 +5,10 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
-    system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
+    system::{
+        check_system_change_tick, Command, CommandParam, ReadOnlySystemParam, System, SystemParam,
+        SystemParamItem,
+    },
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
@@ -455,6 +458,19 @@ where
     }
     fn default_labels(&self) -> Vec<SystemLabelId> {
         vec![self.func.as_system_label().as_label()]
+    }
+}
+
+impl<Param, Marker, F> Command for FunctionSystem<(), (), Param, Marker, F>
+where
+    Param: CommandParam + 'static,
+    Marker: 'static,
+    F: SystemParamFunction<(), (), Param, Marker> + Send + Sync + 'static,
+{
+    fn write(mut self, world: &mut World) {
+        self.initialize(world);
+        self.run((), world);
+        self.apply_buffers(world);
     }
 }
 

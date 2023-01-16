@@ -11,7 +11,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::Resource;
+use super::{Resource, SystemParam};
 
 /// A [`World`] mutation.
 ///
@@ -43,6 +43,8 @@ use super::Resource;
 pub trait Command: Send + 'static {
     fn write(self, world: &mut World);
 }
+
+pub trait CommandParam: SystemParam {}
 
 /// A [`Command`] queue to perform impactful changes to the [`World`].
 ///
