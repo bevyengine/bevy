@@ -10,10 +10,7 @@ pub mod impl_graph;
 /// The `NodeIdx` and `EdgeIdx` structs
 pub mod keys;
 
-use crate::{
-    algos::{bfs::BreadthFirstSearch, dfs::DepthFirstSearch},
-    error::GraphError,
-};
+use crate::error::GraphError;
 
 use self::keys::{EdgeIdx, NodeIdx};
 
@@ -142,22 +139,6 @@ pub trait Graph<N, E> {
 
     /// Returns a `Vec` of all edges the node is outgoing from.
     fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)>; // TODO: can we use other type than Vec? maybe directly iterator?
-
-    ////////////////////////////
-    // Algos
-    ////////////////////////////
-
-    /// Makes a `BreadthFirstSearch` over this graph
-    #[inline]
-    fn breadth_first_search(&self, start: NodeIdx) -> BreadthFirstSearch {
-        BreadthFirstSearch::with_capacity(start, self.count())
-    }
-
-    /// Makes a `DepthFirstSearch` over this graph
-    #[inline]
-    fn depth_first_search(&self, start: NodeIdx) -> DepthFirstSearch {
-        DepthFirstSearch::with_capacity(start, self.count())
-    }
 }
 
 /// A more precise trait with functions special for a simple graph

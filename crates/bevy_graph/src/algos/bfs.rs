@@ -121,29 +121,32 @@ impl BreadthFirstSearch {
 
 #[cfg(test)]
 mod test {
-    use crate::graphs::{simple::SimpleMapGraph, Graph};
+    use crate::{
+        algos::bfs::BreadthFirstSearch,
+        graphs::{simple::SimpleMapGraph, Graph},
+    };
 
     #[test]
     fn basic_imperative_bfs() {
-        let mut map = SimpleMapGraph::<i32, (), true>::new();
+        let mut graph = SimpleMapGraph::<i32, (), true>::new();
 
-        let zero = map.new_node(0);
-        let one = map.new_node(1);
-        let two = map.new_node(2);
-        let three = map.new_node(3);
+        let zero = graph.new_node(0);
+        let one = graph.new_node(1);
+        let two = graph.new_node(2);
+        let three = graph.new_node(3);
 
-        map.new_edge(zero, one, ()).unwrap();
-        map.new_edge(zero, two, ()).unwrap();
-        map.new_edge(one, two, ()).unwrap();
-        map.new_edge(two, zero, ()).unwrap();
-        map.new_edge(two, three, ()).unwrap();
+        graph.new_edge(zero, one, ()).unwrap();
+        graph.new_edge(zero, two, ()).unwrap();
+        graph.new_edge(one, two, ()).unwrap();
+        graph.new_edge(two, zero, ()).unwrap();
+        graph.new_edge(two, three, ()).unwrap();
 
         let elements = vec![0, 2, 1, 3];
 
         let mut counted_elements = Vec::with_capacity(4);
 
-        let mut bfs = map.breadth_first_search(zero);
-        while let Some(node) = bfs.next(&map) {
+        let mut bfs = BreadthFirstSearch::with_capacity(zero, graph.count());
+        while let Some(node) = bfs.next(&graph) {
             counted_elements.push(*node);
         }
 

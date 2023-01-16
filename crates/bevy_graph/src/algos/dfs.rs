@@ -118,29 +118,32 @@ impl DepthFirstSearch {
 
 #[cfg(test)]
 mod test {
-    use crate::graphs::{simple::SimpleMapGraph, Graph};
+    use crate::{
+        algos::dfs::DepthFirstSearch,
+        graphs::{simple::SimpleMapGraph, Graph},
+    };
 
     #[test]
     fn basic_imperative_dfs() {
-        let mut map = SimpleMapGraph::<i32, (), true>::new();
+        let mut graph = SimpleMapGraph::<i32, (), true>::new();
 
-        let zero = map.new_node(0);
-        let one = map.new_node(1);
-        let two = map.new_node(2);
-        let three = map.new_node(3);
+        let zero = graph.new_node(0);
+        let one = graph.new_node(1);
+        let two = graph.new_node(2);
+        let three = graph.new_node(3);
 
-        map.new_edge(zero, one, ()).unwrap();
-        map.new_edge(zero, two, ()).unwrap();
-        map.new_edge(one, two, ()).unwrap();
-        map.new_edge(two, zero, ()).unwrap();
-        map.new_edge(two, three, ()).unwrap();
+        graph.new_edge(zero, one, ()).unwrap();
+        graph.new_edge(zero, two, ()).unwrap();
+        graph.new_edge(one, two, ()).unwrap();
+        graph.new_edge(two, zero, ()).unwrap();
+        graph.new_edge(two, three, ()).unwrap();
 
         let elements = vec![0, 1, 2, 3];
 
         let mut counted_elements = Vec::with_capacity(4);
 
-        let mut dfs = map.depth_first_search(zero);
-        while let Some(node) = dfs.next(&map) {
+        let mut dfs = DepthFirstSearch::with_capacity(zero, graph.count());
+        while let Some(node) = dfs.next(&graph) {
             counted_elements.push(*node);
         }
 

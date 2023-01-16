@@ -1,4 +1,7 @@
-use bevy_graph::graphs::{keys::NodeIdx, simple::SimpleMapGraph, Graph};
+use bevy_graph::{
+    algos::{bfs::BreadthFirstSearch, dfs::DepthFirstSearch},
+    graphs::{keys::NodeIdx, simple::SimpleMapGraph, Graph},
+};
 use bevy_utils::Duration;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::seq::SliceRandom;
@@ -36,7 +39,7 @@ fn algo_10_000(c: &mut Criterion) {
 
     c.bench_function("bfs_10_000", |b| {
         b.iter(|| {
-            let mut bfs = graph.breadth_first_search(first);
+            let mut bfs = BreadthFirstSearch::with_capacity(first, graph.count());
             while let Some(node) = bfs.next(&graph) {
                 let _ = black_box(node);
             }
@@ -45,7 +48,7 @@ fn algo_10_000(c: &mut Criterion) {
 
     c.bench_function("dfs_10_000", |b| {
         b.iter(|| {
-            let mut dfs = graph.depth_first_search(first);
+            let mut dfs = DepthFirstSearch::with_capacity(first, graph.count());
             while let Some(node) = dfs.next(&graph) {
                 let _ = black_box(node);
             }
