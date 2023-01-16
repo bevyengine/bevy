@@ -182,26 +182,14 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     }
 
     fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> Result<EdgeIdx, GraphError> {
-        if DIRECTED {
-            if self.has_node(from) {
-                if self.has_node(to) {
-                    unsafe { Ok(self.new_edge_unchecked(from, to, edge)) }
-                } else {
-                    Err(GraphError::NodeIdxDoesntExist(to))
-                }
+        if self.has_node(from) {
+            if self.has_node(to) {
+                unsafe { Ok(self.new_edge_unchecked(from, to, edge)) }
             } else {
-                Err(GraphError::NodeIdxDoesntExist(from))
+                Err(GraphError::NodeIdxDoesntExist(to))
             }
         } else {
-            if self.has_node(from) {
-                if self.has_node(to) {
-                    unsafe { Ok(self.new_edge_unchecked(from, to, edge)) }
-                } else {
-                    Err(GraphError::NodeIdxDoesntExist(to))
-                }
-            } else {
-                Err(GraphError::NodeIdxDoesntExist(from))
-            }
+            Err(GraphError::NodeIdxDoesntExist(from))
         }
     }
 

@@ -176,24 +176,22 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
             } else {
                 Err(GraphError::NodeIdxDoesntExist(from))
             }
-        } else {
-            if from == to {
-                Err(GraphError::EdgeBetweenSameNode(from))
-            } else if let Some(node_edges) = self.adjacencies.get(from) {
-                if node_edges.iter().any(|(n, _)| *n == to) {
-                    Err(GraphError::EdgeBetweenAlreadyExists(from, to))
-                } else if let Some(other_edges) = self.adjacencies.get(to) {
-                    if other_edges.iter().any(|(n, _)| *n == from) {
-                        Err(GraphError::EdgeBetweenAlreadyExists(to, from))
-                    } else {
-                        unsafe { Ok(self.new_edge_unchecked(from, to, edge)) }
-                    }
+        } else if from == to {
+            Err(GraphError::EdgeBetweenSameNode(from))
+        } else if let Some(node_edges) = self.adjacencies.get(from) {
+            if node_edges.iter().any(|(n, _)| *n == to) {
+                Err(GraphError::EdgeBetweenAlreadyExists(from, to))
+            } else if let Some(other_edges) = self.adjacencies.get(to) {
+                if other_edges.iter().any(|(n, _)| *n == from) {
+                    Err(GraphError::EdgeBetweenAlreadyExists(to, from))
                 } else {
-                    Err(GraphError::NodeIdxDoesntExist(to))
+                    unsafe { Ok(self.new_edge_unchecked(from, to, edge)) }
                 }
             } else {
-                Err(GraphError::NodeIdxDoesntExist(from))
+                Err(GraphError::NodeIdxDoesntExist(to))
             }
+        } else {
+            Err(GraphError::NodeIdxDoesntExist(from))
         }
     }
 
