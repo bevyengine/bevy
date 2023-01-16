@@ -36,7 +36,7 @@ impl BreadthFirstSearch {
         Self { queue, visited }
     }
 
-    /// Gets a reference to the value of the next node from the algorythm
+    /// Gets an immutable reference to the value of the next node from the algorithm
     pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
         if let Some(node) = self.queue.pop_front() {
             for (idx, _) in graph.edges_of(node) {
