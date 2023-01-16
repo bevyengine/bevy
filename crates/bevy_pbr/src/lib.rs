@@ -48,7 +48,7 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedMeshPipelines},
     view::VisibilitySystems,
-    RenderApp, RenderStage,
+    RenderApp, RenderStage, extract_component::ExtractComponentPlugin,
 };
 use bevy_transform::TransformSystem;
 
@@ -135,6 +135,7 @@ impl Plugin for PbrPlugin {
             .register_type::<PointLightShadowMap>()
             .add_plugin(MeshRenderPlugin)
             .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .add_plugin(ExtractComponentPlugin::<AmbientLight>::default())
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()

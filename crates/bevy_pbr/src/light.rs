@@ -9,7 +9,7 @@ use bevy_render::{
     primitives::{Aabb, CubemapFrusta, Frustum, Plane, Sphere},
     render_resource::BufferBindingType,
     renderer::RenderDevice,
-    view::{ComputedVisibility, RenderLayers, VisibleEntities},
+    view::{ComputedVisibility, RenderLayers, VisibleEntities}, extract_component::ExtractComponent,
 };
 use bevy_transform::{components::GlobalTransform, prelude::Transform};
 use bevy_utils::tracing::warn;
@@ -276,6 +276,16 @@ impl Default for AmbientLight {
             color: Color::rgb(1.0, 1.0, 1.0),
             brightness: 0.05,
         }
+    }
+}
+
+impl ExtractComponent for AmbientLight {
+    type Query = &'static Self;
+    type Filter = With<Camera>;
+    type Out = Self;
+
+    fn extract_component(item: bevy_ecs::query::QueryItem<'_, Self::Query>) -> Option<Self::Out> {
+        Some(item.clone())
     }
 }
 
