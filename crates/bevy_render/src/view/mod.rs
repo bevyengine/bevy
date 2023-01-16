@@ -1,7 +1,6 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_core::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
@@ -18,7 +17,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use bevy_math::{Mat4, UVec4, Vec3, Vec4};
+use bevy_math::{Mat4, UVec4, Vec3, Vec4, Vec4Swizzles};
 use bevy_reflect::Reflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashMap;
@@ -240,7 +239,6 @@ fn prepare_view_uniforms(
     render_queue: Res<RenderQueue>,
     mut view_uniforms: ResMut<ViewUniforms>,
     views: Query<(Entity, &ExtractedView, Option<&TemporalJitter>)>,
-    frame_count: Res<FrameCount>,
 ) {
     view_uniforms.uniforms.clear();
 
@@ -248,9 +246,11 @@ fn prepare_view_uniforms(
         let viewport = camera.viewport.as_vec4();
         let unjittered_projection = camera.projection;
         let mut projection = unjittered_projection.clone();
-        if temporal_jitter.is_some() {
-            TemporalJitter::jitter_projection(&mut projection, viewport, frame_count.0 as usize);
+
+        if let Some(temporal_jitter) = temporal_jitter {
+            temporal_jitter.jitter_projection(&mut projection, viewport.zw());
         }
+
         let inverse_projection = projection.inverse();
         let view = camera.transform.compute_matrix();
         let inverse_view = view.inverse();

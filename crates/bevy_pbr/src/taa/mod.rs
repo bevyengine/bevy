@@ -94,7 +94,6 @@ pub struct TemporalAntialiasBundle {
     pub settings: TemporalAntialiasSettings,
     pub depth_prepass: DepthPrepass,
     pub velocity_prepass: VelocityPrepass,
-    pub jitter: TemporalJitter,
 }
 
 #[derive(Component, Reflect, Clone)]

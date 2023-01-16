@@ -16,7 +16,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res},
 };
-use bevy_math::{vec2, Mat4, Ray, UVec2, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
@@ -489,13 +489,10 @@ pub fn extract_cameras(
             &CameraRenderGraph,
             &GlobalTransform,
             &VisibleEntities,
-            Option<&TemporalJitter>,
         )>,
     >,
 ) {
-    for (entity, camera, camera_render_graph, transform, visible_entities, temporal_jitter) in
-        query.iter()
-    {
+    for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
         if !camera.is_active {
             continue;
         }
@@ -507,8 +504,8 @@ pub fn extract_cameras(
             if target_size.x == 0 || target_size.y == 0 {
                 continue;
             }
-            let mut commands = commands.get_or_spawn(entity);
-            commands.insert((
+
+            commands.get_or_spawn(entity).insert((
                 ExtractedCamera {
                     target: camera.target.clone(),
                     viewport: camera.viewport.clone(),
@@ -530,42 +527,26 @@ pub fn extract_cameras(
                 },
                 visible_entities.clone(),
             ));
-            if let Some(temporal_jitter) = temporal_jitter {
-                commands.insert(temporal_jitter.clone());
-            }
         }
     }
 }
 
-#[derive(Component, Reflect, Default, Clone)]
-pub struct TemporalJitter;
+#[derive(Component)]
+pub struct TemporalJitter {
+    pub offset: Vec2,
+}
 
 impl TemporalJitter {
-    pub fn jitter_projection(projection: &mut Mat4, viewport: Vec4, frame_count: usize) {
-        // Halton sequence (2, 3) minus 0.5
-        let halton_sequence = [
-            vec2(0.0, -0.16666666),
-            vec2(-0.25, 0.16666669),
-            vec2(0.25, -0.3888889),
-            vec2(-0.375, -0.055555552),
-            vec2(0.125, 0.2777778),
-            vec2(-0.125, -0.2777778),
-            vec2(0.375, 0.055555582),
-            vec2(-0.4375, 0.3888889),
-            vec2(0.0625, -0.46296296),
-            vec2(-0.1875, -0.12962961),
-            vec2(0.3125, 0.2037037),
-            vec2(-0.3125, -0.35185185),
-        ];
-        let jitter = halton_sequence[frame_count % halton_sequence.len()] / viewport.zw();
+    pub fn jitter_projection(&self, projection: &mut Mat4, view_size: Vec2) {
+        let mut translation = 2.0 * self.offset / view_size;
+        translation.y *= -1.0;
 
-        if projection.w_axis.w == 1.0 {
-            // Orthographic
-            todo!("TAA is not yet supported for orthographic cameras");
-        } else {
-            // Perspective
-            projection.z_axis[0] += jitter.x;
-            projection.z_axis[1] += jitter.y;
-        }
+        let translation = Mat4::from_translation(Vec3 {
+            x: translation.x,
+            y: translation.y,
+            z: 0.0,
+        });
+
+        *projection = translation * *projection;
     }
 }

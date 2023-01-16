@@ -22,7 +22,6 @@ impl Plugin for CameraPlugin {
             .register_type::<ScalingMode>()
             .register_type::<CameraRenderGraph>()
             .register_type::<RenderTarget>()
-            .register_type::<TemporalJitter>()
             .add_plugin(CameraProjectionPlugin::<Projection>::default())
             .add_plugin(CameraProjectionPlugin::<OrthographicProjection>::default())
             .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());

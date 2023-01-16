@@ -4,6 +4,7 @@ use crate::{
     prepass::{DepthPrepass, VelocityPrepass, ViewPrepassTextures},
 };
 use bevy_app::{App, Plugin};
+use bevy_core::FrameCount;
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
@@ -11,8 +12,9 @@ use bevy_ecs::{
     system::{Commands, Query, Res, Resource},
     world::World,
 };
-use bevy_math::UVec2;
+use bevy_math::{UVec2, Vec2};
 use bevy_render::{
+    camera::TemporalJitter,
     prelude::{Camera, Projection},
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     renderer::{RenderAdapter, RenderContext, RenderDevice},
@@ -92,7 +94,10 @@ impl Plugin for Fsr2Plugin {
                 hdr: self.hdr,
             })
             .add_system_to_stage(RenderStage::Extract, extract_fsr2_settings)
-            .add_system_to_stage(RenderStage::Prepare, prepare_render_resolution.at_start());
+            .add_system_to_stage(
+                RenderStage::Prepare,
+                prepare_fsr2_render_settings.at_start(),
+            );
     }
 }
 
@@ -129,23 +134,31 @@ fn extract_fsr2_settings(
     for (entity, fsr2_settings, camera, camera_projection) in &query {
         let perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if perspective_projection && camera.hdr == fsr2_context.hdr {
-            commands.get_or_spawn(entity).insert(fsr2_settings.clone());
+            commands
+                .get_or_spawn(entity)
+                .insert((fsr2_settings.clone(), TemporalJitter { offset: Vec2::ZERO }));
         }
     }
 }
 
-fn prepare_render_resolution(
+fn prepare_fsr2_render_settings(
     fsr2_context: Res<Fsr2ContextWrapper>,
-    mut query: Query<(&mut Camera3d, &Fsr2Settings)>,
+    frame_count: Res<FrameCount>,
+    mut query: Query<(&mut Camera3d, &mut TemporalJitter, &Fsr2Settings)>,
 ) {
-    for (mut camera, fsr2_settings) in &mut query {
-        camera.render_resolution = Some(
-            fsr2_context
-                .context
-                .lock()
-                .unwrap()
-                .get_suggested_input_resolution(fsr2_settings.quality_mode),
-        );
+    if !query.is_empty() {
+        let fsr2_context = fsr2_context.context.lock().unwrap();
+
+        for (mut camera, mut temporal_jitter, fsr2_settings) in &mut query {
+            let input_resolution =
+                fsr2_context.get_suggested_input_resolution(fsr2_settings.quality_mode);
+
+            camera.render_resolution = Some(input_resolution);
+
+            let frame_index = (frame_count.0 % i32::MAX as u32) as i32;
+            temporal_jitter.offset =
+                fsr2_context.get_camera_jitter_offset(input_resolution, frame_index);
+        }
     }
 }
 
@@ -154,6 +167,7 @@ struct Fsr2Node {
         &'static Fsr2Settings,
         &'static Camera3d,
         &'static Projection,
+        &'static TemporalJitter,
         &'static ViewTarget,
         &'static MainPass3dTexture,
         &'static ViewPrepassTextures,
@@ -200,6 +214,7 @@ impl Node for Fsr2Node {
             fsr2_settings,
             camera_3d,
             Projection::Perspective(camera_projection),
+            temporal_jitter,
             view_target,
             main_pass_3d_texture,
             prepass_textures
@@ -222,7 +237,7 @@ impl Node for Fsr2Node {
             camera_near: camera_projection.near,
             camera_far: None,
             camera_fov_angle_vertical: camera_projection.fov,
-            jitter_offset: todo!("jitter offset"),
+            jitter_offset: temporal_jitter.offset,
             adapter: render_adapter,
             command_encoder: &mut render_context.command_encoder,
         });
