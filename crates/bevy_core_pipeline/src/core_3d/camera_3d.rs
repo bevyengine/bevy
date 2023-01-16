@@ -86,7 +86,7 @@ impl Default for Camera3dBundle {
             transform: Default::default(),
             global_transform: Default::default(),
             camera_3d: Default::default(),
-            msaa: Msaa { samples: 1 },
+            msaa: Msaa::default(),
         }
     }
 }

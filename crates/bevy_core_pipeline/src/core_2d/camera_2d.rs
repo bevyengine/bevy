@@ -78,7 +78,7 @@ impl Camera2dBundle {
             camera: Camera::default(),
             camera_2d: Camera2d::default(),
             tonemapping: Tonemapping::Disabled,
-            msaa: Msaa { samples: 1 },
+            msaa: Msaa::default(),
         }
     }
 }
