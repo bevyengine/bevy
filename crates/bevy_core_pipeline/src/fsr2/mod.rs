@@ -223,26 +223,28 @@ impl Node for Fsr2Node {
         )) = self.view_query.get_manual(world, view_entity) else { return Ok(()) };
 
         let render_resolution = camera_3d.render_resolution.unwrap();
-        fsr2_context.render(Fsr2RenderParameters {
-            color: fsr2_texture(&main_pass_3d_texture.texture),
-            depth: fsr2_texture(prepass_textures.depth.as_ref().unwrap()),
-            motion_vectors: fsr2_texture(prepass_textures.velocity.as_ref().unwrap()),
-            motion_vector_scale: Some(render_resolution.as_vec2()),
-            exposure: Fsr2Exposure::AutoExposure,
-            reactive_mask: Fsr2ReactiveMask::NoMask, // TODO: Auto
-            transparency_and_composition_mask: None,
-            output: fsr2_texture(view_target.main_texture()),
-            input_resolution: render_resolution,
-            sharpness: fsr2_settings.sharpness,
-            frame_delta_time: time.delta(),
-            reset: fsr2_settings.reset,
-            camera_near: camera_projection.near,
-            camera_far: None,
-            camera_fov_angle_vertical: camera_projection.fov,
-            jitter_offset: temporal_jitter.offset,
-            adapter: render_adapter,
-            command_encoder: &mut render_context.command_encoder,
-        });
+        fsr2_context
+            .render(Fsr2RenderParameters {
+                color: fsr2_texture(&main_pass_3d_texture.texture),
+                depth: fsr2_texture(prepass_textures.depth.as_ref().unwrap()),
+                motion_vectors: fsr2_texture(prepass_textures.velocity.as_ref().unwrap()),
+                motion_vector_scale: Some(render_resolution.as_vec2()),
+                exposure: Fsr2Exposure::AutoExposure,
+                reactive_mask: Fsr2ReactiveMask::NoMask, // TODO: Auto
+                transparency_and_composition_mask: None,
+                output: fsr2_texture(view_target.main_texture()),
+                input_resolution: render_resolution,
+                sharpness: fsr2_settings.sharpness,
+                frame_delta_time: time.delta(),
+                reset: fsr2_settings.reset,
+                camera_near: camera_projection.near,
+                camera_far: None,
+                camera_fov_angle_vertical: camera_projection.fov,
+                jitter_offset: temporal_jitter.offset,
+                adapter: render_adapter,
+                command_encoder: &mut render_context.command_encoder,
+            })
+            .unwrap();
 
         Ok(())
     }
