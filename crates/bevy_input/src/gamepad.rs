@@ -611,7 +611,27 @@ impl Default for AxisSettings {
 }
 
 impl AxisSettings {
-    /// Creates a new `AxisSettings` instance.
+    /// Same as [`Self::new`], but the bounds are defined as gap from extremities.
+    ///
+    /// The default [`AxisSettings`] would be `AxisSettings::new_symmetric(0.05, 0.01)`.
+    ///
+    /// The arguments must follow those rules otherwise this returns an `Err`:
+    /// + `0.0 <= zone_size <= 0.5`
+    /// + `0.0 <= threshold <= 2.0`
+    pub fn new_symmetric(
+        zone_size: f32,
+        threshold: f32,
+    ) -> Result<AxisSettings, AxisSettingsError> {
+        Self::new(
+            -1.0 + zone_size,
+            -zone_size,
+            zone_size,
+            1.0 - zone_size,
+            threshold,
+        )
+    }
+
+    /// Creates a new [`AxisSettings`] instance.
     ///
     /// # Arguments
     ///
@@ -622,9 +642,10 @@ impl AxisSettings {
     /// + `threshold` - the minimum value by which input must change before the change is registered.
     ///
     /// Restrictions:
-    /// + `-1.0 <= ``livezone_lowerbound`` <= ``deadzone_lowerbound`` <= 0.0 <= ``deadzone_upperbound`` <=
-    /// ``livezone_upperbound`` <= 1.0`
-    /// + `0.0 <= ``threshold`` <= 2.0`
+    ///
+    /// + `-1.0 <= livezone_lowerbound <= deadzone_lowerbound <= 0.0`
+    /// + `0.0 <= deadzone_upperbound <= livezone_upperbound <= 1.0`
+    /// + `0.0 <= threshold <= 2.0`
     ///
     /// # Errors
     ///
@@ -638,19 +659,21 @@ impl AxisSettings {
         livezone_upperbound: f32,
         threshold: f32,
     ) -> Result<AxisSettings, AxisSettingsError> {
-        if !(-1.0..=0.0).contains(&livezone_lowerbound) {
+        let within = |value, lower: f32, upper: f32| (lower..=upper).contains(&value);
+
+        if !within(livezone_lowerbound, -1.0, 0.0) {
             Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(
                 livezone_lowerbound,
             ))
-        } else if !(-1.0..=0.0).contains(&deadzone_lowerbound) {
+        } else if !within(deadzone_lowerbound, -1.0, 0.0) {
             Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(
                 deadzone_lowerbound,
             ))
-        } else if !(-1.0..=0.0).contains(&deadzone_upperbound) {
+        } else if !within(deadzone_upperbound, 0.0, 1.0) {
             Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(
                 deadzone_upperbound,
             ))
-        } else if !(-1.0..=0.0).contains(&livezone_upperbound) {
+        } else if !within(livezone_upperbound, 0.0, 1.0) {
             Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(
                 livezone_upperbound,
             ))
@@ -668,7 +691,7 @@ impl AxisSettings {
                     deadzone_upperbound,
                 },
             )
-        } else if !(0.0..=2.0).contains(&threshold) {
+        } else if !within(threshold, 0.0, 2.0) {
             Err(AxisSettingsError::Threshold(threshold))
         } else {
             Ok(Self {
