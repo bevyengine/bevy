@@ -10,8 +10,8 @@ pub use time::*;
 pub use timer::*;
 
 use bevy_ecs::system::{Res, ResMut};
-use bevy_utils::{tracing::warn, Duration, Instant};
-use crossbeam_channel::{Receiver, Sender};
+use bevy_utils::{synccell::SyncCell, tracing::warn, Duration, Instant};
+use std::sync::mpsc::{Receiver, SyncSender};
 
 pub mod prelude {
     //! The Bevy Time Prelude.
@@ -61,18 +61,18 @@ pub enum TimeUpdateStrategy {
 
 /// Channel resource used to receive time from render world
 #[derive(Resource)]
-pub struct TimeReceiver(pub Receiver<Instant>);
+pub struct TimeReceiver(pub SyncCell<Receiver<Instant>>);
 
 /// Channel resource used to send time from render world
 #[derive(Resource)]
-pub struct TimeSender(pub Sender<Instant>);
+pub struct TimeSender(pub SyncSender<Instant>);
 
 /// Creates channels used for sending time between render world and app world
 pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
     // bound the channel to 2 since when pipelined the render phase can finish before
     // the time system runs.
-    let (s, r) = crossbeam_channel::bounded::<Instant>(2);
-    (TimeSender(s), TimeReceiver(r))
+    let (s, r) = std::sync::mpsc::sync_channel::<Instant>(2);
+    (TimeSender(s), TimeReceiver(SyncCell::new(r)))
 }
 
 /// The system used to update the [`Time`] used by app logic. If there is a render world the time is sent from
@@ -80,12 +80,12 @@ pub fn create_time_channels() -> (TimeSender, TimeReceiver) {
 fn time_system(
     mut time: ResMut<Time>,
     update_strategy: Res<TimeUpdateStrategy>,
-    time_recv: Option<Res<TimeReceiver>>,
+    time_recv: Option<ResMut<TimeReceiver>>,
     mut has_received_time: Local<bool>,
 ) {
-    let new_time = if let Some(time_recv) = time_recv {
+    let new_time = if let Some(mut time_recv) = time_recv {
         // TODO: Figure out how to handle this when using pipelined rendering.
-        if let Ok(new_time) = time_recv.0.try_recv() {
+        if let Ok(new_time) = time_recv.0.get().try_recv() {
             *has_received_time = true;
             new_time
         } else {
