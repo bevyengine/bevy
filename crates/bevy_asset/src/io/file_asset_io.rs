@@ -3,15 +3,15 @@ use crate::{filesystem_watcher::FilesystemWatcher, AssetServer};
 use crate::{AssetIo, AssetIoError, Metadata};
 use anyhow::Result;
 #[cfg(feature = "filesystem_watcher")]
-use bevy_ecs::system::Res;
+use bevy_ecs::system::ResMut;
 use bevy_utils::BoxedFuture;
 #[cfg(feature = "filesystem_watcher")]
 use bevy_utils::HashSet;
-#[cfg(feature = "filesystem_watcher")]
-use crossbeam_channel::TryRecvError;
 use fs::File;
 #[cfg(feature = "filesystem_watcher")]
 use parking_lot::RwLock;
+#[cfg(feature = "filesystem_watcher")]
+use std::sync::mpsc::TryRecvError;
 #[cfg(feature = "filesystem_watcher")]
 use std::sync::Arc;
 use std::{
@@ -168,18 +168,18 @@ impl AssetIo for FileAssetIo {
     feature = "filesystem_watcher",
     all(not(target_arch = "wasm32"), not(target_os = "android"))
 ))]
-pub fn filesystem_watcher_system(asset_server: Res<AssetServer>) {
+pub fn filesystem_watcher_system(mut asset_server: ResMut<AssetServer>) {
     let mut changed = HashSet::default();
     let asset_io =
-        if let Some(asset_io) = asset_server.server.asset_io.downcast_ref::<FileAssetIo>() {
+        if let Some(asset_io) = asset_server.server.asset_io.downcast_mut::<FileAssetIo>() {
             asset_io
         } else {
             return;
         };
-    let watcher = asset_io.filesystem_watcher.read();
-    if let Some(ref watcher) = *watcher {
+    let watcher = asset_io.filesystem_watcher.write();
+    if let Some(ref mut watcher) = *watcher {
         loop {
-            let event = match watcher.receiver.try_recv() {
+            let event = match watcher.receiver.get().try_recv() {
                 Ok(result) => result.unwrap(),
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => panic!("FilesystemWatcher disconnected."),

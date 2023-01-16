@@ -9,9 +9,11 @@ use bevy_ecs::system::{Res, ResMut, Resource};
 use bevy_log::warn;
 use bevy_tasks::IoTaskPool;
 use bevy_utils::{Entry, HashMap, Uuid};
-use crossbeam_channel::TryRecvError;
 use parking_lot::{Mutex, RwLock};
-use std::{path::Path, sync::Arc};
+use std::{
+    path::Path,
+    sync::{mpsc::TryRecvError, Arc},
+};
 use thiserror::Error;
 
 /// Errors that occur while loading assets with an `AssetServer`.
@@ -57,7 +59,7 @@ fn format_missing_asset_ext(exts: &[String]) -> String {
 
 #[derive(Default)]
 pub(crate) struct AssetRefCounter {
-    pub(crate) channel: Arc<RefChangeChannel>,
+    pub(crate) channel: Arc<Mutex<RefChangeChannel>>,
     pub(crate) ref_counts: Arc<RwLock<HashMap<HandleId, usize>>>,
     pub(crate) mark_unused_assets: Arc<Mutex<Vec<HandleId>>>,
 }
@@ -142,7 +144,7 @@ impl AssetServer {
         &*self.server.asset_io
     }
 
-    pub(crate) fn register_asset_type<T: Asset>(&self) -> Assets<T> {
+    pub(crate) fn register_asset_type<T: Asset>(&mut self) -> Assets<T> {
         if self
             .server
             .asset_lifecycles
@@ -153,7 +155,15 @@ impl AssetServer {
             panic!("Error while registering new asset type: {:?} with UUID: {:?}. Another type with the same UUID is already registered. Can not register new asset type with the same UUID",
                 std::any::type_name::<T>(), T::TYPE_UUID);
         }
-        Assets::new(self.server.asset_ref_counter.channel.sender.clone())
+        Assets::new(
+            self.server
+                .asset_ref_counter
+                .channel
+                .lock()
+                .sender
+                .get()
+                .clone(),
+        )
     }
 
     /// Adds the provided asset loader to the server.
@@ -177,13 +187,27 @@ impl AssetServer {
 
     /// Gets a strong handle for an asset with the provided id.
     pub fn get_handle<T: Asset, I: Into<HandleId>>(&self, id: I) -> Handle<T> {
-        let sender = self.server.asset_ref_counter.channel.sender.clone();
+        let sender = self
+            .server
+            .asset_ref_counter
+            .channel
+            .lock()
+            .sender
+            .get()
+            .clone();
         Handle::strong(id.into(), sender)
     }
 
     /// Gets an untyped strong handle for an asset with the provided id.
     pub fn get_handle_untyped<I: Into<HandleId>>(&self, id: I) -> HandleUntyped {
-        let sender = self.server.asset_ref_counter.channel.sender.clone();
+        let sender = self
+            .server
+            .asset_ref_counter
+            .channel
+            .lock()
+            .sender
+            .get()
+            .clone();
         HandleUntyped::strong(id.into(), sender)
     }
 
@@ -371,9 +395,10 @@ impl AssetServer {
         };
 
         // load the asset source using the corresponding AssetLoader
+        let asset_ref_counter = self.server.asset_ref_counter.channel.lock();
         let mut load_context = LoadContext::new(
             asset_path.path(),
-            &self.server.asset_ref_counter.channel,
+            &asset_ref_counter,
             self.asset_io(),
             version,
         );
@@ -532,11 +557,11 @@ impl AssetServer {
 
     /// Iterates through asset references and marks assets with no active handles as unused.
     pub fn mark_unused_assets(&self) {
-        let receiver = &self.server.asset_ref_counter.channel.receiver;
+        let receiver = &mut self.server.asset_ref_counter.channel.lock().receiver;
         let mut ref_counts = self.server.asset_ref_counter.ref_counts.write();
         let mut potential_frees = None;
         loop {
-            let ref_change = match receiver.try_recv() {
+            let ref_change = match receiver.get().try_recv() {
                 Ok(ref_change) => ref_change,
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => panic!("RefChange channel disconnected."),
@@ -584,15 +609,15 @@ impl AssetServer {
     // Note: this takes a `ResMut<Assets<T>>` to ensure change detection does not get
     // triggered unless the `Assets` collection is actually updated.
     pub(crate) fn update_asset_storage<T: Asset>(&self, mut assets: ResMut<Assets<T>>) {
-        let asset_lifecycles = self.server.asset_lifecycles.read();
-        let asset_lifecycle = asset_lifecycles.get(&T::TYPE_UUID).unwrap();
+        let mut asset_lifecycles = self.server.asset_lifecycles.write();
+        let asset_lifecycle = asset_lifecycles.get_mut(&T::TYPE_UUID).unwrap();
         let mut asset_sources_guard = None;
         let channel = asset_lifecycle
-            .downcast_ref::<AssetLifecycleChannel<T>>()
+            .downcast_mut::<AssetLifecycleChannel<T>>()
             .unwrap();
 
         loop {
-            match channel.receiver.try_recv() {
+            match channel.receiver.get().try_recv() {
                 Ok(AssetLifecycleEvent::Create(result)) => {
                     // update SourceInfo if this asset was loaded from an AssetPath
                     if let HandleId::AssetPathId(id) = result.id {

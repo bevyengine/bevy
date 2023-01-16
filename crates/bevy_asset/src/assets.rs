@@ -9,9 +9,9 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
-use bevy_utils::HashMap;
-use crossbeam_channel::Sender;
+use bevy_utils::{synccell::SyncCell, HashMap};
 use std::fmt::Debug;
+use std::sync::mpsc::Sender;
 
 /// Events that involve assets of type `T`.
 ///
@@ -67,11 +67,21 @@ impl<T: Asset> Debug for AssetEvent<T> {
 /// Remember, if there are no Strong handles for an asset (i.e. they have all been dropped), the
 /// asset will unload. Make sure you always have a Strong handle when you want to keep an asset
 /// loaded!
-#[derive(Debug, Resource)]
+#[derive(Resource)]
 pub struct Assets<T: Asset> {
     assets: HashMap<HandleId, T>,
     events: Events<AssetEvent<T>>,
-    pub(crate) ref_change_sender: Sender<RefChange>,
+    pub(crate) ref_change_sender: SyncCell<Sender<RefChange>>,
+}
+
+impl<T: Asset + Debug> Debug for Assets<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Assets")
+            .field("assets", &self.assets)
+            .field("events", &self.events)
+            .field("ref_change_sender", &"Receiver { .. }")
+            .finish()
+    }
 }
 
 impl<T: Asset> Assets<T> {
@@ -79,7 +89,7 @@ impl<T: Asset> Assets<T> {
         Assets {
             assets: HashMap::default(),
             events: Events::default(),
-            ref_change_sender,
+            ref_change_sender: SyncCell::new(ref_change_sender),
         }
     }
 
@@ -158,8 +168,8 @@ impl<T: Asset> Assets<T> {
     }
 
     /// Gets a _Strong_ handle pointing to the same asset as the given one.
-    pub fn get_handle<H: Into<HandleId>>(&self, handle: H) -> Handle<T> {
-        Handle::strong(handle.into(), self.ref_change_sender.clone())
+    pub fn get_handle<H: Into<HandleId>>(&mut self, handle: H) -> Handle<T> {
+        Handle::strong(handle.into(), self.ref_change_sender.get().clone())
     }
 
     /// Gets mutable access to an asset for the given handle, inserting a new value if none exists.
@@ -330,7 +340,7 @@ impl AddAsset for App {
             return self;
         }
         let assets = {
-            let asset_server = self.world.resource::<AssetServer>();
+            let mut asset_server = self.world.resource_mut::<AssetServer>();
             asset_server.register_asset_type::<T>()
         };
 

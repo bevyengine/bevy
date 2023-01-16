@@ -6,10 +6,10 @@ use anyhow::Error;
 use anyhow::Result;
 use bevy_ecs::system::{Res, ResMut};
 use bevy_reflect::{TypeUuid, TypeUuidDynamic};
-use bevy_utils::{BoxedFuture, HashMap};
-use crossbeam_channel::{Receiver, Sender};
+use bevy_utils::{synccell::SyncCell, BoxedFuture, HashMap};
 use downcast_rs::{impl_downcast, Downcast};
 use std::path::Path;
+use std::sync::mpsc::{Receiver, Sender};
 
 /// A loader for an asset source.
 ///
@@ -168,7 +168,7 @@ impl<'a> LoadContext<'a> {
 
     /// Gets a handle to an asset of type `T` from its id.
     pub fn get_handle<I: Into<HandleId>, T: Asset>(&self, id: I) -> Handle<T> {
-        Handle::strong(id.into(), self.ref_change_channel.sender.clone())
+        Handle::strong(id.into(), self.ref_change_channel.sender.get().clone())
     }
 
     /// Reads the contents of the file at the specified path through the [`AssetIo`] associated
@@ -208,12 +208,11 @@ pub struct AssetResult<T> {
 }
 
 /// An event channel used by asset server to update the asset storage of a `T` asset.
-#[derive(Debug)]
 pub struct AssetLifecycleChannel<T> {
     /// The sender endpoint of the channel.
-    pub sender: Sender<AssetLifecycleEvent<T>>,
+    pub sender: SyncCell<Sender<AssetLifecycleEvent<T>>>,
     /// The receiver endpoint of the channel.
-    pub receiver: Receiver<AssetLifecycleEvent<T>>,
+    pub receiver: SyncCell<Receiver<AssetLifecycleEvent<T>>>,
 }
 
 /// Events for the [`AssetLifecycleChannel`].
@@ -237,6 +236,7 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     fn create_asset(&self, id: HandleId, asset: Box<dyn AssetDynamic>, version: usize) {
         if let Ok(asset) = asset.downcast::<T>() {
             self.sender
+                .get()
                 .send(AssetLifecycleEvent::Create(AssetResult {
                     asset,
                     id,
@@ -252,14 +252,20 @@ impl<T: AssetDynamic> AssetLifecycle for AssetLifecycleChannel<T> {
     }
 
     fn free_asset(&self, id: HandleId) {
-        self.sender.send(AssetLifecycleEvent::Free(id)).unwrap();
+        self.sender
+            .get()
+            .send(AssetLifecycleEvent::Free(id))
+            .unwrap();
     }
 }
 
 impl<T> Default for AssetLifecycleChannel<T> {
     fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        AssetLifecycleChannel { sender, receiver }
+        let (sender, receiver) = std::sync::mpsc::channel();
+        AssetLifecycleChannel {
+            sender: SyncCell::new(sender),
+            receiver: SyncCell::new(receiver),
+        }
     }
 }
 

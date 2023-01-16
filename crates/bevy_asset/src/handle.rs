@@ -13,9 +13,9 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{
     std_traits::ReflectDefault, FromReflect, Reflect, ReflectDeserialize, ReflectSerialize,
 };
-use bevy_utils::Uuid;
-use crossbeam_channel::{Receiver, Sender};
+use bevy_utils::{synccell::SyncCell, Uuid};
 use serde::{Deserialize, Serialize};
+use std::sync::mpsc::{Receiver, Sender};
 
 /// A unique, stable asset id.
 #[derive(
@@ -121,7 +121,7 @@ where
 enum HandleType {
     #[default]
     Weak,
-    Strong(Sender<RefChange>),
+    Strong(SyncCell<Sender<RefChange>>),
 }
 
 impl Debug for HandleType {
@@ -138,7 +138,7 @@ impl<T: Asset> Handle<T> {
         ref_change_sender.send(RefChange::Increment(id)).unwrap();
         Self {
             id,
-            handle_type: HandleType::Strong(ref_change_sender),
+            handle_type: HandleType::Strong(SyncCell::new(ref_change_sender)),
             marker: PhantomData,
         }
     }
@@ -187,13 +187,13 @@ impl<T: Asset> Handle<T> {
     /// Makes this handle Strong if it wasn't already.
     ///
     /// This method requires the corresponding [`Assets`](crate::Assets) collection.
-    pub fn make_strong(&mut self, assets: &Assets<T>) {
+    pub fn make_strong(&mut self, assets: &mut Assets<T>) {
         if self.is_strong() {
             return;
         }
-        let sender = assets.ref_change_sender.clone();
+        let sender = assets.ref_change_sender.get().clone();
         sender.send(RefChange::Increment(self.id)).unwrap();
-        self.handle_type = HandleType::Strong(sender);
+        self.handle_type = HandleType::Strong(SyncCell::new(sender));
     }
 
     /// Creates a weak copy of this handle.
@@ -204,9 +204,9 @@ impl<T: Asset> Handle<T> {
     }
 
     /// Creates an untyped copy of this handle.
-    pub fn clone_untyped(&self) -> HandleUntyped {
-        match &self.handle_type {
-            HandleType::Strong(sender) => HandleUntyped::strong(self.id, sender.clone()),
+    pub fn clone_untyped(&mut self) -> HandleUntyped {
+        match &mut self.handle_type {
+            HandleType::Strong(sender) => HandleUntyped::strong(self.id, sender.get().clone()),
             HandleType::Weak => HandleUntyped::weak(self.id),
         }
     }
@@ -220,10 +220,10 @@ impl<T: Asset> Handle<T> {
 impl<T: Asset> Drop for Handle<T> {
     fn drop(&mut self) {
         match self.handle_type {
-            HandleType::Strong(ref sender) => {
+            HandleType::Strong(ref mut sender) => {
                 // ignore send errors because this means the channel is shut down / the game has
                 // stopped
-                let _ = sender.send(RefChange::Decrement(self.id));
+                let _ = sender.get().send(RefChange::Decrement(self.id));
             }
             HandleType::Weak => {}
         }
@@ -308,7 +308,7 @@ impl<T: Asset> Debug for Handle<T> {
 impl<T: Asset> Clone for Handle<T> {
     fn clone(&self) -> Self {
         match self.handle_type {
-            HandleType::Strong(ref sender) => Handle::strong(self.id, sender.clone()),
+            HandleType::Strong(ref mut sender) => Handle::strong(self.id, sender.get().clone()),
             HandleType::Weak => Handle::weak(self.id),
         }
     }
@@ -339,7 +339,7 @@ impl HandleUntyped {
         ref_change_sender.send(RefChange::Increment(id)).unwrap();
         Self {
             id,
-            handle_type: HandleType::Strong(ref_change_sender),
+            handle_type: HandleType::Strong(SyncCell::new(ref_change_sender)),
         }
     }
 
@@ -396,7 +396,7 @@ impl HandleUntyped {
             );
         }
         let handle_type = match &self.handle_type {
-            HandleType::Strong(sender) => HandleType::Strong(sender.clone()),
+            HandleType::Strong(sender) => HandleType::Strong(SyncCell::new(sender.get().clone())),
             HandleType::Weak => HandleType::Weak,
         };
         // ensure we don't send the RefChange event when "self" is dropped
@@ -412,10 +412,10 @@ impl HandleUntyped {
 impl Drop for HandleUntyped {
     fn drop(&mut self) {
         match self.handle_type {
-            HandleType::Strong(ref sender) => {
+            HandleType::Strong(ref mut sender) => {
                 // ignore send errors because this means the channel is shut down / the game has
                 // stopped
-                let _ = sender.send(RefChange::Decrement(self.id));
+                let _ = sender.get().send(RefChange::Decrement(self.id));
             }
             HandleType::Weak => {}
         }
@@ -455,7 +455,7 @@ impl Eq for HandleUntyped {}
 impl Clone for HandleUntyped {
     fn clone(&self) -> Self {
         match self.handle_type {
-            HandleType::Strong(ref sender) => HandleUntyped::strong(self.id, sender.clone()),
+            HandleType::Strong(ref sender) => HandleUntyped::strong(self.id, sender.get().clone()),
             HandleType::Weak => HandleUntyped::weak(self.id),
         }
     }
@@ -466,15 +466,17 @@ pub(crate) enum RefChange {
     Decrement(HandleId),
 }
 
-#[derive(Clone)]
 pub(crate) struct RefChangeChannel {
-    pub sender: Sender<RefChange>,
-    pub receiver: Receiver<RefChange>,
+    pub sender: SyncCell<Sender<RefChange>>,
+    pub receiver: SyncCell<Receiver<RefChange>>,
 }
 
 impl Default for RefChangeChannel {
     fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        RefChangeChannel { sender, receiver }
+        let (sender, receiver) = std::sync::mpsc::channel();
+        RefChangeChannel {
+            sender: SyncCell::new(sender),
+            receiver: SyncCell::new(receiver),
+        }
     }
 }

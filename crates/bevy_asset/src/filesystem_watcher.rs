@@ -1,6 +1,7 @@
-use crossbeam_channel::Receiver;
+use bevy_utils::synccell::SyncCell;
 use notify::{Config, Event, RecommendedWatcher, RecursiveMode, Result, Watcher};
 use std::path::Path;
+use std::sync::mpsc::Receiver;
 
 /// Watches for changes to files on the local filesystem.
 ///
@@ -8,12 +9,12 @@ use std::path::Path;
 /// assets when their source files are modified.
 pub struct FilesystemWatcher {
     pub watcher: RecommendedWatcher,
-    pub receiver: Receiver<Result<Event>>,
+    pub receiver: SyncCell<Receiver<Result<Event>>>,
 }
 
 impl Default for FilesystemWatcher {
     fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
+        let (sender, receiver) = std::sync::mpsc::channel();
         let watcher: RecommendedWatcher = RecommendedWatcher::new(
             move |res| {
                 sender.send(res).expect("Watch event send failure.");
@@ -21,7 +22,10 @@ impl Default for FilesystemWatcher {
             Config::default(),
         )
         .expect("Failed to create filesystem watcher.");
-        FilesystemWatcher { watcher, receiver }
+        FilesystemWatcher {
+            watcher,
+            receiver: SyncCell::new(receiver),
+        }
     }
 }
 
