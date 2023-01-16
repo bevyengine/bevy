@@ -9,9 +9,9 @@ use crate::{
     impl_graph,
 };
 
-/// Implementation of a MultiGraph which uses `Vec<(NodeIdx, Vec<EdgeIdx>)>` for adjacencies
+/// Implementation of a `MultiGraph` which uses `Vec<(NodeIdx, Vec<EdgeIdx>)>` for adjacencies
 ///
-/// MultiGraphs can hold multiple edges between two nodes and edges between the same node
+/// `MultiGraph`s can hold multiple edges between two nodes and edges between the same node
 #[derive(Clone)]
 pub struct MultiListGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
