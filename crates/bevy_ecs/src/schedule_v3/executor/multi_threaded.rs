@@ -81,6 +81,8 @@ pub struct MultiThreadedExecutor {
     evaluated_sets: FixedBitSet,
     /// Systems that have no remaining dependencies and are waiting to run.
     ready_systems: FixedBitSet,
+    /// copy of `ready_systems`
+    ready_systems_copy: Option<FixedBitSet>,
     /// Systems that are running.
     running_systems: FixedBitSet,
     /// Systems that got skipped.
@@ -109,6 +111,7 @@ impl SystemExecutor for MultiThreadedExecutor {
 
         self.evaluated_sets = FixedBitSet::with_capacity(set_count);
         self.ready_systems = FixedBitSet::with_capacity(sys_count);
+        self.ready_systems_copy = Some(FixedBitSet::with_capacity(sys_count));
         self.running_systems = FixedBitSet::with_capacity(sys_count);
         self.completed_systems = FixedBitSet::with_capacity(sys_count);
         self.skipped_systems = FixedBitSet::with_capacity(sys_count);
@@ -142,9 +145,6 @@ impl SystemExecutor for MultiThreadedExecutor {
             }
         }
 
-        // using spare bitset to avoid repeated allocations
-        let mut cached_ready_systems = FixedBitSet::with_capacity(self.ready_systems.len());
-
         let world = SyncUnsafeCell::from_mut(world);
         let SyncUnsafeSchedule {
             systems,
@@ -158,13 +158,7 @@ impl SystemExecutor for MultiThreadedExecutor {
                 while self.num_completed_systems < num_systems {
                     // SAFETY: self.ready_systems does not contain running systems
                     unsafe {
-                        self.spawn_system_tasks(
-                            scope,
-                            systems,
-                            &mut conditions,
-                            world,
-                            &mut cached_ready_systems,
-                        );
+                        self.spawn_system_tasks(scope, systems, &mut conditions, world);
                     }
 
                     if self.num_running_systems > 0 {
@@ -222,6 +216,7 @@ impl MultiThreadedExecutor {
             exclusive_running: false,
             evaluated_sets: FixedBitSet::new(),
             ready_systems: FixedBitSet::new(),
+            ready_systems_copy: Some(FixedBitSet::new()),
             running_systems: FixedBitSet::new(),
             skipped_systems: FixedBitSet::new(),
             completed_systems: FixedBitSet::new(),
@@ -238,12 +233,13 @@ impl MultiThreadedExecutor {
         systems: &'scope [SyncUnsafeCell<BoxedSystem>],
         conditions: &mut Conditions,
         cell: &'scope SyncUnsafeCell<World>,
-        ready_systems: &mut FixedBitSet,
     ) {
         if self.exclusive_running {
             return;
         }
 
+        // can't borrow since loop mutably borrows `self`
+        let mut ready_systems = self.ready_systems_copy.take().unwrap();
         ready_systems.clear();
         ready_systems.union_with(&self.ready_systems);
 
@@ -264,7 +260,6 @@ impl MultiThreadedExecutor {
                 continue;
             }
 
-            // system is either going to run or be skipped
             self.ready_systems.set(system_index, false);
 
             if !self.should_run(system_index, system, conditions, world) {
@@ -272,7 +267,6 @@ impl MultiThreadedExecutor {
                 continue;
             }
 
-            // system is starting
             self.running_systems.insert(system_index);
             self.num_running_systems += 1;
 
@@ -291,6 +285,9 @@ impl MultiThreadedExecutor {
                 self.spawn_system_task(scope, system_index, systems, world);
             }
         }
+
+        // give back
+        self.ready_systems_copy = Some(ready_systems);
     }
 
     fn can_run(

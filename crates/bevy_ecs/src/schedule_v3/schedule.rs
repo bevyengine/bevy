@@ -144,7 +144,7 @@ impl Schedule {
 
     /// Changes miscellaneous build settings.
     pub fn set_build_settings(&mut self, settings: ScheduleBuildSettings) -> &mut Self {
-        self.graph.set_build_settings(settings);
+        self.graph.settings = settings;
         self
     }
 
@@ -305,10 +305,6 @@ impl ScheduleGraph {
             "adding arbitrary systems to a system type set is not allowed"
         );
         self.default_set = Some(Box::new(set));
-    }
-
-    fn set_build_settings(&mut self, settings: ScheduleBuildSettings) {
-        self.settings = settings;
     }
 
     fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) {
