@@ -231,7 +231,7 @@ fn pbr(
         light_accum = light_accum + light_contrib * shadow;
     }
 
-    let ambient_contrib = ambient_light(in.world_position, in.N, in.V, diffuse_color, F0, perceptual_roughness, occlusion);
+    let ambient_contrib = ambient_light(in.world_position, in.N, in.V, NdotV, diffuse_color, F0, perceptual_roughness, occlusion);
 
     output_color = vec4<f32>(
         light_accum + ambient_contrib + emissive.rgb * output_color.a,
@@ -264,4 +264,3 @@ fn dither(color: vec4<f32>, pos: vec2<f32>) -> vec4<f32> {
     return vec4<f32>(color.rgb + screen_space_dither(pos.xy), color.a);
 }
 #endif
-
