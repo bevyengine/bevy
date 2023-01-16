@@ -1,6 +1,7 @@
 use bevy_ecs::prelude::*;
 use bevy_ecs::query::QueryState;
 use bevy_render::{
+    camera::ExtractedCamera,
     prelude::Color,
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotInfo, SlotType},
     render_phase::RenderPhase,
@@ -22,6 +23,7 @@ use super::{AlphaMask3dPrepass, Opaque3dPrepass, ViewPrepassTextures};
 pub struct PrepassNode {
     main_view_query: QueryState<
         (
+            &'static ExtractedCamera,
             &'static RenderPhase<Opaque3dPrepass>,
             &'static RenderPhase<AlphaMask3dPrepass>,
             &'static ViewDepthTexture,
@@ -58,6 +60,7 @@ impl Node for PrepassNode {
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.get_input_entity(Self::IN_VIEW)?;
         let Ok((
+            camera,
             opaque_prepass_phase,
             alpha_mask_prepass_phase,
             view_depth_texture,
@@ -96,6 +99,10 @@ impl Node for PrepassNode {
                     stencil_ops: None,
                 }),
             });
+
+            if let Some(viewport) = camera.viewport.as_ref() {
+                render_pass.set_camera_viewport(viewport);
+            }
 
             // Always run opaque pass to ensure screen is cleared
             {
