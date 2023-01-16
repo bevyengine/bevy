@@ -659,21 +659,19 @@ impl AxisSettings {
         livezone_upperbound: f32,
         threshold: f32,
     ) -> Result<AxisSettings, AxisSettingsError> {
-        let within = |value, lower: f32, upper: f32| (lower..=upper).contains(&value);
-
-        if !within(livezone_lowerbound, -1.0, 0.0) {
+        if !(-1.0..=0.0).contains(&livezone_lowerbound) {
             Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(
                 livezone_lowerbound,
             ))
-        } else if !within(deadzone_lowerbound, -1.0, 0.0) {
+        } else if !(-1.0..=0.0).contains(&deadzone_lowerbound) {
             Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(
                 deadzone_lowerbound,
             ))
-        } else if !within(deadzone_upperbound, 0.0, 1.0) {
+        } else if !(0.0..=1.0).contains(&deadzone_upperbound) {
             Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(
                 deadzone_upperbound,
             ))
-        } else if !within(livezone_upperbound, 0.0, 1.0) {
+        } else if !(0.0..=1.0).contains(&livezone_upperbound) {
             Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(
                 livezone_upperbound,
             ))
@@ -691,7 +689,7 @@ impl AxisSettings {
                     deadzone_upperbound,
                 },
             )
-        } else if !within(threshold, 0.0, 2.0) {
+        } else if !(0.0..=2.0).contains(&threshold) {
             Err(AxisSettingsError::Threshold(threshold))
         } else {
             Ok(Self {
