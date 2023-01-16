@@ -71,7 +71,7 @@ impl DepthFirstSearch {
         }
     }
 
-    /// Gets a mutable reference to the value of the next node from the algorythm
+    /// Gets a mutable reference to the value of the next node from the algorithm.
     pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
         if let Some(node) = self.stack.pop() {
             for (idx, _) in graph.edges_of(node) {
