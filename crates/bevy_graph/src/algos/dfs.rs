@@ -48,7 +48,7 @@ impl DepthFirstSearch {
         }
     }
 
-    /// Gets a reference to the value of the next node from the algorythm
+    /// Gets a reference to the value of the next node from the algorithm.
     ///
     /// # Safety
     ///
