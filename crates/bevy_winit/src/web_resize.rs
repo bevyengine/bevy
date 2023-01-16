@@ -1,7 +1,8 @@
 use crate::WinitWindows;
 use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
-use crossbeam_channel::{Receiver, Sender};
+use bevy_utils::synccell::SyncCell;
+use std::sync::mpsc::{Receiver, Sender};
 use wasm_bindgen::JsCast;
 use winit::dpi::LogicalSize;
 
@@ -21,15 +22,15 @@ struct ResizeEvent {
 
 #[derive(Resource)]
 pub(crate) struct CanvasParentResizeEventChannel {
-    sender: Sender<ResizeEvent>,
-    receiver: Receiver<ResizeEvent>,
+    sender: SyncCell<Sender<ResizeEvent>>,
+    receiver: SyncCell<Receiver<ResizeEvent>>,
 }
 
 fn canvas_parent_resize_event_handler(
     winit_windows: NonSend<WinitWindows>,
-    resize_events: Res<CanvasParentResizeEventChannel>,
+    mut resize_events: ResMut<CanvasParentResizeEventChannel>,
 ) {
-    for event in resize_events.receiver.try_iter() {
+    for event in resize_events.receiver.get().try_iter() {
         if let Some(window) = winit_windows.get_window(event.window) {
             window.set_inner_size(event.size);
         }
@@ -52,14 +53,17 @@ pub(crate) const WINIT_CANVAS_SELECTOR: &str = "canvas[data-raw-handle]";
 
 impl Default for CanvasParentResizeEventChannel {
     fn default() -> Self {
-        let (sender, receiver) = crossbeam_channel::unbounded();
-        return Self { sender, receiver };
+        let (sender, receiver) = std::sync::mpsc::channel();
+        return Self {
+            sender: SyncCell::new(sender),
+            receiver: SyncCell::new(receiver),
+        };
     }
 }
 
 impl CanvasParentResizeEventChannel {
     pub(crate) fn listen_to_selector(&self, window: Entity, selector: &str) {
-        let sender = self.sender.clone();
+        let sender = self.sender.get().clone();
         let owned_selector = selector.to_string();
         let resize = move || {
             if let Some(size) = get_size(&owned_selector) {
