@@ -191,11 +191,11 @@ impl_graph! {
 
             let list = self.adjacencies.get_unchecked_mut(from);
             let list = find_edge_list_mut(list, to).unwrap();
-            list.swap_remove(find_edge(&list, edge).unwrap()); // TODO: remove or swap_remove ?
+            list.swap_remove(find_edge(list, edge).unwrap()); // TODO: remove or swap_remove ?
 
             let list = self.adjacencies.get_unchecked_mut(to);
             let list = find_edge_list_mut(list, from).unwrap();
-            list.swap_remove(find_edge(&list, edge).unwrap()); // TODO: remove or swap_remove ?
+            list.swap_remove(find_edge(list, edge).unwrap()); // TODO: remove or swap_remove ?
 
             self.edges.remove(edge).unwrap().data
         }
@@ -261,7 +261,7 @@ impl_graph! {
             let (from, to) = self.edges.get_unchecked(edge).indices();
             let list = self.adjacencies.get_unchecked_mut(from);
             let list = find_edge_list_mut(list, to).unwrap();
-            list.swap_remove(find_edge(&list, edge).unwrap()); // TODO: remove or swap_remove ?
+            list.swap_remove(find_edge(list, edge).unwrap()); // TODO: remove or swap_remove ?
             self.edges.remove(edge).unwrap().data
         }
     }
