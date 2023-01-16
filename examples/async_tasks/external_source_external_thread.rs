@@ -1,9 +1,9 @@
 //! How to use an external thread to run an infinite task and communicate with a channel.
 
 use bevy::prelude::*;
-// Using crossbeam_channel instead of std as std `Receiver` is `!Sync`
-use crossbeam_channel::{bounded, Receiver};
+use bevy::utils::synccell::SyncCell;
 use rand::Rng;
+use std::sync::mpsc::{sync_channel, Receiver};
 use std::time::{Duration, Instant};
 
 fn main() {
@@ -18,7 +18,7 @@ fn main() {
 }
 
 #[derive(Resource, Deref)]
-struct StreamReceiver(Receiver<u32>);
+struct StreamReceiver(SyncCell<Receiver<u32>>);
 struct StreamEvent(u32);
 
 #[derive(Resource, Deref)]
@@ -27,7 +27,7 @@ struct LoadedFont(Handle<Font>);
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
 
-    let (tx, rx) = bounded::<u32>(10);
+    let (tx, rx) = sync_channel::<u32>(10);
     std::thread::spawn(move || loop {
         // Everything here happens in another thread
         // This is where you could connect to an external data source
@@ -41,13 +41,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         tx.send(rng.gen_range(0..2000)).unwrap();
     });
 
-    commands.insert_resource(StreamReceiver(rx));
+    commands.insert_resource(StreamReceiver(SyncCell::new(rx)));
     commands.insert_resource(LoadedFont(asset_server.load("fonts/FiraSans-Bold.ttf")));
 }
 
 // This system reads from the receiver and sends events to Bevy
-fn read_stream(receiver: Res<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
-    for from_stream in receiver.try_iter() {
+fn read_stream(mut receiver: ResMut<StreamReceiver>, mut events: EventWriter<StreamEvent>) {
+    for from_stream in receiver.0.get().try_iter() {
         events.send(StreamEvent(from_stream));
     }
 }

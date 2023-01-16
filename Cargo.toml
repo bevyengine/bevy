@@ -136,7 +136,6 @@ serde = { version = "1", features = ["derive"] }
 bytemuck = "1.7"
 # Needed to poll Task examples
 futures-lite = "1.11.3"
-crossbeam-channel = "0.5.0"
 
 [[example]]
 name = "hello_world"
