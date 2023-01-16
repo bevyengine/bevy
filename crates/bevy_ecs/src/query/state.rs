@@ -166,7 +166,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         );
     }
 
-    /// Creates a new [`Archetype`].
+    /// Update the current [`QueryState`] with information from the provided [`Archetype`]
+    /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
     pub fn new_archetype(&mut self, archetype: &Archetype) {
         if Q::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))
