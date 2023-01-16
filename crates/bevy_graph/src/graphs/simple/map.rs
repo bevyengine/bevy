@@ -11,14 +11,15 @@ use crate::{
     impl_graph,
 };
 
+/// Implementation of a SimpleGraph which uses `HashMap<NodeIdx, EdgeIdx>` for adjacencies
+///
+/// SimpleGraphs can only hold one edge between two nodes and can't have edges between the same node
 #[derive(Clone)]
 pub struct SimpleMapGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
     edges: HopSlotMap<EdgeIdx, Edge<E>>,
     adjacencies: SecondaryMap<NodeIdx, HashMap<NodeIdx, EdgeIdx>>,
 }
-
-impl<N, E, const DIRECTED: bool> SimpleMapGraph<N, E, DIRECTED> {}
 
 impl_graph! {
     impl COMMON for SimpleMapGraph {
