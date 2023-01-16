@@ -342,7 +342,7 @@ impl World {
                         table_row: archetype_entity.table_row(),
                     };
 
-                    // SAFETY: entity exists and location is validly constructed above
+                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored
                     unsafe { EntityRef::new(self, entity, location) }
                 })
         })
