@@ -318,11 +318,9 @@ impl World {
     pub fn get_entity(&self, entity: Entity) -> Option<EntityRef> {
         let location = self.entities.get(entity)?;
         // SAFETY: if the Entity is invalid, the function returns early.
-        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists
-        unsafe {
-            let entity_ref = EntityRef::new(self, entity, location);
-            Some(entity_ref)
-        }
+        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
+        let entity_ref = unsafe { EntityRef::new(self, entity, location) };
+        Some(entity_ref)
     }
 
     /// Returns an [`Entity`] iterator of current entities.
