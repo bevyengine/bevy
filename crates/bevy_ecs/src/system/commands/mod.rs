@@ -11,7 +11,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{Resource, SystemParam};
+use super::{IntoSystem, Resource, SystemParam};
 
 /// A [`World`] mutation.
 ///
@@ -45,6 +45,30 @@ pub trait Command: Send + 'static {
 }
 
 pub trait CommandParam: SystemParam {}
+
+pub trait IntoCommand<Marker> {
+    type Command: Command;
+    fn into_command(self) -> Self::Command;
+}
+
+impl<T: Command> IntoCommand<()> for T {
+    type Command = Self;
+    fn into_command(self) -> Self::Command {
+        self
+    }
+}
+
+pub struct IsSystemCommand;
+
+impl<Marker, T: IntoSystem<(), (), Marker>> IntoCommand<(IsSystemCommand, Marker)> for T
+where
+    T::System: Command,
+{
+    type Command = T::System;
+    fn into_command(self) -> Self::Command {
+        IntoSystem::into_system(self)
+    }
+}
 
 /// A [`Command`] queue to perform impactful changes to the [`World`].
 ///
@@ -524,8 +548,8 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_three_to_counter_system);
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
-    pub fn add<C: Command>(&mut self, command: C) {
-        self.queue.push(command);
+    pub fn add<Marker, C: IntoCommand<Marker>>(&mut self, command: C) {
+        self.queue.push(command.into_command());
     }
 }
 
