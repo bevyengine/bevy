@@ -1,8 +1,14 @@
 use crate::components::{GlobalTransform, Transform};
-use bevy_ecs::prelude::{Changed, Entity, Query, With, Without};
+use bevy_ecs::{
+    change_detection::Ref,
+    prelude::{Changed, DetectChanges, Entity, Query, With, Without},
+};
 use bevy_hierarchy::{Children, Parent};
 
 /// Update [`GlobalTransform`] component of entities that aren't in the hierarchy
+///
+/// Third party plugins should use [`transform_propagate_system_set`](crate::transform_propagate_system_set)
+/// to propagate transforms correctly.
 pub fn sync_simple_transforms(
     mut query: Query<
         (&Transform, &mut GlobalTransform),
@@ -16,39 +22,29 @@ pub fn sync_simple_transforms(
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
 /// [`Transform`] component.
+///
+/// Third party plugins should use [`transform_propagate_system_set`](crate::transform_propagate_system_set)
+/// to propagate transforms correctly.
 pub fn propagate_transforms(
     mut root_query: Query<
-        (
-            Entity,
-            &Children,
-            &Transform,
-            Changed<Transform>,
-            &mut GlobalTransform,
-        ),
+        (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
         Without<Parent>,
     >,
-    transform_query: Query<
-        (
-            &Transform,
-            Changed<Transform>,
-            &mut GlobalTransform,
-            Option<&Children>,
-        ),
-        With<Parent>,
-    >,
-    parent_query: Query<(Entity, &Parent, Changed<Parent>)>,
+    transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
+    parent_query: Query<(Entity, Ref<Parent>)>,
 ) {
     root_query.par_for_each_mut(
         // The differing depths and sizes of hierarchy trees causes the work for each root to be
         // different. A batch size of 1 ensures that each tree gets it's own task and multiple
         // large trees are not clumped together.
         1,
-        |(entity, children, transform, changed, mut global_transform)| {
+        |(entity, children, transform, mut global_transform)| {
+            let changed = transform.is_changed();
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
 
-            for (child, actual_parent, parent_changed) in parent_query.iter_many(children) {
+            for (child, actual_parent) in parent_query.iter_many(children) {
                 assert_eq!(
                     actual_parent.get(), entity,
                     "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
@@ -67,7 +63,7 @@ pub fn propagate_transforms(
                         &transform_query,
                         &parent_query,
                         child,
-                        changed || parent_changed,
+                        changed || actual_parent.is_changed(),
                     );
                 }
             }
@@ -91,20 +87,15 @@ pub fn propagate_transforms(
 unsafe fn propagate_recursive(
     parent: &GlobalTransform,
     transform_query: &Query<
-        (
-            &Transform,
-            Changed<Transform>,
-            &mut GlobalTransform,
-            Option<&Children>,
-        ),
+        (Ref<Transform>, &mut GlobalTransform, Option<&Children>),
         With<Parent>,
     >,
-    parent_query: &Query<(Entity, &Parent, Changed<Parent>)>,
+    parent_query: &Query<(Entity, Ref<Parent>)>,
     entity: Entity,
     mut changed: bool,
 ) {
     let (global_matrix, children) = {
-        let Ok((transform, transform_changed, mut global_transform, children)) =
+        let Ok((transform, mut global_transform, children)) =
             // SAFETY: This call cannot create aliased mutable references.
             //   - The top level iteration parallelizes on the roots of the hierarchy.
             //   - The caller ensures that each child has one and only one unique parent throughout the entire
@@ -135,7 +126,7 @@ unsafe fn propagate_recursive(
                 return;
             };
 
-        changed |= transform_changed;
+        changed |= transform.is_changed();
         if changed {
             *global_transform = parent.mul_transform(*transform);
         }
@@ -143,7 +134,7 @@ unsafe fn propagate_recursive(
     };
 
     let Some(children) = children else { return };
-    for (child, actual_parent, parent_changed) in parent_query.iter_many(children) {
+    for (child, actual_parent) in parent_query.iter_many(children) {
         assert_eq!(
             actual_parent.get(), entity,
             "Malformed hierarchy. This probably means that your hierarchy has been improperly maintained, or contains a cycle"
@@ -159,7 +150,7 @@ unsafe fn propagate_recursive(
                 transform_query,
                 parent_query,
                 child,
-                changed || parent_changed,
+                changed || actual_parent.is_changed(),
             );
         }
     }

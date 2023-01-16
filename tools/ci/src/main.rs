@@ -133,7 +133,7 @@ fn main() {
         .expect("Please fix doc warnings in output above.");
     }
 
-    if what_to_run.contains(Check::COMPILE_FAIL) {
+    if what_to_run.contains(Check::BENCH_CHECK) {
         let _subdir = sh.push_dir("benches");
         // Check that benches are building
         cmd!(sh, "cargo check --benches --target-dir ../target")

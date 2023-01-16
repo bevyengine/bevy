@@ -56,8 +56,7 @@ fn get_type_info<E: Error>(
         TypeInfo::Dynamic(..) => match registry.get_with_name(type_name) {
             Some(registration) => Ok(registration.type_info()),
             None => Err(Error::custom(format_args!(
-                "no registration found for dynamic type with name {}",
-                type_name
+                "no registration found for dynamic type with name {type_name}",
             ))),
         },
         info => Ok(info),
@@ -197,8 +196,7 @@ impl<'a> Serialize for StructSerializer<'a> {
             TypeInfo::Struct(struct_info) => struct_info,
             info => {
                 return Err(Error::custom(format_args!(
-                    "expected struct type but received {:?}",
-                    info
+                    "expected struct type but received {info:?}"
                 )));
             }
         };
@@ -247,8 +245,7 @@ impl<'a> Serialize for TupleStructSerializer<'a> {
             TypeInfo::TupleStruct(tuple_struct_info) => tuple_struct_info,
             info => {
                 return Err(Error::custom(format_args!(
-                    "expected tuple struct type but received {:?}",
-                    info
+                    "expected tuple struct type but received {info:?}"
                 )));
             }
         };
@@ -296,8 +293,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
             TypeInfo::Enum(enum_info) => enum_info,
             info => {
                 return Err(Error::custom(format_args!(
-                    "expected enum type but received {:?}",
-                    info
+                    "expected enum type but received {info:?}"
                 )));
             }
         };
@@ -308,8 +304,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
             .variant_at(variant_index as usize)
             .ok_or_else(|| {
                 Error::custom(format_args!(
-                    "variant at index `{}` does not exist",
-                    variant_index
+                    "variant at index `{variant_index}` does not exist",
                 ))
             })?;
         let variant_name = variant_info.name();
@@ -333,8 +328,7 @@ impl<'a> Serialize for EnumSerializer<'a> {
                     VariantInfo::Struct(struct_info) => struct_info,
                     info => {
                         return Err(Error::custom(format_args!(
-                            "expected struct variant type but received {:?}",
-                            info
+                            "expected struct variant type but received {info:?}",
                         )));
                     }
                 };
