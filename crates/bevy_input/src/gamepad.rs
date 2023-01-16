@@ -583,7 +583,7 @@ impl ButtonSettings {
 /// Otherwise, values will not be rounded.
 ///
 /// The valid range is `[-1.0, 1.0]`.
-#[derive(Debug, Clone, Reflect, FromReflect)]
+#[derive(Debug, Clone, Reflect, FromReflect, PartialEq)]
 #[reflect(Debug, Default)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to -1.0.
@@ -1512,6 +1512,16 @@ mod tests {
     #[test]
     fn test_try_out_of_range_axis_settings() {
         let mut axis_settings = AxisSettings::default();
+        assert_eq!(
+            AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.001),
+            Ok(AxisSettings {
+                livezone_lowerbound: -0.95,
+                deadzone_lowerbound: -0.05,
+                deadzone_upperbound: 0.05,
+                livezone_upperbound: 0.95,
+                threshold: 0.001,
+            })
+        );
         assert_eq!(
             Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(-2.0)),
             axis_settings.try_set_livezone_lowerbound(-2.0)
