@@ -53,7 +53,7 @@ impl Default for Interaction {
     }
 }
 
-/// A component storing the position of the mouse relative to the node, (0., 0.) being the upper-left corner and (1., 1.) being the bottom-right
+/// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
 /// A None value means that the cursor position is unknown.
 ///
@@ -215,7 +215,7 @@ pub fn ui_focus_system(
                 }
 
                 // The mouse position relative to the node
-                // (0., 0.) is the upper-left corner, (1., 1.) is the bottom-right corner
+                // (0., 0.) is the top-left corner, (1., 1.) is the bottom-right corner
                 let relative_cursor_position = cursor_position.map(|cursor_position| {
                     Vec2::new(
                         (cursor_position.x - min.x) / node.node.size().x,
