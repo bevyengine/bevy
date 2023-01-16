@@ -24,6 +24,3 @@ serde = { version = "1.0", optional = true }
 
 [features]
 serialize = ["dep:serde"]
-
-[dev-dependencies]
-crossbeam-channel = "0.5.0"

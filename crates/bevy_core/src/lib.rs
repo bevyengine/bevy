@@ -146,21 +146,21 @@ mod tests {
         app.add_plugin(TaskPoolPlugin::default());
         app.add_plugin(TypeRegistrationPlugin::default());
 
-        let (async_tx, async_rx) = crossbeam_channel::unbounded();
+        let (async_tx, async_rx) = std::sync::mpsc::channel();
         AsyncComputeTaskPool::get()
             .spawn_local(async move {
                 async_tx.send(()).unwrap();
             })
             .detach();
 
-        let (compute_tx, compute_rx) = crossbeam_channel::unbounded();
+        let (compute_tx, compute_rx) = std::sync::mpsc::channel();
         ComputeTaskPool::get()
             .spawn_local(async move {
                 compute_tx.send(()).unwrap();
             })
             .detach();
 
-        let (io_tx, io_rx) = crossbeam_channel::unbounded();
+        let (io_tx, io_rx) = std::sync::mpsc::channel();
         IoTaskPool::get()
             .spawn_local(async move {
                 io_tx.send(()).unwrap();
