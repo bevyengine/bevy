@@ -148,13 +148,13 @@ pub trait Graph<N, E> {
 
     /// Makes a `BreadthFirstSearch` over this graph
     #[inline]
-    fn algo_bfs(&self, start: NodeIdx) -> BreadthFirstSearch {
+    fn breadth_first_search(&self, start: NodeIdx) -> BreadthFirstSearch {
         BreadthFirstSearch::with_capacity(start, self.count())
     }
 
     /// Makes a `DepthFirstSearch` over this graph
     #[inline]
-    fn algo_dfs(&self, start: NodeIdx) -> DepthFirstSearch {
+    fn depth_first_search(&self, start: NodeIdx) -> DepthFirstSearch {
         DepthFirstSearch::with_capacity(start, self.count())
     }
 }
