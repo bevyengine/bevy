@@ -51,7 +51,7 @@ impl BreadthFirstSearch {
         }
     }
 
-    /// Gets a reference to the value of the next node from the algorythm
+    /// Gets an immutable reference to the value of the next node from the algorithm
     ///
     /// # Safety
     ///
