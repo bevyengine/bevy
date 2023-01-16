@@ -37,6 +37,8 @@ use smallvec::SmallVec;
 pub enum Interaction {
     /// The node has been clicked
     Clicked,
+    /// The node has been released from
+    Released,
     /// The node has been hovered over
     Hovered,
     /// Nothing has happened
@@ -147,11 +149,14 @@ pub fn ui_focus_system(
 
     let mouse_released =
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
+    // If mouse was released this frame, then set nodes that was clicked to released instead
     if mouse_released {
         for node in node_query.iter_mut() {
             if let Some(mut interaction) = node.interaction {
                 if *interaction == Interaction::Clicked {
-                    *interaction = Interaction::None;
+                    *interaction = Interaction::Released;
+                    // Queue it up for reset next frame
+                    state.entities_to_reset.push(node.entity);
                 }
             }
         }
