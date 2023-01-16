@@ -866,6 +866,16 @@ category = "ECS (Entity Component System)"
 wasm = true
 
 [[example]]
+name = "optional_system_param"
+path = "examples/ecs/optional_system_param.rs"
+
+[package.metadata.example.optional_system_param]
+name = "Optional System Parameter"
+description = "Illustrates creating custom optional system parameters with `SystemParam`"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
 name = "parallel_query"
 path = "examples/ecs/parallel_query.rs"
 

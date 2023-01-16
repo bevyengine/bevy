@@ -16,13 +16,14 @@ use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
 use syn::{
+    parenthesized,
     parse::{Parse, ParseStream},
     parse_macro_input,
     punctuated::Punctuated,
     spanned::Spanned,
     token::Comma,
     ConstParam, DeriveInput, GenericParam, Ident, Index, LitInt, Meta, MetaList, NestedMeta,
-    Result, Token, TypeParam, parenthesized,
+    Result, Token, TypeParam,
 };
 
 struct AllTuples {
@@ -347,7 +348,9 @@ impl Parse for SystemParamFieldUsage {
             return Ok(Self::Resultful);
         }
 
-        return Err(input.error("Expected one of 'ignore', 'infallible', 'optional', or 'resultful'"));
+        return Err(
+            input.error("Expected one of 'ignore', 'infallible', 'optional', or 'resultful'")
+        );
     }
 }
 
@@ -356,7 +359,7 @@ impl From<SystemParamStructUsage> for SystemParamFieldUsage {
         match u {
             SystemParamStructUsage::Infallible => SystemParamFieldUsage::Infallible,
             SystemParamStructUsage::Optional => SystemParamFieldUsage::Optional,
-            SystemParamStructUsage::Resultful(_) => SystemParamFieldUsage::Resultful
+            SystemParamStructUsage::Resultful(_) => SystemParamFieldUsage::Resultful,
         }
     }
 }
@@ -383,12 +386,18 @@ impl Parse for SystemParamStructUsage {
             parenthesized!(content in input);
             let err_ty = match content.parse::<Ident>() {
                 Ok(o) => o,
-                Err(_) => return Err(input.error("Expected an identifier for `ResultfulSystemParam::Error`."))
+                Err(_) => {
+                    return Err(
+                        input.error("Expected an identifier for `ResultfulSystemParam::Error`.")
+                    )
+                }
             };
             return Ok(Self::Resultful(err_ty));
         }
 
-        return Err(input.error("Expected one of 'infallible', 'optional', or 'resultful(ErrorType)'"));
+        return Err(
+            input.error("Expected one of 'infallible', 'optional', or 'resultful(ErrorType)'")
+        );
     }
 }
 
@@ -402,41 +411,44 @@ static SYSTEM_PARAM_ATTRIBUTE_NAME: &str = "system_param";
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
-	let bevy_ecs = bevy_ecs_path();
+    let bevy_ecs = bevy_ecs_path();
     let ast = parse_macro_input!(input as DeriveInput);
     let syn::Data::Struct(syn::DataStruct { fields, ..}) = ast.data else {
         return syn::Error::new(ast.span(), "Invalid `SystemParam` type: expected a `struct`")
             .into_compile_error()
             .into();
     };
-    
-	let mut fallibility = None;
-	for attr in &ast.attrs {
-		let Some(attr_ident) = attr.path.get_ident() else { continue; };
-		if attr_ident == SYSTEM_PARAM_ATTRIBUTE_NAME {
-			if fallibility.is_none() {
-				let usage = match attr.parse_args_with(SystemParamStructUsage::parse) {
+
+    let mut fallibility = None;
+    for attr in &ast.attrs {
+        let Some(attr_ident) = attr.path.get_ident() else { continue; };
+        if attr_ident == SYSTEM_PARAM_ATTRIBUTE_NAME {
+            if fallibility.is_none() {
+                let usage = match attr.parse_args_with(SystemParamStructUsage::parse) {
                     Ok(u) => u,
                     Err(e) => return e.into_compile_error().into(),
                 };
-				fallibility = Some(usage);
-			} else {
-				return syn::Error::new(attr.span(), "Multiple `system_param` struct attributes found.")
-					.into_compile_error()
-					.into();
-			}
-		}
-	}
-	
-	let fallibility = fallibility.unwrap_or(SystemParamStructUsage::Infallible);
+                fallibility = Some(usage);
+            } else {
+                return syn::Error::new(
+                    attr.span(),
+                    "Multiple `system_param` struct attributes found.",
+                )
+                .into_compile_error()
+                .into();
+            }
+        }
+    }
+
+    let fallibility = fallibility.unwrap_or(SystemParamStructUsage::Infallible);
 
     let associated_error = match fallibility {
         SystemParamStructUsage::Resultful(ref err_ty) => quote! { type Error = #err_ty; },
-        _ => quote! { },
+        _ => quote! {},
     };
-	
+
     let mut field_idents = Vec::new();
-	let mut field_getters = Vec::new();
+    let mut field_getters = Vec::new();
     let mut field_patterns = Vec::new();
     let mut field_types = Vec::new();
     let mut ignored_fields = Vec::new();
@@ -447,14 +459,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             let Some(attr_ident) = attr.path.get_ident() else { continue; };
             if attr_ident == SYSTEM_PARAM_ATTRIBUTE_NAME {
                 if field_attrs.usage.is_none() {
-                    field_attrs.usage = Some(match attr.parse_args_with(SystemParamFieldUsage::parse) {
-                        Ok(o) => o,
-                        Err(e) => return e.into_compile_error().into()
-                    });
+                    field_attrs.usage =
+                        Some(match attr.parse_args_with(SystemParamFieldUsage::parse) {
+                            Ok(o) => o,
+                            Err(e) => return e.into_compile_error().into(),
+                        });
                 } else {
-                    return syn::Error::new(attr.span(), "Multiple `system_param` field attributes found.")
-                        .into_compile_error()
-                        .into();
+                    return syn::Error::new(
+                        attr.span(),
+                        "Multiple `system_param` field attributes found.",
+                    )
+                    .into_compile_error()
+                    .into();
                 }
             }
         }
@@ -463,16 +479,18 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             SystemParamFieldUsage::Ignore => {
                 ignored_fields.push(match field.ident.as_ref() {
                     Some(s) => s,
-                    None => return syn::Error::new(field.span(), "Field lacks an identifier.")
-                    .into_compile_error()
-                    .into()
+                    None => {
+                        return syn::Error::new(field.span(), "Field lacks an identifier.")
+                            .into_compile_error()
+                            .into()
+                    }
                 });
                 ignored_field_types.push(&field.ty);
-            },
+            }
             field_fallibility @ _ => {
-				let ident = format_ident!("f{i}");
-				let i = Index::from(i);
-				let ty = &field.ty;
+                let ident = format_ident!("f{i}");
+                let i = Index::from(i);
+                let ty = &field.ty;
                 field_idents.push(
                     field
                         .ident
@@ -480,7 +498,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                         .map(|f| quote! { #f })
                         .unwrap_or_else(|| quote! { #i }),
                 );
-				field_getters.push(match fallibility {
+                field_getters.push(match fallibility {
 					SystemParamStructUsage::Infallible => match field_fallibility {
 						SystemParamFieldUsage::Infallible => quote! { #ident },
 						SystemParamFieldUsage::Optional => quote! { #ident.expect("Optional system param was not infallible!") },
@@ -506,7 +524,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     SystemParamFieldUsage::Resultful => quote! { Result<#ty, <#ty as #bevy_ecs::system::ResultfulSystemParam>::Error> },
                     _ => unreachable!(),
                 });
-				field_patterns.push(quote! { #ident });
+                field_patterns.push(quote! { #ident });
             }
         }
     }
@@ -571,50 +589,78 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let end = Vec::from_iter(field_types.drain(..LIMIT));
         field_types.push(match syn::parse(quote! { (#(#end,)*) }.into()) {
             Ok(o) => o,
-            Err(e) => return syn::Error::new(Span::call_site(), format!("Failed to compact field types: {e}"))
+            Err(e) => {
+                return syn::Error::new(
+                    Span::call_site(),
+                    format!("Failed to compact field types: {e}"),
+                )
                 .into_compile_error()
-                .into(),
+                .into()
+            }
         });
 
         let end = Vec::from_iter(field_patterns.drain(..LIMIT));
         field_patterns.push(match syn::parse(quote! { (#(#end,)*) }.into()) {
             Ok(o) => o,
-            Err(e) => return syn::Error::new(Span::call_site(), format!("Failed to compact field patterns: {e}"))
+            Err(e) => {
+                return syn::Error::new(
+                    Span::call_site(),
+                    format!("Failed to compact field patterns: {e}"),
+                )
                 .into_compile_error()
-                .into(),
+                .into()
+            }
         });
     }
-    
+
     // Create a where clause for the `ReadOnlySystemParam` impl.
     // Ensure that each field implements `ReadOnlySystemParam`.
     let mut read_only_generics = generics.clone();
     let read_only_where_clause = read_only_generics.make_where_clause();
     for field_type in &field_types {
-        read_only_where_clause
-            .predicates
-            .push(match syn::parse(quote! { #field_type: #bevy_ecs::system::ReadOnlySystemParam }.into()) {
+        read_only_where_clause.predicates.push(
+            match syn::parse(quote! { #field_type: #bevy_ecs::system::ReadOnlySystemParam }.into())
+            {
                 Ok(o) => o,
-                Err(e) => return syn::Error::new(Span::call_site(), format!("Failed to create read-only predicate: {e}"))
+                Err(e) => {
+                    return syn::Error::new(
+                        Span::call_site(),
+                        format!("Failed to create read-only predicate: {e}"),
+                    )
                     .into_compile_error()
-                    .into(),
-            });
+                    .into()
+                }
+            },
+        );
     }
 
     let struct_name = &ast.ident;
     let state_struct_visibility = &ast.vis;
-	
-	let get_param_output = quote! {
-		#struct_name {
-			#(#field_idents: #field_getters,)*
-			#(#ignored_fields: <#ignored_field_types>::default(),)*
-		}
-	};
-	
-	let (system_param, get_param_return, get_param_output) = match fallibility {
-		SystemParamStructUsage::Infallible => (quote! { #bevy_ecs::system::SystemParam }, quote! { Self::Item<'w2, 's2> }, quote! { #get_param_output }),
-		SystemParamStructUsage::Optional => (quote! { #bevy_ecs::system::OptionalSystemParam }, quote! { Option<Self::Item<'w2, 's2>> }, quote! { Some(#get_param_output) }),
-		SystemParamStructUsage::Resultful(_) => (quote! { #bevy_ecs::system::ResultfulSystemParam }, quote! { Result<Self::Item<'w2, 's2>, <Self::Item<'w2, 's2> as #bevy_ecs::system::ResultfulSystemParam>::Error> }, quote! { Ok(#get_param_output) }),
-	};
+
+    let get_param_output = quote! {
+        #struct_name {
+            #(#field_idents: #field_getters,)*
+            #(#ignored_fields: <#ignored_field_types>::default(),)*
+        }
+    };
+
+    let (system_param, get_param_return, get_param_output) = match fallibility {
+        SystemParamStructUsage::Infallible => (
+            quote! { #bevy_ecs::system::SystemParam },
+            quote! { Self::Item<'w2, 's2> },
+            quote! { #get_param_output },
+        ),
+        SystemParamStructUsage::Optional => (
+            quote! { #bevy_ecs::system::OptionalSystemParam },
+            quote! { Option<Self::Item<'w2, 's2>> },
+            quote! { Some(#get_param_output) },
+        ),
+        SystemParamStructUsage::Resultful(_) => (
+            quote! { #bevy_ecs::system::ResultfulSystemParam },
+            quote! { Result<Self::Item<'w2, 's2>, <Self::Item<'w2, 's2> as #bevy_ecs::system::ResultfulSystemParam>::Error> },
+            quote! { Ok(#get_param_output) },
+        ),
+    };
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
@@ -686,9 +732,7 @@ pub fn derive_system_label(input: TokenStream) -> TokenStream {
     let input = parse_macro_input!(input as DeriveInput);
     let mut bevy_ecs = bevy_ecs_path();
     bevy_ecs.segments.push(format_ident!("schedule").into());
-    bevy_ecs
-        .segments
-        .push(format_ident!("SystemLabel").into());
+    bevy_ecs.segments.push(format_ident!("SystemLabel").into());
     derive_label(input, &bevy_ecs, "system_label")
 }
 

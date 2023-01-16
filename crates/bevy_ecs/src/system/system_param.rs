@@ -24,11 +24,16 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-/// A parameter that can be used in a [`System`](super::System).
+/// A parameter that can be used in a [`System`](super::System) as `T`.
+///
+/// Parameters that implement [`SystemParam`] are infallible, which means they must return or panic.
+/// If a parameter is not guaranteed to be infallible, it's better to implement
+/// [`OptionalSystemParam`] or [`ResultfulSystemParam`] and access it with `Option<T>` or `Result<T, E>`.
 ///
 /// # Derive
 ///
-/// This trait can be derived with the [`derive@super::SystemParam`] macro.
+/// This trait, as well as [`OptionalSystemParam`] and [`ResultfulSystemParam`],
+/// can be derived with the [`derive@super::SystemParam`] macro.
 /// This macro only works if each field on the derived struct implements [`SystemParam`].
 /// Note: There are additional requirements on the field types.
 /// See the *Generic `SystemParam`s* section for details and workarounds of the probable
@@ -39,9 +44,42 @@ use std::{
 ///
 /// ## Attributes
 ///
-/// `#[system_param(ignore)]`:
-/// Can be added to any field in the struct. Fields decorated with this attribute
-/// will be created with the default value upon realisation.
+/// `#[system_param(VALUE)]` is used to control the derive macro,
+/// and can be used on both the struct itself or its fields.
+///
+/// The default value for field-level attributes is the value of struct-level attribute,
+/// which is `infallible` by default.
+///
+/// ### Struct-level
+///
+/// `infallible`:
+/// The default value. Treats the struct as a [`SystemParam`].
+/// Fields marked `optional` or `resultful` will be unwrapped.
+///
+/// `optional`:
+/// Treats the struct as an [`OptionalSystemParam`].
+/// Fields marked `infallible` are expected to succeed.
+/// Fields marked `resultful` will unwrap or return `None`.
+///
+/// `resultful(ERROR_TYPE)`:
+/// Treats the struct as a [`ResultfulSystemParam`] where `Error` is `ERROR_TYPE`.
+/// Fields marked `infallible` are expected to succeed.
+/// Fields marked `optional` will unwrap or return [`SystemParamError`].
+///
+/// ### Field-level
+///
+/// `infallible`:
+/// Treats the field as a [`SystemParam`].
+/// Infallible
+///
+/// `optional`:
+/// Treats the field as an [`OptionalSystemParam`].
+///
+/// `resultful`:
+/// Treats the field as a [`ResultfulSystemParam`].
+///
+/// `ignore`:
+/// Skips getting a system parameter for the field, instead returning the default value of its type.
 /// This is most useful for `PhantomData` fields, such as markers for generic types.
 ///
 /// # Example
@@ -168,11 +206,14 @@ pub unsafe trait SystemParam: Sized {
     ) -> Self::Item<'world, 'state>;
 }
 
+/// A parameter that can be used in a [`System`](super::System) as `T` or `Option<T>`.
+///
+/// TODO
 pub unsafe trait OptionalSystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
 
-    /// The item type returned when constructing this system param.
+    /// The item type returned when constructing this system param succeeds.
     /// The value of this associated type should be `Self`, instantiated with new lifetimes.
     ///
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
@@ -209,6 +250,7 @@ pub unsafe trait OptionalSystemParam: Sized {
     ) -> Option<Self::Item<'world, 'state>>;
 }
 
+/// SAFETY: requires the implementation of `OptionalSystemParam` to be safe.
 unsafe impl<T: OptionalSystemParam> SystemParam for T {
     type State = T::State;
 
@@ -236,6 +278,7 @@ unsafe impl<T: OptionalSystemParam> SystemParam for T {
     }
 }
 
+/// SAFETY: requires the implementation of `OptionalSystemParam` to be safe.
 unsafe impl<T: OptionalSystemParam> SystemParam for Option<T> {
     type State = T::State;
 
@@ -263,16 +306,20 @@ unsafe impl<T: OptionalSystemParam> SystemParam for Option<T> {
     }
 }
 
+/// A parameter that can be used in a [`System`](super::System) as `T`, `Option<T>`, or `Result<T, E>`.
+///
+/// TODO
 pub unsafe trait ResultfulSystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
 
-    /// The item type returned when constructing this system param.
+    /// The item type returned when constructing this system param succeeds.
     /// The value of this associated type should be `Self`, instantiated with new lifetimes.
     ///
     /// You could think of `SystemParam::Item<'w, 's>` as being an *operation* that changes the lifetimes bound to `Self`.
-    type Item<'world, 'state>: ResultfulSystemParam<State = Self::State>;
+    type Item<'world, 'state>: ResultfulSystemParam<State = Self::State, Error = Self::Error>;
 
+    /// The error type returned when constructing this system param fails.
     type Error: Error;
 
     /// Registers any [`World`] access used by this [`SystemParam`]
@@ -309,6 +356,7 @@ pub unsafe trait ResultfulSystemParam: Sized {
     >;
 }
 
+/// SAFETY: requires the implementation of `ResultfulSystemParam` to be safe.
 unsafe impl<T: ResultfulSystemParam> OptionalSystemParam for T {
     type State = T::State;
 
@@ -336,6 +384,7 @@ unsafe impl<T: ResultfulSystemParam> OptionalSystemParam for T {
     }
 }
 
+/// SAFETY: requires the implementation of `ResultfulSystemParam` to be safe.
 unsafe impl<T: ResultfulSystemParam> SystemParam for Result<T, T::Error> {
     type State = T::State;
 
@@ -384,7 +433,7 @@ unsafe impl<T: ReadOnlySystemParam + ResultfulSystemParam> ReadOnlySystemParam
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
 pub type SystemParamItem<'w, 's, P> = <P as SystemParam>::Item<'w, 's>;
 
-/// An error returned when a system parameter of type `T` could not be fetched as part of a [`ResultfulSystemParam`].
+/// An error that allows a [`ResultfulSystemParam`] to handle [`OptionalSystemParam`] fields that return `None`.
 pub struct SystemParamError<T> {
     _marker: PhantomData<T>,
 }
@@ -1696,7 +1745,7 @@ mod tests {
             Self::R1
         }
     }
-    
+
     // regression test for https://github.com/bevyengine/bevy/issues/7103.
     #[derive(SystemParam)]
     pub struct WhereParam<'w, 's, Q>
