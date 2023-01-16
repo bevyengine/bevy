@@ -341,9 +341,11 @@ impl MultiThreadedExecutor {
                 return false;
             }
 
-            // TODO: avoid allocation
-            self.system_task_metadata[system_index].archetype_component_access =
-                system.archetype_component_access().clone();
+            // PERF: use an optimized clear() + extend() operation
+            let meta_access =
+                &mut self.system_task_metadata[system_index].archetype_component_access;
+            meta_access.clear();
+            meta_access.extend(system.archetype_component_access());
         }
 
         true
