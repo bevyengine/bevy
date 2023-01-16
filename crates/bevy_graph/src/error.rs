@@ -1,6 +1,7 @@
 use crate::graphs::keys::{EdgeIdx, NodeIdx};
 
 #[derive(Debug)]
+/// An error that can occur when traversing or manipulating a graph data structure
 pub enum GraphError {
     NodeIdxDoesntExist(NodeIdx),
     EdgeIdxDoesntExist(EdgeIdx),
