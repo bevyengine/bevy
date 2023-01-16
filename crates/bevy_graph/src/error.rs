@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use crate::graphs::keys::{EdgeIdx, NodeIdx};
 
+/// An error that can occur when traversing or manipulating a graph data structure
 #[derive(Debug, Error)]
 pub enum GraphError {
     #[error("node by given NodeIdx `{0:?}` doesn't exist in this graph")]

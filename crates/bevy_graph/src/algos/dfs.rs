@@ -4,7 +4,7 @@ use crate::graphs::{keys::NodeIdx, Graph};
 
 /// Implementation of the [`DFS` algorythm](https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/)
 ///
-/// it will evaluate every node from the start as deep as it can and then up till the next node.
+/// it will evaluate every node from the start as deep as it can and then continue at the next sibling node from the top.
 pub struct DepthFirstSearch {
     stack: Vec<NodeIdx>,
     visited: HashSet<NodeIdx>,
@@ -33,7 +33,7 @@ impl DepthFirstSearch {
         Self { stack, visited }
     }
 
-    /// Gets a reference to the value of the next node from the algorythm
+    /// Gets a reference to the value of the next node from the algorithm.
     pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
         if let Some(node) = self.stack.pop() {
             for (idx, _) in graph.edges_of(node) {
@@ -48,7 +48,7 @@ impl DepthFirstSearch {
         }
     }
 
-    /// Gets a reference to the value of the next node from the algorythm
+    /// Gets a reference to the value of the next node from the algorithm.
     ///
     /// # Safety
     ///
@@ -71,7 +71,7 @@ impl DepthFirstSearch {
         }
     }
 
-    /// Gets a mutable reference to the value of the next node from the algorythm
+    /// Gets a mutable reference to the value of the next node from the algorithm.
     pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
         if let Some(node) = self.stack.pop() {
             for (idx, _) in graph.edges_of(node) {
