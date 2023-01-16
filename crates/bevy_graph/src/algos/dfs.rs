@@ -11,9 +11,20 @@ pub struct DepthFirstSearch {
 }
 
 impl DepthFirstSearch {
-    /// Creates a new `DepthFirstSearch` with a start node and the count of nodes
-    pub fn new(start: NodeIdx, count: usize) -> Self {
+    /// Creates a new `DepthFirstSearch` with a start node
+    pub fn new(start: NodeIdx) -> Self {
         let mut stack = Vec::new();
+        let mut visited = HashSet::new();
+
+        visited.insert(start);
+        stack.push(start);
+
+        Self { stack, visited }
+    }
+
+    /// Creates a new `DepthFirstSearch` with a start node and the count of nodes for capacity reserving
+    pub fn with_capacity(start: NodeIdx, count: usize) -> Self {
+        let mut stack = Vec::with_capacity(count);
         let mut visited = HashSet::with_capacity(count);
 
         visited.insert(start);

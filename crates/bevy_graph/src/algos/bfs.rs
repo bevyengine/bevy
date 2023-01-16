@@ -14,9 +14,20 @@ pub struct BreadthFirstSearch {
 }
 
 impl BreadthFirstSearch {
-    /// Creates a new `DepthFirstSearch` with a start node and the count of nodes
-    pub fn new(start: NodeIdx, count: usize) -> Self {
+    /// Creates a new `BreadthFirstSearch` with a start node
+    pub fn new(start: NodeIdx) -> Self {
         let mut queue = VecDeque::new();
+        let mut visited = HashSet::new();
+
+        visited.insert(start);
+        queue.push_back(start);
+
+        Self { queue, visited }
+    }
+
+    /// Creates a new `BreadthFirstSearch` with a start node and the count of nodes for capacity reserving
+    pub fn with_capacity(start: NodeIdx, count: usize) -> Self {
+        let mut queue = VecDeque::with_capacity(count);
         let mut visited = HashSet::with_capacity(count);
 
         visited.insert(start);
