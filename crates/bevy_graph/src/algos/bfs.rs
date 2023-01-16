@@ -68,7 +68,10 @@ impl BreadthFirstSearch {
                     self.queue.push_back(idx);
                 }
             }
-            Some(graph.get_node_unchecked(node))
+            unsafe {
+                // SAFETY: the caller says its fine
+                Some(graph.get_node_unchecked(node))
+            }
         } else {
             None
         }
@@ -106,7 +109,10 @@ impl BreadthFirstSearch {
                     self.queue.push_back(idx);
                 }
             }
-            Some(graph.get_node_unchecked_mut(node))
+            unsafe {
+                // SAFETY: the caller says its fine
+                Some(graph.get_node_unchecked_mut(node))
+            }
         } else {
             None
         }
@@ -118,7 +124,7 @@ mod test {
     use crate::graphs::{simple::SimpleMapGraph, Graph};
 
     #[test]
-    fn bfs() {
+    fn basic_imperative_bfs() {
         let mut map = SimpleMapGraph::<i32, (), true>::new();
 
         let zero = map.new_node(0);
@@ -136,7 +142,7 @@ mod test {
 
         let mut counted_elements = Vec::with_capacity(4);
 
-        let mut bfs = map.algo_bfs(zero);
+        let mut bfs = map.breadth_first_search(zero);
         while let Some(node) = bfs.next(&map) {
             counted_elements.push(*node);
         }
