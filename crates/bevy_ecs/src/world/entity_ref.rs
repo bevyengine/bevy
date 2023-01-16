@@ -27,6 +27,8 @@ impl<'w> EntityRef<'w> {
     /// Entity and location _must_ be valid for the provided world.
     #[inline]
     pub(crate) unsafe fn new(world: &'w World, entity: Entity, location: EntityLocation) -> Self {
+        debug_assert!(world.entities().contains(entity));
+
         Self {
             world,
             entity,
@@ -219,6 +221,8 @@ impl<'w> EntityMut<'w> {
         entity: Entity,
         location: EntityLocation,
     ) -> Self {
+        debug_assert!(world.entities().contains(entity));
+
         EntityMut {
             world,
             entity,
