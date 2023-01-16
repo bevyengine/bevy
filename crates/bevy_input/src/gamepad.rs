@@ -1116,7 +1116,7 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant `Input` and `Axis` values.
 pub fn gamepad_axis_event_system(
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
@@ -1127,7 +1127,7 @@ pub fn gamepad_axis_event_system(
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant `Input` and `Axis` values.
 pub fn gamepad_button_event_system(
     mut button_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
