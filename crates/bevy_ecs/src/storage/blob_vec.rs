@@ -212,6 +212,8 @@ impl BlobVec {
     #[must_use = "The returned pointer should be used to dropped the removed element"]
     pub unsafe fn swap_remove_and_forget_unchecked(&mut self, index: usize) -> OwningPtr<'_> {
         debug_assert!(index < self.len());
+        // Since `index` must be strictly less than `self.len` and `index` is at least zero,
+        // `self.len` must be at least one. Thus, this cannot underflow.
         let new_len = self.len - 1;
         let size = self.item_layout.size();
         if index != new_len {
