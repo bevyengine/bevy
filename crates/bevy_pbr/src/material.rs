@@ -333,7 +333,7 @@ pub fn queue_material_meshes<M: Material>(
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
@@ -391,7 +391,7 @@ pub fn queue_material_meshes<M: Material>(
                         }
 
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &material_pipeline,
                             MaterialPipelineKey {
                                 mesh_key,
