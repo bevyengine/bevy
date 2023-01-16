@@ -134,9 +134,11 @@ fn extract_fsr2_settings(
     for (entity, fsr2_settings, camera, camera_projection) in &query {
         let perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         if perspective_projection && camera.hdr == fsr2_context.hdr {
-            commands
-                .get_or_spawn(entity)
-                .insert((fsr2_settings.clone(), TemporalJitter { offset: Vec2::ZERO }));
+            commands.get_or_spawn(entity).insert((
+                fsr2_settings.clone(),
+                camera_projection.clone(),
+                TemporalJitter { offset: Vec2::ZERO },
+            ));
         }
     }
 }
