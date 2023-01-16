@@ -17,10 +17,11 @@ use crate::{
 
 use self::keys::{EdgeIdx, NodeIdx};
 
-// NOTE: There should always be a general API function and a more precise API function for one problem with multiple signatures needed.
+// NOTE: There should always be a common function and if needed a more precise function which the common function wraps.
 //       Example: `edges_between` is `trait Graph` general and has support for Simple- and Multigraphs.
 //                `edge_between` is only available for `SimpleGraph` but is also called from `edges_between`.
 
+/// A trait with all the common functions for a graph
 pub trait Graph<N, E> {
     /// Creates a new graph
     fn new() -> Self
@@ -159,6 +160,7 @@ pub trait Graph<N, E> {
     }
 }
 
+/// A more precise trait with functions special for a simple graph
 pub trait SimpleGraph<N, E>: Graph<N, E> {
     /// Returns an edge between two nodes as `EdgeIdx`
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> Result<Option<EdgeIdx>, GraphError>;
