@@ -79,6 +79,7 @@ fn vertex(vertex: Vertex) -> VertexOutput {
     return out;
 }
 
+#ifdef PREPASS_FRAGMENT
 struct FragmentInput {
 #ifdef NORMAL_PREPASS
     @location(1) world_normal: vec3<f32>,
@@ -118,3 +119,4 @@ fn fragment(in: FragmentInput) -> FragmentOutput {
 
     return out;
 }
+#endif // PREPASS_FRAGMENT

@@ -298,6 +298,8 @@ where
             || key.mesh_key.contains(MeshPipelineKey::VELOCITY_PREPASS)
             || key.mesh_key.contains(MeshPipelineKey::ALPHA_MASK)
         {
+            shader_defs.push("PREPASS_FRAGMENT".into());
+
             // Use the fragment shader from the material if present
             let frag_shader_handle = if let Some(handle) = &self.material_fragment_shader {
                 handle.clone()
