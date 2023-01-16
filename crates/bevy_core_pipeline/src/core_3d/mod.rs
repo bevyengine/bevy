@@ -355,7 +355,7 @@ pub fn prepare_core_3d_textures(
                         true => ViewTarget::TEXTURE_FORMAT_HDR,
                         false => TextureFormat::bevy_default(),
                     },
-                    usage: TextureUsages::RENDER_ATTACHMENT,
+                    usage: TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING,
                 };
 
                 entity.insert(MainPass3dTexture {
