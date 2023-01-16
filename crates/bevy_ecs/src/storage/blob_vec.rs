@@ -6,6 +6,7 @@ use std::{
 };
 
 use bevy_ptr::{OwningPtr, Ptr, PtrMut};
+use bevy_utils::OnDrop;
 
 /// A flat, type-erased data storage type
 ///
@@ -153,31 +154,51 @@ impl BlobVec {
     /// [`BlobVec`]'s `item_layout`
     pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
-        // If `drop` panics, then when the collection is dropped during stack unwinding, the
-        // collection's `Drop` impl will call `drop` again for the old value (which is still stored
-        // in the collection), so we get a double drop. To prevent that, we set len to 0 until we're
-        // done.
-        let old_len = self.len;
-        let ptr = self.get_unchecked_mut(index).promote().as_ptr();
-        self.len = 0;
-        // Drop the old value, then write back, justifying the promotion
-        // If the drop impl for the old value panics then we run the drop impl for `value` too.
+
+        // Pointer to the value in the vector that will get replaced.
+        // SAFETY: The caller ensures that `index` fits in this vector.
+        let destination = NonNull::from(self.get_unchecked_mut(index));
+        let source = value.as_ptr();
+
         if let Some(drop) = self.drop {
-            struct OnDrop<F: FnMut()>(F);
-            impl<F: FnMut()> Drop for OnDrop<F> {
-                fn drop(&mut self) {
-                    (self.0)();
-                }
-            }
-            let value = value.as_ptr();
-            let on_unwind = OnDrop(|| (drop)(OwningPtr::new(NonNull::new_unchecked(value))));
+            // Temporarily set the length to zero, so that if `drop` panics the caller
+            // will not be left with a `BlobVec` containing a dropped element within
+            // its initialized range.
+            let old_len = self.len;
+            self.len = 0;
 
-            (drop)(OwningPtr::new(NonNull::new_unchecked(ptr)));
+            // Transfer ownership of the old value out of the vector, so it can be dropped.
+            // SAFETY:
+            // - `destination` was obtained from a `PtrMut` in this vector, which ensures it is non-null,
+            //   well-aligned for the underlying type, and has proper provenance.
+            // - The storage location will get overwritten with `value` later, which ensures
+            //   that the element will not get observed or double dropped later.
+            // - If a panic occurs, `self.len` will remain `0`, which ensures a double-drop
+            //   does not occur. Instead, all elements will be forgotten.
+            let old_value = OwningPtr::new(destination);
 
+            // This closure will run in case `drop()` panics,
+            // which ensures that `value` does not get forgotten.
+            let on_unwind = OnDrop::new(|| drop(value));
+
+            drop(old_value);
+
+            // If the above code does not panic, make sure that `value` doesn't get dropped.
             core::mem::forget(on_unwind);
+
+            // Make the vector's contents observable again, since panics are no longer possible.
+            self.len = old_len;
         }
-        std::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr, self.item_layout.size());
-        self.len = old_len;
+
+        // Copy the new value into the vector, overwriting the previous value.
+        // SAFETY:
+        // - `source` and `destination` were obtained from `OwningPtr`s, which ensures they are
+        //   valid for both reads and writes.
+        // - The value behind `source` will only be dropped if the above branch panics,
+        //   so it must still be initialized and it is safe to transfer ownership into the vector.
+        // - `source` and `destination` were obtained from different memory locations,
+        //   both of which we have exclusive access to, so they are guaranteed not to overlap.
+        std::ptr::copy_nonoverlapping::<u8>(source, destination.as_ptr(), self.item_layout.size());
     }
 
     /// Pushes a value to the [`BlobVec`].
