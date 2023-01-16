@@ -36,7 +36,7 @@ fn algo_10_000(c: &mut Criterion) {
 
     c.bench_function("bfs_10_000", |b| {
         b.iter(|| {
-            let mut bfs = graph.algo_bfs(first);
+            let mut bfs = graph.breadth_first_search(first);
             while let Some(node) = bfs.next(&graph) {
                 let _ = black_box(node);
             }
@@ -45,7 +45,7 @@ fn algo_10_000(c: &mut Criterion) {
 
     c.bench_function("dfs_10_000", |b| {
         b.iter(|| {
-            let mut dfs = graph.algo_dfs(first);
+            let mut dfs = graph.depth_first_search(first);
             while let Some(node) = dfs.next(&graph) {
                 let _ = black_box(node);
             }
