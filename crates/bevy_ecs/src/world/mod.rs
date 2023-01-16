@@ -334,13 +334,16 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(|(archetype_row, archetype_entity)| {
+                    let entity = archetype_entity.entity();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
                         table_id: archetype.table_id(),
                         table_row: archetype_entity.table_row(),
                     };
-                    EntityRef::new(self, archetype_entity.entity(), location)
+
+                    // SAFETY: entity exists and location is validly constructed above
+                    unsafe { EntityRef::new(self, entity, location) }
                 })
         })
     }
