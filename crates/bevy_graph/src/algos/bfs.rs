@@ -89,7 +89,7 @@ impl BreadthFirstSearch {
         }
     }
 
-    /// Gets a mutable reference to the value of the next node from the algorythm
+    /// Gets a mutable reference to the value of the next node from the algorithm.
     ///
     /// # Safety
     ///
