@@ -4,7 +4,7 @@ use crate::graphs::{keys::NodeIdx, Graph};
 
 /// Implementation of the [`DFS` algorythm](https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/)
 ///
-/// it will evaluate every node from the start as deep as it can and then up till the next node.
+/// it will evaluate every node from the start as deep as it can and then continue at the next sibling node from the top.
 pub struct DepthFirstSearch {
     stack: Vec<NodeIdx>,
     visited: HashSet<NodeIdx>,
