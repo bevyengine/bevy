@@ -611,26 +611,6 @@ impl Default for AxisSettings {
 }
 
 impl AxisSettings {
-    /// Same as [`Self::new`], but the bounds are defined as gap from extremities.
-    ///
-    /// The default [`AxisSettings`] would be `AxisSettings::new_symmetric(0.05, 0.01)`.
-    ///
-    /// The arguments must follow those rules otherwise this returns an `Err`:
-    /// + `0.0 <= zone_size <= 0.5`
-    /// + `0.0 <= threshold <= 2.0`
-    pub fn new_symmetric(
-        zone_size: f32,
-        threshold: f32,
-    ) -> Result<AxisSettings, AxisSettingsError> {
-        Self::new(
-            -1.0 + zone_size,
-            -zone_size,
-            zone_size,
-            1.0 - zone_size,
-            threshold,
-        )
-    }
-
     /// Creates a new [`AxisSettings`] instance.
     ///
     /// # Arguments
