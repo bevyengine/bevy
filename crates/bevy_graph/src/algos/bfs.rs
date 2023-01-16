@@ -145,7 +145,7 @@ mod test {
 
         let mut counted_elements = Vec::with_capacity(4);
 
-        let mut bfs = BreadthFirstSearch::with_capacity(zero, graph.count());
+        let mut bfs = BreadthFirstSearch::with_capacity(zero, graph.node_count());
         while let Some(node) = bfs.next(&graph) {
             counted_elements.push(*node);
         }

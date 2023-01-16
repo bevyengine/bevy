@@ -23,9 +23,22 @@ pub trait Graph<N, E> {
     where
         Self: Sized;
 
-    /// Returns the count of nodes in this graph
-    fn count(&self) -> usize;
+    /// Returns `true` if the edges in the graph are directed.
+    fn is_directed(&self) -> bool;
 
+    /// Returns `true` if the edges in the graph are undirected.
+    fn is_undirected(&self) -> bool;
+
+    /// Returns the number of nodes in the graph.
+    fn node_count(&self) -> usize;
+
+    /// Returns the number of edges in the graph.
+    fn edge_count(&self) -> usize;
+
+    /// Returns `true` if the graph has no nodes.
+    fn is_empty(&self) -> bool {
+        self.node_count() == 0
+    }
     ////////////////////////////
     // Nodes
     ////////////////////////////

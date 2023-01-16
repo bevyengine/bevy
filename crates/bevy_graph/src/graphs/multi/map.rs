@@ -30,8 +30,23 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     }
 
     #[inline]
-    fn count(&self) -> usize {
+    fn is_directed(&self) -> bool {
+        DIRECTED
+    }
+
+    #[inline]
+    fn is_undirected(&self) -> bool {
+        !DIRECTED
+    }
+
+    #[inline]
+    fn node_count(&self) -> usize {
         self.nodes.len()
+    }
+
+    #[inline]
+    fn edge_count(&self) -> usize {
+        self.edges.len()
     }
 
     #[inline]

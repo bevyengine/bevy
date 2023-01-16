@@ -142,7 +142,7 @@ mod test {
 
         let mut counted_elements = Vec::with_capacity(4);
 
-        let mut dfs = DepthFirstSearch::with_capacity(zero, graph.count());
+        let mut dfs = DepthFirstSearch::with_capacity(zero, graph.node_count());
         while let Some(node) = dfs.next(&graph) {
             counted_elements.push(*node);
         }
