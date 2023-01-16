@@ -41,7 +41,7 @@ use bevy_render::{
     view::ViewDepthTexture,
     Extract, RenderApp, RenderStage,
 };
-use bevy_utils::{FloatOrd, HashMap};
+use bevy_utils::{HashMap, OrderedFloat};
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
 
@@ -122,7 +122,7 @@ pub struct Opaque3d {
 
 impl PhaseItem for Opaque3d {
     // NOTE: Values increase towards the camera. Front-to-back ordering for opaque means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = Reverse<OrderedFloat<f32>>;
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -131,7 +131,7 @@ impl PhaseItem for Opaque3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        Reverse(OrderedFloat(self.distance))
     }
 
     #[inline]
@@ -162,7 +162,7 @@ pub struct AlphaMask3d {
 
 impl PhaseItem for AlphaMask3d {
     // NOTE: Values increase towards the camera. Front-to-back ordering for alpha mask means we need a descending sort.
-    type SortKey = Reverse<FloatOrd>;
+    type SortKey = Reverse<OrderedFloat<f32>>;
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -171,7 +171,7 @@ impl PhaseItem for AlphaMask3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        Reverse(FloatOrd(self.distance))
+        Reverse(OrderedFloat(self.distance))
     }
 
     #[inline]
@@ -202,7 +202,7 @@ pub struct Transparent3d {
 
 impl PhaseItem for Transparent3d {
     // NOTE: Values increase towards the camera. Back-to-front ordering for transparent means we need an ascending sort.
-    type SortKey = FloatOrd;
+    type SortKey = OrderedFloat<f32>;
 
     #[inline]
     fn entity(&self) -> Entity {
@@ -211,7 +211,7 @@ impl PhaseItem for Transparent3d {
 
     #[inline]
     fn sort_key(&self) -> Self::SortKey {
-        FloatOrd(self.distance)
+        OrderedFloat(self.distance)
     }
 
     #[inline]

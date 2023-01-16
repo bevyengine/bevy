@@ -17,13 +17,12 @@ pub use short_names::get_short_name;
 pub mod synccell;
 
 mod default;
-mod float_ord;
 
 pub use ahash::AHasher;
 pub use default::default;
-pub use float_ord::*;
 pub use hashbrown;
 pub use instant::{Duration, Instant};
+pub use ordered_float::*;
 pub use tracing;
 pub use uuid::Uuid;
 

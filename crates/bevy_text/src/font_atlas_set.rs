@@ -5,10 +5,10 @@ use bevy_math::Vec2;
 use bevy_reflect::TypeUuid;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
-use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
+use bevy_utils::OrderedFloat;
 
-type FontSizeKey = FloatOrd;
+type FontSizeKey = OrderedFloat<f32>;
 
 #[derive(TypeUuid)]
 #[uuid = "73ba778b-b6b5-4f45-982d-d21b6b86ace2"]
@@ -41,7 +41,7 @@ impl FontAtlasSet {
 
     pub fn has_glyph(&self, glyph_id: GlyphId, glyph_position: Point, font_size: f32) -> bool {
         self.font_atlases
-            .get(&FloatOrd(font_size))
+            .get(&OrderedFloat(font_size))
             .map_or(false, |font_atlas| {
                 font_atlas
                     .iter()
@@ -61,7 +61,7 @@ impl FontAtlasSet {
         let font_size = glyph.scale.y;
         let font_atlases = self
             .font_atlases
-            .entry(FloatOrd(font_size))
+            .entry(OrderedFloat(font_size))
             .or_insert_with(|| {
                 vec![FontAtlas::new(
                     textures,
@@ -117,7 +117,7 @@ impl FontAtlasSet {
         position: Point,
     ) -> Option<GlyphAtlasInfo> {
         self.font_atlases
-            .get(&FloatOrd(font_size))
+            .get(&OrderedFloat(font_size))
             .and_then(|font_atlases| {
                 font_atlases
                     .iter()

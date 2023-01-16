@@ -32,7 +32,7 @@ use bevy_render::{
     render_resource::CachedRenderPipelineId,
     Extract, RenderApp, RenderStage,
 };
-use bevy_utils::FloatOrd;
+use bevy_utils::OrderedFloat;
 use std::ops::Range;
 
 use crate::{tonemapping::TonemappingNode, upscaling::UpscalingNode};
@@ -104,7 +104,7 @@ impl Plugin for Core2dPlugin {
 }
 
 pub struct Transparent2d {
-    pub sort_key: FloatOrd,
+    pub sort_key: OrderedFloat<f32>,
     pub entity: Entity,
     pub pipeline: CachedRenderPipelineId,
     pub draw_function: DrawFunctionId,
@@ -113,7 +113,7 @@ pub struct Transparent2d {
 }
 
 impl PhaseItem for Transparent2d {
-    type SortKey = FloatOrd;
+    type SortKey = OrderedFloat<f32>;
 
     #[inline]
     fn entity(&self) -> Entity {

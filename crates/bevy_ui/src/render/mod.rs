@@ -27,8 +27,8 @@ use bevy_render::{
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 use bevy_text::{Text, TextLayoutInfo};
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::FloatOrd;
 use bevy_utils::HashMap;
+use bevy_utils::OrderedFloat;
 use bevy_window::{WindowId, Windows};
 use bytemuck::{Pod, Zeroable};
 use std::ops::Range;
@@ -615,7 +615,7 @@ pub fn queue_uinodes(
                     draw_function: draw_ui_function,
                     pipeline,
                     entity,
-                    sort_key: FloatOrd(batch.z),
+                    sort_key: OrderedFloat(batch.z),
                 });
             }
         }
