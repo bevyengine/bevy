@@ -27,7 +27,6 @@ where
     Param: CommandSystemParam,
 {
     func: F,
-    system_meta: SystemMeta,
     marker: PhantomData<fn(Param) -> Marker>,
 }
 
@@ -41,7 +40,6 @@ where
     fn into_command(func: Self) -> Self::Command {
         SystemCommand {
             func,
-            system_meta: SystemMeta::new::<F>(),
             marker: PhantomData,
         }
     }
@@ -56,11 +54,12 @@ where
     fn write(mut self, world: &mut World) {
         let change_tick = world.change_tick();
 
-        let mut param_state = Param::init_state(world, &mut self.system_meta);
+        let mut system_meta = SystemMeta::new::<F>();
+        let mut param_state = Param::init_state(world, &mut system_meta);
         let params =
             // SAFETY: We have exclusive world access.
-            unsafe { Param::get_param(&mut param_state, &self.system_meta, world, change_tick) };
+            unsafe { Param::get_param(&mut param_state, &system_meta, world, change_tick) };
         self.func.run((), params);
-        Param::apply(&mut param_state, &self.system_meta, world);
+        Param::apply(&mut param_state, &system_meta, world);
     }
 }
