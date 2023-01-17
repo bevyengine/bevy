@@ -28,8 +28,7 @@ where
 {
     func: F,
     system_meta: SystemMeta,
-    // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> (Param, Marker)>,
+    marker: PhantomData<fn(Param) -> Marker>,
 }
 
 impl<Param, Marker, F> IntoCommand<(IsSystemCommand, Param, Marker)> for F
