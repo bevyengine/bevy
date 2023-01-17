@@ -1,9 +1,11 @@
-use crate::system::IntoSystem;
+use crate::system::{IntoSystem, SystemParam};
 
 use super::{Command, IntoCommand};
 
 #[doc(hidden)]
 pub struct IsSystemCommand;
+
+pub trait CommandParam: SystemParam {}
 
 impl<Marker, T: IntoSystem<(), (), Marker>> IntoCommand<(IsSystemCommand, Marker)> for T
 where

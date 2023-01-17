@@ -11,8 +11,9 @@ use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
+pub use system_command::CommandParam;
 
-use super::{Resource, SystemParam};
+use super::Resource;
 
 /// A [`World`] mutation.
 ///
@@ -44,8 +45,6 @@ use super::{Resource, SystemParam};
 pub trait Command: Send + 'static {
     fn write(self, world: &mut World);
 }
-
-pub trait CommandParam: SystemParam {}
 
 pub trait IntoCommand<Marker> {
     type Command: Command;
