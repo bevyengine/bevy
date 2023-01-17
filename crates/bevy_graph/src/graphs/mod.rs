@@ -12,7 +12,10 @@ pub mod keys;
 
 use crate::error::GraphError;
 
-use self::keys::{EdgeIdx, NodeIdx};
+use self::{
+    edge::{EdgeMut, EdgeRef},
+    keys::{EdgeIdx, NodeIdx},
+};
 
 // NOTE: There should always be a common function and if needed a more precise function which the common function wraps.
 //       Example: `edges_between` is `trait Graph` general and has support for Simple- and Multigraphs.
@@ -104,10 +107,10 @@ pub trait Graph<N, E> {
     fn get_node_mut(&mut self, index: NodeIdx) -> Option<&mut N>;
 
     /// Returns a reference to the specified edge.
-    fn get_edge(&self, index: EdgeIdx) -> Option<&E>;
+    fn get_edge(&self, index: EdgeIdx) -> Option<EdgeRef<E>>;
 
     /// Returns a mutable reference to the specified edge.
-    fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<&mut E>;
+    fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<EdgeMut<E>>;
 
     /// Returns the number of edges connected to the specified node.
     ///

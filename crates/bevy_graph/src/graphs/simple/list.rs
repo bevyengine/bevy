@@ -4,7 +4,7 @@ use crate::{
     error::GraphError,
     graphs::{
         adjacency_storage::AdjacencyStorage,
-        edge::Edge,
+        edge::{Edge, EdgeMut, EdgeRef},
         keys::{EdgeIdx, NodeIdx},
         Graph,
     },
@@ -152,18 +152,18 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     #[inline]
-    fn get_edge(&self, index: EdgeIdx) -> Option<&E> {
-        if let Some(Edge(_, _, value)) = self.edges.get(index) {
-            Some(value)
+    fn get_edge(&self, index: EdgeIdx) -> Option<EdgeRef<E>> {
+        if let Some(edge) = self.edges.get(index) {
+            Some(edge.as_ref_edge())
         } else {
             None
         }
     }
 
     #[inline]
-    fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<&mut E> {
-        if let Some(Edge(_, _, value)) = self.edges.get_mut(index) {
-            Some(value)
+    fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<EdgeMut<E>> {
+        if let Some(edge) = self.edges.get_mut(index) {
+            Some(edge.as_mut_edge())
         } else {
             None
         }
