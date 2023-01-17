@@ -221,7 +221,8 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     /// Retrieve the [`SystemParam`] values. This can only be called when all parameters are read-only.
-    /// This will not update archetypes automatically nor increment the world's change tick.
+    /// This will not update the state's view of the world's archetypes automatically nor increment the 
+    /// world's change tick.
     ///
     /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
     /// function.
@@ -238,8 +239,8 @@ impl<Param: SystemParam> SystemState<Param> {
         unsafe { self.fetch(world, change_tick) }
     }
 
-    /// Retrieve the mutable [`SystemParam`] values.  This will not update archetypes automatically nor increment
-    /// the world's change tick.
+    /// Retrieve the mutable [`SystemParam`] values.  This will not update the state's view of the world's archetypes 
+    /// automatically nor increment the world's change tick.
     ///
     /// For this to return accurate results, ensure [`SystemState::update_archetypes`] is called before this
     /// function.
