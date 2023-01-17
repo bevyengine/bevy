@@ -35,7 +35,7 @@ impl<Param, Marker, F> IntoCommand<(IsSystemCommand, Param, Marker)> for F
 where
     Param: CommandSystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<(), (), Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<(), (), Param, Marker>,
 {
     type Command = SystemCommand<Param, Marker, F>;
     fn into_command(func: Self) -> Self::Command {
@@ -51,7 +51,7 @@ impl<Param, Marker, F> Command for SystemCommand<Param, Marker, F>
 where
     Param: CommandSystemParam + 'static,
     Marker: 'static,
-    F: SystemParamFunction<(), (), Param, Marker> + Send + Sync + 'static,
+    F: SystemParamFunction<(), (), Param, Marker>,
 {
     fn write(mut self, world: &mut World) {
         let change_tick = world.change_tick();
