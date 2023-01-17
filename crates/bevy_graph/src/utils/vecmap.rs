@@ -36,6 +36,12 @@ pub trait VecMap<K: PartialEq, V> {
 
     /// Returns `true` if the given key is preset
     fn contains_key(&self, key: K) -> bool;
+
+    /// Gets the index by the key
+    fn index_by_key(&self, key: K) -> Option<usize>;
+
+    /// Removes the entry by the key
+    fn remove_by_key(&mut self, key: K) -> Option<V>;
 }
 
 impl<K: PartialEq, V> VecMap<K, V> for Vec<(K, V)> {
@@ -83,5 +89,17 @@ impl<K: PartialEq, V> VecMap<K, V> for Vec<(K, V)> {
 
     fn contains_key(&self, key: K) -> bool {
         self.iter().any(|l| l.0 == key)
+    }
+
+    fn index_by_key(&self, key: K) -> Option<usize> {
+        self.iter().position(|l| l.0 == key)
+    }
+
+    fn remove_by_key(&mut self, key: K) -> Option<V> {
+        if let Some(index) = self.index_by_key(key) {
+            Some(self.remove(index).1)
+        } else {
+            None
+        }
     }
 }

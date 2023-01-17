@@ -65,6 +65,12 @@ pub trait Graph<N, E> {
     ///
     /// Panics if `src` or `dst` do not exist.
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool;
+
+    /// Removes the specified node from the graph, returning its value if it existed.
+    fn remove_node(&mut self, index: NodeIdx) -> Option<N>;
+
+    /// Removes the specified edge from the graph, returning its value if it existed.
+    fn remove_edge(&mut self, index: EdgeIdx) -> Option<E>;
 }
 
 /// A more precise trait with functions special for a simple graph

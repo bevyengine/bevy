@@ -8,6 +8,7 @@ use crate::{
         keys::{EdgeIdx, NodeIdx},
         Graph,
     },
+    utils::vecset::VecSet,
 };
 
 /// Implementation of a `MultiGraph` which uses `HashMap<NodeIdx, Vec<EdgeIdx>>` for adjacencies
@@ -66,7 +67,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     }
 
     unsafe fn add_edge_unchecked(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> EdgeIdx {
-        let idx = self.edges.insert(Edge { src, dst, value });
+        let idx = self.edges.insert(Edge(src, dst, value));
         self.adjacencies
             .get_unchecked_mut(src)
             .entry(dst)
@@ -89,5 +90,31 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
 
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool {
         self.adjacencies.get(src).unwrap().contains_key(&dst)
+    }
+
+    fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
+        todo!()
+    }
+
+    fn remove_edge(&mut self, index: EdgeIdx) -> Option<E> {
+        if let Some(Edge(src, dst, value)) = self.edges.remove(index) {
+            unsafe {
+                self.adjacencies
+                    .get_unchecked_mut(src)
+                    .get_mut(&dst)
+                    .unwrap()
+                    .remove_by_value(&index);
+                if !DIRECTED {
+                    self.adjacencies
+                        .get_unchecked_mut(dst)
+                        .get_mut(&src)
+                        .unwrap()
+                        .remove_by_value(&index);
+                }
+            }
+            Some(value)
+        } else {
+            None
+        }
     }
 }

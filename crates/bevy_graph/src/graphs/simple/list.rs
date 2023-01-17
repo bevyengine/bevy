@@ -70,7 +70,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     unsafe fn add_edge_unchecked(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> EdgeIdx {
-        let idx = self.edges.insert(Edge { src, dst, value });
+        let idx = self.edges.insert(Edge(src, dst, value));
         self.adjacencies.get_unchecked_mut(src).push((dst, idx));
         if !DIRECTED {
             self.adjacencies.get_unchecked_mut(dst).push((src, idx));
@@ -85,5 +85,23 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
 
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool {
         unsafe { self.adjacencies.get(src).unwrap().contains_key(dst) }
+    }
+
+    fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
+        todo!()
+    }
+
+    fn remove_edge(&mut self, index: EdgeIdx) -> Option<E> {
+        if let Some(Edge(src, dst, value)) = self.edges.remove(index) {
+            unsafe {
+                self.adjacencies.get_unchecked_mut(src).remove_by_key(dst);
+                if !DIRECTED {
+                    self.adjacencies.get_unchecked_mut(dst).remove_by_key(src);
+                }
+            }
+            Some(value)
+        } else {
+            None
+        }
     }
 }
