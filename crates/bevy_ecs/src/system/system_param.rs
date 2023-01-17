@@ -1175,6 +1175,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
         world.entities()
     }
 }
+
 impl CommandParam for &Entities {}
 
 // SAFETY: Only reads World bundles
