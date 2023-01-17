@@ -1641,7 +1641,11 @@ impl World {
 
     /// Clears all resources in this [`World`].
     ///
-    /// Any resource fetch to this [World] will fail unless they are re-initialized.
+    /// **Note:** Any resource fetch to this [World] will fail unless they are re-initialized,
+    /// including engine-internal resources that are only initialized on app/world construction.
+    ///
+    /// This can easily cause systems expecting certain resources to immediately start panicking.
+    /// Use with caution.
     pub fn clear_resources(&mut self) {
         let resource_archetype = self.archetypes.resource_mut();
         for column in resource_archetype.unique_components.values_mut() {
