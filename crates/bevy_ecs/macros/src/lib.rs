@@ -304,6 +304,9 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
             }
 
+            impl<'_w, '_s, #(#param: CommandParam,)*> CommandParam for ParamSet<'_w, '_s, (#(#param,)*)>
+            {}
+
             impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
             {
                 #(#param_fn_mut)*

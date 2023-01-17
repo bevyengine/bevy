@@ -8,7 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
-    system::{CommandQueue, Commands, Query, SystemMeta},
+    system::{CommandParam, CommandQueue, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Resource;
@@ -231,6 +231,11 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
             false,
         )
     }
+}
+
+impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> CommandParam
+    for Query<'_, '_, Q, F>
+{
 }
 
 fn assert_component_access_compatibility(
@@ -463,6 +468,8 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 }
 
+impl<T: Resource> CommandParam for Res<'_, T> {}
+
 // SAFETY: Only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
 
@@ -495,6 +502,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
             })
     }
 }
+
+impl<T: Resource> CommandParam for Option<Res<'_, T>> {}
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
@@ -556,6 +565,8 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 }
 
+impl<T: Resource> CommandParam for ResMut<'_, T> {}
+
 // SAFETY: this impl defers to `ResMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     type State = ComponentId;
@@ -585,6 +596,8 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
             })
     }
 }
+
+impl<T: Resource> CommandParam for Option<ResMut<'_, T>> {}
 
 // SAFETY: Commands only accesses internal state
 unsafe impl<'w, 's> ReadOnlySystemParam for Commands<'w, 's> {}
@@ -658,6 +671,8 @@ unsafe impl SystemParam for &'_ World {
         world
     }
 }
+
+impl CommandParam for &World {}
 
 /// A system local [`SystemParam`].
 ///
@@ -985,6 +1000,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 }
 
+impl<T: 'static> CommandParam for NonSend<'_, T> {}
+
 // SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
 unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     type State = ComponentId;
@@ -1011,6 +1028,8 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
             })
     }
 }
+
+impl<T: 'static> CommandParam for Option<NonSend<'_, T>> {}
 
 // SAFETY: Only reads a single non-send resource
 unsafe impl<'a, T: 'static> ReadOnlySystemParam for NonSendMut<'a, T> {}
@@ -1072,6 +1091,8 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     }
 }
 
+impl<T: 'static> CommandParam for NonSendMut<'_, T> {}
+
 // SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     type State = ComponentId;
@@ -1097,6 +1118,8 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     }
 }
 
+impl<T: 'static> CommandParam for Option<NonSendMut<'_, T>> {}
+
 // SAFETY: Only reads World archetypes
 unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
 
@@ -1117,6 +1140,8 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
         world.archetypes()
     }
 }
+
+impl CommandParam for &Archetypes {}
 
 // SAFETY: Only reads World components
 unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
@@ -1139,6 +1164,8 @@ unsafe impl<'a> SystemParam for &'a Components {
     }
 }
 
+impl CommandParam for &Components {}
+
 // SAFETY: Only reads World entities
 unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
 
@@ -1159,6 +1186,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
         world.entities()
     }
 }
+impl CommandParam for &Entities {}
 
 // SAFETY: Only reads World bundles
 unsafe impl<'a> ReadOnlySystemParam for &'a Bundles {}
@@ -1180,6 +1208,8 @@ unsafe impl<'a> SystemParam for &'a Bundles {
         world.bundles()
     }
 }
+
+impl CommandParam for &Bundles {}
 
 /// A [`SystemParam`] that reads the previous and current change ticks of the system.
 ///
@@ -1344,6 +1374,9 @@ macro_rules! impl_system_param_tuple {
                 ($($param::get_param($param, _system_meta, _world, _change_tick),)*)
             }
         }
+
+        #[allow(non_snake_case)]
+        impl<$($param: CommandParam),*> CommandParam for ($($param,)*) {}
     };
 }
 
