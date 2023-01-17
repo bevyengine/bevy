@@ -5,7 +5,7 @@ use crate::{
     system::{IntoSystem, System},
     world::World,
 };
-use std::borrow::Cow;
+use std::{any::TypeId, borrow::Cow};
 
 /// A [`System`] created by piping the output of the first system into the input of the second.
 ///
@@ -77,6 +77,10 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.name.clone()
     }
 
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<(SystemA, SystemB)>()
+    }
+
     fn archetype_component_access(&self) -> &Access<ArchetypeComponentId> {
         &self.archetype_component_access
     }
@@ -140,6 +144,18 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
     fn set_last_change_tick(&mut self, last_change_tick: u32) {
         self.system_a.set_last_change_tick(last_change_tick);
         self.system_b.set_last_change_tick(last_change_tick);
+    }
+
+    fn default_labels(&self) -> Vec<crate::schedule::SystemLabelId> {
+        let mut labels = self.system_a.default_labels();
+        labels.extend(&self.system_b.default_labels());
+        labels
+    }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+        let mut system_sets = self.system_a.default_system_sets();
+        system_sets.extend_from_slice(&self.system_b.default_system_sets());
+        system_sets
     }
 }
 

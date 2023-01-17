@@ -9,7 +9,7 @@ use crate::{
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, borrow::Cow, fmt::Debug, marker::PhantomData};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -369,6 +369,11 @@ where
     }
 
     #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<F>()
+    }
+
+    #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
@@ -453,8 +458,14 @@ where
             self.system_meta.name.as_ref(),
         );
     }
+
     fn default_labels(&self) -> Vec<SystemLabelId> {
         vec![self.func.as_system_label().as_label()]
+    }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+        let set = crate::schedule_v3::SystemTypeSet::<F>::new();
+        vec![Box::new(set)]
     }
 }
 
