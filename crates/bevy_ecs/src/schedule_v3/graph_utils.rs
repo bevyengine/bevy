@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use bevy_utils::{
     petgraph::{graphmap::NodeTrait, prelude::*},
-    HashMap, HashSet, FixedState,
+    FixedState, HashMap, HashSet,
 };
 use fixedbitset::FixedBitSet;
 

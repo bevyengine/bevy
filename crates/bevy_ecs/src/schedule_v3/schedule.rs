@@ -3,9 +3,9 @@ use std::{
     result::Result,
 };
 
-use bevy_utils::{default, FixedState};
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
+use bevy_utils::{default, FixedState};
 use bevy_utils::{
     petgraph::{algo::tarjan_scc, prelude::*},
     thiserror::Error,
@@ -597,7 +597,8 @@ impl ScheduleGraph {
         }
 
         // map system sets to all their member systems
-        let mut systems_in_sets = HashMap::with_capacity_and_hasher(self.system_sets.len(), FixedState);
+        let mut systems_in_sets =
+            HashMap::with_capacity_and_hasher(self.system_sets.len(), FixedState);
         // iterate in reverse topological order (bottom-up)
         for &id in self.hierarchy.topsort.iter().rev() {
             if id.is_system() {
