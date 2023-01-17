@@ -1,6 +1,9 @@
 //! This example illustrates how to create a slider and display its value on a text node.
 
-use bevy::{prelude::*, ui::widget::Slider};
+use bevy::{
+    prelude::*,
+    ui::widget::{Slider, SliderDragged, SliderHandle},
+};
 
 fn main() {
     App::new()
@@ -8,6 +11,7 @@ fn main() {
         .add_startup_system(setup)
         .add_system(update_slider::<RegularSlider, RegularSliderOutput>)
         .add_system(update_slider::<SteppedSlider, SteppedSliderOutput>)
+        .add_system(update_slider_handle_color)
         .run();
 }
 
@@ -23,6 +27,9 @@ struct RegularSliderOutput;
 
 #[derive(Component)]
 struct SteppedSliderOutput;
+
+const DEFAULT_HANDLE_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
+const DRAGGED_HANDLE_COLOR: Color = Color::rgb(1., 1., 1.);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
@@ -70,6 +77,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     size: Size::new(Val::Px(15.), Val::Px(20.)),
                                     ..default()
                                 },
+                                background_color: DEFAULT_HANDLE_COLOR.into(),
                                 ..default()
                             });
                         });
@@ -117,6 +125,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     size: Size::new(Val::Px(15.), Val::Px(20.)),
                                     ..default()
                                 },
+                                background_color: DEFAULT_HANDLE_COLOR.into(),
                                 ..default()
                             });
                         });
@@ -143,4 +152,21 @@ fn update_slider<SliderMarker: Component, OutputMarker: Component>(
     let mut text = text_query.single_mut();
 
     text.sections[0].value = format!("{}", slider.value().round());
+}
+
+fn update_slider_handle_color(
+    slider_query: Query<(&SliderDragged, &Children)>,
+    mut slider_handle_query: Query<&mut BackgroundColor, With<SliderHandle>>,
+) {
+    for (slider_dragged, slider_children) in slider_query.iter() {
+        for child in slider_children.iter() {
+            if let Ok(mut handle_color) = slider_handle_query.get_mut(*child) {
+                handle_color.0 = if slider_dragged.dragged {
+                    DRAGGED_HANDLE_COLOR.into()
+                } else {
+                    DEFAULT_HANDLE_COLOR.into()
+                };
+            }
+        }
+    }
 }

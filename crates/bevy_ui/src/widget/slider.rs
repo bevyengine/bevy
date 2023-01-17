@@ -117,7 +117,9 @@ pub struct SliderHandle;
 /// Whether the slider is currently being dragged
 #[derive(Component, Debug, Default, Clone, Copy, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default)]
-pub struct SliderDragged(bool);
+pub struct SliderDragged {
+    pub dragged: bool,
+}
 
 /// A label for the [`update_slider_value`] system
 #[derive(SystemLabel)]
@@ -144,14 +146,14 @@ pub fn update_slider_value(
         slider_query.iter_mut()
     {
         if mouse_released {
-            slider_dragged.0 = false;
+            slider_dragged.dragged = false;
         }
 
         if *interaction == Interaction::Clicked {
-            slider_dragged.0 = true;
+            slider_dragged.dragged = true;
         }
 
-        if slider_dragged.0 {
+        if slider_dragged.dragged {
             let max = slider.max();
             let min = slider.min();
 
