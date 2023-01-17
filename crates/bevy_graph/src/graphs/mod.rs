@@ -20,6 +20,15 @@ use self::keys::{EdgeIdx, NodeIdx};
 
 /// A trait with all the common functions for a graph
 pub trait Graph<N, E> {
+    type Nodes<'n>: Iterator<Item = &'n N>
+    where
+        Self: 'n,
+        N: 'n;
+    type NodesMut<'n>: Iterator<Item = &'n mut N>
+    where
+        Self: 'n,
+        N: 'n;
+
     /// Creates a new graph
     fn new() -> Self
     where
@@ -104,6 +113,12 @@ pub trait Graph<N, E> {
     ///
     /// In multi-graphs, edges that form self-loops add 2 to the degree.
     fn degree(&self, index: NodeIdx) -> usize;
+
+    /// Returns an iterator over all nodes.
+    fn nodes(&self) -> Self::Nodes<'_>;
+
+    /// Returns a mutable iterator over all nodes.
+    fn nodes_mut(&mut self) -> Self::NodesMut<'_>;
 }
 
 /// A more precise trait with functions special for a simple graph

@@ -172,4 +172,14 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     fn degree(&self, index: NodeIdx) -> usize {
         todo!()
     }
+
+    type Nodes<'n> = slotmap::hop::Values<'n, NodeIdx, N> where Self: 'n;
+    fn nodes(&self) -> Self::Nodes<'_> {
+        self.nodes.values().into_iter()
+    }
+
+    type NodesMut<'n> = slotmap::hop::ValuesMut<'n, NodeIdx, N> where Self: 'n;
+    fn nodes_mut(&mut self) -> Self::NodesMut<'_> {
+        self.nodes.values_mut().into_iter()
+    }
 }
