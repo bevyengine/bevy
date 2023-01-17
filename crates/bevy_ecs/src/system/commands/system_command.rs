@@ -2,6 +2,7 @@ use crate::system::IntoSystem;
 
 use super::{Command, IntoCommand};
 
+#[doc(hidden)]
 pub struct IsSystemCommand;
 
 impl<Marker, T: IntoSystem<(), (), Marker>> IntoCommand<(IsSystemCommand, Marker)> for T
