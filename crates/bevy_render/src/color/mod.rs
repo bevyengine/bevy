@@ -1391,6 +1391,10 @@ mod tests {
         assert_eq!(Color::hex("03a9f4"), Ok(Color::rgb_u8(3, 169, 244)));
         assert_eq!(Color::hex("yy"), Err(HexColorError::Length));
         assert_eq!(Color::hex("yyy"), Err(HexColorError::Char('y')));
+        assert_eq!(Color::hex("#f2a"), Ok(Color::rgb_u8(255, 34, 170)));
+        assert_eq!(Color::hex("#e23030"), Ok(Color::rgb_u8(226, 48, 48)));
+        assert_eq!(Color::hex("#ff"), Err(HexColorError::Length));
+        assert_eq!(Color::hex("##fff"), Err(HexColorError::Char('#')));
     }
 
     #[test]
