@@ -1,4 +1,4 @@
-pub use crate::change_detection::{NonSendMut, ResMut};
+pub use crate::change_detection::{NonSendMut, ResMut, ChangeDetectionMode};
 use crate::{
     archetype::{Archetype, Archetypes},
     bundle::Bundles,
@@ -274,7 +274,7 @@ impl_param_set!();
 /// struct YourResource { value: u32 };
 /// ```
 pub trait Resource: Send + Sync + 'static {
-    const CHANGE_DETECTION_ENABLED: bool;
+    const CHANGE_DETECTION_MODE: ChangeDetectionMode;
 }
 
 /// Shared borrow of a [`Resource`].
@@ -294,6 +294,7 @@ pub struct Res<'w, T: Resource> {
     changed: &'w Tick,
     last_change_tick: u32,
     change_tick: u32,
+    last_value: Option<&'w T>,
 }
 
 // SAFETY: Res only reads a single World resource
@@ -318,6 +319,7 @@ impl<'w, T: Resource> Res<'w, T> {
             changed: this.changed,
             last_change_tick: this.last_change_tick,
             change_tick: this.change_tick,
+            last_value: this.last_value,
         }
     }
 
@@ -361,6 +363,7 @@ impl<'w, T: Resource> From<ResMut<'w, T>> for Res<'w, T> {
             changed: res.ticks.changed,
             change_tick: res.ticks.change_tick,
             last_change_tick: res.ticks.last_change_tick,
+            last_value: res.last_value.as_ref(),
         }
     }
 }

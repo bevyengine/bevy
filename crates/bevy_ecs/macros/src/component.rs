@@ -2,7 +2,7 @@ use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
 use proc_macro2::{Span, TokenStream as TokenStream2};
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, LitBool, Path, Result};
+use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, LitBool, Path, Result, LitStr};
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -39,10 +39,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let component_mut = if attrs.change_detection_enabled {
-        quote! { #bevy_ecs_path::change_detection::Mut<'a, Self> }
-    } else {
+    let component_mut = if matches!(attrs.change_detection_mode, ChangeDetectionMode::Disabled) {
         quote! { &'a mut Self }
+    } else {
+        quote! { #bevy_ecs_path::change_detection::Mut<'a, Self> }
     };
     let storage = storage_path(&bevy_ecs_path, attrs.storage);
 
@@ -67,16 +67,28 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
 pub const COMPONENT: Symbol = Symbol("component");
 pub const RESOURCE: Symbol = Symbol("resource");
-pub const CHANGED_DETECTION: Symbol = Symbol("change_detection");
+pub const CHANGE_DETECTION_MODE: Symbol = Symbol("change_detection_mode");
 pub const STORAGE: Symbol = Symbol("storage");
 
+/// Defines the behaviour of change detection
+enum ChangeDetectionMode {
+    /// Trigger change detection if the object is mutably dereferenced
+    DerefMut,
+    /// Trigger change detection if the new and old values are not equal according to PartialEq
+    PartialEq,
+    /// Trigger change detection if the new and old values are not equal according to PartialEq
+    Eq,
+    /// Disable change detection
+    Disabled,
+}
+
 struct ComponentAttrs {
-    change_detection_enabled: bool,
+    change_detection_mode: ChangeDetectionMode,
     storage: StorageTy,
 }
 
 struct ResourceAttrs {
-    change_detection_enabled: bool,
+    change_detection_mode: ChangeDetectionMode,
 }
 
 #[derive(Clone, Copy)]
@@ -93,7 +105,7 @@ fn parse_component_attrs(ast: &DeriveInput) -> Result<ComponentAttrs> {
     let meta_items = bevy_macro_utils::parse_attrs(ast, COMPONENT)?;
 
     let mut attrs = ComponentAttrs {
-        change_detection_enabled: true,
+        change_detection_mode: ChangeDetectionMode::DerefMut,
         storage: StorageTy::Table,
     };
 
@@ -118,13 +130,18 @@ fn parse_component_attrs(ast: &DeriveInput) -> Result<ComponentAttrs> {
                     }
                 };
             }
-            Meta(NameValue(m)) if m.path == CHANGED_DETECTION => {
-                attrs.change_detection_enabled = match m.lit {
-                    syn::Lit::Bool(value) => value.value,
+            Meta(NameValue(m)) if m.path == CHANGE_DETECTION_MODE => {
+                attrs.change_detection_mode = match m.lit {
+                    syn::Lit::Str(value) => match value.value().as_str() {
+                        "PartialEq" => ChangeDetectionMode::PartialEq,
+                        "Eq" => ChangeDetectionMode::Eq,
+                        "Disabled" => ChangeDetectionMode::Disabled,
+                        _ => {}
+                    }
                     s => {
                         return Err(Error::new_spanned(
                             s,
-                            "Change detection must be a bool, expected 'true' or 'false'.",
+                            "Change detection mode must be a string among ['PartialEq', 'Eq', 'Disabled'].",
                         ))
                     }
                 };
@@ -154,7 +171,7 @@ fn parse_resource_attrs(ast: &DeriveInput) -> Result<ResourceAttrs> {
     let meta_items = bevy_macro_utils::parse_attrs(ast, RESOURCE)?;
 
     let mut attrs = ResourceAttrs {
-        change_detection_enabled: true,
+        change_detection_mode: ChangeDetectionMode::DerefMut,
     };
 
     for meta in meta_items {
@@ -163,13 +180,18 @@ fn parse_resource_attrs(ast: &DeriveInput) -> Result<ResourceAttrs> {
             NestedMeta::{Lit, Meta},
         };
         match meta {
-            Meta(NameValue(m)) if m.path == CHANGED_DETECTION => {
-                attrs.change_detection_enabled = match m.lit {
-                    syn::Lit::Bool(value) => value.value,
+            Meta(NameValue(m)) if m.path == CHANGE_DETECTION_MODE => {
+                attrs.change_detection_mode = match m.lit {
+                    syn::Lit::Str(value) => match value.value().as_str() {
+                        "PartialEq" => ChangeDetectionMode::PartialEq,
+                        "Eq" => ChangeDetectionMode::Eq,
+                        "Disabled" => ChangeDetectionMode::Disabled,
+                        _ => {}
+                    }
                     s => {
                         return Err(Error::new_spanned(
                             s,
-                            "Change detection must be a bool, expected 'true' or 'false'.",
+                            "Change detection mode must be a string among ['PartialEq', 'Eq', 'Disabled'].",
                         ))
                     }
                 };
