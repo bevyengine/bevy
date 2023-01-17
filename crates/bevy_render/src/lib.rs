@@ -1,3 +1,6 @@
+#[cfg(target_pointer_width = "16")]
+compile_error!("bevy_render cannot compile for a 16-bit platform.");
+
 extern crate core;
 
 pub mod camera;
@@ -8,7 +11,6 @@ pub mod extract_resource;
 pub mod globals;
 pub mod mesh;
 pub mod primitives;
-pub mod rangefinder;
 pub mod render_asset;
 pub mod render_graph;
 pub mod render_phase;
@@ -43,6 +45,7 @@ use crate::{
     mesh::MeshPlugin,
     render_resource::{PipelineCache, Shader, ShaderLoader},
     renderer::{render_system, RenderInstance},
+    settings::WgpuSettings,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use bevy_app::{App, AppLabel, Plugin};
@@ -56,7 +59,9 @@ use std::{
 
 /// Contains the default Bevy rendering backend based on wgpu.
 #[derive(Default)]
-pub struct RenderPlugin;
+pub struct RenderPlugin {
+    pub wgpu_settings: WgpuSettings,
+}
 
 /// The labels of the default App rendering stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
@@ -85,6 +90,10 @@ pub enum RenderStage {
     /// Cleanup render resources here.
     Cleanup,
 }
+
+/// Resource for holding the extract stage of the rendering schedule.
+#[derive(Resource)]
+pub struct ExtractStage(pub SystemStage);
 
 /// The simulation [`World`] of the application, stored as a resource.
 /// This resource is only available during [`RenderStage::Extract`] and not
@@ -124,18 +133,12 @@ pub struct RenderApp;
 impl Plugin for RenderPlugin {
     /// Initializes the renderer, sets up the [`RenderStage`](RenderStage) and creates the rendering sub-app.
     fn build(&self, app: &mut App) {
-        let options = app
-            .world
-            .get_resource::<settings::WgpuSettings>()
-            .cloned()
-            .unwrap_or_default();
-
         app.add_asset::<Shader>()
             .add_debug_asset::<Shader>()
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        if let Some(backends) = options.backends {
+        if let Some(backends) = self.wgpu_settings.backends {
             let windows = app.world.resource_mut::<bevy_window::Windows>();
             let instance = wgpu::Instance::new(backends);
 
@@ -148,13 +151,16 @@ impl Plugin for RenderPlugin {
                 });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
-                power_preference: options.power_preference,
+                power_preference: self.wgpu_settings.power_preference,
                 compatible_surface: surface.as_ref(),
                 ..Default::default()
             };
-            let (device, queue, adapter_info, render_adapter) = futures_lite::future::block_on(
-                renderer::initialize_renderer(&instance, &options, &request_adapter_options),
-            );
+            let (device, queue, adapter_info, render_adapter) =
+                futures_lite::future::block_on(renderer::initialize_renderer(
+                    &instance,
+                    &self.wgpu_settings,
+                    &request_adapter_options,
+                ));
             debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
             debug!("Configured wgpu adapter Features: {:#?}", device.features());
             app.insert_resource(device.clone())
@@ -192,10 +198,15 @@ impl Plugin for RenderPlugin {
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()
+                        // Note: Must run before `render_system` in order to
+                        // processed newly queued pipelines.
                         .with_system(PipelineCache::process_pipeline_queue_system)
                         .with_system(render_system.at_end()),
                 )
-                .add_stage(RenderStage::Cleanup, SystemStage::parallel())
+                .add_stage(
+                    RenderStage::Cleanup,
+                    SystemStage::parallel().with_system(World::clear_entities.at_end()),
+                )
                 .init_resource::<render_graph::RenderGraph>()
                 .insert_resource(RenderInstance(instance))
                 .insert_resource(device)
@@ -245,78 +256,6 @@ impl Plugin for RenderPlugin {
                     // extract
                     extract(app_world, render_app);
                 }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "prepare").entered();
-
-                    // prepare
-                    let prepare = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::Prepare)
-                        .unwrap();
-                    prepare.run(&mut render_app.world);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "queue").entered();
-
-                    // queue
-                    let queue = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::Queue)
-                        .unwrap();
-                    queue.run(&mut render_app.world);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "sort").entered();
-
-                    // phase sort
-                    let phase_sort = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::PhaseSort)
-                        .unwrap();
-                    phase_sort.run(&mut render_app.world);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "render").entered();
-
-                    // render
-                    let render = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::Render)
-                        .unwrap();
-                    render.run(&mut render_app.world);
-                }
-
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "cleanup").entered();
-
-                    // cleanup
-                    let cleanup = render_app
-                        .schedule
-                        .get_stage_mut::<SystemStage>(RenderStage::Cleanup)
-                        .unwrap();
-                    cleanup.run(&mut render_app.world);
-                }
-                {
-                    #[cfg(feature = "trace")]
-                    let _stage_span =
-                        bevy_utils::tracing::info_span!("stage", name = "clear_entities").entered();
-
-                    render_app.world.clear_entities();
-                }
             });
         }
 
@@ -332,6 +271,20 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>();
     }
+
+    fn setup(&self, app: &mut App) {
+        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+            // move the extract stage to a resource so render_app.run() does not run it.
+            let stage = render_app
+                .schedule
+                .remove_stage(RenderStage::Extract)
+                .unwrap()
+                .downcast::<SystemStage>()
+                .unwrap();
+
+            render_app.world.insert_resource(ExtractStage(*stage));
+        }
+    }
 }
 
 /// A "scratch" world used to avoid allocating new worlds every frame when
@@ -342,25 +295,23 @@ struct ScratchMainWorld(World);
 /// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
 /// This updates the render world with the extracted ECS data of the current frame.
 fn extract(app_world: &mut World, render_app: &mut App) {
-    let extract = render_app
-        .schedule
-        .get_stage_mut::<SystemStage>(RenderStage::Extract)
-        .unwrap();
+    render_app
+        .world
+        .resource_scope(|render_world, mut extract_stage: Mut<ExtractStage>| {
+            // temporarily add the app world to the render world as a resource
+            let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
+            let inserted_world = std::mem::replace(app_world, scratch_world.0);
+            render_world.insert_resource(MainWorld(inserted_world));
 
-    // temporarily add the app world to the render world as a resource
-    let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
-    let inserted_world = std::mem::replace(app_world, scratch_world.0);
-    let running_world = &mut render_app.world;
-    running_world.insert_resource(MainWorld(inserted_world));
+            extract_stage.0.run(render_world);
+            // move the app world back, as if nothing happened.
+            let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
+            let scratch_world = std::mem::replace(app_world, inserted_world.0);
+            app_world.insert_resource(ScratchMainWorld(scratch_world));
 
-    extract.run(running_world);
-    // move the app world back, as if nothing happened.
-    let inserted_world = running_world.remove_resource::<MainWorld>().unwrap();
-    let scratch_world = std::mem::replace(app_world, inserted_world.0);
-    app_world.insert_resource(ScratchMainWorld(scratch_world));
-
-    // Note: We apply buffers (read, Commands) after the `MainWorld` has been removed from the render app's world
-    // so that in future, pipelining will be able to do this too without any code relying on it.
-    // see <https://github.com/bevyengine/bevy/issues/5082>
-    extract.apply_buffers(running_world);
+            // Note: We apply buffers (read, Commands) after the `MainWorld` has been removed from the render app's world
+            // so that in future, pipelining will be able to do this too without any code relying on it.
+            // see <https://github.com/bevyengine/bevy/issues/5082>
+            extract_stage.0.apply_buffers(render_world);
+        });
 }

@@ -173,8 +173,7 @@ fn change_text_system(
         }
 
         text.sections[0].value = format!(
-            "This text changes in the bottom right - {:.1} fps, {:.3} ms/frame",
-            fps, frame_time,
+            "This text changes in the bottom right - {fps:.1} fps, {frame_time:.3} ms/frame",
         );
 
         text.sections[2].value = format!("{fps:.1}");

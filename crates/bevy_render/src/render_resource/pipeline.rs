@@ -1,19 +1,16 @@
-use crate::render_resource::{BindGroupLayout, Shader};
+use super::ShaderDefVal;
+use crate::{
+    define_atomic_id,
+    render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
+};
 use bevy_asset::Handle;
-use bevy_reflect::Uuid;
 use std::{borrow::Cow, ops::Deref};
 use wgpu::{
     BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
     VertexAttribute, VertexFormat, VertexStepMode,
 };
 
-use super::ShaderDefVal;
-use crate::render_resource::resource_macros::*;
-
-/// A [`RenderPipeline`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct RenderPipelineId(Uuid);
-
+define_atomic_id!(RenderPipelineId);
 render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
@@ -36,7 +33,7 @@ impl RenderPipeline {
 impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
-            id: RenderPipelineId(Uuid::new_v4()),
+            id: RenderPipelineId::new(),
             value: ErasedRenderPipeline::new(value),
         }
     }
@@ -51,10 +48,7 @@ impl Deref for RenderPipeline {
     }
 }
 
-/// A [`ComputePipeline`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct ComputePipelineId(Uuid);
-
+define_atomic_id!(ComputePipelineId);
 render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
@@ -78,7 +72,7 @@ impl ComputePipeline {
 impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
-            id: ComputePipelineId(Uuid::new_v4()),
+            id: ComputePipelineId::new(),
             value: ErasedComputePipeline::new(value),
         }
     }

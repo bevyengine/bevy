@@ -1,23 +1,18 @@
-pub use bevy_render_macros::AsBindGroup;
-use encase::ShaderType;
-
 use crate::{
+    define_atomic_id,
     prelude::Image,
     render_asset::RenderAssets,
-    render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
+    render_resource::{resource_macros::*, BindGroupLayout, Buffer, Sampler, TextureView},
     renderer::RenderDevice,
     texture::FallbackImage,
 };
-use bevy_reflect::Uuid;
+pub use bevy_render_macros::AsBindGroup;
+use encase::ShaderType;
 use std::ops::Deref;
 use wgpu::BindingResource;
 
-use crate::render_resource::resource_macros::*;
+define_atomic_id!(BindGroupId);
 render_resource_wrapper!(ErasedBindGroup, wgpu::BindGroup);
-
-/// A [`BindGroup`] identifier.
-#[derive(Copy, Clone, Hash, Eq, PartialEq, Debug)]
-pub struct BindGroupId(Uuid);
 
 /// Bind groups are responsible for binding render resources (e.g. buffers, textures, samplers)
 /// to a [`TrackedRenderPass`](crate::render_phase::TrackedRenderPass).
@@ -42,7 +37,7 @@ impl BindGroup {
 impl From<wgpu::BindGroup> for BindGroup {
     fn from(value: wgpu::BindGroup) -> Self {
         BindGroup {
-            id: BindGroupId(Uuid::new_v4()),
+            id: BindGroupId::new(),
             value: ErasedBindGroup::new(value),
         }
     }
@@ -87,6 +82,8 @@ impl Deref for BindGroup {
 ///     #[texture(1)]
 ///     #[sampler(2)]
 ///     color_texture: Handle<Image>,
+///     #[storage(3, read_only)]
+///     values: Vec<f32>,
 /// }
 /// ```
 ///
@@ -99,6 +96,8 @@ impl Deref for BindGroup {
 /// var color_texture: texture_2d<f32>;
 /// @group(1) @binding(2)
 /// var color_sampler: sampler;
+/// @group(1) @binding(3)
+/// var<storage> values: array<f32>;
 /// ```
 /// Note that the "group" index is determined by the usage context. It is not defined in [`AsBindGroup`]. For example, in Bevy material bind groups
 /// are generally bound to group 1.
@@ -136,6 +135,15 @@ impl Deref for BindGroup {
 /// |------------------------|-------------------------------------------------------------------------|------------------------|
 /// | `sampler_type` = "..." | `"filtering"`, `"non_filtering"`, `"comparison"`.                       |  `"filtering"`         |
 /// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` |   `vertex`, `fragment` |
+///
+/// * `storage(BINDING_INDEX, arguments)`
+///     * The field will be converted to a shader-compatible type using the [`ShaderType`] trait, written to a [`Buffer`], and bound as a storage buffer.
+///     * It supports and optional `read_only` parameter. Defaults to false if not present.
+///
+/// | Arguments              | Values                                                                  | Default              |
+/// |------------------------|-------------------------------------------------------------------------|----------------------|
+/// | `visibility(...)`      | `all`, `none`, or a list-combination of `vertex`, `fragment`, `compute` | `vertex`, `fragment` |
+/// | `read_only`            | if present then value is true, otherwise false                          | `false`              |
 ///
 /// Note that fields without field-level binding attributes will be ignored.
 /// ```
@@ -253,7 +261,7 @@ impl Deref for BindGroup {
 ///     }
 /// }
 /// ```
-pub trait AsBindGroup: Sized {
+pub trait AsBindGroup {
     /// Data that will be stored alongside the "prepared" bind group.
     type Data: Send + Sync;
 
@@ -264,10 +272,12 @@ pub trait AsBindGroup: Sized {
         render_device: &RenderDevice,
         images: &RenderAssets<Image>,
         fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError>;
+    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError>;
 
     /// Creates the bind group layout matching all bind groups returned by [`AsBindGroup::as_bind_group`]
-    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout;
+    fn bind_group_layout(render_device: &RenderDevice) -> BindGroupLayout
+    where
+        Self: Sized;
 }
 
 /// An error that occurs during [`AsBindGroup::as_bind_group`] calls.
@@ -277,10 +287,10 @@ pub enum AsBindGroupError {
 }
 
 /// A prepared bind group returned as a result of [`AsBindGroup::as_bind_group`].
-pub struct PreparedBindGroup<T: AsBindGroup> {
+pub struct PreparedBindGroup<T> {
     pub bindings: Vec<OwnedBindingResource>,
     pub bind_group: BindGroup,
-    pub data: T::Data,
+    pub data: T,
 }
 
 /// An owned binding resource of any type (ex: a [`Buffer`], [`TextureView`], etc).

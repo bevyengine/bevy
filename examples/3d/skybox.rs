@@ -227,7 +227,7 @@ impl AsBindGroup for CubemapMaterial {
         render_device: &RenderDevice,
         images: &RenderAssets<Image>,
         _fallback_image: &FallbackImage,
-    ) -> Result<PreparedBindGroup<Self>, AsBindGroupError> {
+    ) -> Result<PreparedBindGroup<Self::Data>, AsBindGroupError> {
         let base_color_texture = self
             .base_color_texture
             .as_ref()
