@@ -1624,7 +1624,7 @@ impl World {
         self.last_check_tick = change_tick;
     }
 
-    /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_entities`](Self::clear_resources),
+    /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
     /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
         self.clear_entities();
