@@ -242,6 +242,7 @@ impl Node for Fsr2Node {
             jitter_offset: temporal_jitter.offset,
             adapter: render_adapter,
             command_encoder: &mut render_context.command_encoder,
+            device: render_context.render_device.wgpu_device(),
         });
 
         Ok(())
