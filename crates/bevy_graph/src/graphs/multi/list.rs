@@ -34,10 +34,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
     }
 
     #[inline]
-    fn is_undirected(&self) -> bool {
-        !DIRECTED
+    fn is_multigraph(&self) -> bool {
+        true
     }
-
     #[inline]
     fn node_count(&self) -> usize {
         self.nodes.len()

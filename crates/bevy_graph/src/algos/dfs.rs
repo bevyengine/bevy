@@ -23,9 +23,9 @@ impl DepthFirstSearch {
     }
 
     /// Creates a new `DepthFirstSearch` with a start node and the count of nodes for capacity reserving
-    pub fn with_capacity(start: NodeIdx, count: usize) -> Self {
-        let mut stack = Vec::with_capacity(count);
-        let mut visited = HashSet::with_capacity(count);
+    pub fn with_capacity(start: NodeIdx, node_count: usize) -> Self {
+        let mut stack = Vec::with_capacity(node_count);
+        let mut visited = HashSet::with_capacity(node_count);
 
         visited.insert(start);
         stack.push(start);

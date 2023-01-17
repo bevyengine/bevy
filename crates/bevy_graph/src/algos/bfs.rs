@@ -26,9 +26,9 @@ impl BreadthFirstSearch {
     }
 
     /// Creates a new `BreadthFirstSearch` with a start node and the count of nodes for capacity reserving
-    pub fn with_capacity(start: NodeIdx, count: usize) -> Self {
-        let mut queue = VecDeque::with_capacity(count);
-        let mut visited = HashSet::with_capacity(count);
+    pub fn with_capacity(start: NodeIdx, node_count: usize) -> Self {
+        let mut queue = VecDeque::with_capacity(node_count);
+        let mut visited = HashSet::with_capacity(node_count);
 
         visited.insert(start);
         queue.push_back(start);

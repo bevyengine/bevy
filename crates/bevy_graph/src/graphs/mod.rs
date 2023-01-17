@@ -26,8 +26,8 @@ pub trait Graph<N, E> {
     /// Returns `true` if the edges in the graph are directed.
     fn is_directed(&self) -> bool;
 
-    /// Returns `true` if the edges in the graph are undirected.
-    fn is_undirected(&self) -> bool;
+    /// Returns `true` if the graph allows for more than one edge between a pair of nodes.
+    fn is_multigraph(&self) -> bool;
 
     /// Returns the number of nodes in the graph.
     fn node_count(&self) -> usize;

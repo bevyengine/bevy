@@ -34,8 +34,8 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     #[inline]
-    fn is_undirected(&self) -> bool {
-        !DIRECTED
+    fn is_multigraph(&self) -> bool {
+        false
     }
 
     #[inline]
