@@ -1,3 +1,5 @@
+use std::iter::Map;
+
 use hashbrown::HashMap;
 use slotmap::{HopSlotMap, SecondaryMap};
 
@@ -184,5 +186,15 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     type NodesMut<'n> = slotmap::hop::ValuesMut<'n, NodeIdx, N> where Self: 'n;
     fn nodes_mut(&mut self) -> Self::NodesMut<'_> {
         self.nodes.values_mut().into_iter()
+    }
+
+    type Edges<'e> = Map<slotmap::hop::Values<'e, EdgeIdx, Edge<E>>, fn(&Edge<E>) -> EdgeRef<'e, E>> where Self: 'e;
+    fn edges(&self) -> Self::Edges<'_> {
+        self.edges.values().map(|e| e.as_ref_edge())
+    }
+
+    type EdgesMut<'e> = Map<slotmap::hop::ValuesMut<'e, EdgeIdx, Edge<E>>, fn(&mut Edge<E>) -> EdgeMut<'e, E>> where Self: 'e;
+    fn edges_mut(&mut self) -> Self::EdgesMut<'_> {
+        self.edges.values_mut().map(|e| e.as_mut_edge())
     }
 }

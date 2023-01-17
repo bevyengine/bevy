@@ -31,6 +31,14 @@ pub trait Graph<N, E> {
     where
         Self: 'n,
         N: 'n;
+    type Edges<'e>: Iterator<Item = EdgeRef<'e, E>>
+    where
+        Self: 'e,
+        E: 'e;
+    type EdgesMut<'e>: Iterator<Item = EdgeMut<'e, E>>
+    where
+        Self: 'e,
+        E: 'e;
 
     /// Creates a new graph
     fn new() -> Self
@@ -122,6 +130,12 @@ pub trait Graph<N, E> {
 
     /// Returns a mutable iterator over all nodes.
     fn nodes_mut(&mut self) -> Self::NodesMut<'_>;
+
+    /// Returns an iterator over all edges.
+    fn edges(&self) -> Self::Edges<'_>;
+
+    /// Returns a mutable iterator over all edges.
+    fn edges_mut(&mut self) -> Self::EdgesMut<'_>;
 }
 
 /// A more precise trait with functions special for a simple graph
