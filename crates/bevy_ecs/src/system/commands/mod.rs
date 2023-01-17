@@ -48,13 +48,13 @@ pub trait Command: Send + 'static {
 
 pub trait IntoCommand<Marker> {
     type Command: Command;
-    fn into_command(self) -> Self::Command;
+    fn into_command(this: Self) -> Self::Command;
 }
 
 impl<T: Command> IntoCommand<()> for T {
     type Command = Self;
-    fn into_command(self) -> Self::Command {
-        self
+    fn into_command(this: Self) -> Self::Command {
+        this
     }
 }
 
@@ -537,7 +537,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// # bevy_ecs::system::assert_is_system(add_twenty_five_to_counter_system);
     /// ```
     pub fn add<Marker, C: IntoCommand<Marker>>(&mut self, command: C) {
-        self.queue.push(command.into_command());
+        self.queue.push(IntoCommand::into_command(command));
     }
 }
 

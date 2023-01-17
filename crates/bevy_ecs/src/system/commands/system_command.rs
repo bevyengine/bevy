@@ -12,7 +12,7 @@ where
     T::System: Command,
 {
     type Command = T::System;
-    fn into_command(self) -> Self::Command {
-        IntoSystem::into_system(self)
+    fn into_command(this: Self) -> Self::Command {
+        IntoSystem::into_system(this)
     }
 }
