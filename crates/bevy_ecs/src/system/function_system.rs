@@ -196,6 +196,8 @@ impl<Param: SystemParam> SystemState<Param> {
         self.world_id == world.id()
     }
 
+    /// For all current [`Archetype`]s present in the [`World`],
+    /// registers the archetype-components accessed by this [`SystemParam`] (if applicable).
     fn validate_world_and_update_archetypes(&mut self, world: &World) {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
         let archetypes = world.archetypes();
@@ -428,6 +430,8 @@ where
         self.param_state = Some(Param::init_state(world, &mut self.system_meta));
     }
 
+    /// For all current [`Archetype`]s present in the [`World`],
+    /// registers the archetype-components accessed by this [`SystemParam`] (if applicable).
     fn update_archetype_component_access(&mut self, world: &World) {
         assert!(self.world_id == Some(world.id()), "Encountered a mismatched World. A System cannot be used with Worlds other than the one it was initialized with.");
         let archetypes = world.archetypes();
