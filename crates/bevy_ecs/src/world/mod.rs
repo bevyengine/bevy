@@ -1624,11 +1624,31 @@ impl World {
         self.last_check_tick = change_tick;
     }
 
+    /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    pub fn clear_all(&mut self) {
+        self.clear_entities();
+        self.clear_resources();
+    }
+
+    /// Despawns all entities in this [`World`].
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
         self.storages.sparse_sets.clear();
         self.archetypes.clear_entities();
         self.entities.clear();
+    }
+
+    /// Clears all resources in this [`World`].
+    ///
+    /// **Note:** Any resource fetch to this [World] will fail unless they are re-initialized,
+    /// including engine-internal resources that are only initialized on app/world construction.
+    ///
+    /// This can easily cause systems expecting certain resources to immediately start panicking.
+    /// Use with caution.
+    pub fn clear_resources(&mut self) {
+        self.storages.resources.clear();
+        self.storages.non_send_resources.clear();
     }
 }
 
