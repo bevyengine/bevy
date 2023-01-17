@@ -127,4 +127,32 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         self.edges.clear();
         self.nodes.clear();
     }
+
+    #[inline]
+    fn get_node(&self, index: NodeIdx) -> Option<&N> {
+        self.nodes.get(index)
+    }
+
+    #[inline]
+    fn get_node_mut(&mut self, index: NodeIdx) -> Option<&mut N> {
+        self.nodes.get_mut(index)
+    }
+
+    #[inline]
+    fn get_edge(&self, index: EdgeIdx) -> Option<&E> {
+        if let Some(Edge(_, _, value)) = self.edges.get(index) {
+            Some(value)
+        } else {
+            None
+        }
+    }
+
+    #[inline]
+    fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<&mut E> {
+        if let Some(Edge(_, _, value)) = self.edges.get_mut(index) {
+            Some(value)
+        } else {
+            None
+        }
+    }
 }

@@ -51,32 +51,6 @@ impl BreadthFirstSearch {
         }
     }
 
-    /// Gets an immutable reference to the value of the next node from the algorithm
-    ///
-    /// # Safety
-    ///
-    /// This function should only be called when the node from the edge exists.
-    /// This can happen when a node or edge gets removed but its index is still present in the BFS.
-    pub unsafe fn next_unchecked<'g, N, E>(
-        &mut self,
-        graph: &'g impl Graph<N, E>,
-    ) -> Option<&'g N> {
-        if let Some(node) = self.queue.pop_front() {
-            for (idx, _) in graph.edges_of(node) {
-                if !self.visited.contains(&idx) {
-                    self.visited.insert(idx);
-                    self.queue.push_back(idx);
-                }
-            }
-            unsafe {
-                // SAFETY: the caller says its fine
-                Some(graph.get_node_unchecked(node))
-            }
-        } else {
-            None
-        }
-    }
-
     /// Gets a mutable reference to the value of the next node from the algorithm.
     pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
         if let Some(node) = self.queue.pop_front() {
@@ -87,32 +61,6 @@ impl BreadthFirstSearch {
                 }
             }
             Some(graph.get_node_mut(node).unwrap())
-        } else {
-            None
-        }
-    }
-
-    /// Gets a mutable reference to the value of the next node from the algorithm.
-    ///
-    /// # Safety
-    ///
-    /// This function should only be called when the node from the edge exists.
-    /// This can happen when a node or edge gets removed but its index is still present in the BFS.
-    pub unsafe fn next_unchecked_mut<'g, N, E>(
-        &mut self,
-        graph: &'g mut impl Graph<N, E>,
-    ) -> Option<&'g mut N> {
-        if let Some(node) = self.queue.pop_front() {
-            for (idx, _) in graph.edges_of(node) {
-                if !self.visited.contains(&idx) {
-                    self.visited.insert(idx);
-                    self.queue.push_back(idx);
-                }
-            }
-            unsafe {
-                // SAFETY: the caller says its fine
-                Some(graph.get_node_unchecked_mut(node))
-            }
         } else {
             None
         }

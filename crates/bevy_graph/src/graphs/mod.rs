@@ -85,6 +85,18 @@ pub trait Graph<N, E> {
 
     /// Removes all nodes and edges from the graph.
     fn clear(&mut self);
+
+    /// Returns a reference to the specified node.
+    fn get_node(&self, index: NodeIdx) -> Option<&N>;
+
+    /// Returns a mutable reference to the specified node.
+    fn get_node_mut(&mut self, index: NodeIdx) -> Option<&mut N>;
+
+    /// Returns a reference to the specified edge.
+    fn get_edge(&self, index: EdgeIdx) -> Option<&E>;
+
+    /// Returns a mutable reference to the specified edge.
+    fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<&mut E>;
 }
 
 /// A more precise trait with functions special for a simple graph
