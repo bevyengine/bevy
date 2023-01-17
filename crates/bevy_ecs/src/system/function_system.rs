@@ -204,6 +204,12 @@ impl<Param: SystemParam> SystemState<Param> {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
     }
 
+    /// Updates the state's internal view of the `world`'s archetypes. If this is not called before fetching the parameters,
+    /// the results may not accurately reflect what is in the `world`. 
+    /// 
+    /// This is only required if [`SystemState::get_manual`] or [`SystemState::get_manual_mut`] is being called, and it only needs to 
+    /// be called if the `world` has been structurally mutated (i.e. added/removed a component or resource). Users using 
+    /// [`SystemState::get`] or [`SystemState::get_mut`] do not need to call this as it will be automatically called for them.
     #[inline]
     pub fn update_archetypes(&mut self, world: &World) {
         let archetypes = world.archetypes();
