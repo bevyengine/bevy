@@ -198,6 +198,7 @@ impl<Param: SystemParam> SystemState<Param> {
         self.world_id == world.id()
     }
 
+    /// Asserts that the [`SystemState`] matches the provided [`World`].
     #[inline]
     fn validate_world(&self, world: &World) {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
