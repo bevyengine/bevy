@@ -4,6 +4,7 @@ use slotmap::{HopSlotMap, SecondaryMap};
 use crate::{
     error::GraphError,
     graphs::{
+        adjacency_storage::AdjacencyStorage,
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
         Graph,
@@ -17,7 +18,7 @@ use crate::{
 pub struct SimpleMapGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
     edges: HopSlotMap<EdgeIdx, Edge<E>>,
-    adjacencies: SecondaryMap<NodeIdx, HashMap<NodeIdx, EdgeIdx>>,
+    adjacencies: SecondaryMap<NodeIdx, AdjacencyStorage<HashMap<NodeIdx, EdgeIdx>>>,
 }
 
 impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> {
@@ -51,7 +52,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
 
     fn add_node(&mut self, node: N) -> NodeIdx {
         let idx = self.nodes.insert(node);
-        self.adjacencies.insert(idx, HashMap::new());
+        let storage = if DIRECTED {
+            AdjacencyStorage::Directed(HashMap::new(), HashMap::new())
+        } else {
+            AdjacencyStorage::Undirected(HashMap::new())
+        };
+        self.adjacencies.insert(idx, storage);
         idx
     }
 
@@ -72,10 +78,14 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         } else {
             unsafe {
                 let idx = self.edges.insert(Edge(src, dst, value));
-                self.adjacencies.get_unchecked_mut(src).insert(dst, idx);
-                if !DIRECTED {
-                    self.adjacencies.get_unchecked_mut(dst).insert(src, idx);
-                }
+                self.adjacencies
+                    .get_unchecked_mut(src)
+                    .outgoing_mut()
+                    .insert(dst, idx);
+                self.adjacencies
+                    .get_unchecked_mut(dst)
+                    .incoming_mut()
+                    .insert(src, idx);
                 Ok(idx)
             }
         }
@@ -87,7 +97,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     }
 
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool {
-        self.adjacencies[src].contains_key(&dst)
+        self.adjacencies[src].outgoing_mut().contains_key(&dst)
     }
 
     fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
@@ -97,10 +107,14 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     fn remove_edge(&mut self, index: EdgeIdx) -> Option<E> {
         if let Some(Edge(src, dst, value)) = self.edges.remove(index) {
             unsafe {
-                self.adjacencies.get_unchecked_mut(src).remove(&dst);
-                if !DIRECTED {
-                    self.adjacencies.get_unchecked_mut(dst).remove(&src);
-                }
+                self.adjacencies
+                    .get_unchecked_mut(src)
+                    .outgoing_mut()
+                    .remove(&dst);
+                self.adjacencies
+                    .get_unchecked_mut(dst)
+                    .incoming_mut()
+                    .remove(&src);
             }
             Some(value)
         } else {
@@ -109,7 +123,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
     }
 
     fn clear_edges(&mut self) {
-        self.adjacencies.values_mut().for_each(|map| map.clear());
+        self.adjacencies
+            .values_mut()
+            .for_each(|map| map.for_each_mut(HashMap::clear));
         self.edges.clear();
     }
 
@@ -145,5 +161,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
         } else {
             None
         }
+    }
+
+    fn degree(&self, index: NodeIdx) -> usize {
+        todo!()
     }
 }

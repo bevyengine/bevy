@@ -4,6 +4,7 @@ use slotmap::{HopSlotMap, SecondaryMap};
 use crate::{
     error::GraphError,
     graphs::{
+        adjacency_storage::AdjacencyStorage,
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
         Graph,
@@ -18,7 +19,7 @@ use crate::{
 pub struct MultiMapGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
     edges: HopSlotMap<EdgeIdx, Edge<E>>,
-    adjacencies: SecondaryMap<NodeIdx, HashMap<NodeIdx, Vec<EdgeIdx>>>,
+    adjacencies: SecondaryMap<NodeIdx, AdjacencyStorage<HashMap<NodeIdx, Vec<EdgeIdx>>>>,
 }
 
 impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
@@ -52,7 +53,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
 
     fn add_node(&mut self, node: N) -> NodeIdx {
         let idx = self.nodes.insert(node);
-        self.adjacencies.insert(idx, HashMap::new());
+        let storage = if DIRECTED {
+            AdjacencyStorage::Directed(HashMap::new(), HashMap::new())
+        } else {
+            AdjacencyStorage::Undirected(HashMap::new())
+        };
+        self.adjacencies.insert(idx, storage);
         idx
     }
 
@@ -71,16 +77,16 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
                 let idx = self.edges.insert(Edge(src, dst, value));
                 self.adjacencies
                     .get_unchecked_mut(src)
+                    .outgoing_mut()
                     .entry(dst)
                     .or_default()
                     .push(idx);
-                if !DIRECTED {
-                    self.adjacencies
-                        .get_unchecked_mut(dst)
-                        .entry(src)
-                        .or_default()
-                        .push(idx);
-                }
+                self.adjacencies
+                    .get_unchecked_mut(dst)
+                    .incoming_mut()
+                    .entry(src)
+                    .or_default()
+                    .push(idx);
                 Ok(idx)
             }
         }
@@ -92,7 +98,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     }
 
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool {
-        self.adjacencies.get(src).unwrap().contains_key(&dst)
+        self.adjacencies
+            .get(src)
+            .unwrap()
+            .outgoing_mut()
+            .contains_key(&dst)
     }
 
     fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
@@ -104,16 +114,16 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
             unsafe {
                 self.adjacencies
                     .get_unchecked_mut(src)
+                    .outgoing_mut()
                     .get_mut(&dst)
                     .unwrap()
                     .remove_by_value(&index);
-                if !DIRECTED {
-                    self.adjacencies
-                        .get_unchecked_mut(dst)
-                        .get_mut(&src)
-                        .unwrap()
-                        .remove_by_value(&index);
-                }
+                self.adjacencies
+                    .get_unchecked_mut(dst)
+                    .incoming_mut()
+                    .get_mut(&src)
+                    .unwrap()
+                    .remove_by_value(&index);
             }
             Some(value)
         } else {
@@ -122,7 +132,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     }
 
     fn clear_edges(&mut self) {
-        self.adjacencies.values_mut().for_each(|map| map.clear());
+        self.adjacencies
+            .values_mut()
+            .for_each(|map| map.for_each_mut(HashMap::clear));
         self.edges.clear();
     }
 
@@ -158,5 +170,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         } else {
             None
         }
+    }
+
+    fn degree(&self, index: NodeIdx) -> usize {
+        todo!()
     }
 }

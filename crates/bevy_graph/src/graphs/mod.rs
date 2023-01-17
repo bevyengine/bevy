@@ -3,6 +3,8 @@ pub mod multi;
 /// All graph types implementing a `SimpleGraph`
 pub mod simple;
 
+/// Adjacency storage enum helper: `Directed` or `Undirected`
+pub mod adjacency_storage;
 /// An edge between nodes that store data of type `E`.
 pub mod edge;
 /// The `NodeIdx` and `EdgeIdx` structs
@@ -97,6 +99,11 @@ pub trait Graph<N, E> {
 
     /// Returns a mutable reference to the specified edge.
     fn get_edge_mut(&mut self, index: EdgeIdx) -> Option<&mut E>;
+
+    /// Returns the number of edges connected to the specified node.
+    ///
+    /// In multi-graphs, edges that form self-loops add 2 to the degree.
+    fn degree(&self, index: NodeIdx) -> usize;
 }
 
 /// A more precise trait with functions special for a simple graph

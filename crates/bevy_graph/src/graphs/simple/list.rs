@@ -3,6 +3,7 @@ use slotmap::{HopSlotMap, SecondaryMap};
 use crate::{
     error::GraphError,
     graphs::{
+        adjacency_storage::AdjacencyStorage,
         edge::Edge,
         keys::{EdgeIdx, NodeIdx},
         Graph,
@@ -17,7 +18,7 @@ use crate::{
 pub struct SimpleListGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
     edges: HopSlotMap<EdgeIdx, Edge<E>>,
-    adjacencies: SecondaryMap<NodeIdx, Vec<(NodeIdx, EdgeIdx)>>,
+    adjacencies: SecondaryMap<NodeIdx, AdjacencyStorage<Vec<(NodeIdx, EdgeIdx)>>>,
 }
 
 impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED> {
@@ -51,7 +52,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
 
     fn add_node(&mut self, node: N) -> NodeIdx {
         let idx = self.nodes.insert(node);
-        self.adjacencies.insert(idx, Vec::new());
+        let storage = if DIRECTED {
+            AdjacencyStorage::Directed(Vec::new(), Vec::new())
+        } else {
+            AdjacencyStorage::Undirected(Vec::new())
+        };
+        self.adjacencies.insert(idx, storage);
         idx
     }
 
@@ -72,10 +78,14 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         } else {
             unsafe {
                 let idx = self.edges.insert(Edge(src, dst, value));
-                self.adjacencies.get_unchecked_mut(src).push((dst, idx));
-                if !DIRECTED {
-                    self.adjacencies.get_unchecked_mut(dst).push((src, idx));
-                }
+                self.adjacencies
+                    .get_unchecked_mut(src)
+                    .outgoing_mut()
+                    .push((dst, idx));
+                self.adjacencies
+                    .get_unchecked_mut(dst)
+                    .incoming_mut()
+                    .push((src, idx));
                 Ok(idx)
             }
         }
@@ -87,7 +97,13 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool {
-        unsafe { self.adjacencies.get(src).unwrap().contains_key(dst) }
+        unsafe {
+            self.adjacencies
+                .get(src)
+                .unwrap()
+                .outgoing_mut()
+                .contains_key(dst)
+        }
     }
 
     fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
@@ -97,10 +113,14 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     fn remove_edge(&mut self, index: EdgeIdx) -> Option<E> {
         if let Some(Edge(src, dst, value)) = self.edges.remove(index) {
             unsafe {
-                self.adjacencies.get_unchecked_mut(src).remove_by_key(dst);
-                if !DIRECTED {
-                    self.adjacencies.get_unchecked_mut(dst).remove_by_key(src);
-                }
+                self.adjacencies
+                    .get_unchecked_mut(src)
+                    .outgoing_mut()
+                    .remove_by_key(dst);
+                self.adjacencies
+                    .get_unchecked_mut(dst)
+                    .incoming_mut()
+                    .remove_by_key(src);
             }
             Some(value)
         } else {
@@ -109,7 +129,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
     }
 
     fn clear_edges(&mut self) {
-        self.adjacencies.values_mut().for_each(|list| list.clear());
+        self.adjacencies
+            .values_mut()
+            .for_each(|list| list.for_each_mut(Vec::clear));
         self.edges.clear();
     }
 
@@ -145,5 +167,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleListGraph<N, E, DIRECTED>
         } else {
             None
         }
+    }
+
+    fn degree(&self, index: NodeIdx) -> usize {
+        todo!()
     }
 }
