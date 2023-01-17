@@ -1018,6 +1018,7 @@ mod tests {
     use crate::{
         self as bevy_ecs,
         component::Component,
+        event::{EventWriter, Events},
         system::{CommandQueue, Commands, Resource},
         world::World,
     };
@@ -1171,5 +1172,24 @@ mod tests {
         queue.apply(&mut world);
         assert!(!world.contains_resource::<W<i32>>());
         assert!(world.contains_resource::<W<f64>>());
+    }
+
+    #[test]
+    fn system_commands() {
+        struct E;
+
+        let mut world = World::new();
+        world.init_resource::<Events<E>>();
+
+        let mut command_queue = CommandQueue::default();
+
+        let mut commands = Commands::new(&mut command_queue, &world);
+        commands.add(|mut events: EventWriter<E>| {
+            events.send(E);
+        });
+
+        command_queue.apply(&mut world);
+
+        assert!(!world.resource::<Events<E>>().is_empty());
     }
 }
