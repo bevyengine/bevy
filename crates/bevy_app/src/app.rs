@@ -191,7 +191,7 @@ impl App {
     /// window is closed and that event loop terminates – behaviour of processes that
     /// do not is often platform dependent or undocumented.
     ///
-    /// By default, *Bevy* uses the `winit` *crate* for window creation. See
+    /// By default, *Bevy* uses the `winit` crate for window creation. See
     /// [`WinitSettings::return_from_run`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run)
     /// for further discussion of this topic and for a mechanism to require that [`App::run()`]
     /// *does* return – albeit one that carries its own caveats and disclaimers.
