@@ -209,8 +209,6 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
         state
     }
 
-    /// If the provided [`Archetype`] has any intersecting [`ComponentId`] with the current [`SystemParam`],
-    /// update the relevant metadata and state (archetype component access, matching tables)
     fn new_archetype(state: &mut Self::State, archetype: &Archetype, system_meta: &mut SystemMeta) {
         state.new_archetype(archetype);
         system_meta
