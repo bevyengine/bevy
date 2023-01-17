@@ -1,5 +1,6 @@
 mod command_queue;
 mod parallel_scope;
+mod system_command;
 
 use crate::{
     bundle::Bundle,
@@ -11,7 +12,7 @@ pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
 
-use super::{IntoSystem, Resource, SystemParam};
+use super::{Resource, SystemParam};
 
 /// A [`World`] mutation.
 ///
@@ -55,18 +56,6 @@ impl<T: Command> IntoCommand<()> for T {
     type Command = Self;
     fn into_command(self) -> Self::Command {
         self
-    }
-}
-
-pub struct IsSystemCommand;
-
-impl<Marker, T: IntoSystem<(), (), Marker>> IntoCommand<(IsSystemCommand, Marker)> for T
-where
-    T::System: Command,
-{
-    type Command = T::System;
-    fn into_command(self) -> Self::Command {
-        IntoSystem::into_system(self)
     }
 }
 
