@@ -33,16 +33,6 @@ path = "benches/bevy_ecs/benches.rs"
 harness = false
 
 [[bench]]
-name = "bfs_and_dfs_graph"
-path = "benches/bevy_graph/bfs_and_dfs.rs"
-harness = false
-
-[[bench]]
-name = "map_graph"
-path = "benches/bevy_graph/map.rs"
-harness = false
-
-[[bench]]
 name = "reflect_list"
 path = "benches/bevy_reflect/list.rs"
 harness = false

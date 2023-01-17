@@ -7,8 +7,8 @@ pub struct Edge<E> {
     pub src: NodeIdx,
     /// the `NodeIdx` of the destination node
     pub dst: NodeIdx,
-    /// the edge data
-    pub data: E,
+    /// the edge value
+    pub value: E,
 }
 
 impl<E> Edge<E> {

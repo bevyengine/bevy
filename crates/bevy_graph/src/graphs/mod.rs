@@ -43,110 +43,28 @@ pub trait Graph<N, E> {
     /// Adds a node with the associated `value` and returns its [`NodeIdx`].
     fn add_node(&mut self, value: N) -> NodeIdx;
 
-    /// Returns a reference to the value of a given node
-    fn get_node(&self, idx: NodeIdx) -> Result<&N, GraphError>;
-
-    /// Returns a reference to the value of a given node
+    /// Adds an edge between the specified nodes with the associated `value`.
     ///
-    /// # Safety
-    ///
-    /// This function should only be called when the Node for the `NodeIdx` exists
-    unsafe fn get_node_unchecked(&self, idx: NodeIdx) -> &N;
+    /// # Returns
+    /// * `Ok`: `EdgeIdx` of the new edge
+    /// * `Err`:
+    ///     * `GraphError::NodeNotFound(NodeIdx)`: the given `src` or `dst` isn't preset in the graph
+    ///     * `GraphError::ContainsEdgeBetween`: there is already an edge between those nodes (not allowed in `SimpleGraph`)
+    ///     * `GraphError::Loop`: the `src` and `dst` nodes are equal, the edge would be a loop (not allowed in `SimpleGraph`)
+    fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> Result<EdgeIdx, GraphError>;
 
-    /// Returns a mutable reference to the value of a given node
-    fn get_node_mut(&mut self, idx: NodeIdx) -> Result<&mut N, GraphError>;
+    /// Adds an edge between the specified nodes with the associated `value`.
+    unsafe fn add_edge_unchecked(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> EdgeIdx;
 
-    /// Returns a mutable reference to the value of a given node
-    ///
-    /// # Safety
-    ///
-    /// This function should only be called when the Node for the `NodeIdx` exists
-    unsafe fn get_node_unchecked_mut(&mut self, idx: NodeIdx) -> &mut N;
-
-    /// Removes a node from the graph by its `NodeIdx`
-    fn remove_node(&mut self, node: NodeIdx) -> Result<N, GraphError>;
-
-    /// Returns true as long as the node from the given `NodeIdx` is preset
+    /// Returns `true` if the `node` is preset in the graph.
     fn has_node(&self, node: NodeIdx) -> bool;
 
-    ////////////////////////////
-    // Edges
-    ////////////////////////////
-
-    /// Creates a new edge between the two nodes and with the given value in the graph and returns its `EdgeIdx`
-    fn new_edge(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> Result<EdgeIdx, GraphError>;
-
-    /// Creates a new edge between the two nodes and with the given value in the graph and returns its `EdgeIdx`
+    /// Returns `true` if an edge between the specified nodes exists.
     ///
-    /// # Safety
+    /// # Panics
     ///
-    /// This function should only be called when the nodes exist and there is no equal edge.
-    unsafe fn new_edge_unchecked(&mut self, from: NodeIdx, to: NodeIdx, edge: E) -> EdgeIdx;
-
-    /// Returns a reference to the value of a given edge
-    ///
-    /// ## Inline helper
-    ///
-    /// This function can also be directly called by the `EdgeIdx`:
-    /// ```
-    /// # use bevy_graph::graphs::{Graph, simple::SimpleMapGraph};
-    /// # let mut graph = SimpleMapGraph::<(), i32, true>::new();
-    /// let from = graph.new_node(());
-    /// let to = graph.new_node(());
-    /// let edge = graph.new_edge(from, to, 12).unwrap();
-    /// assert_eq!(edge.get(&graph).unwrap(), &12);
-    /// ```
-    fn get_edge(&self, edge: EdgeIdx) -> Result<&E, GraphError>;
-
-    /// Returns a mutable reference to the value of a given edge
-    ///
-    /// ## Inline helper
-    ///
-    /// This function can also be directly called by the `EdgeIdx`:
-    /// ```
-    /// # use bevy_graph::graphs::{Graph, simple::SimpleMapGraph};
-    /// # let mut graph = SimpleMapGraph::<(), i32, true>::new();
-    /// let from = graph.new_node(());
-    /// let to = graph.new_node(());
-    /// let edge = graph.new_edge(from, to, 12).unwrap();
-    /// assert_eq!(edge.get_mut(&mut graph).unwrap(), &12);
-    /// ```
-    fn get_edge_mut(&mut self, edge: EdgeIdx) -> Result<&mut E, GraphError>;
-
-    /// Remove an edge by its `EdgeIdx` and returns the edge data
-    ///
-    /// ## Inline helper
-    ///
-    /// This function can also be directly called by the `EdgeIdx`:
-    /// ```
-    /// # use bevy_graph::graphs::{Graph, simple::SimpleMapGraph};
-    /// # let mut graph = SimpleMapGraph::<(), i32, true>::new();
-    /// let from = graph.new_node(());
-    /// let to = graph.new_node(());
-    /// let edge = graph.new_edge(from, to, 12).unwrap();
-    /// assert_eq!(edge.remove(&mut graph).unwrap(), 12);
-    /// ```
-    fn remove_edge(&mut self, edge: EdgeIdx) -> Result<E, GraphError>;
-
-    /// Remove an edge by its `EdgeIdx` and returns the edge data
-    ///
-    /// # Safety
-    ///
-    /// This function should only be called when the edge exists
-    unsafe fn remove_edge_unchecked(&mut self, edge: EdgeIdx) -> E;
-
-    /// Returns a `Vec` of all edges between two nodes as `EdgeIdx`
-    fn edges_between(&self, from: NodeIdx, to: NodeIdx) -> Result<Vec<EdgeIdx>, GraphError>;
-
-    /// Returns a `Vec` of all edges between two nodes as `EdgeIdx`
-    ///
-    /// # Safety
-    ///
-    /// This function should only be called when the nodes and the edges between exists
-    unsafe fn edges_between_unchecked(&self, from: NodeIdx, to: NodeIdx) -> Vec<EdgeIdx>;
-
-    /// Returns a `Vec` of all edges the node is outgoing from.
-    fn edges_of(&self, node: NodeIdx) -> Vec<(NodeIdx, EdgeIdx)>; // TODO: can we use other type than Vec? maybe directly iterator?
+    /// Panics if `src` or `dst` do not exist.
+    fn contains_edge_between(&self, src: NodeIdx, dst: NodeIdx) -> bool;
 }
 
 /// A more precise trait with functions special for a simple graph
