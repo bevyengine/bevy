@@ -1000,8 +1000,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 }
 
-impl<T: 'static> CommandParam for NonSend<'_, T> {}
-
 // SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
 unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     type State = ComponentId;
@@ -1028,8 +1026,6 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
             })
     }
 }
-
-impl<T: 'static> CommandParam for Option<NonSend<'_, T>> {}
 
 // SAFETY: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
@@ -1088,8 +1084,6 @@ unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
     }
 }
 
-impl<T: 'static> CommandParam for NonSendMut<'_, T> {}
-
 // SAFETY: this impl defers to `NonSendMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
     type State = ComponentId;
@@ -1114,8 +1108,6 @@ unsafe impl<'a, T: 'static> SystemParam for Option<NonSendMut<'a, T>> {
             })
     }
 }
-
-impl<T: 'static> CommandParam for Option<NonSendMut<'_, T>> {}
 
 // SAFETY: Only reads World archetypes
 unsafe impl<'a> ReadOnlySystemParam for &'a Archetypes {}
