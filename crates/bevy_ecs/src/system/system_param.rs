@@ -1012,9 +1012,6 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     }
 }
 
-// SAFETY: Only reads a single non-send resource
-unsafe impl<'a, T: 'static> ReadOnlySystemParam for NonSendMut<'a, T> {}
-
 // SAFETY: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
 unsafe impl<'a, T: 'static> SystemParam for NonSendMut<'a, T> {
