@@ -65,6 +65,47 @@ where
 /// # Example
 ///
 /// ```
+/// # use bevy_utils::define_boxed_label;
+/// define_boxed_label!(MyNewLabelTrait);
+/// ```
+#[macro_export]
+macro_rules! define_boxed_label {
+    ($label_trait_name:ident) => {
+        /// A strongly-typed label.
+        pub trait $label_trait_name:
+            'static + Send + Sync + ::std::fmt::Debug + ::bevy_utils::label::DynHash
+        {
+            #[doc(hidden)]
+            fn dyn_clone(&self) -> Box<dyn $label_trait_name>;
+        }
+
+        impl PartialEq for dyn $label_trait_name {
+            fn eq(&self, other: &Self) -> bool {
+                self.dyn_eq(other.as_dyn_eq())
+            }
+        }
+
+        impl Eq for dyn $label_trait_name {}
+
+        impl ::std::hash::Hash for dyn $label_trait_name {
+            fn hash<H: ::std::hash::Hasher>(&self, state: &mut H) {
+                self.dyn_hash(state);
+            }
+        }
+
+        impl Clone for Box<dyn $label_trait_name> {
+            fn clone(&self) -> Self {
+                self.dyn_clone()
+            }
+        }
+    };
+}
+
+/// Macro to define a new label trait
+///
+/// # Example
+///
+/// ```
 /// # use bevy_utils::define_label;
 /// define_label!(
 ///     /// A class of labels.

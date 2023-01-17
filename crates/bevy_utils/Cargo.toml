@@ -14,6 +14,8 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 instant = { version = "0.1", features = ["wasm-bindgen"] }
 uuid = { version = "1.1", features = ["v4", "serde"] }
 hashbrown = { version = "0.12", features = ["serde"] }
+petgraph = "0.6"
+thiserror = "1.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 getrandom = {version = "0.2.0", features = ["js"]}
