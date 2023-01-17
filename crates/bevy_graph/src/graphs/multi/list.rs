@@ -116,4 +116,15 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
             None
         }
     }
+
+    fn clear_edges(&mut self) {
+        self.adjacencies.values_mut().for_each(|list| list.clear());
+        self.edges.clear();
+    }
+
+    fn clear(&mut self) {
+        self.adjacencies.clear();
+        self.edges.clear();
+        self.nodes.clear();
+    }
 }

@@ -120,4 +120,15 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
             None
         }
     }
+
+    fn clear_edges(&mut self) {
+        self.adjacencies.values_mut().for_each(|map| map.clear());
+        self.edges.clear();
+    }
+
+    fn clear(&mut self) {
+        self.adjacencies.clear();
+        self.edges.clear();
+        self.nodes.clear();
+    }
 }

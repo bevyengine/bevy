@@ -79,6 +79,12 @@ pub trait Graph<N, E> {
 
     /// Removes the specified edge from the graph, returning its value if it existed.
     fn remove_edge(&mut self, index: EdgeIdx) -> Option<E>;
+
+    /// Removes all edges from the graph.
+    fn clear_edges(&mut self);
+
+    /// Removes all nodes and edges from the graph.
+    fn clear(&mut self);
 }
 
 /// A more precise trait with functions special for a simple graph
