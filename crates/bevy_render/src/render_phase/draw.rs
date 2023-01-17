@@ -1,34 +1,30 @@
-use crate::{
-    render_phase::TrackedRenderPass,
-    render_resource::{CachedRenderPipelineId, PipelineCache},
-};
+use crate::render_phase::{PhaseItem, TrackedRenderPass};
 use bevy_app::App;
 use bevy_ecs::{
     all_tuples,
     entity::Entity,
     query::{QueryState, ROQueryItem, ReadOnlyWorldQuery},
-    system::{
-        lifetimeless::SRes, ReadOnlySystemParam, Resource, SystemParam, SystemParamItem,
-        SystemState,
-    },
+    system::{ReadOnlySystemParam, Resource, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
 use bevy_utils::HashMap;
 use parking_lot::{RwLock, RwLockReadGuard, RwLockWriteGuard};
-use std::{any::TypeId, fmt::Debug, hash::Hash, ops::Range};
+use std::{any::TypeId, fmt::Debug, hash::Hash};
 
-/// A draw function which is used to draw a specific [`PhaseItem`].
+/// A draw function used to draw [`PhaseItem`]s.
 ///
-/// They are the general form of drawing items, whereas [`RenderCommands`](RenderCommand)
-/// are more modular.
+/// The draw function can retrieve and query the required ECS data from the render world.
+///
+/// This trait can either be implemented directly or implicitly composed out of multiple modular
+/// [`RenderCommand`]s. For more details and an example see the [`RenderCommand`] documentation.
 pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     /// Prepares the draw function to be used. This is called once and only once before the phase
-    /// begins. There may be zero or more `draw` calls following a call to this function..
+    /// begins. There may be zero or more `draw` calls following a call to this function.
     /// Implementing this is optional.
     #[allow(unused_variables)]
     fn prepare(&mut self, world: &'_ World) {}
 
-    /// Draws the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
+    /// Draws a [`PhaseItem`] by issuing zero or more `draw` calls via the [`TrackedRenderPass`].
     fn draw<'w>(
         &mut self,
         world: &'w World,
@@ -38,64 +34,33 @@ pub trait Draw<P: PhaseItem>: Send + Sync + 'static {
     );
 }
 
-/// An item which will be drawn to the screen. A phase item should be queued up for rendering
-/// during the [`RenderStage::Queue`](crate::RenderStage::Queue) stage.
-/// Afterwards it will be sorted and rendered automatically  in the
-/// [`RenderStage::PhaseSort`](crate::RenderStage::PhaseSort) stage and
-/// [`RenderStage::Render`](crate::RenderStage::Render) stage, respectively.
-pub trait PhaseItem: Sized + Send + Sync + 'static {
-    /// The type used for ordering the items. The smallest values are drawn first.
-    type SortKey: Ord;
-    fn entity(&self) -> Entity;
-
-    /// Determines the order in which the items are drawn during the corresponding [`RenderPhase`](super::RenderPhase).
-    fn sort_key(&self) -> Self::SortKey;
-    /// Specifies the [`Draw`] function used to render the item.
-    fn draw_function(&self) -> DrawFunctionId;
-
-    /// Sorts a slice of phase items into render order.  Generally if the same type
-    /// implements [`BatchedPhaseItem`], this should use a stable sort like [`slice::sort_by_key`].
-    /// In almost all other cases, this should not be altered from the default,
-    /// which uses a unstable sort, as this provides the best balance of CPU and GPU
-    /// performance.
-    ///
-    /// Implementers can optionally not sort the list at all. This is generally advisable if and
-    /// only if the renderer supports a depth prepass, which is by default not supported by
-    /// the rest of Bevy's first party rendering crates. Even then, this may have a negative
-    /// impact on GPU-side performance due to overdraw.
-    ///
-    /// It's advised to always profile for performance changes when changing this implementation.
-    #[inline]
-    fn sort(items: &mut [Self]) {
-        items.sort_unstable_by_key(|item| item.sort_key());
-    }
-}
-
 // TODO: make this generic?
 /// An identifier for a [`Draw`] function stored in [`DrawFunctions`].
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct DrawFunctionId(u32);
 
-/// Stores all draw functions for the [`PhaseItem`] type.
-/// For retrieval they are associated with their [`TypeId`].
+/// Stores all [`Draw`] functions for the [`PhaseItem`] type.
+///
+/// For retrieval, the [`Draw`] functions are mapped to their respective [`TypeId`]s.
 pub struct DrawFunctionsInternal<P: PhaseItem> {
     pub draw_functions: Vec<Box<dyn Draw<P>>>,
     pub indices: HashMap<TypeId, DrawFunctionId>,
 }
 
 impl<P: PhaseItem> DrawFunctionsInternal<P> {
+    /// Prepares all draw function. This is called once and only once before the phase begins.
     pub fn prepare(&mut self, world: &World) {
         for function in &mut self.draw_functions {
             function.prepare(world);
         }
     }
 
-    /// Adds the [`Draw`] function and associates it to its own type.
+    /// Adds the [`Draw`] function and maps it to its own type.
     pub fn add<T: Draw<P>>(&mut self, draw_function: T) -> DrawFunctionId {
         self.add_with::<T, T>(draw_function)
     }
 
-    /// Adds the [`Draw`] function and associates it to the type `T`
+    /// Adds the [`Draw`] function and maps it to the type `T`
     pub fn add_with<T: 'static, D: Draw<P>>(&mut self, draw_function: D) -> DrawFunctionId {
         let id = DrawFunctionId(self.draw_functions.len().try_into().unwrap());
         self.draw_functions.push(Box::new(draw_function));
@@ -118,7 +83,7 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
     /// Fallible wrapper for [`Self::get_id()`]
     ///
     /// ## Panics
-    /// If the id doesn't exist it will panic
+    /// If the id doesn't exist, this function will panic.
     pub fn id<T: 'static>(&self) -> DrawFunctionId {
         self.get_id::<T>().unwrap_or_else(|| {
             panic!(
@@ -131,6 +96,7 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
 }
 
 /// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
+///
 /// To access them the [`DrawFunctions::read`] and [`DrawFunctions::write`] methods are used.
 #[derive(Resource)]
 pub struct DrawFunctions<P: PhaseItem> {
@@ -160,15 +126,26 @@ impl<P: PhaseItem> DrawFunctions<P> {
     }
 }
 
-/// [`RenderCommand`] is a trait that runs an ECS query and produces one or more
-/// [`TrackedRenderPass`] calls. Types implementing this trait can be composed (as tuples).
+/// [`RenderCommand`]s are modular standardized pieces of render logic that can be composed into
+/// [`Draw`] functions.
 ///
-/// They can be registered as a [`Draw`] function via the
+/// To turn a stateless render command into a usable draw function it has to be wrapped by a
+/// [`RenderCommandState`].
+/// This is done automatically when registering a render command as a [`Draw`] function via the
 /// [`AddRenderCommand::add_render_command`] method.
+///
+/// Compared to the draw function the required ECS data is fetched automatically
+/// (by the [`RenderCommandState`]) from the render world.
+/// Therefore the three types [`Param`](RenderCommand::Param),
+/// [`ViewWorldQuery`](RenderCommand::ViewWorldQuery) and
+/// [`ItemWorldQuery`](RenderCommand::ItemWorldQuery) are used.
+/// They specify which information is required to execute the render command.
+///
+/// Multiple render commands can be combined together by wrapping them in a tuple.
 ///
 /// # Example
 /// The `DrawPbr` draw function is created from the following render command
-/// tuple.  Const generics are used to set specific bind group locations:
+/// tuple. Const generics are used to set specific bind group locations:
 ///
 /// ```ignore
 /// pub type DrawPbr = (
@@ -180,13 +157,24 @@ impl<P: PhaseItem> DrawFunctions<P> {
 /// );
 /// ```
 pub trait RenderCommand<P: PhaseItem> {
-    /// Specifies all ECS data required by [`RenderCommand::render`].
+    /// Specifies the general ECS data (e.g. resources) required by [`RenderCommand::render`].
+    ///
     /// All parameters have to be read only.
     type Param: SystemParam + 'static;
+    /// Specifies the ECS data of the view entity required by [`RenderCommand::render`].
+    ///
+    /// The view entity refers to the camera, or shadow-casting light, etc. from which the phase
+    /// item will be rendered from.
+    /// All components have to be accessed read only.
     type ViewWorldQuery: ReadOnlyWorldQuery;
+    /// Specifies the ECS data of the item entity required by [`RenderCommand::render`].
+    ///
+    /// The item is the entity that will be rendered for the corresponding view.
+    /// All components have to be accessed read only.
     type ItemWorldQuery: ReadOnlyWorldQuery;
 
-    /// Renders the [`PhaseItem`] by issuing draw calls via the [`TrackedRenderPass`].
+    /// Renders a [`PhaseItem`] by recording commands (e.g. setting pipelines, binding bind groups,
+    /// issuing draw calls, etc.) via the [`TrackedRenderPass`].
     fn render<'w>(
         item: &P,
         view: ROQueryItem<'w, Self::ViewWorldQuery>,
@@ -196,84 +184,10 @@ pub trait RenderCommand<P: PhaseItem> {
     ) -> RenderCommandResult;
 }
 
+/// The result of a [`RenderCommand`].
 pub enum RenderCommandResult {
     Success,
     Failure,
-}
-
-pub trait CachedRenderPipelinePhaseItem: PhaseItem {
-    fn cached_pipeline(&self) -> CachedRenderPipelineId;
-}
-
-/// A [`PhaseItem`] that can be batched dynamically.
-///
-/// Batching is an optimization that regroups multiple items in the same vertex buffer
-/// to render them in a single draw call.
-///
-/// If this is implemented on a type, the implementation of [`PhaseItem::sort`] should
-/// be changed to implement a stable sort, or incorrect/suboptimal batching may result.
-pub trait BatchedPhaseItem: PhaseItem {
-    /// Range in the vertex buffer of this item
-    fn batch_range(&self) -> &Option<Range<u32>>;
-
-    /// Range in the vertex buffer of this item
-    fn batch_range_mut(&mut self) -> &mut Option<Range<u32>>;
-
-    /// Batches another item within this item if they are compatible.
-    /// Items can be batched together if they have the same entity, and consecutive ranges.
-    /// If batching is successful, the `other` item should be discarded from the render pass.
-    #[inline]
-    fn add_to_batch(&mut self, other: &Self) -> BatchResult {
-        let self_entity = self.entity();
-        if let (Some(self_batch_range), Some(other_batch_range)) = (
-            self.batch_range_mut().as_mut(),
-            other.batch_range().as_ref(),
-        ) {
-            // If the items are compatible, join their range into `self`
-            if self_entity == other.entity() {
-                if self_batch_range.end == other_batch_range.start {
-                    self_batch_range.end = other_batch_range.end;
-                    return BatchResult::Success;
-                } else if self_batch_range.start == other_batch_range.end {
-                    self_batch_range.start = other_batch_range.start;
-                    return BatchResult::Success;
-                }
-            }
-        }
-        BatchResult::IncompatibleItems
-    }
-}
-
-pub enum BatchResult {
-    /// The `other` item was batched into `self`
-    Success,
-    /// `self` and `other` cannot be batched together
-    IncompatibleItems,
-}
-
-pub struct SetItemPipeline;
-impl<P: CachedRenderPipelinePhaseItem> RenderCommand<P> for SetItemPipeline {
-    type Param = SRes<PipelineCache>;
-    type ViewWorldQuery = ();
-    type ItemWorldQuery = ();
-    #[inline]
-    fn render<'w>(
-        item: &P,
-        _view: (),
-        _entity: (),
-        pipeline_cache: SystemParamItem<'w, '_, Self::Param>,
-        pass: &mut TrackedRenderPass<'w>,
-    ) -> RenderCommandResult {
-        if let Some(pipeline) = pipeline_cache
-            .into_inner()
-            .get_render_pipeline(item.cached_pipeline())
-        {
-            pass.set_render_pipeline(pipeline);
-            RenderCommandResult::Success
-        } else {
-            RenderCommandResult::Failure
-        }
-    }
 }
 
 macro_rules! render_command_tuple_impl {
@@ -303,7 +217,9 @@ macro_rules! render_command_tuple_impl {
 all_tuples!(render_command_tuple_impl, 0, 15, C, V, E);
 
 /// Wraps a [`RenderCommand`] into a state so that it can be used as a [`Draw`] function.
-/// Therefore the [`RenderCommand::Param`] is queried from the ECS and passed to the command.
+///
+/// The [`RenderCommand::Param`], [`RenderCommand::ViewWorldQuery`] and
+/// [`RenderCommand::ItemWorldQuery`] are fetched from the ECS and passed to the command.
 pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
     state: SystemState<C::Param>,
     view: QueryState<C::ViewWorldQuery>,
@@ -311,6 +227,7 @@ pub struct RenderCommandState<P: PhaseItem + 'static, C: RenderCommand<P>> {
 }
 
 impl<P: PhaseItem, C: RenderCommand<P>> RenderCommandState<P, C> {
+    /// Creates a new [`RenderCommandState`] for the [`RenderCommand`].
     pub fn new(world: &mut World) -> Self {
         Self {
             state: SystemState::new(world),
@@ -324,12 +241,14 @@ impl<P: PhaseItem, C: RenderCommand<P> + Send + Sync + 'static> Draw<P> for Rend
 where
     C::Param: ReadOnlySystemParam,
 {
+    /// Prepares the render command to be used. This is called once and only once before the phase
+    /// begins. There may be zero or more `draw` calls following a call to this function.
     fn prepare(&mut self, world: &'_ World) {
         self.view.update_archetypes(world);
         self.entity.update_archetypes(world);
     }
 
-    /// Prepares the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
+    /// Fetches the ECS parameters for the wrapped [`RenderCommand`] and then renders it.
     fn draw<'w>(
         &mut self,
         world: &'w World,
@@ -340,6 +259,7 @@ where
         let param = self.state.get(world);
         let view = self.view.get_manual(world, view).unwrap();
         let entity = self.entity.get_manual(world, item.entity()).unwrap();
+        // TODO: handle/log `RenderCommand` failure
         C::render(item, view, entity, param, pass);
     }
 }

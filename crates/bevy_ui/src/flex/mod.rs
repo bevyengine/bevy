@@ -2,6 +2,7 @@ mod convert;
 
 use crate::{CalculatedSize, Node, Style, UiScale};
 use bevy_ecs::{
+    change_detection::DetectChanges,
     entity::Entity,
     event::EventReader,
     query::{Changed, ReadOnlyWorldQuery, With, Without},

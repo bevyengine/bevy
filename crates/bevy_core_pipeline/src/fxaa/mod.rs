@@ -47,7 +47,8 @@ pub struct Fxaa {
 
     /// Use lower sensitivity for a sharper, faster, result.
     /// Use higher sensitivity for a slower, smoother, result.
-    /// Ultra and Turbo settings can result in significant smearing and loss of detail.
+    /// [Ultra](`Sensitivity::Ultra`) and [Extreme](`Sensitivity::Extreme`)
+    /// settings can result in significant smearing and loss of detail.
 
     /// The minimum amount of local contrast required to apply algorithm.
     pub edge_threshold: Sensitivity,
@@ -222,7 +223,7 @@ impl SpecializedRenderPipeline for FxaaPipeline {
 
 pub fn prepare_fxaa_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<FxaaPipeline>>,
     fxaa_pipeline: Res<FxaaPipeline>,
     views: Query<(Entity, &ExtractedView, &Fxaa)>,
@@ -232,7 +233,7 @@ pub fn prepare_fxaa_pipelines(
             continue;
         }
         let pipeline_id = pipelines.specialize(
-            &mut pipeline_cache,
+            &pipeline_cache,
             &fxaa_pipeline,
             FxaaPipelineKey {
                 edge_threshold: fxaa.edge_threshold,
