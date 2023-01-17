@@ -306,7 +306,7 @@ pub fn impl_param_set(_input: TokenStream) -> TokenStream {
                 }
             }
 
-            impl<'_w, '_s, #(#param: CommandParam,)*> CommandParam for ParamSet<'_w, '_s, (#(#param,)*)>
+            impl<'_w, '_s, #(#param: CommandSystemParam,)*> CommandSystemParam for ParamSet<'_w, '_s, (#(#param,)*)>
             {}
 
             impl<'w, 's, #(#param: SystemParam,)*> ParamSet<'w, 's, (#(#param,)*)>
@@ -461,14 +461,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             .push(syn::parse_quote!(#field_type: #path::system::ReadOnlySystemParam));
     }
 
-    // Create a where clause for the `CommandParam` impl.
-    // Ensure that each field implements `CommandParam`.
+    // Create a where clause for the `CommandSystemParam` impl.
+    // Ensure that each field implements `CommandSystemParam`.
     let mut command_param_generics = generics.clone();
     let command_param_where_clause = command_param_generics.make_where_clause();
     for field_type in &field_types {
         command_param_where_clause
             .predicates
-            .push(syn::parse_quote!(#field_type: #path::system::CommandParam));
+            .push(syn::parse_quote!(#field_type: #path::system::CommandSystemParam));
     }
 
     let struct_name = &ast.ident;
@@ -527,7 +527,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             // Safety: Each field is `ReadOnlySystemParam`, so this can only read from the `World`
             unsafe impl<'w, 's, #punctuated_generics> #path::system::ReadOnlySystemParam for #struct_name #ty_generics #read_only_where_clause {}
 
-            impl<'w, 's, #punctuated_generics> #path::system::CommandParam for #struct_name #ty_generics #command_param_where_clause {}
+            impl<'w, 's, #punctuated_generics> #path::system::CommandSystemParam for #struct_name #ty_generics #command_param_where_clause {}
         };
     })
 }

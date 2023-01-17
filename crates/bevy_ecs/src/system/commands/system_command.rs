@@ -7,7 +7,7 @@ use crate::{
 
 use super::{Command, IntoCommand};
 
-pub trait CommandParam: SystemParam {}
+pub trait CommandSystemParam: SystemParam {}
 
 impl<Marker, T: IntoSystem<(), (), Marker>> IntoCommand<(IsSystemCommand, Marker)> for T
 where
@@ -24,7 +24,7 @@ pub struct IsSystemCommand;
 
 pub struct SystemCommand<Param, Marker, F>
 where
-    Param: CommandParam,
+    Param: CommandSystemParam,
 {
     func: F,
     system_meta: SystemMeta,
@@ -33,7 +33,7 @@ where
 
 impl<Param, Marker, F> IntoCommand<(IsSystemCommand, Param, Marker)> for F
 where
-    Param: CommandParam + 'static,
+    Param: CommandSystemParam + 'static,
     Marker: 'static,
     F: SystemParamFunction<(), (), Param, Marker> + Send + Sync + 'static,
 {
@@ -49,7 +49,7 @@ where
 
 impl<Param, Marker, F> Command for SystemCommand<Param, Marker, F>
 where
-    Param: CommandParam + 'static,
+    Param: CommandSystemParam + 'static,
     Marker: 'static,
     F: SystemParamFunction<(), (), Param, Marker> + Send + Sync + 'static,
 {

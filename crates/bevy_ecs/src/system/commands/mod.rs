@@ -11,7 +11,7 @@ use bevy_utils::tracing::{error, info};
 pub use command_queue::CommandQueue;
 pub use parallel_scope::*;
 use std::marker::PhantomData;
-pub use system_command::CommandParam;
+pub use system_command::CommandSystemParam;
 
 use super::Resource;
 

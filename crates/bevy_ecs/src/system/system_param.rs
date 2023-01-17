@@ -8,7 +8,7 @@ use crate::{
     query::{
         Access, FilteredAccess, FilteredAccessSet, QueryState, ReadOnlyWorldQuery, WorldQuery,
     },
-    system::{CommandParam, CommandQueue, Commands, Query, SystemMeta},
+    system::{CommandQueue, CommandSystemParam, Commands, Query, SystemMeta},
     world::{FromWorld, World},
 };
 pub use bevy_ecs_macros::Resource;
@@ -233,7 +233,7 @@ unsafe impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> SystemPara
     }
 }
 
-impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> CommandParam
+impl<Q: WorldQuery + 'static, F: ReadOnlyWorldQuery + 'static> CommandSystemParam
     for Query<'_, '_, Q, F>
 {
 }
@@ -468,7 +468,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
     }
 }
 
-impl<T: Resource> CommandParam for Res<'_, T> {}
+impl<T: Resource> CommandSystemParam for Res<'_, T> {}
 
 // SAFETY: Only reads a single World resource
 unsafe impl<'a, T: Resource> ReadOnlySystemParam for Option<Res<'a, T>> {}
@@ -503,7 +503,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<Res<'a, T>> {
     }
 }
 
-impl<T: Resource> CommandParam for Option<Res<'_, T>> {}
+impl<T: Resource> CommandSystemParam for Option<Res<'_, T>> {}
 
 // SAFETY: Res ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this Res
 // conflicts with any prior access, a panic will occur.
@@ -565,7 +565,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
     }
 }
 
-impl<T: Resource> CommandParam for ResMut<'_, T> {}
+impl<T: Resource> CommandSystemParam for ResMut<'_, T> {}
 
 // SAFETY: this impl defers to `ResMut`, which initializes and validates the correct world access.
 unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
@@ -597,7 +597,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
     }
 }
 
-impl<T: Resource> CommandParam for Option<ResMut<'_, T>> {}
+impl<T: Resource> CommandSystemParam for Option<ResMut<'_, T>> {}
 
 // SAFETY: Commands only accesses internal state
 unsafe impl<'w, 's> ReadOnlySystemParam for Commands<'w, 's> {}
@@ -672,7 +672,7 @@ unsafe impl SystemParam for &'_ World {
     }
 }
 
-impl CommandParam for &World {}
+impl CommandSystemParam for &World {}
 
 /// A system local [`SystemParam`].
 ///
@@ -1130,7 +1130,7 @@ unsafe impl<'a> SystemParam for &'a Archetypes {
     }
 }
 
-impl CommandParam for &Archetypes {}
+impl CommandSystemParam for &Archetypes {}
 
 // SAFETY: Only reads World components
 unsafe impl<'a> ReadOnlySystemParam for &'a Components {}
@@ -1153,7 +1153,7 @@ unsafe impl<'a> SystemParam for &'a Components {
     }
 }
 
-impl CommandParam for &Components {}
+impl CommandSystemParam for &Components {}
 
 // SAFETY: Only reads World entities
 unsafe impl<'a> ReadOnlySystemParam for &'a Entities {}
@@ -1176,7 +1176,7 @@ unsafe impl<'a> SystemParam for &'a Entities {
     }
 }
 
-impl CommandParam for &Entities {}
+impl CommandSystemParam for &Entities {}
 
 // SAFETY: Only reads World bundles
 unsafe impl<'a> ReadOnlySystemParam for &'a Bundles {}
@@ -1199,7 +1199,7 @@ unsafe impl<'a> SystemParam for &'a Bundles {
     }
 }
 
-impl CommandParam for &Bundles {}
+impl CommandSystemParam for &Bundles {}
 
 /// A [`SystemParam`] that reads the previous and current change ticks of the system.
 ///
@@ -1366,7 +1366,7 @@ macro_rules! impl_system_param_tuple {
         }
 
         #[allow(non_snake_case)]
-        impl<$($param: CommandParam),*> CommandParam for ($($param,)*) {}
+        impl<$($param: CommandSystemParam),*> CommandSystemParam for ($($param,)*) {}
     };
 }
 
