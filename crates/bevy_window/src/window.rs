@@ -466,7 +466,7 @@ pub enum WindowPosition {
     ///
     /// Note that this does not account for window decorations.
     Centered(MonitorSelection),
-    /// The window's top-left corner will be placed at the specified position (in pixels)
+    /// The window's top-left corner will be placed at the specified position (in physical pixels)
     ///
     /// (0,0) represents top-left corner of screen space.
     At(IVec2),

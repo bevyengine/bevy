@@ -3,6 +3,7 @@ use bevy_ecs::{
     event::EventWriter,
     prelude::{Changed, Component, Resource},
     system::{Commands, NonSendMut, Query, RemovedComponents},
+    world::Mut,
 };
 use bevy_utils::{
     tracing::{error, info, warn},
@@ -29,12 +30,12 @@ use bevy_ecs::system::ResMut;
 pub(crate) fn create_window<'a>(
     mut commands: Commands,
     event_loop: &EventLoopWindowTarget<()>,
-    created_windows: impl Iterator<Item = (Entity, &'a Window)>,
+    created_windows: impl Iterator<Item = (Entity, Mut<'a, Window>)>,
     mut event_writer: EventWriter<WindowCreated>,
     mut winit_windows: NonSendMut<WinitWindows>,
     #[cfg(target_arch = "wasm32")] event_channel: ResMut<CanvasParentResizeEventChannel>,
 ) {
-    for (entity, component) in created_windows {
+    for (entity, mut component) in created_windows {
         if winit_windows.get_window(entity).is_some() {
             continue;
         }
@@ -45,8 +46,10 @@ pub(crate) fn create_window<'a>(
             entity
         );
 
-        let winit_window = winit_windows.create_window(event_loop, entity, component);
-
+        let winit_window = winit_windows.create_window(event_loop, entity, &component);
+        component
+            .resolution
+            .set_scale_factor(winit_window.scale_factor());
         commands
             .entity(entity)
             .insert(RawHandleWrapper {

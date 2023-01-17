@@ -4,7 +4,7 @@ use bevy_utils::{tracing::warn, HashMap};
 use bevy_window::{CursorGrabMode, Window, WindowMode, WindowPosition, WindowResolution};
 
 use winit::{
-    dpi::{LogicalPosition, LogicalSize, PhysicalPosition},
+    dpi::{LogicalSize, PhysicalPosition},
     monitor::MonitorHandle,
 };
 
@@ -50,10 +50,12 @@ impl WinitWindows {
                     winit_window_builder = winit_window_builder.with_position(position);
                 }
 
-                winit_window_builder.with_inner_size(
-                    LogicalSize::new(window.width(), window.height())
-                        .to_physical::<f64>(window.resolution.scale_factor()),
-                )
+                let logical_size = LogicalSize::new(window.width(), window.height());
+                if let Some(sf) = window.resolution.scale_factor_override() {
+                    winit_window_builder.with_inner_size(logical_size.to_physical::<f64>(sf))
+                } else {
+                    winit_window_builder.with_inner_size(logical_size)
+                }
             }
         };
 
@@ -287,11 +289,9 @@ pub fn winit_window_position(
                 None
             }
         }
-        WindowPosition::At(position) => Some(
-            LogicalPosition::new(position[0] as f64, position[1] as f64)
-                .to_physical::<f64>(resolution.base_scale_factor())
-                .cast::<i32>(),
-        ),
+        WindowPosition::At(position) => {
+            Some(PhysicalPosition::new(position[0] as f64, position[1] as f64).cast::<i32>())
+        }
     }
 }
 
