@@ -2,6 +2,7 @@ extern crate proc_macro;
 
 mod component;
 mod fetch;
+mod pairs;
 
 use crate::fetch::derive_world_query_impl;
 use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
@@ -577,4 +578,14 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 #[proc_macro_derive(Component, attributes(component))]
 pub fn derive_component(input: TokenStream) -> TokenStream {
     component::derive_component(input)
+}
+
+#[proc_macro_derive(PairsWithOthers)]
+pub fn derive_pairs_with_others(input: TokenStream) -> TokenStream {
+    pairs::derive_pairs_with_others(input)
+}
+
+#[proc_macro_attribute]
+pub fn pairs_with(attr: TokenStream, item: TokenStream) -> TokenStream {
+    pairs::derive_pairs_with(attr, item)
 }

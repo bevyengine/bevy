@@ -2,7 +2,7 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::prelude::*;
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_derive::Deref;
-use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_ecs::{pairs_with, prelude::*, query::QueryItem};
 use bevy_reflect::TypeUuid;
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -41,6 +41,7 @@ impl Sensitivity {
 }
 
 #[derive(Component, Clone)]
+#[pairs_with(Camera)]
 pub struct Fxaa {
     /// Enable render passes for FXAA.
     pub enabled: bool,

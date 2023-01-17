@@ -57,6 +57,7 @@ impl ExtractComponent for Camera3d {
     }
 }
 
+/// For components that can be added alongside the bundle, see [`PairsWithCamera`](bevy_render::camera::PairsWithCamera).
 #[derive(Bundle)]
 pub struct Camera3dBundle {
     pub camera: Camera,

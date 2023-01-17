@@ -2,6 +2,7 @@ use crate::{core_2d, core_3d, fullscreen_vertex_shader::fullscreen_shader_vertex
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_internal_asset, HandleUntyped};
 use bevy_ecs::{
+    pairs_with,
     prelude::{Component, Entity},
     query::{QueryItem, QueryState, With},
     system::{Commands, Query, Res, ResMut, Resource},
@@ -27,7 +28,6 @@ use bevy_render::{
 use bevy_utils::tracing::info_span;
 use bevy_utils::HashMap;
 use std::num::NonZeroU32;
-
 const BLOOM_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 929599476923908);
 
@@ -114,6 +114,7 @@ impl Plugin for BloomPlugin {
 ///
 /// See also <https://en.wikipedia.org/wiki/Bloom_(shader_effect)>.
 #[derive(Component, Reflect, Clone)]
+#[pairs_with(Camera)]
 pub struct BloomSettings {
     /// Baseline of the threshold curve (default: 1.0).
     ///

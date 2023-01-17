@@ -8,6 +8,7 @@ use crate::{
 };
 use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::PairsWithOthers;
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
@@ -81,7 +82,9 @@ pub struct ComputedCameraValues {
 ///
 /// Adding a camera is typically done by adding a bundle, either the `Camera2dBundle` or the
 /// `Camera3dBundle`.
-#[derive(Component, Debug, Reflect, FromReflect, Clone)]
+///
+/// For components that can be added to the camera, see [`PairsWithCamera`].
+#[derive(Component, Debug, Reflect, FromReflect, Clone, PairsWithOthers)]
 #[reflect(Component)]
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].

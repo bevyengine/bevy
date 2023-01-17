@@ -48,6 +48,7 @@ pub mod prelude {
 }
 
 pub use bevy_ecs_macros::all_tuples;
+pub use bevy_ecs_macros::{pairs_with, PairsWithOthers};
 
 #[cfg(test)]
 mod tests {
