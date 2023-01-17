@@ -55,10 +55,10 @@ mod test {
     }
 
     pub fn nodes(mut graph: impl Graph<Person, i32>) {
-        let jake = graph.new_node(Person::Jake);
-        let michael = graph.new_node(Person::Michael);
-        let jennifer = graph.new_node(Person::Jennifer);
-        let other_jake = graph.new_node(Person::Jake);
+        let jake = graph.add_node(Person::Jake);
+        let michael = graph.add_node(Person::Michael);
+        let jennifer = graph.add_node(Person::Jennifer);
+        let other_jake = graph.add_node(Person::Jake);
 
         assert_eq!(graph.get_node(jake).unwrap(), &Person::Jake);
         assert_eq!(graph.get_node(michael).unwrap(), &Person::Michael);
@@ -87,10 +87,10 @@ mod test {
     }
 
     pub fn undirected_edges(mut graph: impl Graph<Person, i32>) {
-        let jake = graph.new_node(Person::Jake);
-        let michael = graph.new_node(Person::Michael);
-        let jennifer = graph.new_node(Person::Jennifer);
-        let other_jake = graph.new_node(Person::Jake);
+        let jake = graph.add_node(Person::Jake);
+        let michael = graph.add_node(Person::Michael);
+        let jennifer = graph.add_node(Person::Jennifer);
+        let other_jake = graph.add_node(Person::Jake);
 
         let jm = graph.new_edge(jake, michael, 2).unwrap();
         let jm2 = graph.new_edge(jake, michael, 20).unwrap();
@@ -145,10 +145,10 @@ mod test {
     }
 
     pub fn directed_edges(mut graph: impl Graph<Person, i32>) {
-        let jake = graph.new_node(Person::Jake);
-        let michael = graph.new_node(Person::Michael);
-        let jennifer = graph.new_node(Person::Jennifer);
-        let other_jake = graph.new_node(Person::Jake);
+        let jake = graph.add_node(Person::Jake);
+        let michael = graph.add_node(Person::Michael);
+        let jennifer = graph.add_node(Person::Jennifer);
+        let other_jake = graph.add_node(Person::Jake);
 
         let jm = graph.new_edge(jake, michael, 2).unwrap();
         let jm2 = graph.new_edge(jake, michael, 20).unwrap();
@@ -196,8 +196,8 @@ mod test {
     }
 
     pub fn remove_node_undirected(mut graph: impl Graph<Person, i32>) {
-        let jake = graph.new_node(Person::Jake);
-        let michael = graph.new_node(Person::Michael);
+        let jake = graph.add_node(Person::Jake);
+        let michael = graph.add_node(Person::Michael);
 
         let edge = graph.new_edge(jake, michael, 20).unwrap();
 
@@ -227,8 +227,8 @@ mod test {
     }
 
     pub fn remove_node_directed(mut graph: impl Graph<Person, i32>) {
-        let jake = graph.new_node(Person::Jake);
-        let michael = graph.new_node(Person::Michael);
+        let jake = graph.add_node(Person::Jake);
+        let michael = graph.add_node(Person::Michael);
 
         let edge = graph.new_edge(jake, michael, 20).unwrap();
 
@@ -253,7 +253,7 @@ mod test {
     }
 
     pub fn edge_between_same_node(mut graph: impl Graph<Person, i32>) {
-        let jake = graph.new_node(Person::Jake);
+        let jake = graph.add_node(Person::Jake);
 
         assert!(graph.new_edge(jake, jake, 20).is_ok());
     }

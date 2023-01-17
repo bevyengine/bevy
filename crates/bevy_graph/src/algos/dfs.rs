@@ -127,10 +127,10 @@ mod test {
     fn basic_imperative_dfs() {
         let mut graph = SimpleMapGraph::<i32, (), true>::new();
 
-        let zero = graph.new_node(0);
-        let one = graph.new_node(1);
-        let two = graph.new_node(2);
-        let three = graph.new_node(3);
+        let zero = graph.add_node(0);
+        let one = graph.add_node(1);
+        let two = graph.add_node(2);
+        let three = graph.add_node(3);
 
         graph.new_edge(zero, one, ()).unwrap();
         graph.new_edge(zero, two, ()).unwrap();

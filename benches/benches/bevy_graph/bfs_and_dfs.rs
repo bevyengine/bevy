@@ -20,9 +20,9 @@ criterion_group! {
 fn algo_10_000(c: &mut Criterion) {
     let mut graph = SimpleMapGraph::<i32, (), false>::new();
     let mut nodes = Vec::with_capacity(10_000);
-    let first = graph.new_node(0);
+    let first = graph.add_node(0);
     for i in 1..10_000 {
-        nodes.push(graph.new_node(i));
+        nodes.push(graph.add_node(i));
     }
     let mut shuffled = nodes.clone();
     shuffled.shuffle(&mut rand::thread_rng());

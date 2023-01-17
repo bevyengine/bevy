@@ -48,7 +48,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
     }
 
     #[inline]
-    fn new_node(&mut self, node: N) -> NodeIdx {
+    fn add_node(&mut self, node: N) -> NodeIdx {
         let idx = self.nodes.insert(node);
         self.adjacencies.insert(idx, Vec::new());
         idx

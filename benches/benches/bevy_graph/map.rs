@@ -24,7 +24,7 @@ fn nodes_10_000_undirected(c: &mut Criterion) {
 
             let mut nodes: Vec<NodeIdx> = Vec::with_capacity(10_000);
             for i in 1..=10_000 {
-                nodes.push(graph.new_node(i));
+                nodes.push(graph.add_node(i));
             }
 
             let mut edges: Vec<EdgeIdx> = Vec::with_capacity(10_000 - 1);

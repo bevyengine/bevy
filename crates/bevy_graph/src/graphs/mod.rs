@@ -39,12 +39,9 @@ pub trait Graph<N, E> {
     fn is_empty(&self) -> bool {
         self.node_count() == 0
     }
-    ////////////////////////////
-    // Nodes
-    ////////////////////////////
 
-    /// Creates a new node with the given value in the graph and returns its `NodeIdx`
-    fn new_node(&mut self, node: N) -> NodeIdx;
+    /// Adds a node with the associated `value` and returns its [`NodeIdx`].
+    fn add_node(&mut self, value: N) -> NodeIdx;
 
     /// Returns a reference to the value of a given node
     fn get_node(&self, idx: NodeIdx) -> Result<&N, GraphError>;
