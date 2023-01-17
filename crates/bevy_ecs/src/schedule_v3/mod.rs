@@ -96,24 +96,21 @@ mod tests {
         #[test]
         #[cfg(not(miri))]
         fn parallel_execution() {
+            use bevy_tasks::{ComputeTaskPool, TaskPool};
             use std::sync::{Arc, Barrier};
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
+            let thread_count = ComputeTaskPool::init(TaskPool::default).thread_num();
 
-            let barrier = Arc::new(Barrier::new(3));
+            let barrier = Arc::new(Barrier::new(thread_count));
 
-            let barrier1 = barrier.clone();
-            schedule.add_system(move || {
-                barrier1.wait();
-            });
-            let barrier2 = barrier.clone();
-            schedule.add_system(move || {
-                barrier2.wait();
-            });
-            schedule.add_system(move || {
-                barrier.wait();
-            });
+            for _ in 0..thread_count {
+                let inner = barrier.clone();
+                schedule.add_system(move || {
+                    inner.wait();
+                });
+            }
 
             schedule.run(&mut world);
         }
