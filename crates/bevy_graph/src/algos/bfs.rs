@@ -135,13 +135,11 @@ mod test {
         let two = graph.add_node(2);
         let three = graph.add_node(3);
 
-        unsafe {
-            graph.add_edge_unchecked(zero, one, ());
-            graph.add_edge_unchecked(zero, two, ());
-            graph.add_edge_unchecked(one, two, ());
-            graph.add_edge_unchecked(two, zero, ());
-            graph.add_edge_unchecked(two, three, ());
-        }
+        graph.add_edge(zero, one, ());
+        graph.add_edge(zero, two, ());
+        graph.add_edge(one, two, ());
+        graph.add_edge(two, zero, ());
+        graph.add_edge(two, three, ());
 
         let elements = vec![0, 2, 1, 3];
 

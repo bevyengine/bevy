@@ -56,31 +56,34 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         idx
     }
 
-    fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> Result<EdgeIdx, GraphError> {
+    fn try_add_edge(
+        &mut self,
+        src: NodeIdx,
+        dst: NodeIdx,
+        value: E,
+    ) -> Result<EdgeIdx, GraphError> {
         if !self.has_node(src) {
             Err(GraphError::NodeNotFound(src))
         } else if !self.has_node(dst) {
             Err(GraphError::NodeNotFound(dst))
         } else {
-            unsafe { Ok(self.add_edge_unchecked(src, dst, value)) }
+            unsafe {
+                let idx = self.edges.insert(Edge(src, dst, value));
+                self.adjacencies
+                    .get_unchecked_mut(src)
+                    .entry(dst)
+                    .or_default()
+                    .push(idx);
+                if !DIRECTED {
+                    self.adjacencies
+                        .get_unchecked_mut(dst)
+                        .entry(src)
+                        .or_default()
+                        .push(idx);
+                }
+                Ok(idx)
+            }
         }
-    }
-
-    unsafe fn add_edge_unchecked(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> EdgeIdx {
-        let idx = self.edges.insert(Edge(src, dst, value));
-        self.adjacencies
-            .get_unchecked_mut(src)
-            .entry(dst)
-            .or_default()
-            .push(idx);
-        if !DIRECTED {
-            self.adjacencies
-                .get_unchecked_mut(dst)
-                .entry(src)
-                .or_default()
-                .push(idx);
-        }
-        idx
     }
 
     #[inline]

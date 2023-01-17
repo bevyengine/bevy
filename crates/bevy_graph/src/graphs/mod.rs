@@ -51,10 +51,18 @@ pub trait Graph<N, E> {
     ///     * `GraphError::NodeNotFound(NodeIdx)`: the given `src` or `dst` isn't preset in the graph
     ///     * `GraphError::ContainsEdgeBetween`: there is already an edge between those nodes (not allowed in `SimpleGraph`)
     ///     * `GraphError::Loop`: the `src` and `dst` nodes are equal, the edge would be a loop (not allowed in `SimpleGraph`)
-    fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> Result<EdgeIdx, GraphError>;
+    fn try_add_edge(&mut self, src: NodeIdx, dst: NodeIdx, value: E)
+        -> Result<EdgeIdx, GraphError>;
 
     /// Adds an edge between the specified nodes with the associated `value`.
-    unsafe fn add_edge_unchecked(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> EdgeIdx;
+    ///
+    /// # Panics
+    ///
+    /// look at the `Returns/Err` in the docs from [`Graph::try_add_edge`]
+    #[inline]
+    fn add_edge(&mut self, src: NodeIdx, dst: NodeIdx, value: E) -> EdgeIdx {
+        self.try_add_edge(src, dst, value).unwrap()
+    }
 
     /// Returns `true` if the `node` is preset in the graph.
     fn has_node(&self, node: NodeIdx) -> bool;
