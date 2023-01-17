@@ -562,7 +562,8 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
         entity: Entity,
         _table_row: TableRow,
     ) -> Self::Item<'w> {
-        world.get_entity(entity).debug_checked_unwrap()
+        // SAFETY: `fetch` must be called with an entity that exists in the world
+        unsafe { world.get_entity(entity).debug_checked_unwrap() }
     }
 
     fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
