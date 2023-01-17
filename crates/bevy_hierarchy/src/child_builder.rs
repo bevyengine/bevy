@@ -303,7 +303,7 @@ pub trait BuildChildren {
     /// Removes all children from this entity. The [`Children`] component will be removed if it exists, otherwise this does nothing.
     fn clear_children(&mut self) -> &mut Self;
     /// Removes all current children from this entity, replacing them with the specified list of entities.
-    fn replace_children(&mut self, children: &[Entity]) -> &mut Self;
+    fn replace_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self;
     /// Sets the parent of this entity.
     fn set_parent(&mut self, parent: Entity) -> &mut Self;
     /// Removes the parent of this entity.
@@ -367,7 +367,7 @@ impl<'w, 's, 'a> BuildChildren for EntityCommands<'w, 's, 'a> {
         self
     }
 
-    fn replace_children(&mut self, children: &[Entity]) -> &mut Self {
+    fn replace_children(&mut self, children: impl IntoIterator<Item = Entity>) -> &mut Self {
         let parent = self.id();
         self.commands().add(ReplaceChildren {
             children: SmallVec::from(children),
