@@ -5,14 +5,11 @@ use crate::{
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
     schedule::{SystemLabel, SystemLabelId},
-    system::{
-        check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem,
-        SystemParamState,
-    },
+    system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{borrow::Cow, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, borrow::Cow, fmt::Debug, marker::PhantomData};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -109,6 +106,9 @@ impl SystemMeta {
 /// // Use system_state.get_mut(&mut world) and unpack your system parameters into variables!
 /// // system_state.get(&world) provides read-only versions of your system parameters instead.
 /// let (event_writer, maybe_resource, query) = system_state.get_mut(&mut world);
+///
+/// // If you are using [`Commands`], you can choose when you want to apply them to the world.
+/// // You need to manually call `.apply(world)` on the [`SystemState`] to apply them.
 /// ```
 /// Caching:
 /// ```rust
@@ -141,7 +141,7 @@ impl SystemMeta {
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
-    param_state: <Param as SystemParam>::State,
+    param_state: Param::State,
     world_id: WorldId,
     archetype_generation: ArchetypeGeneration,
 }
@@ -150,7 +150,7 @@ impl<Param: SystemParam> SystemState<Param> {
     pub fn new(world: &mut World) -> Self {
         let mut meta = SystemMeta::new::<Param>();
         meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        let param_state = <Param::State as SystemParamState>::init(world, &mut meta);
+        let param_state = Param::init_state(world, &mut meta);
         Self {
             meta,
             param_state,
@@ -190,7 +190,7 @@ impl<Param: SystemParam> SystemState<Param> {
     /// This function should be called manually after the values returned by [`SystemState::get`] and [`SystemState::get_mut`]
     /// are finished being used.
     pub fn apply(&mut self, world: &mut World) {
-        self.param_state.apply(&self.meta, world);
+        Param::apply(&mut self.param_state, &self.meta, world);
     }
 
     #[inline]
@@ -199,7 +199,7 @@ impl<Param: SystemParam> SystemState<Param> {
     }
 
     #[inline]
-    fn validate_world(&mut self, world: &World) {
+    fn validate_world(&self, world: &World) {
         assert!(self.matches_world(world), "Encountered a mismatched World. A SystemState cannot be used with Worlds other than the one it was created with.");
     }
 
@@ -211,7 +211,8 @@ impl<Param: SystemParam> SystemState<Param> {
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
-            self.param_state.new_archetype(
+            Param::new_archetype(
+                &mut self.param_state,
                 &archetypes[ArchetypeId::new(archetype_index)],
                 &mut self.meta,
             );
@@ -279,12 +280,7 @@ impl<Param: SystemParam> SystemState<Param> {
         world: &'w World,
         change_tick: u32,
     ) -> SystemParamItem<'w, 's, Param> {
-        let param = <Param::State as SystemParamState>::get_param(
-            &mut self.param_state,
-            &self.meta,
-            world,
-            change_tick,
-        );
+        let param = Param::get_param(&mut self.param_state, &self.meta, world, change_tick);
         self.meta.last_change_tick = change_tick;
         param
     }
@@ -376,7 +372,7 @@ where
     world_id: Option<WorldId>,
     archetype_generation: ArchetypeGeneration,
     // NOTE: PhantomData<fn()-> T> gives this safe Send/Sync impls
-    marker: PhantomData<fn() -> (In, Out, Marker)>,
+    marker: PhantomData<fn(In) -> (Out, Marker)>,
 }
 
 pub struct IsFunctionSystem;
@@ -429,6 +425,11 @@ where
     }
 
     #[inline]
+    fn type_id(&self) -> TypeId {
+        TypeId::of::<F>()
+    }
+
+    #[inline]
     fn component_access(&self) -> &Access<ComponentId> {
         self.system_meta.component_access_set.combined_access()
     }
@@ -456,7 +457,7 @@ where
         // We update the archetype component access correctly based on `Param`'s requirements
         // in `update_archetype_component_access`.
         // Our caller upholds the requirements.
-        let params = <Param as SystemParam>::State::get_param(
+        let params = Param::get_param(
             self.param_state.as_mut().expect(Self::PARAM_MESSAGE),
             &self.system_meta,
             world,
@@ -478,17 +479,14 @@ where
     #[inline]
     fn apply_buffers(&mut self, world: &mut World) {
         let param_state = self.param_state.as_mut().expect(Self::PARAM_MESSAGE);
-        param_state.apply(&self.system_meta, world);
+        Param::apply(param_state, &self.system_meta, world);
     }
 
     #[inline]
     fn initialize(&mut self, world: &mut World) {
         self.world_id = Some(world.id());
         self.system_meta.last_change_tick = world.change_tick().wrapping_sub(MAX_CHANGE_AGE);
-        self.param_state = Some(<Param::State as SystemParamState>::init(
-            world,
-            &mut self.system_meta,
-        ));
+        self.param_state = Some(Param::init_state(world, &mut self.system_meta));
     }
 
     fn update_archetype_component_access(&mut self, world: &World) {
@@ -499,7 +497,9 @@ where
         let archetype_index_range = old_generation.value()..new_generation.value();
 
         for archetype_index in archetype_index_range {
-            self.param_state.as_mut().unwrap().new_archetype(
+            let param_state = self.param_state.as_mut().unwrap();
+            Param::new_archetype(
+                param_state,
                 &archetypes[ArchetypeId::new(archetype_index)],
                 &mut self.system_meta,
             );
@@ -514,8 +514,14 @@ where
             self.system_meta.name.as_ref(),
         );
     }
+
     fn default_labels(&self) -> Vec<SystemLabelId> {
         vec![self.func.as_system_label().as_label()]
+    }
+
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+        let set = crate::schedule_v3::SystemTypeSet::<F>::new();
+        vec![Box::new(set)]
     }
 }
 
@@ -570,7 +576,7 @@ impl<T> Copy for SystemTypeIdLabel<T> {}
 /// pub fn pipe<AIn, Shared, BOut, A, AParam, AMarker, B, BParam, BMarker>(
 ///     mut a: A,
 ///     mut b: B,
-/// ) -> impl FnMut(In<AIn>, ParamSet<(SystemParamItem<AParam>, SystemParamItem<BParam>)>) -> BOut
+/// ) -> impl FnMut(In<AIn>, ParamSet<(AParam, BParam)>) -> BOut
 /// where
 ///     // We need A and B to be systems, add those bounds
 ///     A: SystemParamFunction<AIn, Shared, AParam, AMarker>,

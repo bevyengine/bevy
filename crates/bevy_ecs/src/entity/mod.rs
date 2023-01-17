@@ -586,7 +586,7 @@ impl Entities {
     ///  - `location` must be valid for the entity at `index` or immediately made valid afterwards
     ///    before handing control to unknown code.
     pub(crate) unsafe fn set(&mut self, index: u32, location: EntityLocation) {
-        // SAFETY: Caller guarentees that `index` a valid entity index
+        // SAFETY: Caller guarantees that `index` a valid entity index
         self.meta.get_unchecked_mut(index as usize).location = location;
     }
 
@@ -747,7 +747,7 @@ impl EntityMeta {
 // SAFETY:
 // This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 /// A location of an entity in an archetype.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.

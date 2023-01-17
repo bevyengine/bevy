@@ -213,7 +213,7 @@ pub const MAX_UNIFORM_BUFFER_POINT_LIGHTS: usize = 256;
 pub const MAX_DIRECTIONAL_LIGHTS: usize = 10;
 pub const SHADOW_FORMAT: TextureFormat = TextureFormat::Depth32Float;
 
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct ShadowPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
@@ -1190,7 +1190,7 @@ pub fn prepare_lights(
                 .spawn((
                     ShadowView {
                         depth_texture_view,
-                        pass_name: format!("shadow pass directional light {}", light_index),
+                        pass_name: format!("shadow pass directional light {light_index}"),
                     },
                     ExtractedView {
                         viewport: UVec4::new(
@@ -1626,7 +1626,7 @@ pub fn queue_shadows(
     casting_meshes: Query<&Handle<Mesh>, Without<NotShadowCaster>>,
     render_meshes: Res<RenderAssets<Mesh>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<ShadowPipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     view_lights: Query<&ViewLightEntities>,
     mut view_light_shadow_phases: Query<(&LightEntity, &mut RenderPhase<Shadow>)>,
     point_light_entities: Query<&CubemapVisibleEntities, With<ExtractedPointLight>>,
@@ -1661,7 +1661,7 @@ pub fn queue_shadows(
                         let key =
                             ShadowPipelineKey::from_primitive_topology(mesh.primitive_topology);
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &shadow_pipeline,
                             key,
                             &mesh.layout,
@@ -1770,23 +1770,19 @@ impl Node for ShadowPassNode {
                     continue;
                 }
 
-                let pass_descriptor = RenderPassDescriptor {
-                    label: Some(&view_light.pass_name),
-                    color_attachments: &[],
-                    depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
-                        view: &view_light.depth_texture_view,
-                        depth_ops: Some(Operations {
-                            load: LoadOp::Clear(0.0),
-                            store: true,
+                let mut render_pass =
+                    render_context.begin_tracked_render_pass(RenderPassDescriptor {
+                        label: Some(&view_light.pass_name),
+                        color_attachments: &[],
+                        depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
+                            view: &view_light.depth_texture_view,
+                            depth_ops: Some(Operations {
+                                load: LoadOp::Clear(0.0),
+                                store: true,
+                            }),
+                            stencil_ops: None,
                         }),
-                        stencil_ops: None,
-                    }),
-                };
-
-                let render_pass = render_context
-                    .command_encoder
-                    .begin_render_pass(&pass_descriptor);
-                let mut render_pass = TrackedRenderPass::new(render_pass);
+                    });
 
                 shadow_phase.render(&mut render_pass, world, view_light_entity);
             }

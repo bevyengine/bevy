@@ -282,8 +282,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn entity<'a>(&'a mut self, entity: Entity) -> EntityCommands<'w, 's, 'a> {
         self.get_entity(entity).unwrap_or_else(|| {
             panic!(
-                "Attempting to create an EntityCommands for entity {:?}, which doesn't exist.",
-                entity
+                "Attempting to create an EntityCommands for entity {entity:?}, which doesn't exist.",
             )
         })
     }
