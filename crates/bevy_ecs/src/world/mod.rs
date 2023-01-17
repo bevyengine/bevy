@@ -1647,10 +1647,8 @@ impl World {
     /// This can easily cause systems expecting certain resources to immediately start panicking.
     /// Use with caution.
     pub fn clear_resources(&mut self) {
-        let resource_archetype = self.archetypes.resource_mut();
-        for column in resource_archetype.unique_components.values_mut() {
-            column.clear();
-        }
+        self.storages.resources.clear();
+        self.storages.non_send_resources.clear();
     }
 }
 
