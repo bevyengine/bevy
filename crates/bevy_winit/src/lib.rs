@@ -8,7 +8,7 @@ use winit::window::CursorGrabMode;
 pub use winit_config::*;
 pub use winit_windows::*;
 
-use bevy_app::{App, AppExit, CoreStage, Plugin};
+use bevy_app::{App, AppExit, CoreSet, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
     event::{Events, ManualEventReader},
@@ -41,7 +41,7 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .add_system_to_stage(CoreStage::PostUpdate, change_window.label(ModifiesWindows));
+            .add_system_to_stage(CoreSet::PostUpdate, change_window.label(ModifiesWindows));
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();

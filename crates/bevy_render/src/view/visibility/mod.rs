@@ -2,7 +2,7 @@ mod render_layers;
 
 pub use render_layers::*;
 
-use bevy_app::{CoreStage, Plugin};
+use bevy_app::{CoreSet, Plugin};
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::prelude::*;
 use bevy_hierarchy::{Children, Parent};
@@ -211,11 +211,11 @@ impl Plugin for VisibilityPlugin {
         use VisibilitySystems::*;
 
         app.add_system_to_stage(
-            CoreStage::PostUpdate,
+            CoreSet::PostUpdate,
             calculate_bounds.label(CalculateBounds).before_commands(),
         )
         .add_system_to_stage(
-            CoreStage::PostUpdate,
+            CoreSet::PostUpdate,
             update_frusta::<OrthographicProjection>
                 .label(UpdateOrthographicFrusta)
                 .after(camera_system::<OrthographicProjection>)
@@ -227,7 +227,7 @@ impl Plugin for VisibilityPlugin {
                 .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
-            CoreStage::PostUpdate,
+            CoreSet::PostUpdate,
             update_frusta::<PerspectiveProjection>
                 .label(UpdatePerspectiveFrusta)
                 .after(camera_system::<PerspectiveProjection>)
@@ -238,18 +238,18 @@ impl Plugin for VisibilityPlugin {
                 .ambiguous_with(update_frusta::<Projection>),
         )
         .add_system_to_stage(
-            CoreStage::PostUpdate,
+            CoreSet::PostUpdate,
             update_frusta::<Projection>
                 .label(UpdateProjectionFrusta)
                 .after(camera_system::<Projection>)
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system_to_stage(
-            CoreStage::PostUpdate,
+            CoreSet::PostUpdate,
             visibility_propagate_system.label(VisibilityPropagate),
         )
         .add_system_to_stage(
-            CoreStage::PostUpdate,
+            CoreSet::PostUpdate,
             check_visibility
                 .label(CheckVisibility)
                 .after(UpdateOrthographicFrusta)

@@ -56,17 +56,14 @@ impl Plugin for InputPlugin {
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
             .init_resource::<Input<ScanCode>>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                keyboard_input_system.label(InputSystem),
-            )
+            .add_system_to_stage(CoreSet::PreUpdate, keyboard_input_system.label(InputSystem))
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<Input<MouseButton>>()
             .add_system_to_stage(
-                CoreStage::PreUpdate,
+                CoreSet::PreUpdate,
                 mouse_button_input_system.label(InputSystem),
             )
             // gamepad
@@ -80,7 +77,7 @@ impl Plugin for InputPlugin {
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
             .add_system_set_to_stage(
-                CoreStage::PreUpdate,
+                CoreSet::PreUpdate,
                 SystemSet::new()
                     .with_system(gamepad_event_system)
                     .with_system(gamepad_button_event_system.after(gamepad_event_system))
@@ -92,7 +89,7 @@ impl Plugin for InputPlugin {
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system_to_stage(
-                CoreStage::PreUpdate,
+                CoreSet::PreUpdate,
                 touch_screen_input_system.label(InputSystem),
             );
 

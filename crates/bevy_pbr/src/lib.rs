@@ -142,7 +142,7 @@ impl Plugin for PbrPlugin {
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 // NOTE: Clusters need to have been added before update_clusters is run so
                 // add as an exclusive system
                 add_clusters
@@ -150,7 +150,7 @@ impl Plugin for PbrPlugin {
                     .label(SimulationLightSystems::AddClusters),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
                     .after(TransformSystem::TransformPropagate)
@@ -159,7 +159,7 @@ impl Plugin for PbrPlugin {
                     .after(ModifiesWindows),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
                     // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
@@ -171,21 +171,21 @@ impl Plugin for PbrPlugin {
                     .ambiguous_with(update_spot_light_frusta),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 update_point_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 update_spot_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 check_light_mesh_visibility
                     .label(SimulationLightSystems::CheckLightVisibility)
                     .after(TransformSystem::TransformPropagate)

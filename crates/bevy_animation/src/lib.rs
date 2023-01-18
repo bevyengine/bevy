@@ -5,7 +5,7 @@
 use std::ops::Deref;
 use std::time::Duration;
 
-use bevy_app::{App, CoreStage, Plugin};
+use bevy_app::{App, CoreSet, Plugin};
 use bevy_asset::{AddAsset, Assets, Handle};
 use bevy_core::Name;
 use bevy_ecs::{
@@ -557,7 +557,7 @@ impl Plugin for AnimationPlugin {
             .register_asset_reflect::<AnimationClip>()
             .register_type::<AnimationPlayer>()
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 animation_player.before(TransformSystem::TransformPropagate),
             );
     }

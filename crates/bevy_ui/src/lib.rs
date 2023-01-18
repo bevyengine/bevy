@@ -105,12 +105,12 @@ impl Plugin for UiPlugin {
             .register_type::<Val>()
             .register_type::<widget::Button>()
             .add_system_to_stage(
-                CoreStage::PreUpdate,
+                CoreSet::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
             )
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 widget::text_system
                     .before(UiSystem::Flex)
                     .after(ModifiesWindows)
@@ -125,7 +125,7 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(bevy_text::update_text2d_layout),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 widget::update_image_calculated_size_system
                     .before(UiSystem::Flex)
                     // Potential conflicts: `Assets<Image>`
@@ -136,18 +136,15 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(widget::text_system),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 flex_node_system
                     .label(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate)
                     .after(ModifiesWindows),
             )
+            .add_system_to_stage(CoreSet::PostUpdate, ui_stack_system.label(UiSystem::Stack))
             .add_system_to_stage(
-                CoreStage::PostUpdate,
-                ui_stack_system.label(UiSystem::Stack),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 update_clipping_system.after(TransformSystem::TransformPropagate),
             );
 

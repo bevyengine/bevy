@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_app::{App, CoreStage, Plugin, StartupStage};
+use bevy_app::{App, CoreSet, Plugin, StartupSet};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_math::Mat4;
 use bevy_reflect::{
@@ -29,7 +29,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
             .add_startup_system_to_stage(
-                StartupStage::PostStartup,
+                StartupSet::PostStartup,
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
                     // We assume that each camera will only have one projection,
@@ -38,7 +38,7 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
                     .ambiguous_with(CameraUpdateSystem),
             )
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
                     .after(ModifiesWindows)

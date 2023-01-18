@@ -17,7 +17,7 @@ fn main() {
         .add_system(frame_update)
         // add a new stage that runs twice a second
         .add_stage_after(
-            CoreStage::Update,
+            CoreSet::Update,
             FixedUpdateStage,
             SystemStage::parallel()
                 .with_run_criteria(

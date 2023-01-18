@@ -91,7 +91,7 @@ impl Plugin for WindowPlugin {
 
         if self.exit_on_all_closed {
             app.add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 exit_on_all_closed.after(ModifiesWindows),
             );
         }

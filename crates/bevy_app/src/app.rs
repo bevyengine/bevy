@@ -1,9 +1,12 @@
-use crate::{CoreStage, Plugin, PluginGroup, StartupSchedule};
+use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSchedule, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
-    schedule::{IntoSystemDescriptor, Schedule, ShouldRun, State, StateData, SystemSet},
+    schedule::{
+        apply_system_buffers, IntoSystemDescriptor, Schedule, Schedules, ShouldRun, State,
+        StateData, SystemSet,
+    },
     system::Resource,
     world::World,
 };
@@ -65,8 +68,8 @@ pub struct App {
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
-    /// A container of [`Stage`]s set to be run in a linear order.
-    pub schedule: Schedule,
+    /// A collection of [`Schedule`] objects which are used to run systems
+    pub schedules: Schedules,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -119,7 +122,10 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_sets().add_event::<AppExit>();
+        app.add_default_schedules();
+        app.add_default_sets();
+
+        app.add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -133,6 +139,8 @@ impl Default for App {
 impl App {
     /// Creates a new [`App`] with some default structure to enable core engine features.
     /// This is the preferred constructor for most use cases.
+    ///
+    /// This calls [`App::add_default_schedules`] and [App::add_defaults_sets`].
     pub fn new() -> App {
         App::default()
     }
@@ -143,7 +151,7 @@ impl App {
     pub fn empty() -> App {
         Self {
             world: Default::default(),
-            schedule: Default::default(),
+            schedules: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
@@ -216,7 +224,7 @@ impl App {
     /// \<insert-`bevy_core`-set-name\> so that transitions happen before `Update`.
     fn add_state<S: States>(&mut self) -> &mut Self;
 
-    /// Adds a system to the [update stage](Self::add_default_stages) of the app's [`Schedule`].
+    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
     ///
     /// Refer to the [system module documentation](bevy_ecs::system) to see how a system
     /// can be defined.
@@ -233,10 +241,10 @@ impl App {
     /// app.add_system(my_system);
     /// ```
     pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
-        self.add_system_to_stage(CoreStage::Update, system)
+        self.add_system_to_stage(CoreSet::Update, system)
     }
 
-    /// Adds a [`SystemSet`] to the [update stage](Self::add_default_stages).
+    /// Adds a system to the default system set and schedule of the app's [`Schedules`].
     ///
     /// # Examples
     ///
@@ -257,7 +265,7 @@ impl App {
     /// );
     /// ```
     pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.add_system_set_to_stage(CoreStage::Update, system_set)
+        self.add_system_set_to_stage(CoreSet::Update, system_set)
     }
 
     /// Adds a system to the [startup stage](Self::add_default_stages) of the app's [`Schedule`].
@@ -309,55 +317,112 @@ impl App {
         self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
     }
 
-    /// Adds utility stages to the [`Schedule`], giving it a standardized structure.
+    /// Adds standardized schedules and labels to an [`App`].
     ///
-    /// Adding those stages is necessary to make some core engine features work, like
-    /// adding systems without specifying a stage, or registering events. This is however
-    /// done by default by calling `App::default`, which is in turn called by
+    /// Adding these schedules is necessary to make some core engine features work.
+    ///  This is however done by default by calling `App::default`, which is in turn called by
     /// [`App::new`].
     ///
-    /// # The stages
+    /// The schedules are defined in the [`CoreSchedule`] enum.
     ///
-    /// All the added stages, with the exception of the startup stage, run every time the
-    /// schedule is invoked. The stages are the following, in order of execution:
+    /// The [default schedule](App::set_default_schedule) becomes [`CoreSchedule::Main`].
     ///
-    /// - **First:** Runs at the very start of the schedule execution cycle, even before the
-    ///   startup stage.
-    /// - **Startup:** This is actually a schedule containing sub-stages. Runs only once
-    ///   when the app starts.
-    ///     - **Pre-startup:** Intended for systems that need to run before other startup systems.
-    ///     - **Startup:** The main startup stage. Startup systems are added here by default.
-    ///     - **Post-startup:** Intended for systems that need to run after other startup systems.
-    /// - **Pre-update:** Often used by plugins to prepare their internal state before the
-    ///   update stage begins.
-    /// - **Update:** Intended for user defined logic. Systems are added here by default.
-    /// - **Post-update:** Often used by plugins to finalize their internal state after the
-    ///   world changes that happened during the update stage.
-    /// - **Last:** Runs right before the end of the schedule execution cycle.
-    ///
-    /// The labels for those stages are defined in the [`CoreStage`] and [`StartupStage`] `enum`s.
+    /// You can also add standardized system sets to these schedules using [`App::add_default_sets`],
+    /// which must be called *after* this method as it relies on these schedules existing.
     ///
     /// # Examples
     ///
     /// ```
     /// # use bevy_app::prelude::*;
     /// #
-    /// let app = App::empty().add_default_stages();
+    /// let app = App::empty().add_default_schedules();
+    /// ```
+    pub fn add_default_schedules(&mut self) -> &mut Self {
+        app.schedules.insert(CoreSchedule::Startup, Schedule::new());
+        app.schedules.insert(CoreSchedule::Main, Schedule::new());
+
+        app.set_default_schedule(CoreSchedule::Main);
+
+        self
+    }
+
+    /// Adds broad system sets to the default [`Schedule`], giving it a standardized linear structure.
+    ///
+    /// See [`CoreSet`] and [`StartupSet`] for documentation on the system sets added.
+    ///
+    /// The [default sets](bevy_ecs::schedule::Schedule::set_default_set) becomes [`CoreSet::Update`] and [`StartupSet::Startup`] respectively.
+    /// [`Command`](bevy_ecs::prelude::Commands) flush points, set with [`apply_system_buffers`] are added between each of these sets and at the end of each schedule.
+    ///
+    /// # Panics
+    ///
+    /// The [`CoreSchedule`] schedules must have been added to the [`App`] before this method is called.
+    /// You can do so using [`App::add_default_schedules`].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// let app = App::empty().add_default_sets();
     /// ```
     pub fn add_default_sets(&mut self) -> &mut Self {
-        self.add_stage(CoreStage::First, SystemStage::parallel())
-            .add_stage(
-                StartupSchedule,
-                Schedule::default()
-                    .with_run_criteria(ShouldRun::once)
-                    .with_stage(StartupStage::PreStartup, SystemStage::parallel())
-                    .with_stage(StartupStage::Startup, SystemStage::parallel())
-                    .with_stage(StartupStage::PostStartup, SystemStage::parallel()),
-            )
-            .add_stage(CoreStage::PreUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Update, SystemStage::parallel())
-            .add_stage(CoreStage::PostUpdate, SystemStage::parallel())
-            .add_stage(CoreStage::Last, SystemStage::parallel())
+        let startup_schedule = self.schedules.get(CoreSchedule::Startup).unwrap();
+        startup_schedule.add_set(StartupSet::PreStartup);
+        startup_schedule.add_set(StartupSet::Startup);
+        startup_schedule.add_set(StartupSet::PostStartup);
+
+        startup_schedule.configure_set(StartupSet::PreStartup.before(StartupSet::Startup));
+        startup_schedule.configure_set(StartupSet::PostStartup.after(StartupSet::Startup));
+
+        startup_schedule.add_system(
+            apply_system_buffers
+                .after(StartupSet::PreStartup)
+                .before(StartupSet::Startup),
+        );
+        startup_schedule.add_system(
+            apply_system_buffers
+                .after(StartupSet::Startup)
+                .before(StartupSet::PostStartup),
+        );
+
+        startup_schedule.add_system(apply_system_buffers.after(StartupSet::PostStartup));
+
+        let main_schedule = self.schedules.get(CoreSchedule::Startup).unwrap();
+        main_schedule.add_set(CoreSet::First);
+        main_schedule.add_set(CoreSet::PreUpdate);
+        main_schedule.add_set(CoreSet::Update);
+        main_schedule.add_set(CoreSet::PostUpdate);
+        main_schedule.add_set(CoreSet::Last);
+
+        main_schedule.configure_set(CoreSet::First.before(CoreSet::PreUpdate));
+        main_schedule.configure_set(CoreSet::PreUpdate.before(CoreSet::Update));
+        main_schedule.configure_set(CoreSet::PostUpdate.after(CoreSet::Update));
+        main_schedule.configure_set(CoreSet::Last.after(CoreSet::PostUpdate));
+
+        startup_schedule.add_system(
+            apply_system_buffers
+                .after(CoreSet::First)
+                .before(CoreSet::PreUpdate),
+        );
+        startup_schedule.add_system(
+            apply_system_buffers
+                .after(CoreSet::PreUpdate)
+                .before(CoreSet::Update),
+        );
+
+        startup_schedule.add_system(
+            apply_system_buffers
+                .after(CoreSet::Update)
+                .before(CoreSet::PostUpdate),
+        );
+
+        startup_schedule.add_system(
+            apply_system_buffers
+                .after(CoreSet::PostUpdate)
+                .before(CoreSet::Last),
+        );
+
+        startup_schedule.add_system(apply_system_buffers.after(CoreSet::Last));
     }
 
     /// Setup the application to manage events of type `T`.
@@ -384,7 +449,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system_to_stage(CoreStage::First, Events::<T>::update_system);
+                .add_system_to_stage(CoreSet::First, Events::<T>::update_system);
         }
         self
     }

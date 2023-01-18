@@ -294,20 +294,20 @@ fn main() {
         // add_system(system) adds systems to the UPDATE stage by default
         // However we can manually specify the stage if we want to. The following is equivalent to
         // add_system(score_system)
-        .add_system_to_stage(CoreStage::Update, score_system)
+        .add_system_to_stage(CoreSet::Update, score_system)
         // There are other `CoreStages`, such as `Last` which runs at the very end of each run.
-        .add_system_to_stage(CoreStage::Last, print_at_end_round)
+        .add_system_to_stage(CoreSet::Last, print_at_end_round)
         // We can also create new stages. Here is what our games stage order will look like:
         // "before_round": new_player_system, new_round_system
         // "update": print_message_system, score_system
         // "after_round": score_check_system, game_over_system
         .add_stage_before(
-            CoreStage::Update,
+            CoreSet::Update,
             MyStage::BeforeRound,
             SystemStage::parallel(),
         )
         .add_stage_after(
-            CoreStage::Update,
+            CoreSet::Update,
             MyStage::AfterRound,
             SystemStage::parallel(),
         )

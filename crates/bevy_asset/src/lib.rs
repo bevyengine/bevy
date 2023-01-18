@@ -106,18 +106,18 @@ impl Plugin for AssetPlugin {
         }
 
         app.add_stage_before(
-            bevy_app::CoreStage::PreUpdate,
+            bevy_app::CoreSet::PreUpdate,
             AssetStage::LoadAssets,
             SystemStage::parallel(),
         )
         .add_stage_after(
-            bevy_app::CoreStage::PostUpdate,
+            bevy_app::CoreSet::PostUpdate,
             AssetStage::AssetEvents,
             SystemStage::parallel(),
         )
         .register_type::<HandleId>()
         .add_system_to_stage(
-            bevy_app::CoreStage::PreUpdate,
+            bevy_app::CoreSet::PreUpdate,
             asset_server::free_unused_assets_system,
         );
 

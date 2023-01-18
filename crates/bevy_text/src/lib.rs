@@ -81,7 +81,7 @@ impl Plugin for TextPlugin {
             .init_resource::<FontAtlasWarning>()
             .insert_resource(TextPipeline::default())
             .add_system_to_stage(
-                CoreStage::PostUpdate,
+                CoreSet::PostUpdate,
                 update_text2d_layout
                     .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
