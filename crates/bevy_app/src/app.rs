@@ -164,10 +164,16 @@ impl App {
     /// This method also updates sub apps.
     ///
     /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
+    ///
+    /// # Panics
+    ///
+    /// The active schedule of the app must be set before this method is called.
     pub fn update(&mut self) {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
-        self.schedule.run(&mut self.world);
+
+        let active_schedule = self.active_schedule().unwrap();
+        self.run_schedule(active_schedule);
 
         for sub_app in self.sub_apps.values_mut() {
             sub_app.extract(&mut self.world);
@@ -442,7 +448,8 @@ impl App {
     ///
     /// The schedules are defined in the [`CoreSchedule`] enum.
     ///
-    /// The [default schedule](App::set_default_schedule) becomes [`CoreSchedule::Main`].
+    /// The [default schedule](App::set_default_schedule) is set to [`CoreSchedule::Main`].
+    /// The [active schedule] is set to [`CoreSchedule::Startup`].
     ///
     /// You can also add standardized system sets to these schedules using [`App::add_default_sets`],
     /// which must be called *after* this method as it relies on these schedules existing.
@@ -459,6 +466,7 @@ impl App {
         self.add_schedule(CoreSchedule::Main, Schedule::new());
 
         self.set_default_schedule(CoreSchedule::Main);
+        self.set_active_schedule(CoreSchedule::Startup);
 
         self
     }
