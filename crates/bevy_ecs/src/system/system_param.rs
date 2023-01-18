@@ -397,7 +397,7 @@ impl_param_set!();
 ///     resource.value = 0;
 ///     assert_eq!(resource.value, 0);
 /// }
-/// # schedule.add_system(read_resource_system.label("first"));
+/// # schedule.add_system(read_resource_system.in_set("first"));
 /// # schedule.add_system(write_resource_system.after("first"));
 /// # schedule.run_once(&mut world);
 /// ```

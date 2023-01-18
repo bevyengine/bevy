@@ -101,23 +101,23 @@ impl Plugin for TransformPlugin {
             // add transform systems to startup so the first update is "correct"
             .add_startup_system(
                 systems::sync_simple_transforms
-                    .label(TransformSystem::TransformPropagate)
-                    .label(StartupSet::PostStartup),
+                    .in_set(TransformSystem::TransformPropagate)
+                    .in_set(StartupSet::PostStartup),
             )
             .add_startup_system(
                 systems::propagate_transforms
-                    .label(TransformSystem::TransformPropagate)
-                    .label(StartupSet::PostStartup),
+                    .in_set(TransformSystem::TransformPropagate)
+                    .in_set(StartupSet::PostStartup),
             )
             .add_system(
                 systems::sync_simple_transforms
-                    .label(TransformSystem::TransformPropagate)
-                    .label(CoreSet::PostUpdate),
+                    .in_set(TransformSystem::TransformPropagate)
+                    .in_set(CoreSet::PostUpdate),
             )
             .add_system(
                 systems::propagate_transforms
-                    .label(TransformSystem::TransformPropagate)
-                    .label(CoreSet::PostUpdate),
+                    .in_set(TransformSystem::TransformPropagate)
+                    .in_set(CoreSet::PostUpdate),
             );
     }
 }

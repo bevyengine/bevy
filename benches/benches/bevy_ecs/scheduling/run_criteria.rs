@@ -87,7 +87,7 @@ pub fn run_criteria_yes_with_labels(criterion: &mut Criterion) {
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();
 
-        stage.add_system(empty.with_run_criteria(always_yes.label(Always::Yes)));
+        stage.add_system(empty.with_run_criteria(always_yes.in_set(Always::Yes)));
         for _ in 0..amount {
             stage
                 .add_system(empty.with_run_criteria(Always::Yes))
@@ -119,7 +119,7 @@ pub fn run_criteria_no_with_labels(criterion: &mut Criterion) {
     for amount in 0..21 {
         let mut stage = SystemStage::parallel();
 
-        stage.add_system(empty.with_run_criteria(always_no.label(Always::No)));
+        stage.add_system(empty.with_run_criteria(always_no.in_set(Always::No)));
         for _ in 0..amount {
             stage
                 .add_system(empty.with_run_criteria(Always::No))

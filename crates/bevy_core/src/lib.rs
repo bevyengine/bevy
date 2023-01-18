@@ -110,7 +110,7 @@ impl Plugin for TaskPoolPlugin {
         app.add_system(
             tick_global_task_pools_on_main_thread
                 .at_end()
-                .label(bevy_app::CoreSet::Last),
+                .in_set(bevy_app::CoreSet::Last),
         );
     }
 }

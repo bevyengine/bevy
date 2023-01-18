@@ -43,8 +43,8 @@ impl Plugin for WinitPlugin {
             .set_runner(winit_runner)
             .add_system(
                 change_window
-                    .label(ModifiesWindows)
-                    .label(CoreSet::PostUpdate),
+                    .in_set(ModifiesWindows)
+                    .in_set(CoreSet::PostUpdate),
             );
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);

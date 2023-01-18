@@ -106,14 +106,14 @@ impl Plugin for UiPlugin {
             .register_type::<widget::Button>()
             .add_system(
                 ui_focus_system
-                    .label(UiSystem::Focus)
-                    .label(CoreSet::PreUpdate)
+                    .in_set(UiSystem::Focus)
+                    .in_set(CoreSet::PreUpdate)
                     .after(InputSystem),
             )
             // add these stages to front because these must run before transform update systems
             .add_system(
                 widget::text_system
-                    .label(CoreSet::PostUpdate)
+                    .in_set(CoreSet::PostUpdate)
                     .before(UiSystem::Flex)
                     .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
@@ -128,7 +128,7 @@ impl Plugin for UiPlugin {
             )
             .add_system(
                 widget::update_image_calculated_size_system
-                    .label(CoreSet::PostUpdate)
+                    .in_set(CoreSet::PostUpdate)
                     .before(UiSystem::Flex)
                     // Potential conflicts: `Assets<Image>`
                     // They run independently since `widget::image_node_system` will only ever observe
@@ -139,20 +139,20 @@ impl Plugin for UiPlugin {
             )
             .add_system(
                 flex_node_system
-                    .label(CoreSet::PostUpdate)
-                    .label(UiSystem::Flex)
+                    .in_set(CoreSet::PostUpdate)
+                    .in_set(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate)
                     .after(ModifiesWindows),
             )
             .add_system(
                 ui_stack_system
-                    .label(UiSystem::Stack)
-                    .label(CoreSet::PostUpdate),
+                    .in_set(UiSystem::Stack)
+                    .in_set(CoreSet::PostUpdate),
             )
             .add_system(
                 update_clipping_system
                     .after(TransformSystem::TransformPropagate)
-                    .label(CoreSet::PostUpdate),
+                    .in_set(CoreSet::PostUpdate),
             );
 
         crate::render::build_ui_render(app);

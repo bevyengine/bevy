@@ -92,7 +92,7 @@ impl Plugin for WindowPlugin {
         if self.exit_on_all_closed {
             app.add_system(
                 exit_on_all_closed
-                    .label(CoreSet::PostUpdate)
+                    .in_set(CoreSet::PostUpdate)
                     .after(ModifiesWindows),
             );
         }

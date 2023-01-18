@@ -852,7 +852,7 @@ mod test {
         let mut app = App::new();
         app.insert_resource(assets);
         app.insert_resource(asset_server);
-        app.add_system(free_unused_assets_system.label(FreeUnusedAssets));
+        app.add_system(free_unused_assets_system.in_set(FreeUnusedAssets));
         app.add_system(update_asset_storage_system::<PngAsset>.after(FreeUnusedAssets));
 
         fn load_asset(path: AssetPath, world: &World) -> HandleUntyped {
@@ -927,7 +927,7 @@ mod test {
         let handle_path = server.get_handle_path(&handle).unwrap();
 
         assert_eq!(handle_path.path(), Path::new(PATH));
-        assert!(handle_path.label().is_none());
+        assert!(handle_path.in_set().is_none());
 
         let handle_id: HandleId = handle.into();
         let path_id: HandleId = handle_path.get_id().into();

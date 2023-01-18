@@ -82,7 +82,7 @@ impl Plugin for TextPlugin {
             .insert_resource(TextPipeline::default())
             .add_system(
                 update_text2d_layout
-                    .label(CoreSet::PostUpdate)
+                    .in_set(CoreSet::PostUpdate)
                     .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
                     // In practice, they run independently since `bevy_render::camera_update_system`
@@ -95,7 +95,7 @@ impl Plugin for TextPlugin {
             render_app.add_system(
                 extract_text2d_sprite
                     .after(SpriteSystem::ExtractSprites)
-                    .label(RenderStage::Extract),
+                    .in_set(RenderStage::Extract),
             );
         }
     }

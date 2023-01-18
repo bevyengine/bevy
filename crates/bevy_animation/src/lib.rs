@@ -558,7 +558,7 @@ impl Plugin for AnimationPlugin {
             .register_type::<AnimationPlayer>()
             .add_system(
                 animation_player
-                    .label(CoreSet::PostUpdate)
+                    .in_set(CoreSet::PostUpdate)
                     .before(TransformSystem::TransformPropagate),
             );
     }

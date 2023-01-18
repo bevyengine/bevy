@@ -116,12 +116,12 @@ impl Plugin for AssetPlugin {
             SystemStage::parallel(),
         )
         .register_type::<HandleId>()
-        .add_system(asset_server::free_unused_assets_system.label(CoreSet::PreUpdate));
+        .add_system(asset_server::free_unused_assets_system.in_set(CoreSet::PreUpdate));
 
         #[cfg(all(
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system(io::filesystem_watcher_system.label(AssetStage::LoadAssets));
+        app.add_system(io::filesystem_watcher_system.in_set(AssetStage::LoadAssets));
     }
 }

@@ -138,7 +138,7 @@ where
         let asset_path: AssetPath = value.into();
         AssetPathId(
             SourcePathId::from(asset_path.path()),
-            LabelId::from(asset_path.label()),
+            LabelId::from(asset_path.in_set()),
         )
     }
 }
@@ -147,7 +147,7 @@ impl<'a, 'b> From<&'a AssetPath<'b>> for AssetPathId {
     fn from(asset_path: &'a AssetPath<'b>) -> Self {
         AssetPathId(
             SourcePathId::from(asset_path.path()),
-            LabelId::from(asset_path.label()),
+            LabelId::from(asset_path.in_set()),
         )
     }
 }

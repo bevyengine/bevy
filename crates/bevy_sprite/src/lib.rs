@@ -72,11 +72,11 @@ impl Plugin for SpritePlugin {
                 .add_render_command::<Transparent2d, DrawSprite>()
                 .add_system(
                     render::extract_sprites
-                        .label(SpriteSystem::ExtractSprites)
-                        .label(RenderStage::Extract),
+                        .in_set(SpriteSystem::ExtractSprites)
+                        .in_set(RenderStage::Extract),
                 )
-                .add_system(render::extract_sprite_events.label(RenderStage::Extract))
-                .add_system(queue_sprites.label(RenderStage::Queue));
+                .add_system(render::extract_sprite_events.in_set(RenderStage::Extract))
+                .add_system(queue_sprites.in_set(RenderStage::Queue));
         };
     }
 }

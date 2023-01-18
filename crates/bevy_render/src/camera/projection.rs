@@ -30,8 +30,8 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
         app.register_type::<T>()
             .add_startup_system(
                 crate::camera::camera_system::<T>
-                    .label(CameraUpdateSystem)
-                    .label(StartupSet::PostStartup)
+                    .in_set(CameraUpdateSystem)
+                    .in_set(StartupSet::PostStartup)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monomorphizations.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
@@ -39,8 +39,8 @@ impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraPro
             )
             .add_system(
                 crate::camera::camera_system::<T>
-                    .label(CameraUpdateSystem)
-                    .label(CoreSet::PostUpdate)
+                    .in_set(CameraUpdateSystem)
+                    .in_set(CoreSet::PostUpdate)
                     .after(ModifiesWindows)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monomorphizations.

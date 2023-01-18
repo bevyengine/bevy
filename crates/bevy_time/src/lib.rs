@@ -44,8 +44,8 @@ impl Plugin for TimePlugin {
             .add_system(
                 time_system
                     .at_start()
-                    .label(TimeSystem)
-                    .label(CoreSet::First),
+                    .in_set(TimeSystem)
+                    .in_set(CoreSet::First),
             );
     }
 }

@@ -19,9 +19,9 @@ impl Plugin for GlobalsPlugin {
             render_app
                 .init_resource::<GlobalsBuffer>()
                 .init_resource::<Time>()
-                .add_system(extract_frame_count.label(RenderStage::Extract))
-                .add_system(extract_time.label(RenderStage::Extract))
-                .add_system(prepare_globals_buffer.label(RenderStage::Prepare));
+                .add_system(extract_frame_count.in_set(RenderStage::Extract))
+                .add_system(extract_time.in_set(RenderStage::Extract))
+                .add_system(prepare_globals_buffer.in_set(RenderStage::Prepare));
         }
     }
 }

@@ -79,7 +79,7 @@ impl<A: RenderAsset> Default for RenderAssetPlugin<A> {
 impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            let prepare_asset_system = prepare_assets::<A>.label(self.prepare_asset_label.clone());
+            let prepare_asset_system = prepare_assets::<A>.in_set(self.prepare_asset_label.clone());
 
             let prepare_asset_system = match self.prepare_asset_label {
                 PrepareAssetLabel::PreAssetPrepare => prepare_asset_system,
@@ -95,8 +95,8 @@ impl<A: RenderAsset> Plugin for RenderAssetPlugin<A> {
                 .init_resource::<ExtractedAssets<A>>()
                 .init_resource::<RenderAssets<A>>()
                 .init_resource::<PrepareNextFrameAssets<A>>()
-                .add_system(extract_render_asset::<A>.label(RenderStage::Extract))
-                .add_system(prepare_asset_system.label(RenderStage::Prepare));
+                .add_system(extract_render_asset::<A>.in_set(RenderStage::Extract))
+                .add_system(prepare_asset_system.in_set(RenderStage::Prepare));
         }
     }
 }

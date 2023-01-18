@@ -102,7 +102,7 @@ impl Plugin for ImagePlugin {
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<TextureCache>()
                 .init_resource::<FallbackImage>()
-                .add_system(update_texture_cache_system.label(RenderStage::Cleanup));
+                .add_system(update_texture_cache_system.in_set(RenderStage::Cleanup));
         }
     }
 }

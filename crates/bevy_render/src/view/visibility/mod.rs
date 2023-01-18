@@ -212,14 +212,14 @@ impl Plugin for VisibilityPlugin {
 
         app.add_system(
             calculate_bounds
-                .label(CalculateBounds)
+                .in_set(CalculateBounds)
                 .before_commands()
-                .label(CoreSet::PostUpdate),
+                .in_set(CoreSet::PostUpdate),
         )
         .add_system(
             update_frusta::<OrthographicProjection>
-                .label(UpdateOrthographicFrusta)
-                .label(CoreSet::PostUpdate)
+                .in_set(UpdateOrthographicFrusta)
+                .in_set(CoreSet::PostUpdate)
                 .after(camera_system::<OrthographicProjection>)
                 .after(TransformSystem::TransformPropagate)
                 // We assume that no camera will have more than one projection component,
@@ -230,8 +230,8 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system(
             update_frusta::<PerspectiveProjection>
-                .label(UpdatePerspectiveFrusta)
-                .label(CoreSet::PostUpdate)
+                .in_set(UpdatePerspectiveFrusta)
+                .in_set(CoreSet::PostUpdate)
                 .after(camera_system::<PerspectiveProjection>)
                 .after(TransformSystem::TransformPropagate)
                 // We assume that no camera will have more than one projection component,
@@ -241,20 +241,20 @@ impl Plugin for VisibilityPlugin {
         )
         .add_system(
             update_frusta::<Projection>
-                .label(UpdateProjectionFrusta)
-                .label(CoreSet::PostUpdate)
+                .in_set(UpdateProjectionFrusta)
+                .in_set(CoreSet::PostUpdate)
                 .after(camera_system::<Projection>)
                 .after(TransformSystem::TransformPropagate),
         )
         .add_system(
             visibility_propagate_system
-                .label(VisibilityPropagate)
-                .label(CoreSet::PostUpdate),
+                .in_set(VisibilityPropagate)
+                .in_set(CoreSet::PostUpdate),
         )
         .add_system(
             check_visibility
-                .label(CheckVisibility)
-                .label(CoreSet::PostUpdate)
+                .in_set(CheckVisibility)
+                .in_set(CoreSet::PostUpdate)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
                 .after(UpdateProjectionFrusta)

@@ -43,7 +43,7 @@
 //!   which systems run in parallel by default.
 //! - **Labels:** Systems may be ordered within a stage using the methods `.before()` and `.after()`,
 //!   which order systems based on their [`SystemLabel`]s. Each system is implicitly labeled with
-//!   its `fn` type, and custom labels may be added by calling `.label()`.
+//!   its `fn` type, and custom labels may be added by calling `.in_set()`.
 //!
 //! [`SystemLabel`]: crate::schedule::SystemLabel
 //!

@@ -58,8 +58,8 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<ScanCode>>()
             .add_system(
                 keyboard_input_system
-                    .label(InputSystem)
-                    .label(CoreSet::PreUpdate),
+                    .in_set(InputSystem)
+                    .in_set(CoreSet::PreUpdate),
             )
             // mouse
             .add_event::<MouseButtonInput>()
@@ -68,8 +68,8 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<MouseButton>>()
             .add_system(
                 mouse_button_input_system
-                    .label(InputSystem)
-                    .label(CoreSet::PreUpdate),
+                    .in_set(InputSystem)
+                    .in_set(CoreSet::PreUpdate),
             )
             // gamepad
             .add_event::<GamepadConnectionEvent>()
@@ -87,16 +87,16 @@ impl Plugin for InputPlugin {
                     .with_system(gamepad_button_event_system.after(gamepad_event_system))
                     .with_system(gamepad_axis_event_system.after(gamepad_event_system))
                     .with_system(gamepad_connection_system.after(gamepad_event_system))
-                    .label(InputSystem)
-                    .label(CoreSet::PreUpdate),
+                    .in_set(InputSystem)
+                    .in_set(CoreSet::PreUpdate),
             )
             // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
             .add_system(
                 touch_screen_input_system
-                    .label(InputSystem)
-                    .label(CoreSet::PreUpdate),
+                    .in_set(InputSystem)
+                    .in_set(CoreSet::PreUpdate),
             );
 
         // Register common types

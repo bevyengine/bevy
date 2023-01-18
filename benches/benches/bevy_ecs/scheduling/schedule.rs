@@ -104,12 +104,12 @@ pub fn build_schedule(criterion: &mut Criterion) {
         group.bench_function(format!("{graph_size}_schedule"), |bencher| {
             bencher.iter(|| {
                 let mut app = App::new();
-                app.add_system(empty_system.label(DummyLabel));
+                app.add_system(empty_system.in_set(DummyLabel));
 
                 // Build a fully-connected dependency graph describing the One True Ordering.
                 // Not particularly realistic but this can be refined later.
                 for i in 0..graph_size {
-                    let mut sys = empty_system.label(labels[i]).before(DummyLabel);
+                    let mut sys = empty_system.in_set(labels[i]).before(DummyLabel);
                     for label in labels.iter().take(i) {
                         sys = sys.after(*label);
                     }
