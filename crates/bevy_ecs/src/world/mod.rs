@@ -2262,8 +2262,6 @@ mod tests {
 
         let resource = world.non_send_resource::<TestFromWorld>();
 
-        println!("{}", resource.0);
-
         assert_eq!(resource.0, 0);
     }
 
