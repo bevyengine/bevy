@@ -76,19 +76,14 @@ impl Node for UiPassNode {
         } else {
             input_view_entity
         };
-        let pass_descriptor = RenderPassDescriptor {
+        let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("ui_pass"),
             color_attachments: &[Some(target.get_unsampled_color_attachment(Operations {
                 load: LoadOp::Load,
                 store: true,
             }))],
             depth_stencil_attachment: None,
-        };
-
-        let render_pass = render_context
-            .command_encoder
-            .begin_render_pass(&pass_descriptor);
-        let mut render_pass = TrackedRenderPass::new(render_pass);
+        });
 
         transparent_phase.render(&mut render_pass, world, view_entity);
 

@@ -130,15 +130,14 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 mod tests {
     use std::any::TypeId;
 
-    use crate::prelude::StageLabel;
-
     use crate::{
         self as bevy_ecs,
         archetype::{ArchetypeComponentId, Archetypes},
         bundle::Bundles,
+        change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
-        prelude::AnyOf,
+        prelude::{AnyOf, StageLabel},
         query::{Added, Changed, Or, With, Without},
         schedule::{Schedule, Stage, SystemStage},
         system::{
@@ -1201,5 +1200,16 @@ mod tests {
                 rq.get_component_mut::<W<u32>>(entity).unwrap_err(),
             );
         });
+    }
+
+    #[test]
+    #[should_panic = "Attempted to use bevy_ecs::query::state::QueryState<()> with a mismatched World."]
+    fn query_validates_world_id() {
+        let mut world1 = World::new();
+        let world2 = World::new();
+        let qstate = world1.query::<()>();
+        // SAFETY: doesnt access anything
+        let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
+        query.iter();
     }
 }
