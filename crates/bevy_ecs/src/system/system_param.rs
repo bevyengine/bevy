@@ -256,6 +256,11 @@ pub unsafe trait SystemParam: Sized {
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
+/// # Safety
+///
+/// The implementor must ensure that [`OptionalSystemParam::init_state`] correctly registers all
+/// [`World`] accesses used by this [`OptionalSystemParam`] with the provided [`system_meta`](SystemMeta).
 pub unsafe trait OptionalSystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
@@ -405,6 +410,11 @@ unsafe impl<T: OptionalSystemParam> SystemParam for Option<T> {
 ///
 /// # bevy_ecs::system::assert_is_system(my_system);
 /// ```
+///
+/// # Safety
+///
+/// The implementor must ensure that [`ResultfulSystemParam::init_state`] correctly registers all
+/// [`World`] accesses used by this [`ResultfulSystemParam`] with the provided [`system_meta`](SystemMeta).
 pub unsafe trait ResultfulSystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
