@@ -52,6 +52,7 @@ impl Plugin for ViewPlugin {
 }
 
 /// Configuration component for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
+/// Note that having multiple cameras with different Msaa's rendering to the same target will cause an error.
 #[derive(Component, Clone, Reflect, PartialEq, Eq, Debug)]
 #[reflect(Component)]
 pub struct Msaa {
