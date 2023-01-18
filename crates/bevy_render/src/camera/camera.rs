@@ -16,6 +16,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     system::{Commands, Query, Res},
 };
+use bevy_log::warn;
 use bevy_math::{Mat4, Ray, UVec2, UVec4, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
@@ -538,15 +539,18 @@ pub struct TemporalJitter {
 
 impl TemporalJitter {
     pub fn jitter_projection(&self, projection: &mut Mat4, view_size: Vec2) {
-        let mut translation = 2.0 * self.offset / view_size;
-        translation.y *= -1.0;
-
-        let translation = Mat4::from_translation(Vec3 {
-            x: translation.x,
-            y: translation.y,
-            z: 0.0,
-        });
-
-        *projection = translation * *projection;
+        if projection.w_axis.w == 1.0 {
+            warn!(
+                "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
+            );
+        } else {
+            let jitter = (2.0 * self.offset) / view_size;
+            let jitter_matrix = Mat4::from_translation(Vec3 {
+                x: jitter.x,
+                y: -jitter.y,
+                z: 0.0,
+            });
+            *projection = jitter_matrix * (*projection);
+        }
     }
 }
