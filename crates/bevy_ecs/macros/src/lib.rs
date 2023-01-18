@@ -524,21 +524,6 @@ pub fn derive_world_query(input: TokenStream) -> TokenStream {
     derive_world_query_impl(ast)
 }
 
-/// Generates an impl of the `SystemLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[system_label(ignore_fields)]`.
-#[proc_macro_derive(SystemLabel, attributes(system_label))]
-pub fn derive_system_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("SystemLabel").into());
-    derive_label(input, &trait_path, "system_label")
-}
-
 /// Generates an impl of the `RunCriteriaLabel` trait.
 ///
 /// This works only for unit structs, or enums with only unit variants.

@@ -847,7 +847,7 @@ mod test {
         asset_server.add_loader(FakePngLoader);
         let assets = asset_server.register_asset_type::<PngAsset>();
 
-        #[derive(SystemLabel, Clone, Hash, Debug, PartialEq, Eq)]
+        #[derive(SystemSet, Clone, Hash, Debug, PartialEq, Eq)]
         struct FreeUnusedAssets;
         let mut app = App::new();
         app.insert_resource(assets);

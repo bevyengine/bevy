@@ -65,10 +65,10 @@ pub fn build_schedule(criterion: &mut Criterion) {
     // doesn't somehow get optimized away.
     #[derive(Debug, Clone, Copy)]
     struct NumLabel(usize);
-    #[derive(Debug, Clone, Copy, SystemLabel)]
+    #[derive(Debug, Clone, Copy, SystemSet)]
     struct DummyLabel;
 
-    impl SystemLabel for NumLabel {
+    impl SystemSet for NumLabel {
         fn as_str(&self) -> &'static str {
             let s = self.0.to_string();
             Box::leak(s.into_boxed_str())

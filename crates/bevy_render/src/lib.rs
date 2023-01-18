@@ -64,7 +64,7 @@ pub struct RenderPlugin {
 }
 
 /// The labels of the default App rendering stages.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
     /// Extract data from the "app world" and insert it into the "render world".
     /// This step should be kept as short as possible to increase the "pipelining potential" for

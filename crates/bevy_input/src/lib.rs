@@ -22,7 +22,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel, SystemSet};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemSet, SystemSet};
 use bevy_reflect::{FromReflect, Reflect};
 use keyboard::{keyboard_input_system, KeyCode, KeyboardInput, ScanCode};
 use mouse::{
@@ -46,7 +46,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[derive(Default)]
 pub struct InputPlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 pub struct InputSystem;
 
 impl Plugin for InputPlugin {

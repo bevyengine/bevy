@@ -289,7 +289,7 @@ pub struct NotShadowCaster;
 #[reflect(Component, Default)]
 pub struct NotShadowReceiver;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
     AddClusters,
     AssignLightsToClusters,

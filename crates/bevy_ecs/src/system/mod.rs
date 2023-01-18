@@ -42,10 +42,10 @@
 //! - **System Stages:** They determine hard execution synchronization boundaries inside of
 //!   which systems run in parallel by default.
 //! - **Labels:** Systems may be ordered within a stage using the methods `.before()` and `.after()`,
-//!   which order systems based on their [`SystemLabel`]s. Each system is implicitly labeled with
+//!   which order systems based on their [`SystemSet`]s. Each system is implicitly labeled with
 //!   its `fn` type, and custom labels may be added by calling `.in_set()`.
 //!
-//! [`SystemLabel`]: crate::schedule::SystemLabel
+//! [`SystemSet`]: crate::schedule::SystemSet
 //!
 //! ## Example
 //!

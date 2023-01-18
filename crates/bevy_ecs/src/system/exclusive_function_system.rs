@@ -3,10 +3,10 @@ use crate::{
     change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     query::Access,
-    schedule::{SystemLabel, SystemLabelId},
+    schedule::{SystemSet, SystemSetId},
     system::{
-        check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamItem,
-        In, InputMarker, IntoSystem, System, SystemMeta, SystemTypeIdLabel,
+        check_system_change_tick, AsSystemSet, ExclusiveSystemParam, ExclusiveSystemParamItem, In,
+        InputMarker, IntoSystem, System, SystemMeta, SystemTypeIdLabel,
     },
     world::{World, WorldId},
 };
@@ -161,14 +161,14 @@ where
     }
 }
 
-impl<In, Out, Param, Marker, T> AsSystemLabel<(In, Out, Param, Marker, IsExclusiveFunctionSystem)>
+impl<In, Out, Param, Marker, T> AsSystemSet<(In, Out, Param, Marker, IsExclusiveFunctionSystem)>
     for T
 where
     Param: ExclusiveSystemParam,
     T: ExclusiveSystemParamFunction<In, Out, Param, Marker>,
 {
     #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
+    fn as_system_label(&self) -> SystemSetId {
         SystemTypeIdLabel::<T>(PhantomData).as_label()
     }
 }

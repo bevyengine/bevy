@@ -23,7 +23,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::{IntoSystemDescriptor, SystemLabel};
+use bevy_ecs::schedule::{IntoSystemDescriptor, SystemSet};
 use std::path::PathBuf;
 
 impl Default for WindowPlugin {
@@ -131,5 +131,5 @@ impl Plugin for WindowPlugin {
     }
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct ModifiesWindows;

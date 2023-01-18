@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use bevy_ecs::prelude::*;
+use bevy_ecs::schedule::SystemLabel;
 
 fn main() {
     // Unit labels are always equal.

@@ -4,7 +4,7 @@ use crate::{
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::{SystemLabel, SystemLabelId},
+    schedule::{SystemSet, SystemSetId},
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
@@ -529,10 +529,10 @@ where
     }
 }
 
-/// A [`SystemLabel`] that was automatically generated for a system on the basis of its `TypeId`.
+/// A [`SystemSet`] that was automatically generated for a system on the basis of its `TypeId`.
 pub struct SystemTypeIdLabel<T: 'static>(pub(crate) PhantomData<fn() -> T>);
 
-impl<T: 'static> SystemLabel for SystemTypeIdLabel<T> {
+impl<T: 'static> SystemSet for SystemTypeIdLabel<T> {
     #[inline]
     fn as_str(&self) -> &'static str {
         std::any::type_name::<T>()
@@ -679,22 +679,22 @@ all_tuples!(impl_system_function, 0, 16, F);
 
 /// Used to implicitly convert systems to their default labels. For example, it will convert
 /// "system functions" to their [`SystemTypeIdLabel`].
-pub trait AsSystemLabel<Marker> {
-    fn as_system_label(&self) -> SystemLabelId;
+pub trait AsSystemSet<Marker> {
+    fn as_system_label(&self) -> SystemSetId;
 }
 
 impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
-    AsSystemLabel<(In, Out, Param, Marker)> for T
+    AsSystemSet<(In, Out, Param, Marker)> for T
 {
     #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
+    fn as_system_label(&self) -> SystemSetId {
         SystemTypeIdLabel::<T>(PhantomData).as_label()
     }
 }
 
-impl<T: SystemLabel> AsSystemLabel<()> for T {
+impl<T: SystemSet> AsSystemSet<()> for T {
     #[inline]
-    fn as_system_label(&self) -> SystemLabelId {
+    fn as_system_label(&self) -> SystemSetId {
         self.as_label()
     }
 }

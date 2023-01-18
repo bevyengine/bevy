@@ -26,7 +26,7 @@ use bevy_ecs::prelude::*;
 #[derive(Default)]
 pub struct TimePlugin;
 
-#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemLabel)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash, SystemSet)]
 /// Updates the elapsed time. Any system that interacts with [Time] component should run after
 /// this.
 pub struct TimeSystem;

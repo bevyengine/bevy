@@ -22,7 +22,7 @@ impl<T: CameraProjection> Default for CameraProjectionPlugin<T> {
 /// Label for [`camera_system<T>`], shared across all `T`.
 ///
 /// [`camera_system<T>`]: crate::camera::camera_system
-#[derive(SystemLabel, Clone, Eq, PartialEq, Hash, Debug)]
+#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
 pub struct CameraUpdateSystem;
 
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
