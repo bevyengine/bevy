@@ -108,7 +108,7 @@ fn queue_wireframes(
     wireframe_config: Res<WireframeConfig>,
     wireframe_pipeline: Res<WireframePipeline>,
     mut pipelines: ResMut<SpecializedMeshPipelines<WireframePipeline>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     mut material_meshes: ParamSet<(
         Query<(Entity, &Handle<Mesh>, &MeshUniform)>,
@@ -128,7 +128,7 @@ fn queue_wireframes(
                     let key = view_key
                         | MeshPipelineKey::from_primitive_topology(mesh.primitive_topology);
                     let pipeline_id = pipelines.specialize(
-                        &mut pipeline_cache,
+                        &pipeline_cache,
                         &wireframe_pipeline,
                         key,
                         &mesh.layout,

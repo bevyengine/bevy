@@ -35,11 +35,7 @@ To make it easy to reach consensus, hold a high quality bar, and synchronize vis
 
 If you are interested in a Maintainer role and believe you meet these criteria, reach out to one of our Project Leads or Maintainers. One month after every Bevy release Maintainers and Project Leads will evaluate the need for new roles, review candidates, and vote. Bringing in a new Maintainer requires unanimous support from all Project Leads and Maintainers.
 
-Our current Maintainers:
-
-* Alice Cecile (@alice-i-cecile)
-* François Mockers (@mockersf)
-* Rob Swain (@superdump)
+Check out the [Bevy People](https://bevyengine.org/community/people/#the-bevy-organization) page for the current list of maintainers.
 
 ## Subject Matter Expert (SME)
 
@@ -57,9 +53,7 @@ To make it easy to reach consensus, hold a high quality bar, and synchronize vis
 
 If you are interested in a SME role and believe you meet these criteria, reach out to one of our Project Leads or Maintainers. One month after every Bevy release Maintainers and Project Leads will evaluate the need for new roles, review candidates, and vote. Bringing in a new SME requires the support of the Project Leads and half of the Maintainers (however unanimous support is preferred).
 
-Our current Subject Matter Experts:
-
-(Finalizing this list now)
+Check out the [Bevy People](https://bevyengine.org/community/people/#the-bevy-organization) page for the current list of SMEs.
 
 ## Bevy Org Member / Triage Team
 
@@ -67,7 +61,7 @@ Our current Subject Matter Experts:
 
 1. Have actively engaged with Bevy development.
 2. Have demonstrated themselves to be polite and welcoming representatives of the project with an understanding of our goals and direction.
-3. Have asked to join the Bevy Org. Reach out to @cart on [Discord] or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
+3. Have asked to join the Bevy Org. Reach out to @cart on [Discord](https://discord.gg/bevy) or email us at bevyengine@gmail.com if you are interested. Everyone is welcome to do this. We generally accept membership requests, so don't hesitate if you are interested!
 
 All Bevy Org members are also Triage Team members. The Triage Team can label and close issues and PRs but do not have merge rights or any special authority within the community.
 Org members also have the ability to use `bors try`, causing our build system to evaluate the PR again and run additional (more computationally expensive) CI steps to verify that the PR is ready to merge.
