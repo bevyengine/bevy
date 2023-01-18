@@ -52,8 +52,10 @@ pub struct ExtractState<P: SystemParam + 'static> {
     main_world_state: <Res<'static, MainWorld> as SystemParam>::State,
 }
 
-// SAFETY: only accesses MainWorld resource with read only system params using Res,
-// which is initialized in init()
+// SAFETY: The only `World` access (`Res<MainWorld>`) is read-only.
+unsafe impl<P> ReadOnlySystemParam for Extract<'_, '_, P> where P: ReadOnlySystemParam {}
+
+// SAFETY: The only `World` access is properly registered by `Res<MainWorld>::init_state`.
 unsafe impl<P> SystemParam for Extract<'_, '_, P>
 where
     P: ReadOnlySystemParam,

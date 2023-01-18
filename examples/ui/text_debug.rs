@@ -54,7 +54,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 color: Color::rgb(0.8, 0.2, 0.7),
             },
         )
-        .with_text_alignment(TextAlignment::CENTER)
+        .with_text_alignment(TextAlignment::Center)
         .with_style(Style {
             position_type: PositionType::Absolute,
             position: UiRect {

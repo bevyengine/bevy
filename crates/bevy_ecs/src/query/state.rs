@@ -140,7 +140,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     /// Takes a query for the given [`World`], checks if the given world is the same as the query, and
-    /// updates the [`QueryState`] with any newly-added archetypes.
+    /// updates the [`QueryState`]'s view of the [`World`] with any newly-added archetypes.
     ///
     /// # Panics
     ///
