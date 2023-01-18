@@ -5,7 +5,7 @@ use bevy_ecs::{
     prelude::FromWorld,
     schedule::{
         apply_system_buffers, BoxedScheduleLabel, IntoSystemConfig, IntoSystemConfigs, Schedule,
-        ScheduleLabel, Schedules,
+        ScheduleLabel, Schedules, States,
     },
     system::Resource,
     world::World,
@@ -228,7 +228,7 @@ impl App {
     /// Applies the function to the [`Schedule`] associated with `label`.
     ///
     /// **Note:** This will create the schedule if it does not already exist.
-    fn edit_schedule(
+    pub fn edit_schedule(
         &mut self,
         label: impl ScheduleLabel,
         f: impl FnMut(&mut Schedule),
@@ -249,7 +249,7 @@ impl App {
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant, and an instance of [`apply_state_transition::<S>`] in
     /// \<insert-`bevy_core`-set-name\> so that transitions happen before `Update`.
-    fn add_state<S: States>(&mut self) -> &mut Self;
+    pub fn add_state<S: States>(&mut self) -> &mut Self;
 
     /// Adds a system to the default system set and schedule of the app's [`Schedules`].
     ///
