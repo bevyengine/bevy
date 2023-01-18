@@ -71,7 +71,7 @@ unsafe impl ResultfulSystemParam for AverageScore {
     }
 }
 
-// Since the system param only reads the query, it can be marked read-only.
+// SAFETY: since the system param only reads the query, it can be marked read-only to enable shared access.
 unsafe impl ReadOnlySystemParam for AverageScore {}
 
 #[derive(Debug)]
