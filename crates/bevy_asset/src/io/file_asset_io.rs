@@ -60,10 +60,14 @@ impl FileAssetIo {
     /// Returns the base path of the assets directory, which is normally the executable's parent
     /// directory.
     ///
-    /// If the `CARGO_MANIFEST_DIR` environment variable is set, then its value will be used
+    /// If a `BEVY_ASSET_ROOT` environment variable is set, then its value will be used.
+    ///
+    /// Else if the `CARGO_MANIFEST_DIR` environment variable is set, then its value will be used
     /// instead. It's set by cargo when running with `cargo run`.
     pub fn get_base_path() -> PathBuf {
-        if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        if let Ok(env_bevy_asset_root) = env::var("BEVY_ASSET_ROOT") {
+            PathBuf::from(env_bevy_asset_root)
+        } else if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
             PathBuf::from(manifest_dir)
         } else {
             env::current_exe()

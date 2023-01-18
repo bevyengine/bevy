@@ -5,14 +5,14 @@ use thread_local::ThreadLocal;
 use crate::{
     entity::Entities,
     prelude::World,
-    system::{SystemParam, SystemParamFetch, SystemParamState},
+    system::{SystemMeta, SystemParam},
 };
 
 use super::{CommandQueue, Commands};
 
+/// The internal [`SystemParam`] state of the [`ParallelCommands`] type
 #[doc(hidden)]
 #[derive(Default)]
-/// The internal [`SystemParamState`] of the [`ParallelCommands`] type
 pub struct ParallelCommandsState {
     thread_local_storage: ThreadLocal<Cell<CommandQueue>>,
 }
@@ -48,35 +48,34 @@ pub struct ParallelCommands<'w, 's> {
     entities: &'w Entities,
 }
 
-impl SystemParam for ParallelCommands<'_, '_> {
-    type Fetch = ParallelCommandsState;
-}
+// SAFETY: no component or resource access to report
+unsafe impl SystemParam for ParallelCommands<'_, '_> {
+    type State = ParallelCommandsState;
+    type Item<'w, 's> = ParallelCommands<'w, 's>;
 
-impl<'w, 's> SystemParamFetch<'w, 's> for ParallelCommandsState {
-    type Item = ParallelCommands<'w, 's>;
+    fn init_state(_: &mut World, _: &mut crate::system::SystemMeta) -> Self::State {
+        ParallelCommandsState::default()
+    }
 
-    unsafe fn get_param(
-        state: &'s mut Self,
+    fn apply(state: &mut Self::State, _system_meta: &SystemMeta, world: &mut World) {
+        #[cfg(feature = "trace")]
+        let _system_span =
+            bevy_utils::tracing::info_span!("system_commands", name = _system_meta.name())
+                .entered();
+        for cq in &mut state.thread_local_storage {
+            cq.get_mut().apply(world);
+        }
+    }
+
+    unsafe fn get_param<'w, 's>(
+        state: &'s mut Self::State,
         _: &crate::system::SystemMeta,
         world: &'w World,
         _: u32,
-    ) -> Self::Item {
+    ) -> Self::Item<'w, 's> {
         ParallelCommands {
             state,
             entities: world.entities(),
-        }
-    }
-}
-
-// SAFETY: no component or resource access to report
-unsafe impl SystemParamState for ParallelCommandsState {
-    fn init(_: &mut World, _: &mut crate::system::SystemMeta) -> Self {
-        Self::default()
-    }
-
-    fn apply(&mut self, world: &mut World) {
-        for cq in &mut self.thread_local_storage {
-            cq.get_mut().apply(world);
         }
     }
 }

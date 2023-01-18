@@ -14,6 +14,7 @@ pub mod query;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 pub mod schedule;
+pub mod schedule_v3;
 pub mod storage;
 pub mod system;
 pub mod world;
@@ -28,7 +29,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         bundle::Bundle,
-        change_detection::DetectChanges,
+        change_detection::{DetectChanges, DetectChangesMut},
         component::Component,
         entity::Entity,
         event::{EventReader, EventWriter, Events},
@@ -38,9 +39,10 @@ pub mod prelude {
             Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
         },
         system::{
-            adapter as system_adapter, Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend,
-            NonSendMut, ParallelCommands, ParamSet, Query, RemovedComponents, Res, ResMut,
-            Resource, System, SystemParamFunction,
+            adapter as system_adapter,
+            adapter::{dbg, error, ignore, info, unwrap, warn},
+            Commands, In, IntoPipeSystem, IntoSystem, Local, NonSend, NonSendMut, ParallelCommands,
+            ParamSet, Query, RemovedComponents, Res, ResMut, Resource, System, SystemParamFunction,
         },
         world::{FromWorld, Mut, World},
     };
@@ -965,6 +967,90 @@ mod tests {
     }
 
     #[test]
+    fn changed_trackers_sparse() {
+        let mut world = World::default();
+        let e1 = world.spawn(SparseStored(0)).id();
+        let e2 = world.spawn(SparseStored(0)).id();
+        let e3 = world.spawn(SparseStored(0)).id();
+        world.spawn(SparseStored(0));
+
+        world.clear_trackers();
+
+        for (i, mut a) in world
+            .query::<&mut SparseStored>()
+            .iter_mut(&mut world)
+            .enumerate()
+        {
+            if i % 2 == 0 {
+                a.0 += 1;
+            }
+        }
+
+        fn get_filtered<F: ReadOnlyWorldQuery>(world: &mut World) -> Vec<Entity> {
+            world
+                .query_filtered::<Entity, F>()
+                .iter(world)
+                .collect::<Vec<Entity>>()
+        }
+
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            vec![e1, e3]
+        );
+
+        // ensure changing an entity's archetypes also moves its changed state
+        world.entity_mut(e1).insert(C);
+
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e3, e1], "changed entities list should not change (although the order will due to archetype moves)");
+
+        // spawning a new SparseStored entity should not change existing changed state
+        world.entity_mut(e1).insert(SparseStored(0));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            vec![e3, e1],
+            "changed entities list should not change"
+        );
+
+        // removing an unchanged entity should not change changed state
+        assert!(world.despawn(e2));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            vec![e3, e1],
+            "changed entities list should not change"
+        );
+
+        // removing a changed entity should remove it from enumeration
+        assert!(world.despawn(e1));
+        assert_eq!(
+            get_filtered::<Changed<SparseStored>>(&mut world),
+            vec![e3],
+            "e1 should no longer be returned"
+        );
+
+        world.clear_trackers();
+
+        assert!(get_filtered::<Changed<SparseStored>>(&mut world).is_empty());
+
+        let e4 = world.spawn_empty().id();
+
+        world.entity_mut(e4).insert(SparseStored(0));
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
+        assert_eq!(get_filtered::<Added<SparseStored>>(&mut world), vec![e4]);
+
+        world.entity_mut(e4).insert(A(1));
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
+
+        world.clear_trackers();
+
+        // ensure inserting multiple components set changed state for all components and set added
+        // state for non existing components even when changing archetype.
+        world.entity_mut(e4).insert(SparseStored(0));
+
+        assert!(get_filtered::<Added<SparseStored>>(&mut world).is_empty());
+        assert_eq!(get_filtered::<Changed<SparseStored>>(&mut world), vec![e4]);
+    }
+
+    #[test]
     fn empty_spawn() {
         let mut world = World::default();
         let e = world.spawn_empty().id();
@@ -1133,7 +1219,7 @@ mod tests {
     }
 
     #[test]
-    fn remove_bundle() {
+    fn remove() {
         let mut world = World::default();
         world.spawn((A(1), B(1), TableStored("1")));
         let e2 = world.spawn((A(2), B(2), TableStored("2"))).id();
@@ -1184,6 +1270,15 @@ mod tests {
         world.insert_non_send_resource(456i64);
         assert_eq!(*world.non_send_resource::<i32>(), 123);
         assert_eq!(*world.non_send_resource_mut::<i64>(), 456);
+    }
+
+    #[test]
+    fn non_send_resource_points_to_distinct_data() {
+        let mut world = World::default();
+        world.insert_resource(A(123));
+        world.insert_non_send_resource(A(456));
+        assert_eq!(*world.resource::<A>(), A(123));
+        assert_eq!(*world.non_send_resource::<A>(), A(456));
     }
 
     #[test]
@@ -1326,35 +1421,29 @@ mod tests {
     }
 
     #[test]
-    fn non_send_resource_scope() {
-        let mut world = World::default();
-        world.insert_non_send_resource(NonSendA::default());
-        world.resource_scope(|world: &mut World, mut value: Mut<NonSendA>| {
-            value.0 += 1;
-            assert!(!world.contains_resource::<NonSendA>());
-        });
-        assert_eq!(world.non_send_resource::<NonSendA>().0, 1);
-    }
-
-    #[test]
     #[should_panic(
-        expected = "attempted to access NonSend resource bevy_ecs::tests::NonSendA off of the main thread"
+        expected = "Attempted to access or drop non-send resource bevy_ecs::tests::NonSendA from thread"
     )]
-    fn non_send_resource_scope_from_different_thread() {
+    fn non_send_resource_drop_from_different_thread() {
         let mut world = World::default();
         world.insert_non_send_resource(NonSendA::default());
 
         let thread = std::thread::spawn(move || {
-            // Accessing the non-send resource on a different thread
+            // Dropping the non-send resource on a different thread
             // Should result in a panic
-            world.resource_scope(|_: &mut World, mut value: Mut<NonSendA>| {
-                value.0 += 1;
-            });
+            drop(world);
         });
 
         if let Err(err) = thread.join() {
             std::panic::resume_unwind(err);
         }
+    }
+
+    #[test]
+    fn non_send_resource_drop_from_same_thread() {
+        let mut world = World::default();
+        world.insert_non_send_resource(NonSendA::default());
+        drop(world);
     }
 
     #[test]
@@ -1470,9 +1559,7 @@ mod tests {
         world_a.flush();
 
         let world_a_max_entities = world_a.entities().len();
-        world_b
-            .entities
-            .reserve_entities(world_a_max_entities as u32);
+        world_b.entities.reserve_entities(world_a_max_entities);
         world_b.entities.flush_as_invalid();
 
         let e4 = world_b.spawn(A(4)).id();

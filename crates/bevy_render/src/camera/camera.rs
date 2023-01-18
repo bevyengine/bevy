@@ -86,8 +86,8 @@ pub struct ComputedCameraValues {
 pub struct Camera {
     /// If set, this camera will render to the given [`Viewport`] rectangle within the configured [`RenderTarget`].
     pub viewport: Option<Viewport>,
-    /// Cameras with a lower priority will be rendered before cameras with a higher priority.
-    pub priority: isize,
+    /// Cameras with a higher order are rendered later, and thus on top of lower order cameras.
+    pub order: isize,
     /// If this is set to `true`, this camera will be rendered to its specified [`RenderTarget`]. If `false`, this
     /// camera will not be rendered.
     pub is_active: bool,
@@ -109,7 +109,7 @@ impl Default for Camera {
     fn default() -> Self {
         Self {
             is_active: true,
-            priority: 0,
+            order: 0,
             viewport: None,
             computed: Default::default(),
             target: Default::default(),
@@ -246,6 +246,25 @@ impl Camera {
             origin: world_near_plane,
             direction: (world_far_plane - world_near_plane).normalize(),
         })
+    }
+
+    /// Returns a 2D world position computed from a position on this [`Camera`]'s viewport.
+    ///
+    /// Useful for 2D cameras and other cameras with an orthographic projection pointing along the Z axis.
+    ///
+    /// To get the world space coordinates with Normalized Device Coordinates, you should use
+    /// [`ndc_to_world`](Self::ndc_to_world).
+    pub fn viewport_to_world_2d(
+        &self,
+        camera_transform: &GlobalTransform,
+        viewport_position: Vec2,
+    ) -> Option<Vec2> {
+        let target_size = self.logical_viewport_size()?;
+        let ndc = viewport_position * 2. / target_size - Vec2::ONE;
+
+        let world_near_plane = self.ndc_to_world(camera_transform, ndc.extend(1.))?;
+
+        Some(world_near_plane.truncate())
     }
 
     /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
@@ -477,7 +496,7 @@ pub struct ExtractedCamera {
     pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
     pub render_graph: Cow<'static, str>,
-    pub priority: isize,
+    pub order: isize,
 }
 
 pub fn extract_cameras(
@@ -511,7 +530,7 @@ pub fn extract_cameras(
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),
                     render_graph: camera_render_graph.0.clone(),
-                    priority: camera.priority,
+                    order: camera.order,
                 },
                 ExtractedView {
                     projection: camera.projection_matrix(),
