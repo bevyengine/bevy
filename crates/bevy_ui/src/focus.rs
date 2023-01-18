@@ -268,7 +268,7 @@ pub fn ui_focus_system(
                         // in which case we should use the default behaviour
                         let interaction_policy = node
                             .interaction_policy
-                            .map(|interaction_policy| *interaction_policy)
+                            .copied()
                             .unwrap_or_default();
 
                         if *interaction == Interaction::Hovered
