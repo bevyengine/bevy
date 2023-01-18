@@ -286,6 +286,7 @@ pub struct RenderContext {
 }
 
 impl RenderContext {
+    /// Creates a new [`RenderContext`] from a [`RenderDevice`].
     pub fn new(render_device: RenderDevice) -> Self {
         Self {
             render_device,
@@ -294,10 +295,12 @@ impl RenderContext {
         }
     }
 
+    /// Gets the underlying [`RenderDevice`].
     pub fn render_device(&self) -> &RenderDevice {
         &self.render_device
     }
 
+    /// Gets the current [`CommandEncoder`].
     pub fn command_encoder(&mut self) -> &mut CommandEncoder {
         if self.command_encoder.is_none() {
             self.command_encoder = Some(
@@ -329,11 +332,17 @@ impl RenderContext {
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
 
+    /// Append a [`CommandBuffer`] to the queue.
+    ///
+    /// If present, this will flush the currently unflushed [`CommandEncoder`]
+    /// into a [`CommandBuffer`] into the queue before append the provided 
+    /// buffer.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
         self.flush_encoder();
         self.command_buffers.push(command_buffer);
     }
 
+    /// Finalizes the queue and returns the queue of [`CommandBuffer`]s.
     pub fn finish(mut self) -> Vec<CommandBuffer> {
         self.flush_encoder();
         self.command_buffers
