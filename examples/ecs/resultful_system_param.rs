@@ -3,7 +3,7 @@
 //! This is fairly advanced and the [`SystemParam`] derive macro can be used in many cases.
 
 use bevy::{
-    ecs::system::{ResultfulSystemParam, SystemParam, ReadOnlySystemParam},
+    ecs::system::{ReadOnlySystemParam, ResultfulSystemParam, SystemParam},
     prelude::*,
 };
 
