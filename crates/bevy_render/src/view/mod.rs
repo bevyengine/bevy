@@ -52,7 +52,7 @@ impl Plugin for ViewPlugin {
 }
 
 /// Configuration component for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
-#[derive(Component, Clone, Reflect)]
+#[derive(Component, Clone, Reflect, PartialEq, Eq, Debug)]
 #[reflect(Component)]
 pub struct Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in

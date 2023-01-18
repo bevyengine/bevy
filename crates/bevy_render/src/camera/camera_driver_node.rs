@@ -1,3 +1,4 @@
+use crate::prelude::Msaa;
 use crate::{
     camera::{ExtractedCamera, RenderTarget},
     render_graph::{Node, NodeRunError, RenderGraphContext, SlotValue},
@@ -5,11 +6,13 @@ use crate::{
     view::ExtractedWindows,
 };
 use bevy_ecs::{entity::Entity, prelude::QueryState, world::World};
+use bevy_utils::hashbrown::hash_map::OccupiedError;
+use bevy_utils::HashMap;
 use bevy_utils::{tracing::warn, HashSet};
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor};
 
 pub struct CameraDriverNode {
-    cameras: QueryState<(Entity, &'static ExtractedCamera)>,
+    cameras: QueryState<(Entity, &'static ExtractedCamera, &'static Msaa)>,
 }
 
 impl CameraDriverNode {
@@ -33,8 +36,28 @@ impl Node for CameraDriverNode {
         let mut sorted_cameras = self
             .cameras
             .iter_manual(world)
-            .map(|(e, c)| (e, c.order, c.target.clone()))
+            .map(|(e, c, _)| (e, c.order, c.target.clone()))
             .collect::<Vec<_>>();
+
+        // make sure all cameras on the same target have the same `Msaa`
+        let mut target_msaas = HashMap::new();
+        for (_, cam, msaa) in self.cameras.iter_manual(world) {
+            if let Err(OccupiedError { entry, value }) =
+                target_msaas.try_insert(cam.target.clone(), msaa)
+            {
+                if *entry.get() != value {
+                    // there is another camera with a different Msaa on the same target
+                    warn!(
+                        "There are multiple cameras with different `Msaa`s: ({:?}, {:?}) \
+                        on the same target: {:?}",
+                        entry.get(),
+                        value,
+                        entry.key()
+                    );
+                }
+            }
+        }
+
         // sort by order and ensure within an order, RenderTargets of the same type are packed together
         sorted_cameras.sort_by(|(_, p1, t1), (_, p2, t2)| match p1.cmp(p2) {
             std::cmp::Ordering::Equal => t1.cmp(t2),
@@ -51,7 +74,7 @@ impl Node for CameraDriverNode {
                 }
             }
             previous_order_target = Some(new_order_target);
-            if let Ok((_, camera)) = self.cameras.get_manual(world, entity) {
+            if let Ok((_, camera, _)) = self.cameras.get_manual(world, entity) {
                 if let RenderTarget::Window(id) = camera.target {
                     camera_windows.insert(id);
                 }
