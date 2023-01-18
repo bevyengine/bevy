@@ -68,6 +68,7 @@ pub struct RenderToMainAppReceiver(pub Receiver<SubApp>);
 /// - Once both the `main app schedule` and the `render schedule` are finished running, `extract` is run again.
 #[derive(Default)]
 pub struct PipelinedRenderingPlugin;
+
 impl Plugin for PipelinedRenderingPlugin {
     fn build(&self, app: &mut App) {
         // Don't add RenderExtractApp if RenderApp isn't initialized.
@@ -96,7 +97,7 @@ impl Plugin for PipelinedRenderingPlugin {
 
         let mut render_app = app
             .remove_sub_app(RenderApp)
-            .expect("Unable to get RenderApp. Another plugin may have remove the RenderApp before PipelinedRenderingPlugin");
+            .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
 
         // clone main thread executor to render world
         let executor = app.world.get_resource::<MainThreadExecutor>().unwrap();
@@ -130,7 +131,7 @@ impl Plugin for PipelinedRenderingPlugin {
     }
 }
 
-// This function waits for the rendering world to be sent back,
+// This function waits for the rendering world to be received,
 // runs extract, and then sends the rendering world back to the render thread.
 fn update_rendering(app_world: &mut World, _sub_app: &mut App) {
     app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
