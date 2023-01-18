@@ -2,6 +2,8 @@ use proc_macro::TokenStream;
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{__private::Span, spanned::Spanned, DataEnum};
 
+use crate::paths;
+
 pub fn parse_iterable_enum_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse_macro_input!(input as syn::DeriveInput);
 
@@ -18,8 +20,10 @@ pub fn parse_iterable_enum_derive(input: TokenStream) -> TokenStream {
         },
     };
 
+    let iterable_enum = paths::iterable_enum_path();
+
     quote! {
-        impl #impl_generics bevy_utils::IterableEnum for #name #ty_generics #where_clause {
+        impl #impl_generics #iterable_enum for #name #ty_generics #where_clause {
             #get_at
         }
     }

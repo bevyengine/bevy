@@ -16,7 +16,7 @@ pub trait IterableEnum: Sized {
 }
 
 /// An iterator over `IterableEnum`s
-/// 
+///
 /// Iterates all `Unit` fields in numeric order
 pub struct EnumIterator<E: IterableEnum> {
     accelerator: usize,
