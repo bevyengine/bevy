@@ -325,12 +325,14 @@ impl<'w, T: Resource> Res<'w, T> {
 
     /// Returns `true` if the resource was added after the system last ran.
     pub fn is_added(&self) -> bool {
+        // TODO: update with PartialEq? match on T:CHANGE_DETECTION_MODE
         self.added
             .is_older_than(self.last_change_tick, self.change_tick)
     }
 
     /// Returns `true` if the resource was added or mutably dereferenced after the system last ran.
     pub fn is_changed(&self) -> bool {
+        // TODO: update with PartialEq? match on T:CHANGE_DETECTION_MODE
         self.changed
             .is_older_than(self.last_change_tick, self.change_tick)
     }

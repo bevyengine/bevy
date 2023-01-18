@@ -174,10 +174,19 @@ macro_rules! change_detection_impl {
 
             #[inline]
             fn set_changed(&mut self) {
-                if matches!($mode, ChangeDetectionMode::Disabled) {
-                    self.ticks
-                        .changed
-                        .set_changed(self.ticks.change_tick);
+                match $mode {
+                    ChangeDetectionMode::DerefMut => {
+                        self.ticks
+                            .changed
+                            .set_changed(self.ticks.change_tick);
+                    },
+                    ChangeDetectionMode::PartialEq | ChangeDetectionMode::Eq => {
+                        self.ticks
+                            .changed
+                            .set_changed(self.ticks.change_tick);
+                        self.last_value = Some(self.value)
+                    }
+                    ChangeDetectionMode::Disabled => {}
                 }
             }
 
@@ -399,7 +408,7 @@ pub struct NonSendMut<'a, T: ?Sized + 'static> {
     pub(crate) ticks: Ticks<'a>,
     /// Store the value of the data in the last_change tick, only used when
     /// ChangeDetectionMode is PartialEq or Eq
-    pub(crate) last_value: &'a mut T
+    pub(crate) last_value: Option<&'a mut T>
 }
 
 change_detection_impl!(NonSendMut<'a, T>, T, true,);
@@ -424,7 +433,7 @@ pub struct Mut<'a, T: ?Sized> {
     pub(crate) ticks: Ticks<'a>,
     /// Store the value of the data in the last changed or added tick, only used when
     /// ChangeDetectionMode is PartialEq or Eq
-    pub(crate) last_value: &'a mut T
+    pub(crate) last_value: Option<&'a mut T>
 
 }
 

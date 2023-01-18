@@ -951,6 +951,7 @@ pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
+    pub(crate) last_value: Option<T>,
     marker: PhantomData<T>,
 }
 
@@ -960,6 +961,7 @@ impl<T: Component> Clone for ChangeTrackers<T> {
             component_ticks: self.component_ticks,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
+            last_value: self.last_value,
             marker: PhantomData,
         }
     }
@@ -1003,6 +1005,7 @@ pub struct ChangeTrackersFetch<'w, T> {
     // T::Storage = TableStorage
     table_added: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
     table_changed: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
+    table_data: Option<ThinSlicePtr<'w, UnsafeCell<Tick>>>,
     // T::Storage = SparseStorage
     sparse_set: Option<&'w ComponentSparseSet>,
 
@@ -1040,6 +1043,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         ChangeTrackersFetch {
             table_added: None,
             table_changed: None,
+            table_data: None,
             sparse_set: (T::Storage::STORAGE_TYPE == StorageType::SparseSet).then(|| {
                 world
                     .storages()
@@ -1057,6 +1061,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
         ChangeTrackersFetch {
             table_added: fetch.table_added,
             table_changed: fetch.table_changed,
+            table_data: fetch.table_data,
             sparse_set: fetch.sparse_set,
             marker: fetch.marker,
             last_change_tick: fetch.last_change_tick,
