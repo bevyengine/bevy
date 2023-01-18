@@ -1,9 +1,5 @@
 use bevy_ecs::{
-    component::Component,
-    entity::Entity,
-    prelude::Query,
-    query::{ReadOnlyWorldQuery, WorldQuery},
-    reflect::ReflectComponent,
+    component::Component, entity::Entity, query::WorldQuery, reflect::ReflectComponent,
 };
 use bevy_reflect::Reflect;
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect};
@@ -82,24 +78,21 @@ impl std::fmt::Display for Name {
     }
 }
 
-/// An extension trait for [`Query`] for more user friendly debug information about an entity.
-pub trait DebugNameQueryExt<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> {
-    /// Give the [`Name`] of an entity if it has one, otherwise return the [`Entity`].
-    fn debug_name(&'w self, entity: Entity) -> Box<dyn std::fmt::Debug + 'w>
-    where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Name>;
+/// Convenient query for giving a human friendly name to an entity.
+#[derive(WorldQuery)]
+pub struct DebugName {
+    /// A [`Name`] that the entity might have that is displayed if available.
+    pub name: Option<&'static Name>,
+    /// The unique identifier of the entity as a fallback.
+    pub entity: Entity,
 }
 
-impl<'w, 's, Q: WorldQuery, F: ReadOnlyWorldQuery> DebugNameQueryExt<'w, 's, Q, F>
-    for Query<'w, 's, Q, F>
-{
-    fn debug_name(&'w self, entity: Entity) -> Box<dyn std::fmt::Debug + 'w>
-    where
-        Q::ReadOnly: WorldQuery<Item<'w> = &'w Name>,
-    {
-        match self.get(entity).ok() {
-            Some(name) => Box::new(name.as_str()),
-            None => Box::new(entity),
+impl std::fmt::Debug for DebugName {
+    #[inline(always)]
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self.name {
+            Some(name) => std::fmt::Debug::fmt(&name, f),
+            None => std::fmt::Debug::fmt(&self.entity, f),
         }
     }
 }
