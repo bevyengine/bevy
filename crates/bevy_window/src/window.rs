@@ -85,114 +85,6 @@ impl NormalizedWindowRef {
     }
 }
 
-/// Presentation mode for a window.
-///
-/// The presentation mode specifies when a frame is presented to the window. The `Fifo`
-/// option corresponds to a traditional `VSync`, where the framerate is capped by the
-/// display refresh rate. Both `Immediate` and `Mailbox` are low-latency and are not
-/// capped by the refresh rate, but may not be available on all platforms. Tearing
-/// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
-/// `Fifo`.
-///
-/// `AutoVsync` or `AutoNoVsync` will gracefully fallback to `Fifo` when unavailable.
-///
-/// `Immediate` or `Mailbox` will panic if not supported by the platform.
-#[repr(C)]
-#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, PartialEq, Hash)]
-#[doc(alias = "vsync")]
-pub enum PresentMode {
-    /// Chooses FifoRelaxed -> Fifo based on availability.
-    ///
-    /// Because of the fallback behavior, it is supported everywhere.
-    AutoVsync = 0,
-    /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
-    ///
-    /// Because of the fallback behavior, it is supported everywhere.
-    AutoNoVsync = 1,
-    /// The presentation engine does **not** wait for a vertical blanking period and
-    /// the request is presented immediately. This is a low-latency presentation mode,
-    /// but visible tearing may be observed. Not optimal for mobile.
-    ///
-    /// Selecting this variant will panic if not supported, it is preferred to use
-    /// [`PresentMode::AutoNoVsync`].
-    Immediate = 2,
-    /// The presentation engine waits for the next vertical blanking period to update
-    /// the current image, but frames may be submitted without delay. This is a low-latency
-    /// presentation mode and visible tearing will **not** be observed. Not optimal for mobile.
-    ///
-    /// Selecting this variant will panic if not supported, it is preferred to use
-    /// [`PresentMode::AutoNoVsync`].
-    Mailbox = 3,
-    /// The presentation engine waits for the next vertical blanking period to update
-    /// the current image. The framerate will be capped at the display refresh rate,
-    /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
-    #[default]
-    Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
-}
-
-/// Specifies how the alpha channel of the textures should be handled during compositing.
-#[repr(C)]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, PartialEq, Hash)]
-pub enum CompositeAlphaMode {
-    /// Chooses either `Opaque` or `Inherit` automatically, depending on the
-    /// `alpha_mode` that the current surface can support.
-    #[default]
-    Auto = 0,
-    /// The alpha channel, if it exists, of the textures is ignored in the
-    /// compositing process. Instead, the textures is treated as if it has a
-    /// constant alpha of 1.0.
-    Opaque = 1,
-    /// The alpha channel, if it exists, of the textures is respected in the
-    /// compositing process. The non-alpha channels of the textures are
-    /// expected to already be multiplied by the alpha channel by the
-    /// application.
-    PreMultiplied = 2,
-    /// The alpha channel, if it exists, of the textures is respected in the
-    /// compositing process. The non-alpha channels of the textures are not
-    /// expected to already be multiplied by the alpha channel by the
-    /// application; instead, the compositor will multiply the non-alpha
-    /// channels of the texture by the alpha channel during compositing.
-    PostMultiplied = 3,
-    /// The alpha channel, if it exists, of the textures is unknown for processing
-    /// during compositing. Instead, the application is responsible for setting
-    /// the composite alpha blending mode using native WSI command. If not set,
-    /// then a platform-specific default will be used.
-    Inherit = 4,
-}
-
-/// Defines the way a window is displayed
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, PartialEq)]
-pub enum WindowMode {
-    /// Creates a window that uses the given size.
-    #[default]
-    Windowed,
-    /// Creates a borderless window that uses the full size of the screen.
-    BorderlessFullscreen,
-    /// Creates a fullscreen window that will render at desktop resolution. The app will use the closest supported size
-    /// from the given size and scale it to fit the screen.
-    SizedFullscreen,
-    /// Creates a fullscreen window that uses the maximum supported size.
-    Fullscreen,
-}
-
 /// Define how a window will be created and how it will behave.
 #[derive(Component, Debug, Clone, Reflect, FromReflect)]
 #[cfg_attr(
@@ -533,32 +425,6 @@ impl Default for WindowResolution {
     }
 }
 
-/// Defines if and how the cursor is grabbed.
-///
-/// ## Platform-specific
-///
-/// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
-/// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
-/// - **`iOS/Android`** don't have cursors.
-///
-/// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
-#[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
-    reflect(Serialize, Deserialize)
-)]
-#[reflect(Debug, PartialEq, Default)]
-pub enum CursorGrabMode {
-    /// The cursor can freely leave the window.
-    #[default]
-    None,
-    /// The cursor is confined to the window area.
-    Confined,
-    /// The cursor is locked inside the window area to a certain position.
-    Locked,
-}
-
 impl WindowResolution {
     /// Creates a new [`WindowResolution`].
     pub fn new(logical_width: f32, logical_height: f32) -> Self {
@@ -689,6 +555,32 @@ impl From<bevy_math::DVec2> for WindowResolution {
     }
 }
 
+/// Defines if and how the cursor is grabbed.
+///
+/// ## Platform-specific
+///
+/// - **`Windows`** doesn't support [`CursorGrabMode::Locked`]
+/// - **`macOS`** doesn't support [`CursorGrabMode::Confined`]
+/// - **`iOS/Android`** don't have cursors.
+///
+/// Since `Windows` and `macOS` have different [`CursorGrabMode`] support, we first try to set the grab mode that was asked for. If it doesn't work then use the alternate grab mode.
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Default)]
+pub enum CursorGrabMode {
+    /// The cursor can freely leave the window.
+    #[default]
+    None,
+    /// The cursor is confined to the window area.
+    Confined,
+    /// The cursor is locked inside the window area to a certain position.
+    Locked,
+}
+
 /// Stores internal state that isn't directly accessible.
 #[derive(Default, Debug, Copy, Clone, PartialEq, Eq, Reflect, FromReflect)]
 #[cfg_attr(
@@ -733,4 +625,112 @@ pub enum MonitorSelection {
     Primary,
     /// Uses monitor with the specified index.
     Index(usize),
+}
+
+/// Presentation mode for a window.
+///
+/// The presentation mode specifies when a frame is presented to the window. The `Fifo`
+/// option corresponds to a traditional `VSync`, where the framerate is capped by the
+/// display refresh rate. Both `Immediate` and `Mailbox` are low-latency and are not
+/// capped by the refresh rate, but may not be available on all platforms. Tearing
+/// may be observed with `Immediate` mode, but will not be observed with `Mailbox` or
+/// `Fifo`.
+///
+/// `AutoVsync` or `AutoNoVsync` will gracefully fallback to `Fifo` when unavailable.
+///
+/// `Immediate` or `Mailbox` will panic if not supported by the platform.
+#[repr(C)]
+#[derive(Default, Copy, Clone, Debug, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Hash)]
+#[doc(alias = "vsync")]
+pub enum PresentMode {
+    /// Chooses FifoRelaxed -> Fifo based on availability.
+    ///
+    /// Because of the fallback behavior, it is supported everywhere.
+    AutoVsync = 0,
+    /// Chooses Immediate -> Mailbox -> Fifo (on web) based on availability.
+    ///
+    /// Because of the fallback behavior, it is supported everywhere.
+    AutoNoVsync = 1,
+    /// The presentation engine does **not** wait for a vertical blanking period and
+    /// the request is presented immediately. This is a low-latency presentation mode,
+    /// but visible tearing may be observed. Not optimal for mobile.
+    ///
+    /// Selecting this variant will panic if not supported, it is preferred to use
+    /// [`PresentMode::AutoNoVsync`].
+    Immediate = 2,
+    /// The presentation engine waits for the next vertical blanking period to update
+    /// the current image, but frames may be submitted without delay. This is a low-latency
+    /// presentation mode and visible tearing will **not** be observed. Not optimal for mobile.
+    ///
+    /// Selecting this variant will panic if not supported, it is preferred to use
+    /// [`PresentMode::AutoNoVsync`].
+    Mailbox = 3,
+    /// The presentation engine waits for the next vertical blanking period to update
+    /// the current image. The framerate will be capped at the display refresh rate,
+    /// corresponding to the `VSync`. Tearing cannot be observed. Optimal for mobile.
+    #[default]
+    Fifo = 4, // NOTE: The explicit ordinal values mirror wgpu.
+}
+
+/// Specifies how the alpha channel of the textures should be handled during compositing.
+#[repr(C)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq, Hash)]
+pub enum CompositeAlphaMode {
+    /// Chooses either `Opaque` or `Inherit` automatically, depending on the
+    /// `alpha_mode` that the current surface can support.
+    #[default]
+    Auto = 0,
+    /// The alpha channel, if it exists, of the textures is ignored in the
+    /// compositing process. Instead, the textures is treated as if it has a
+    /// constant alpha of 1.0.
+    Opaque = 1,
+    /// The alpha channel, if it exists, of the textures is respected in the
+    /// compositing process. The non-alpha channels of the textures are
+    /// expected to already be multiplied by the alpha channel by the
+    /// application.
+    PreMultiplied = 2,
+    /// The alpha channel, if it exists, of the textures is respected in the
+    /// compositing process. The non-alpha channels of the textures are not
+    /// expected to already be multiplied by the alpha channel by the
+    /// application; instead, the compositor will multiply the non-alpha
+    /// channels of the texture by the alpha channel during compositing.
+    PostMultiplied = 3,
+    /// The alpha channel, if it exists, of the textures is unknown for processing
+    /// during compositing. Instead, the application is responsible for setting
+    /// the composite alpha blending mode using native WSI command. If not set,
+    /// then a platform-specific default will be used.
+    Inherit = 4,
+}
+
+/// Defines the way a window is displayed
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Reflect, FromReflect)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+#[reflect(Debug, PartialEq)]
+pub enum WindowMode {
+    /// Creates a window that uses the given size.
+    #[default]
+    Windowed,
+    /// Creates a borderless window that uses the full size of the screen.
+    BorderlessFullscreen,
+    /// Creates a fullscreen window that will render at desktop resolution. The app will use the closest supported size
+    /// from the given size and scale it to fit the screen.
+    SizedFullscreen,
+    /// Creates a fullscreen window that uses the maximum supported size.
+    Fullscreen,
 }
