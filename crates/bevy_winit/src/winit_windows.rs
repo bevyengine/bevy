@@ -32,6 +32,11 @@ impl WinitWindows {
             WindowMode::BorderlessFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Borderless(event_loop.primary_monitor()),
             )),
+            WindowMode::Fullscreen => winit_window_builder.with_fullscreen(Some(
+                winit::window::Fullscreen::Exclusive(get_best_videomode(
+                    &event_loop.primary_monitor().unwrap(),
+                )),
+            )),
             WindowMode::SizedFullscreen => winit_window_builder.with_fullscreen(Some(
                 winit::window::Fullscreen::Exclusive(get_fitting_videomode(
                     &event_loop.primary_monitor().unwrap(),
@@ -39,7 +44,7 @@ impl WinitWindows {
                     window.height() as u32,
                 )),
             )),
-            _ => {
+            WindowMode::Windowed => {
                 if let Some(position) = winit_window_position(
                     &window.position,
                     &window.resolution,
