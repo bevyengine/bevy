@@ -411,6 +411,13 @@ impl App {
         self
     }
 
+    /// Runs the [`Schedule`] with the provided `label` on the app's [`World`] a single time.
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        self.world.run_schedule(label);
+
+        self
+    }
+
     /// Adds standardized schedules and labels to an [`App`].
     ///
     /// Adding these schedules is necessary to make some core engine features work.
