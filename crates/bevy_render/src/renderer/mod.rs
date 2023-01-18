@@ -318,17 +318,11 @@ impl RenderContext {
         descriptor: RenderPassDescriptor<'a, '_>,
     ) -> TrackedRenderPass<'a> {
         // Cannot use command_encoder() as we need to split the borrow on self
-        if self.command_encoder.is_none() {
-            self.command_encoder = Some(
-                self.render_device
-                    .create_command_encoder(&wgpu::CommandEncoderDescriptor::default()),
-            );
-        }
-        let render_pass = self
-            .command_encoder
-            .as_mut()
-            .unwrap()
-            .begin_render_pass(&descriptor);
+        let command_encoder = self.command_encoder.get_or_insert_with(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
+        });
+        let render_pass = command_encoder.begin_render_pass(&descriptor);
         TrackedRenderPass::new(&self.render_device, render_pass)
     }
 
