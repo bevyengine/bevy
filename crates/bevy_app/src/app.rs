@@ -235,7 +235,18 @@ impl App {
         &mut self,
         label: impl ScheduleLabel,
         f: impl FnMut(&mut Schedule),
-    ) -> &mut Self;
+    ) -> &mut Self {
+        if self.schedules.get(&label).is_none() {
+            self.schedules.insert(label, Schedule::new());
+        }
+
+        let schedule = self.schedules.get_mut(&label).unwrap();
+        // Call the function f, passing in the schedule retrieved
+        f(schedule);
+
+        self
+    }
+
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant, and an instance of [`apply_state_transition::<S>`] in
     /// \<insert-`bevy_core`-set-name\> so that transitions happen before `Update`.
