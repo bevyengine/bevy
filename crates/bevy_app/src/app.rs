@@ -119,7 +119,7 @@ impl Default for App {
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
 
-        app.add_default_stages().add_event::<AppExit>();
+        app.add_default_sets().add_event::<AppExit>();
 
         #[cfg(feature = "bevy_ci_testing")]
         {
@@ -344,7 +344,7 @@ impl App {
     /// #
     /// let app = App::empty().add_default_stages();
     /// ```
-    pub fn add_default_stages(&mut self) -> &mut Self {
+    pub fn add_default_sets(&mut self) -> &mut Self {
         self.add_stage(CoreStage::First, SystemStage::parallel())
             .add_stage(
                 StartupSchedule,
