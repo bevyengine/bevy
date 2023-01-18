@@ -2,7 +2,7 @@
 
 use crate::{
     widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, ZIndex,
+    UiImage, ZIndex, InteractionPolicy,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
@@ -171,6 +171,8 @@ pub struct ButtonBundle {
     pub style: Style,
     /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,
+    /// Describes whether the button should be pressed after the cursor stops hovering over it
+    pub interaction_policy: InteractionPolicy,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The background color, which serves as a "fill" for this node
@@ -205,6 +207,7 @@ impl Default for ButtonBundle {
             button: Default::default(),
             style: Default::default(),
             interaction: Default::default(),
+            interaction_policy: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
             transform: Default::default(),
