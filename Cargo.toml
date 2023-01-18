@@ -1466,6 +1466,16 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "interaction_policy"
+path = "examples/ui/interaction_policy.rs"
+
+[package.metadata.example.interaction_policy]
+name = "Interaction Policy"
+description = "Illustrates how the InteractionPolicy component works"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "relative_cursor_position"
 path = "examples/ui/relative_cursor_position.rs"
 
