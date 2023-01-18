@@ -7,7 +7,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
-use bevy_math::UVec2;
+use bevy_math::{UVec2, UVec4, Vec4};
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::ExtractedCamera,
@@ -152,18 +152,27 @@ impl ExtractComponent for BloomSettings {
             return None;
         }
 
-        camera.physical_viewport_size().map(|size| {
+        if let (Some((origin, _)), Some(size), Some(target_size)) = (
+            camera.physical_viewport_rect(),
+            camera.physical_viewport_size(),
+            camera.physical_target_size(),
+        ) {
             let min_view = size.x.min(size.y) / 2;
             let mip_count = calculate_mip_count(min_view);
             let scale = (min_view / 2u32.pow(mip_count)) as f32 / 8.0;
 
-            BloomUniform {
+            Some(BloomUniform {
                 threshold: settings.threshold,
                 knee: settings.knee,
                 scale: settings.scale * scale,
                 intensity: settings.intensity,
-            }
-        })
+                viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
+                    / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
+                        .as_vec4(),
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -246,9 +255,6 @@ impl Node for BloomNode {
                 &bind_groups.prefilter_bind_group,
                 &[uniform_index.index()],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                prefilter_pass.set_camera_viewport(viewport);
-            }
             prefilter_pass.draw(0..3, 0..1);
         }
 
@@ -270,9 +276,6 @@ impl Node for BloomNode {
                 &bind_groups.downsampling_bind_groups[mip as usize - 1],
                 &[uniform_index.index()],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                downsampling_pass.set_camera_viewport(viewport);
-            }
             downsampling_pass.draw(0..3, 0..1);
         }
 
@@ -294,9 +297,6 @@ impl Node for BloomNode {
                 &bind_groups.upsampling_bind_groups[mip as usize - 1],
                 &[uniform_index.index()],
             );
-            if let Some(viewport) = camera.viewport.as_ref() {
-                upsampling_pass.set_camera_viewport(viewport);
-            }
             upsampling_pass.draw(0..3, 0..1);
         }
 
@@ -612,6 +612,7 @@ pub struct BloomUniform {
     knee: f32,
     scale: f32,
     intensity: f32,
+    viewport: Vec4,
 }
 
 #[derive(Component)]
