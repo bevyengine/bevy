@@ -22,7 +22,18 @@ use super::{QueryItem, QueryState, ROQueryItem, ReadOnlyWorldQuery, WorldQuery};
 /// [`Query::par_iter`]: crate::system::Query::par_iter
 #[derive(Clone)]
 pub struct BatchingStrategy {
+    /// The upper and lower limits for how large a batch of entities.
+    ///
+    /// Setting the bounds to the same value will result in a fixed
+    /// batch size.
+    ///
+    /// Defaults to `[1, usize::MAX]`.
     pub batch_size_limits: Range<usize>,
+    /// The number of batches per thread in the [`ComputeTaskPool`].
+    /// Increasing this value will decrease the batch size, which may
+    /// increase the scheduling overhead for the iteration.
+    ///
+    /// Defaults to 1.
     pub batches_per_thread: usize,
 }
 
@@ -30,7 +41,7 @@ impl BatchingStrategy {
     /// Creates a new unconstrained default batching strategy.
     pub const fn new() -> Self {
         Self {
-            batch_size_limits: 0..usize::MAX,
+            batch_size_limits: 1..usize::MAX,
             batches_per_thread: 1,
         }
     }
