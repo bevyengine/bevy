@@ -417,7 +417,7 @@ macro_rules! load_internal_asset {
             let mut debug_app = $app
                 .world
                 .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
+            $crate::debug_asset_server::register_handle_with_loader::<_, &'static str>(
                 $loader,
                 &mut debug_app,
                 $handle,
@@ -455,7 +455,7 @@ macro_rules! load_internal_binary_asset {
             let mut debug_app = $app
                 .world
                 .non_send_resource_mut::<$crate::debug_asset_server::DebugAssetApp>();
-            $crate::debug_asset_server::register_handle_with_loader(
+            $crate::debug_asset_server::register_handle_with_loader::<_, &'static [u8]>(
                 $loader,
                 &mut debug_app,
                 $handle,

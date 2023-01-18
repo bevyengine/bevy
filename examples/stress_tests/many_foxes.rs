@@ -2,6 +2,7 @@
 //! animation to stress test skinned meshes.
 
 use std::f32::consts::PI;
+use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -266,7 +267,10 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Return) {
             player
-                .play(animations.0[*current_animation].clone_weak())
+                .play_with_transition(
+                    animations.0[*current_animation].clone_weak(),
+                    Duration::from_millis(250),
+                )
                 .repeat();
         }
     }
