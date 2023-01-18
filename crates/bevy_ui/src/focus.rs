@@ -55,23 +55,14 @@ impl Default for Interaction {
 
 /// Describes whether [`Interaction`] component should remain in the `Clicked` state after
 /// the cursor stopped hovering over the node.
-#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum InteractionPolicy {
     /// Keep the node clicked after it stopped being hovered
+    #[default]
     Hold,
     /// Release the node if the cursor stops hovering
     Release,
-}
-
-impl InteractionPolicy {
-    const DEFAULT: Self = Self::Hold;
-}
-
-impl Default for InteractionPolicy {
-    fn default() -> Self {
-        Self::DEFAULT
-    }
 }
 
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
@@ -266,11 +257,12 @@ pub fn ui_focus_system(
                     if let Some(mut interaction) = node.interaction {
                         let interaction_policy = node
                             .interaction_policy
-                            .unwrap_or(&InteractionPolicy::DEFAULT);
+                            .map(|interaction_policy| *interaction_policy)
+                            .unwrap_or_default();
 
                         if *interaction == Interaction::Hovered
                             || (cursor_position.is_none())
-                            || *interaction_policy == InteractionPolicy::Release
+                            || interaction_policy == InteractionPolicy::Release
                         {
                             interaction.set_if_neq(Interaction::None);
                         }
