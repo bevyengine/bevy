@@ -4,12 +4,11 @@ use crate::{
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::SystemSet,
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
 use bevy_ecs_macros::all_tuples;
-use std::{any::TypeId, borrow::Cow, fmt::Debug, marker::PhantomData};
+use std::{any::TypeId, borrow::Cow, marker::PhantomData};
 
 /// The metadata of a [`System`].
 #[derive(Clone)]
@@ -651,25 +650,3 @@ macro_rules! impl_system_function {
 // Note that we rely on the highest impl to be <= the highest order of the tuple impls
 // of `SystemParam` created.
 all_tuples!(impl_system_function, 0, 16, F);
-
-/// Used to implicitly convert systems to their default labels. For example, it will convert
-/// "system functions" to their [`SystemTypeIdLabel`].
-pub trait AsSystemSet<Marker> {
-    fn as_system_label(&self) -> SystemSetId;
-}
-
-impl<In, Out, Param: SystemParam, Marker, T: SystemParamFunction<In, Out, Param, Marker>>
-    AsSystemSet<(In, Out, Param, Marker)> for T
-{
-    #[inline]
-    fn as_system_label(&self) -> SystemSetId {
-        SystemTypeIdLabel::<T>(PhantomData).as_label()
-    }
-}
-
-impl<T: SystemSet> AsSystemSet<()> for T {
-    #[inline]
-    fn as_system_label(&self) -> SystemSetId {
-        self.as_label()
-    }
-}

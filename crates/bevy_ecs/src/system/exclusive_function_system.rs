@@ -4,8 +4,8 @@ use crate::{
     component::ComponentId,
     query::Access,
     system::{
-        check_system_change_tick, AsSystemSet, ExclusiveSystemParam, ExclusiveSystemParamItem, In,
-        InputMarker, IntoSystem, System, SystemMeta,
+        check_system_change_tick, ExclusiveSystemParam, ExclusiveSystemParamItem, In, InputMarker,
+        IntoSystem, System, SystemMeta,
     },
     world::{World, WorldId},
 };
@@ -157,18 +157,6 @@ where
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![Box::new(set)]
-    }
-}
-
-impl<In, Out, Param, Marker, T> AsSystemSet<(In, Out, Param, Marker, IsExclusiveFunctionSystem)>
-    for T
-where
-    Param: ExclusiveSystemParam,
-    T: ExclusiveSystemParamFunction<In, Out, Param, Marker>,
-{
-    #[inline]
-    fn as_system_label(&self) -> SystemSetId {
-        SystemTypeIdLabel::<T>(PhantomData).as_label()
     }
 }
 
