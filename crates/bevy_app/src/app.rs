@@ -94,7 +94,7 @@ struct SubApp {
 impl SubApp {
     /// Runs the `SubApp`'s schedule.
     pub fn run(&mut self) {
-        let default_schedule = self.app.schedules.get_mut(self.app.default_schedule_label);
+        let default_schedule = self.app.default_schedule().unwrap();
         self.app.world.run_schedule(default_schedule);
         self.app.world.clear_trackers();
     }
@@ -210,7 +210,9 @@ impl App {
     ///
     /// **Note:** This will create the schedule if it does not already exist.
     pub fn set_default_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        self.default_schedule_label = Some(Box::new(label));
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        schedules.default_schedule_label = Some(Box::new(label));
         if self.schedules.get(&label).is_none() {
             self.schedules.insert(label, Schedule::new());
         }
@@ -220,8 +222,8 @@ impl App {
 
     /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
     /// and similar methods.
-    pub fn default_schedule(&mut self, label: impl ScheduleLabel) -> &BoxedScheduleLabel {
-        let mut schedules = self.world.resource::<Schedules>();
+    pub fn default_schedule(&self) -> &Option<BoxedScheduleLabel> {
+        let schedules = self.world.resource::<Schedules>();
         &schedules.default_schedule_label
     }
 
@@ -518,6 +520,8 @@ impl App {
 
         // Default set
         startup_schedule.set_default_set(CoreSet::Update);
+
+        self
     }
 
     /// Setup the application to manage events of type `T`.
