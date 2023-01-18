@@ -4,8 +4,8 @@ use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
     schedule::{
-        apply_system_buffers, IntoSystemConfig, IntoSystemConfigs, Schedule, ScheduleLabel,
-        Schedules,
+        apply_system_buffers, BoxedScheduleLabel, IntoSystemConfig, IntoSystemConfigs, Schedule,
+        ScheduleLabel, Schedules,
     },
     system::Resource,
     world::World,
@@ -68,10 +68,6 @@ pub struct App {
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
-    /// A collection of [`Schedule`] objects which are used to run systems.
-    pub schedules: Schedules,
-    /// The [`Schedule`] that systems will be added to by default.
-    default_schedule_label: Option<Box<dyn ScheduleLabel>>,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -124,6 +120,7 @@ impl Default for App {
         let mut app = App::empty();
         #[cfg(feature = "bevy_reflect")]
         app.init_resource::<AppTypeRegistry>();
+        app.init_resource::<Schedules>();
 
         app.add_default_schedules();
         app.add_default_sets();
@@ -150,12 +147,10 @@ impl App {
 
     /// Creates a new empty [`App`] with minimal default configuration.
     ///
-    /// This constructor should be used if you wish to provide a custom schedule, exit handling, cleanup, etc.
+    /// This constructor should be used if you wish to provide custom scheduling, exit handling, cleanup, etc.
     pub fn empty() -> App {
         Self {
             world: Default::default(),
-            default_schedule_label: None,
-            schedules: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
@@ -225,8 +220,9 @@ impl App {
 
     /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
     /// and similar methods.
-    pub fn default_schedule(&mut self, label: impl ScheduleLabel) -> &Box<dyn ScheduleLabel> {
-        &self.default_schedule_label
+    pub fn default_schedule(&mut self, label: impl ScheduleLabel) -> &BoxedScheduleLabel {
+        let mut schedules = self.world.resource::<Schedules>();
+        &schedules.default_schedule_label
     }
 
     /// Applies the function to the [`Schedule`] associated with `label`.
@@ -237,11 +233,13 @@ impl App {
         label: impl ScheduleLabel,
         f: impl FnMut(&mut Schedule),
     ) -> &mut Self {
-        if self.schedules.get(&label).is_none() {
-            self.schedules.insert(label, Schedule::new());
+        let mut schedules = self.world.resource::<Schedules>();
+
+        if schedules.get(&label).is_none() {
+            schedules.insert(label, Schedule::new());
         }
 
-        let schedule = self.schedules.get_mut(&label).unwrap();
+        let schedule = schedules.get_mut(&label).unwrap();
         // Call the function f, passing in the schedule retrieved
         f(schedule);
 
@@ -270,8 +268,10 @@ impl App {
     /// app.add_system(my_system);
     /// ```
     pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
-        if let Some(default_schedule_label) = self.default_schedule_label {
-            if let Some(default_schedule) = self.schedules.get_mut(&default_schedule_label) {
+        let schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(default_schedule_label) = schedules.default_schedule_label {
+            if let Some(default_schedule) = schedules.get_mut(&default_schedule_label) {
                 default_schedule.add_system(system);
             } else {
                 panic!("Default schedule does not exist.")
@@ -304,8 +304,10 @@ impl App {
     /// );
     /// ```
     pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
-        if let Some(default_schedule_label) = self.default_schedule_label {
-            if let Some(default_schedule) = self.schedules.get_mut(&default_schedule_label) {
+        let schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(default_schedule_label) = schedules.default_schedule_label {
+            if let Some(default_schedule) = schedules.get_mut(&default_schedule_label) {
                 default_schedule.add_systems(systems);
             } else {
                 panic!("Default schedule does not exist.")
@@ -323,7 +325,9 @@ impl App {
         system: impl IntoSystemConfig<P>,
         schedule_label: impl ScheduleLabel,
     ) -> &mut Self {
-        if let Some(schedule) = self.schedules.get_mut(&schedule_label) {
+        let schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(&schedule_label) {
             schedule.add_system(system);
         } else {
             panic!("Provided schedule {schedule_label:?} does not exist.")
@@ -338,7 +342,9 @@ impl App {
         systems: impl IntoSystemConfigs<P>,
         schedule_label: impl ScheduleLabel,
     ) -> &mut Self {
-        if let Some(schedule) = self.schedules.get_mut(&schedule_label) {
+        let schedules = self.world.resource_mut::<Schedules>();
+
+        if let Some(schedule) = schedules.get_mut(&schedule_label) {
             schedule.add_systems(systems);
         } else {
             panic!("Provided schedule {schedule_label:?} does not exist.")

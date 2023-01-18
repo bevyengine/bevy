@@ -19,7 +19,7 @@ use crate::{
     event::{Event, Events},
     ptr::UnsafeCellDeref,
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
-    schedule::{ScheduleLabel, Schedules},
+    schedule::{Schedule, ScheduleLabel, Schedules},
     storage::{Column, ComponentSparseSet, ResourceData, SparseSet, Storages, TableRow},
     system::Resource,
 };
@@ -1975,7 +1975,20 @@ impl World {
 
 // Schedule-related methods
 impl World {
-    /// Runs the [`Schedule`](crate::schedule::Schedule) associated with the `label`.
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// The [`Schedule`] is fetched from the
+    pub fn add_schedule(&mut self, schedule: Schedule, label: impl ScheduleLabel) {
+        let mut schedules = self.resource_mut::<Schedules>();
+        schedules.insert(label, schedule);
+    }
+
+    /// Runs the [`Schedule`] associated with the `label` a single time.
+    ///
+    /// The [`Schedule`] is fetched from the [`Schedules`] resource of the world by its label,
+    /// and system state is cached.
+    ///
+    /// For simple testing use cases, call [`Schedule::run(world)`](Schedule::run) instead.
     pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
         if let Some(mut schedule) = self.resource_mut::<Schedules>().remove(&label) {
             schedule.run(self);

@@ -137,9 +137,9 @@ mod tests {
         change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
-        prelude::{AnyOf, StageLabel},
+        prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
-        schedule::{Schedule, Stage, SystemStage},
+        schedule::Schedule,
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
             RemovedComponents, Res, ResMut, Resource, System, SystemState,
@@ -169,9 +169,6 @@ mod tests {
     #[derive(Component, Debug)]
     struct W<T>(T);
 
-    #[derive(StageLabel)]
-    struct UpdateStage;
-
     #[test]
     fn simple_system() {
         fn sys(query: Query<&A>) {
@@ -190,9 +187,7 @@ mod tests {
 
     fn run_system<Param, S: IntoSystem<(), (), Param>>(world: &mut World, system: S) {
         let mut schedule = Schedule::default();
-        let mut update = SystemStage::parallel();
-        update.add_system(system);
-        schedule.add_stage(UpdateStage, update);
+        schedule.add_system(system);
         schedule.run(world);
     }
 

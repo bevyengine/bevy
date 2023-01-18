@@ -27,6 +27,8 @@ use crate::{
 #[derive(Default, Resource)]
 pub struct Schedules {
     inner: HashMap<BoxedScheduleLabel, Schedule>,
+    /// The schedule that systems are added to by default
+    pub default_schedule: Option<BoxedScheduleLabel>,
 }
 
 impl Schedules {
@@ -34,6 +36,7 @@ impl Schedules {
     pub fn new() -> Self {
         Self {
             inner: HashMap::new(),
+            default_schedule: None,
         }
     }
 
