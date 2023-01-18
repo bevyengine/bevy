@@ -313,7 +313,7 @@ Example | Description
 --- | ---
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
-[Interaction Policy](../examples/ui/interaction_policy.rs) | Illustrates how the InteractionPolicy component works
+[Interaction Policy](../examples/ui/interaction_policy.rs) | Illustrates how the InteractionPolicy component works. Adds two buttons to the scene, one having a `Hold` interaction policy, and the other having a `Release` interaction policy.
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
