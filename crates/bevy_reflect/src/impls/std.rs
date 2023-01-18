@@ -954,32 +954,43 @@ impl<T: FromReflect> FromReflect for Option<T> {
         if let ReflectRef::Enum(dyn_enum) = reflect.reflect_ref() {
             match dyn_enum.variant_name() {
                 "Some" => {
-                    let field = T::take_from_reflect(
-                        dyn_enum
-                            .field_at(0)
-                            .unwrap_or_else(|| {
-                                panic!(
-                                    "Field in `Some` variant of {} should exist",
-                                    std::any::type_name::<Option<T>>()
-                                )
-                            })
-                            .clone_value(),
-                    )
-                    .unwrap_or_else(|_| {
-                        panic!(
-                            "Field in `Some` variant of {} should be of type {}",
-                            std::any::type_name::<Option<T>>(),
-                            std::any::type_name::<T>()
+                    // The closure is only created to provide a scope for `?` operator.
+                    let field = (|| {
+                        T::take_from_reflect(
+                            dyn_enum
+                                .field_at(0)
+                                .ok_or_else(|| FromReflectError::MissingIndex {
+                                    from_type: reflect.get_type_info(),
+                                    from_kind: reflect.reflect_kind(),
+                                    to_type: Self::type_info(),
+                                    index: 0,
+                                })?
+                                .clone_value(),
                         )
-                    });
+                        .map_err(|(_, err)| FromReflectError::IndexError {
+                            from_type: reflect.get_type_info(),
+                            from_kind: reflect.reflect_kind(),
+                            to_type: Self::type_info(),
+                            index: 0,
+                            source: Box::new(err),
+                        })
+                    })()
+                    .map_err(|err| FromReflectError::VariantError {
+                        from_type: reflect.get_type_info(),
+                        from_kind: reflect.reflect_kind(),
+                        to_type: Self::type_info(),
+                        variant: "Some".to_string(),
+                        source: Box::new(err),
+                    })?;
                     Ok(Some(field))
                 }
                 "None" => Ok(None),
-                name => panic!(
-                    "variant with name `{}` does not exist on enum `{}`",
-                    name,
-                    std::any::type_name::<Self>()
-                ),
+                name => Err(FromReflectError::MissingVariant {
+                    from_type: reflect.get_type_info(),
+                    from_kind: reflect.reflect_kind(),
+                    to_type: Self::type_info(),
+                    variant: name.to_string(),
+                }),
             }
         } else {
             Err(FromReflectError::InvalidType {
