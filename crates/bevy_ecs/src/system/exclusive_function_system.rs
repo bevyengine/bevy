@@ -3,10 +3,9 @@ use crate::{
     change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     query::Access,
-    schedule::{SystemSet, SystemSetId},
     system::{
         check_system_change_tick, AsSystemSet, ExclusiveSystemParam, ExclusiveSystemParamItem, In,
-        InputMarker, IntoSystem, System, SystemMeta, SystemTypeIdLabel,
+        InputMarker, IntoSystem, System, SystemMeta,
     },
     world::{World, WorldId},
 };

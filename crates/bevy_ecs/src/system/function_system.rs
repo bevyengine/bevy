@@ -4,7 +4,7 @@ use crate::{
     component::ComponentId,
     prelude::FromWorld,
     query::{Access, FilteredAccessSet},
-    schedule::{SystemSet, SystemSetId},
+    schedule::SystemSet,
     system::{check_system_change_tick, ReadOnlySystemParam, System, SystemParam, SystemParamItem},
     world::{World, WorldId},
 };
@@ -528,31 +528,6 @@ where
         vec![Box::new(set)]
     }
 }
-
-/// A [`SystemSet`] that was automatically generated for a system on the basis of its `TypeId`.
-pub struct SystemTypeIdLabel<T: 'static>(pub(crate) PhantomData<fn() -> T>);
-
-impl<T: 'static> SystemSet for SystemTypeIdLabel<T> {
-    #[inline]
-    fn as_str(&self) -> &'static str {
-        std::any::type_name::<T>()
-    }
-}
-
-impl<T> Debug for SystemTypeIdLabel<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("SystemTypeIdLabel")
-            .field(&std::any::type_name::<T>())
-            .finish()
-    }
-}
-
-impl<T> Clone for SystemTypeIdLabel<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-impl<T> Copy for SystemTypeIdLabel<T> {}
 
 /// A trait implemented for all functions that can be used as [`System`]s.
 ///

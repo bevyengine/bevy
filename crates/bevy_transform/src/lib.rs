@@ -83,10 +83,11 @@ pub enum TransformSystem {
 }
 
 /// Transform propagation system set for third party plugins use
-pub fn transform_propagate_system_set() -> SystemSet {
-    SystemSet::new()
-        .with_system(systems::sync_simple_transforms)
-        .with_system(systems::propagate_transforms)
+pub fn transform_propagate_system_set() -> impl IntoSystemConfigs<P> {
+    (
+        systems::sync_simple_transforms,
+        systems::propagate_transforms,
+    )
 }
 
 /// The base plugin for handling [`Transform`] components

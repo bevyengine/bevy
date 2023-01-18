@@ -81,12 +81,13 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
-            .add_system_set(
-                SystemSet::new()
-                    .with_system(gamepad_event_system)
-                    .with_system(gamepad_button_event_system.after(gamepad_event_system))
-                    .with_system(gamepad_axis_event_system.after(gamepad_event_system))
-                    .with_system(gamepad_connection_system.after(gamepad_event_system))
+            .add_systems(
+                (
+                    gamepad_event_system,
+                    gamepad_button_event_system.after(gamepad_event_system),
+                    gamepad_axis_event_system.after(gamepad_event_system),
+                    gamepad_connection_system.after(gamepad_event_system),
+                )
                     .in_set(InputSystem)
                     .in_set(CoreSet::PreUpdate),
             )

@@ -326,12 +326,7 @@ impl App {
     /// # fn system_b() {}
     /// # fn system_c() {}
     /// #
-    /// app.add_system_set(
-    ///     SystemSet::new()
-    ///         .with_system(system_a)
-    ///         .with_system(system_b)
-    ///         .with_system(system_c),
-    /// );
+    /// app.add_systems((system_a, system_b, system_c));
     /// ```
     pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
         let schedules = self.world.resource_mut::<Schedules>();
@@ -418,11 +413,12 @@ impl App {
     /// # fn startup_system_b() {}
     /// # fn startup_system_c() {}
     /// #
-    /// app.add_startup_system_set(
-    ///     SystemSet::new()
-    ///         .with_system(startup_system_a)
-    ///         .with_system(startup_system_b)
-    ///         .with_system(startup_system_c),
+    /// app.add_startup_systems(
+    ///     (
+    ///         startup_system_a,
+    ///         startup_system_b,
+    ///         startup_system_c,
+    ///     )
     /// );
     /// ```
     pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
