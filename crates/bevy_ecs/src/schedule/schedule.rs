@@ -29,6 +29,8 @@ pub struct Schedules {
     inner: HashMap<BoxedScheduleLabel, Schedule>,
     /// The schedule that systems are added to by default
     pub default_schedule_label: Option<BoxedScheduleLabel>,
+    /// The currently active `Schedule`, which should be run next.
+    pub active_schedule_label: Option<BoxedScheduleLabel>,
 }
 
 impl Schedules {
@@ -37,6 +39,7 @@ impl Schedules {
         Self {
             inner: HashMap::new(),
             default_schedule_label: None,
+            active_schedule_label: None,
         }
     }
 

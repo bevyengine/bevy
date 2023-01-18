@@ -213,8 +213,8 @@ impl App {
         let mut schedules = self.world.resource_mut::<Schedules>();
 
         schedules.default_schedule_label = Some(Box::new(label));
-        if self.schedules.get(&label).is_none() {
-            self.schedules.insert(label, Schedule::new());
+        if schedules.get(&label).is_none() {
+            schedules.insert(label, Schedule::new());
         }
 
         self
@@ -225,6 +225,22 @@ impl App {
     pub fn default_schedule(&self) -> &Option<BoxedScheduleLabel> {
         let schedules = self.world.resource::<Schedules>();
         &schedules.default_schedule_label
+    }
+
+    /// Sets the [`Schedule`] that will be run the next time that [`App::update`] or [`App::run`] is called.
+    pub fn set_active_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        schedules.active_schedule_label = Some(Box::new(label));
+
+        self
+    }
+
+    /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
+    /// and similar methods.
+    pub fn active_schedule(&self) -> &Option<BoxedScheduleLabel> {
+        let schedules = self.world.resource::<Schedules>();
+        &schedules.active_schedule_label
     }
 
     /// Applies the function to the [`Schedule`] associated with `label`.
