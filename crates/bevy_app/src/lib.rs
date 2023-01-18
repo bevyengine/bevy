@@ -25,11 +25,12 @@ pub mod prelude {
     pub use crate::{app::App, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet};
 }
 
-use bevy_ecs::schedule::StageLabel;
+use bevy_ecs::schedule::{ScheduleLabel, StageLabel};
 
 /// The names of the default [`App`] schedules.
 ///
 /// The corresponding [`Schedule`](bevy_ecs::schedule::Schedule) objects are added by [`App::add_default_schedules`].
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum CoreSchedule {
     /// The schedule that runs once when the app starts.
     Startup,
