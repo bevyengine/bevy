@@ -75,6 +75,26 @@ pub trait Graph<N, E> {
     /// Returns the number of edges the graph can hold without reallocating.
     fn edge_capacity(&self) -> usize;
 
+    /// Reserves capacity for at least `additional` more nodes to be inserted in the given `Self`.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `reserve_nodes`, the node capacity will be greater than or equal to
+    /// `self.node_count() + additional`. Does nothing if capacity is already sufficient.
+    ///
+    /// # Panics
+    ///     
+    /// Panics if the new capacity exceeds `isize::MAX` bytes.
+    fn reserve_nodes(&mut self, additional: usize);
+
+    /// Reserves capacity for at least `additional` more edges to be inserted in the given `Self`.
+    /// The collection may reserve more space to avoid frequent reallocations.
+    /// After calling `reserve_edges`, the edge capacity will be greater than or equal to
+    /// `self.edge_count() + additional`. Does nothing if capacity is already sufficient.
+    ///
+    /// # Panics
+    ///     
+    /// Panics if the new capacity exceeds `isize::MAX` bytes.
+    fn reserve_edges(&mut self, additional: usize);
+
     /// Returns `true` if the edges in the graph are directed.
     fn is_directed(&self) -> bool;
 

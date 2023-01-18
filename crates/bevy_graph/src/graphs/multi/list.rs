@@ -38,16 +38,29 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         }
     }
 
+    #[inline]
     fn capacity(&self) -> (usize, usize) {
         (self.nodes.capacity(), self.edges.capacity())
     }
 
+    #[inline]
     fn node_capacity(&self) -> usize {
         self.nodes.capacity()
     }
 
+    #[inline]
     fn edge_capacity(&self) -> usize {
         self.edges.capacity()
+    }
+
+    #[inline]
+    fn reserve_nodes(&mut self, additional: usize) {
+        self.nodes.reserve(additional)
+    }
+
+    #[inline]
+    fn reserve_edges(&mut self, additional: usize) {
+        self.edges.reserve(additional)
     }
 
     #[inline]
