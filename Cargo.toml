@@ -1471,7 +1471,7 @@ path = "examples/ui/interaction_policy.rs"
 
 [package.metadata.example.interaction_policy]
 name = "Interaction Policy"
-description = "Illustrates how the InteractionPolicy component works"
+description = "Illustrates how the InteractionPolicy component works. Adds two buttons to the scene, one having a `Hold` interaction policy, and the other having a `Release` interaction policy."
 category = "UI (User Interface)"
 wasm = true
 

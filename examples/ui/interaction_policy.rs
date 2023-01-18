@@ -1,4 +1,6 @@
 //! This example illustrates how does the `InteractionPolicy` component work and its purpose.
+//! It's a scene with two buttons, one having the `Hold` interaction policy
+//! and the other having the `Release` interaction policy.
 
 use bevy::{prelude::*, ui::InteractionPolicy, winit::WinitSettings};
 
