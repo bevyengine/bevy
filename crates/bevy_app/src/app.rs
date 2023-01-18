@@ -4,8 +4,8 @@ use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
     schedule::{
-        apply_system_buffers, IntoSystemDescriptor, Schedule, Schedules, ShouldRun, State,
-        StateData, SystemSet,
+        apply_system_buffers, IntoSystemDescriptor, Schedule, ScheduleLabel, Schedules, ShouldRun,
+        State, StateData, SystemSet,
     },
     system::Resource,
     world::World,
@@ -68,8 +68,10 @@ pub struct App {
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
-    /// A collection of [`Schedule`] objects which are used to run systems
+    /// A collection of [`Schedule`] objects which are used to run systems.
     pub schedules: Schedules,
+    /// The [`Schedule`] that systems will be added to by default.
+    default_schedule: Option<Box<dyn ScheduleLabel>>,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -151,6 +153,7 @@ impl App {
     pub fn empty() -> App {
         Self {
             world: Default::default(),
+            default_schedule: None,
             schedules: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
@@ -210,7 +213,21 @@ impl App {
     /// and similar methods.
     ///
     /// **Note:** This will create the schedule if it does not already exist.
-    fn set_default_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self;
+    pub fn set_default_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        self.default_schedule = Some(Box::new(label));
+        if self.schedules.get(&label).is_none() {
+            self.schedules.insert(label, Schedule::new());
+        }
+
+        self
+    }
+
+    /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
+    /// and similar methods.
+    pub fn default_schedule(&mut self, label: impl ScheduleLabel) -> &Box<dyn ScheduleLabel> {
+        &self.default_schedule
+    }
+
     /// Applies the function to the [`Schedule`] associated with `label`.
     ///
     /// **Note:** This will create the schedule if it does not already exist.
