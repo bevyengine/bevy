@@ -53,6 +53,27 @@ impl Default for Interaction {
     }
 }
 
+/// Describes whether [`Interaction`] component should remain in the `Clicked` state after
+/// the cursor stopped hovering over the node.
+#[derive(Component, Copy, Clone, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize, PartialEq)]
+pub enum InteractionPolicy {
+    /// Keep the node clicked after it stopped being hovered
+    Hold,
+    /// Release the node if the cursor stops hovering
+    Release,
+}
+
+impl InteractionPolicy {
+    const DEFAULT: Self = Self::Hold;
+}
+
+impl Default for InteractionPolicy {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 /// A component storing the position of the mouse relative to the node, (0., 0.) being the top-left corner and (1., 1.) being the bottom-right
 /// If the mouse is not over the node, the value will go beyond the range of (0., 0.) to (1., 1.)
 /// A None value means that the cursor position is unknown.
@@ -120,6 +141,7 @@ pub struct NodeQuery {
     node: &'static Node,
     global_transform: &'static GlobalTransform,
     interaction: Option<&'static mut Interaction>,
+    interaction_policy: Option<&'static InteractionPolicy>,
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     calculated_clip: Option<&'static CalculatedClip>,
@@ -242,7 +264,12 @@ pub fn ui_focus_system(
                     Some(*entity)
                 } else {
                     if let Some(mut interaction) = node.interaction {
-                        if *interaction == Interaction::Hovered || (cursor_position.is_none()) {
+                        let interaction_policy = node.interaction_policy.unwrap_or(&InteractionPolicy::DEFAULT);
+
+                        if *interaction == Interaction::Hovered
+                            || (cursor_position.is_none())
+                            || *interaction_policy == InteractionPolicy::Release
+                        {
                             interaction.set_if_neq(Interaction::None);
                         }
                     }
