@@ -401,6 +401,16 @@ impl App {
         self.add_systems_to_schedule(systems, CoreSchedule::Startup)
     }
 
+    /// Adds a new `schedule` to the [`App`] under the provided `label.
+    ///
+    /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
+    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        schedules.insert(label, schedule);
+
+        self
+    }
+
     /// Adds standardized schedules and labels to an [`App`].
     ///
     /// Adding these schedules is necessary to make some core engine features work.
@@ -422,9 +432,8 @@ impl App {
     /// let app = App::empty().add_default_schedules();
     /// ```
     pub fn add_default_schedules(&mut self) -> &mut Self {
-        self.schedules
-            .insert(CoreSchedule::Startup, Schedule::new());
-        self.schedules.insert(CoreSchedule::Main, Schedule::new());
+        self.add_schedule(CoreSchedule::Startup, Schedule::new());
+        self.add_schedule(CoreSchedule::Main, Schedule::new());
 
         self.set_default_schedule(CoreSchedule::Main);
 
