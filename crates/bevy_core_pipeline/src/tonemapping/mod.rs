@@ -8,7 +8,7 @@ use bevy_render::camera::Camera;
 use bevy_render::extract_component::{ExtractComponent, ExtractComponentPlugin};
 use bevy_render::renderer::RenderDevice;
 use bevy_render::view::ViewTarget;
-use bevy_render::{render_resource::*, RenderApp, RenderStage};
+use bevy_render::{render_resource::*, RenderApp, RenderSet};
 
 mod node;
 
@@ -45,7 +45,7 @@ impl Plugin for TonemappingPlugin {
             render_app
                 .init_resource::<TonemappingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
-                .add_system(queue_view_tonemapping_pipelines.in_set(RenderStage::Queue));
+                .add_system(queue_view_tonemapping_pipelines.in_set(RenderSet::Queue));
         }
     }
 }

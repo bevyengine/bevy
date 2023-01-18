@@ -1,5 +1,5 @@
 use crate::{
-    update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetStage, Handle, HandleId,
+    update_asset_storage_system, Asset, AssetLoader, AssetServer, AssetSet, Handle, HandleId,
     RefChange, ReflectAsset, ReflectHandle,
 };
 use bevy_app::{App, AppTypeRegistry};
@@ -335,8 +335,8 @@ impl AddAsset for App {
         };
 
         self.insert_resource(assets)
-            .add_system(Assets::<T>::asset_event_system.in_set(AssetStage::AssetEvents))
-            .add_system(update_asset_storage_system::<T>.in_set(AssetStage::LoadAssets))
+            .add_system(Assets::<T>::asset_event_system.in_set(AssetSet::AssetEvents))
+            .add_system(update_asset_storage_system::<T>.in_set(AssetSet::LoadAssets))
             .register_type::<Handle<T>>()
             .add_event::<AssetEvent<T>>()
     }

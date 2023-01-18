@@ -21,7 +21,7 @@ use bevy_render::{
     view::{
         ComputedVisibility, ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
     },
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp, RenderSet,
 };
 use bevy_transform::components::GlobalTransform;
 
@@ -102,9 +102,9 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_system(extract_mesh2d.in_set(RenderStage::Extract))
-                .add_system(queue_mesh2d_bind_group.in_set(RenderStage::Queue))
-                .add_system(queue_mesh2d_view_bind_groups.in_set(RenderStage::Queue));
+                .add_system(extract_mesh2d.in_set(RenderSet::Extract))
+                .add_system(queue_mesh2d_bind_group.in_set(RenderSet::Queue))
+                .add_system(queue_mesh2d_view_bind_groups.in_set(RenderSet::Queue));
         }
     }
 }

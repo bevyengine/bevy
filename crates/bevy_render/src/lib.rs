@@ -64,8 +64,8 @@ pub struct RenderPlugin {
 }
 
 /// The labels of the default App rendering stages.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum RenderStage {
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum RenderSet {
     /// Extract data from the "app world" and insert it into the "render world".
     /// This step should be kept as short as possible to increase the "pipelining potential" for
     /// running the next frame while rendering the current frame.
@@ -191,12 +191,12 @@ impl Plugin for RenderPlugin {
             // See also https://github.com/bevyengine/bevy/issues/5082
             extract_stage.set_apply_buffers(false);
             render_app
-                .add_stage(RenderStage::Extract, extract_stage)
-                .add_stage(RenderStage::Prepare, SystemStage::parallel())
-                .add_stage(RenderStage::Queue, SystemStage::parallel())
-                .add_stage(RenderStage::PhaseSort, SystemStage::parallel())
+                .add_stage(RenderSet::Extract, extract_stage)
+                .add_stage(RenderSet::Prepare, SystemStage::parallel())
+                .add_stage(RenderSet::Queue, SystemStage::parallel())
+                .add_stage(RenderSet::PhaseSort, SystemStage::parallel())
                 .add_stage(
-                    RenderStage::Render,
+                    RenderSet::Render,
                     SystemStage::parallel()
                         // Note: Must run before `render_system` in order to
                         // processed newly queued pipelines.
@@ -204,7 +204,7 @@ impl Plugin for RenderPlugin {
                         .with_system(render_system.at_end()),
                 )
                 .add_stage(
-                    RenderStage::Cleanup,
+                    RenderSet::Cleanup,
                     SystemStage::parallel().with_system(World::clear_entities.at_end()),
                 )
                 .init_resource::<render_graph::RenderGraph>()
@@ -277,7 +277,7 @@ impl Plugin for RenderPlugin {
             // move the extract stage to a resource so render_app.run() does not run it.
             let stage = render_app
                 .schedule
-                .remove_stage(RenderStage::Extract)
+                .remove_stage(RenderSet::Extract)
                 .unwrap()
                 .downcast::<SystemStage>()
                 .unwrap();

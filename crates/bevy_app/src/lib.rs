@@ -25,7 +25,7 @@ pub mod prelude {
     pub use crate::{app::App, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet};
 }
 
-use bevy_ecs::schedule::{ScheduleLabel, StageLabel};
+use bevy_ecs::schedule::{ScheduleLabel, SystemLabel};
 
 /// The names of the default [`App`] schedules.
 ///
@@ -40,8 +40,8 @@ pub enum CoreSchedule {
 
 /// The names of the default [`App`] system sets.
 ///
-/// The relative [`SystemSet`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_sets`].
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+/// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_sets`].
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum CoreSet {
     /// Runs before all other app stages.
     First,
@@ -56,7 +56,9 @@ pub enum CoreSet {
 }
 
 /// The names of the default [`App`] startup stages.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+///
+/// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_sets`].
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum StartupSet {
     /// Runs once before [`StartupSet::Startup`].
     PreStartup,

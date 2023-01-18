@@ -47,11 +47,11 @@ pub use path::*;
 pub use reflect::*;
 
 use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::schedule::{StageLabel, SystemStage};
+use bevy_ecs::schedule::SystemLabel;
 
 /// The names of asset stages in an [`App`] schedule.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum AssetStage {
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum AssetSet {
     /// The stage where asset storages are updated.
     LoadAssets,
     /// The stage where asset events are generated.
@@ -107,12 +107,12 @@ impl Plugin for AssetPlugin {
 
         app.add_stage_before(
             bevy_app::CoreSet::PreUpdate,
-            AssetStage::LoadAssets,
+            AssetSet::LoadAssets,
             SystemStage::parallel(),
         )
         .add_stage_after(
             bevy_app::CoreSet::PostUpdate,
-            AssetStage::AssetEvents,
+            AssetSet::AssetEvents,
             SystemStage::parallel(),
         )
         .register_type::<HandleId>()
@@ -122,6 +122,6 @@ impl Plugin for AssetPlugin {
             feature = "filesystem_watcher",
             all(not(target_arch = "wasm32"), not(target_os = "android"))
         ))]
-        app.add_system(io::filesystem_watcher_system.in_set(AssetStage::LoadAssets));
+        app.add_system(io::filesystem_watcher_system.in_set(AssetSet::LoadAssets));
     }
 }

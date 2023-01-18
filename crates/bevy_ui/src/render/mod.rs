@@ -22,7 +22,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     texture::Image,
     view::{ComputedVisibility, ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp, RenderSet,
 };
 use bevy_sprite::{SpriteAssetEvents, TextureAtlas};
 use bevy_text::{Text, TextLayoutInfo};
@@ -71,21 +71,21 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_system(extract_default_ui_camera_view::<Camera2d>.in_set(RenderStage::Extract))
-        .add_system(extract_default_ui_camera_view::<Camera3d>.in_set(RenderStage::Extract))
+        .add_system(extract_default_ui_camera_view::<Camera2d>.in_set(RenderSet::Extract))
+        .add_system(extract_default_ui_camera_view::<Camera3d>.in_set(RenderSet::Extract))
         .add_system(
             extract_uinodes
                 .in_set(RenderUiSystem::ExtractNode)
-                .in_set(RenderStage::Extract),
+                .in_set(RenderSet::Extract),
         )
         .add_system(
             extract_text_uinodes
                 .after(RenderUiSystem::ExtractNode)
-                .in_set(RenderStage::Extract),
+                .in_set(RenderSet::Extract),
         )
-        .add_system(prepare_uinodes.in_set(RenderStage::Prepare))
-        .add_system(queue_uinodes.in_set(RenderStage::Queue))
-        .add_system(sort_phase_system::<TransparentUi>.in_set(RenderStage::PhaseSort));
+        .add_system(prepare_uinodes.in_set(RenderSet::Prepare))
+        .add_system(queue_uinodes.in_set(RenderSet::Queue))
+        .add_system(sort_phase_system::<TransparentUi>.in_set(RenderSet::PhaseSort));
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);

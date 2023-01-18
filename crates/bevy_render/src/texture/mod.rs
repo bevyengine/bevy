@@ -29,7 +29,7 @@ pub use texture_cache::*;
 use crate::{
     render_asset::{PrepareAssetLabel, RenderAssetPlugin},
     renderer::RenderDevice,
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{AddAsset, Assets};
@@ -102,7 +102,7 @@ impl Plugin for ImagePlugin {
                 .insert_resource(DefaultImageSampler(default_sampler))
                 .init_resource::<TextureCache>()
                 .init_resource::<FallbackImage>()
-                .add_system(update_texture_cache_system.in_set(RenderStage::Cleanup));
+                .add_system(update_texture_cache_system.in_set(RenderSet::Cleanup));
         }
     }
 }

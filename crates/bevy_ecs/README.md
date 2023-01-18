@@ -148,10 +148,6 @@ fn main() {
     // Create a new Schedule, which defines an execution strategy for Systems
     let mut schedule = Schedule::default();
 
-    // Define a unique public name for a new Stage.
-    #[derive(StageLabel)]
-    pub struct UpdateLabel;
-
     // Add a Stage to our schedule. Each Stage in a schedule runs all of its systems
     // before moving on to the next Stage
     schedule.add_stage(UpdateLabel, SystemStage::parallel()

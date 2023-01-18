@@ -1,12 +1,6 @@
-pub use bevy_ecs_macros::{RunCriteriaLabel, StageLabel, SystemLabel};
+pub use bevy_ecs_macros::{RunCriteriaLabel, SystemLabel};
 use bevy_utils::define_label;
 
-define_label!(
-    /// A strongly-typed class of labels used to identify [`Stage`](crate::schedule::Stage)s.
-    StageLabel,
-    /// Strongly-typed identifier for a [`StageLabel`].
-    StageLabelId,
-);
 define_label!(
     /// A strongly-typed class of labels used to identify [`System`](crate::system::System)s.
     SystemLabel,

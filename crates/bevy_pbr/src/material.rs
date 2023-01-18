@@ -37,7 +37,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ExtractedView, Msaa, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp, RenderSet,
 };
 use bevy_utils::{tracing::error, HashMap, HashSet};
 use std::hash::Hash;
@@ -173,13 +173,13 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system(extract_materials::<M>.in_set(RenderStage::Extract))
+                .add_system(extract_materials::<M>.in_set(RenderSet::Extract))
                 .add_system(
                     prepare_materials::<M>
                         .after(PrepareAssetLabel::PreAssetPrepare)
-                        .in_set(RenderStage::Prepare),
+                        .in_set(RenderSet::Prepare),
                 )
-                .add_system(queue_material_meshes::<M>.in_set(RenderStage::Queue));
+                .add_system(queue_material_meshes::<M>.in_set(RenderSet::Queue));
         }
     }
 }

@@ -32,7 +32,7 @@ use bevy_render::{
     renderer::RenderDevice,
     texture::FallbackImage,
     view::{ComputedVisibility, ExtractedView, Msaa, Visibility, VisibleEntities},
-    Extract, RenderApp, RenderStage,
+    Extract, RenderApp, RenderSet,
 };
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_utils::{FloatOrd, HashMap, HashSet};
@@ -160,13 +160,13 @@ where
                 .init_resource::<ExtractedMaterials2d<M>>()
                 .init_resource::<RenderMaterials2d<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
-                .add_system(extract_materials_2d::<M>.in_set(RenderStage::Extract))
+                .add_system(extract_materials_2d::<M>.in_set(RenderSet::Extract))
                 .add_system(
                     prepare_materials_2d::<M>
                         .after(PrepareAssetLabel::PreAssetPrepare)
-                        .in_set(RenderStage::Prepare),
+                        .in_set(RenderSet::Prepare),
                 )
-                .add_system(queue_material2d_meshes::<M>.in_set(RenderStage::Queue));
+                .add_system(queue_material2d_meshes::<M>.in_set(RenderSet::Queue));
         }
     }
 }

@@ -21,7 +21,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 #[cfg(feature = "trace")]
 use bevy_utils::tracing::info_span;
@@ -48,8 +48,8 @@ impl Plugin for BloomPlugin {
 
         render_app
             .init_resource::<BloomPipelines>()
-            .add_system(prepare_bloom_textures.in_set(RenderStage::Prepare))
-            .add_system(queue_bloom_bind_groups.in_set(RenderStage::Queue));
+            .add_system(prepare_bloom_textures.in_set(RenderSet::Prepare))
+            .add_system(queue_bloom_bind_groups.in_set(RenderSet::Queue));
 
         {
             let bloom_node = BloomNode::new(&mut render_app.world);

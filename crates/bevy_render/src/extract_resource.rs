@@ -7,7 +7,7 @@ use bevy_ecs::system::Local;
 use bevy_ecs::system::{Commands, Res, ResMut, Resource};
 pub use bevy_render_macros::ExtractResource;
 
-use crate::{Extract, RenderApp, RenderStage};
+use crate::{Extract, RenderApp, RenderSet};
 
 /// Describes how a resource gets extracted for rendering.
 ///
@@ -35,7 +35,7 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system(extract_resource::<R>.in_set(RenderStage::Extract));
+            render_app.add_system(extract_resource::<R>.in_set(RenderSet::Extract));
         }
     }
 }

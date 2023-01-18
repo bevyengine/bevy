@@ -7,7 +7,7 @@ pub use camera::*;
 pub use camera_driver_node::*;
 pub use projection::*;
 
-use crate::{render_graph::RenderGraph, RenderApp, RenderStage};
+use crate::{render_graph::RenderGraph, RenderApp, RenderSet};
 use bevy_app::{App, Plugin};
 
 #[derive(Default)]
@@ -27,7 +27,7 @@ impl Plugin for CameraPlugin {
             .add_plugin(CameraProjectionPlugin::<PerspectiveProjection>::default());
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system(extract_cameras.in_set(RenderStage::Extract));
+            render_app.add_system(extract_cameras.in_set(RenderSet::Extract));
 
             let camera_driver_node = CameraDriverNode::new(&mut render_app.world);
             let mut render_graph = render_app.world.resource_mut::<RenderGraph>();

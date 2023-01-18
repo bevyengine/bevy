@@ -49,7 +49,7 @@ use bevy_render::{
     render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
     render_resource::{Shader, SpecializedMeshPipelines},
     view::VisibilitySystems,
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 use bevy_transform::TransformSystem;
 
@@ -216,12 +216,12 @@ impl Plugin for PbrPlugin {
             .add_system(
                 render::extract_clusters
                     .in_set(RenderLightSystems::ExtractClusters)
-                    .in_set(RenderStage::Extract),
+                    .in_set(RenderSet::Extract),
             )
             .add_system(
                 render::extract_lights
                     .in_set(RenderLightSystems::ExtractLights)
-                    .in_set(RenderStage::Extract),
+                    .in_set(RenderSet::Extract),
             )
             .add_system(
                 // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
@@ -229,7 +229,7 @@ impl Plugin for PbrPlugin {
                 render::prepare_lights
                     .at_start()
                     .in_set(RenderLightSystems::PrepareLights)
-                    .in_set(RenderStage::Prepare),
+                    .in_set(RenderSet::Prepare),
             )
             .add_system(
                 // NOTE: This needs to run after prepare_lights. As prepare_lights is an exclusive system,
@@ -237,15 +237,15 @@ impl Plugin for PbrPlugin {
                 // prepare_lights.
                 render::prepare_clusters
                     .in_set(RenderLightSystems::PrepareClusters)
-                    .in_set(RenderStage::Prepare),
+                    .in_set(RenderSet::Prepare),
             )
             .add_system(
                 render::queue_shadows
                     .in_set(RenderLightSystems::QueueShadows)
-                    .in_set(RenderStage::Queue),
+                    .in_set(RenderSet::Queue),
             )
-            .add_system(render::queue_shadow_view_bind_group.in_set(RenderStage::Queue))
-            .add_system(sort_phase_system::<Shadow>.in_set(RenderStage::PhaseSort))
+            .add_system(render::queue_shadow_view_bind_group.in_set(RenderSet::Queue))
+            .add_system(sort_phase_system::<Shadow>.in_set(RenderSet::PhaseSort))
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()

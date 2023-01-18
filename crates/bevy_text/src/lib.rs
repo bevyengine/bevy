@@ -26,7 +26,7 @@ pub mod prelude {
 use bevy_app::prelude::*;
 use bevy_asset::AddAsset;
 use bevy_ecs::{schedule::IntoSystemDescriptor, system::Resource};
-use bevy_render::{camera::CameraUpdateSystem, RenderApp, RenderStage};
+use bevy_render::{camera::CameraUpdateSystem, RenderApp, RenderSet};
 use bevy_sprite::SpriteSystem;
 use bevy_window::ModifiesWindows;
 use std::num::NonZeroUsize;
@@ -95,7 +95,7 @@ impl Plugin for TextPlugin {
             render_app.add_system(
                 extract_text2d_sprite
                     .after(SpriteSystem::ExtractSprites)
-                    .in_set(RenderStage::Extract),
+                    .in_set(RenderSet::Extract),
             );
         }
     }

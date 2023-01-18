@@ -34,7 +34,7 @@ use bevy_reflect::TypeUuid;
 use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::{Shader, SpecializedRenderPipelines},
-    RenderApp, RenderStage,
+    RenderApp, RenderSet,
 };
 
 #[derive(Default)]
@@ -73,10 +73,10 @@ impl Plugin for SpritePlugin {
                 .add_system(
                     render::extract_sprites
                         .in_set(SpriteSystem::ExtractSprites)
-                        .in_set(RenderStage::Extract),
+                        .in_set(RenderSet::Extract),
                 )
-                .add_system(render::extract_sprite_events.in_set(RenderStage::Extract))
-                .add_system(queue_sprites.in_set(RenderStage::Queue));
+                .add_system(render::extract_sprite_events.in_set(RenderSet::Extract))
+                .add_system(queue_sprites.in_set(RenderSet::Queue));
         };
     }
 }
