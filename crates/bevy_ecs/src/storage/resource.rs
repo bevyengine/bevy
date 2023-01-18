@@ -195,13 +195,15 @@ impl<const SEND: bool> ResourceData<SEND> {
                 .then(|| self.validate_access())
                 .and_then(|_| self.data.remove_and_forget())
         };
-        res.map(|ptr| (
-            ptr,
-            ComponentTicks {
-                added: *self.added_tick.get_mut(),
-                changed: *self.changed_tick.get_mut(),
-            },
-        ))
+        res.map(|ptr| {
+            (
+                ptr,
+                ComponentTicks {
+                    added: *self.added_tick.get_mut(),
+                    changed: *self.changed_tick.get_mut(),
+                },
+            )
+        })
     }
 
     /// Removes a value from the resource, if present, and drops it.
