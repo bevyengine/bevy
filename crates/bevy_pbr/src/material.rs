@@ -232,6 +232,18 @@ pub struct MaterialPipeline<M: Material> {
     marker: PhantomData<M>,
 }
 
+impl<M: Material> Clone for MaterialPipeline<M> {
+    fn clone(&self) -> Self {
+        Self {
+            mesh_pipeline: self.mesh_pipeline.clone(),
+            material_layout: self.material_layout.clone(),
+            vertex_shader: self.vertex_shader.clone(),
+            fragment_shader: self.fragment_shader.clone(),
+            marker: PhantomData,
+        }
+    }
+}
+
 impl<M: Material> SpecializedMeshPipeline for MaterialPipeline<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -321,7 +333,7 @@ pub fn queue_material_meshes<M: Material>(
     transparent_draw_functions: Res<DrawFunctions<Transparent3d>>,
     material_pipeline: Res<MaterialPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipeline<M>>>,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     msaa: Res<Msaa>,
     render_meshes: Res<RenderAssets<Mesh>>,
     render_materials: Res<RenderMaterials<M>>,
@@ -379,7 +391,7 @@ pub fn queue_material_meshes<M: Material>(
                         }
 
                         let pipeline_id = pipelines.specialize(
-                            &mut pipeline_cache,
+                            &pipeline_cache,
                             &material_pipeline,
                             MaterialPipelineKey {
                                 mesh_key,

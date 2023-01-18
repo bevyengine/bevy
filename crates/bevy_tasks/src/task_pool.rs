@@ -10,7 +10,7 @@ use async_task::FallibleTask;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, pin, FutureExt};
 
-use crate::Task;
+use crate::{thread_executor::ThreadExecutor, Task};
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
 
@@ -108,6 +108,7 @@ pub struct TaskPool {
 impl TaskPool {
     thread_local! {
         static LOCAL_EXECUTOR: async_executor::LocalExecutor<'static> = async_executor::LocalExecutor::new();
+        static THREAD_EXECUTOR: ThreadExecutor<'static> = ThreadExecutor::new();
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -271,59 +272,61 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'scope Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        // SAFETY: This safety comment applies to all references transmuted to 'env.
-        // Any futures spawned with these references need to return before this function completes.
-        // This is guaranteed because we drive all the futures spawned onto the Scope
-        // to completion in this function. However, rust has no way of knowing this so we
-        // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
-        let executor: &async_executor::Executor = &self.executor;
-        let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
-        let task_scope_executor = &async_executor::Executor::default();
-        let task_scope_executor: &'env async_executor::Executor =
-            unsafe { mem::transmute(task_scope_executor) };
-        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
-        let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
-            unsafe { mem::transmute(&spawned) };
+        Self::THREAD_EXECUTOR.with(|thread_executor| {
+            // SAFETY: This safety comment applies to all references transmuted to 'env.
+            // Any futures spawned with these references need to return before this function completes.
+            // This is guaranteed because we drive all the futures spawned onto the Scope
+            // to completion in this function. However, rust has no way of knowing this so we
+            // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
+            let executor: &async_executor::Executor = &self.executor;
+            let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
+            let thread_executor: &'env ThreadExecutor<'env> =
+                unsafe { mem::transmute(thread_executor) };
+            let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
+            let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
+                unsafe { mem::transmute(&spawned) };
 
-        let scope = Scope {
-            executor,
-            task_scope_executor,
-            spawned: spawned_ref,
-            scope: PhantomData,
-            env: PhantomData,
-        };
-
-        let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
-
-        f(scope_ref);
-
-        if spawned.is_empty() {
-            Vec::new()
-        } else {
-            let get_results = async {
-                let mut results = Vec::with_capacity(spawned_ref.len());
-                while let Ok(task) = spawned_ref.pop() {
-                    results.push(task.await.unwrap());
-                }
-
-                results
+            let scope = Scope {
+                executor,
+                thread_executor,
+                spawned: spawned_ref,
+                scope: PhantomData,
+                env: PhantomData,
             };
 
-            // Pin the futures on the stack.
-            pin!(get_results);
+            let scope_ref: &'env Scope<'_, 'env, T> = unsafe { mem::transmute(&scope) };
 
-            loop {
-                if let Some(result) = future::block_on(future::poll_once(&mut get_results)) {
-                    break result;
+            f(scope_ref);
+
+            if spawned.is_empty() {
+                Vec::new()
+            } else {
+                let get_results = async {
+                    let mut results = Vec::with_capacity(spawned_ref.len());
+                    while let Ok(task) = spawned_ref.pop() {
+                        results.push(task.await.unwrap());
+                    }
+
+                    results
                 };
 
-                std::panic::catch_unwind(|| {
-                    executor.try_tick();
-                    task_scope_executor.try_tick();
-                })
-                .ok();
+                // Pin the futures on the stack.
+                pin!(get_results);
+
+                let thread_ticker = thread_executor.ticker().unwrap();
+                loop {
+                    if let Some(result) = future::block_on(future::poll_once(&mut get_results)) {
+                        break result;
+                    };
+
+                    std::panic::catch_unwind(|| {
+                        executor.try_tick();
+                        thread_ticker.try_tick();
+                    })
+                    .ok();
+                }
             }
-        }
+        })
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future. It can also be
@@ -395,7 +398,7 @@ impl Drop for TaskPool {
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope async_executor::Executor<'scope>,
-    task_scope_executor: &'scope async_executor::Executor<'scope>,
+    thread_executor: &'scope ThreadExecutor<'scope>,
     spawned: &'scope ConcurrentQueue<FallibleTask<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -425,7 +428,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self.task_scope_executor.spawn(f).fallible();
+        let task = self.thread_executor.spawn(f).fallible();
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
