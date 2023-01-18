@@ -1,17 +1,11 @@
-//! This module contains the bundles used in Bevy's UI
+//! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, ImageMode},
-    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style, UiImage, ZIndex,
+    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
+    UiImage, ZIndex,
 };
-use bevy_ecs::{
-    bundle::Bundle,
-    prelude::{Component, With},
-    query::QueryItem,
-};
+use bevy_ecs::bundle::Bundle;
 use bevy_render::{
-    camera::Camera,
-    extract_component::ExtractComponent,
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
@@ -19,6 +13,8 @@ use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
+///
+/// Useful as a container for a variety of child nodes.
 #[derive(Bundle, Clone, Debug)]
 pub struct NodeBundle {
     /// Describes the size of the node
@@ -27,8 +23,6 @@ pub struct NodeBundle {
     pub style: Style,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
-    /// Describes the image of the node
-    pub image: UiImage,
     /// Whether this node should block interaction with lower nodes
     pub focus_policy: FocusPolicy,
     /// The transform of the node
@@ -56,7 +50,6 @@ impl Default for NodeBundle {
             background_color: Color::NONE.into(),
             node: Default::default(),
             style: Default::default(),
-            image: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -74,13 +67,11 @@ pub struct ImageBundle {
     pub node: Node,
     /// Describes the style including flexbox settings
     pub style: Style,
-    /// Configures how the image should scale
-    pub image_mode: ImageMode,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// The background color, which serves as a "fill" for this node
     ///
-    /// When combined with `UiImage`, tints the provided image.
+    /// Combines with `UiImage` to tint the provided image.
     pub background_color: BackgroundColor,
     /// The image of the node
     pub image: UiImage,
@@ -105,7 +96,7 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug)]
+#[derive(Bundle, Clone, Debug, Default)]
 pub struct TextBundle {
     /// Describes the size of the node
     pub node: Node,
@@ -169,23 +160,6 @@ impl TextBundle {
     }
 }
 
-impl Default for TextBundle {
-    fn default() -> Self {
-        TextBundle {
-            focus_policy: FocusPolicy::Pass,
-            text: Default::default(),
-            node: Default::default(),
-            calculated_size: Default::default(),
-            style: Default::default(),
-            transform: Default::default(),
-            global_transform: Default::default(),
-            visibility: Default::default(),
-            computed_visibility: Default::default(),
-            z_index: Default::default(),
-        }
-    }
-}
-
 /// A UI node that is a button
 #[derive(Bundle, Clone, Debug)]
 pub struct ButtonBundle {
@@ -225,12 +199,12 @@ pub struct ButtonBundle {
 
 impl Default for ButtonBundle {
     fn default() -> Self {
-        ButtonBundle {
-            button: Button,
-            interaction: Default::default(),
-            focus_policy: Default::default(),
+        Self {
+            focus_policy: FocusPolicy::Block,
             node: Default::default(),
+            button: Default::default(),
             style: Default::default(),
+            interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
             transform: Default::default(),
@@ -239,34 +213,5 @@ impl Default for ButtonBundle {
             computed_visibility: Default::default(),
             z_index: Default::default(),
         }
-    }
-}
-/// Configuration for cameras related to UI.
-///
-/// When a [`Camera`] doesn't have the [`UiCameraConfig`] component,
-/// it will display the UI by default.
-///
-/// [`Camera`]: bevy_render::camera::Camera
-#[derive(Component, Clone)]
-pub struct UiCameraConfig {
-    /// Whether to output UI to this camera view.
-    ///
-    /// When a `Camera` doesn't have the [`UiCameraConfig`] component,
-    /// it will display the UI by default.
-    pub show_ui: bool,
-}
-
-impl Default for UiCameraConfig {
-    fn default() -> Self {
-        Self { show_ui: true }
-    }
-}
-
-impl ExtractComponent for UiCameraConfig {
-    type Query = &'static Self;
-    type Filter = With<Camera>;
-
-    fn extract_component(item: QueryItem<'_, Self::Query>) -> Self {
-        item.clone()
     }
 }

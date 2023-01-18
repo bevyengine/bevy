@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectRef, TypeInfo,
-    TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -317,6 +317,11 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -339,6 +344,11 @@ impl Reflect for DynamicTuple {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Tuple(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Tuple(self)
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
@@ -515,6 +525,10 @@ macro_rules! impl_reflect_tuple {
                 self
             }
 
+            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+                self
+            }
+
             fn as_reflect(&self) -> &dyn Reflect {
                 self
             }
@@ -538,6 +552,10 @@ macro_rules! impl_reflect_tuple {
 
             fn reflect_mut(&mut self) -> ReflectMut {
                 ReflectMut::Tuple(self)
+            }
+
+            fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+                ReflectOwned::Tuple(self)
             }
 
             fn clone_value(&self) -> Box<dyn Reflect> {

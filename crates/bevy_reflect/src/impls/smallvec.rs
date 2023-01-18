@@ -4,7 +4,7 @@ use std::any::Any;
 use crate::utility::GenericTypeInfoCell;
 use crate::{
     Array, ArrayIter, FromReflect, FromType, GetTypeRegistration, List, ListInfo, Reflect,
-    ReflectFromPtr, ReflectMut, ReflectRef, TypeInfo, TypeRegistration, Typed,
+    ReflectFromPtr, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeRegistration, Typed,
 };
 
 impl<T: smallvec::Array + Send + Sync + 'static> Array for SmallVec<T>
@@ -49,6 +49,22 @@ impl<T: smallvec::Array + Send + Sync + 'static> List for SmallVec<T>
 where
     T::Item: FromReflect,
 {
+    fn insert(&mut self, index: usize, value: Box<dyn Reflect>) {
+        let value = value.take::<T::Item>().unwrap_or_else(|value| {
+            <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
+                panic!(
+                    "Attempted to insert invalid value of type {}.",
+                    value.type_name()
+                )
+            })
+        });
+        SmallVec::insert(self, index, value);
+    }
+
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+        Box::new(self.remove(index))
+    }
+
     fn push(&mut self, value: Box<dyn Reflect>) {
         let value = value.take::<T::Item>().unwrap_or_else(|value| {
             <T as smallvec::Array>::Item::from_reflect(&*value).unwrap_or_else(|| {
@@ -90,6 +106,10 @@ where
         self
     }
 
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -113,6 +133,10 @@ where
 
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::List(self)
+    }
+
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
     }
 
     fn clone_value(&self) -> Box<dyn Reflect> {

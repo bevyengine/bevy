@@ -8,8 +8,8 @@ use crate::{
     camera::ExtractedCamera,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     prelude::Image,
-    rangefinder::ViewRangefinder3d,
     render_asset::RenderAssets,
+    render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
     texture::{BevyDefault, TextureCache},
@@ -31,7 +31,12 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Msaa>()
+        app.register_type::<ComputedVisibility>()
+            .register_type::<ComputedVisibilityFlags>()
+            .register_type::<Msaa>()
+            .register_type::<RenderLayers>()
+            .register_type::<Visibility>()
+            .register_type::<VisibleEntities>()
             .init_resource::<Msaa>()
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugin(ExtractResourcePlugin::<Msaa>::default())

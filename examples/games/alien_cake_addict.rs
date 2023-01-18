@@ -179,7 +179,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 // remove all entities that are not a camera
 fn teardown(mut commands: Commands, entities: Query<Entity, Without<Camera>>) {
     for entity in &entities {
-        commands.entity(entity).despawn_recursive();
+        commands.entity(entity).despawn();
     }
 }
 
@@ -380,9 +380,9 @@ fn display_score(mut commands: Commands, asset_server: Res<AssetServer>, game: R
     commands
         .spawn(NodeBundle {
             style: Style {
-                margin: UiRect::all(Val::Auto),
-                justify_content: JustifyContent::Center,
+                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                 align_items: AlignItems::Center,
+                justify_content: JustifyContent::Center,
                 ..default()
             },
             ..default()

@@ -1,25 +1,27 @@
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 
 /// This plugin group will add all the default plugins:
-/// * [`LogPlugin`](bevy_log::LogPlugin)
-/// * [`CorePlugin`](bevy_core::CorePlugin)
-/// * [`TimePlugin`](bevy_time::TimePlugin)
-/// * [`TransformPlugin`](bevy_transform::TransformPlugin)
-/// * [`HierarchyPlugin`](bevy_hierarchy::HierarchyPlugin)
-/// * [`DiagnosticsPlugin`](bevy_diagnostic::DiagnosticsPlugin)
-/// * [`InputPlugin`](bevy_input::InputPlugin)
-/// * [`WindowPlugin`](bevy_window::WindowPlugin)
-/// * [`AssetPlugin`](bevy_asset::AssetPlugin)
-/// * [`ScenePlugin`](bevy_scene::ScenePlugin)
-/// * [`RenderPlugin`](bevy_render::RenderPlugin) - with feature `bevy_render`
-/// * [`SpritePlugin`](bevy_sprite::SpritePlugin) - with feature `bevy_sprite`
-/// * [`PbrPlugin`](bevy_pbr::PbrPlugin) - with feature `bevy_pbr`
-/// * [`UiPlugin`](bevy_ui::UiPlugin) - with feature `bevy_ui`
-/// * [`TextPlugin`](bevy_text::TextPlugin) - with feature `bevy_text`
-/// * [`AudioPlugin`](bevy_audio::AudioPlugin) - with feature `bevy_audio`
-/// * [`GilrsPlugin`](bevy_gilrs::GilrsPlugin) - with feature `bevy_gilrs`
-/// * [`GltfPlugin`](bevy_gltf::GltfPlugin) - with feature `bevy_gltf`
-/// * [`WinitPlugin`](bevy_winit::WinitPlugin) - with feature `bevy_winit`
+/// * [`LogPlugin`](crate::log::LogPlugin)
+/// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
+/// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
+/// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
+/// * [`TimePlugin`](crate::time::TimePlugin)
+/// * [`TransformPlugin`](crate::transform::TransformPlugin)
+/// * [`HierarchyPlugin`](crate::hierarchy::HierarchyPlugin)
+/// * [`DiagnosticsPlugin`](crate::diagnostic::DiagnosticsPlugin)
+/// * [`InputPlugin`](crate::input::InputPlugin)
+/// * [`WindowPlugin`](crate::window::WindowPlugin)
+/// * [`AssetPlugin`](crate::asset::AssetPlugin)
+/// * [`ScenePlugin`](crate::scene::ScenePlugin)
+/// * [`RenderPlugin`](crate::render::RenderPlugin) - with feature `bevy_render`
+/// * [`SpritePlugin`](crate::sprite::SpritePlugin) - with feature `bevy_sprite`
+/// * [`PbrPlugin`](crate::pbr::PbrPlugin) - with feature `bevy_pbr`
+/// * [`UiPlugin`](crate::ui::UiPlugin) - with feature `bevy_ui`
+/// * [`TextPlugin`](crate::text::TextPlugin) - with feature `bevy_text`
+/// * [`AudioPlugin`](crate::audio::AudioPlugin) - with feature `bevy_audio`
+/// * [`GilrsPlugin`](crate::gilrs::GilrsPlugin) - with feature `bevy_gilrs`
+/// * [`GltfPlugin`](crate::gltf::GltfPlugin) - with feature `bevy_gltf`
+/// * [`WinitPlugin`](crate::winit::WinitPlugin) - with feature `bevy_winit`
 ///
 /// See also [`MinimalPlugins`] for a slimmed down option
 pub struct DefaultPlugins;
@@ -29,7 +31,9 @@ impl PluginGroup for DefaultPlugins {
         let mut group = PluginGroupBuilder::start::<Self>();
         group = group
             .add(bevy_log::LogPlugin::default())
-            .add(bevy_core::CorePlugin::default())
+            .add(bevy_core::TaskPoolPlugin::default())
+            .add(bevy_core::TypeRegistrationPlugin::default())
+            .add(bevy_core::FrameCountPlugin::default())
             .add(bevy_time::TimePlugin::default())
             .add(bevy_transform::TransformPlugin::default())
             .add(bevy_hierarchy::HierarchyPlugin::default())
@@ -118,9 +122,11 @@ impl PluginGroup for DefaultPlugins {
 }
 
 /// Minimal plugin group that will add the following plugins:
-/// * [`CorePlugin`](bevy_core::CorePlugin)
-/// * [`TimePlugin`](bevy_time::TimePlugin)
-/// * [`ScheduleRunnerPlugin`](bevy_app::ScheduleRunnerPlugin)
+/// * [`TaskPoolPlugin`](crate::core::TaskPoolPlugin)
+/// * [`TypeRegistrationPlugin`](crate::core::TypeRegistrationPlugin)
+/// * [`FrameCountPlugin`](crate::core::FrameCountPlugin)
+/// * [`TimePlugin`](crate::time::TimePlugin)
+/// * [`ScheduleRunnerPlugin`](crate::app::ScheduleRunnerPlugin)
 ///
 /// See also [`DefaultPlugins`] for a more complete set of plugins
 pub struct MinimalPlugins;
@@ -128,7 +134,9 @@ pub struct MinimalPlugins;
 impl PluginGroup for MinimalPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(bevy_core::CorePlugin::default())
+            .add(bevy_core::TaskPoolPlugin::default())
+            .add(bevy_core::TypeRegistrationPlugin::default())
+            .add(bevy_core::FrameCountPlugin::default())
             .add(bevy_time::TimePlugin::default())
             .add(bevy_app::ScheduleRunnerPlugin::default())
     }

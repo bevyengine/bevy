@@ -34,8 +34,8 @@ fn check_textures(
     rpg_sprite_handles: ResMut<RpgSpriteHandles>,
     asset_server: Res<AssetServer>,
 ) {
-    if let LoadState::Loaded =
-        asset_server.get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id))
+    if let LoadState::Loaded = asset_server
+        .get_group_load_state(rpg_sprite_handles.handles.iter().map(|handle| handle.id()))
     {
         state.set(AppState::Finished).unwrap();
     }
@@ -51,7 +51,11 @@ fn setup(
     let mut texture_atlas_builder = TextureAtlasBuilder::default();
     for handle in &rpg_sprite_handles.handles {
         let handle = handle.typed_weak();
-        let texture = textures.get(&handle).expect("Textures folder contained a file which way matched by a loader which did not create an `Image` asset");
+        let Some(texture) = textures.get(&handle) else {
+            warn!("{:?} did not resolve to an `Image` asset.", asset_server.get_handle_path(handle));
+            continue;
+        };
+
         texture_atlas_builder.add_texture(handle, texture);
     }
 

@@ -3,20 +3,49 @@ use std::fmt::{Debug, Formatter};
 
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectRef,
-    TypeInfo, Typed,
+    Array, ArrayIter, DynamicArray, DynamicInfo, FromReflect, Reflect, ReflectMut, ReflectOwned,
+    ReflectRef, TypeInfo, Typed,
 };
 
 /// An ordered, mutable list of [Reflect] items. This corresponds to types like [`std::vec::Vec`].
 ///
-/// This is a sub-trait of [`Array`] as it implements a [`push`](List::push) function, allowing
-/// it's internal size to grow.
+/// This is a sub-trait of [`Array`], however as it implements [insertion](List::insert) and [removal](List::remove),
+/// it's internal size may change.
+///
+/// This trait expects index 0 to contain the _front_ element.
+/// The _back_ element must refer to the element with the largest index.
+/// These two rules above should be upheld by manual implementors.
+///
+/// [`push`](List::push) and [`pop`](List::pop) have default implementations,
+/// however it may be faster to implement them manually.
 pub trait List: Reflect + Array {
-    /// Appends an element to the list.
-    fn push(&mut self, value: Box<dyn Reflect>);
+    /// Inserts an element at position `index` within the list,
+    /// shifting all elements after it towards the back of the list.
+    ///
+    /// # Panics
+    /// Panics if `index > len`.
+    fn insert(&mut self, index: usize, element: Box<dyn Reflect>);
 
-    /// Removes the last element from the list (highest index in the array) and returns it, or [`None`] if it is empty.
-    fn pop(&mut self) -> Option<Box<dyn Reflect>>;
+    /// Removes and returns the element at position `index` within the list,
+    /// shifting all elements before it towards the front of the list.
+    ///
+    /// # Panics
+    /// Panics if `index` is out of bounds.
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect>;
+
+    /// Appends an element to the _back_ of the list.
+    fn push(&mut self, value: Box<dyn Reflect>) {
+        self.insert(self.len(), value);
+    }
+
+    /// Removes the _back_ element from the list and returns it, or [`None`] if it is empty.
+    fn pop(&mut self) -> Option<Box<dyn Reflect>> {
+        if self.is_empty() {
+            None
+        } else {
+            Some(self.remove(self.len() - 1))
+        }
+    }
 
     /// Clones the list, producing a [`DynamicList`].
     fn clone_dynamic(&self) -> DynamicList {
@@ -170,6 +199,14 @@ impl Array for DynamicList {
 }
 
 impl List for DynamicList {
+    fn insert(&mut self, index: usize, element: Box<dyn Reflect>) {
+        self.values.insert(index, element);
+    }
+
+    fn remove(&mut self, index: usize) -> Box<dyn Reflect> {
+        self.values.remove(index)
+    }
+
     fn push(&mut self, value: Box<dyn Reflect>) {
         DynamicList::push_box(self, value);
     }
@@ -217,6 +254,11 @@ impl Reflect for DynamicList {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -244,6 +286,11 @@ impl Reflect for DynamicList {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::List(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::List(self)
     }
 
     #[inline]

@@ -8,7 +8,9 @@ pub mod graph {
     }
     pub mod node {
         pub const MAIN_PASS: &str = "main_pass";
+        pub const BLOOM: &str = "bloom";
         pub const TONEMAPPING: &str = "tonemapping";
+        pub const FXAA: &str = "fxaa";
         pub const UPSCALING: &str = "upscaling";
         pub const END_MAIN_PASS_POST_PROCESSING: &str = "end_main_pass_post_processing";
     }
@@ -27,8 +29,8 @@ use bevy_render::{
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraph, SlotInfo, SlotType},
     render_phase::{
-        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions,
-        EntityPhaseItem, PhaseItem, RenderPhase,
+        sort_phase_system, CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
+        RenderPhase,
     },
     render_resource::{
         CachedRenderPipelineId, Extent3d, TextureDescriptor, TextureDimension, TextureFormat,
@@ -80,45 +82,33 @@ impl Plugin for Core3dPlugin {
             graph::input::VIEW_ENTITY,
             SlotType::Entity,
         )]);
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::MAIN_PASS,
-                MainPass3dNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::TONEMAPPING,
-                TonemappingNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_slot_edge(
-                input_node_id,
-                graph::input::VIEW_ENTITY,
-                graph::node::UPSCALING,
-                UpscalingNode::IN_VIEW,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING)
-            .unwrap();
-        draw_3d_graph
-            .add_node_edge(
-                graph::node::TONEMAPPING,
-                graph::node::END_MAIN_PASS_POST_PROCESSING,
-            )
-            .unwrap();
-        draw_3d_graph
-            .add_node_edge(
-                graph::node::END_MAIN_PASS_POST_PROCESSING,
-                graph::node::UPSCALING,
-            )
-            .unwrap();
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::MAIN_PASS,
+            MainPass3dNode::IN_VIEW,
+        );
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::TONEMAPPING,
+            TonemappingNode::IN_VIEW,
+        );
+        draw_3d_graph.add_slot_edge(
+            input_node_id,
+            graph::input::VIEW_ENTITY,
+            graph::node::UPSCALING,
+            UpscalingNode::IN_VIEW,
+        );
+        draw_3d_graph.add_node_edge(graph::node::MAIN_PASS, graph::node::TONEMAPPING);
+        draw_3d_graph.add_node_edge(
+            graph::node::TONEMAPPING,
+            graph::node::END_MAIN_PASS_POST_PROCESSING,
+        );
+        draw_3d_graph.add_node_edge(
+            graph::node::END_MAIN_PASS_POST_PROCESSING,
+            graph::node::UPSCALING,
+        );
         graph.add_sub_graph(graph::NAME, draw_3d_graph);
     }
 }
@@ -135,6 +125,11 @@ impl PhaseItem for Opaque3d {
     type SortKey = Reverse<FloatOrd>;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         Reverse(FloatOrd(self.distance))
     }
@@ -148,13 +143,6 @@ impl PhaseItem for Opaque3d {
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
-    }
-}
-
-impl EntityPhaseItem for Opaque3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -177,6 +165,11 @@ impl PhaseItem for AlphaMask3d {
     type SortKey = Reverse<FloatOrd>;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         Reverse(FloatOrd(self.distance))
     }
@@ -190,13 +183,6 @@ impl PhaseItem for AlphaMask3d {
     fn sort(items: &mut [Self]) {
         // Key negated to match reversed SortKey ordering
         radsort::sort_by_key(items, |item| -item.distance);
-    }
-}
-
-impl EntityPhaseItem for AlphaMask3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
@@ -219,6 +205,11 @@ impl PhaseItem for Transparent3d {
     type SortKey = FloatOrd;
 
     #[inline]
+    fn entity(&self) -> Entity {
+        self.entity
+    }
+
+    #[inline]
     fn sort_key(&self) -> Self::SortKey {
         FloatOrd(self.distance)
     }
@@ -231,13 +222,6 @@ impl PhaseItem for Transparent3d {
     #[inline]
     fn sort(items: &mut [Self]) {
         radsort::sort_by_key(items, |item| item.distance);
-    }
-}
-
-impl EntityPhaseItem for Transparent3d {
-    #[inline]
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }
 
