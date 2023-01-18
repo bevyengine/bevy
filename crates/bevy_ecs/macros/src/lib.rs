@@ -4,9 +4,7 @@ mod component;
 mod fetch;
 
 use crate::fetch::derive_world_query_impl;
-use bevy_macro_utils::{
-    derive_boxed_label, derive_label, derive_set, get_named_struct_fields, BevyManifest,
-};
+use bevy_macro_utils::{derive_boxed_label, derive_set, get_named_struct_fields, BevyManifest};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -522,21 +520,6 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 pub fn derive_world_query(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
     derive_world_query_impl(ast)
-}
-
-/// Generates an impl of the `RunCriteriaLabel` trait.
-///
-/// This works only for unit structs, or enums with only unit variants.
-/// You may force a struct or variant to behave as if it were fieldless with `#[run_criteria_label(ignore_fields)]`.
-#[proc_macro_derive(RunCriteriaLabel, attributes(run_criteria_label))]
-pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
-    let input = parse_macro_input!(input as DeriveInput);
-    let mut trait_path = bevy_ecs_path();
-    trait_path.segments.push(format_ident!("schedule").into());
-    trait_path
-        .segments
-        .push(format_ident!("RunCriteriaLabel").into());
-    derive_label(input, &trait_path, "run_criteria_label")
 }
 
 /// Derive macro generating an impl of the trait `ScheduleLabel`.
