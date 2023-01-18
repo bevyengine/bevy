@@ -67,7 +67,7 @@ impl std::hash::BuildHasher for FixedState {
 /// A [`HashMap`][hashbrown::HashMap] implementing aHash, a high
 /// speed keyed hashing algorithm intended for use in in-memory hashmaps.
 ///
-/// FxHash is designed for performance and is NOT cryptographically secure.
+/// `FxHash` is designed for performance and is NOT cryptographically secure.
 /// It is also not [`HashDOS`] resistant, so exposing these maps to external
 /// untrusted inputs is strongly discouraged.
 ///
@@ -75,10 +75,10 @@ impl std::hash::BuildHasher for FixedState {
 /// depends on the order of insertionts and deletions and not a random source.
 pub type HashMap<K, V> = hashbrown::HashMap<K, V, FixedState>;
 
-/// A [`HashSet`][hashbrown::HashSet] implementing FxHash, a high
+/// A [`HashSet`][hashbrown::HashSet] implementing `FxHash`, a high
 /// speed hashing algorithm intended for use in in-memory hashmaps.
 ///
-/// FxHash is designed for performance and is NOT cryptographically secure.
+/// `FxHash` is designed for performance and is NOT cryptographically secure.
 /// It is also not [`HashDOS`] resistant, so exposing these sets to external
 /// untrusted inputs is strongly discouraged.
 ///
