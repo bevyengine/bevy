@@ -350,9 +350,7 @@ impl Parse for SystemParamFieldUsage {
             return Ok(Self::Resultful);
         }
 
-        return Err(
-            input.error("Expected one of 'ignore', 'infallible', 'optional', or 'resultful'")
-        );
+        Err(input.error("Expected one of 'ignore', 'infallible', 'optional', or 'resultful'"))
     }
 }
 
@@ -397,9 +395,7 @@ impl Parse for SystemParamStructUsage {
             return Ok(Self::Resultful(err_ty));
         }
 
-        return Err(
-            input.error("Expected one of 'infallible', 'optional', or 'resultful(ErrorType)'")
-        );
+        Err(input.error("Expected one of 'infallible', 'optional', or 'resultful(ErrorType)'"))
     }
 }
 
@@ -477,7 +473,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
 
-        match field_attrs.usage.unwrap_or(fallibility.clone().into()) {
+        match field_attrs.usage.unwrap_or_else(|| fallibility.clone().into()) {
             SystemParamFieldUsage::Ignore => {
                 ignored_fields.push(match field.ident.as_ref() {
                     Some(s) => s,
@@ -489,7 +485,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 });
                 ignored_field_types.push(&field.ty);
             }
-            field_fallibility @ _ => {
+            field_fallibility => {
                 let ident = format_ident!("f{i}");
                 let i = Index::from(i);
                 let ty = &field.ty;
