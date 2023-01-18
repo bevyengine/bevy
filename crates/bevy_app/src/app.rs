@@ -71,7 +71,7 @@ pub struct App {
     /// A collection of [`Schedule`] objects which are used to run systems.
     pub schedules: Schedules,
     /// The [`Schedule`] that systems will be added to by default.
-    default_schedule: Option<Box<dyn ScheduleLabel>>,
+    default_schedule_label: Option<Box<dyn ScheduleLabel>>,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -98,7 +98,8 @@ struct SubApp {
 impl SubApp {
     /// Runs the `SubApp`'s schedule.
     pub fn run(&mut self) {
-        self.app.schedule.run(&mut self.app.world);
+        let default_schedule = self.app.schedules.get_mut(self.app.default_schedule_label);
+        self.app.world.run_schedule(default_schedule);
         self.app.world.clear_trackers();
     }
 
@@ -153,7 +154,7 @@ impl App {
     pub fn empty() -> App {
         Self {
             world: Default::default(),
-            default_schedule: None,
+            default_schedule_label: None,
             schedules: Default::default(),
             runner: Box::new(run_once),
             sub_apps: HashMap::default(),
@@ -214,7 +215,7 @@ impl App {
     ///
     /// **Note:** This will create the schedule if it does not already exist.
     pub fn set_default_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        self.default_schedule = Some(Box::new(label));
+        self.default_schedule_label = Some(Box::new(label));
         if self.schedules.get(&label).is_none() {
             self.schedules.insert(label, Schedule::new());
         }
@@ -225,7 +226,7 @@ impl App {
     /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
     /// and similar methods.
     pub fn default_schedule(&mut self, label: impl ScheduleLabel) -> &Box<dyn ScheduleLabel> {
-        &self.default_schedule
+        &self.default_schedule_label
     }
 
     /// Applies the function to the [`Schedule`] associated with `label`.
@@ -269,7 +270,7 @@ impl App {
     /// app.add_system(my_system);
     /// ```
     pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
-        if let Some(default_schedule_label) = self.default_schedule {
+        if let Some(default_schedule_label) = self.default_schedule_label {
             if let Some(default_schedule) = self.schedules.get_mut(&default_schedule_label) {
                 default_schedule.add_system(system);
             } else {
@@ -303,7 +304,7 @@ impl App {
     /// );
     /// ```
     pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
-        if let Some(default_schedule_label) = self.default_schedule {
+        if let Some(default_schedule_label) = self.default_schedule_label {
             if let Some(default_schedule) = self.schedules.get_mut(&default_schedule_label) {
                 default_schedule.add_systems(systems);
             } else {
