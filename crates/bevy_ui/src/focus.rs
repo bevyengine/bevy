@@ -53,8 +53,14 @@ impl Default for Interaction {
     }
 }
 
-/// Describes whether [`Interaction`] component should remain in the `Clicked` state after
-/// the cursor stopped hovering over the node.
+/// Describes whether the [`Interaction`] component should remain in the `Clicked` state after
+/// the cursor stops hovering over the node.
+/// 
+/// If the `InteractionPolicy` is set to `Hold`, the `Interaction` component will remain in the `Clicked` state
+/// after the cursor leaves the node (the default behaviour).
+/// 
+/// If the `InteractionPolicy` is set to `Release`, the `Interaction` component will be set to `None`
+/// when the cursor leaves the node.
 #[derive(
     Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
 )]
