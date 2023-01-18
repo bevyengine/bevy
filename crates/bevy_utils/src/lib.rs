@@ -10,6 +10,8 @@ pub mod prelude {
     pub use crate::default;
 }
 
+pub use bevy_utils_macros::*;
+
 pub mod futures;
 pub mod label;
 mod short_names;

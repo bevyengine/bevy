@@ -4,6 +4,7 @@ use bevy_reflect::{FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
+use bevy_utils::IterableEnum;
 
 /// A keyboard input event.
 ///
@@ -71,7 +72,9 @@ pub fn keyboard_input_system(
 /// ## Updating
 ///
 /// The resource is updated inside of the [`keyboard_input_system`](crate::keyboard::keyboard_input_system).
-#[derive(Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect)]
+#[derive(
+    Debug, Hash, Ord, PartialOrd, PartialEq, Eq, Clone, Copy, Reflect, FromReflect, IterableEnum,
+)]
 #[reflect(Debug, Hash, PartialEq)]
 #[cfg_attr(
     feature = "serialize",

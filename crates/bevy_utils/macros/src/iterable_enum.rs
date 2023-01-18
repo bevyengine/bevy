@@ -54,7 +54,7 @@ fn get_at_impl(name: impl ToTokens, span: Span, d: DataEnum) -> quote::__private
         #[inline]
         fn get_at(index: usize) -> Option<Self> {
             match index {
-                #arms,
+                #arms
                 _ => None,
             }
         }
