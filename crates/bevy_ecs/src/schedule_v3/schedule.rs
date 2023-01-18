@@ -77,7 +77,7 @@ impl Schedules {
         #[allow(unused_variables)]
         for (label, schedule) in self.inner.iter_mut() {
             #[cfg(feature = "trace")]
-            let name = format!("{:?}", label);
+            let name = format!("{label:?}");
             #[cfg(feature = "trace")]
             let _one_span = info_span!("check schedule ticks", name = &name).entered();
             schedule.check_change_ticks(change_tick);
