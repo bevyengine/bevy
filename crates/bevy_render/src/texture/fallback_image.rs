@@ -78,16 +78,16 @@ impl FromWorld for FallbackImage {
 
 /// A Cache of fallback textures that uses the sample count as a key
 ///
-/// #WARNING
-/// Images using msaa with sample count > 1 are not initialised with data, therefore,
+/// # WARNING
+/// Images using MSAA with sample count > 1 are not initialised with data, therefore,
 /// you shouldn't sample them before writing data to them first.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
 
 /// A Cache of fallback depth textures that uses the sample count as a key
 ///
-/// #WARNING
-/// Images using msaa with sample count > 1 are not initialised with data, therefore,
+/// # WARNING
+/// Detph images are never initialised with data, therefore,
 /// you shouldn't sample them before writing data to them first.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);
