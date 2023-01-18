@@ -20,10 +20,11 @@ impl Plugin for GilrsPlugin {
         {
             Ok(gilrs) => {
                 app.insert_non_send_resource(gilrs)
-                    .add_startup_system_to_stage(StartupSet::PreStartup, gilrs_event_startup_system)
-                    .add_system_to_stage(
-                        CoreSet::PreUpdate,
-                        gilrs_event_system.before(InputSystem),
+                    .add_startup_system(gilrs_event_startup_system.label(StartupSet::PreStartup))
+                    .add_system(
+                        gilrs_event_system
+                            .before(InputSystem)
+                            .label(CoreSet::PreUpdate),
                     );
             }
             Err(err) => error!("Failed to start Gilrs. {}", err),

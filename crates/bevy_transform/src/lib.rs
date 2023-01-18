@@ -99,21 +99,25 @@ impl Plugin for TransformPlugin {
             .register_type::<GlobalTransform>()
             .add_plugin(ValidParentCheckPlugin::<GlobalTransform>::default())
             // add transform systems to startup so the first update is "correct"
-            .add_startup_system_to_stage(
-                StartupSet::PostStartup,
-                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+            .add_startup_system(
+                systems::sync_simple_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    .label(StartupSet::PostStartup),
             )
-            .add_startup_system_to_stage(
-                StartupSet::PostStartup,
-                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
+            .add_startup_system(
+                systems::propagate_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    .label(StartupSet::PostStartup),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
-                systems::sync_simple_transforms.label(TransformSystem::TransformPropagate),
+            .add_system(
+                systems::sync_simple_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    .label(CoreSet::PostUpdate),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
-                systems::propagate_transforms.label(TransformSystem::TransformPropagate),
+            .add_system(
+                systems::propagate_transforms
+                    .label(TransformSystem::TransformPropagate)
+                    .label(CoreSet::PostUpdate),
             );
     }
 }

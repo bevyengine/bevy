@@ -41,7 +41,11 @@ impl Plugin for WinitPlugin {
         app.init_non_send_resource::<WinitWindows>()
             .init_resource::<WinitSettings>()
             .set_runner(winit_runner)
-            .add_system_to_stage(CoreSet::PostUpdate, change_window.label(ModifiesWindows));
+            .add_system(
+                change_window
+                    .label(ModifiesWindows)
+                    .label(CoreSet::PostUpdate),
+            );
         #[cfg(target_arch = "wasm32")]
         app.add_plugin(web_resize::CanvasParentResizePlugin);
         let event_loop = EventLoop::new();

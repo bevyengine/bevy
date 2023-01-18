@@ -90,9 +90,10 @@ impl Plugin for WindowPlugin {
         }
 
         if self.exit_on_all_closed {
-            app.add_system_to_stage(
-                CoreSet::PostUpdate,
-                exit_on_all_closed.after(ModifiesWindows),
+            app.add_system(
+                exit_on_all_closed
+                    .label(CoreSet::PostUpdate)
+                    .after(ModifiesWindows),
             );
         }
         if self.close_when_requested {

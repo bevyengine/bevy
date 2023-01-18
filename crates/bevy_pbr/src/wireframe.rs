@@ -46,8 +46,8 @@ impl Plugin for WireframePlugin {
                 .add_render_command::<Opaque3d, DrawWireframes>()
                 .init_resource::<WireframePipeline>()
                 .init_resource::<SpecializedMeshPipelines<WireframePipeline>>()
-                .add_system_to_stage(RenderStage::Extract, extract_wireframes)
-                .add_system_to_stage(RenderStage::Queue, queue_wireframes);
+                .add_system(extract_wireframes.label(RenderStage::Extract))
+                .add_system(queue_wireframes.label(RenderStage::Queue));
         }
     }
 }

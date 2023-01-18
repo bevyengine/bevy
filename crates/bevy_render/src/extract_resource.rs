@@ -35,7 +35,7 @@ impl<R: ExtractResource> Default for ExtractResourcePlugin<R> {
 impl<R: ExtractResource> Plugin for ExtractResourcePlugin<R> {
     fn build(&self, app: &mut App) {
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(RenderStage::Extract, extract_resource::<R>);
+            render_app.add_system(extract_resource::<R>.label(RenderStage::Extract));
         }
     }
 }

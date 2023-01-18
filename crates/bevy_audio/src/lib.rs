@@ -55,7 +55,7 @@ impl Plugin for AudioPlugin {
             .add_asset::<AudioSource>()
             .add_asset::<AudioSink>()
             .init_resource::<Audio<AudioSource>>()
-            .add_system_to_stage(CoreSet::PostUpdate, play_queued_audio_system::<AudioSource>);
+            .add_system(play_queued_audio_system::<AudioSource>.label(CoreSet::PostUpdate));
 
         #[cfg(any(feature = "mp3", feature = "flac", feature = "wav", feature = "vorbis"))]
         app.init_asset_loader::<AudioLoader>();
@@ -70,6 +70,6 @@ impl AddAudioSource for App {
         self.add_asset::<T>()
             .init_resource::<Audio<T>>()
             .init_non_send_resource::<AudioOutput<T>>()
-            .add_system_to_stage(CoreSet::PostUpdate, play_queued_audio_system::<T>)
+            .add_system(play_queued_audio_system::<T>.label(CoreSet::PostUpdate))
     }
 }

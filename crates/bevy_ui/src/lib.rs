@@ -104,14 +104,16 @@ impl Plugin for UiPlugin {
             .register_type::<UiImage>()
             .register_type::<Val>()
             .register_type::<widget::Button>()
-            .add_system_to_stage(
-                CoreSet::PreUpdate,
-                ui_focus_system.label(UiSystem::Focus).after(InputSystem),
+            .add_system(
+                ui_focus_system
+                    .label(UiSystem::Focus)
+                    .label(CoreSet::PreUpdate)
+                    .after(InputSystem),
             )
             // add these stages to front because these must run before transform update systems
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 widget::text_system
+                    .label(CoreSet::PostUpdate)
                     .before(UiSystem::Flex)
                     .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
@@ -124,9 +126,9 @@ impl Plugin for UiPlugin {
                     // they will never observe each other's effects.
                     .ambiguous_with(bevy_text::update_text2d_layout),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 widget::update_image_calculated_size_system
+                    .label(CoreSet::PostUpdate)
                     .before(UiSystem::Flex)
                     // Potential conflicts: `Assets<Image>`
                     // They run independently since `widget::image_node_system` will only ever observe
@@ -135,17 +137,22 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(bevy_text::update_text2d_layout)
                     .ambiguous_with(widget::text_system),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 flex_node_system
+                    .label(CoreSet::PostUpdate)
                     .label(UiSystem::Flex)
                     .before(TransformSystem::TransformPropagate)
                     .after(ModifiesWindows),
             )
-            .add_system_to_stage(CoreSet::PostUpdate, ui_stack_system.label(UiSystem::Stack))
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
-                update_clipping_system.after(TransformSystem::TransformPropagate),
+            .add_system(
+                ui_stack_system
+                    .label(UiSystem::Stack)
+                    .label(CoreSet::PostUpdate),
+            )
+            .add_system(
+                update_clipping_system
+                    .after(TransformSystem::TransformPropagate)
+                    .label(CoreSet::PostUpdate),
             );
 
         crate::render::build_ui_render(app);

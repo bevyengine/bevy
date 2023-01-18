@@ -173,12 +173,13 @@ where
                 .init_resource::<ExtractedMaterials<M>>()
                 .init_resource::<RenderMaterials<M>>()
                 .init_resource::<SpecializedMeshPipelines<MaterialPipeline<M>>>()
-                .add_system_to_stage(RenderStage::Extract, extract_materials::<M>)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_materials::<M>.after(PrepareAssetLabel::PreAssetPrepare),
+                .add_system(extract_materials::<M>.label(RenderStage::Extract))
+                .add_system(
+                    prepare_materials::<M>
+                        .after(PrepareAssetLabel::PreAssetPrepare)
+                        .label(RenderStage::Prepare),
                 )
-                .add_system_to_stage(RenderStage::Queue, queue_material_meshes::<M>);
+                .add_system(queue_material_meshes::<M>.label(RenderStage::Queue));
         }
     }
 }

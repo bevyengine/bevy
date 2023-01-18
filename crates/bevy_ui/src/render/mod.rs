@@ -71,25 +71,21 @@ pub fn build_ui_render(app: &mut App) {
         .init_resource::<ExtractedUiNodes>()
         .init_resource::<DrawFunctions<TransparentUi>>()
         .add_render_command::<TransparentUi, DrawUi>()
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera2d>,
+        .add_system(extract_default_ui_camera_view::<Camera2d>.label(RenderStage::Extract))
+        .add_system(extract_default_ui_camera_view::<Camera3d>.label(RenderStage::Extract))
+        .add_system(
+            extract_uinodes
+                .label(RenderUiSystem::ExtractNode)
+                .label(RenderStage::Extract),
         )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_default_ui_camera_view::<Camera3d>,
+        .add_system(
+            extract_text_uinodes
+                .after(RenderUiSystem::ExtractNode)
+                .label(RenderStage::Extract),
         )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_uinodes.label(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(
-            RenderStage::Extract,
-            extract_text_uinodes.after(RenderUiSystem::ExtractNode),
-        )
-        .add_system_to_stage(RenderStage::Prepare, prepare_uinodes)
-        .add_system_to_stage(RenderStage::Queue, queue_uinodes)
-        .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<TransparentUi>);
+        .add_system(prepare_uinodes.label(RenderStage::Prepare))
+        .add_system(queue_uinodes.label(RenderStage::Queue))
+        .add_system(sort_phase_system::<TransparentUi>.label(RenderStage::PhaseSort));
 
     // Render graph
     let ui_graph_2d = get_ui_graph(render_app);

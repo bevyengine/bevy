@@ -102,9 +102,9 @@ impl Plugin for Mesh2dRenderPlugin {
             render_app
                 .init_resource::<Mesh2dPipeline>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
-                .add_system_to_stage(RenderStage::Extract, extract_mesh2d)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh2d_bind_group)
-                .add_system_to_stage(RenderStage::Queue, queue_mesh2d_view_bind_groups);
+                .add_system(extract_mesh2d.label(RenderStage::Extract))
+                .add_system(queue_mesh2d_bind_group.label(RenderStage::Queue))
+                .add_system(queue_mesh2d_view_bind_groups.label(RenderStage::Queue));
         }
     }
 }

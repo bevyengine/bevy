@@ -62,11 +62,11 @@ impl Plugin for Core3dPlugin {
             .init_resource::<DrawFunctions<Opaque3d>>()
             .init_resource::<DrawFunctions<AlphaMask3d>>()
             .init_resource::<DrawFunctions<Transparent3d>>()
-            .add_system_to_stage(RenderStage::Extract, extract_core_3d_camera_phases)
-            .add_system_to_stage(RenderStage::Prepare, prepare_core_3d_depth_textures)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Opaque3d>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<AlphaMask3d>)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent3d>);
+            .add_system(extract_core_3d_camera_phases.label(RenderStage::Extract))
+            .add_system(prepare_core_3d_depth_textures.label(RenderStage::Prepare))
+            .add_system(sort_phase_system::<Opaque3d>.label(RenderStage::PhaseSort))
+            .add_system(sort_phase_system::<AlphaMask3d>.label(RenderStage::PhaseSort))
+            .add_system(sort_phase_system::<Transparent3d>.label(RenderStage::PhaseSort));
 
         let pass_node_3d = MainPass3dNode::new(&mut render_app.world);
         let tonemapping = TonemappingNode::new(&mut render_app.world);

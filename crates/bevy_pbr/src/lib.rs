@@ -141,27 +141,27 @@ impl Plugin for PbrPlugin {
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .add_plugin(ExtractResourcePlugin::<AmbientLight>::default())
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 // NOTE: Clusters need to have been added before update_clusters is run so
                 // add as an exclusive system
                 add_clusters
                     .at_start()
-                    .label(SimulationLightSystems::AddClusters),
+                    .label(SimulationLightSystems::AddClusters)
+                    .label(CoreSet::PostUpdate),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 assign_lights_to_clusters
                     .label(SimulationLightSystems::AssignLightsToClusters)
+                    .label(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::CheckVisibility)
                     .after(CameraUpdateSystem)
                     .after(ModifiesWindows),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 update_directional_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
+                    .label(CoreSet::PostUpdate)
                     // This must run after CheckVisibility because it relies on ComputedVisibility::is_visible()
                     .after(VisibilitySystems::CheckVisibility)
                     .after(TransformSystem::TransformPropagate)
@@ -170,24 +170,24 @@ impl Plugin for PbrPlugin {
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(update_spot_light_frusta),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 update_point_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
+                    .lable(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 update_spot_light_frusta
                     .label(SimulationLightSystems::UpdateLightFrusta)
+                    .label(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::AssignLightsToClusters),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 check_light_mesh_visibility
                     .label(SimulationLightSystems::CheckLightVisibility)
+                    .label(CoreSet::PostUpdate)
                     .after(TransformSystem::TransformPropagate)
                     .after(SimulationLightSystems::UpdateLightFrusta)
                     // NOTE: This MUST be scheduled AFTER the core renderer visibility check
@@ -213,35 +213,39 @@ impl Plugin for PbrPlugin {
         };
 
         render_app
-            .add_system_to_stage(
-                RenderStage::Extract,
-                render::extract_clusters.label(RenderLightSystems::ExtractClusters),
+            .add_system(
+                render::extract_clusters
+                    .label(RenderLightSystems::ExtractClusters)
+                    .label(RenderStage::Extract),
             )
-            .add_system_to_stage(
-                RenderStage::Extract,
-                render::extract_lights.label(RenderLightSystems::ExtractLights),
+            .add_system(
+                render::extract_lights
+                    .label(RenderLightSystems::ExtractLights)
+                    .label(RenderStage::Extract),
             )
-            .add_system_to_stage(
-                RenderStage::Prepare,
+            .add_system(
                 // this is added as an exclusive system because it contributes new views. it must run (and have Commands applied)
                 // _before_ the `prepare_views()` system is run. ideally this becomes a normal system when "stageless" features come out
                 render::prepare_lights
                     .at_start()
-                    .label(RenderLightSystems::PrepareLights),
+                    .label(RenderLightSystems::PrepareLights)
+                    .label(RenderStage::Prepare),
             )
-            .add_system_to_stage(
-                RenderStage::Prepare,
+            .add_system(
                 // NOTE: This needs to run after prepare_lights. As prepare_lights is an exclusive system,
                 // just adding it to the non-exclusive systems in the Prepare stage means it runs after
                 // prepare_lights.
-                render::prepare_clusters.label(RenderLightSystems::PrepareClusters),
+                render::prepare_clusters
+                    .label(RenderLightSystems::PrepareClusters)
+                    .label(RenderStage::Prepare),
             )
-            .add_system_to_stage(
-                RenderStage::Queue,
-                render::queue_shadows.label(RenderLightSystems::QueueShadows),
+            .add_system(
+                render::queue_shadows
+                    .label(RenderLightSystems::QueueShadows)
+                    .label(RenderStage::Queue),
             )
-            .add_system_to_stage(RenderStage::Queue, render::queue_shadow_view_bind_group)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Shadow>)
+            .add_system(render::queue_shadow_view_bind_group.label(RenderStage::Queue))
+            .add_system(sort_phase_system::<Shadow>.label(RenderStage::PhaseSort))
             .init_resource::<ShadowPipeline>()
             .init_resource::<DrawFunctions<Shadow>>()
             .init_resource::<LightMeta>()

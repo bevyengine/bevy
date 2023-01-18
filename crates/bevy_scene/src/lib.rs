@@ -36,9 +36,9 @@ impl Plugin for ScenePlugin {
             .add_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            .add_system_to_stage(CoreSet::PreUpdate, scene_spawner_system.at_end())
+            .add_system(scene_spawner_system.at_end().label(CoreSet::PreUpdate))
             // Systems `*_bundle_spawner` must run before `scene_spawner_system`
-            .add_system_to_stage(CoreSet::PreUpdate, scene_spawner);
+            .add_system(scene_spawner.label(CoreSet::PreUpdate));
     }
 }
 

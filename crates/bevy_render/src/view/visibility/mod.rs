@@ -210,14 +210,16 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.add_system_to_stage(
-            CoreSet::PostUpdate,
-            calculate_bounds.label(CalculateBounds).before_commands(),
+        app.add_system(
+            calculate_bounds
+                .label(CalculateBounds)
+                .before_commands()
+                .label(CoreSet::PostUpdate),
         )
-        .add_system_to_stage(
-            CoreSet::PostUpdate,
+        .add_system(
             update_frusta::<OrthographicProjection>
                 .label(UpdateOrthographicFrusta)
+                .label(CoreSet::PostUpdate)
                 .after(camera_system::<OrthographicProjection>)
                 .after(TransformSystem::TransformPropagate)
                 // We assume that no camera will have more than one projection component,
@@ -226,10 +228,10 @@ impl Plugin for VisibilityPlugin {
                 .ambiguous_with(update_frusta::<PerspectiveProjection>)
                 .ambiguous_with(update_frusta::<Projection>),
         )
-        .add_system_to_stage(
-            CoreSet::PostUpdate,
+        .add_system(
             update_frusta::<PerspectiveProjection>
                 .label(UpdatePerspectiveFrusta)
+                .label(CoreSet::PostUpdate)
                 .after(camera_system::<PerspectiveProjection>)
                 .after(TransformSystem::TransformPropagate)
                 // We assume that no camera will have more than one projection component,
@@ -237,21 +239,22 @@ impl Plugin for VisibilityPlugin {
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(update_frusta::<Projection>),
         )
-        .add_system_to_stage(
-            CoreSet::PostUpdate,
+        .add_system(
             update_frusta::<Projection>
                 .label(UpdateProjectionFrusta)
+                .label(CoreSet::PostUpdate)
                 .after(camera_system::<Projection>)
                 .after(TransformSystem::TransformPropagate),
         )
-        .add_system_to_stage(
-            CoreSet::PostUpdate,
-            visibility_propagate_system.label(VisibilityPropagate),
+        .add_system(
+            visibility_propagate_system
+                .label(VisibilityPropagate)
+                .label(CoreSet::PostUpdate),
         )
-        .add_system_to_stage(
-            CoreSet::PostUpdate,
+        .add_system(
             check_visibility
                 .label(CheckVisibility)
+                .label(CoreSet::PostUpdate)
                 .after(UpdateOrthographicFrusta)
                 .after(UpdatePerspectiveFrusta)
                 .after(UpdateProjectionFrusta)

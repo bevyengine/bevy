@@ -30,10 +30,11 @@ impl Plugin for WindowRenderPlugin {
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
                 .init_non_send_resource::<NonSendMarker>()
-                .add_system_to_stage(RenderStage::Extract, extract_windows)
-                .add_system_to_stage(
-                    RenderStage::Prepare,
-                    prepare_windows.label(WindowSystem::Prepare),
+                .add_system(extract_windows.label(RenderStage::Extract))
+                .add_system(
+                    prepare_windows
+                        .label(WindowSystem::Prepare)
+                        .label(RenderStage::Prepare),
                 );
         }
     }

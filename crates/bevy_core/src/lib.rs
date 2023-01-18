@@ -107,9 +107,10 @@ impl Plugin for TaskPoolPlugin {
         self.task_pool_options.create_default_pools();
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system_to_stage(
-            bevy_app::CoreSet::Last,
-            tick_global_task_pools_on_main_thread.at_end(),
+        app.add_system(
+            tick_global_task_pools_on_main_thread
+                .at_end()
+                .label(bevy_app::CoreSet::Last),
         );
     }
 }

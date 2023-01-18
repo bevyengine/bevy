@@ -349,8 +349,8 @@ impl App {
 
     /// Adds a system to [`CoreSchedule::Startup`].
     ///
-    /// * For adding a system that runs every frame, see [`add_system`](Self::add_system).
-    /// * For adding a system to a specific stage, see [`add_system_to_stage`](Self::add_system_to_stage).
+    /// These systems will run exactly once, at the start of the [`App`]'s lifecycle.
+    /// To add a system that runs every frame, see [`add_system`](Self::add_system).
     ///
     /// # Examples
     ///
@@ -538,7 +538,7 @@ impl App {
     {
         if !self.world.contains_resource::<Events<T>>() {
             self.init_resource::<Events<T>>()
-                .add_system_to_stage(CoreSet::First, Events::<T>::update_system);
+                .add_system(Events::<T>::update_system.label(CoreSet::First));
         }
         self
     }

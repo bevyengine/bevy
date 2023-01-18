@@ -28,19 +28,19 @@ pub struct CameraUpdateSystem;
 impl<T: CameraProjection + Component + GetTypeRegistration> Plugin for CameraProjectionPlugin<T> {
     fn build(&self, app: &mut App) {
         app.register_type::<T>()
-            .add_startup_system_to_stage(
-                StartupSet::PostStartup,
+            .add_startup_system(
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
+                    .label(StartupSet::PostStartup)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monomorphizations.
                     // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                     .ambiguous_with(CameraUpdateSystem),
             )
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 crate::camera::camera_system::<T>
                     .label(CameraUpdateSystem)
+                    .label(CoreSet::PostUpdate)
                     .after(ModifiesWindows)
                     // We assume that each camera will only have one projection,
                     // so we can ignore ambiguities with all other monomorphizations.

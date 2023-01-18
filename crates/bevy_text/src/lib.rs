@@ -80,9 +80,9 @@ impl Plugin for TextPlugin {
             .init_resource::<TextSettings>()
             .init_resource::<FontAtlasWarning>()
             .insert_resource(TextPipeline::default())
-            .add_system_to_stage(
-                CoreSet::PostUpdate,
+            .add_system(
                 update_text2d_layout
+                    .label(CoreSet::PostUpdate)
                     .after(ModifiesWindows)
                     // Potential conflict: `Assets<Image>`
                     // In practice, they run independently since `bevy_render::camera_update_system`
@@ -92,9 +92,10 @@ impl Plugin for TextPlugin {
             );
 
         if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_system_to_stage(
-                RenderStage::Extract,
-                extract_text2d_sprite.after(SpriteSystem::ExtractSprites),
+            render_app.add_system(
+                extract_text2d_sprite
+                    .after(SpriteSystem::ExtractSprites)
+                    .label(RenderStage::Extract),
             );
         }
     }

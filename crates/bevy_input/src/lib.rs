@@ -56,15 +56,20 @@ impl Plugin for InputPlugin {
             .add_event::<KeyboardInput>()
             .init_resource::<Input<KeyCode>>()
             .init_resource::<Input<ScanCode>>()
-            .add_system_to_stage(CoreSet::PreUpdate, keyboard_input_system.label(InputSystem))
+            .add_system(
+                keyboard_input_system
+                    .label(InputSystem)
+                    .label(CoreSet::PreUpdate),
+            )
             // mouse
             .add_event::<MouseButtonInput>()
             .add_event::<MouseMotion>()
             .add_event::<MouseWheel>()
             .init_resource::<Input<MouseButton>>()
-            .add_system_to_stage(
-                CoreSet::PreUpdate,
-                mouse_button_input_system.label(InputSystem),
+            .add_system(
+                mouse_button_input_system
+                    .label(InputSystem)
+                    .label(CoreSet::PreUpdate),
             )
             // gamepad
             .add_event::<GamepadConnectionEvent>()
@@ -76,21 +81,22 @@ impl Plugin for InputPlugin {
             .init_resource::<Input<GamepadButton>>()
             .init_resource::<Axis<GamepadAxis>>()
             .init_resource::<Axis<GamepadButton>>()
-            .add_system_set_to_stage(
-                CoreSet::PreUpdate,
+            .add_system_set(
                 SystemSet::new()
                     .with_system(gamepad_event_system)
                     .with_system(gamepad_button_event_system.after(gamepad_event_system))
                     .with_system(gamepad_axis_event_system.after(gamepad_event_system))
                     .with_system(gamepad_connection_system.after(gamepad_event_system))
-                    .label(InputSystem),
+                    .label(InputSystem)
+                    .label(CoreSet::PreUpdate),
             )
             // touch
             .add_event::<TouchInput>()
             .init_resource::<Touches>()
-            .add_system_to_stage(
-                CoreSet::PreUpdate,
-                touch_screen_input_system.label(InputSystem),
+            .add_system(
+                touch_screen_input_system
+                    .label(InputSystem)
+                    .label(CoreSet::PreUpdate),
             );
 
         // Register common types

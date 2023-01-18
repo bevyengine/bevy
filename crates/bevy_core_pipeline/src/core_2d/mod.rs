@@ -51,11 +51,11 @@ impl Plugin for Core2dPlugin {
 
         render_app
             .init_resource::<DrawFunctions<Transparent2d>>()
-            .add_system_to_stage(RenderStage::Extract, extract_core_2d_camera_phases)
-            .add_system_to_stage(RenderStage::PhaseSort, sort_phase_system::<Transparent2d>)
-            .add_system_to_stage(
-                RenderStage::PhaseSort,
-                batch_phase_system::<Transparent2d>.after(sort_phase_system::<Transparent2d>),
+            .add_system(extract_core_2d_camera_phases.label(RenderStage::Extract))
+            .add_system(sort_phase_system::<Transparent2d>.label(RenderStage::PhaseSort))
+            .add_system(
+                batch_phase_system::<Transparent2d>
+                    .after(sort_phase_system::<Transparent2d>.label(RenderStage::PhaseSort)),
             );
 
         let pass_node_2d = MainPass2dNode::new(&mut render_app.world);

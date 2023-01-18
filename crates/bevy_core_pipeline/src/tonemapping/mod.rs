@@ -45,7 +45,7 @@ impl Plugin for TonemappingPlugin {
             render_app
                 .init_resource::<TonemappingPipeline>()
                 .init_resource::<SpecializedRenderPipelines<TonemappingPipeline>>()
-                .add_system_to_stage(RenderStage::Queue, queue_view_tonemapping_pipelines);
+                .add_system(queue_view_tonemapping_pipelines.label(RenderStage::Queue));
         }
     }
 }
