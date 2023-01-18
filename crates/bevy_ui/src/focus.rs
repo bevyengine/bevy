@@ -55,7 +55,9 @@ impl Default for Interaction {
 
 /// Describes whether [`Interaction`] component should remain in the `Clicked` state after
 /// the cursor stopped hovering over the node.
-#[derive(Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize)]
+#[derive(
+    Component, Copy, Clone, Default, Eq, PartialEq, Debug, Reflect, Serialize, Deserialize,
+)]
 #[reflect(Component, Serialize, Deserialize, PartialEq)]
 pub enum InteractionPolicy {
     /// Keep the node clicked after it stopped being hovered
