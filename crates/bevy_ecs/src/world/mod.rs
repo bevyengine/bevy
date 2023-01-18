@@ -2,7 +2,7 @@ mod entity_ref;
 mod spawn_batch;
 mod world_cell;
 
-pub use crate::change_detection::{Mut, Ref};
+pub use crate::change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD};
 pub use entity_ref::{EntityMut, EntityRef};
 pub use spawn_batch::*;
 pub use world_cell::*;
@@ -64,6 +64,7 @@ pub struct World {
     pub(crate) archetype_component_access: ArchetypeComponentAccess,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: u32,
+    pub(crate) last_check_tick: u32,
 }
 
 impl Default for World {
@@ -81,6 +82,7 @@ impl Default for World {
             // are detected on first system runs and for direct world queries.
             change_tick: AtomicU32::new(1),
             last_change_tick: 0,
+            last_check_tick: 0,
         }
     }
 }
@@ -317,7 +319,10 @@ impl World {
     #[inline]
     pub fn get_entity(&self, entity: Entity) -> Option<EntityRef> {
         let location = self.entities.get(entity)?;
-        Some(EntityRef::new(self, entity, location))
+        // SAFETY: if the Entity is invalid, the function returns early.
+        // Additionally, Entities::get(entity) returns the correct EntityLocation if the entity exists.
+        let entity_ref = unsafe { EntityRef::new(self, entity, location) };
+        Some(entity_ref)
     }
 
     /// Returns an [`Entity`] iterator of current entities.
@@ -331,13 +336,16 @@ impl World {
                 .iter()
                 .enumerate()
                 .map(|(archetype_row, archetype_entity)| {
+                    let entity = archetype_entity.entity();
                     let location = EntityLocation {
                         archetype_id: archetype.id(),
                         archetype_row: ArchetypeRow::new(archetype_row),
                         table_id: archetype.table_id(),
                         table_row: archetype_entity.table_row(),
                     };
-                    EntityRef::new(self, archetype_entity.entity(), location)
+
+                    // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored
+                    unsafe { EntityRef::new(self, entity, location) }
                 })
         })
     }
@@ -1583,27 +1591,64 @@ impl World {
         self.last_change_tick
     }
 
+    /// Iterates all component change ticks and clamps any older than [`MAX_CHANGE_AGE`](crate::change_detection::MAX_CHANGE_AGE).
+    /// This prevents overflow and thus prevents false positives.
+    ///
+    /// **Note:** Does nothing if the [`World`] counter has not been incremented at least [`CHECK_TICK_THRESHOLD`](crate::change_detection::CHECK_TICK_THRESHOLD)
+    /// times since the previous pass.
+    // TODO: benchmark and optimize
     pub fn check_change_ticks(&mut self) {
-        // Iterate over all component change ticks, clamping their age to max age
-        // PERF: parallelize
         let change_tick = self.change_tick();
+        if change_tick.wrapping_sub(self.last_check_tick) < CHECK_TICK_THRESHOLD {
+            return;
+        }
+
         let Storages {
             ref mut tables,
             ref mut sparse_sets,
             ref mut resources,
             ref mut non_send_resources,
         } = self.storages;
+
+        #[cfg(feature = "trace")]
+        let _span = bevy_utils::tracing::info_span!("check component ticks").entered();
         tables.check_change_ticks(change_tick);
         sparse_sets.check_change_ticks(change_tick);
         resources.check_change_ticks(change_tick);
         non_send_resources.check_change_ticks(change_tick);
+
+        if let Some(mut schedules) = self.get_resource_mut::<crate::schedule_v3::Schedules>() {
+            schedules.check_change_ticks(change_tick);
+        }
+
+        self.last_check_tick = change_tick;
     }
 
+    /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
+    /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
+    pub fn clear_all(&mut self) {
+        self.clear_entities();
+        self.clear_resources();
+    }
+
+    /// Despawns all entities in this [`World`].
     pub fn clear_entities(&mut self) {
         self.storages.tables.clear();
         self.storages.sparse_sets.clear();
         self.archetypes.clear_entities();
         self.entities.clear();
+    }
+
+    /// Clears all resources in this [`World`].
+    ///
+    /// **Note:** Any resource fetch to this [World] will fail unless they are re-initialized,
+    /// including engine-internal resources that are only initialized on app/world construction.
+    ///
+    /// This can easily cause systems expecting certain resources to immediately start panicking.
+    /// Use with caution.
+    pub fn clear_resources(&mut self) {
+        self.storages.resources.clear();
+        self.storages.non_send_resources.clear();
     }
 }
 

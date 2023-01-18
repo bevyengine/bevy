@@ -583,7 +583,7 @@ impl ButtonSettings {
 /// Otherwise, values will not be rounded.
 ///
 /// The valid range is `[-1.0, 1.0]`.
-#[derive(Debug, Clone, Reflect, FromReflect)]
+#[derive(Debug, Clone, Reflect, FromReflect, PartialEq)]
 #[reflect(Debug, Default)]
 pub struct AxisSettings {
     /// Values that are higher than `livezone_upperbound` will be rounded up to -1.0.
@@ -611,7 +611,7 @@ impl Default for AxisSettings {
 }
 
 impl AxisSettings {
-    /// Creates a new `AxisSettings` instance.
+    /// Creates a new [`AxisSettings`] instance.
     ///
     /// # Arguments
     ///
@@ -622,9 +622,10 @@ impl AxisSettings {
     /// + `threshold` - the minimum value by which input must change before the change is registered.
     ///
     /// Restrictions:
-    /// + `-1.0 <= ``livezone_lowerbound`` <= ``deadzone_lowerbound`` <= 0.0 <= ``deadzone_upperbound`` <=
-    /// ``livezone_upperbound`` <= 1.0`
-    /// + `0.0 <= ``threshold`` <= 2.0`
+    ///
+    /// + `-1.0 <= livezone_lowerbound <= deadzone_lowerbound <= 0.0`
+    /// + `0.0 <= deadzone_upperbound <= livezone_upperbound <= 1.0`
+    /// + `0.0 <= threshold <= 2.0`
     ///
     /// # Errors
     ///
@@ -646,11 +647,11 @@ impl AxisSettings {
             Err(AxisSettingsError::DeadZoneLowerBoundOutOfRange(
                 deadzone_lowerbound,
             ))
-        } else if !(-1.0..=0.0).contains(&deadzone_upperbound) {
+        } else if !(0.0..=1.0).contains(&deadzone_upperbound) {
             Err(AxisSettingsError::DeadZoneUpperBoundOutOfRange(
                 deadzone_upperbound,
             ))
-        } else if !(-1.0..=0.0).contains(&livezone_upperbound) {
+        } else if !(0.0..=1.0).contains(&livezone_upperbound) {
             Err(AxisSettingsError::LiveZoneUpperBoundOutOfRange(
                 livezone_upperbound,
             ))
@@ -991,7 +992,6 @@ pub fn gamepad_connection_system(
     mut button_axis: ResMut<Axis<GamepadButton>>,
     mut button_input: ResMut<Input<GamepadButton>>,
 ) {
-    button_input.bypass_change_detection().clear();
     for connection_event in connection_events.iter() {
         let gamepad = connection_event.gamepad;
 
@@ -1116,27 +1116,24 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant `Input` and `Axis` values.
 pub fn gamepad_axis_event_system(
-    mut button_input: ResMut<Input<GamepadButton>>,
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
 ) {
-    button_input.bypass_change_detection().clear();
     for axis_event in axis_events.iter() {
         let axis = GamepadAxis::new(axis_event.gamepad, axis_event.axis_type);
         gamepad_axis.set(axis, axis_event.value);
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant `Input` and `Axis` values.
 pub fn gamepad_button_event_system(
     mut button_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
     settings: Res<GamepadSettings>,
 ) {
-    button_input.bypass_change_detection().clear();
     for button_event in button_events.iter() {
         let button = GamepadButton::new(button_event.gamepad, button_event.button_type);
         let value = button_event.value;
@@ -1196,7 +1193,9 @@ pub fn gamepad_event_system(
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut axis_events: EventWriter<GamepadAxisChangedEvent>,
+    mut button_input: ResMut<Input<GamepadButton>>,
 ) {
+    button_input.bypass_change_detection().clear();
     for gamepad_event in gamepad_events.iter() {
         match gamepad_event {
             GamepadEvent::Connection(connection_event) => {
@@ -1489,6 +1488,16 @@ mod tests {
     #[test]
     fn test_try_out_of_range_axis_settings() {
         let mut axis_settings = AxisSettings::default();
+        assert_eq!(
+            AxisSettings::new(-0.95, -0.05, 0.05, 0.95, 0.001),
+            Ok(AxisSettings {
+                livezone_lowerbound: -0.95,
+                deadzone_lowerbound: -0.05,
+                deadzone_upperbound: 0.05,
+                livezone_upperbound: 0.95,
+                threshold: 0.001,
+            })
+        );
         assert_eq!(
             Err(AxisSettingsError::LiveZoneLowerBoundOutOfRange(-2.0)),
             axis_settings.try_set_livezone_lowerbound(-2.0)

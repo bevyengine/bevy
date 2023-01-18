@@ -198,6 +198,8 @@ impl Plugin for RenderPlugin {
                 .add_stage(
                     RenderStage::Render,
                     SystemStage::parallel()
+                        // Note: Must run before `render_system` in order to
+                        // processed newly queued pipelines.
                         .with_system(PipelineCache::process_pipeline_queue_system)
                         .with_system(render_system.at_end()),
                 )
