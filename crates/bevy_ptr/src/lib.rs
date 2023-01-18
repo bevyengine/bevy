@@ -78,6 +78,12 @@ macro_rules! impl_ptr {
             }
         }
 
+        impl<'a, A: IsAligned> From<$ptr<'a, A>> for NonNull<u8> {
+            fn from(ptr: $ptr<'a, A>) -> Self {
+                ptr.0
+            }
+        }
+
         impl<A: IsAligned> $ptr<'_, A> {
             /// Calculates the offset from a pointer.
             /// As the pointer is type-erased, there is no size information available. The provided

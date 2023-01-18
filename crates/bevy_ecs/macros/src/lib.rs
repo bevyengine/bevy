@@ -4,7 +4,9 @@ mod component;
 mod fetch;
 
 use crate::fetch::derive_world_query_impl;
-use bevy_macro_utils::{derive_label, get_named_struct_fields, BevyManifest};
+use bevy_macro_utils::{
+    derive_boxed_label, derive_label, derive_set, get_named_struct_fields, BevyManifest,
+};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
 use quote::{format_ident, quote};
@@ -563,6 +565,32 @@ pub fn derive_run_criteria_label(input: TokenStream) -> TokenStream {
         .segments
         .push(format_ident!("RunCriteriaLabel").into());
     derive_label(input, &trait_path, "run_criteria_label")
+}
+
+/// Derive macro generating an impl of the trait `ScheduleLabel`.
+#[proc_macro_derive(ScheduleLabel)]
+pub fn derive_schedule_label(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let mut trait_path = bevy_ecs_path();
+    trait_path
+        .segments
+        .push(format_ident!("schedule_v3").into());
+    trait_path
+        .segments
+        .push(format_ident!("ScheduleLabel").into());
+    derive_boxed_label(input, &trait_path)
+}
+
+/// Derive macro generating an impl of the trait `SystemSet`.
+#[proc_macro_derive(SystemSet)]
+pub fn derive_system_set(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeriveInput);
+    let mut trait_path = bevy_ecs_path();
+    trait_path
+        .segments
+        .push(format_ident!("schedule_v3").into());
+    trait_path.segments.push(format_ident!("SystemSet").into());
+    derive_set(input, &trait_path)
 }
 
 pub(crate) fn bevy_ecs_path() -> syn::Path {

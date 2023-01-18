@@ -985,6 +985,9 @@ unsafe impl<'a, T: 'static> SystemParam for NonSend<'a, T> {
     }
 }
 
+// SAFETY: Only reads a single World non-send resource
+unsafe impl<T: 'static> ReadOnlySystemParam for Option<NonSend<'_, T>> {}
+
 // SAFETY: this impl defers to `NonSend`, which initializes and validates the correct world access.
 unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
     type State = ComponentId;
@@ -1011,9 +1014,6 @@ unsafe impl<T: 'static> SystemParam for Option<NonSend<'_, T>> {
             })
     }
 }
-
-// SAFETY: Only reads a single non-send resource
-unsafe impl<'a, T: 'static> ReadOnlySystemParam for NonSendMut<'a, T> {}
 
 // SAFETY: NonSendMut ComponentId and ArchetypeComponentId access is applied to SystemMeta. If this
 // NonSendMut conflicts with any prior access, a panic will occur.
