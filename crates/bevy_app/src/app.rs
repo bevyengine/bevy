@@ -175,6 +175,12 @@ impl App {
         let active_schedule = self.active_schedule().unwrap();
         self.run_schedule(active_schedule);
 
+        // After the startup schedule has been called once, transition to the main schedule
+        let boxed_startup_label: BoxedScheduleLabel = Box::new(CoreSchedule::Startup);
+        if self.active_schedule().unwrap() == boxed_startup_label {
+            self.set_active_schedule(CoreSchedule::Main);
+        }
+
         for sub_app in self.sub_apps.values_mut() {
             sub_app.extract(&mut self.world);
             sub_app.run();
