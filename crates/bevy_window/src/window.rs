@@ -212,6 +212,18 @@ impl Window {
         self.resolution.height()
     }
 
+    /// The window's client area width in physical pixels.
+    #[inline]
+    pub fn physical_width(&self) -> u32 {
+        self.resolution.physical_width()
+    }
+
+    /// The window's client area height in physical pixels.
+    #[inline]
+    pub fn physical_height(&self) -> u32 {
+        self.resolution.physical_height()
+    }
+
     /// The window's scale factor.
     #[inline]
     pub fn scale_factor(&self) -> f64 {
