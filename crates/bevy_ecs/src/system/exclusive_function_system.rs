@@ -3,7 +3,6 @@ use crate::{
     change_detection::MAX_CHANGE_AGE,
     component::ComponentId,
     query::Access,
-    schedule::{SystemLabel, SystemLabelId},
     system::{
         check_system_change_tick, AsSystemLabel, ExclusiveSystemParam, ExclusiveSystemParamItem,
         In, InputMarker, IntoSystem, System, SystemMeta, SystemTypeIdLabel,

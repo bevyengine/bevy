@@ -3,7 +3,7 @@ use core::fmt::Debug;
 
 use crate::{
     archetype::ArchetypeComponentId, change_detection::MAX_CHANGE_AGE, component::ComponentId,
-    query::Access, schedule::SystemLabelId, world::World,
+    query::Access, world::World,
 };
 
 use std::any::TypeId;

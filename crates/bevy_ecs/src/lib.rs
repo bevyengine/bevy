@@ -33,10 +33,7 @@ pub mod prelude {
         entity::Entity,
         event::{EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
-        schedule::{
-            IntoSystemDescriptor, RunCriteria, RunCriteriaDescriptorCoercion, RunCriteriaLabel,
-            Schedule, Stage, StageLabel, State, SystemLabel, SystemSet, SystemStage,
-        },
+        schedule::{Schedule, State, SystemSet},
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
