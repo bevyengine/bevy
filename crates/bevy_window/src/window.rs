@@ -319,6 +319,12 @@ impl Window {
     pub fn height(&self) -> f32 {
         self.resolution.height()
     }
+
+    /// The window's scale factor.
+    #[inline]
+    pub fn scale_factor(&self) -> f64 {
+        self.resolution.scale_factor()
+    }
 }
 
 /// The size limits on a window.
