@@ -473,7 +473,10 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             }
         }
 
-        match field_attrs.usage.unwrap_or_else(|| fallibility.clone().into()) {
+        match field_attrs
+            .usage
+            .unwrap_or_else(|| fallibility.clone().into())
+        {
             SystemParamFieldUsage::Ignore => {
                 ignored_fields.push(match field.ident.as_ref() {
                     Some(s) => s,
