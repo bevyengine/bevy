@@ -6,7 +6,6 @@ use bevy_ecs::{
     entity::Entity,
     event::EventReader,
     prelude::With,
-    query::Changed,
     reflect::ReflectComponent,
     system::{Commands, Local, Query, Res, ResMut},
 };

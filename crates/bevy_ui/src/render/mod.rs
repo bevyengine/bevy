@@ -187,7 +187,6 @@ pub fn extract_uinodes(
     mut extracted_uinodes: ResMut<ExtractedUiNodes>,
     images: Extract<Res<Assets<Image>>>,
     ui_stack: Extract<Res<UiStack>>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     uinode_query: Extract<
         Query<(
             &Node,
