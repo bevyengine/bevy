@@ -4,8 +4,8 @@ use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
     schedule::{
-        apply_system_buffers, IntoSystemConfig, IntoSystemConfigs, IntoSystemDescriptor, Schedule,
-        ScheduleLabel, Schedules, ShouldRun, State, StateData, SystemSet,
+        apply_system_buffers, IntoSystemConfig, IntoSystemConfigs, Schedule, ScheduleLabel,
+        Schedules,
     },
     system::Resource,
     world::World,
