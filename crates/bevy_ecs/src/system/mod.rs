@@ -114,7 +114,6 @@ pub use system_param::*;
 pub use system_piping::*;
 
 use crate::world::World;
-use core::panic::UnwindSafe;
 
 /// Ensure that a given function is a system
 ///
@@ -126,19 +125,6 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
         // Check it can be converted into a system
         IntoSystem::into_system(sys);
     }
-}
-
-/// Ensures that the provided system conflicts with itself.
-///
-/// This function will  panic if the provided system *doesn't* conflict with itself.
-///
-/// Note: this will run the system on an empty world.
-pub fn assert_system_conflicts<Out, Params, S: IntoSystem<(), Out, Params> + UnwindSafe>(sys: S) {
-    std::panic::catch_unwind(move || {
-        let mut world = World::new();
-        IntoSystem::into_system(sys).run((), &mut world);
-    })
-    .unwrap_err();
 }
 
 /// Ensures that the provided system doesn't with itself.
@@ -1236,5 +1222,12 @@ mod tests {
         // SAFETY: doesnt access anything
         let query = unsafe { Query::new(&world2, &qstate, 0, 0, false) };
         query.iter();
+    }
+
+    #[test]
+    #[should_panic]
+    fn assert_system_does_not_conflict() {
+        fn system(_query: Query<(&mut W<u32>, &mut W<u32>)>) {}
+        super::assert_system_does_not_conflict(system);
     }
 }

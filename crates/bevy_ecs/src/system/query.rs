@@ -203,7 +203,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// filters or `ParamSets`. This also limits the scope of the query, which will improve iteration performance
 /// and also allows it to parallelize with other non-conflicting systems.
 ///
-/// ```
+/// ```should_panic
 /// # use bevy_ecs::prelude::*;
 /// # #[derive(Component)]
 /// # struct ComponentA;
@@ -211,7 +211,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// // This will panic!
 /// query: Query<(EntityRef, &mut ComponentA)>
 /// # ) {}
-/// # bevy_ecs::system::assert_system_conflicts(system);
+/// # bevy_ecs::system::assert_system_does_not_conflict(system);
 /// ```
 ///
 /// # Accessing query items
