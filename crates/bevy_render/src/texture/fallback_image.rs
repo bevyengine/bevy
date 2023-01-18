@@ -32,18 +32,14 @@ fn fallback_image_new(
     let data = vec![255; format.pixel_size()];
 
     let mut image = Image::new_fill(Extent3d::default(), TextureDimension::D2, &data, format);
-
     image.texture_descriptor.sample_count = samples;
     image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
 
-    let texture = match format.describe().sample_type {
-        // can't initialize depth textures with data
-        TextureSampleType::Depth => render_device.create_texture(&image.texture_descriptor),
-        _ => render_device.create_texture_with_data(
-            render_queue,
-            &image.texture_descriptor,
-            &image.data,
-        ),
+    // We can't create textures with data when it's a depth texture or when using multisample
+    let texture = if format.describe().sample_type == TextureSampleType::Depth || samples > 1 {
+        render_device.create_texture(&image.texture_descriptor)
+    } else {
+        render_device.create_texture_with_data(render_queue, &image.texture_descriptor, &image.data)
     };
 
     let texture_view = texture.create_view(&TextureViewDescriptor::default());
@@ -79,8 +75,20 @@ impl FromWorld for FallbackImage {
 }
 
 // TODO these could be combined in one FallbackImage cache.
+
+/// A Cache of fallback textures that uses the sample count as a key
+///
+/// #WARNING
+/// Images using msaa with sample count > 1 are not initialised with data, therefore,
+/// you shouldn't sample them before writing data to them first.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FallbackImageMsaaCache(HashMap<u32, GpuImage>);
+
+/// A Cache of fallback depth textures that uses the sample count as a key
+///
+/// #WARNING
+/// Images using msaa with sample count > 1 are not initialised with data, therefore,
+/// you shouldn't sample them before writing data to them first.
 #[derive(Resource, Deref, DerefMut, Default)]
 pub struct FallbackImageDepthCache(HashMap<u32, GpuImage>);
 
