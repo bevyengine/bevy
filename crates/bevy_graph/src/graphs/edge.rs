@@ -9,13 +9,13 @@ pub struct Edge<E>(pub NodeIdx, pub NodeIdx, pub E);
 impl<E> Edge<E> {
     /// Returns a [`EdgeRef`] of this edge
     #[inline]
-    pub const fn as_ref_edge<'v>(&self) -> EdgeRef<'v, E> {
+    pub const fn as_ref_edge<'v>(&'v self) -> EdgeRef<'v, E> {
         EdgeRef(self.0, self.1, &self.2)
     }
 
     /// Returns a [`EdgeMut`] of this edge
     #[inline]
-    pub const fn as_mut_edge<'v>(&self) -> EdgeMut<'v, E> {
+    pub fn as_mut_edge<'v>(&'v mut self) -> EdgeMut<'v, E> {
         EdgeMut(self.0, self.1, &mut self.2)
     }
 }

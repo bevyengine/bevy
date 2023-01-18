@@ -1,6 +1,6 @@
 use hashbrown::HashSet;
 
-use crate::graphs::{keys::NodeIdx, Graph};
+use crate::graphs::{edge::EdgeRef, keys::NodeIdx, Graph};
 
 /// Implementation of the [`DFS` algorythm](https://www.geeksforgeeks.org/depth-first-search-or-dfs-for-a-graph/)
 ///
@@ -36,10 +36,13 @@ impl DepthFirstSearch {
     /// Gets a reference to the value of the next node from the algorithm.
     pub fn next<'g, N, E>(&mut self, graph: &'g impl Graph<N, E>) -> Option<&'g N> {
         if let Some(node) = self.stack.pop() {
-            for (idx, _) in graph.edges_of(node) {
-                if !self.visited.contains(&idx) {
-                    self.visited.insert(idx);
-                    self.stack.push(idx);
+            for EdgeRef(_, dst, _) in graph
+                .outgoing_edges_of(node)
+                .map(|e| graph.get_edge(e).unwrap())
+            {
+                if !self.visited.contains(&dst) {
+                    self.visited.insert(dst);
+                    self.stack.push(dst);
                 }
             }
             Some(graph.get_node(node).unwrap())
@@ -51,10 +54,13 @@ impl DepthFirstSearch {
     /// Gets a mutable reference to the value of the next node from the algorithm.
     pub fn next_mut<'g, N, E>(&mut self, graph: &'g mut impl Graph<N, E>) -> Option<&'g mut N> {
         if let Some(node) = self.stack.pop() {
-            for (idx, _) in graph.edges_of(node) {
-                if !self.visited.contains(&idx) {
-                    self.visited.insert(idx);
-                    self.stack.push(idx);
+            for EdgeRef(_, dst, _) in graph
+                .outgoing_edges_of(node)
+                .map(|e| graph.get_edge(e).unwrap())
+            {
+                if !self.visited.contains(&dst) {
+                    self.visited.insert(dst);
+                    self.stack.push(dst);
                 }
             }
             Some(graph.get_node_mut(node).unwrap())

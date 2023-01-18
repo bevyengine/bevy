@@ -1,6 +1,8 @@
 /// Set-like methods for `Vec<T>`
 pub trait VecSet<T: PartialEq> {
+    /// Gets a index by value
     fn index_by_value(&self, value: &T) -> Option<usize>;
+    /// Removes an entry by value
     fn remove_by_value(&mut self, value: &T) -> Option<T>;
 }
 

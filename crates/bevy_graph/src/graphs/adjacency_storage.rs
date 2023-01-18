@@ -8,24 +8,45 @@ pub enum AdjacencyStorage<S> {
 }
 
 impl<S> AdjacencyStorage<S> {
+    /// Returns an immutable reference to the incoming adjacency storage
     #[inline]
-    pub const fn incoming_mut(&mut self) -> &mut S {
+    pub const fn incoming(&self) -> &S {
         match self {
             AdjacencyStorage::Undirected(storage) => storage,
             AdjacencyStorage::Directed(incoming, _) => incoming,
         }
     }
 
+    /// Returns a mutable reference to the incoming adjacency storage
     #[inline]
-    pub const fn outgoing_mut(&mut self) -> &mut S {
+    pub fn incoming_mut(&mut self) -> &mut S {
+        match self {
+            AdjacencyStorage::Undirected(storage) => storage,
+            AdjacencyStorage::Directed(incoming, _) => incoming,
+        }
+    }
+
+    /// Returns an immutable reference to the outgoing adjacency storage
+    #[inline]
+    pub fn outgoing(&self) -> &S {
         match self {
             AdjacencyStorage::Undirected(storage) => storage,
             AdjacencyStorage::Directed(_, outgoing) => outgoing,
         }
     }
 
+    /// Returns a mutable reference to the outgoing adjacency storage
     #[inline]
-    pub const fn for_each_mut(&mut self, f: fn(&mut S)) {
+    pub fn outgoing_mut(&mut self) -> &mut S {
+        match self {
+            AdjacencyStorage::Undirected(storage) => storage,
+            AdjacencyStorage::Directed(_, outgoing) => outgoing,
+        }
+    }
+
+    /// Executes a function for each storage
+    #[inline]
+    pub fn for_each_mut(&mut self, f: fn(&mut S)) {
         match self {
             AdjacencyStorage::Undirected(storage) => {
                 f(storage);

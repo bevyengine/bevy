@@ -1,5 +1,3 @@
-use std::iter::Map;
-
 use slotmap::{HopSlotMap, SecondaryMap};
 
 use crate::{
@@ -99,11 +97,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         self.adjacencies
             .get(src)
             .unwrap()
-            .outgoing_mut()
+            .outgoing()
             .contains_key(dst)
     }
 
-    fn remove_node(&mut self, index: NodeIdx) -> Option<N> {
+    fn remove_node(&mut self, _index: NodeIdx) -> Option<N> {
         todo!()
     }
 
@@ -170,7 +168,7 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         }
     }
 
-    fn degree(&self, index: NodeIdx) -> usize {
+    fn degree(&self, _index: NodeIdx) -> usize {
         todo!()
     }
 
@@ -184,13 +182,31 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         self.nodes.values_mut().into_iter()
     }
 
-    type Edges<'e> = Map<slotmap::hop::Values<'e, EdgeIdx, Edge<E>>, fn(&Edge<E>) -> EdgeRef<'e, E>> where Self: 'e;
+    type Edges<'e> = slotmap::hop::Values<'e, EdgeIdx, Edge<E>> where Self: 'e;
     fn edges(&self) -> Self::Edges<'_> {
-        self.edges.values().map(|e| e.as_ref_edge())
+        self.edges.values()
     }
 
-    type EdgesMut<'e> = Map<slotmap::hop::ValuesMut<'e, EdgeIdx, Edge<E>>, fn(&mut Edge<E>) -> EdgeMut<'e, E>> where Self: 'e;
+    type EdgesMut<'e> = slotmap::hop::ValuesMut<'e, EdgeIdx, Edge<E>> where Self: 'e;
     fn edges_mut(&mut self) -> Self::EdgesMut<'_> {
-        self.edges.values_mut().map(|e| e.as_mut_edge())
+        self.edges.values_mut()
+    }
+
+    type IncomingEdgesOf<'e> = std::iter::Cloned<std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
+        self.adjacencies[index]
+            .incoming()
+            .values()
+            .flatten()
+            .cloned()
+    }
+
+    type OutgoingEdgesOf<'e> = std::iter::Cloned<std::iter::Flatten<crate::utils::vecmap::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
+        self.adjacencies[index]
+            .outgoing()
+            .values()
+            .flatten()
+            .cloned()
     }
 }

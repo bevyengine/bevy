@@ -13,7 +13,7 @@ pub mod keys;
 use crate::error::GraphError;
 
 use self::{
-    edge::{EdgeMut, EdgeRef},
+    edge::{Edge, EdgeMut, EdgeRef},
     keys::{EdgeIdx, NodeIdx},
 };
 
@@ -23,19 +23,33 @@ use self::{
 
 /// A trait with all the common functions for a graph
 pub trait Graph<N, E> {
+    /// Iterator fix because TAIT not available
     type Nodes<'n>: Iterator<Item = &'n N>
     where
         Self: 'n,
         N: 'n;
+    /// Iterator fix because TAIT not available
     type NodesMut<'n>: Iterator<Item = &'n mut N>
     where
         Self: 'n,
         N: 'n;
-    type Edges<'e>: Iterator<Item = EdgeRef<'e, E>>
+    /// Iterator fix because TAIT not available
+    type Edges<'e>: Iterator<Item = &'e Edge<E>>
     where
         Self: 'e,
         E: 'e;
-    type EdgesMut<'e>: Iterator<Item = EdgeMut<'e, E>>
+    /// Iterator fix because TAIT not available
+    type EdgesMut<'e>: Iterator<Item = &'e mut Edge<E>>
+    where
+        Self: 'e,
+        E: 'e;
+    /// Iterator fix because TAIT not available
+    type IncomingEdgesOf<'e>: Iterator<Item = EdgeIdx>
+    where
+        Self: 'e,
+        E: 'e;
+    /// Iterator fix because TAIT not available
+    type OutgoingEdgesOf<'e>: Iterator<Item = EdgeIdx>
     where
         Self: 'e,
         E: 'e;
@@ -136,6 +150,12 @@ pub trait Graph<N, E> {
 
     /// Returns a mutable iterator over all edges.
     fn edges_mut(&mut self) -> Self::EdgesMut<'_>;
+
+    /// Returns an iterator over the edge indices going into the specified node.
+    fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_>;
+
+    /// Returns an iterator over the edge indices coming out of the specified node.
+    fn outgoing_edges_of(&self, index: NodeIdx) -> Self::OutgoingEdgesOf<'_>;
 }
 
 /// A more precise trait with functions special for a simple graph
