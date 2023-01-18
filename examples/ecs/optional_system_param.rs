@@ -194,6 +194,6 @@ fn update_deathmatch(time: Res<GameTime>, kills: Res<GameKills>, game: Option<Ga
     }
 
     if kills.0 >= game.max_kills {
-        println!("Max kills reached!")
+        println!("Max kills reached!");
     }
 }
