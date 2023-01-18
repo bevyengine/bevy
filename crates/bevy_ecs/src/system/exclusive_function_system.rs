@@ -154,10 +154,6 @@ where
         );
     }
 
-    fn default_labels(&self) -> Vec<SystemLabelId> {
-        vec![self.func.as_system_label().as_label()]
-    }
-
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         let set = crate::schedule::SystemTypeSet::<F>::new();
         vec![Box::new(set)]
