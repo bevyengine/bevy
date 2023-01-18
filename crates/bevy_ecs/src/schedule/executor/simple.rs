@@ -7,7 +7,7 @@ use crate::{
     world::World,
 };
 
-/// A variant of [`SingleThreadedExecutor`](crate::schedule_v3::SingleThreadedExecutor) that calls
+/// A variant of [`SingleThreadedExecutor`](crate::schedule::SingleThreadedExecutor) that calls
 /// [`apply_buffers`](crate::system::System::apply_buffers) immediately after running each system.
 #[derive(Default)]
 pub struct SimpleExecutor {
