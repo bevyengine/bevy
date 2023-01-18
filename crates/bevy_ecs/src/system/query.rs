@@ -213,6 +213,19 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// # ) {}
 /// # bevy_ecs::system::assert_system_does_not_conflict(system);
 /// ```
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct ComponentA;
+/// # #[derive(Component)]
+/// # struct ComponentB;
+/// # fn system(
+/// // This will not panic.
+/// query_a: Query<EntityRef, With<ComponentA>>,
+/// query_b: Query<&mut ComponentB, Without<ComponentA>>,
+/// # ) {}
+/// # bevy_ecs::system::assert_system_does_not_conflict(system);
+/// ```
 ///
 /// # Accessing query items
 ///

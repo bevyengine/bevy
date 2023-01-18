@@ -134,7 +134,9 @@ pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S)
 /// Note: this will run the system on an empty world.
 pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Params>>(sys: S) {
     let mut world = World::new();
-    IntoSystem::into_system(sys).run((), &mut world);
+    let mut system = IntoSystem::into_system(sys);
+    system.initialize(&mut world);
+    system.run((), &mut world);
 }
 
 #[cfg(test)]
