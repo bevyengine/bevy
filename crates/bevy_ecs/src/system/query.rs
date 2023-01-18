@@ -211,7 +211,7 @@ use std::{any::TypeId, borrow::Borrow, fmt::Debug};
 /// // This will panic!
 /// query: Query<(EntityRef, &mut ComponentA)>
 /// # ) {}
-/// # bevy_ecs::system::assert_is_system(system);
+/// # bevy_ecs::system::assert_system_conflicts(system);
 /// ```
 ///
 /// # Accessing query items

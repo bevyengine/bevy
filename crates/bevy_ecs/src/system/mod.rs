@@ -113,6 +113,9 @@ pub use system::*;
 pub use system_param::*;
 pub use system_piping::*;
 
+use crate::world::World;
+use core::panic::UnwindSafe;
+
 /// Ensure that a given function is a system
 ///
 /// This should be used when writing doc examples,
@@ -121,9 +124,31 @@ pub use system_piping::*;
 pub fn assert_is_system<In, Out, Params, S: IntoSystem<In, Out, Params>>(sys: S) {
     if false {
         // Check it can be converted into a system
-        // TODO: This should ensure that the system has no conflicting system params
         IntoSystem::into_system(sys);
     }
+}
+
+/// Ensures that the provided system conflicts with itself.
+///
+/// This function will  panic if the provided system *doesn't* conflict with itself.
+///
+/// Note: this will run the system on an empty world.
+pub fn assert_system_conflicts<Out, Params, S: IntoSystem<(), Out, Params> + UnwindSafe>(sys: S) {
+    std::panic::catch_unwind(move || {
+        let mut world = World::new();
+        IntoSystem::into_system(sys).run((), &mut world);
+    })
+    .unwrap_err();
+}
+
+/// Ensures that the provided system doesn't with itself.
+///
+/// This function will  panic if the provided system conflict with itself.
+///
+/// Note: this will run the system on an empty world.
+pub fn assert_system_does_not_conflict<Out, Params, S: IntoSystem<(), Out, Params>>(sys: S) {
+    let mut world = World::new();
+    IntoSystem::into_system(sys).run((), &mut world);
 }
 
 #[cfg(test)]
