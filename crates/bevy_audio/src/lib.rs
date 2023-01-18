@@ -72,7 +72,7 @@ impl AddAudioSource for App {
     {
         self.add_asset::<T>()
             .init_resource::<Audio<T>>()
-            .init_non_send_resource::<AudioOutput<T>>()
+            .init_resource::<AudioOutput<T>>()
             .add_system_to_stage(CoreStage::PostUpdate, play_queued_audio_system::<T>)
     }
 }
