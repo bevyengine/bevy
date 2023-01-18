@@ -338,10 +338,11 @@ impl App {
     /// let app = App::empty().add_default_schedules();
     /// ```
     pub fn add_default_schedules(&mut self) -> &mut Self {
-        app.schedules.insert(CoreSchedule::Startup, Schedule::new());
-        app.schedules.insert(CoreSchedule::Main, Schedule::new());
+        self.schedules
+            .insert(CoreSchedule::Startup, Schedule::new());
+        self.schedules.insert(CoreSchedule::Main, Schedule::new());
 
-        app.set_default_schedule(CoreSchedule::Main);
+        self.set_default_schedule(CoreSchedule::Main);
 
         self
     }
@@ -366,14 +367,17 @@ impl App {
     /// let app = App::empty().add_default_sets();
     /// ```
     pub fn add_default_sets(&mut self) -> &mut Self {
+        // Adding sets
         let startup_schedule = self.schedules.get(CoreSchedule::Startup).unwrap();
         startup_schedule.add_set(StartupSet::PreStartup);
         startup_schedule.add_set(StartupSet::Startup);
         startup_schedule.add_set(StartupSet::PostStartup);
 
+        // Ordering
         startup_schedule.configure_set(StartupSet::PreStartup.before(StartupSet::Startup));
         startup_schedule.configure_set(StartupSet::PostStartup.after(StartupSet::Startup));
 
+        // Flush points
         startup_schedule.add_system(
             apply_system_buffers
                 .after(StartupSet::PreStartup)
@@ -387,6 +391,10 @@ impl App {
 
         startup_schedule.add_system(apply_system_buffers.after(StartupSet::PostStartup));
 
+        // Default set
+        startup_schedule.set_default_set(StartupSet::Startup);
+
+        // Adding sets
         let main_schedule = self.schedules.get(CoreSchedule::Startup).unwrap();
         main_schedule.add_set(CoreSet::First);
         main_schedule.add_set(CoreSet::PreUpdate);
@@ -394,11 +402,13 @@ impl App {
         main_schedule.add_set(CoreSet::PostUpdate);
         main_schedule.add_set(CoreSet::Last);
 
+        // Ordering
         main_schedule.configure_set(CoreSet::First.before(CoreSet::PreUpdate));
         main_schedule.configure_set(CoreSet::PreUpdate.before(CoreSet::Update));
         main_schedule.configure_set(CoreSet::PostUpdate.after(CoreSet::Update));
         main_schedule.configure_set(CoreSet::Last.after(CoreSet::PostUpdate));
 
+        // Flush points
         startup_schedule.add_system(
             apply_system_buffers
                 .after(CoreSet::First)
@@ -423,6 +433,9 @@ impl App {
         );
 
         startup_schedule.add_system(apply_system_buffers.after(CoreSet::Last));
+
+        // Default set
+        startup_schedule.set_default_set(CoreSet::Update);
     }
 
     /// Setup the application to manage events of type `T`.
