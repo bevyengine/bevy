@@ -8,11 +8,11 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_state(AppState::Menu)
         .add_startup_system(setup)
-        .add_system_set(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
-        .add_system_set(SystemSet::on_update(AppState::Menu).with_system(menu))
-        .add_system_set(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
-        .add_system_set(SystemSet::on_enter(AppState::InGame).with_system(setup_game))
-        .add_system_set(
+        .add_systems(SystemSet::on_enter(AppState::Menu).with_system(setup_menu))
+        .add_systems(SystemSet::on_update(AppState::Menu).with_system(menu))
+        .add_systems(SystemSet::on_exit(AppState::Menu).with_system(cleanup_menu))
+        .add_systems(SystemSet::on_enter(AppState::InGame).with_system(setup_game))
+        .add_systems(
             SystemSet::on_update(AppState::InGame)
                 .with_system(movement)
                 .with_system(change_color),

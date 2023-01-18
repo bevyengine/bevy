@@ -51,7 +51,7 @@ fn main() {
         .add_system(movement_system)
         .add_system(collision_system)
         .add_system(counter_system)
-        .add_system_set(
+        .add_systems(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.2))
                 .with_system(scheduled_spawner),

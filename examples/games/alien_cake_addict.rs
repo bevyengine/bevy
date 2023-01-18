@@ -24,8 +24,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_state(GameState::Playing)
         .add_startup_system(setup_cameras)
-        .add_system_set(SystemSet::on_enter(GameState::Playing).with_system(setup))
-        .add_system_set(
+        .add_systems(SystemSet::on_enter(GameState::Playing).with_system(setup))
+        .add_systems(
             SystemSet::on_update(GameState::Playing)
                 .with_system(move_player)
                 .with_system(focus_camera)
@@ -33,10 +33,10 @@ fn main() {
                 .with_system(scoreboard_system)
                 .with_system(spawn_bonus),
         )
-        .add_system_set(SystemSet::on_exit(GameState::Playing).with_system(teardown))
-        .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(display_score))
-        .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard))
-        .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
+        .add_systems(SystemSet::on_exit(GameState::Playing).with_system(teardown))
+        .add_systems(SystemSet::on_enter(GameState::GameOver).with_system(display_score))
+        .add_systems(SystemSet::on_update(GameState::GameOver).with_system(gameover_keyboard))
+        .add_systems(SystemSet::on_exit(GameState::GameOver).with_system(teardown))
         .add_system(bevy::window::close_on_esc)
         .run();
 }

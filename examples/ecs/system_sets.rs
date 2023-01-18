@@ -51,7 +51,7 @@ fn main() {
         // use cases- typically state transitions.
         // Also note that a system set has a single run criterion at most, which means using `.with_run_criteria(...)`
         // after `SystemSet::on_update(...)` would override the state transition criterion.
-        .add_system_set(
+        .add_systems(
             SystemSet::new()
                 // This label is added to all systems in this set.
                 // The label can then be referred to elsewhere (other sets).
@@ -63,7 +63,7 @@ fn main() {
                 // Make movement run after update_velocity
                 .with_system(movement.after(update_velocity)),
         )
-        .add_system_set(
+        .add_systems(
             SystemSet::new()
                 .label(PostPhysics)
                 // This whole set runs after `Physics` (which in this case is a label for

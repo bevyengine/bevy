@@ -35,15 +35,15 @@ fn main() {
         .add_state(AppState::MainMenu)
         .add_startup_system(setup_system)
         .add_system(print_text_system)
-        .add_system_set(
+        .add_systems(
             SystemSet::on_update(AppState::MainMenu).with_system(transition_to_in_game_system),
         )
         // add the cleanup systems
-        .add_system_set(
+        .add_systems(
             // Pass in the types your system should operate on using the ::<T> (turbofish) syntax
             SystemSet::on_exit(AppState::MainMenu).with_system(cleanup_system::<MenuClose>),
         )
-        .add_system_set(
+        .add_systems(
             SystemSet::on_exit(AppState::InGame).with_system(cleanup_system::<LevelUnload>),
         )
         .run();
