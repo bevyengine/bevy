@@ -335,7 +335,7 @@ impl RenderContext {
     /// Append a [`CommandBuffer`] to the queue.
     ///
     /// If present, this will flush the currently unflushed [`CommandEncoder`]
-    /// into a [`CommandBuffer`] into the queue before append the provided 
+    /// into a [`CommandBuffer`] into the queue before append the provided
     /// buffer.
     pub fn add_command_buffer(&mut self, command_buffer: CommandBuffer) {
         self.flush_encoder();
