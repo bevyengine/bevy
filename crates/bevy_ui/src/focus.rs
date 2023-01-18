@@ -266,10 +266,8 @@ pub fn ui_focus_system(
                         // If the InteractionPolicy is Release, we should set the interaction to None
                         // The entity might just as well not have the InteractionPolicy component
                         // in which case we should use the default behaviour
-                        let interaction_policy = node
-                            .interaction_policy
-                            .copied()
-                            .unwrap_or_default();
+                        let interaction_policy =
+                            node.interaction_policy.copied().unwrap_or_default();
 
                         if *interaction == Interaction::Hovered
                             || (cursor_position.is_none())
