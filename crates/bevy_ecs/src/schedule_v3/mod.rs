@@ -197,6 +197,8 @@ mod tests {
     }
 
     mod conditions {
+        use crate::change_detection::DetectChanges;
+
         use super::*;
 
         #[test]
@@ -293,6 +295,155 @@ mod tests {
 
             schedule.run(&mut world);
             assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+        }
+
+        #[test]
+        fn system_conditions_and_change_detection() {
+            #[derive(Resource, Default)]
+            struct Bool2(pub bool);
+
+            let mut world = World::default();
+            world.init_resource::<Counter>();
+            world.init_resource::<RunConditionBool>();
+            world.init_resource::<Bool2>();
+            let mut schedule = Schedule::default();
+
+            schedule.add_system(
+                counting_system
+                    .run_if(|res1: Res<RunConditionBool>| res1.is_changed())
+                    .run_if(|res2: Res<Bool2>| res2.is_changed()),
+            );
+
+            // both resource were just added.
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // nothing has changed
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // RunConditionBool has changed, but counting_system did not run
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // internal state for the bool2 run criteria was updated in the
+            // previous run, so system still does not run
+            world.get_resource_mut::<Bool2>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // internal state for bool2 was updated, so system still does not run
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // now check that it works correctly changing Bool2 first and then RunConditionBool
+            world.get_resource_mut::<Bool2>().unwrap().0 = false;
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 2);
+        }
+
+        #[test]
+        fn system_set_conditions_and_change_detection() {
+            #[derive(Resource, Default)]
+            struct Bool2(pub bool);
+
+            let mut world = World::default();
+            world.init_resource::<Counter>();
+            world.init_resource::<RunConditionBool>();
+            world.init_resource::<Bool2>();
+            let mut schedule = Schedule::default();
+
+            schedule.configure_set(
+                TestSet::A
+                    .run_if(|res1: Res<RunConditionBool>| res1.is_changed())
+                    .run_if(|res2: Res<Bool2>| res2.is_changed()),
+            );
+
+            schedule.add_system(counting_system.in_set(TestSet::A));
+
+            // both resource were just added.
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // nothing has changed
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // RunConditionBool has changed, but counting_system did not run
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // internal state for the bool2 run criteria was updated in the
+            // previous run, so system still does not run
+            world.get_resource_mut::<Bool2>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // internal state for bool2 was updated, so system still does not run
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // the system only runs when both are changed on the same run
+            world.get_resource_mut::<Bool2>().unwrap().0 = false;
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 2);
+        }
+
+        #[test]
+        fn mixed_conditions_and_change_detection() {
+            #[derive(Resource, Default)]
+            struct Bool2(pub bool);
+
+            let mut world = World::default();
+            world.init_resource::<Counter>();
+            world.init_resource::<RunConditionBool>();
+            world.init_resource::<Bool2>();
+            let mut schedule = Schedule::default();
+
+            schedule
+                .configure_set(TestSet::A.run_if(|res1: Res<RunConditionBool>| res1.is_changed()));
+
+            schedule.add_system(
+                counting_system
+                    .run_if(|res2: Res<Bool2>| res2.is_changed())
+                    .in_set(TestSet::A),
+            );
+
+            // both resource were just added.
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // nothing has changed
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // RunConditionBool has changed, but counting_system did not run
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // we now only change bool2 and the system also should not run
+            world.get_resource_mut::<Bool2>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // internal state for the bool2 run criteria was updated in the
+            // previous run, so system still does not run
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 1);
+
+            // the system only runs when both are changed on the same run
+            world.get_resource_mut::<Bool2>().unwrap().0 = false;
+            world.get_resource_mut::<RunConditionBool>().unwrap().0 = false;
+            schedule.run(&mut world);
+            assert_eq!(world.resource::<Counter>().0.load(Ordering::Relaxed), 2);
         }
     }
 
