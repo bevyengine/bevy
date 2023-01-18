@@ -4,8 +4,8 @@ use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
     schedule::{
-        apply_system_buffers, IntoSystemDescriptor, Schedule, ScheduleLabel, Schedules, ShouldRun,
-        State, StateData, SystemSet,
+        apply_system_buffers, IntoSystemConfig, IntoSystemConfigs, IntoSystemDescriptor, Schedule,
+        ScheduleLabel, Schedules, ShouldRun, State, StateData, SystemSet,
     },
     system::Resource,
     world::World,
@@ -257,8 +257,18 @@ impl App {
     /// #
     /// app.add_system(my_system);
     /// ```
-    pub fn add_system<Params>(&mut self, system: impl IntoSystemDescriptor<Params>) -> &mut Self {
-        self.add_system_to_stage(CoreSet::Update, system)
+    pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+        if let Some(default_schedule_label) = self.default_schedule {
+            if let Some(default_schedule) = self.schedules.get_mut(&default_schedule_label) {
+                default_schedule.add_system(system);
+            } else {
+                panic!("Default schedule does not exist.")
+            }
+        } else {
+            panic!("No default schedule set for the `App`.")
+        }
+
+        self
     }
 
     /// Adds a system to the default system set and schedule of the app's [`Schedules`].
@@ -281,11 +291,51 @@ impl App {
     ///         .with_system(system_c),
     /// );
     /// ```
-    pub fn add_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.add_system_set_to_stage(CoreSet::Update, system_set)
+    pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+        if let Some(default_schedule_label) = self.default_schedule {
+            if let Some(default_schedule) = self.schedules.get_mut(&default_schedule_label) {
+                default_schedule.add_systems(systems);
+            } else {
+                panic!("Default schedule does not exist.")
+            }
+        } else {
+            panic!("No default schedule set for the `App`.")
+        }
+
+        self
     }
 
-    /// Adds a system to the [startup stage](Self::add_default_stages) of the app's [`Schedule`].
+    /// Adds a system to the provided [`Schedule`].
+    pub fn add_system_to_schedule<P>(
+        &mut self,
+        system: impl IntoSystemConfig<P>,
+        schedule_label: impl ScheduleLabel,
+    ) -> &mut Self {
+        if let Some(schedule) = self.schedules.get_mut(&schedule_label) {
+            schedule.add_system(system);
+        } else {
+            panic!("Provided schedule {schedule_label:?} does not exist.")
+        }
+
+        self
+    }
+
+    /// Adds a collection of system to the provided [`Schedule`].
+    pub fn add_systems_to_schedule<P>(
+        &mut self,
+        systems: impl IntoSystemConfigs<P>,
+        schedule_label: impl ScheduleLabel,
+    ) -> &mut Self {
+        if let Some(schedule) = self.schedules.get_mut(&schedule_label) {
+            schedule.add_systems(systems);
+        } else {
+            panic!("Provided schedule {schedule_label:?} does not exist.")
+        }
+
+        self
+    }
+
+    /// Adds a system to [`CoreSchedule::Startup`].
     ///
     /// * For adding a system that runs every frame, see [`add_system`](Self::add_system).
     /// * For adding a system to a specific stage, see [`add_system_to_stage`](Self::add_system_to_stage).
@@ -303,14 +353,11 @@ impl App {
     /// App::new()
     ///     .add_startup_system(my_startup_system);
     /// ```
-    pub fn add_startup_system<Params>(
-        &mut self,
-        system: impl IntoSystemDescriptor<Params>,
-    ) -> &mut Self {
-        self.add_startup_system_to_stage(StartupStage::Startup, system)
+    pub fn add_startup_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
+        self.add_system_to_schedule(system, CoreSchedule::Startup)
     }
 
-    /// Adds a [`SystemSet`] to the [startup stage](Self::add_default_stages).
+    /// Adds a collection of systems to [`CoreSchedule::Startup`].
     ///
     /// # Examples
     ///
@@ -330,8 +377,8 @@ impl App {
     ///         .with_system(startup_system_c),
     /// );
     /// ```
-    pub fn add_startup_system_set(&mut self, system_set: SystemSet) -> &mut Self {
-        self.add_startup_system_set_to_stage(StartupStage::Startup, system_set)
+    pub fn add_startup_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
+        self.add_systems_to_schedule(systems, CoreSchedule::Startup)
     }
 
     /// Adds standardized schedules and labels to an [`App`].
