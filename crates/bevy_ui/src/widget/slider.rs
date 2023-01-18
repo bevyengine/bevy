@@ -1,5 +1,4 @@
 use bevy_app::{App, Plugin};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::Component;
 use bevy_ecs::query::With;
 use bevy_ecs::reflect::ReflectComponent;
@@ -114,24 +113,14 @@ pub enum SliderValueError {
 #[reflect(Component, Default)]
 pub struct SliderHandle;
 
-/// Whether the slider is currently being dragged
-#[derive(Component, Debug, Default, Clone, Copy, Reflect, Deref, DerefMut)]
-#[reflect(Component, Default)]
-pub struct SliderDragged {
-    pub dragged: bool,
-}
-
 /// A label for the [`update_slider_value`] system
 #[derive(SystemLabel)]
 pub struct UpdateSliderValue;
 
 /// System for updating slider value based on the user input
 pub fn update_slider_value(
-    mouse_button_input: Res<Input<MouseButton>>,
-    touches_input: Res<Touches>,
     mut slider_query: Query<(
         &mut Slider,
-        &mut SliderDragged,
         &Interaction,
         &RelativeCursorPosition,
         &Node,
@@ -139,21 +128,10 @@ pub fn update_slider_value(
     )>,
     slider_handle_query: Query<&Node, With<SliderHandle>>,
 ) {
-    let mouse_released =
-        mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
-
-    for (mut slider, mut slider_dragged, interaction, cursor_position, node, children) in
+    for (mut slider, interaction, cursor_position, node, children) in
         slider_query.iter_mut()
     {
-        if mouse_released {
-            slider_dragged.dragged = false;
-        }
-
         if *interaction == Interaction::Clicked {
-            slider_dragged.dragged = true;
-        }
-
-        if slider_dragged.dragged {
             let max = slider.max();
             let min = slider.min();
 

@@ -1,7 +1,7 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::{Button, Slider, SliderDragged, SliderHandle},
+    widget::{Button, Slider, SliderHandle},
     BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, RelativeCursorPosition, Style,
     UiImage, ZIndex,
 };
@@ -209,8 +209,6 @@ pub struct SliderBundle {
     pub relative_cursor: RelativeCursorPosition,
     /// Describes whether and how the slider has been interacted with by the input
     pub interaction: Interaction,
-    /// Whether the slider is currently being dragged by the user
-    pub dragged: SliderDragged,
     /// Describes the style including flexbox settings
     pub style: Style,
     /// The background color, which serves as a "fill" for this node

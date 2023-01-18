@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    ui::widget::{Slider, SliderDragged, SliderHandle},
+    ui::widget::{Slider, SliderHandle},
 };
 
 fn main() {
@@ -28,8 +28,8 @@ struct RegularSliderOutput;
 #[derive(Component)]
 struct SteppedSliderOutput;
 
-const DEFAULT_HANDLE_COLOR: Color = Color::rgb(0.9, 0.9, 0.9);
-const DRAGGED_HANDLE_COLOR: Color = Color::rgb(1., 1., 1.);
+const DEFAULT_HANDLE_COLOR: Color = Color::rgb(1., 1., 1.);
+const DRAGGED_HANDLE_COLOR: Color = Color::rgb(0.95, 0.95, 0.95);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // ui camera
@@ -155,13 +155,13 @@ fn update_slider<SliderMarker: Component, OutputMarker: Component>(
 }
 
 fn update_slider_handle_color(
-    slider_query: Query<(&SliderDragged, &Children)>,
+    slider_query: Query<(&Interaction, &Children)>,
     mut slider_handle_query: Query<&mut BackgroundColor, With<SliderHandle>>,
 ) {
-    for (slider_dragged, slider_children) in slider_query.iter() {
+    for (slider_interaction, slider_children) in slider_query.iter() {
         for child in slider_children.iter() {
             if let Ok(mut handle_color) = slider_handle_query.get_mut(*child) {
-                handle_color.0 = if slider_dragged.dragged {
+                handle_color.0 = if *slider_interaction == Interaction::Clicked {
                     DRAGGED_HANDLE_COLOR.into()
                 } else {
                     DEFAULT_HANDLE_COLOR.into()
