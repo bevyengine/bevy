@@ -35,7 +35,7 @@ fn fallback_image_new(
     image.texture_descriptor.sample_count = samples;
     image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
 
-    // We can't create textures with data when it's a depth texture or when using multisample
+    // We can't create textures with data when it's a depth texture or when using multiple samples
     let texture = if format.describe().sample_type == TextureSampleType::Depth || samples > 1 {
         render_device.create_texture(&image.texture_descriptor)
     } else {
