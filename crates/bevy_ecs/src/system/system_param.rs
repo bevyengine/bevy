@@ -28,13 +28,12 @@ use std::{
 ///
 /// Parameters that implement [`SystemParam`] are infallible, which means they must return or panic.
 /// If a parameter is not guaranteed to be infallible, it's better to implement
-/// [`OptionalSystemParam`] or [`ResultfulSystemParam`] and access it with `Option<T>` or `Result<T, E>`.
+/// [`OptionalSystemParam`] or [`ResultfulSystemParam`] and access it as `Option<T>` or `Result<T, E>`.
 ///
 /// # Derive
 ///
 /// This trait, as well as [`OptionalSystemParam`] and [`ResultfulSystemParam`],
 /// can be derived with the [`derive@super::SystemParam`] macro.
-/// This macro only works if each field on the derived struct implements [`SystemParam`].
 /// Note: There are additional requirements on the field types.
 /// See the *Generic `SystemParam`s* section for details and workarounds of the probable
 /// cause if this derive causes an error to be emitted.
@@ -52,34 +51,55 @@ use std::{
 ///
 /// ### Struct-level
 ///
-/// `infallible`:
-/// The default value. Treats the struct as a [`SystemParam`].
-/// Fields marked `optional` or `resultful` will be unwrapped.
+/// #### `infallible`
 ///
-/// `optional`:
+/// The default value. Treats the struct as a [`SystemParam`].
+///
+/// Fields marked `optional` or `resultful` will be unwrapped.
+/// This value exists as a convenience for writing macros.
+///
+/// #### `optional`
+///
 /// Treats the struct as an [`OptionalSystemParam`].
+///
 /// Fields marked `infallible` are expected to succeed.
 /// Fields marked `resultful` will unwrap or return `None`.
 ///
-/// `resultful(ERROR_TYPE)`:
+/// #### `resultful(ERROR_TYPE)`
+///
 /// Treats the struct as a [`ResultfulSystemParam`] where `Error` is `ERROR_TYPE`.
+///
 /// Fields marked `infallible` are expected to succeed.
 /// Fields marked `optional` will unwrap or return [`SystemParamError`].
 ///
 /// ### Field-level
 ///
-/// `infallible`:
-/// Treats the field as a [`SystemParam`].
-/// Infallible
+/// #### `infallible`
 ///
-/// `optional`:
+/// Treats the field as a [`SystemParam`].
+///
+/// This is useful for using an infallible param inside an encapsulating fallible param.
+/// For example, an infallible `Option<T>` will not block the system param from returning.
+/// Compare this to an optional `T`, which will make the encapsulating system param return `None` if it returns `None`.
+///
+/// #### `optional`
+///
 /// Treats the field as an [`OptionalSystemParam`].
 ///
-/// `resultful`:
+/// This is useful for using an optional param inside a resultful param.
+/// For example, [`Res`] implements [`OptionalSystemParam`], so it can't be used directly in a resultful param.
+/// When an optional param fails inside a resultful param, it can be handled by implementing [`From<SystemParamError>`](SystemParamError).
+///
+/// #### `resultful`
+///
 /// Treats the field as a [`ResultfulSystemParam`].
 ///
-/// `ignore`:
-/// Skips getting a system parameter for the field, instead returning the default value of its type.
+/// This value exists as a convenience for writing macros.
+///
+/// #### `ignore`
+///
+/// Ignores treating the field as a system parameter, instead returning the default value for its type.
+///
 /// This is most useful for `PhantomData` fields, such as markers for generic types.
 ///
 /// # Example
@@ -119,10 +139,10 @@ use std::{
 ///
 /// ## Details
 ///
-/// The derive macro requires that the [`SystemParam`] implementation of
+/// The derive macro requires that the `*SystemParam` implementation of
 /// each field `F`'s [`Item`](`SystemParam::Item`)'s is itself `F`
 /// (ignoring lifetimes for simplicity).
-/// This assumption is due to type inference reasons, so that the derived [`SystemParam`] can be
+/// This assumption is due to type inference reasons, so that the derived `*SystemParam` can be
 /// used as an argument to a function system.
 /// If the compiler cannot validate this property for `[ParamType]`, it will error in the form shown above.
 ///
@@ -208,7 +228,34 @@ pub unsafe trait SystemParam: Sized {
 
 /// A parameter that can be used in a [`System`](super::System) as `T` or `Option<T>`.
 ///
-/// TODO
+/// # Derive
+///
+/// This trait, as well as [`SystemParam`] and [`ResultfulSystemParam`],
+/// can be derived with the [`derive@super::SystemParam`] macro.
+///
+/// [Please refer to `SystemParam` for details on its usage.](./trait.SystemParam.html#Derive)
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// use std::marker::PhantomData;
+/// use bevy_ecs::system::SystemParam;
+///
+/// #[derive(SystemParam)]
+/// #[system_param(optional)]
+/// struct MyParam<'w> {
+///     foo: Res<'w, SomeResource>,
+/// }
+///
+/// fn my_system(param: Option<MyParam>) {
+///     // Access the resource through field `foo` after unwrapping `param`
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
 pub unsafe trait OptionalSystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
@@ -308,7 +355,56 @@ unsafe impl<T: OptionalSystemParam> SystemParam for Option<T> {
 
 /// A parameter that can be used in a [`System`](super::System) as `T`, `Option<T>`, or `Result<T, E>`.
 ///
-/// TODO
+/// # Derive
+///
+/// This trait, as well as [`SystemParam`] and [`OptionalSystemParam`],
+/// can be derived with the [`derive@super::SystemParam`] macro.
+///
+/// [Please refer to `SystemParam` for details on its usage.](./trait.SystemParam.html#Derive)
+///
+/// # Example
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Resource)]
+/// # struct SomeResource;
+/// use std::marker::PhantomData;
+/// use bevy_ecs::system::{SystemParam, SystemParamError};
+///
+/// #[derive(SystemParam)]
+/// #[system_param(resultful(MyParamError))]
+/// struct MyParam<'w> {
+///     #[system_param(optional)]
+///     foo: Res<'w, SomeResource>,
+/// }
+///
+/// #[derive(Debug)]
+/// enum MyParamError {
+///     Foo
+/// }
+///
+/// impl std::fmt::Display for MyParamError {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         match self {
+///             MyParamError::Foo => write!(f, "Failed to get field `foo`!")
+///         }
+///     }
+/// }
+///
+/// impl std::error::Error for MyParamError {}
+///
+/// impl From<SystemParamError<Res<'_, SomeResource>>> for MyParamError {
+///     fn from(_: SystemParamError<Res<'_, SomeResource>>) -> Self {
+///         MyParamError::Foo
+///     }
+/// }
+///
+/// fn my_system(param: Result<MyParam, MyParamError>) {
+///     // Access the resource through field `foo` after unwrapping `param`
+/// }
+///
+/// # bevy_ecs::system::assert_is_system(my_system);
+/// ```
 pub unsafe trait ResultfulSystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;

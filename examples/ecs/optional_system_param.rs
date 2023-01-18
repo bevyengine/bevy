@@ -1,6 +1,10 @@
-//! This example shows how an [`OptionalSystemParam`] can be used to create a flexible system for handling a trait object resource.
+//! This example shows how an [`OptionalSystemParam`] can be used to create a flexible system for interacting with a trait object resource.
 //!
-//! This pattern is useful for libraries that work with user-defined types, where alternatives like enums would be cumbersome.
+//! This is fairly advanced and the [`SystemParam`](bevy::ecs::system::SystemParam) derive macro can be used in most cases.
+//!
+//! This pattern is useful for working with resources where the exact type isn't known.
+//! The system param allows for expressing the desired type as a type parameter,
+//! which is far more convenient than getting the resource directly and handling it in every system.
 
 use std::ops::{Deref, DerefMut};
 
@@ -12,7 +16,7 @@ use bevy::{
     prelude::*,
 };
 
-// Resources simulating game statistics
+// Resources simulating game statistics.
 #[derive(Resource)]
 pub struct GameTime(f32);
 
@@ -31,7 +35,7 @@ fn main() {
         .run();
 }
 
-// This resource encapsulates the trait object.
+// This struct encapsulates the trait object so it can used as a resource.
 #[derive(Resource)]
 pub struct CurrentGameMode(Box<dyn GameMode>);
 
@@ -49,11 +53,12 @@ impl CurrentGameMode {
     }
 }
 
-// This is our optional system param that abstracts away converting the resource to the actual type.
+// This is the optional system param that abstracts away converting the resource to the actual type.
 pub struct Game<'w, T: GameMode> {
     mode: &'w T,
 }
 
+// Deref makes it convenient to interact with the actual data.
 impl<'w, T: GameMode> Deref for Game<'w, T> {
     type Target = T;
 
@@ -103,6 +108,7 @@ unsafe impl<'w, T: GameMode> OptionalSystemParam for Game<'w, T> {
 unsafe impl<'w, T: GameMode> ReadOnlySystemParam for Game<'w, T> {}
 
 // A mutable version of the system param.
+// Note: it does not implement `ReadOnlySystemParam`.
 pub struct GameMut<'w, T: GameMode> {
     mode: &'w mut T,
 }
@@ -131,7 +137,10 @@ unsafe impl<'w, T: GameMode> OptionalSystemParam for GameMut<'w, T> {
         system_meta: &mut bevy::ecs::system::SystemMeta,
     ) -> Self::State {
         GameState {
-            mode_id: <ResMut<CurrentGameMode> as OptionalSystemParam>::init_state(world, system_meta),
+            mode_id: <ResMut<CurrentGameMode> as OptionalSystemParam>::init_state(
+                world,
+                system_meta,
+            ),
         }
     }
 
@@ -141,7 +150,13 @@ unsafe impl<'w, T: GameMode> OptionalSystemParam for GameMut<'w, T> {
         world: &'world World,
         change_tick: u32,
     ) -> Option<Self::Item<'world, 'state>> {
-        let current_mode = <<ResMut<CurrentGameMode> as OptionalSystemParam>::Item<'world, 'state> as OptionalSystemParam>::get_param(&mut state.mode_id, system_meta, world, change_tick)?.into_inner();
+        let current_mode = <ResMut<CurrentGameMode> as OptionalSystemParam>::get_param(
+            &mut state.mode_id,
+            system_meta,
+            world,
+            change_tick,
+        )?
+        .into_inner();
         current_mode.to_mut().map(|mode| GameMut { mode })
     }
 }
@@ -153,6 +168,8 @@ pub trait GameMode: Reflect + Send + Sync + 'static {
     fn as_reflect_mut(&mut self) -> &mut dyn Reflect;
 }
 
+// This struct implements the trait.
+// There could be many structs like this, not necessarily defined in the same library.
 #[derive(Reflect)]
 pub struct Deathmatch {
     pub max_time: f32,

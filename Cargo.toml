@@ -871,7 +871,7 @@ path = "examples/ecs/optional_system_param.rs"
 
 [package.metadata.example.optional_system_param]
 name = "Optional System Parameter"
-description = "Illustrates creating custom optional system parameters with `SystemParam`"
+description = "Provides an advanced pattern for working with trait object resources via `OptionalSystemParam`"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -892,6 +892,16 @@ path = "examples/ecs/removal_detection.rs"
 [package.metadata.example.removal_detection]
 name = "Removal Detection"
 description = "Query for entities that had a specific component removed in a previous stage during the current frame"
+category = "ECS (Entity Component System)"
+wasm = false
+
+[[example]]
+name = "resultful_system_param"
+path = "examples/ecs/resultful_system_param.rs"
+
+[package.metadata.example.resultful_system_param]
+name = "Resultful System Parameter"
+description = "Provides an advanced pattern for encapsulating simple behavior with `ResultfulSystemParam`"
 category = "ECS (Entity Component System)"
 wasm = false
 
