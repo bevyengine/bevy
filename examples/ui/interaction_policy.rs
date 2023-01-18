@@ -1,4 +1,4 @@
-//! This example illustrates how does the InteractionPolicy component work and its purpose.
+//! This example illustrates how does the `InteractionPolicy` component work and its purpose.
 
 use bevy::{prelude::*, ui::InteractionPolicy, winit::WinitSettings};
 
