@@ -1,11 +1,11 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    change_detection::{ComponentMut, Ticks, TicksMut},
+    change_detection::{ComponentMut, Ticks},
     component::{Component, ComponentId, ComponentStorage, ComponentTicks, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess},
     storage::{ComponentSparseSet, Table, TableRow},
-    world::{Mut, Ref, World},
+    world::{Ref, World},
 };
 use bevy_ecs_macros::all_tuples;
 pub use bevy_ecs_macros::WorldQuery;
@@ -761,6 +761,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                         change_tick: fetch.change_tick,
                         last_change_tick: fetch.last_change_tick,
                     },
+                    last_value: None,
                 }
             }
             StorageType::SparseSet => {
@@ -772,6 +773,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
                 Ref {
                     value: component.deref(),
                     ticks: Ticks::from_tick_cells(ticks, fetch.last_change_tick, fetch.change_tick),
+                    last_value: None,
                 }
             }
         }
@@ -1116,9 +1118,9 @@ pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
     pub(crate) change_tick: u32,
-    pub(crate) last_value: Option<T>,
     marker: PhantomData<T>,
 }
+// TODO: I don't update ChangeTrackers for now because we might get rid of it? Code seems redundant with Ref
 
 impl<T: Component> Clone for ChangeTrackers<T> {
     fn clone(&self) -> Self {
@@ -1126,7 +1128,6 @@ impl<T: Component> Clone for ChangeTrackers<T> {
             component_ticks: self.component_ticks,
             last_change_tick: self.last_change_tick,
             change_tick: self.change_tick,
-            last_value: self.last_value,
             marker: PhantomData,
         }
     }
@@ -1146,7 +1147,7 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
 impl<T: Component> ChangeTrackers<T> {
     /// Returns true if this component has been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
-        if T::WriteFetch::ENABLED {
+        if T::WriteFetch::MODE {
             self.component_ticks
                 .is_added(self.last_change_tick, self.change_tick)
         } else {
@@ -1156,7 +1157,7 @@ impl<T: Component> ChangeTrackers<T> {
 
     /// Returns true if this component has been changed since the last execution of this system.
     pub fn is_changed(&self) -> bool {
-        if T::WriteFetch::ENABLED {
+        if T::WriteFetch::MODE {
             self.component_ticks
                 .is_changed(self.last_change_tick, self.change_tick)
         } else {

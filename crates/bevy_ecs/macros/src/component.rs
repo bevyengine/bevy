@@ -1,8 +1,9 @@
 use bevy_macro_utils::{get_lit_str, Symbol};
 use proc_macro::TokenStream;
-use proc_macro2::{Span, TokenStream as TokenStream2};
-use quote::{quote, ToTokens};
-use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, LitBool, Path, Result, LitStr};
+use proc_macro2::{Punct, Spacing, Span, TokenStream as TokenStream2};
+use quote::{quote, TokenStreamExt, ToTokens};
+use syn::{parse_macro_input, parse_quote, DeriveInput, Error, Ident, Path, Result};
+use syn::spanned::Spanned;
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
@@ -13,19 +14,24 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
+    let change_detection_mode = attrs.change_detection_mode;
+    let change_detection_token = if matches!(change_detection_mode, ChangeDetectionMode::DerefMut) {
+        quote!()
+    } else {
+        quote!(const CHANGE_DETECTION_MODE: ChangeDetectionMode = #change_detection_mode;)
+    };
+
     ast.generics
         .make_where_clause()
         .predicates
         .push(parse_quote! { Self: Send + Sync + 'static });
-
-    let change_detection_enabled = LitBool::new(attrs.change_detection_enabled, Span::call_site());
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
-            const CHANGE_DETECTION_ENABLED: bool = #change_detection_enabled;
+            #change_detection_token
         }
     })
 }
@@ -39,7 +45,13 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
         Err(e) => return e.into_compile_error().into(),
     };
 
-    let component_mut = if matches!(attrs.change_detection_mode, ChangeDetectionMode::Disabled) {
+    let change_detection_mode = attrs.change_detection_mode;
+    let change_detection_token = if matches!(change_detection_mode, ChangeDetectionMode::DerefMut) {
+        quote!()
+    } else {
+        quote!(const CHANGE_DETECTION_MODE: ChangeDetectionMode = #change_detection_mode;)
+    };
+    let component_mut = if matches!(change_detection_mode, ChangeDetectionMode::Disabled) {
         quote! { &'a mut Self }
     } else {
         quote! { #bevy_ecs_path::change_detection::Mut<'a, Self> }
@@ -56,6 +68,7 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
+            #change_detection_token
             type WriteFetch<'a> = #component_mut;
             type Storage = #storage;
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteFetch<'wlong>) -> Self::WriteFetch<'wshort> {
@@ -80,6 +93,21 @@ enum ChangeDetectionMode {
     Eq,
     /// Disable change detection
     Disabled,
+}
+
+impl ToTokens for ChangeDetectionMode {
+    fn to_tokens(&self, tokens: &mut TokenStream2) {
+        // "ChangeDetectionMode".to_tokens(tokens);
+        tokens.append(Ident::new("ChangeDetectionMode", tokens.span()));
+        tokens.append(Punct::new(':', Spacing::Joint));
+        tokens.append(Punct::new(':', Spacing::Alone));
+        match self {
+            Self::DerefMut => tokens.append(Ident::new("DerefMut", tokens.span())),
+            Self::PartialEq => tokens.append(Ident::new("PartialEq", tokens.span())),
+            Self::Eq => tokens.append(Ident::new("Eq", tokens.span())),
+            Self::Disabled => tokens.append(Ident::new("Disabled", tokens.span())),
+        }
+    }
 }
 
 struct ComponentAttrs {
@@ -135,7 +163,12 @@ fn parse_component_attrs(ast: &DeriveInput) -> Result<ComponentAttrs> {
                         "PartialEq" => ChangeDetectionMode::PartialEq,
                         "Eq" => ChangeDetectionMode::Eq,
                         "Disabled" => ChangeDetectionMode::Disabled,
-                        _ => {}
+                        _ => {
+                            return Err(Error::new_spanned(
+                                value,
+                                "Change detection mode must be a string among ['PartialEq', 'Eq', 'Disabled'].",
+                            ))
+                        }
                     }
                     s => {
                         return Err(Error::new_spanned(
@@ -185,7 +218,12 @@ fn parse_resource_attrs(ast: &DeriveInput) -> Result<ResourceAttrs> {
                         "PartialEq" => ChangeDetectionMode::PartialEq,
                         "Eq" => ChangeDetectionMode::Eq,
                         "Disabled" => ChangeDetectionMode::Disabled,
-                        _ => {}
+                        _ => {
+                            return Err(Error::new_spanned(
+                                value,
+                                "Change detection mode must be a string among ['PartialEq', 'Eq', 'Disabled'].",
+                            ))
+                        }
                     }
                     s => {
                         return Err(Error::new_spanned(

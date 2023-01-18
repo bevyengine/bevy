@@ -417,7 +417,7 @@ impl_param_set!();
 /// struct YourResource { value: u32 };
 /// ```
 pub trait Resource: Send + Sync + 'static {
-    const CHANGE_DETECTION_MODE: ChangeDetectionMode;
+    const CHANGE_DETECTION_MODE: ChangeDetectionMode = ChangeDetectionMode::DerefMut;
 }
 
 // SAFETY: Res only reads a single World resource

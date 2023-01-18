@@ -1,6 +1,5 @@
 use crate::{
     archetype::{Archetype, ArchetypeComponentId},
-    change_detection::ComponentMut,
     component::{Component, ComponentId, ComponentStorage, StorageType, Tick},
     entity::Entity,
     query::{Access, DebugCheckedUnwrap, FilteredAccess, WorldQuery},

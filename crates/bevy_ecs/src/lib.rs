@@ -61,7 +61,7 @@ mod tests {
         query::{
             Added, ChangeTrackers, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without,
         },
-        system::Resource,
+        system::{ChangeDetectionMode, Resource},
         world::{Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};
@@ -82,7 +82,7 @@ mod tests {
     struct C;
 
     #[derive(Component)]
-    #[component(change_detection = false)]
+    #[component(change_detection_mode = "Disabled")]
     struct ChangeDetectionLess(usize);
 
     #[derive(Default)]

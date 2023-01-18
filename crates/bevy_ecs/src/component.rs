@@ -1,7 +1,7 @@
 //! Types for declaring and storing [`Component`]s.
 
 use crate::{
-    change_detection::{ComponentMut, DetectChanges, MAX_CHANGE_AGE},
+    change_detection::{ComponentMut, MAX_CHANGE_AGE},
     storage::{SparseSetIndex, Storages},
     system::Resource,
 };
@@ -15,6 +15,7 @@ use std::{
     mem::needs_drop,
     ops::DerefMut,
 };
+use crate::change_detection::ChangeDetectionMode;
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -159,7 +160,8 @@ use std::{
 /// [`SyncCell`]: bevy_utils::synccell::SyncCell
 /// [`Exclusive`]: https://doc.rust-lang.org/nightly/std/sync/struct.Exclusive.html
 pub trait Component: Send + Sync + 'static {
-    type WriteFetch<'a>: ComponentMut<'a> + DetectChanges<Inner = Self> + DerefMut<Target = Self>;
+    const CHANGE_DETECTION_MODE: ChangeDetectionMode = ChangeDetectionMode::DerefMut;
+    type WriteFetch<'a>: ComponentMut<'a, Inner = Self> + DerefMut<Target = Self>;
     type Storage: ComponentStorage;
 
     fn shrink<'wlong: 'wshort, 'wshort>(
@@ -617,7 +619,7 @@ impl Tick {
     /// ```rust,no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
-    /// let component_ticks: ComponentTicks = unimplemented!();
+    /// let mut component_ticks: ComponentTicks = unimplemented!();
     ///
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```
@@ -683,7 +685,7 @@ impl ComponentTicks {
     /// ```rust,no_run
     /// # use bevy_ecs::{world::World, component::ComponentTicks};
     /// let world: World = unimplemented!();
-    /// let component_ticks: ComponentTicks = unimplemented!();
+    /// let mut component_ticks: ComponentTicks = unimplemented!();
     ///
     /// component_ticks.set_changed(world.read_change_tick());
     /// ```
