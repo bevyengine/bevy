@@ -59,6 +59,22 @@ pub trait Graph<N, E> {
     where
         Self: Sized;
 
+    /// Constructs a new, empty graph with the specified node and edge capacity.
+    /// The graph will be able to hold exactly `node_capacity` nodes and `edge_capacity` edges
+    /// elements without reallocating.
+    ///
+    /// If the capacites are zero, the graph will not allocate.
+    fn with_capacity(node_capacity: usize, edge_capacity: usize) -> Self;
+
+    /// Returns the number of nodes and edges the graph can hold without reallocating.
+    fn capacity(&self) -> (usize, usize);
+
+    /// Returns the number of nodes the graph can hold without reallocating.
+    fn node_capacity(&self) -> usize;
+
+    /// Returns the number of edges the graph can hold without reallocating.
+    fn edge_capacity(&self) -> usize;
+
     /// Returns `true` if the edges in the graph are directed.
     fn is_directed(&self) -> bool;
 

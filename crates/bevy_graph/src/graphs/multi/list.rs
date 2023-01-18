@@ -30,6 +30,26 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
         }
     }
 
+    fn with_capacity(node_capacity: usize, edge_capacity: usize) -> Self {
+        Self {
+            nodes: HopSlotMap::with_capacity_and_key(node_capacity),
+            edges: HopSlotMap::with_capacity_and_key(edge_capacity),
+            adjacencies: SecondaryMap::new(),
+        }
+    }
+
+    fn capacity(&self) -> (usize, usize) {
+        (self.nodes.capacity(), self.edges.capacity())
+    }
+
+    fn node_capacity(&self) -> usize {
+        self.nodes.capacity()
+    }
+
+    fn edge_capacity(&self) -> usize {
+        self.edges.capacity()
+    }
+
     #[inline]
     fn is_directed(&self) -> bool {
         DIRECTED
