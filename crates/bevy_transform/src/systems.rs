@@ -2,6 +2,8 @@ use crate::components::{GlobalTransform, Transform};
 use bevy_ecs::{
     change_detection::Ref,
     prelude::{Changed, DetectChanges, Entity, Query, With, Without},
+    removal_detection::RemovedComponents,
+    system::ParamSet,
 };
 use bevy_hierarchy::{Children, Parent};
 
@@ -9,16 +11,29 @@ use bevy_hierarchy::{Children, Parent};
 ///
 /// Third party plugins should ensure that this is used in concert with [`propagate_transforms`].
 pub fn sync_simple_transforms(
-    mut query: Query<
-        (&Transform, &mut GlobalTransform),
-        (Changed<Transform>, Without<Parent>, Without<Children>),
-    >,
+    mut query: ParamSet<(
+        Query<
+            (&Transform, &mut GlobalTransform),
+            (Changed<Transform>, Without<Parent>, Without<Children>),
+        >,
+        Query<(Ref<Transform>, &mut GlobalTransform), Without<Children>>,
+    )>,
+    mut orphaned: RemovedComponents<Parent>,
 ) {
     query
+        .p0()
         .par_iter_mut()
         .for_each_mut(|(transform, mut global_transform)| {
             *global_transform = GlobalTransform::from(*transform);
         });
+    // updated orphaned entities
+    let mut query = query.p1();
+    let mut iter = query.iter_many_mut(orphaned.iter());
+    while let Some((transform, mut global_transform)) = iter.fetch_next() {
+        if !transform.is_changed() {
+            *global_transform = GlobalTransform::from(*transform);
+        }
+    }
 }
 
 /// Update [`GlobalTransform`] component of entities based on entity hierarchy and
@@ -30,12 +45,15 @@ pub fn propagate_transforms(
         (Entity, &Children, Ref<Transform>, &mut GlobalTransform),
         Without<Parent>,
     >,
+    mut orphaned: RemovedComponents<Parent>,
     transform_query: Query<(Ref<Transform>, &mut GlobalTransform, Option<&Children>), With<Parent>>,
     parent_query: Query<(Entity, Ref<Parent>)>,
 ) {
+    let mut orphaned = orphaned.iter().collect::<Vec<_>>();
+    orphaned.sort_unstable();
     root_query.par_iter_mut().for_each_mut(
         |(entity, children, transform, mut global_transform)| {
-            let changed = transform.is_changed();
+            let changed = transform.is_changed() || orphaned.binary_search(&entity).is_ok();
             if changed {
                 *global_transform = GlobalTransform::from(*transform);
             }
@@ -161,9 +179,60 @@ mod test {
     use bevy_tasks::{ComputeTaskPool, TaskPool};
 
     use crate::components::{GlobalTransform, Transform};
-    use crate::systems::*;
-    use crate::TransformBundle;
+    use crate::{propagate_transforms, sync_simple_transforms, TransformBundle};
     use bevy_hierarchy::{BuildChildren, BuildWorldChildren, Children, Parent};
+
+    #[test]
+    fn correct_parent_removed() {
+        ComputeTaskPool::init(TaskPool::default);
+        let mut world = World::default();
+        let offset_global_transform =
+            |offset| GlobalTransform::from(Transform::from_xyz(offset, offset, offset));
+        let offset_transform =
+            |offset| TransformBundle::from_transform(Transform::from_xyz(offset, offset, offset));
+
+        let mut schedule = Schedule::new();
+        schedule.add_systems((sync_simple_transforms, propagate_transforms));
+
+        let mut command_queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut command_queue, &world);
+        let root = commands.spawn(offset_transform(3.3)).id();
+        let parent = commands.spawn(offset_transform(4.4)).id();
+        let child = commands.spawn(offset_transform(5.5)).id();
+        commands.entity(parent).set_parent(root);
+        commands.entity(child).set_parent(parent);
+        command_queue.apply(&mut world);
+        schedule.run(&mut world);
+
+        assert_ne!(
+            world.get::<GlobalTransform>(parent).unwrap(),
+            &GlobalTransform::from(Transform::IDENTITY)
+        );
+
+        // Remove parent of `parent`
+        let mut command_queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut command_queue, &world);
+        commands.entity(parent).remove_parent();
+        command_queue.apply(&mut world);
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<GlobalTransform>(parent).unwrap(),
+            &offset_global_transform(4.4)
+        );
+
+        // Remove parent of `child`
+        let mut command_queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut command_queue, &world);
+        commands.entity(child).remove_parent();
+        command_queue.apply(&mut world);
+        schedule.run(&mut world);
+
+        assert_eq!(
+            world.get::<GlobalTransform>(child).unwrap(),
+            &offset_global_transform(5.5)
+        );
+    }
 
     #[test]
     fn did_propagate() {
