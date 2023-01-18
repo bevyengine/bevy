@@ -229,7 +229,7 @@ macro_rules! impl_reflect_for_veclike {
             }
 
             fn push(&mut self, value: Box<dyn Reflect>) {
-                let value = T::take_from_reflect(value).unwrap_or_else(|value| {
+                let value = T::take_from_reflect(value).unwrap_or_else(|(value, _)| {
                     panic!(
                         "Attempted to push invalid value of type {}.",
                         value.type_name()
@@ -423,13 +423,13 @@ impl<K: FromReflect + Eq + Hash, V: FromReflect> Map for HashMap<K, V> {
         key: Box<dyn Reflect>,
         value: Box<dyn Reflect>,
     ) -> Option<Box<dyn Reflect>> {
-        let key = K::take_from_reflect(key).unwrap_or_else(|key| {
+        let key = K::take_from_reflect(key).unwrap_or_else(|(key, _)| {
             panic!(
                 "Attempted to insert invalid key of type {}.",
                 key.type_name()
             )
         });
-        let value = V::take_from_reflect(value).unwrap_or_else(|value| {
+        let value = V::take_from_reflect(value).unwrap_or_else(|(value, _)| {
             panic!(
                 "Attempted to insert invalid value of type {}.",
                 value.type_name()

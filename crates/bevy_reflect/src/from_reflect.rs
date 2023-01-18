@@ -24,11 +24,12 @@ pub trait FromReflect: Reflect + Sized {
     /// [`from_reflect`]: Self::from_reflect
     /// [`DynamicStruct`]: crate::DynamicStruct
     /// [`DynamicList`]: crate::DynamicList
-    fn take_from_reflect(reflect: Box<dyn Reflect>) -> Result<Self, Box<dyn Reflect>> {
-        match reflect.take::<Self>() {
-            Ok(value) => Ok(value),
-            Err(value) => Self::from_reflect(value.as_ref()).map_err(|_| value),
-        }
+    fn take_from_reflect(
+        reflect: Box<dyn Reflect>,
+    ) -> Result<Self, (Box<dyn Reflect>, FromReflectError)> {
+        reflect
+            .take::<Self>()
+            .or_else(|value| Self::from_reflect(value.as_ref()).map_err(|err| (value, err)))
     }
 }
 
