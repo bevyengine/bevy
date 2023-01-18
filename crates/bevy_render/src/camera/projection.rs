@@ -196,7 +196,7 @@ pub enum ScalingMode {
 /// the size of objects remains the same regardless of their distance to the camera.
 ///
 /// The volume contained in the projection is called the *view frustum*. Since the viewport is rectangular
-/// and projection lines are parallel, the view frustum takes the shape of a rectangular prism.
+/// and projection lines are parallel, the view frustum takes the shape of a cuboid.
 ///
 /// Note that the scale of the projection and the apparent size of objects are inversely proportional.
 /// As the size of the projection increases, the size of objects decreases.
