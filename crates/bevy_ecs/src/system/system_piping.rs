@@ -146,12 +146,6 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         self.system_b.set_last_change_tick(last_change_tick);
     }
 
-    fn default_labels(&self) -> Vec<crate::schedule::SystemLabelId> {
-        let mut labels = self.system_a.default_labels();
-        labels.extend(&self.system_b.default_labels());
-        labels
-    }
-
     fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         let mut system_sets = self.system_a.default_system_sets();
         system_sets.extend_from_slice(&self.system_b.default_system_sets());
