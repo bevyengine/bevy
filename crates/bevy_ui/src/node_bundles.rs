@@ -1,8 +1,8 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, ZIndex, InteractionPolicy,
+    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, InteractionPolicy,
+    Node, Style, UiImage, ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{

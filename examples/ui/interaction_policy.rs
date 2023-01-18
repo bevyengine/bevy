@@ -1,6 +1,6 @@
 //! This example illustrates how does the InteractionPolicy component work and its purpose.
 
-use bevy::{prelude::*, winit::WinitSettings, ui::InteractionPolicy};
+use bevy::{prelude::*, ui::InteractionPolicy, winit::WinitSettings};
 
 fn main() {
     App::new()
