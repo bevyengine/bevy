@@ -3,7 +3,7 @@
 //! This is fairly advanced and the [`SystemParam`] derive macro can be used in many cases.
 
 use bevy::{
-    ecs::system::{ResultfulSystemParam, SystemParam},
+    ecs::system::{ResultfulSystemParam, SystemParam, ReadOnlySystemParam},
     prelude::*,
 };
 
@@ -70,6 +70,9 @@ unsafe impl ResultfulSystemParam for AverageScore {
         Ok(AverageScore(total / size))
     }
 }
+
+// Since the system param only reads the query, it can be marked read-only.
+unsafe impl ReadOnlySystemParam for AverageScore {}
 
 #[derive(Debug)]
 pub enum AverageScoreError {

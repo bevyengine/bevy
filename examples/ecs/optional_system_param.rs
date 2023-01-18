@@ -104,7 +104,7 @@ unsafe impl<'w, T: GameMode> OptionalSystemParam for Game<'w, T> {
     }
 }
 
-// Marks the non-mut system param as read-only.
+// Since this system param only reads the resource, it can be marked read-only.
 unsafe impl<'w, T: GameMode> ReadOnlySystemParam for Game<'w, T> {}
 
 // A mutable version of the system param.
