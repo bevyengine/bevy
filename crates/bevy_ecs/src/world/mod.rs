@@ -19,6 +19,7 @@ use crate::{
     event::{Event, Events},
     ptr::UnsafeCellDeref,
     query::{DebugCheckedUnwrap, QueryState, ReadOnlyWorldQuery, WorldQuery},
+    schedule::{ScheduleLabel, Schedules},
     storage::{Column, ComponentSparseSet, ResourceData, SparseSet, Storages, TableRow},
     system::Resource,
 };
@@ -1969,6 +1970,17 @@ impl World {
     #[inline]
     fn fetch_sparse_set(&self, component_id: ComponentId) -> Option<&ComponentSparseSet> {
         self.storages.sparse_sets.get(component_id)
+    }
+}
+
+// Schedule-related methods
+impl World {
+    /// Runs the [`Schedule`](crate::schedule::Schedule) associated with the `label`.
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
+        if let Some(mut schedule) = self.resource_mut::<Schedules>().remove(&label) {
+            schedule.run(self);
+            self.resource_mut::<Schedules>().insert(label, schedule);
+        }
     }
 }
 
