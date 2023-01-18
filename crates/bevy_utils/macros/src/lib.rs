@@ -1,3 +1,6 @@
+#![forbid(unsafe_code)]
+#![warn(missing_docs)]
+
 use proc_macro::TokenStream;
 
 mod iterable_enum;
