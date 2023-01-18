@@ -117,4 +117,9 @@ impl EntityMap {
     pub fn is_empty(&self) -> bool {
         self.map.is_empty()
     }
+
+    /// An iterator visiting all (key, value) pairs in arbitrary order.
+    pub fn iter(&self) -> impl Iterator<Item = (Entity, Entity)> + '_ {
+        self.map.iter().map(|(from, to)| (*from, *to))
+    }
 }

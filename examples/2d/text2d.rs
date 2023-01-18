@@ -33,7 +33,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         font_size: 60.0,
         color: Color::WHITE,
     };
-    let text_alignment = TextAlignment::CENTER;
+    let text_alignment = TextAlignment::Center;
     // 2d camera
     commands.spawn(Camera2dBundle::default());
     // Demonstrate changing translation
@@ -64,31 +64,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate text wrapping
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
-    commands.spawn(SpriteBundle {
-        sprite: Sprite {
-            color: Color::rgb(0.25, 0.25, 0.75),
-            custom_size: Some(Vec2::new(box_size.x, box_size.y)),
+    commands
+        .spawn(SpriteBundle {
+            sprite: Sprite {
+                color: Color::rgb(0.25, 0.25, 0.75),
+                custom_size: Some(Vec2::new(box_size.x, box_size.y)),
+                ..default()
+            },
+            transform: Transform::from_translation(box_position.extend(0.0)),
             ..default()
-        },
-        transform: Transform::from_translation(box_position.extend(0.0)),
-        ..default()
-    });
-    commands.spawn(Text2dBundle {
-        text: Text::from_section("this text wraps in the box", text_style),
-        text_2d_bounds: Text2dBounds {
-            // Wrap text in the rectangle
-            size: box_size,
-        },
-        // We align text to the top-left, so this transform is the top-left corner of our text. The
-        // box is centered at box_position, so it is necessary to move by half of the box size to
-        // keep the text in the box.
-        transform: Transform::from_xyz(
-            box_position.x - box_size.x / 2.0,
-            box_position.y + box_size.y / 2.0,
-            1.0,
-        ),
-        ..default()
-    });
+        })
+        .with_children(|builder| {
+            builder.spawn(Text2dBundle {
+                text: Text::from_section("this text wraps in the box", text_style)
+                    .with_alignment(TextAlignment::Left),
+                text_2d_bounds: Text2dBounds {
+                    // Wrap text in the rectangle
+                    size: box_size,
+                },
+                // ensure the text is drawn on top of the box
+                transform: Transform::from_translation(Vec3::Z),
+                ..default()
+            });
+        });
 }
 
 fn animate_translation(

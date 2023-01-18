@@ -10,9 +10,10 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+rust-version = "1.66.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
+exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
 members = [
   "crates/*",
   "examples/android",
@@ -89,6 +90,13 @@ flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
+symphonia-aac = ["bevy_internal/symphonia-aac"]
+symphonia-all = ["bevy_internal/symphonia-all"]
+symphonia-flac = ["bevy_internal/symphonia-flac"]
+symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
+symphonia-mp3 = ["bevy_internal/symphonia-mp3"]
+symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
+symphonia-wav = ["bevy_internal/symphonia-wav"]
 
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_internal/filesystem_watcher"]
@@ -755,6 +763,16 @@ description = "Shows how to load and play an audio file, and control how it's pl
 category = "Audio"
 wasm = true
 
+[[example]]
+name = "decodable"
+path = "examples/audio/decodable.rs"
+
+[package.metadata.example.decodable]
+name = "Decodable"
+description = "Shows how to create and register a custom audio source by implementing the `Decodable` type."
+category = "Audio"
+wasm = true
+
 # Diagnostics
 [[example]]
 name = "log_diagnostics"
@@ -1358,7 +1376,7 @@ wasm = true
 # Tools
 [[example]]
 name = "scene_viewer"
-path = "examples/tools/scene_viewer.rs"
+path = "examples/tools/scene_viewer/main.rs"
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -1375,17 +1393,6 @@ name = "Gamepad Viewer"
 description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
 wasm = false
-
-# Transforms
-[[example]]
-name = "global_vs_local_translation"
-path = "examples/transforms/global_vs_local_translation.rs"
-
-[package.metadata.example.global_vs_local_translation]
-name = "Global / Local Translation"
-description = "Illustrates the difference between direction of a translation in respect to local object or global object Transform"
-category = "Transforms"
-wasm = true
 
 [[example]]
 name = "3d_rotation"
@@ -1455,6 +1462,16 @@ path = "examples/ui/font_atlas_debug.rs"
 [package.metadata.example.font_atlas_debug]
 name = "Font Atlas Debug"
 description = "Illustrates how FontAtlases are populated (used to optimize text rendering internally)"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "relative_cursor_position"
+path = "examples/ui/relative_cursor_position.rs"
+
+[package.metadata.example.relative_cursor_position]
+name = "Relative Cursor Position"
+description = "Showcases the RelativeCursorPosition component"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1608,3 +1625,8 @@ inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[profile.stress-test]
+inherits = "release"
+lto = "fat"
+panic = "abort"

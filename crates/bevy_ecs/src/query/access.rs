@@ -71,16 +71,21 @@ impl<T: SparseSetIndex + fmt::Debug> fmt::Debug for Access<T> {
 }
 impl<T: SparseSetIndex> Default for Access<T> {
     fn default() -> Self {
-        Self {
-            reads_all: false,
-            reads_and_writes: Default::default(),
-            writes: Default::default(),
-            marker: PhantomData,
-        }
+        Self::new()
     }
 }
 
 impl<T: SparseSetIndex> Access<T> {
+    /// Creates an empty [`Access`] collection.
+    pub const fn new() -> Self {
+        Self {
+            reads_all: false,
+            reads_and_writes: FixedBitSet::new(),
+            writes: FixedBitSet::new(),
+            marker: PhantomData,
+        }
+    }
+
     /// Increases the set capacity to the specified amount.
     ///
     /// Does nothing if `capacity` is less than or equal to the current value.
