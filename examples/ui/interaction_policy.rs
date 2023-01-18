@@ -67,7 +67,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     font_size: 40.0,
                     color: Color::WHITE,
                 }
-            ).with_text_alignment(TextAlignment::TOP_CENTER).with_style(Style {
+            ).with_text_alignment(TextAlignment::Center).with_style(Style {
                 margin: UiRect::bottom(Val::Px(35.)),
                 ..default()
             }));
