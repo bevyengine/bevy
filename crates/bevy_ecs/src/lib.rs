@@ -54,6 +54,7 @@ pub use bevy_ecs_macros::all_tuples;
 mod tests {
     use crate as bevy_ecs;
     use crate::prelude::Or;
+    use crate::query::Not;
     use crate::{
         bundle::Bundle,
         component::{Component, ComponentId},
@@ -1724,5 +1725,59 @@ mod tests {
             Some(&C),
             "new entity was spawned and received C component"
         );
+    }
+
+    #[test]
+    fn query_filter_not_added() {
+        let mut world = World::new();
+        let a = world.spawn(A(123)).id();
+
+        assert_eq!(world.query::<&A>().iter(&world).count(), 1);
+        assert_eq!(
+            world
+                .query_filtered::<(), Not<Added<A>>>()
+                .iter(&world)
+                .count(),
+            0
+        );
+        assert!(world.query::<&A>().get(&world, a).is_ok());
+        assert!(world
+            .query_filtered::<(), Not<Added<A>>>()
+            .get(&world, a)
+            .is_err());
+
+        world.clear_trackers();
+
+        assert_eq!(world.query::<&A>().iter(&world).count(), 1);
+        assert_eq!(
+            world
+                .query_filtered::<(), Not<Added<A>>>()
+                .iter(&world)
+                .count(),
+            1
+        );
+        assert!(world.query::<&A>().get(&world, a).is_ok());
+        assert!(world
+            .query_filtered::<(), Not<Added<A>>>()
+            .get(&world, a)
+            .is_ok());
+    }
+
+    #[test]
+    fn query_filter_not_changed() {
+        let mut world = World::default();
+        let e1 = world.spawn((A(0), B(0))).id();
+
+        fn get_changed(world: &mut World) -> Vec<Entity> {
+            world
+                .query_filtered::<Entity, Not<Changed<A>>>()
+                .iter(world)
+                .collect::<Vec<Entity>>()
+        }
+        assert_eq!(get_changed(&mut world), vec![]);
+        world.clear_trackers();
+        assert_eq!(get_changed(&mut world), vec![e1]);
+        *world.get_mut(e1).unwrap() = A(1);
+        assert_eq!(get_changed(&mut world), vec![]);
     }
 }

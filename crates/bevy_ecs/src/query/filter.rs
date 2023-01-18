@@ -219,6 +219,97 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 
+pub struct Not<T>(PhantomData<T>);
+
+// SAFETY: `Self::ReadOnly` is the same as `Self`
+unsafe impl<T: for<'a> ReadOnlyWorldQuery<State = ComponentId, Item<'a> = bool>> WorldQuery
+    for Not<T>
+{
+    type Item<'a> = bool;
+    type Fetch<'a> = T::Fetch<'a>;
+    type ReadOnly = Self;
+    type State = ComponentId;
+
+    fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
+        T::shrink(item)
+    }
+
+    unsafe fn init_fetch<'w>(
+        world: &'w World,
+        state: &Self::State,
+        last_change_tick: u32,
+        change_tick: u32,
+    ) -> Self::Fetch<'w> {
+        T::init_fetch(world, state, last_change_tick, change_tick)
+    }
+
+    unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
+        T::clone_fetch(fetch)
+    }
+
+    const IS_DENSE: bool = T::IS_DENSE;
+
+    const IS_ARCHETYPAL: bool = T::IS_ARCHETYPAL;
+
+    unsafe fn set_archetype<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        state: &Self::State,
+        archetype: &'w Archetype,
+        table: &'w Table,
+    ) {
+        T::set_archetype(fetch, state, archetype, table)
+    }
+
+    unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
+        T::set_table(fetch, state, table)
+    }
+
+    unsafe fn fetch<'w>(
+        fetch: &mut Self::Fetch<'w>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> Self::Item<'w> {
+        !T::fetch(fetch, entity, table_row)
+    }
+
+    fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+        T::update_component_access(state, access);
+    }
+
+    fn update_archetype_component_access(
+        state: &Self::State,
+        archetype: &Archetype,
+        access: &mut Access<ArchetypeComponentId>,
+    ) {
+        T::update_archetype_component_access(state, archetype, access);
+    }
+
+    fn init_state(world: &mut World) -> Self::State {
+        T::init_state(world)
+    }
+
+    fn matches_component_set(
+        state: &Self::State,
+        set_contains_id: &impl Fn(ComponentId) -> bool,
+    ) -> bool {
+        T::matches_component_set(state, set_contains_id)
+    }
+
+    unsafe fn filter_fetch(
+        fetch: &mut Self::Fetch<'_>,
+        entity: Entity,
+        table_row: TableRow,
+    ) -> bool {
+        !T::filter_fetch(fetch, entity, table_row)
+    }
+}
+
+// SAFETY: no component access or archetype component access
+unsafe impl<T: for<'a> ReadOnlyWorldQuery<State = ComponentId, Item<'a> = bool>> ReadOnlyWorldQuery
+    for Not<T>
+{
+}
+
 /// A filter that tests if any of the given filters apply.
 ///
 /// This is useful for example if a system with multiple components in a query only wants to run
