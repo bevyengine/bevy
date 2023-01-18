@@ -1,18 +1,12 @@
 use core::slice;
 
 /// Map-like methods for `Vec<(K, V)>`
-pub trait VecMap<K: PartialEq, V> {
+pub trait VecMap<K: PartialEq + Ord, V> {
     /// Gets an immutable reference to value by key
     fn get_value(&self, key: K) -> Option<&V>;
 
     /// Gets a mutable reference to value by key
     fn get_value_mut(&mut self, key: K) -> Option<&mut V>;
-
-    /// Gets an immutable reference to value by key
-    unsafe fn get_value_unchecked(&self, key: K) -> &V;
-
-    /// Gets a mutable reference to value by key
-    unsafe fn get_value_unchecked_mut(&mut self, key: K) -> &mut V;
 
     /// Gets an immutable reference to value by key and inserts by closure when it's not preset
     fn get_value_or(&mut self, key: K, or: fn() -> V) -> &V;
@@ -40,7 +34,7 @@ pub trait VecMap<K: PartialEq, V> {
     fn contains_key(&self, key: K) -> bool;
 
     /// Gets the index by the key
-    fn index_by_key(&self, key: K) -> Option<usize>;
+    fn index_by_key(&self, key: &K) -> Option<usize>;
 
     /// Removes the entry by the key
     fn remove_by_key(&mut self, key: K) -> Option<V>;
@@ -49,32 +43,26 @@ pub trait VecMap<K: PartialEq, V> {
     fn values(&self) -> Values<K, V>;
 }
 
-impl<K: PartialEq, V> VecMap<K, V> for Vec<(K, V)> {
+impl<K: PartialEq + Ord, V> VecMap<K, V> for Vec<(K, V)> {
     fn get_value(&self, key: K) -> Option<&V> {
-        match self.iter().find(|l| l.0 == key) {
-            Some((_, v)) => Some(v),
-            None => None,
+        if let Some(index) = self.index_by_key(&key) {
+            unsafe { Some(&self.get_unchecked(index).1) }
+        } else {
+            None
         }
     }
 
     fn get_value_mut(&mut self, key: K) -> Option<&mut V> {
-        match self.iter_mut().find(|l| l.0 == key) {
-            Some((_, v)) => Some(v),
-            None => None,
+        if let Some(index) = self.index_by_key(&key) {
+            unsafe { Some(&mut self.get_unchecked_mut(index).1) }
+        } else {
+            None
         }
     }
 
-    unsafe fn get_value_unchecked(&self, key: K) -> &V {
-        &self.iter().find(|l| l.0 == key).unwrap_unchecked().1
-    }
-
-    unsafe fn get_value_unchecked_mut(&mut self, key: K) -> &mut V {
-        &mut self.iter_mut().find(|l| l.0 == key).unwrap_unchecked().1
-    }
-
     fn get_value_or(&mut self, key: K, or: fn() -> V) -> &V {
-        if let Some(pos) = self.iter().position(|l| l.0 == key) {
-            unsafe { &self.get_unchecked(pos).1 }
+        if let Some(index) = self.index_by_key(&key) {
+            unsafe { &self.get_unchecked(index).1 }
         } else {
             self.push((key, or()));
             unsafe { &self.last().unwrap_unchecked().1 }
@@ -82,8 +70,8 @@ impl<K: PartialEq, V> VecMap<K, V> for Vec<(K, V)> {
     }
 
     fn get_value_or_mut(&mut self, key: K, or: fn() -> V) -> &mut V {
-        if let Some(pos) = self.iter().position(|l| l.0 == key) {
-            unsafe { &mut self.get_unchecked_mut(pos).1 }
+        if let Some(index) = self.index_by_key(&key) {
+            unsafe { &mut self.get_unchecked_mut(index).1 }
         } else {
             self.push((key, or()));
             unsafe { &mut self.last_mut().unwrap_unchecked().1 }
@@ -94,12 +82,16 @@ impl<K: PartialEq, V> VecMap<K, V> for Vec<(K, V)> {
         self.iter().any(|l| l.0 == key)
     }
 
-    fn index_by_key(&self, key: K) -> Option<usize> {
-        self.iter().position(|l| l.0 == key)
+    #[inline]
+    fn index_by_key(&self, key: &K) -> Option<usize> {
+        match self.binary_search_by(|l| l.0.cmp(key)) {
+            Ok(index) => Some(index),
+            _ => None,
+        }
     }
 
     fn remove_by_key(&mut self, key: K) -> Option<V> {
-        if let Some(index) = self.index_by_key(key) {
+        if let Some(index) = self.index_by_key(&key) {
             Some(self.remove(index).1)
         } else {
             None
