@@ -69,7 +69,7 @@ pub trait System: Send + Sync + 'static {
         Vec::new()
     }
     /// Returns the system's default [system sets](crate::schedule_v3::SystemSet).
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         Vec::new()
     }
     /// Gets the system's last change tick

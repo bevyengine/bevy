@@ -152,7 +152,7 @@ impl<SystemA: System, SystemB: System<In = SystemA::Out>> System for PipeSystem<
         labels
     }
 
-    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule_v3::SystemSet>> {
+    fn default_system_sets(&self) -> Vec<Box<dyn crate::schedule::SystemSet>> {
         let mut system_sets = self.system_a.default_system_sets();
         system_sets.extend_from_slice(&self.system_b.default_system_sets());
         system_sets
