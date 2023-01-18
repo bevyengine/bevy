@@ -2,11 +2,9 @@ use criterion::criterion_group;
 
 mod run_criteria;
 mod schedule;
-mod stages;
 
 use run_criteria::*;
 use schedule::*;
-use stages::*;
 
 criterion_group!(
     scheduling_benches,
