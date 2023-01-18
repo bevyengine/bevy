@@ -366,7 +366,7 @@ impl Drop for BlobVec {
         let array_layout =
             array_layout(&self.item_layout, self.capacity).expect("array layout should be valid");
         if array_layout.size() > 0 {
-            // SAFETY: data ptr layout is correct, swap_scratch ptr layout is correct
+            // SAFETY: the array layout is correct, the pointer was allocated from std::alloc::alloc
             unsafe {
                 std::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
             }
@@ -377,7 +377,7 @@ impl Drop for BlobVec {
 pub(super) struct BlobBox {
     item_layout: Layout,
     is_present: bool,
-    // the `data` ptr's layout is always `array_layout(item_layout, capacity)`
+    // the `data` ptr's layout is always `item_layout`
     data: NonNull<u8>,
     // None if the underlying type doesn't need to be dropped
     drop: Option<unsafe fn(OwningPtr<'_>)>,
@@ -428,9 +428,7 @@ impl BlobBox {
     }
 
     /// # Safety
-    /// - index must be in bounds
-    /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
-    /// `item_layout`, must have been previously allocated.
+    /// `self.is_present()` must be false
     #[inline]
     pub unsafe fn initialize(&mut self, value: OwningPtr<'_>) {
         debug_assert!(!self.is_present());
@@ -443,12 +441,7 @@ impl BlobBox {
     }
 
     /// # Safety
-    /// - index must be in-bounds
-    /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this
-    /// [`BlobVec`]'s `item_layout`, must have been previously initialized with an item matching
-    /// this [`BlobVec`]'s `item_layout`
-    /// - the memory at `*value` must also be previously initialized with an item matching this
-    /// [`BlobVec`]'s `item_layout`
+    /// `self.is_present()` must be true
     pub unsafe fn replace(&mut self, value: OwningPtr<'_>) {
         debug_assert!(self.is_present());
         let ptr = self.data.as_ptr();
@@ -473,9 +466,8 @@ impl BlobBox {
         self.is_present = true;
     }
 
-    /// Performs a "swap remove" at the given `index`, which removes the item at `index` and moves
-    /// the last item in the [`BlobVec`] to `index` (if `index` is not the last item). It is the
-    /// caller's responsibility to drop the returned pointer, if that is desirable.
+    /// Performs a remove the data stored in the `BlobBox`, if present.
+    /// It is the caller's responsibility to drop the returned pointer, if that is desirable.
     #[inline]
     #[must_use = "The returned pointer should be used to dropped the removed element"]
     pub fn remove_and_forget(&mut self) -> Option<OwningPtr<'_>> {
@@ -514,7 +506,7 @@ impl Drop for BlobBox {
     fn drop(&mut self) {
         self.clear();
         if self.item_layout.size() > 0 {
-            // SAFETY: data ptr layout is correct, swap_scratch ptr layout is correct
+            // SAFETY: the data layout is correct, the pointer was allocated from std::alloc::alloc
             unsafe {
                 std::alloc::dealloc(self.data.as_ptr(), self.item_layout);
             }
