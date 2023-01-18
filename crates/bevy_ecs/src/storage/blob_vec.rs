@@ -397,7 +397,7 @@ impl std::fmt::Debug for BlobBox {
 impl BlobBox {
     /// # Safety
     ///
-    /// `drop` should be safe to call with an [`OwningPtr`] pointing to any item that's been pushed into this [`BlobVec`].
+    /// `drop` should be safe to call with an [`OwningPtr`] pointing to the data stored in this [`BlobBox`].
     ///
     /// If `drop` is `None`, the items will be leaked. This should generally be set as None based on [`needs_drop`].
     ///
@@ -487,7 +487,7 @@ impl BlobBox {
         })
     }
 
-    /// Gets a [`Ptr`] to the start of the vec
+    /// Gets a [`Ptr`] to the contained data
     #[inline]
     pub fn get_ptr(&self) -> Option<Ptr<'_>> {
         self.is_present()
@@ -499,8 +499,8 @@ impl BlobBox {
         if !self.is_present {
             return;
         }
-        // We set len to 0 _before_ dropping elements for unwind safety. This ensures we don't
-        // accidentally drop elements twice in the event of a drop impl panicking.
+        // We set is_present to false _before_ dropping the data for unwind safety. This ensures we don't
+        // accidentally drop the data twice in the event of a drop impl panicking.
         self.is_present = false;
         let Some(drop) = self.drop else { return };
         // SAFETY: self.data is currently valid, and the item is left unreachable so it can be safely promoted to an `OwningPtr`
