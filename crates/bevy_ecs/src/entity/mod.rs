@@ -747,7 +747,7 @@ impl EntityMeta {
 // SAFETY:
 // This type must not contain any pointers at any level, and be safe to fully fill with u8::MAX.
 /// A location of an entity in an archetype.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub struct EntityLocation {
     /// The ID of the [`Archetype`] the [`Entity`] belongs to.

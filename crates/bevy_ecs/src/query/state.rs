@@ -140,7 +140,7 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
     }
 
     /// Takes a query for the given [`World`], checks if the given world is the same as the query, and
-    /// generates new archetypes for the given world.
+    /// updates the [`QueryState`]'s view of the [`World`] with any newly-added archetypes.
     ///
     /// # Panics
     ///
@@ -166,7 +166,8 @@ impl<Q: WorldQuery, F: ReadOnlyWorldQuery> QueryState<Q, F> {
         );
     }
 
-    /// Creates a new [`Archetype`].
+    /// Update the current [`QueryState`] with information from the provided [`Archetype`]
+    /// (if applicable, i.e. if the archetype has any intersecting [`ComponentId`] with the current [`QueryState`]).
     pub fn new_archetype(&mut self, archetype: &Archetype) {
         if Q::matches_component_set(&self.fetch_state, &|id| archetype.contains(id))
             && F::matches_component_set(&self.filter_state, &|id| archetype.contains(id))

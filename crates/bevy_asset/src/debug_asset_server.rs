@@ -116,8 +116,8 @@ pub(crate) fn sync_debug_assets<T: Asset + Clone>(
 ///
 /// If this feels a bit odd ... that's because it is. This was built to improve the UX of the
 /// `load_internal_asset` macro.
-pub fn register_handle_with_loader<A: Asset>(
-    _loader: fn(&'static str) -> A,
+pub fn register_handle_with_loader<A: Asset, T>(
+    _loader: fn(T) -> A,
     app: &mut DebugAssetApp,
     handle: HandleUntyped,
     file_path: &str,

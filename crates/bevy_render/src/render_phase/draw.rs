@@ -244,6 +244,7 @@ where
     /// Prepares the render command to be used. This is called once and only once before the phase
     /// begins. There may be zero or more `draw` calls following a call to this function.
     fn prepare(&mut self, world: &'_ World) {
+        self.state.update_archetypes(world);
         self.view.update_archetypes(world);
         self.entity.update_archetypes(world);
     }
@@ -256,7 +257,7 @@ where
         view: Entity,
         item: &P,
     ) {
-        let param = self.state.get(world);
+        let param = self.state.get_manual(world);
         let view = self.view.get_manual(world, view).unwrap();
         let entity = self.entity.get_manual(world, item.entity()).unwrap();
         // TODO: handle/log `RenderCommand` failure
