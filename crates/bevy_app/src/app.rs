@@ -1,4 +1,4 @@
-use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSchedule, StartupSet};
+use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     event::{Event, Events},

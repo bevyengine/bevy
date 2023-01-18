@@ -22,9 +22,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::AppTypeRegistry;
     #[doc(hidden)]
-    pub use crate::{
-        app::App, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSchedule, StartupSet,
-    };
+    pub use crate::{app::App, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet};
 }
 
 use bevy_ecs::schedule::StageLabel;
@@ -55,14 +53,6 @@ pub enum CoreSet {
     /// Runs after all other app stages.
     Last,
 }
-
-/// The label for the startup [`Schedule`](bevy_ecs::schedule::Schedule),
-/// which runs once at the beginning of the [`App`].
-///
-/// When targeting a [`Stage`](bevy_ecs::schedule::Stage) inside this [`Schedule`](bevy_ecs::schedule::Schedule),
-/// you need to use [`StartupStage`] instead.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub struct StartupSchedule;
 
 /// The names of the default [`App`] startup stages.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
