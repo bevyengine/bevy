@@ -53,9 +53,9 @@ impl CoreSchedule {
     /// [`CoreSchedule::Startup`] will run a single time, and then [`CoreSchedule::Main`] will run on every later update.
     pub fn outer_loop(world: &mut World, run_at_least_once: Local<bool>) {
         if !*run_at_least_once {
-            world.run_schedule(CoreSchedule::Main);
+            world.run_schedule(&CoreSchedule::Main);
         } else {
-            world.run_schedule(CoreSchedule::Startup);
+            world.run_schedule(&CoreSchedule::Startup);
         }
     }
 

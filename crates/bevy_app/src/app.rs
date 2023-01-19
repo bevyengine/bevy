@@ -96,7 +96,9 @@ struct SubApp {
 impl SubApp {
     /// Runs the `SubApp`'s default schedule.
     pub fn run(&mut self) {
-        self.app.world.run_schedule(self.app.default_schedule_label);
+        self.app
+            .world
+            .run_schedule(&self.app.default_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -178,7 +180,7 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
 
-        self.run_schedule(self.outer_schedule_label);
+        self.run_schedule(&self.outer_schedule_label);
 
         for sub_app in self.sub_apps.values_mut() {
             sub_app.extract(&mut self.world);
@@ -927,7 +929,7 @@ impl App {
     }
 
     /// Runs the [`Schedule`] with the provided `label` on the app's [`World`] a single time.
-    pub fn run_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+    pub fn run_schedule(&mut self, label: &impl ScheduleLabel) -> &mut Self {
         self.world.run_schedule(label);
 
         self

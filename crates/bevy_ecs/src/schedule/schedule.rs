@@ -57,6 +57,17 @@ impl Schedules {
         self.inner.remove(label)
     }
 
+    /// Removes the (schedule, label) pair corresponding to the `label` from the map, returning it if it existed.
+    pub fn remove_entry(
+        &mut self,
+        label: &dyn ScheduleLabel,
+    ) -> Option<(Box<dyn ScheduleLabel>, Schedule)> {
+        if !self.inner.contains_key(label) {
+            warn!("schedule with label {:?} not found", label);
+        }
+        self.inner.remove_entry(label)
+    }
+
     /// Returns a reference to the schedule associated with `label`, if it exists.
     pub fn get(&self, label: &dyn ScheduleLabel) -> Option<&Schedule> {
         self.inner.get(label)

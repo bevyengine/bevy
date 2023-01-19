@@ -62,7 +62,7 @@ pub fn apply_state_transition<S: States>(world: &mut World) {
             &mut world.resource_mut::<State<S>>().0,
             entered_state.clone(),
         );
-        world.run_schedule(OnExit(exited_state));
-        world.run_schedule(OnEnter(entered_state));
+        world.run_schedule(&OnExit(exited_state));
+        world.run_schedule(&OnEnter(entered_state));
     }
 }

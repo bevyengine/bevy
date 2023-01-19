@@ -1989,10 +1989,13 @@ impl World {
     /// and system state is cached.
     ///
     /// For simple testing use cases, call [`Schedule::run(world)`](Schedule::run) instead.
-    pub fn run_schedule(&mut self, label: impl ScheduleLabel) {
-        if let Some(mut schedule) = self.resource_mut::<Schedules>().remove(&label) {
+    pub fn run_schedule(&mut self, label: &impl ScheduleLabel) {
+        if let Some((extracted_label, mut schedule)) =
+            self.resource_mut::<Schedules>().remove_entry(label)
+        {
             schedule.run(self);
-            self.resource_mut::<Schedules>().insert(label, schedule);
+            self.resource_mut::<Schedules>()
+                .insert(extracted_label, schedule);
         }
     }
 }
