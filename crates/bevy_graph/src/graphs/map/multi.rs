@@ -6,6 +6,7 @@ use crate::{
     graphs::{
         adjacency_storage::AdjacencyStorage,
         edge::{Edge, EdgeMut, EdgeRef},
+        iters::Edges,
         keys::{EdgeIdx, NodeIdx},
         Graph,
     },
@@ -229,21 +230,13 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         self.edges.values_mut()
     }
 
-    type IncomingEdgesOf<'e> = std::iter::Cloned<std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    type IncomingEdgesOf<'e> = Edges<'e, N, E, Self, std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn incoming_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
-        self.adjacencies[index]
-            .incoming()
-            .values()
-            .flatten()
-            .cloned()
+        Edges::new(self.adjacencies[index].incoming().values().flatten(), self)
     }
 
-    type OutgoingEdgesOf<'e> = std::iter::Cloned<std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
+    type OutgoingEdgesOf<'e> = Edges<'e, N, E, Self, std::iter::Flatten<hashbrown::hash_map::Values<'e, NodeIdx, Vec<EdgeIdx>>>> where Self: 'e;
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
-        self.adjacencies[index]
-            .outgoing()
-            .values()
-            .flatten()
-            .cloned()
+        Edges::new(self.adjacencies[index].outgoing().values().flatten(), self)
     }
 }

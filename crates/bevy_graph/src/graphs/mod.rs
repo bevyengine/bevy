@@ -7,6 +7,8 @@ pub mod map;
 pub mod adjacency_storage;
 /// An edge between nodes that store data of type `E`.
 pub mod edge;
+/// Helping `Iterator`s for graphs
+pub mod iters;
 /// The `NodeIdx` and `EdgeIdx` structs
 pub mod keys;
 
@@ -44,12 +46,12 @@ pub trait Graph<N, E> {
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type IncomingEdgesOf<'e>: Iterator<Item = EdgeIdx>
+    type IncomingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>>
     where
         Self: 'e,
         E: 'e;
     /// Iterator fix because TAIT not available
-    type OutgoingEdgesOf<'e>: Iterator<Item = EdgeIdx>
+    type OutgoingEdgesOf<'e>: Iterator<Item = EdgeRef<'e, E>>
     where
         Self: 'e,
         E: 'e;
