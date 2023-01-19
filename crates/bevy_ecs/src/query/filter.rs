@@ -285,11 +285,11 @@ where
         archetype: &'w Archetype,
         table: &'w Table,
     ) {
-        T::set_archetype(fetch, state, archetype, table)
+        T::set_archetype(fetch, state, archetype, table);
     }
 
     unsafe fn set_table<'w>(fetch: &mut Self::Fetch<'w>, state: &Self::State, table: &'w Table) {
-        T::set_table(fetch, state, table)
+        T::set_table(fetch, state, table);
     }
 
     #[inline(always)]
