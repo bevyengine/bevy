@@ -302,13 +302,10 @@ impl RenderContext {
 
     /// Gets the current [`CommandEncoder`].
     pub fn command_encoder(&mut self) -> &mut CommandEncoder {
-        if self.command_encoder.is_none() {
-            self.command_encoder = Some(
-                self.render_device
-                    .create_command_encoder(&wgpu::CommandEncoderDescriptor::default()),
-            );
-        }
-        self.command_encoder.as_mut().unwrap()
+        self.command_encoder.get_or_init(|| {
+            self.render_device
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default()
+        })
     }
 
     /// Creates a new [`TrackedRenderPass`] for the context,
