@@ -73,6 +73,10 @@ pub struct App {
     ///
     /// This is initially set to [`CoreSchedule::Main`].
     pub default_schedule_label: BoxedScheduleLabel,
+    /// The schedule that controls the outer loop of schedule execution.
+    ///
+    /// This is initially set to [`CoreSchedule::Outer`].
+    pub outer_schedule_label: BoxedScheduleLabel,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -97,9 +101,9 @@ struct SubApp {
 }
 
 impl SubApp {
-    /// Runs the `SubApp`'s [`CoreSchedule::Main`] schedule.
+    /// Runs the `SubApp`'s default schedule.
     pub fn run(&mut self) {
-        self.app.world.run_schedule(CoreSchedule::Main);
+        self.app.world.run_schedule(self.app.default_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -160,6 +164,7 @@ impl App {
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
             default_schedule_label: Box::new(CoreSchedule::Main),
+            outer_schedule_label: Box::new(CoreSchedule::Outer),
             is_building_plugin: false,
         }
     }
@@ -169,8 +174,8 @@ impl App {
     /// This method also updates sub apps.
     /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
     ///
-    /// The [`CoreSchedule::Outer`] is run once.
-    /// With default configuration this will run [`CoreSchedule::Startup`]
+    /// The schedule run by this method is determined by the [`outer_schedule_label`](App) field.
+    /// In normal usage, this is [`CoreSchedule::Outer`], which will run [`CoreSchedule::Startup`]
     /// the first time the app is run, and [`CoreSchedule::Main`] afterwards.
     ///
     /// # Panics
@@ -180,7 +185,7 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
 
-        self.run_schedule(CoreSchedule::Outer);
+        self.run_schedule(self.outer_schedule_label);
 
         for sub_app in self.sub_apps.values_mut() {
             sub_app.extract(&mut self.world);
