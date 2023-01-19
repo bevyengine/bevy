@@ -218,7 +218,7 @@ impl FromReflectError {
     }
 
     /// Returns the "kind" of target type for display purposes
-    fn display_to_kind(&self) -> String {
+    fn display_to_kind(&self) -> &str {
         match self.to_type() {
             TypeInfo::Struct(_) => "Struct",
             TypeInfo::TupleStruct(_) => "TupleStruct",
@@ -230,7 +230,6 @@ impl FromReflectError {
             TypeInfo::Value(_) => "Value",
             TypeInfo::Dynamic(_) => "Dynamic",
         }
-        .to_string()
     }
 }
 
