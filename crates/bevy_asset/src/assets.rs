@@ -3,11 +3,7 @@ use crate::{
     RefChange, ReflectAsset, ReflectHandle,
 };
 use bevy_app::{App, AppTypeRegistry};
-use bevy_ecs::{
-    event::{EventWriter, Events},
-    system::{ResMut, Resource},
-    world::FromWorld,
-};
+use bevy_ecs::prelude::*;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect};
 use bevy_utils::HashMap;
 use crossbeam_channel::Sender;
