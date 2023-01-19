@@ -43,6 +43,12 @@ impl CommandQueue {
     where
         C: Command,
     {
+        #[repr(C, packed)]
+        struct WithMeta<T: Command> {
+            meta: CommandMeta,
+            command: T,
+        }
+
         let meta = CommandMeta {
             apply_command_and_get_size: |command, world| {
                 // SAFETY: According to the invariants of `CommandMeta.apply_command_and_get_size`,
@@ -56,30 +62,18 @@ impl CommandQueue {
         let old_len = self.bytes.len();
 
         // Reserve enough bytes for both the metadata and the command itself.
-        self.bytes
-            .reserve(std::mem::size_of::<CommandMeta>() + std::mem::size_of::<C>());
+        self.bytes.reserve(std::mem::size_of::<WithMeta<C>>());
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
         let ptr = unsafe { self.bytes.as_mut_ptr().add(old_len) };
 
         // SAFETY: Due to the `.reserve()` call above, the end of the buffer has at least
-        // enough space to fit a value of type `CommandMeta`.
+        // enough space to fit the command and its metadata.
         // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
         unsafe {
-            ptr.cast::<CommandMeta>().write_unaligned(meta);
-        }
-
-        if std::mem::size_of::<C>() > 0 {
-            // SAFETY: Due to the `.reserve()` call above, the buffer has enough space
-            // to fit a value of type `C` after the metadata.
-            // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
-            // The value will eventually be dropped when `.apply()` is called.
-            unsafe {
-                ptr.add(std::mem::size_of::<CommandMeta>())
-                    .cast::<C>()
-                    .write_unaligned(command);
-            }
+            ptr.cast::<WithMeta<C>>()
+                .write_unaligned(WithMeta { meta, command });
         }
 
         // Extend the length of the buffer to include the data we just wrote.
@@ -87,7 +81,7 @@ impl CommandQueue {
         // due to the call to `.reserve()` above.
         unsafe {
             self.bytes
-                .set_len(std::mem::size_of::<CommandMeta>() + std::mem::size_of::<C>() + old_len);
+                .set_len(old_len + std::mem::size_of::<WithMeta<C>>());
         }
     }
 
