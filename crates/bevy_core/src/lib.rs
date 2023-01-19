@@ -20,7 +20,7 @@ pub mod prelude {
 }
 
 use bevy_app::prelude::*;
-use bevy_ecs::entity::Entity;
+use bevy_ecs::prelude::*;
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use bevy_utils::{Duration, HashSet, Instant};
 use std::borrow::Cow;
@@ -106,11 +106,7 @@ impl Plugin for TaskPoolPlugin {
         self.task_pool_options.create_default_pools();
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(
-            tick_global_task_pools_on_main_thread
-                .at_end()
-                .in_set(bevy_app::CoreSet::Last),
-        );
+        app.add_system(tick_global_task_pools_on_main_thread.in_set(bevy_app::CoreSet::Last));
     }
 }
 
