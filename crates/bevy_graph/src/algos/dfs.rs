@@ -74,7 +74,7 @@ impl DepthFirstSearch {
 mod test {
     use crate::{
         algos::dfs::DepthFirstSearch,
-        graphs::{simple::SimpleMapGraph, Graph},
+        graphs::{map::SimpleMapGraph, Graph},
     };
 
     #[test]

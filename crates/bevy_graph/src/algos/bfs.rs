@@ -77,7 +77,7 @@ impl BreadthFirstSearch {
 mod test {
     use crate::{
         algos::bfs::BreadthFirstSearch,
-        graphs::{simple::SimpleMapGraph, Graph},
+        graphs::{map::SimpleMapGraph, Graph},
     };
 
     #[test]

@@ -1,7 +1,7 @@
-/// All graph types implementing a `MultiGraph`
-pub mod multi;
-/// All graph types implementing a `SimpleGraph`
-pub mod simple;
+/// `Vec` implementation of a graph
+pub mod list;
+/// `HashMap` implementation of a graph
+pub mod map;
 
 /// Adjacency storage enum helper: `Directed` or `Undirected`
 pub mod adjacency_storage;
