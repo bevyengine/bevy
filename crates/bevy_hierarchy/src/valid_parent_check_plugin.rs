@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use bevy_app::{App, CoreSet, Plugin};
 use bevy_core::Name;
-use bevy_ecs::{prelude::*, schedule::ShouldRun};
+use bevy_ecs::prelude::*;
 use bevy_log::warn;
 use bevy_utils::{get_short_name, HashSet};
 
