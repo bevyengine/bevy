@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
@@ -199,5 +201,13 @@ impl RenderDevice {
         } else {
             BufferBindingType::Uniform
         }
+    }
+}
+
+impl Deref for RenderDevice {
+    type Target = wgpu::Device;
+
+    fn deref(&self) -> &Self::Target {
+        self.wgpu_device()
     }
 }

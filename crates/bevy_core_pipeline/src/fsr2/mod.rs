@@ -82,7 +82,7 @@ impl Plugin for Fsr2Plugin {
         );
 
         let fsr2_context = Fsr2Context::new(
-            render_app.world.resource::<RenderDevice>().wgpu_device(),
+            render_app.world.resource::<RenderDevice>().clone(),
             max_resolution,
             max_resolution,
             initialization_flags,
@@ -102,9 +102,9 @@ impl Plugin for Fsr2Plugin {
     }
 }
 
-#[derive(Resource)] // TODO: Remove resource, make this a per-view component (using Arc to extract?)
+#[derive(Resource)] // TODO: Remove resource, make this a per-view component
 struct Fsr2ContextWrapper {
-    context: Mutex<Fsr2Context>,
+    context: Mutex<Fsr2Context<RenderDevice>>,
     hdr: bool,
 }
 
@@ -244,7 +244,6 @@ impl Node for Fsr2Node {
                 jitter_offset: temporal_jitter.offset,
                 adapter: render_adapter,
                 command_encoder: &mut render_context.command_encoder,
-                device: render_context.render_device.wgpu_device(),
             })
             .expect("Failed to render FSR2");
 
