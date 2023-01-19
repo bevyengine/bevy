@@ -7,7 +7,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
+        // .insert_resource(WinitSettings::desktop_app())
         .add_startup_system(setup)
         .add_system(button_system)
         .run();
@@ -36,10 +36,15 @@ fn button_system(
                 *color = HOVERED_BUTTON.into();
             }
             Interaction::None => {
-                text.sections[0].value = "Button".to_string();
+                text.sections[0].value = "None".to_string();
                 *color = NORMAL_BUTTON.into();
             }
+            Interaction::Released => {
+                text.sections[0].value = "Released".to_string();
+                *color = Color::RED.into();
+            },
         }
+        info!("Button is in : {:?} state", *interaction);
     }
 }
 
