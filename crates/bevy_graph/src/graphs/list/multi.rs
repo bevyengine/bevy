@@ -5,10 +5,10 @@ use crate::{
     graphs::{
         adjacency_storage::AdjacencyStorage,
         edge::{Edge, EdgeMut, EdgeRef},
-        iters::Edges,
         keys::{EdgeIdx, NodeIdx},
         Graph,
     },
+    iters::Edges,
     utils::{vecmap::VecMap, vecset::VecSet},
 };
 

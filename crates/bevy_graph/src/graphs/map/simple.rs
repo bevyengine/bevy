@@ -6,10 +6,10 @@ use crate::{
     graphs::{
         adjacency_storage::AdjacencyStorage,
         edge::{Edge, EdgeMut, EdgeRef},
-        iters::Edges,
         keys::{EdgeIdx, NodeIdx},
         Graph,
     },
+    iters::Edges,
 };
 
 /// Implementation of a `SimpleGraph` which uses `HashMap<NodeIdx, EdgeIdx>` for adjacencies

@@ -7,8 +7,6 @@ pub mod map;
 pub mod adjacency_storage;
 /// An edge between nodes that store data of type `E`.
 pub mod edge;
-/// Helping `Iterator`s for graphs
-pub mod iters;
 /// The `NodeIdx` and `EdgeIdx` structs
 pub mod keys;
 

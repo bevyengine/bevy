@@ -7,5 +7,7 @@ pub mod algos;
 pub mod error;
 /// The `Graph` trait and all graph implementations
 pub mod graphs;
+/// Helping `Iterator`s for graphs
+pub mod iters;
 /// Utils used by graphs
 pub mod utils;
