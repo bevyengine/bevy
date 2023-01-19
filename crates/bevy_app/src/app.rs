@@ -535,33 +535,33 @@ impl App {
         main_schedule.configure_set(CoreSet::Last.after(CoreSet::PostUpdate));
 
         // Flush points
-        startup_schedule.add_system(
+        main_schedule.add_system(
             apply_system_buffers
                 .after(CoreSet::First)
                 .before(CoreSet::PreUpdate),
         );
-        startup_schedule.add_system(
+        main_schedule.add_system(
             apply_system_buffers
                 .after(CoreSet::PreUpdate)
                 .before(CoreSet::Update),
         );
 
-        startup_schedule.add_system(
+        main_schedule.add_system(
             apply_system_buffers
                 .after(CoreSet::Update)
                 .before(CoreSet::PostUpdate),
         );
 
-        startup_schedule.add_system(
+        main_schedule.add_system(
             apply_system_buffers
                 .after(CoreSet::PostUpdate)
                 .before(CoreSet::Last),
         );
 
-        startup_schedule.add_system(apply_system_buffers.after(CoreSet::Last));
+        main_schedule.add_system(apply_system_buffers.after(CoreSet::Last));
 
         // Default set
-        startup_schedule.set_default_set(CoreSet::Update);
+        main_schedule.set_default_set(CoreSet::Update);
 
         self
     }
