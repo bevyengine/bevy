@@ -19,6 +19,23 @@ pub struct ReportHierarchyIssue<T> {
     pub enabled: bool,
     _comp: PhantomData<fn(T)>,
 }
+
+impl<T> ReportHierarchyIssue<T> {
+    /// Constructs a new object
+    pub fn new(enabled: bool) -> Self {
+        ReportHierarchyIssue {
+            enabled,
+            _comp: Default::default(),
+        }
+    }
+}
+
+impl<T> PartialEq for ReportHierarchyIssue<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.enabled == other.enabled
+    }
+}
+
 impl<T> Default for ReportHierarchyIssue<T> {
     fn default() -> Self {
         Self {
@@ -59,11 +76,11 @@ pub fn check_hierarchy_component_has_valid_parent<T: Component>(
 }
 
 /// Run criteria that only allows running when [`ReportHierarchyIssue<T>`] is enabled.
-pub fn on_hierarchy_reports_enabled<T>(report: Res<ReportHierarchyIssue<T>>) -> ShouldRun
+pub fn on_hierarchy_reports_enabled<T>(report: Res<ReportHierarchyIssue<T>>) -> bool
 where
     T: Component,
 {
-    report.enabled.into()
+    report.enabled
 }
 
 /// Print a warning for each `Entity` with a `T` component
@@ -81,7 +98,7 @@ impl<T: Component> Plugin for ValidParentCheckPlugin<T> {
     fn build(&self, app: &mut App) {
         app.init_resource::<ReportHierarchyIssue<T>>().add_system(
             check_hierarchy_component_has_valid_parent::<T>
-                .with_run_criteria(on_hierarchy_reports_enabled::<T>)
+                .run_if(resource_equals(ReportHierarchyIssue::<T>::new(true)))
                 .in_set(CoreSet::Last),
         );
     }
