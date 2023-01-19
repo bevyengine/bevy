@@ -10,7 +10,9 @@ use crate::world::World;
 /// Types that can define states in a finite-state machine.
 ///
 /// The [`Default`] trait defines the starting state.
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
+pub trait States:
+    'static + Send + Sync + Clone + Copy + PartialEq + Eq + Hash + Debug + Default
+{
     type Iter: Iterator<Item = Self>;
 
     /// Returns an iterator over all the state variants.

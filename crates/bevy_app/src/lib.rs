@@ -61,7 +61,7 @@ impl CoreSchedule {
 
     /// Initializes a schedule for [`CoreSchedule::Outer`] that contains the [`outer_loop`] system.
     pub fn outer_schedule() -> Schedule {
-        let schedule = Schedule::new();
+        let mut schedule = Schedule::new();
         schedule.add_system(Self::outer_loop);
         schedule
     }

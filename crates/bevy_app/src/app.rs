@@ -180,7 +180,7 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
 
-        self.run_schedule(&self.outer_schedule_label);
+        self.run_schedule(&self.outer_schedule_label.dyn_clone());
 
         for sub_app in self.sub_apps.values_mut() {
             sub_app.extract(&mut self.world);
@@ -253,17 +253,21 @@ impl App {
         self.init_resource::<State<S>>();
         self.init_resource::<NextState<S>>();
         self.add_system(apply_state_transition::<S>.in_set(CoreSet::StateTransitions));
-        let main_schedule = self.schedule_mut(CoreSchedule::Main).unwrap();
 
+        let main_schedule = self.schedule_mut(&CoreSchedule::Main).unwrap();
         for variant in S::variants() {
-            self.add_schedule(OnEnter(variant), Schedule::new());
-            self.add_schedule(OnExit(variant), Schedule::new());
             main_schedule.configure_set(
                 OnUpdate(variant)
                     .in_set(CoreSet::StateTransitions)
                     .run_if(state_equals(variant))
                     .after(apply_state_transition::<S>),
             );
+        }
+
+        // These are two different for loops to avoid conflicting access to self
+        for variant in S::variants() {
+            self.add_schedule(OnEnter(variant), Schedule::new());
+            self.add_schedule(OnExit(variant), Schedule::new());
         }
 
         self
@@ -286,12 +290,12 @@ impl App {
     /// app.add_system(my_system);
     /// ```
     pub fn add_system<P>(&mut self, system: impl IntoSystemConfig<P>) -> &mut Self {
-        let schedules = self.world.resource_mut::<Schedules>();
+        let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(default_schedule) = schedules.get_mut(&self.default_schedule_label) {
             default_schedule.add_system(system);
         } else {
-            let schedule_label = self.default_schedule_label;
+            let schedule_label = &self.default_schedule_label;
             panic!("Default schedule {schedule_label:?} does not exist.")
         }
 
@@ -314,12 +318,12 @@ impl App {
     /// app.add_systems((system_a, system_b, system_c));
     /// ```
     pub fn add_systems<P>(&mut self, systems: impl IntoSystemConfigs<P>) -> &mut Self {
-        let schedules = self.world.resource_mut::<Schedules>();
+        let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(default_schedule) = schedules.get_mut(&self.default_schedule_label) {
             default_schedule.add_systems(systems);
         } else {
-            let schedule_label = self.default_schedule_label;
+            let schedule_label = &self.default_schedule_label;
             panic!("Default schedule {schedule_label:?} does not exist.")
         }
 
@@ -332,7 +336,7 @@ impl App {
         system: impl IntoSystemConfig<P>,
         schedule_label: impl ScheduleLabel,
     ) -> &mut Self {
-        let schedules = self.world.resource_mut::<Schedules>();
+        let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(schedule) = schedules.get_mut(&schedule_label) {
             schedule.add_system(system);
@@ -349,7 +353,7 @@ impl App {
         systems: impl IntoSystemConfigs<P>,
         schedule_label: impl ScheduleLabel,
     ) -> &mut Self {
-        let schedules = self.world.resource_mut::<Schedules>();
+        let mut schedules = self.world.resource_mut::<Schedules>();
 
         if let Some(schedule) = schedules.get_mut(&schedule_label) {
             schedule.add_systems(systems);
@@ -453,7 +457,7 @@ impl App {
     /// ```
     pub fn add_default_sets(&mut self) -> &mut Self {
         // Adding sets
-        let startup_schedule = self.schedule_mut(CoreSchedule::Startup).unwrap();
+        let startup_schedule = self.schedule_mut(&CoreSchedule::Startup).unwrap();
         startup_schedule.configure_set(StartupSet::PreStartup.before(StartupSet::Startup));
         startup_schedule.configure_set(StartupSet::Startup);
         startup_schedule.configure_set(StartupSet::PostStartup.after(StartupSet::Startup));
@@ -476,7 +480,7 @@ impl App {
         startup_schedule.set_default_set(StartupSet::Startup);
 
         // Adding sets
-        let main_schedule = self.schedule_mut(CoreSchedule::Main).unwrap();
+        let main_schedule = self.schedule_mut(&CoreSchedule::Main).unwrap();
         main_schedule.configure_set(CoreSet::First.before(CoreSet::PreUpdate));
         main_schedule.configure_set(CoreSet::PreUpdate.before(CoreSet::Update));
         main_schedule.configure_set(CoreSet::StateTransitions.before(CoreSet::Update));
@@ -936,15 +940,17 @@ impl App {
     }
 
     /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
-    pub fn schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
+    pub fn schedule(&self, label: &impl ScheduleLabel) -> Option<&Schedule> {
         let schedules = self.world.get_resource::<Schedules>()?;
-        schedules.get(&label)
+        schedules.get(label)
     }
 
     /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.
-    pub fn schedule_mut(&self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
-        let schedules = self.world.get_resource::<Schedules>()?;
-        schedules.get_mut(&label)
+    pub fn schedule_mut(&mut self, label: &impl ScheduleLabel) -> Option<&mut Schedule> {
+        let schedules = self.world.get_resource_mut::<Schedules>()?;
+        // We need to call .into_inner here to satisfy the borrow checker:
+        // it can reason about reborrows using ordinary references but not the `Mut` smart pointer.
+        schedules.into_inner().get_mut(label)
     }
 
     /// Applies the function to the [`Schedule`] associated with `label`.
@@ -952,16 +958,16 @@ impl App {
     /// **Note:** This will create the schedule if it does not already exist.
     pub fn edit_schedule(
         &mut self,
-        label: impl ScheduleLabel,
-        f: impl FnMut(&mut Schedule),
+        label: &impl ScheduleLabel,
+        mut f: impl FnMut(&mut Schedule),
     ) -> &mut Self {
-        let mut schedules = self.world.resource::<Schedules>();
+        let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if schedules.get(&label).is_none() {
-            schedules.insert(label, Schedule::new());
+        if schedules.get(label).is_none() {
+            schedules.insert(label.dyn_clone(), Schedule::new());
         }
 
-        let schedule = schedules.get_mut(&label).unwrap();
+        let schedule = schedules.get_mut(label).unwrap();
         // Call the function f, passing in the schedule retrieved
         f(schedule);
 
