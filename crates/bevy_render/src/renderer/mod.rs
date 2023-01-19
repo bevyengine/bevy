@@ -302,9 +302,9 @@ impl RenderContext {
 
     /// Gets the current [`CommandEncoder`].
     pub fn command_encoder(&mut self) -> &mut CommandEncoder {
-        self.command_encoder.get_or_init(|| {
+        self.command_encoder.get_or_insert_with(|| {
             self.render_device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default()
+                .create_command_encoder(&wgpu::CommandEncoderDescriptor::default())
         })
     }
 
