@@ -13,6 +13,8 @@ use bevy_ptr::{OwningPtr, Ptr};
 use bevy_utils::tracing::debug;
 use std::any::TypeId;
 
+use super::interior_mutable_world::InteriorMutableEntityRef;
+
 /// A read-only reference to a particular [`Entity`] and all of its components
 #[derive(Copy, Clone)]
 pub struct EntityRef<'w> {
@@ -254,24 +256,13 @@ impl<'w> EntityMut<'w> {
 
     #[inline]
     pub fn get_mut<T: Component>(&mut self) -> Option<Mut<'_, T>> {
-        // SAFETY: world access is unique, and lifetimes enforce correct usage of returned borrow
-        unsafe {
-            self.world
-                .get_component_and_ticks_with_type(
-                    TypeId::of::<T>(),
-                    T::Storage::STORAGE_TYPE,
-                    self.entity,
-                    self.location,
-                )
-                .map(|(value, cells)| Mut {
-                    value: value.assert_unique().deref_mut::<T>(),
-                    ticks: TicksMut::from_tick_cells(
-                        cells,
-                        self.world.last_change_tick,
-                        self.world.read_change_tick(),
-                    ),
-                })
-        }
+        let interior_mutable = InteriorMutableEntityRef::new(
+            self.world.as_interior_mutable(),
+            self.entity,
+            self.location,
+        );
+        // SAFETY: interiormutableentityref has exclusive access
+        unsafe { interior_mutable.get_mut() }
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change

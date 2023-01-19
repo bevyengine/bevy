@@ -139,11 +139,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// Similar to the [`InteriorMutableWorld`], you are in charge of making sure that no aliasing rules are violated.
     pub fn get_entity(self, entity: Entity) -> Option<InteriorMutableEntityRef<'w>> {
         let location = self.0.entities.get(entity)?;
-        Some(InteriorMutableEntityRef {
-            world: InteriorMutableWorld(self.0),
-            entity,
-            location,
-        })
+        Some(InteriorMutableEntityRef::new(self, entity, location))
     }
 
     /// Gets a reference to the resource of the given type if it exists
@@ -367,6 +363,18 @@ pub struct InteriorMutableEntityRef<'w> {
 }
 
 impl<'w> InteriorMutableEntityRef<'w> {
+    pub(crate) fn new(
+        world: InteriorMutableWorld<'w>,
+        entity: Entity,
+        location: EntityLocation,
+    ) -> Self {
+        InteriorMutableEntityRef {
+            world,
+            entity,
+            location,
+        }
+    }
+
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
     pub fn id(self) -> Entity {
