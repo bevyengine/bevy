@@ -1782,7 +1782,7 @@ mod tests {
     }
 
     #[test]
-    fn query_filter_not_or() {
+    fn query_filter_not_or_outside() {
         let mut world = World::default();
         let e1 = world.spawn((A(0), B(0))).id();
 
@@ -1800,6 +1800,31 @@ mod tests {
         world.clear_trackers();
         *world.get_mut(e1).unwrap() = B(1);
         assert_eq!(get_changed(&mut world), vec![e1]);
+        world.clear_trackers();
+        *world.get_mut(e1).unwrap() = A(0);
+        *world.get_mut(e1).unwrap() = B(0);
+        assert_eq!(get_changed(&mut world), vec![]);
+    }
+
+    #[test]
+    fn query_filter_not_or_inside() {
+        let mut world = World::default();
+        let e1 = world.spawn((A(0), B(0))).id();
+
+        fn get_changed(world: &mut World) -> Vec<Entity> {
+            world
+                .query_filtered::<Entity, Not<Or<(Changed<A>, Changed<B>)>>>()
+                .iter(world)
+                .collect::<Vec<Entity>>()
+        }
+        assert_eq!(get_changed(&mut world), vec![]);
+        world.clear_trackers();
+        assert_eq!(get_changed(&mut world), vec![e1]);
+        *world.get_mut(e1).unwrap() = A(1);
+        assert_eq!(get_changed(&mut world), vec![]);
+        world.clear_trackers();
+        *world.get_mut(e1).unwrap() = B(1);
+        assert_eq!(get_changed(&mut world), vec![]);
         world.clear_trackers();
         *world.get_mut(e1).unwrap() = A(0);
         *world.get_mut(e1).unwrap() = B(0);

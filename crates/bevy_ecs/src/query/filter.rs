@@ -225,15 +225,6 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// This filter does allow [`With`] or [`Without`] to be passed in. Instead, use their respective
 /// inverses.
 ///
-/// This filter does not allow [`Or`] is passed in. Instead, reduce the logical expression
-/// as needed.
-///
-/// i.e. `Not<Or<(Changed<A>, Changed<B>)>>` should be changed to `(Not<Changed<A>>, Not<Changed<B>>)`.
-///
-/// `Or<(Not<Changed<A>>, Not<Changed<B>>)>` behaves as expected, filtering out entities that
-/// haven't changed in both A and B.
-///
-///
 /// # Examples
 ///
 /// ```
@@ -256,13 +247,14 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 pub struct Not<T>(PhantomData<T>);
 
 // SAFETY: `Self::ReadOnly` is the same as `Self`
-unsafe impl<T: for<'a> ReadOnlyWorldQuery<State = ComponentId, Item<'a> = bool>> WorldQuery
-    for Not<T>
+unsafe impl<T> WorldQuery for Not<T>
+where
+    T: for<'a> ReadOnlyWorldQuery<Item<'a> = bool>,
 {
     type Item<'a> = bool;
     type Fetch<'a> = T::Fetch<'a>;
     type ReadOnly = Self;
-    type State = ComponentId;
+    type State = T::State;
 
     fn shrink<'wlong: 'wshort, 'wshort>(item: Self::Item<'wlong>) -> Self::Item<'wshort> {
         T::shrink(item)
@@ -339,10 +331,7 @@ unsafe impl<T: for<'a> ReadOnlyWorldQuery<State = ComponentId, Item<'a> = bool>>
 }
 
 // SAFETY: no component access or archetype component access
-unsafe impl<T: for<'a> ReadOnlyWorldQuery<State = ComponentId, Item<'a> = bool>> ReadOnlyWorldQuery
-    for Not<T>
-{
-}
+unsafe impl<T> ReadOnlyWorldQuery for Not<T> where T: for<'a> ReadOnlyWorldQuery<Item<'a> = bool> {}
 
 /// A filter that tests if any of the given filters apply.
 ///
