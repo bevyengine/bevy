@@ -108,6 +108,7 @@ impl Plugin for UiPlugin {
                 CoreStage::PreUpdate,
                 ui_focus_system.label(UiSystem::Focus).after(InputSystem),
             )
+            .add_system_to_stage(CoreStage::Last, reset_released_interaction)
             // add these stages to front because these must run before transform update systems
             .add_system_to_stage(
                 CoreStage::PostUpdate,

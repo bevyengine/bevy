@@ -4,7 +4,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     prelude::Component,
-    query::WorldQuery,
+    query::{WorldQuery, Changed},
     reflect::ReflectComponent,
     system::{Local, Query, Res},
 };
@@ -156,7 +156,7 @@ pub fn ui_focus_system(
                 if *interaction == Interaction::Clicked {
                     *interaction = Interaction::Released;
                     // Queue it up for reset next frame
-                    state.entities_to_reset.push(node.entity);
+                    // state.entities_to_reset.push(node.entity);
                 }
             }
         }
@@ -298,4 +298,14 @@ pub fn ui_focus_system(
             }
         }
     }
+}
+
+/// Resets any Released interactions back to None
+pub(crate) fn reset_released_interaction(mut interactions: Query<&mut Interaction>) {
+    for mut interaction in &mut interactions {
+        if *interaction == Interaction::Released {
+            *interaction == Interaction::None;
+        }
+    }
+
 }
