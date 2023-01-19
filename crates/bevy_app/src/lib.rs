@@ -45,6 +45,10 @@ pub enum CoreSchedule {
     /// This is typically created using the [`CoreSchedule::outer_schedule`] method,
     /// and does not need to manipulated during ordinary use.
     Outer,
+    /// The schedule that contains systems which only run after a fixed period of time has elapsed.
+    ///
+    /// This schedule is run during [`CoreSet::FixedTimestep`] via an exclusive system, between [`CoreSet::First`] and [`CoreSet::PreUpdate`]
+    FixedTimestep,
 }
 
 impl CoreSchedule {
@@ -77,13 +81,17 @@ impl CoreSchedule {
 pub enum CoreSet {
     /// Runs before all other app stages.
     First,
-    /// Runs before [`CoreStage::Update`].
+    /// Runs systems that should only occur after a fixed period of time.
+    ///
+    /// The `fixed_timestep` system runs the [`CoreSchedule::FixedTimestep`] system in this system set.
+    FixedTimestep,
+    /// Runs before [`CoreSet::Update`].
     PreUpdate,
     /// Applies [`State`](bevy_ecs::schedule::State) transitions
     StateTransitions,
     /// Responsible for doing most app logic. Systems should be registered here by default.
     Update,
-    /// Runs after [`CoreStage::Update`].
+    /// Runs after [`CoreSet::Update`].
     PostUpdate,
     /// Runs after all other app stages.
     Last,
