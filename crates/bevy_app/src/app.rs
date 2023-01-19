@@ -69,6 +69,14 @@ pub struct App {
     /// Typically, it is not configured manually, but set by one of Bevy's built-in plugins.
     /// See `bevy::winit::WinitPlugin` and [`ScheduleRunnerPlugin`](crate::schedule_runner::ScheduleRunnerPlugin).
     pub runner: Box<dyn Fn(App)>,
+    /// The schedule that systems are added to by default.
+    ///
+    /// This is initially set to [`CoreSchedule::Main`].
+    pub default_schedule_label: BoxedScheduleLabel,
+    /// The schedule that controls the outer loop of schedule execution.
+    ///
+    /// This is initially set to [`CoreSchedule::Outer`].
+    pub outer_schedule_label: BoxedScheduleLabel,
     sub_apps: HashMap<AppLabelId, SubApp>,
     plugin_registry: Vec<Box<dyn Plugin>>,
     plugin_name_added: HashSet<String>,
@@ -93,10 +101,9 @@ struct SubApp {
 }
 
 impl SubApp {
-    /// Runs the `SubApp`'s schedule.
+    /// Runs the `SubApp`'s default schedule.
     pub fn run(&mut self) {
-        let default_schedule = self.app.default_schedule().unwrap();
-        self.app.world.run_schedule(default_schedule);
+        self.app.world.run_schedule(self.app.default_schedule_label);
         self.app.world.clear_trackers();
     }
 
@@ -156,6 +163,8 @@ impl App {
             sub_apps: HashMap::default(),
             plugin_registry: Vec::default(),
             plugin_name_added: Default::default(),
+            default_schedule_label: Box::new(CoreSchedule::Main),
+            outer_schedule_label: Box::new(CoreSchedule::Outer),
             is_building_plugin: false,
         }
     }
@@ -163,8 +172,11 @@ impl App {
     /// Advances the execution of the [`Schedule`] by one cycle.
     ///
     /// This method also updates sub apps.
-    ///
     /// See [`add_sub_app`](Self::add_sub_app) and [`run_once`](Schedule::run_once) for more details.
+    ///
+    /// The schedule run by this method is determined by the [`outer_schedule_label`](App) field.
+    /// In normal usage, this is [`CoreSchedule::Outer`], which will run [`CoreSchedule::Startup`]
+    /// the first time the app is run, and [`CoreSchedule::Main`] afterwards.
     ///
     /// # Panics
     ///
@@ -173,14 +185,7 @@ impl App {
         #[cfg(feature = "trace")]
         let _bevy_frame_update_span = info_span!("frame").entered();
 
-        let active_schedule = self.active_schedule().unwrap();
-        self.run_schedule(active_schedule);
-
-        // After the startup schedule has been called once, transition to the main schedule
-        let boxed_startup_label: BoxedScheduleLabel = Box::new(CoreSchedule::Startup);
-        if self.active_schedule().unwrap() == boxed_startup_label {
-            self.set_active_schedule(CoreSchedule::Main);
-        }
+        self.run_schedule(self.outer_schedule_label);
 
         for sub_app in self.sub_apps.values_mut() {
             sub_app.extract(&mut self.world);
@@ -936,44 +941,6 @@ impl App {
     pub fn schedule_mut(&self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
         let schedules = self.world.get_resource::<Schedules>()?;
         schedules.get_mut(&label)
-    }
-
-    /// Sets the [`Schedule`] that will be modified by default when you call `App::add_system`
-    /// and similar methods.
-    ///
-    /// **Note:** This will create the schedule if it does not already exist.
-    pub fn set_default_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        schedules.default_schedule_label = Some(Box::new(label));
-        if schedules.get(&label).is_none() {
-            schedules.insert(label, Schedule::new());
-        }
-
-        self
-    }
-
-    /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
-    /// and similar methods.
-    pub fn default_schedule(&self) -> &Option<BoxedScheduleLabel> {
-        let schedules = self.world.resource::<Schedules>();
-        &schedules.default_schedule_label
-    }
-
-    /// Sets the [`Schedule`] that will be run the next time that [`App::update`] or [`App::run`] is called.
-    pub fn set_active_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        schedules.active_schedule_label = Some(Box::new(label));
-
-        self
-    }
-
-    /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
-    /// and similar methods.
-    pub fn active_schedule(&self) -> &Option<BoxedScheduleLabel> {
-        let schedules = self.world.resource::<Schedules>();
-        &schedules.active_schedule_label
     }
 
     /// Applies the function to the [`Schedule`] associated with `label`.

@@ -25,7 +25,11 @@ pub mod prelude {
     pub use crate::{app::App, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet};
 }
 
-use bevy_ecs::schedule::{ScheduleLabel, SystemSet};
+use bevy_ecs::{
+    schedule::{Schedule, ScheduleLabel, SystemSet},
+    system::Local,
+    world::World,
+};
 
 /// The names of the default [`App`] schedules.
 ///
@@ -36,6 +40,31 @@ pub enum CoreSchedule {
     Startup,
     /// The schedule that contains the app logic that is evaluated each tick of [`App::update()`].
     Main,
+    /// The schedule that controls which schedules run.
+    ///
+    /// This is typically created using the [`CoreSchedule::outer_schedule`] method,
+    /// and does not need to manipulated during ordinary use.
+    Outer,
+}
+
+impl CoreSchedule {
+    /// An exclusive system that controls which schedule should be running.
+    ///
+    /// [`CoreSchedule::Startup`] will run a single time, and then [`CoreSchedule::Main`] will run on every later update.
+    pub fn outer_loop(world: &mut World, run_at_least_once: Local<bool>) {
+        if !*run_at_least_once {
+            world.run_schedule(CoreSchedule::Main);
+        } else {
+            world.run_schedule(CoreSchedule::Startup);
+        }
+    }
+
+    /// Initializes a schedule for [`CoreSchedule::Outer`] that contains the [`outer_loop`] system.
+    pub fn outer_schedule() -> Schedule {
+        let schedule = Schedule::new();
+        schedule.add_system(Self::outer_loop);
+        schedule
+    }
 }
 
 /// The names of the default [`App`] system sets.
