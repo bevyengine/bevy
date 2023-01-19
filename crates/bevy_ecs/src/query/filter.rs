@@ -225,6 +225,10 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// This filter does not allow [`With`] or [`Without`] to be passed in. Instead, use their respective
 /// inverses.
 ///
+/// This filter does not allow tuples to be passed in as an `And` operator. Instead, use the
+/// corresponding equivalent expression.  
+/// e.g. `Not<(Added<A>, Added<B>)>` should be `Or<(Not<Added<A>>, Not<Added<B>>)>`.
+///
 /// # Examples
 ///
 /// ```
@@ -238,12 +242,12 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// # #[derive(Component)]
 /// # struct Position {};
 /// #
-/// fn print_cool_entity_system(query: Query<Entity, Not<Changed<Position>>>) {
+/// fn print_still_entity_system(query: Query<Entity, Not<Changed<Position>>>) {
 ///     for entity in &query {
 ///         println!("Entity {:?} did not move", entity);
 ///     }
 /// }
-/// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
+/// # bevy_ecs::system::assert_is_system(print_still_entity_system);
 pub struct Not<T>(PhantomData<T>);
 
 // SAFETY: `Self::ReadOnly` is the same as `Self`
