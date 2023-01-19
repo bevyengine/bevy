@@ -1,16 +1,16 @@
-use std::mem::{self, MaybeUninit};
+use std::mem::MaybeUninit;
 
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{OwningPtr, Unaligned};
 
 use super::Command;
 use crate::world::World;
 
 struct CommandMeta {
     /// SAFETY: The `value` must point to a value of type `T: Command`,
-    /// where `T` is some specific type that was used to produce this function pointer.
+    /// where `T` is some specific type that was used to produce this metadata.
     ///
     /// Returns the size of `T` in bytes.
-    write_command_and_get_size: unsafe fn(value: OwningPtr, world: &mut World) -> usize,
+    apply_command_and_get_size: unsafe fn(value: OwningPtr<Unaligned>, world: &mut World) -> usize,
 }
 
 /// Densely and efficiently stores a queue of heterogenous types implementing [`Command`].
@@ -26,7 +26,7 @@ pub struct CommandQueue {
     //
     // For each command, one `CommandMeta` is stored, followed by zero or more bytes
     // to store the command itself. To interpret these bytes, a pointer must
-    // be passed to the corresponding `CommandMeta.write_command_and_get_size` fn pointer.
+    // be passed to the corresponding `CommandMeta.apply_command_and_get_size` fn pointer.
     bytes: Vec<MaybeUninit<u8>>,
 }
 
@@ -44,12 +44,12 @@ impl CommandQueue {
         C: Command,
     {
         let meta = CommandMeta {
-            write_command_and_get_size: |ptr, world| {
-                // SAFETY: The safety invariants of the field `CommandMeta.write_command_and_get_size`
+            apply_command_and_get_size: |ptr, world| {
+                // SAFETY: The safety invariants of the field `CommandMeta.apply_command_and_get_size`
                 // guarantee that `ptr` will point to a value of type `C`.
                 let command = unsafe { ptr.read_unaligned::<C>() };
                 command.write(world);
-                mem::size_of::<C>()
+                std::mem::size_of::<C>()
             },
         };
 
@@ -57,7 +57,7 @@ impl CommandQueue {
 
         // Reserve enough bytes for both the metadata and the command itself.
         self.bytes
-            .reserve(mem::size_of::<CommandMeta>() + mem::size_of::<C>());
+            .reserve(std::mem::size_of::<CommandMeta>() + std::mem::size_of::<C>());
 
         // Pointer to the bytes at the end of the buffer.
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
@@ -70,13 +70,13 @@ impl CommandQueue {
             ptr.cast::<CommandMeta>().write_unaligned(meta);
         }
 
-        if mem::size_of::<C>() > 0 {
+        if std::mem::size_of::<C>() > 0 {
             // SAFETY: Due to the `.reserve()` call above, the buffer has enough space
             // to fit a value of type `C` after the metadata.
             // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
             // The value will eventually be dropped when `.apply()` is called.
             unsafe {
-                ptr.add(mem::size_of::<CommandMeta>())
+                ptr.add(std::mem::size_of::<CommandMeta>())
                     .cast::<C>()
                     .write_unaligned(command);
             }
@@ -87,7 +87,7 @@ impl CommandQueue {
         // due to the call to `.reserve()` above.
         unsafe {
             self.bytes
-                .set_len(mem::size_of::<CommandMeta>() + mem::size_of::<C>() + old_len);
+                .set_len(std::mem::size_of::<CommandMeta>() + std::mem::size_of::<C>() + old_len);
         }
     }
 
@@ -117,7 +117,7 @@ impl CommandQueue {
             // SAFETY: For most types of `Command`, the pointer immediately following the metadata
             // is guaranteed to be in bounds. If the command is a zero-sized type (ZST), then the cursor
             // might be 1 byte past the end of the buffer, which is safe.
-            cursor = unsafe { cursor.add(mem::size_of::<CommandMeta>()) };
+            cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
             // Construct an owned pointer to the command.
             // SAFETY: Since the buffer has been cleared, the command won't get
             // observed later and we can transfer ownership from the buffer.
@@ -125,7 +125,7 @@ impl CommandQueue {
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
             // since they were stored next to each other by `.push()`.
             // For ZSTs, the type doesn't matter as long as the pointer is non-null.
-            let size = unsafe { (meta.write_command_and_get_size)(cmd, world) };
+            let size = unsafe { (meta.apply_command_and_get_size)(cmd, world) };
             // Advance the cursor past the command.
             // For ZSTs, the cursor will not move.
             // SAFETY: At this point, it will either point to the next `CommandMeta`,
