@@ -147,7 +147,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`InteriorMutableWorld`] has permission to access the resource
-    /// - no other mutable references to the resource exist at the same time
+    /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource<R: Resource>(self) -> Option<&'w R> {
         self.0.get_resource::<R>()
@@ -163,7 +163,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`InteriorMutableWorld`] has permission to access the resource
-    /// - no other mutable references to the resource exist at the same time
+    /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.0.get_resource_by_id(component_id)
@@ -174,7 +174,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`InteriorMutableWorld`] has permission to access the resource
-    /// - no other mutable references to the resource exist at the same time
+    /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_non_send_resource<R: 'static>(self) -> Option<&'w R> {
         self.0.get_non_send_resource()
@@ -193,7 +193,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`InteriorMutableWorld`] has permission to access the resource
-    /// - no other mutable references to the resource exist at the same time
+    /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_non_send_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.0

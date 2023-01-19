@@ -108,11 +108,11 @@ impl World {
         self.id
     }
 
-    /// Creates a new [`InteriorMutableWorld`] view with complete read+write access
+    /// Creates a new [`InteriorMutableWorld`] view with complete read+write access.
     pub fn as_interior_mutable(&mut self) -> InteriorMutableWorld<'_> {
         InteriorMutableWorld::new(self)
     }
-    /// Creates a new [`InteriorMutableWorld`] view only read access to everything
+    /// Creates a new [`InteriorMutableWorld`] view with only read access to everything.
     pub fn as_interior_mutable_readonly(&self) -> InteriorMutableWorld<'_> {
         InteriorMutableWorld::new(self)
     }
