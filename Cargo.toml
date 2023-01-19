@@ -1218,7 +1218,7 @@ path = "examples/shader/shader_prepass.rs"
 name = "Material Prepass"
 description = "A shader that uses the depth texture generated in a prepass"
 category = "Shaders"
-wasm = true
+wasm = false
 
 
 [[example]]

@@ -70,6 +70,11 @@ where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
     fn build(&self, app: &mut bevy_app::App) {
+        #[cfg(feature = "webgl")]
+        bevy_utils::tracing::warn!(
+            "The prepass can run on webgl, but binding the textures will fail"
+        );
+
         load_internal_asset!(
             app,
             PREPASS_SHADER_HANDLE,
