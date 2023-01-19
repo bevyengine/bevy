@@ -139,7 +139,7 @@ mod tests {
         entity::{Entities, Entity},
         prelude::AnyOf,
         query::{Added, Changed, Or, With, Without},
-        schedule::Schedule,
+        schedule::{apply_system_buffers, IntoSystemConfig, Schedule},
         system::{
             Commands, IntoSystem, Local, NonSend, NonSendMut, ParamSet, Query, QueryComponentError,
             RemovedComponents, Res, ResMut, Resource, System, SystemState,
@@ -309,14 +309,11 @@ mod tests {
         world.insert_resource(Added(0));
         world.insert_resource(Changed(0));
 
-        #[derive(StageLabel)]
-        struct ClearTrackers;
-
         let mut schedule = Schedule::default();
-        let mut update = SystemStage::parallel();
-        update.add_system(incr_e_on_flip);
-        schedule.add_stage(UpdateStage, update);
-        schedule.add_stage(ClearTrackers, SystemStage::single(World::clear_trackers));
+
+        schedule.add_system(incr_e_on_flip);
+        schedule.add_system(apply_system_buffers.after(incr_e_on_flip));
+        schedule.add_system(World::clear_trackers.after(apply_system_buffers));
 
         schedule.run(&mut world);
         assert_eq!(world.resource::<Added>().0, 1);
