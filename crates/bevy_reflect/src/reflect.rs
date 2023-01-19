@@ -24,7 +24,6 @@ pub enum ReflectKind {
     Map,
     Enum,
     Value,
-    Dynamic,
 }
 
 /// An immutable enumeration of "kinds" of reflected type.
