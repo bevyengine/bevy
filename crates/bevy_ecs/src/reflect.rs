@@ -5,7 +5,10 @@ use crate::{
     component::Component,
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     system::Resource,
-    world::{unsafe_world_cell::UnsafeWorldCell, EntityMut, EntityRef, FromWorld, World},
+    world::{
+        unsafe_world_cell::{UnsafeWorldCell, UnsafeWorldCellEntityRef},
+        EntityMut, EntityRef, FromWorld, World,
+    },
 };
 use bevy_reflect::{
     impl_from_reflect_value, impl_reflect_value, FromType, Reflect, ReflectDeserialize,
@@ -44,20 +47,23 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::insert()`].
     pub insert: fn(&mut World, Entity, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply()`].
-    pub apply: fn(EntityMut, &dyn Reflect),
+    pub apply: fn(&mut EntityMut, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::apply_or_insert()`].
     pub apply_or_insert: fn(&mut World, Entity, &dyn Reflect),
     /// Function pointer implementing [`ReflectComponent::remove()`].
-    pub remove: fn(EntityMut),
+    pub remove: fn(&mut EntityMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
-    pub contains: fn(EntityRef) -> bool,
+    pub contains: fn(&EntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(EntityRef) -> Option<&dyn Reflect>,
+    pub reflect: for<'a> fn(&'a EntityRef) -> Option<&'a dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
+    pub reflect_mut: for<'a> fn(&'a mut EntityMut) -> Option<Mut<'a, dyn Reflect>>,
+    /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
     ///
     /// # Safety
-    /// The function may only be called with an [`UnsafeWorldCell`] that can be used to mutably access the relevant component on the given entity.
-    pub reflect_mut: unsafe fn(UnsafeWorldCell<'_>, Entity) -> Option<Mut<'_, dyn Reflect>>,
+    /// The function may only be called with an [`UnsafeWorldCellEntityRef`] that can be used to mutably access the relevant component on the given entity.
+    pub reflect_unchecked_mut:
+        unsafe fn(UnsafeWorldCellEntityRef<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity),
 }
@@ -88,7 +94,7 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
-    pub fn apply(&self, entity: EntityMut, component: &dyn Reflect) {
+    pub fn apply(&self, entity: &mut EntityMut, component: &dyn Reflect) {
         (self.0.apply)(entity, component);
     }
 
@@ -106,42 +112,37 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if there is no [`Component`] of the given type.
-    pub fn remove(&self, entity: EntityMut) {
+    pub fn remove(&self, entity: &mut EntityMut) {
         (self.0.remove)(entity);
     }
 
     /// Returns whether entity contains this [`Component`]
-    pub fn contains(&self, entity: EntityRef) -> bool {
+    pub fn contains(&self, entity: &EntityRef) -> bool {
         (self.0.contains)(entity)
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: EntityRef<'a>) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'a>(&self, entity: &'a EntityRef<'a>) -> Option<&'a dyn Reflect> {
         (self.0.reflect)(entity)
     }
 
     /// Gets the value of this [`Component`] type from the entity as a mutable reflected reference.
-    pub fn reflect_mut<'a>(
-        &self,
-        world: &'a mut World,
-        entity: Entity,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+    pub fn reflect_mut<'a>(&self, entity: &'a mut EntityMut<'a>) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: unique world access
-        unsafe { (self.0.reflect_mut)(world.as_unsafe_world_cell(), entity) }
+        (self.0.reflect_mut)(entity)
     }
 
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method with a [`UnsafeWorldCell`] that may be used to mutably access the component on the entity `entity`
+    /// * Only call this method with a [`UnsafeWorldCellEntityRef`] that may be used to mutably access the component on the entity `entity`
     /// * Don't call this method more than once in the same scope for a given [`Component`].
     pub unsafe fn reflect_unchecked_mut<'a>(
         &self,
-        world: UnsafeWorldCell<'a>,
-        entity: Entity,
+        entity: UnsafeWorldCellEntityRef<'a>,
     ) -> Option<Mut<'a, dyn Reflect>> {
         // SAFETY: safety requirements deferred to caller
-        (self.0.reflect_mut)(world, entity)
+        (self.0.reflect_unchecked_mut)(entity)
     }
 
     /// Gets the value of this [`Component`] type from entity from `source_world` and [applies](Self::apply()) it to the value of this [`Component`] type in entity in `destination_world`.
@@ -188,7 +189,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                 component.apply(reflected_component);
                 world.entity_mut(entity).insert(component);
             },
-            apply: |mut entity, reflected_component| {
+            apply: |entity, reflected_component| {
                 let mut component = entity.get_mut::<C>().unwrap();
                 component.apply(reflected_component);
             },
@@ -201,7 +202,7 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     world.entity_mut(entity).insert(component);
                 }
             },
-            remove: |mut entity| {
+            remove: |entity| {
                 entity.remove::<C>();
             },
             contains: |entity| entity.contains::<C>(),
@@ -214,12 +215,17 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
                     .insert(destination_component);
             },
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
-            reflect_mut: |world, entity| {
-                // SAFETY: reflect_mut is an unsafe function pointer used by
-                // 1. `reflect_unchecked_mut` which must be called with an UnsafeWorldCell with access to the the component `C` on the `entity`, and
-                // 2. `reflect_mut`, which has mutable world access
+            reflect_mut: |entity| {
+                entity.get_mut::<C>().map(|c| Mut {
+                    value: c.value as &mut dyn Reflect,
+                    ticks: c.ticks,
+                })
+            },
+            reflect_unchecked_mut: |entity| {
+                // SAFETY: reflect_unchecked_mut is an unsafe function pointer used by
+                // `reflect_unchecked_mut` which must be called with an UnsafeWorldCellEntityReff with access to the the component `C` on the `entity`
                 unsafe {
-                    world.get_entity(entity)?.get_mut::<C>().map(|c| Mut {
+                    entity.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn Reflect,
                         ticks: c.ticks,
                     })
