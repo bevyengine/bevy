@@ -231,8 +231,8 @@ pub fn extract_uinodes(
                 clip: clip.map(|clip| clip.clip),
                 flip_x,
                 flip_y,
-            });     
-        }  
+            });
+        }
     }
 }
 
