@@ -68,9 +68,11 @@ impl CommandQueue {
         // SAFETY: We know it is within bounds of the allocation, due to the call to `.reserve()`.
         let ptr = unsafe { self.bytes.as_mut_ptr().add(old_len) };
 
-        // SAFETY: Due to the `.reserve()` call above, the end of the buffer has at least
-        // enough space to fit the command and its metadata.
-        // Since the buffer is of type `MaybeUninit<u8>`, any byte patterns are valid.
+        // Write the metadata into the buffer, followed by the command.
+        // We are using a packed struct to write them both as one operation.
+        // SAFETY: `ptr` must be non-null, since it is within a non-null buffer.
+        // The call to `reserve()` ensures that the buffer has enough space to fit a value of type `C`,
+        // and it is valid to write any bit pattern since the underlying buffer is of type `MaybeUninit<u8>`.
         unsafe {
             ptr.cast::<WithMeta<C>>()
                 .write_unaligned(WithMeta { meta, command });
