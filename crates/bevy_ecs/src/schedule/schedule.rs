@@ -129,19 +129,13 @@ impl Schedule {
         self
     }
 
-    /// Adds an empty system set to the schedule.
-    pub fn add_set(&mut self, set: impl SystemSet) {
-        let boxed_set = Box::new(set);
-        self.graph.add_set(boxed_set);
-    }
-
-    /// Configure a system set in this schedule.
+    /// Configures a system set in this schedule, adding it if it does not exist.
     pub fn configure_set(&mut self, set: impl IntoSystemSetConfig) -> &mut Self {
         self.graph.configure_set(set);
         self
     }
 
-    /// Configure a collection of system sets in this schedule.
+    /// Configures a collection of system sets in this schedule, adding them if they does not exist.
     pub fn configure_sets(&mut self, sets: impl IntoSystemSetConfigs) -> &mut Self {
         self.graph.configure_sets(sets);
         self

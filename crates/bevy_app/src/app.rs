@@ -445,12 +445,8 @@ impl App {
     pub fn add_default_sets(&mut self) -> &mut Self {
         // Adding sets
         let startup_schedule = self.schedule_mut(CoreSchedule::Startup).unwrap();
-        startup_schedule.add_set(StartupSet::PreStartup);
-        startup_schedule.add_set(StartupSet::Startup);
-        startup_schedule.add_set(StartupSet::PostStartup);
-
-        // Ordering
         startup_schedule.configure_set(StartupSet::PreStartup.before(StartupSet::Startup));
+        startup_schedule.configure_set(StartupSet::Startup);
         startup_schedule.configure_set(StartupSet::PostStartup.after(StartupSet::Startup));
 
         // Flush points
@@ -472,13 +468,6 @@ impl App {
 
         // Adding sets
         let main_schedule = self.schedule_mut(CoreSchedule::Main).unwrap();
-        main_schedule.add_set(CoreSet::First);
-        main_schedule.add_set(CoreSet::PreUpdate);
-        main_schedule.add_set(CoreSet::Update);
-        main_schedule.add_set(CoreSet::PostUpdate);
-        main_schedule.add_set(CoreSet::Last);
-
-        // Ordering
         main_schedule.configure_set(CoreSet::First.before(CoreSet::PreUpdate));
         main_schedule.configure_set(CoreSet::PreUpdate.before(CoreSet::Update));
         main_schedule.configure_set(CoreSet::StateTransitions.before(CoreSet::Update));
