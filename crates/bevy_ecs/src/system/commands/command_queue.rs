@@ -119,8 +119,9 @@ impl CommandQueue {
             // might be 1 byte past the end of the buffer, which is safe.
             cursor = unsafe { cursor.add(std::mem::size_of::<CommandMeta>()) };
             // Construct an owned pointer to the command.
-            // SAFETY: Since the buffer has been cleared, the command won't get
-            // observed later and we can transfer ownership from the buffer.
+            // SAFETY: It is safe to transfer ownership out of `self.bytes`, since the call to `set_len(0)` above
+            // gaurantees that nothing stored in the buffer will get observed after this function ends.
+            // `cmd` points to a valid address of a stored command, so it must be non-null.
             let cmd = unsafe { OwningPtr::new(std::ptr::NonNull::new_unchecked(cursor.cast())) };
             // SAFETY: The data underneath the cursor must correspond to the type erased in metadata,
             // since they were stored next to each other by `.push()`.
