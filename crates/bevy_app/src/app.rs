@@ -217,65 +217,6 @@ impl App {
         (runner)(app);
     }
 
-    /// Sets the [`Schedule`] that will be modified by default when you call `App::add_system`
-    /// and similar methods.
-    ///
-    /// **Note:** This will create the schedule if it does not already exist.
-    pub fn set_default_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        schedules.default_schedule_label = Some(Box::new(label));
-        if schedules.get(&label).is_none() {
-            schedules.insert(label, Schedule::new());
-        }
-
-        self
-    }
-
-    /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
-    /// and similar methods.
-    pub fn default_schedule(&self) -> &Option<BoxedScheduleLabel> {
-        let schedules = self.world.resource::<Schedules>();
-        &schedules.default_schedule_label
-    }
-
-    /// Sets the [`Schedule`] that will be run the next time that [`App::update`] or [`App::run`] is called.
-    pub fn set_active_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-
-        schedules.active_schedule_label = Some(Box::new(label));
-
-        self
-    }
-
-    /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
-    /// and similar methods.
-    pub fn active_schedule(&self) -> &Option<BoxedScheduleLabel> {
-        let schedules = self.world.resource::<Schedules>();
-        &schedules.active_schedule_label
-    }
-
-    /// Applies the function to the [`Schedule`] associated with `label`.
-    ///
-    /// **Note:** This will create the schedule if it does not already exist.
-    pub fn edit_schedule(
-        &mut self,
-        label: impl ScheduleLabel,
-        f: impl FnMut(&mut Schedule),
-    ) -> &mut Self {
-        let mut schedules = self.world.resource::<Schedules>();
-
-        if schedules.get(&label).is_none() {
-            schedules.insert(label, Schedule::new());
-        }
-
-        let schedule = schedules.get_mut(&label).unwrap();
-        // Call the function f, passing in the schedule retrieved
-        f(schedule);
-
-        self
-    }
-
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant, and an instance of [`apply_state_transition::<S>`] in
     /// \<insert-`bevy_core`-set-name\> so that transitions happen before `Update`.
@@ -425,23 +366,6 @@ impl App {
         self.add_systems_to_schedule(systems, CoreSchedule::Startup)
     }
 
-    /// Adds a new `schedule` to the [`App`] under the provided `label.
-    ///
-    /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
-    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
-        let mut schedules = self.world.resource_mut::<Schedules>();
-        schedules.insert(label, schedule);
-
-        self
-    }
-
-    /// Runs the [`Schedule`] with the provided `label` on the app's [`World`] a single time.
-    pub fn run_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
-        self.world.run_schedule(label);
-
-        self
-    }
-
     /// Adds standardized schedules and labels to an [`App`].
     ///
     /// Adding these schedules is necessary to make some core engine features work.
@@ -494,7 +418,7 @@ impl App {
     /// ```
     pub fn add_default_sets(&mut self) -> &mut Self {
         // Adding sets
-        let startup_schedule = self.schedules.get(CoreSchedule::Startup).unwrap();
+        let startup_schedule = self.schedule_mut(CoreSchedule::Startup).unwrap();
         startup_schedule.add_set(StartupSet::PreStartup);
         startup_schedule.add_set(StartupSet::Startup);
         startup_schedule.add_set(StartupSet::PostStartup);
@@ -521,7 +445,7 @@ impl App {
         startup_schedule.set_default_set(StartupSet::Startup);
 
         // Adding sets
-        let main_schedule = self.schedules.get(CoreSchedule::Startup).unwrap();
+        let main_schedule = self.schedule_mut(CoreSchedule::Main).unwrap();
         main_schedule.add_set(CoreSet::First);
         main_schedule.add_set(CoreSet::PreUpdate);
         main_schedule.add_set(CoreSet::Update);
@@ -958,6 +882,97 @@ impl App {
             .get(&label.as_label())
             .map(|sub_app| &sub_app.app)
             .ok_or(label)
+    }
+}
+
+/// Methods for working with schedules
+impl App {
+    /// Adds a new `schedule` to the [`App`] under the provided `label.
+    ///
+    /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
+    pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        schedules.insert(label, schedule);
+
+        self
+    }
+
+    /// Runs the [`Schedule`] with the provided `label` on the app's [`World`] a single time.
+    pub fn run_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        self.world.run_schedule(label);
+
+        self
+    }
+
+    /// Gets read-only access to the [`Schedule`] with the provided `label` if it exists.
+    pub fn schedule(&self, label: impl ScheduleLabel) -> Option<&Schedule> {
+        let schedules = self.world.get_resource::<Schedules>()?;
+        schedules.get(&label)
+    }
+
+    /// Gets read-write access to a [`Schedule`] with the provided `label` if it exists.
+    pub fn schedule_mut(&self, label: impl ScheduleLabel) -> Option<&mut Schedule> {
+        let schedules = self.world.get_resource::<Schedules>()?;
+        schedules.get_mut(&label)
+    }
+
+    /// Sets the [`Schedule`] that will be modified by default when you call `App::add_system`
+    /// and similar methods.
+    ///
+    /// **Note:** This will create the schedule if it does not already exist.
+    pub fn set_default_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        schedules.default_schedule_label = Some(Box::new(label));
+        if schedules.get(&label).is_none() {
+            schedules.insert(label, Schedule::new());
+        }
+
+        self
+    }
+
+    /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
+    /// and similar methods.
+    pub fn default_schedule(&self) -> &Option<BoxedScheduleLabel> {
+        let schedules = self.world.resource::<Schedules>();
+        &schedules.default_schedule_label
+    }
+
+    /// Sets the [`Schedule`] that will be run the next time that [`App::update`] or [`App::run`] is called.
+    pub fn set_active_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+
+        schedules.active_schedule_label = Some(Box::new(label));
+
+        self
+    }
+
+    /// Gets the label of the [`Schedule`] that will be modified by default when you call `App::add_system`
+    /// and similar methods.
+    pub fn active_schedule(&self) -> &Option<BoxedScheduleLabel> {
+        let schedules = self.world.resource::<Schedules>();
+        &schedules.active_schedule_label
+    }
+
+    /// Applies the function to the [`Schedule`] associated with `label`.
+    ///
+    /// **Note:** This will create the schedule if it does not already exist.
+    pub fn edit_schedule(
+        &mut self,
+        label: impl ScheduleLabel,
+        f: impl FnMut(&mut Schedule),
+    ) -> &mut Self {
+        let mut schedules = self.world.resource::<Schedules>();
+
+        if schedules.get(&label).is_none() {
+            schedules.insert(label, Schedule::new());
+        }
+
+        let schedule = schedules.get_mut(&label).unwrap();
+        // Call the function f, passing in the schedule retrieved
+        f(schedule);
+
+        self
     }
 }
 
