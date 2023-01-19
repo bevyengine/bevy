@@ -423,9 +423,6 @@ impl App {
     ///
     /// The schedules are defined in the [`CoreSchedule`] enum.
     ///
-    /// The [default schedule](App::set_default_schedule) is set to [`CoreSchedule::Main`].
-    /// The [active schedule] is set to [`CoreSchedule::Startup`].
-    ///
     /// You can also add standardized system sets to these schedules using [`App::add_default_sets`],
     /// which must be called *after* this method as it relies on these schedules existing.
     ///
@@ -439,9 +436,6 @@ impl App {
     pub fn add_default_schedules(&mut self) -> &mut Self {
         self.add_schedule(CoreSchedule::Startup, Schedule::new());
         self.add_schedule(CoreSchedule::Main, Schedule::new());
-
-        self.set_default_schedule(CoreSchedule::Main);
-        self.set_active_schedule(CoreSchedule::Startup);
 
         self
     }
