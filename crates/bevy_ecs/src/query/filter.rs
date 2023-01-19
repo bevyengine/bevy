@@ -219,6 +219,40 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
 // SAFETY: no component access or archetype component access
 unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 
+/// A filter that tests if the given filter does not apply.
+/// This filter is intended to be used to determine whether a given component hasn't changed.
+///
+/// This filter does allow [`With`] or [`Without`] to be passed in. Instead, use their respective
+/// inverses.
+///
+/// This filter does not allow [`Or`] is passed in. Instead, reduce the logical expression
+/// as needed.
+///
+/// i.e. `Not<Or<(Changed<A>, Changed<B>)>>` should be changed to `(Not<Changed<A>>, Not<Changed<B>>)`.
+///
+/// `Or<(Not<Changed<A>>, Not<Changed<B>>)>` behaves as expected, filtering out entities that
+/// haven't changed in both A and B.
+///
+///
+/// # Examples
+///
+/// ```
+/// # use bevy_ecs::component::Component;
+/// # use bevy_ecs::entity::Entity;
+/// # use bevy_ecs::query::Changed;
+/// # use bevy_ecs::query::Not;
+/// # use bevy_ecs::system::IntoSystem;
+/// # use bevy_ecs::system::Query;
+/// #
+/// # #[derive(Component)]
+/// # struct Position {};
+/// #
+/// fn print_cool_entity_system(query: Query<Entity, Not<Changed<Position>>>) {
+///     for entity in &query {
+///         println!("Entity {:?} did not move", entity);
+///     }
+/// }
+/// # bevy_ecs::system::assert_is_system(print_cool_entity_system);
 pub struct Not<T>(PhantomData<T>);
 
 // SAFETY: `Self::ReadOnly` is the same as `Self`
