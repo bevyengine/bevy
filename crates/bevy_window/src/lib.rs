@@ -101,7 +101,7 @@ impl Plugin for WindowPlugin {
         }
 
         if self.close_when_requested {
-            app.add_system_to_stage(CoreStage::First, close_when_requested);
+            app.add_system(close_when_requested.in_set(CoreSet::First));
         }
 
         // Register event types
