@@ -763,10 +763,14 @@ pub fn prepare_lights(
     mut global_light_meta: ResMut<GlobalLightMeta>,
     mut light_meta: ResMut<LightMeta>,
     views: Query<
-        (Entity, &ExtractedView, &ExtractedClusterConfig),
+        (
+            Entity,
+            &ExtractedView,
+            &ExtractedClusterConfig,
+            Option<&AmbientLight>,
+        ),
         With<RenderPhase<Transparent3d>>,
     >,
-    ambient_light: Res<AmbientLight>,
     point_light_shadow_map: Res<PointLightShadowMap>,
     directional_light_shadow_map: Res<DirectionalLightShadowMap>,
     mut max_directional_lights_warning_emitted: Local<bool>,
@@ -983,7 +987,7 @@ pub fn prepare_lights(
         .write_buffer(&render_device, &render_queue);
 
     // set up light data for each view
-    for (entity, extracted_view, clusters) in &views {
+    for (entity, extracted_view, clusters, ambient_light) in &views {
         let point_light_depth_texture = texture_cache.get(
             &render_device,
             TextureDescriptor {
@@ -1030,11 +1034,17 @@ pub fn prepare_lights(
             is_orthographic,
         );
 
+        let compute_ambient_color = |ambient_light: &AmbientLight| {
+            Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32()) * ambient_light.brightness
+        };
+        let ambient_color = match ambient_light {
+            Some(ambient_light) => compute_ambient_color(ambient_light),
+            None => compute_ambient_color(&AmbientLight::default()),
+        };
         let n_clusters = clusters.dimensions.x * clusters.dimensions.y * clusters.dimensions.z;
         let gpu_lights = GpuLights {
             directional_lights: gpu_directional_lights,
-            ambient_color: Vec4::from_slice(&ambient_light.color.as_linear_rgba_f32())
-                * ambient_light.brightness,
+            ambient_color,
             cluster_factors: Vec4::new(
                 clusters.dimensions.x as f32 / extracted_view.viewport.z as f32,
                 clusters.dimensions.y as f32 / extracted_view.viewport.w as f32,

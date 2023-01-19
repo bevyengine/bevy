@@ -11,10 +11,6 @@ const DELTA_TIME: f64 = 0.01;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 0.03,
-            ..default()
-        })
         .add_startup_system(generate_bodies)
         .add_stage_after(
             CoreStage::Update,
@@ -148,10 +144,16 @@ fn generate_bodies(
                 ..default()
             });
         });
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        AmbientLight {
+            brightness: 0.03,
+            ..default()
+        },
+    ));
 }
 
 fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)>) {

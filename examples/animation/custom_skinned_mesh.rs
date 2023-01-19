@@ -16,13 +16,22 @@ use rand::Rng;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 1.0,
-            ..default()
-        })
         .add_startup_system(setup)
+        .add_startup_system(setup_camera)
         .add_system(joint_animation)
         .run();
+}
+
+fn setup_camera(mut commands: Commands, cameras: Query<Entity, With<Camera>>) {
+    for entity in cameras.iter() {
+        commands
+            .entity(entity)
+            // add an `Enemy` component to the entity
+            .insert(AmbientLight {
+                brightness: 1.0,
+                ..Default::default()
+            });
+    }
 }
 
 /// Used to mark a joint to be animated in the [`joint_animation`] system.

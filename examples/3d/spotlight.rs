@@ -58,12 +58,6 @@ fn setup(
         ));
     }
 
-    // ambient light
-    commands.insert_resource(AmbientLight {
-        color: Color::rgb(0.0, 1.0, 1.0),
-        brightness: 0.14,
-    });
-
     for x in 0..4 {
         for z in 0..4 {
             let x = x as f32 - 2.0;
@@ -117,10 +111,16 @@ fn setup(
     }
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3dBundle {
+            transform: Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+            ..default()
+        },
+        AmbientLight {
+            color: Color::rgb(0.0, 1.0, 1.0),
+            brightness: 0.14,
+        },
+    ));
 }
 
 fn light_sway(time: Res<Time>, mut query: Query<(&mut Transform, &mut SpotLight)>) {
