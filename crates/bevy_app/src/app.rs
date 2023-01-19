@@ -178,6 +178,24 @@ impl App {
     /// Finalizes the [`App`] configuration. For general usage, see the example on the item
     /// level documentation.
     ///
+    /// # `run()` might not return
+    ///
+    /// Calls to [`App::run()`] might never return.
+    ///
+    /// In simple and *headless* applications, one can expect that execution will
+    /// proceed, normally, after calling [`run()`](App::run()) but this is not the case for
+    /// windowed applications.
+    ///
+    /// Windowed apps are typically driven by an *event loop* or *message loop* and
+    /// some window-manager APIs expect programs to terminate when their primary
+    /// window is closed and that event loop terminates – behaviour of processes that
+    /// do not is often platform dependent or undocumented.
+    ///
+    /// By default, *Bevy* uses the `winit` crate for window creation. See
+    /// [`WinitSettings::return_from_run`](https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run)
+    /// for further discussion of this topic and for a mechanism to require that [`App::run()`]
+    /// *does* return – albeit one that carries its own caveats and disclaimers.
+    ///
     /// # Panics
     ///
     /// Panics if called from `Plugin::build()`, because it would prevent other plugins to properly build.

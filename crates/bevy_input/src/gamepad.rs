@@ -992,7 +992,6 @@ pub fn gamepad_connection_system(
     mut button_axis: ResMut<Axis<GamepadButton>>,
     mut button_input: ResMut<Input<GamepadButton>>,
 ) {
-    button_input.bypass_change_detection().clear();
     for connection_event in connection_events.iter() {
         let gamepad = connection_event.gamepad;
 
@@ -1117,27 +1116,24 @@ impl GamepadButtonChangedEvent {
     }
 }
 
-/// Uses [`GamepadAxisChangedEvent`]s to update update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadAxisChangedEvent`]s to update the relevant `Input` and `Axis` values.
 pub fn gamepad_axis_event_system(
-    mut button_input: ResMut<Input<GamepadButton>>,
     mut gamepad_axis: ResMut<Axis<GamepadAxis>>,
     mut axis_events: EventReader<GamepadAxisChangedEvent>,
 ) {
-    button_input.bypass_change_detection().clear();
     for axis_event in axis_events.iter() {
         let axis = GamepadAxis::new(axis_event.gamepad, axis_event.axis_type);
         gamepad_axis.set(axis, axis_event.value);
     }
 }
 
-/// Uses [`GamepadButtonChangedEvent`]s to update update the relevant `Input` and `Axis` values.
+/// Uses [`GamepadButtonChangedEvent`]s to update the relevant `Input` and `Axis` values.
 pub fn gamepad_button_event_system(
     mut button_events: EventReader<GamepadButtonChangedEvent>,
     mut button_input: ResMut<Input<GamepadButton>>,
     mut button_axis: ResMut<Axis<GamepadButton>>,
     settings: Res<GamepadSettings>,
 ) {
-    button_input.bypass_change_detection().clear();
     for button_event in button_events.iter() {
         let button = GamepadButton::new(button_event.gamepad, button_event.button_type);
         let value = button_event.value;
@@ -1197,7 +1193,9 @@ pub fn gamepad_event_system(
     mut connection_events: EventWriter<GamepadConnectionEvent>,
     mut button_events: EventWriter<GamepadButtonChangedEvent>,
     mut axis_events: EventWriter<GamepadAxisChangedEvent>,
+    mut button_input: ResMut<Input<GamepadButton>>,
 ) {
+    button_input.bypass_change_detection().clear();
     for gamepad_event in gamepad_events.iter() {
         match gamepad_event {
             GamepadEvent::Connection(connection_event) => {
