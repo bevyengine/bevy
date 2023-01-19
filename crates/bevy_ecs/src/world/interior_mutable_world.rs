@@ -85,59 +85,59 @@ impl<'w> InteriorMutableWorld<'w> {
     ///
     /// # Safety
     /// - the world must not be used to access any resources or components. You can use it to safely access metadata.
-    pub unsafe fn world(&self) -> &'w World {
+    pub unsafe fn world(self) -> &'w World {
         self.0
     }
 
     /// Retrieves this world's [Entities] collection
     #[inline]
-    pub fn entities(&self) -> &'w Entities {
+    pub fn entities(self) -> &'w Entities {
         &self.0.entities
     }
 
     /// Retrieves this world's [Archetypes] collection
     #[inline]
-    pub fn archetypes(&self) -> &'w Archetypes {
+    pub fn archetypes(self) -> &'w Archetypes {
         &self.0.archetypes
     }
 
     /// Retrieves this world's [Components] collection
     #[inline]
-    pub fn components(&self) -> &'w Components {
+    pub fn components(self) -> &'w Components {
         &self.0.components
     }
 
     /// Retrieves this world's [Storages] collection
     #[inline]
-    pub fn storages(&self) -> &'w Storages {
+    pub fn storages(self) -> &'w Storages {
         &self.0.storages
     }
 
     /// Retrieves this world's [Bundles] collection
     #[inline]
-    pub fn bundles(&self) -> &'w Bundles {
+    pub fn bundles(self) -> &'w Bundles {
         &self.0.bundles
     }
 
     /// Reads the current change tick of this world.
     #[inline]
-    pub fn read_change_tick(&self) -> u32 {
+    pub fn read_change_tick(self) -> u32 {
         self.0.read_change_tick()
     }
 
     #[inline]
-    pub fn last_change_tick(&self) -> u32 {
+    pub fn last_change_tick(self) -> u32 {
         self.0.last_change_tick()
     }
 
     #[inline]
-    pub fn increment_change_tick(&self) -> u32 {
+    pub fn increment_change_tick(self) -> u32 {
         self.0.increment_change_tick()
     }
 
     /// Retrieves an [`InteriorMutableEntityRef`] that exposes read and write operations for the given `entity`.
     /// Similar to the [`InteriorMutableWorld`], you are in charge of making sure that no aliasing rules are violated.
-    pub fn get_entity(&self, entity: Entity) -> Option<InteriorMutableEntityRef<'w>> {
+    pub fn get_entity(self, entity: Entity) -> Option<InteriorMutableEntityRef<'w>> {
         let location = self.0.entities.get(entity)?;
         Some(InteriorMutableEntityRef {
             world: InteriorMutableWorld(self.0),
@@ -153,7 +153,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// - the [`InteriorMutableWorld`] has permission to access the resource
     /// - no other mutable references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_resource<R: Resource>(&self) -> Option<&'w R> {
+    pub unsafe fn get_resource<R: Resource>(self) -> Option<&'w R> {
         self.0.get_resource::<R>()
     }
 
@@ -169,7 +169,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// - the [`InteriorMutableWorld`] has permission to access the resource
     /// - no other mutable references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.0.get_resource_by_id(component_id)
     }
 
@@ -180,7 +180,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// - the [`InteriorMutableWorld`] has permission to access the resource
     /// - no other mutable references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_non_send_resource<R: 'static>(&self) -> Option<&'w R> {
+    pub unsafe fn get_non_send_resource<R: 'static>(self) -> Option<&'w R> {
         self.0.get_non_send_resource()
     }
 
@@ -199,7 +199,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// - the [`InteriorMutableWorld`] has permission to access the resource
     /// - no other mutable references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_non_send_resource_by_id(&self, component_id: ComponentId) -> Option<Ptr<'_>> {
+    pub unsafe fn get_non_send_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         self.0
             .storages
             .non_send_resources
@@ -214,7 +214,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_resource_mut<R: Resource>(&self) -> Option<Mut<'w, R>> {
+    pub unsafe fn get_resource_mut<R: Resource>(self) -> Option<Mut<'w, R>> {
         let component_id = self.0.components.get_resource_id(TypeId::of::<R>())?;
         // SAFETY:
         // - component_id is of type `R`
@@ -262,7 +262,7 @@ impl<'w> InteriorMutableWorld<'w> {
     /// - the [`InteriorMutableWorld`] has permission to access the resource mutably
     /// - no other references to the resource exist at the same time
     #[inline]
-    pub unsafe fn get_non_send_resource_mut<R: 'static>(&self) -> Option<Mut<'w, R>> {
+    pub unsafe fn get_non_send_resource_mut<R: 'static>(self) -> Option<Mut<'w, R>> {
         let component_id = self.0.components.get_resource_id(TypeId::of::<R>())?;
         // SAFETY: component_id matches `R`, rest is promised by caller
         unsafe { self.get_non_send_mut_with_id(component_id) }
@@ -369,37 +369,37 @@ pub struct InteriorMutableEntityRef<'w> {
 impl<'w> InteriorMutableEntityRef<'w> {
     #[inline]
     #[must_use = "Omit the .id() call if you do not need to store the `Entity` identifier."]
-    pub fn id(&self) -> Entity {
+    pub fn id(self) -> Entity {
         self.entity
     }
 
     #[inline]
-    pub fn location(&self) -> EntityLocation {
+    pub fn location(self) -> EntityLocation {
         self.location
     }
 
     #[inline]
-    pub fn archetype(&self) -> &Archetype {
+    pub fn archetype(self) -> &'w Archetype {
         &self.world.0.archetypes[self.location.archetype_id]
     }
 
     #[inline]
-    pub fn world(&self) -> InteriorMutableWorld<'w> {
+    pub fn world(self) -> InteriorMutableWorld<'w> {
         self.world
     }
 
     #[inline]
-    pub fn contains<T: Component>(&self) -> bool {
+    pub fn contains<T: Component>(self) -> bool {
         self.contains_type_id(TypeId::of::<T>())
     }
 
     #[inline]
-    pub fn contains_id(&self, component_id: ComponentId) -> bool {
+    pub fn contains_id(self, component_id: ComponentId) -> bool {
         entity_ref::contains_component_with_id(self.world.0, component_id, self.location)
     }
 
     #[inline]
-    pub fn contains_type_id(&self, type_id: TypeId) -> bool {
+    pub fn contains_type_id(self, type_id: TypeId) -> bool {
         entity_ref::contains_component_with_type(self.world.0, type_id, self.location)
     }
 
@@ -408,7 +408,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// - the [`InteriorMutableEntityRef`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
-    pub unsafe fn get<T: Component>(&self) -> Option<&'w T> {
+    pub unsafe fn get<T: Component>(self) -> Option<&'w T> {
         // SAFETY:
         // - entity location is valid
         // - proper world access is promised by caller
@@ -434,7 +434,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// - the [`InteriorMutableEntityRef`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_change_ticks<T: Component>(&self) -> Option<ComponentTicks> {
+    pub unsafe fn get_change_ticks<T: Component>(self) -> Option<ComponentTicks> {
         // SAFETY:
         // - entity location is valid
         // - proper world acess is promised by caller
@@ -453,7 +453,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut<T: Component>(&self) -> Option<Mut<'w, T>> {
+    pub unsafe fn get_mut<T: Component>(self) -> Option<Mut<'w, T>> {
         // SAFETY: same safety requirements
         unsafe {
             self.get_mut_using_ticks(self.world.last_change_tick(), self.world.read_change_tick())
@@ -506,7 +506,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// - the [`InteriorMutableEntityRef`] has permission to access the component
     /// - no other mutable references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_by_id(&self, component_id: ComponentId) -> Option<Ptr<'w>> {
+    pub unsafe fn get_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
         let info = self.world.0.components.get_info(component_id)?;
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
@@ -530,7 +530,7 @@ impl<'w> InteriorMutableEntityRef<'w> {
     /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
     /// - no other references to the component exist at the same time
     #[inline]
-    pub unsafe fn get_mut_by_id(&self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
+    pub unsafe fn get_mut_by_id(self, component_id: ComponentId) -> Option<MutUntyped<'w>> {
         let info = self.world.0.components.get_info(component_id)?;
         // SAFETY: entity_location is valid, component_id is valid as checked by the line above
         unsafe {
