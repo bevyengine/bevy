@@ -5,13 +5,16 @@ mod bundle;
 mod light;
 mod material;
 mod pbr_material;
+mod prepass;
 mod render;
 
 pub use alpha::*;
+use bevy_utils::default;
 pub use bundle::*;
 pub use light::*;
 pub use material::*;
 pub use pbr_material::*;
+pub use prepass::*;
 pub use render::*;
 
 use bevy_window::ModifiesWindows;
@@ -67,14 +70,27 @@ pub const SHADOWS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 11350275143789590502);
 pub const PBR_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 4805239651767701046);
+pub const PBR_PREPASS_SHADER_HANDLE: HandleUntyped =
+    HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 9407115064344201137);
 pub const PBR_FUNCTIONS_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 16550102964439850292);
 pub const SHADOW_SHADER_HANDLE: HandleUntyped =
     HandleUntyped::weak_from_u64(Shader::TYPE_UUID, 1836745567947005696);
 
 /// Sets up the entire PBR infrastructure of bevy.
-#[derive(Default)]
-pub struct PbrPlugin;
+pub struct PbrPlugin {
+    /// Controls if the prepass is enabled for the StandardMaterial.
+    /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
+    pub prepass_enabled: bool,
+}
+
+impl Default for PbrPlugin {
+    fn default() -> Self {
+        Self {
+            prepass_enabled: true,
+        }
+    }
+}
 
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
@@ -122,6 +138,12 @@ impl Plugin for PbrPlugin {
             "render/depth.wgsl",
             Shader::from_wgsl
         );
+        load_internal_asset!(
+            app,
+            PBR_PREPASS_SHADER_HANDLE,
+            "render/pbr_prepass.wgsl",
+            Shader::from_wgsl
+        );
 
         app.register_type::<CubemapVisibleEntities>()
             .register_type::<DirectionalLight>()
@@ -135,7 +157,10 @@ impl Plugin for PbrPlugin {
             .register_type::<ClusterFarZMode>()
             .register_type::<PointLightShadowMap>()
             .add_plugin(MeshRenderPlugin)
-            .add_plugin(MaterialPlugin::<StandardMaterial>::default())
+            .add_plugin(MaterialPlugin::<StandardMaterial> {
+                prepass_enabled: self.prepass_enabled,
+                ..default()
+            })
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()

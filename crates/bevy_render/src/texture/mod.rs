@@ -103,6 +103,9 @@ impl Plugin for ImagePlugin {
                 .init_resource::<TextureCache>()
                 .init_resource::<FallbackImage>()
                 .add_system(update_texture_cache_system.in_set(RenderSet::Cleanup));
+                .init_resource::<FallbackImageMsaaCache>()
+                .init_resource::<FallbackImageDepthCache>()
+                .add_system_to_stage(RenderStage::Cleanup, update_texture_cache_system);
         }
     }
 }
