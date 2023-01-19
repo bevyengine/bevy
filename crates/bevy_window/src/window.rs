@@ -193,9 +193,9 @@ impl Window {
         self.internal.maximize_request = Some(maximized);
     }
 
-    /// Setting this to true will attempt to maximize the window.
+    /// Setting this to true will attempt to minimize the window.
     ///
-    /// Setting it to false will attempt to un-maximize the window.
+    /// Setting it to false will attempt to un-minimize the window.
     pub fn set_minimized(&mut self, minimized: bool) {
         self.internal.minimize_request = Some(minimized);
     }
