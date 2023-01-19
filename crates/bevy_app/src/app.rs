@@ -242,6 +242,9 @@ impl App {
     /// which run during [`CoreSet::StateTransitions`] after the transitions are applied.
     /// These systems sets only run if the [`State<S>`] resource matches their label.
     ///
+    /// If you would like to control how other systems run based on the current state,
+    /// you can emulate this behavior using the [`state_equals`] [`Condition`](bevy_ecs::schedule::Condition).
+    ///
     /// Note that you can also apply state tranitions at other points in the schedule
     /// by adding the [`apply_state_transition`] system manually.
     pub fn add_state<S: States>(&mut self) -> &mut Self {
@@ -256,7 +259,7 @@ impl App {
             main_schedule.configure_set(
                 OnUpdate(variant)
                     .in_set(CoreSet::StateTransitions)
-                    .run_if_state_equals(variant)
+                    .run_if(state_equals(variant))
                     .after(apply_state_transition::<S>),
             );
         }

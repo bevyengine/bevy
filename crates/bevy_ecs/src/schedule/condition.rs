@@ -1,5 +1,3 @@
-pub use common_conditions::*;
-
 use crate::system::BoxedSystem;
 
 pub type BoxedCondition = BoxedSystem<(), bool>;
@@ -26,7 +24,7 @@ mod sealed {
     }
 }
 
-mod common_conditions {
+pub mod common_conditions {
     use crate::schedule::{State, States};
     use crate::system::{Res, Resource};
 
