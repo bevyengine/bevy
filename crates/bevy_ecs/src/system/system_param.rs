@@ -158,7 +158,9 @@ pub unsafe trait SystemParam: Sized {
     /// # Safety
     ///
     /// This call might use any of the [`World`] accesses that were registered in [`Self::init_state`].
-    /// You must ensure that none of those accesses conflict with any other [`SystemParam`]s running in parallel with this one.
+    /// - The caller must ensure that none of those accesses conflict with any other [`SystemParam`]s
+    ///   that exist at the same time.
+    /// - `world` must be the same `World` that was used to initialize `state`.
     unsafe fn get_param<'world, 'state>(
         state: &'state mut Self::State,
         system_meta: &SystemMeta,
