@@ -927,7 +927,7 @@ mod test {
         let handle_path = server.get_handle_path(&handle).unwrap();
 
         assert_eq!(handle_path.path(), Path::new(PATH));
-        assert!(handle_path.in_set().is_none());
+        assert!(handle_path.label().is_none());
 
         let handle_id: HandleId = handle.into();
         let path_id: HandleId = handle_path.get_id().into();
