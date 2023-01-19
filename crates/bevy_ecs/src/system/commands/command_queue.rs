@@ -104,9 +104,9 @@ impl CommandQueue {
         // The address of the end of the buffer.
         let end_addr = cursor as usize + self.bytes.len();
 
-        // Reset the buffer so its internal storage can get reused.
-        // SAFETY: Below, each command will have its ownership transferred to user code,
-        // which will be responsible for dropping each value.
+        // Reset the buffer, so it can be reused after this function ends.
+        // In the loop below, ownership of each command will be transferred into user code.
+        // SAFETY: `set_len(0)` is always valid.
         unsafe { self.bytes.set_len(0) };
 
         while (cursor as usize) < end_addr {
