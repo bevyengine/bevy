@@ -170,3 +170,24 @@ impl Default for TextStyle {
         }
     }
 }
+
+/// Determines how lines will be broken when preventing text from running out of bounds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[reflect(Serialize, Deserialize)]
+pub enum TextLineBreakBehaviour {
+    /// Lines will be broken up at the nearest word boundary, usually at a space.<br/>
+    /// This behaviour suits most cases, as it keeps words intact. Aims to implement the Unicode line breaking algorithm.
+    Unicode,
+    /// Lines will be broken without discrimination at the first character that runs out of bounds.<br/>
+    /// This is closer to the behaviour one might expect from a terminal.
+    AnyCharacter,
+}
+
+impl From<TextLineBreakBehaviour> for glyph_brush_layout::BuiltInLineBreaker {
+    fn from(val: TextLineBreakBehaviour) -> Self {
+        match val {
+            TextLineBreakBehaviour::Unicode => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
+            TextLineBreakBehaviour::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
+        }
+    }
+}
