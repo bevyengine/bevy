@@ -1751,7 +1751,7 @@ impl World {
 }
 
 impl World {
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
+    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`] identified by their [`TypeId`]
     ///
     /// # Safety
     /// - `storage_type` must accurately reflect where the components for `component_id` are stored.
@@ -1770,7 +1770,7 @@ impl World {
         self.get_component_and_ticks(component_id, storage_type, entity, location)
     }
 
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
+    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) and its [`ComponentTicks`]
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
@@ -1802,7 +1802,7 @@ impl World {
         }
     }
 
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
+    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`], identified by the component's type
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
@@ -1822,7 +1822,7 @@ impl World {
         self.get_component(component_id, storage_type, entity, location)
     }
 
-    /// Get a raw pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
+    /// Get an untyped pointer to a particular [`Component`](crate::component::Component) on a particular [`Entity`] in the provided [`World`](crate::world::World).
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
@@ -1849,7 +1849,7 @@ impl World {
         }
     }
 
-    /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`], identified by the component's [`TypeId`]
+    /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`], identified by the component's [`TypeId`]
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
@@ -1869,7 +1869,7 @@ impl World {
         self.get_ticks(component_id, storage_type, entity, location)
     }
 
-    /// Get a raw pointer to the [`ComponentTicks`] on a particular [`Entity`]
+    /// Get an untyped pointer to the [`ComponentTicks`] on a particular [`Entity`]
     ///
     /// # Safety
     /// - `location` must refer to an archetype that contains `entity`
