@@ -11,7 +11,7 @@
 //! - <https://docs.rs/bevy/latest/bevy/app/struct.App.html#method.run>
 //! - <https://docs.rs/bevy/latest/bevy/winit/struct.WinitSettings.html#structfield.return_from_run>
 
-use bevy::{prelude::*, winit::WinitSettings};
+use bevy::{prelude::*, window::WindowPlugin, winit::WinitSettings};
 
 fn main() {
     println!("Running Bevy App");
@@ -21,10 +21,10 @@ fn main() {
             ..default()
         })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "Close the window to return to the main function".to_owned(),
+            primary_window: Some(Window {
+                title: "Close the window to return to the main function".into(),
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_system(system)

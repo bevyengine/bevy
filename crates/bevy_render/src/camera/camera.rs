@@ -13,6 +13,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     event::EventReader,
+    prelude::With,
     reflect::ReflectComponent,
     system::{Commands, Query, Res},
 };
@@ -21,7 +22,10 @@ use bevy_reflect::prelude::*;
 use bevy_reflect::FromReflect;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::HashSet;
-use bevy_window::{WindowCreated, WindowId, WindowResized, Windows};
+use bevy_window::{
+    NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowRef, WindowResized,
+};
+
 use std::{borrow::Cow, ops::Range};
 use wgpu::{Extent3d, TextureFormat};
 
@@ -325,10 +329,21 @@ impl CameraRenderGraph {
 
 /// The "target" that a [`Camera`] will render to. For example, this could be a [`Window`](bevy_window::Window)
 /// swapchain or an [`Image`].
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Reflect)]
 pub enum RenderTarget {
     /// Window to which the camera's view is rendered.
-    Window(WindowId),
+    Window(WindowRef),
+    /// Image to which the camera's view is rendered.
+    Image(Handle<Image>),
+}
+
+/// Normalized version of the render target.
+///
+/// Once we have this we shouldn't need to resolve it down anymore.
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NormalizedRenderTarget {
+    /// Window to which the camera's view is rendered.
+    Window(NormalizedWindowRef),
     /// Image to which the camera's view is rendered.
     Image(Handle<Image>),
 }
@@ -340,16 +355,28 @@ impl Default for RenderTarget {
 }
 
 impl RenderTarget {
+    /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
+    pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
+        match self {
+            RenderTarget::Window(window_ref) => window_ref
+                .normalize(primary_window)
+                .map(NormalizedRenderTarget::Window),
+            RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
+        }
+    }
+}
+
+impl NormalizedRenderTarget {
     pub fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<Image>,
     ) -> Option<&'a TextureView> {
         match self {
-            RenderTarget::Window(window_id) => windows
-                .get(window_id)
+            NormalizedRenderTarget::Window(window_ref) => windows
+                .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture.as_ref()),
-            RenderTarget::Image(image_handle) => {
+            NormalizedRenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| &image.texture_view)
             }
         }
@@ -362,47 +389,55 @@ impl RenderTarget {
         images: &'a RenderAssets<Image>,
     ) -> Option<TextureFormat> {
         match self {
-            RenderTarget::Window(window_id) => windows
-                .get(window_id)
+            NormalizedRenderTarget::Window(window_ref) => windows
+                .get(&window_ref.entity())
                 .and_then(|window| window.swap_chain_texture_format),
-            RenderTarget::Image(image_handle) => {
+            NormalizedRenderTarget::Image(image_handle) => {
                 images.get(image_handle).map(|image| image.texture_format)
             }
         }
     }
 
-    pub fn get_render_target_info(
+    pub fn get_render_target_info<'a>(
         &self,
-        windows: &Windows,
+        resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
         images: &Assets<Image>,
     ) -> Option<RenderTargetInfo> {
-        Some(match self {
-            RenderTarget::Window(window_id) => {
-                let window = windows.get(*window_id)?;
-                RenderTargetInfo {
-                    physical_size: UVec2::new(window.physical_width(), window.physical_height()),
-                    scale_factor: window.scale_factor(),
-                }
-            }
-            RenderTarget::Image(image_handle) => {
+        match self {
+            NormalizedRenderTarget::Window(window_ref) => resolutions
+                .into_iter()
+                .find(|(entity, _)| *entity == window_ref.entity())
+                .map(|(_, window)| RenderTargetInfo {
+                    physical_size: UVec2::new(
+                        window.resolution.physical_width(),
+                        window.resolution.physical_height(),
+                    ),
+                    scale_factor: window.resolution.scale_factor(),
+                }),
+            NormalizedRenderTarget::Image(image_handle) => {
                 let image = images.get(image_handle)?;
                 let Extent3d { width, height, .. } = image.texture_descriptor.size;
-                RenderTargetInfo {
+                Some(RenderTargetInfo {
                     physical_size: UVec2::new(width, height),
                     scale_factor: 1.0,
-                }
+                })
             }
-        })
+        }
     }
+
     // Check if this render target is contained in the given changed windows or images.
     fn is_changed(
         &self,
-        changed_window_ids: &[WindowId],
+        changed_window_ids: &HashSet<Entity>,
         changed_image_handles: &HashSet<&Handle<Image>>,
     ) -> bool {
         match self {
-            RenderTarget::Window(window_id) => changed_window_ids.contains(window_id),
-            RenderTarget::Image(image_handle) => changed_image_handles.contains(&image_handle),
+            NormalizedRenderTarget::Window(window_ref) => {
+                changed_window_ids.contains(&window_ref.entity())
+            }
+            NormalizedRenderTarget::Image(image_handle) => {
+                changed_image_handles.contains(&image_handle)
+            }
         }
     }
 }
@@ -431,29 +466,16 @@ pub fn camera_system<T: CameraProjection + Component>(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
     mut image_asset_events: EventReader<AssetEvent<Image>>,
-    windows: Res<Windows>,
+    primary_window: Query<Entity, With<PrimaryWindow>>,
+    windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
     mut cameras: Query<(&mut Camera, &mut T)>,
 ) {
-    let mut changed_window_ids = Vec::new();
+    let primary_window = primary_window.iter().next();
 
-    // Collect all unique window IDs of changed windows by inspecting created windows
-    for event in window_created_events.iter() {
-        if changed_window_ids.contains(&event.id) {
-            continue;
-        }
-
-        changed_window_ids.push(event.id);
-    }
-
-    // Collect all unique window IDs of changed windows by inspecting resized windows
-    for event in window_resized_events.iter() {
-        if changed_window_ids.contains(&event.id) {
-            continue;
-        }
-
-        changed_window_ids.push(event.id);
-    }
+    let mut changed_window_ids = HashSet::new();
+    changed_window_ids.extend(window_created_events.iter().map(|event| event.window));
+    changed_window_ids.extend(window_resized_events.iter().map(|event| event.window));
 
     let changed_image_handles: HashSet<&Handle<Image>> = image_asset_events
         .iter()
@@ -472,18 +494,18 @@ pub fn camera_system<T: CameraProjection + Component>(
             .as_ref()
             .map(|viewport| viewport.physical_size);
 
-        if camera
-            .target
-            .is_changed(&changed_window_ids, &changed_image_handles)
-            || camera.is_added()
-            || camera_projection.is_changed()
-            || camera.computed.old_viewport_size != viewport_size
-        {
-            camera.computed.target_info = camera.target.get_render_target_info(&windows, &images);
-            camera.computed.old_viewport_size = viewport_size;
-            if let Some(size) = camera.logical_viewport_size() {
-                camera_projection.update(size.x, size.y);
-                camera.computed.projection_matrix = camera_projection.get_projection_matrix();
+        if let Some(normalized_target) = camera.target.normalize(primary_window) {
+            if normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
+                || camera.is_added()
+                || camera_projection.is_changed()
+                || camera.computed.old_viewport_size != viewport_size
+            {
+                camera.computed.target_info =
+                    normalized_target.get_render_target_info(&windows, &images);
+                if let Some(size) = camera.logical_viewport_size() {
+                    camera_projection.update(size.x, size.y);
+                    camera.computed.projection_matrix = camera_projection.get_projection_matrix();
+                }
             }
         }
     }
@@ -491,7 +513,7 @@ pub fn camera_system<T: CameraProjection + Component>(
 
 #[derive(Component, Debug)]
 pub struct ExtractedCamera {
-    pub target: RenderTarget,
+    pub target: Option<NormalizedRenderTarget>,
     pub physical_viewport_size: Option<UVec2>,
     pub physical_target_size: Option<UVec2>,
     pub viewport: Option<Viewport>,
@@ -510,7 +532,9 @@ pub fn extract_cameras(
             &VisibleEntities,
         )>,
     >,
+    primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
 ) {
+    let primary_window = primary_window.iter().next();
     for (entity, camera, camera_render_graph, transform, visible_entities) in query.iter() {
         if !camera.is_active {
             continue;
@@ -525,7 +549,7 @@ pub fn extract_cameras(
             }
             commands.get_or_spawn(entity).insert((
                 ExtractedCamera {
-                    target: camera.target.clone(),
+                    target: camera.target.normalize(primary_window),
                     viewport: camera.viewport.clone(),
                     physical_viewport_size: Some(viewport_size),
                     physical_target_size: Some(target_size),

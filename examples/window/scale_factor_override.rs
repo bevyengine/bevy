@@ -1,19 +1,19 @@
 //! This example illustrates how to override the window scale factor imposed by the
 //! operating system.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::WindowResolution};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: 500.,
-                height: 300.,
+            primary_window: Some(Window {
+                resolution: WindowResolution::new(500., 300.).with_scale_factor_override(1.0),
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_startup_system(setup)
+        .add_system(display_override)
         .add_system(toggle_override)
         .add_system(change_scale_factor)
         .run();
@@ -63,20 +63,39 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
+/// Set the title of the window to the current override
+fn display_override(mut windows: Query<&mut Window>) {
+    let mut window = windows.single_mut();
+
+    window.title = format!(
+        "Scale override: {:?}",
+        window.resolution.scale_factor_override()
+    );
+}
+
 /// This system toggles scale factor overrides when enter is pressed
-fn toggle_override(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.primary_mut();
+fn toggle_override(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+    let mut window = windows.single_mut();
+
     if input.just_pressed(KeyCode::Return) {
-        window.set_scale_factor_override(window.scale_factor_override().xor(Some(1.)));
+        let scale_factor_override = window.resolution.scale_factor_override();
+        window
+            .resolution
+            .set_scale_factor_override(scale_factor_override.xor(Some(1.0)));
     }
 }
 
 /// This system changes the scale factor override when up or down is pressed
-fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: ResMut<Windows>) {
-    let window = windows.primary_mut();
+fn change_scale_factor(input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {
+    let mut window = windows.single_mut();
+    let scale_factor_override = window.resolution.scale_factor_override();
     if input.just_pressed(KeyCode::Up) {
-        window.set_scale_factor_override(window.scale_factor_override().map(|n| n + 1.));
+        window
+            .resolution
+            .set_scale_factor_override(scale_factor_override.map(|n| n + 1.0));
     } else if input.just_pressed(KeyCode::Down) {
-        window.set_scale_factor_override(window.scale_factor_override().map(|n| (n - 1.).max(1.)));
+        window
+            .resolution
+            .set_scale_factor_override(scale_factor_override.map(|n| (n - 1.0).max(1.0)));
     }
 }
