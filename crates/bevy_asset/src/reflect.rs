@@ -61,7 +61,7 @@ impl ReflectAsset {
         unsafe { (self.get_unchecked_mut)(world.as_interior_mutable(), handle) }
     }
 
-    /// Equivalent of [`Assets::get_mut`], but works with a [`InteriorMutableWorld`].
+    /// Equivalent of [`Assets::get_mut`], but works with an [`InteriorMutableWorld`].
     ///
     /// Only use this method when you have ensured that you are the *only* one with access to the [`Assets`] resource of the asset type.
     /// Furthermore, this does *not* allow you to have look up two distinct handles,

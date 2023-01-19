@@ -52,7 +52,9 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::reflect()`].
     pub reflect: fn(&World, Entity) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    /// SAFETY: The function may only be called with an InteriorMutableWorld that can be used to mutably access the relevant component on the given entity
+    ///
+    /// # Safety
+    /// The function may only be called with an [`InteriorMutableWorld`] that can be used to mutably access the relevant component on the given entity.
     pub reflect_mut: unsafe fn(InteriorMutableWorld<'_>, Entity) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::copy()`].
     pub copy: fn(&World, &mut World, Entity, Entity),
@@ -211,8 +213,8 @@ impl<C: Component + Reflect + FromWorld> FromType<C> for ReflectComponent {
             },
             reflect_mut: |world, entity| {
                 // SAFETY: reflect_mut is an unsafe function pointer used by
-                // 1. `reflect_unchecked_mut` which must be called with an InteriorMutableWorld with access the the component `C` on the `entity`, and
-                // 2. reflect_mut, which has mutable world access
+                // 1. `reflect_unchecked_mut` which must be called with an InteriorMutableWorld with access to the the component `C` on the `entity`, and
+                // 2. `reflect_mut`, which has mutable world access
                 unsafe {
                     world.get_entity(entity)?.get_mut::<C>().map(|c| Mut {
                         value: c.value as &mut dyn Reflect,
@@ -264,7 +266,9 @@ pub struct ReflectResourceFns {
     /// Function pointer implementing [`ReflectResource::reflect()`].
     pub reflect: fn(&World) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectResource::reflect_unchecked_mut()`].
-    /// SAFETY: The function may only be called with an InteriorMutableWorld that can be used to mutably access the relevant resource
+    ///
+    /// # Safety
+    /// The function may only be called with an [`InteriorMutableWorld`] that can be used to mutably access the relevant resource.
     pub reflect_unchecked_mut: unsafe fn(InteriorMutableWorld<'_>) -> Option<Mut<'_, dyn Reflect>>,
     /// Function pointer implementing [`ReflectResource::copy()`].
     pub copy: fn(&World, &mut World),
@@ -320,7 +324,7 @@ impl ReflectResource {
     /// # Safety
     /// This method does not prevent you from having two mutable pointers to the same data,
     /// violating Rust's aliasing rules. To avoid this:
-    /// * Only call this method with a [`InteriorMutableWorld`] which can be used to mutably access the resource.
+    /// * Only call this method with an [`InteriorMutableWorld`] which can be used to mutably access the resource.
     /// * Don't call this method more than once in the same scope for a given [`Resource`].
     pub unsafe fn reflect_unchecked_mut<'w>(
         &self,
