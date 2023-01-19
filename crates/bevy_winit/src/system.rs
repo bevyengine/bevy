@@ -47,6 +47,7 @@ pub(crate) fn create_window<'a>(
         );
 
         let winit_window = winit_windows.create_window(event_loop, entity, &component);
+        let current_size = winit_window.inner_size();
         component
             .resolution
             .set_scale_factor(winit_window.scale_factor());
@@ -56,7 +57,13 @@ pub(crate) fn create_window<'a>(
                 window_handle: winit_window.raw_window_handle(),
                 display_handle: winit_window.raw_display_handle(),
             })
-            .insert(PreviousWinitWindow(component.clone()));
+            .insert(WinitWindowInfo {
+                previous: component.clone(),
+                last_winit_size: PhysicalSize {
+                    width: current_size.width,
+                    height: current_size.height,
+                },
+            });
 
         #[cfg(target_arch = "wasm32")]
         {
@@ -93,7 +100,10 @@ pub(crate) fn despawn_window(
 
 /// Previous state of the window so we can check sub-portions of what actually was changed.
 #[derive(Debug, Clone, Component)]
-pub struct PreviousWinitWindow(Window);
+pub struct WinitWindowInfo {
+    pub previous: Window,
+    pub last_winit_size: PhysicalSize<u32>,
+}
 
 // Detect changes to the window and update the winit window accordingly.
 //
@@ -103,11 +113,11 @@ pub struct PreviousWinitWindow(Window);
 // - [`Window::canvas`] currently cannot be updated after startup, not entirely sure if it would work well with the
 //   event channel stuff.
 pub(crate) fn changed_window(
-    mut changed_windows: Query<(Entity, &mut Window, &mut PreviousWinitWindow), Changed<Window>>,
+    mut changed_windows: Query<(Entity, &mut Window, &mut WinitWindowInfo), Changed<Window>>,
     winit_windows: NonSendMut<WinitWindows>,
 ) {
-    for (entity, mut window, mut previous_window) in &mut changed_windows {
-        let previous = &previous_window.0;
+    for (entity, mut window, mut info) in &mut changed_windows {
+        let previous = &info.previous;
 
         if let Some(winit_window) = winit_windows.get_window(entity) {
             if window.title != previous.title {
@@ -138,16 +148,14 @@ pub(crate) fn changed_window(
                     winit_window.set_fullscreen(new_mode);
                 }
             }
-
             if window.resolution != previous.resolution {
                 let physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
                     window.resolution.physical_height(),
                 );
-
-                // Precaution so we don't accidentally step on the window managers
-                // toes regarding maximizing/minimizing/etc.
-                if winit_window.inner_size() != physical_size {
+                // Prevents "window.resolution values set from a winit resize event" from
+                // being set here, creating feedback loops.
+                if physical_size != info.last_winit_size {
                     winit_window.set_inner_size(physical_size);
                 }
             }
@@ -219,7 +227,7 @@ pub(crate) fn changed_window(
                 }
             }
 
-            if window.resolution != previous.resolution || window.position != previous.position {
+            if window.position != previous.position {
                 if let Some(position) = crate::winit_window_position(
                     &window.position,
                     &window.resolution,
@@ -270,7 +278,7 @@ pub(crate) fn changed_window(
                 );
             }
 
-            *previous_window = PreviousWinitWindow(window.clone());
+            info.previous = window.clone();
         }
     }
 }

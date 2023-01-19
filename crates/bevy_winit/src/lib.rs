@@ -35,6 +35,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop, EventLoopWindowTarget},
 };
 
+use crate::system::WinitWindowInfo;
 #[cfg(target_arch = "wasm32")]
 use crate::web_resize::{CanvasParentResizeEventChannel, CanvasParentResizePlugin};
 
@@ -323,7 +324,7 @@ pub fn winit_runner(mut app: App) {
                 // Fetch and prepare details from the world
                 let mut system_state: SystemState<(
                     NonSend<WinitWindows>,
-                    Query<&mut Window>,
+                    Query<(&mut Window, &mut WinitWindowInfo)>,
                     WindowEvents,
                     InputEvents,
                     CursorEvents,
@@ -350,15 +351,16 @@ pub fn winit_runner(mut app: App) {
                         return;
                     };
 
-                let mut window = if let Ok(window) = window_query.get_mut(window_entity) {
-                    window
-                } else {
-                    warn!(
-                        "Window {:?} is missing `Window` component, skipping event {:?}",
-                        window_entity, event
-                    );
-                    return;
-                };
+                let (mut window, mut info) =
+                    if let Ok((window, info)) = window_query.get_mut(window_entity) {
+                        (window, info)
+                    } else {
+                        warn!(
+                            "Window {:?} is missing `Window` component, skipping event {:?}",
+                            window_entity, event
+                        );
+                        return;
+                    };
 
                 winit_state.low_power_event = true;
 
@@ -367,6 +369,7 @@ pub fn winit_runner(mut app: App) {
                         window
                             .resolution
                             .set_physical_resolution(size.width, size.height);
+                        info.last_winit_size = size;
 
                         window_events.window_resized.send(WindowResized {
                             window: window_entity,
@@ -408,7 +411,7 @@ pub fn winit_runner(mut app: App) {
                     }
                     WindowEvent::CursorLeft { .. } => {
                         // Component
-                        if let Ok(mut window) = window_query.get_mut(window_entity) {
+                        if let Ok((mut window, _)) = window_query.get_mut(window_entity) {
                             window.cursor.position = None;
                         }
 
