@@ -68,6 +68,11 @@ impl Schedules {
         self.inner.remove_entry(label)
     }
 
+    /// Does a schedule with the provided label already exist?
+    pub fn contains(&self, label: &dyn ScheduleLabel) -> bool {
+        self.inner.contains_key(label)
+    }
+
     /// Returns a reference to the schedule associated with `label`, if it exists.
     pub fn get(&self, label: &dyn ScheduleLabel) -> Option<&Schedule> {
         self.inner.get(label)

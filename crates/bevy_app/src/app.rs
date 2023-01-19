@@ -430,8 +430,10 @@ impl App {
     /// let app = App::empty().add_default_schedules();
     /// ```
     pub fn add_default_schedules(&mut self) -> &mut Self {
-        self.add_schedule(CoreSchedule::Startup, Schedule::new());
-        self.add_schedule(CoreSchedule::Main, Schedule::new());
+        self.init_schedule(CoreSchedule::Startup);
+        self.init_schedule(CoreSchedule::Main);
+        self.init_schedule(CoreSchedule::Outer);
+        self.init_schedule(CoreSchedule::FixedTimestep);
 
         self
     }
@@ -442,6 +444,8 @@ impl App {
     ///
     /// The [default sets](bevy_ecs::schedule::Schedule::set_default_set) becomes [`CoreSet::Update`] and [`StartupSet::Startup`] respectively.
     /// [`Command`](bevy_ecs::prelude::Commands) flush points, set with [`apply_system_buffers`] are added between each of these sets and at the end of each schedule.
+    ///
+    /// This method calls [`App::add_default_schedules`].
     ///
     /// # Panics
     ///
@@ -924,11 +928,24 @@ impl App {
 impl App {
     /// Adds a new `schedule` to the [`App`] under the provided `label.
     ///
-    /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
+    /// # Warning
+    /// This method will overwrite any existing schedule at that label.
+    /// To avoid this behavior, use the `init_schedule` method instead.
     pub fn add_schedule(&mut self, label: impl ScheduleLabel, schedule: Schedule) -> &mut Self {
         let mut schedules = self.world.resource_mut::<Schedules>();
         schedules.insert(label, schedule);
 
+        self
+    }
+
+    /// Initializes a new empty `schedule` to the [`App`] under the provided `label if it does not exists.
+    ///
+    /// See [`App::add_schedule`] to pass in a pre-constructed schedule.
+    pub fn init_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        let mut schedules = self.world.resource_mut::<Schedules>();
+        if !schedules.contains(&label) {
+            schedules.insert(label, Schedule::new());
+        }
         self
     }
 
