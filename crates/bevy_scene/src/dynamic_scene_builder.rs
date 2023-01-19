@@ -132,7 +132,7 @@ impl<'w> DynamicSceneBuilder<'w> {
                     .get_info(component_id)
                     .and_then(|info| type_registry.get(info.type_id().unwrap()))
                     .and_then(|registration| registration.data::<ReflectComponent>())
-                    .and_then(|reflect_component| reflect_component.reflect(&entity));
+                    .and_then(|reflect_component| reflect_component.reflect(entity));
 
                 if let Some(reflect_component) = reflect_component {
                     entry.components.push(reflect_component.clone_value());

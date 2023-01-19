@@ -53,9 +53,9 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::remove()`].
     pub remove: fn(&mut EntityMut),
     /// Function pointer implementing [`ReflectComponent::contains()`].
-    pub contains: fn(&EntityRef) -> bool,
+    pub contains: fn(EntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: for<'a> fn(&'a EntityRef) -> Option<&'a dyn Reflect>,
+    pub reflect: fn(EntityRef) -> Option<&dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
     pub reflect_mut: for<'a> fn(&'a mut EntityMut) -> Option<Mut<'a, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
@@ -117,12 +117,12 @@ impl ReflectComponent {
     }
 
     /// Returns whether entity contains this [`Component`]
-    pub fn contains(&self, entity: &EntityRef) -> bool {
+    pub fn contains(&self, entity: EntityRef) -> bool {
         (self.0.contains)(entity)
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: &'a EntityRef<'a>) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'a>(&self, entity: EntityRef<'a>) -> Option<&'a dyn Reflect> {
         (self.0.reflect)(entity)
     }
 
