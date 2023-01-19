@@ -1,6 +1,6 @@
 use super::{Diagnostic, DiagnosticId, Diagnostics};
 use bevy_app::prelude::*;
-use bevy_ecs::system::{Res, ResMut, Resource};
+use bevy_ecs::prelude::*;
 use bevy_log::{debug, info};
 use bevy_time::{Time, Timer, TimerMode};
 use bevy_utils::Duration;
