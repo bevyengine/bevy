@@ -61,7 +61,7 @@ mod tests {
         query::{
             Added, ChangeTrackers, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without,
         },
-        system::{ChangeDetectionMode, Resource},
+        system::Resource,
         world::{Mut, World},
     };
     use bevy_tasks::{ComputeTaskPool, TaskPool};

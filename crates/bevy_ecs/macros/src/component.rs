@@ -15,11 +15,6 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     };
 
     let change_detection_mode = attrs.change_detection_mode;
-    let change_detection_token = if matches!(change_detection_mode, ChangeDetectionMode::DerefMut) {
-        quote!()
-    } else {
-        quote!(const CHANGE_DETECTION_MODE: ChangeDetectionMode = #change_detection_mode;)
-    };
 
     ast.generics
         .make_where_clause()
@@ -30,9 +25,10 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
-        impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {
-            #change_detection_token
-        }
+        impl #impl_generics #bevy_ecs_path::system::Resource for #struct_name #type_generics #where_clause {}
+
+        // impl #impl_generics #bevy_ecs_path::change_detection::ChangeDetectionModeCheck<{#bevy_ecs_path::change_detection::#change_detection_mode as u8}>
+        // for #struct_name #type_generics #where_clause {}
     })
 }
 
@@ -46,11 +42,6 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
     };
 
     let change_detection_mode = attrs.change_detection_mode;
-    let change_detection_token = if matches!(change_detection_mode, ChangeDetectionMode::DerefMut) {
-        quote!()
-    } else {
-        quote!(const CHANGE_DETECTION_MODE: ChangeDetectionMode = #change_detection_mode;)
-    };
     let component_mut = if matches!(change_detection_mode, ChangeDetectionMode::Disabled) {
         quote! { &'a mut Self }
     } else {
@@ -68,13 +59,15 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::component::Component for #struct_name #type_generics #where_clause {
-            #change_detection_token
             type WriteFetch<'a> = #component_mut;
             type Storage = #storage;
             fn shrink<'wlong: 'wshort, 'wshort>(item: Self::WriteFetch<'wlong>) -> Self::WriteFetch<'wshort> {
                 item
             }
         }
+
+        // impl #impl_generics #bevy_ecs_path::change_detection::ChangeDetectionModeCheck<{#bevy_ecs_path::change_detection::#change_detection_mode as u8}>
+        // for #struct_name #type_generics #where_clause {}
     })
 }
 
