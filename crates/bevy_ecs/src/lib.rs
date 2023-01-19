@@ -33,7 +33,9 @@ pub mod prelude {
         entity::Entity,
         event::{EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
-        schedule::{Schedule, State, SystemSet},
+        schedule::{
+            IntoSystemConfig, IntoSystemConfigs, Schedule, Schedules, State, States, SystemSet,
+        },
         system::{
             adapter as system_adapter,
             adapter::{dbg, error, ignore, info, unwrap, warn},
