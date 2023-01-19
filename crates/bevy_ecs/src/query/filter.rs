@@ -222,7 +222,7 @@ unsafe impl<T: Component> ReadOnlyWorldQuery for Without<T> {}
 /// A filter that tests if the given filter does not apply.
 /// This filter is intended to be used to determine whether a given component hasn't changed.
 ///
-/// This filter does allow [`With`] or [`Without`] to be passed in. Instead, use their respective
+/// This filter does not allow [`With`] or [`Without`] to be passed in. Instead, use their respective
 /// inverses.
 ///
 /// # Examples
@@ -260,6 +260,7 @@ where
         T::shrink(item)
     }
 
+    #[inline]
     unsafe fn init_fetch<'w>(
         world: &'w World,
         state: &Self::State,
@@ -269,6 +270,7 @@ where
         T::init_fetch(world, state, last_change_tick, change_tick)
     }
 
+    #[inline]
     unsafe fn clone_fetch<'w>(fetch: &Self::Fetch<'w>) -> Self::Fetch<'w> {
         T::clone_fetch(fetch)
     }
@@ -290,6 +292,7 @@ where
         T::set_table(fetch, state, table)
     }
 
+    #[inline(always)]
     unsafe fn fetch<'w>(
         fetch: &mut Self::Fetch<'w>,
         entity: Entity,
@@ -321,6 +324,7 @@ where
         T::matches_component_set(state, set_contains_id)
     }
 
+    #[inline(always)]
     unsafe fn filter_fetch(
         fetch: &mut Self::Fetch<'_>,
         entity: Entity,
