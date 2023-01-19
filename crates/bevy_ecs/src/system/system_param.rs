@@ -124,8 +124,11 @@ use std::{
 ///
 /// # Safety
 ///
-/// The implementor must ensure that [`SystemParam::init_state`] correctly registers all
-/// [`World`] accesses used by this [`SystemParam`] with the provided [`system_meta`](SystemMeta).
+/// The implementor must ensure the following is true.
+/// - [`SystemParam::init_state`] correctly registers all [`World`] accesses used
+///   by this [`SystemParam`] with the provided [`system_meta`](SystemMeta).
+/// - None of the world accesses may conflict with any prior accesses registered
+///   on `system_meta`.
 pub unsafe trait SystemParam: Sized {
     /// Used to store data which persists across invocations of a system.
     type State: Send + Sync + 'static;
