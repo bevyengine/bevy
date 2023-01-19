@@ -29,7 +29,6 @@ use std::ops::Range;
 use std::path::PathBuf;
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_ecs::schedule::IntoSystemDescriptor;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
 
