@@ -98,6 +98,14 @@ macro_rules! define_boxed_label {
                 self.dyn_clone()
             }
         }
+
+        impl ScheduleLabel for Box<dyn ScheduleLabel> {
+            fn dyn_clone(&self) -> Box<dyn ScheduleLabel> {
+                // Be explicit that we want to use the inner value
+                // to avoid infinite recursion.
+                (**self).dyn_clone()
+            }
+        }
     };
 }
 
