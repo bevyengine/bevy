@@ -1,6 +1,6 @@
 [package]
 name = "bevy_reflect"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 description = "Dynamically interact with rust types"
 homepage = "https://bevyengine.org"
@@ -18,10 +18,10 @@ documentation = ["bevy_reflect_derive/documentation"]
 
 [dependencies]
 # bevy
-bevy_math = { path = "../bevy_math", version = "0.9.0-dev", optional = true }
-bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.9.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.9.0-dev" }
-bevy_ptr = { path = "../bevy_ptr", version = "0.9.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.9.0", features = ["serialize"], optional = true }
+bevy_reflect_derive = { path = "bevy_reflect_derive", version = "0.9.0" }
+bevy_utils = { path = "../bevy_utils", version = "0.9.0" }
+bevy_ptr = { path = "../bevy_ptr", version = "0.9.0" }
 
 # other
 erased-serde = "0.3"
@@ -31,10 +31,12 @@ thiserror = "1.0"
 once_cell = "1.11"
 serde = "1"
 smallvec = { version = "1.6", features = ["serde", "union", "const_generics"], optional = true }
-glam = { version = "0.21", features = ["serde"], optional = true }
+glam = { version = "0.22", features = ["serde"], optional = true }
 
 [dev-dependencies]
 ron = "0.8.0"
+rmp-serde = "1.1"
+bincode = "1.3"
 
 [[example]]
 name = "reflect_docs"

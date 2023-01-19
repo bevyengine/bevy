@@ -12,7 +12,7 @@ use bevy_utils::{tracing::error, HashMap};
 use thiserror::Error;
 use uuid::Uuid;
 
-/// Informations about a scene instance.
+/// Information about a scene instance.
 #[derive(Debug)]
 pub struct InstanceInfo {
     /// Mapping of entities from the scene world to the instance world.
@@ -54,10 +54,11 @@ pub enum SceneSpawnError {
 }
 
 impl SceneSpawner {
-    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) {
+    pub fn spawn_dynamic(&mut self, scene_handle: Handle<DynamicScene>) -> InstanceId {
         let instance_id = InstanceId::new();
         self.dynamic_scenes_to_spawn
             .push((scene_handle, instance_id));
+        instance_id
     }
 
     pub fn spawn_dynamic_as_child(

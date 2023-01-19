@@ -7,7 +7,7 @@ publish = false
 license = "MIT OR Apache-2.0"
 
 [dev-dependencies]
-glam = "0.21"
+glam = "0.22"
 rand = "0.8"
 rand_chacha = "0.3"
 criterion = { version = "0.3", features = ["html_reports"] }
@@ -16,6 +16,15 @@ bevy_ecs = { path = "../crates/bevy_ecs" }
 bevy_reflect = { path = "../crates/bevy_reflect" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_utils = { path = "../crates/bevy_utils" }
+
+[profile.release]
+opt-level = 3
+lto = true
+
+[[bench]]
+name = "change_detection"
+path = "benches/bevy_ecs/change_detection.rs"
+harness = false
 
 [[bench]]
 name = "ecs"

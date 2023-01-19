@@ -1,6 +1,9 @@
 use bevy_ecs::prelude::*;
 use bevy_render::{
-    render_resource::*, renderer::RenderDevice, texture::BevyDefault, view::ViewUniform,
+    render_resource::*,
+    renderer::RenderDevice,
+    texture::BevyDefault,
+    view::{ViewTarget, ViewUniform},
 };
 
 #[derive(Resource)]
@@ -57,12 +60,14 @@ impl FromWorld for UiPipeline {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct UiPipelineKey {}
+pub struct UiPipelineKey {
+    pub hdr: bool,
+}
 
 impl SpecializedRenderPipeline for UiPipeline {
     type Key = UiPipelineKey;
-    /// FIXME: there are no specialization for now, should this be removed?
-    fn specialize(&self, _key: Self::Key) -> RenderPipelineDescriptor {
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
         let vertex_layout = VertexBufferLayout::from_vertex_formats(
             VertexStepMode::Vertex,
             vec![
@@ -88,7 +93,11 @@ impl SpecializedRenderPipeline for UiPipeline {
                 shader_defs,
                 entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
-                    format: TextureFormat::bevy_default(),
+                    format: if key.hdr {
+                        ViewTarget::TEXTURE_FORMAT_HDR
+                    } else {
+                        TextureFormat::bevy_default()
+                    },
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],

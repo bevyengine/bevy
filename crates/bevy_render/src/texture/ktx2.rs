@@ -24,9 +24,8 @@ pub fn ktx2_buffer_to_image(
     supported_compressed_formats: CompressedImageFormats,
     is_srgb: bool,
 ) -> Result<Image, TextureError> {
-    let ktx2 = ktx2::Reader::new(buffer).map_err(|err| {
-        TextureError::InvalidData(format!("Failed to parse ktx2 file: {:?}", err))
-    })?;
+    let ktx2 = ktx2::Reader::new(buffer)
+        .map_err(|err| TextureError::InvalidData(format!("Failed to parse ktx2 file: {err:?}")))?;
     let Header {
         pixel_width: width,
         pixel_height: height,
@@ -52,8 +51,7 @@ pub fn ktx2_buffer_to_image(
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress {:?} for mip {}: {:?}",
-                            supercompression_scheme, _level, err
+                            "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
                         ))
                     })?;
                     levels.push(decompressed);
@@ -66,16 +64,14 @@ pub fn ktx2_buffer_to_image(
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
-                            "Failed to decompress {:?} for mip {}: {:?}",
-                            supercompression_scheme, _level, err
+                            "Failed to decompress {supercompression_scheme:?} for mip {_level}: {err:?}",
                         ))
                     })?;
                     levels.push(decompressed);
                 }
                 _ => {
                     return Err(TextureError::SuperDecompressionError(format!(
-                        "Unsupported supercompression scheme: {:?}",
-                        supercompression_scheme
+                        "Unsupported supercompression scheme: {supercompression_scheme:?}",
                     )));
                 }
             }
@@ -160,8 +156,7 @@ pub fn ktx2_buffer_to_image(
                                     .map(|mut transcoded_level| transcoded[level].append(&mut transcoded_level))
                                     .map_err(|error| {
                                         TextureError::SuperDecompressionError(format!(
-                                            "Failed to transcode mip level {} from UASTC to {:?}: {:?}",
-                                            level, transcode_block_format, error
+                                            "Failed to transcode mip level {level} from UASTC to {transcode_block_format:?}: {error:?}",
                                         ))
                                     })?;
                                 offset += level_bytes;
@@ -194,8 +189,7 @@ pub fn ktx2_buffer_to_image(
     })?;
     if !supported_compressed_formats.supports(texture_format) {
         return Err(TextureError::UnsupportedTextureFormat(format!(
-            "Format not supported by this GPU: {:?}",
-            texture_format
+            "Format not supported by this GPU: {texture_format:?}",
         )));
     }
 
@@ -367,7 +361,7 @@ pub fn ktx2_get_texture_format<Data: AsRef<[u8]>>(
         if data_format_descriptor.header == DataFormatDescriptorHeader::BASIC {
             let basic_data_format_descriptor =
                 BasicDataFormatDescriptor::parse(data_format_descriptor.data)
-                    .map_err(|err| TextureError::InvalidData(format!("KTX2: {:?}", err)))?;
+                    .map_err(|err| TextureError::InvalidData(format!("KTX2: {err:?}")))?;
             let sample_information = basic_data_format_descriptor
                 .sample_information()
                 .collect::<Vec<_>>();
@@ -511,8 +505,7 @@ pub fn ktx2_dfd_to_texture_format(
                         },
                         v => {
                             return Err(TextureError::UnsupportedTextureFormat(format!(
-                                "Unsupported sample bit length for RGBSDA 1-channel format: {}",
-                                v
+                                "Unsupported sample bit length for RGBSDA 1-channel format: {v}",
                             )));
                         }
                     }
@@ -594,8 +587,7 @@ pub fn ktx2_dfd_to_texture_format(
                         },
                         v => {
                             return Err(TextureError::UnsupportedTextureFormat(format!(
-                                "Unsupported sample bit length for RGBSDA 2-channel format: {}",
-                                v
+                                "Unsupported sample bit length for RGBSDA 2-channel format: {v}",
                             )));
                         }
                     }
@@ -830,16 +822,14 @@ pub fn ktx2_dfd_to_texture_format(
                         },
                         v => {
                             return Err(TextureError::UnsupportedTextureFormat(format!(
-                                "Unsupported sample bit length for RGBSDA 4-channel format: {}",
-                                v
+                                "Unsupported sample bit length for RGBSDA 4-channel format: {v}",
                             )));
                         }
                     }
                 }
                 v => {
                     return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Unsupported channel count for RGBSDA format: {}",
-                        v
+                        "Unsupported channel count for RGBSDA format: {v}",
                     )));
                 }
             }
@@ -955,16 +945,14 @@ pub fn ktx2_dfd_to_texture_format(
                         },
                         v => {
                             return Err(TextureError::UnsupportedTextureFormat(format!(
-                                "Unsupported sample bit length for XYZW 4-channel format: {}",
-                                v
+                                "Unsupported sample bit length for XYZW 4-channel format: {v}",
                             )));
                         }
                     }
                 }
                 v => {
                     return Err(TextureError::UnsupportedTextureFormat(format!(
-                        "Unsupported channel count for XYZW format: {}",
-                        v
+                        "Unsupported channel count for XYZW format: {v}",
                     )));
                 }
             }
@@ -1089,8 +1077,7 @@ pub fn ktx2_dfd_to_texture_format(
             }
             v => {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "Unsupported channel count for ETC2 format: {}",
-                    v
+                    "Unsupported channel count for ETC2 format: {v}",
                 )));
             }
         },
@@ -1149,8 +1136,7 @@ pub fn ktx2_dfd_to_texture_format(
                     6 => DataFormat::Rg,
                     channel_type => {
                         return Err(TextureError::UnsupportedTextureFormat(format!(
-                            "Invalid KTX2 UASTC channel type: {}",
-                            channel_type
+                            "Invalid KTX2 UASTC channel type: {channel_type}",
                         )))
                     }
                 }),
@@ -1178,8 +1164,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R8_UNORM | ktx2::Format::R8_SRGB => {
             if is_srgb {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    ktx2_format
+                    "{ktx2_format:?}"
                 )));
             }
             TextureFormat::R8Unorm
@@ -1190,8 +1175,7 @@ pub fn ktx2_format_to_texture_format(
         ktx2::Format::R8G8_UNORM | ktx2::Format::R8G8_SRGB => {
             if is_srgb {
                 return Err(TextureError::UnsupportedTextureFormat(format!(
-                    "{:?}",
-                    ktx2_format
+                    "{ktx2_format:?}"
                 )));
             }
             TextureFormat::Rg8Unorm
@@ -1457,8 +1441,7 @@ pub fn ktx2_format_to_texture_format(
         }
         _ => {
             return Err(TextureError::UnsupportedTextureFormat(format!(
-                "{:?}",
-                ktx2_format
+                "{ktx2_format:?}"
             )))
         }
     })

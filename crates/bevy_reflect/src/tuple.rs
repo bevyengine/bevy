@@ -1,7 +1,7 @@
 use crate::utility::NonGenericTypeInfoCell;
 use crate::{
-    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectRef, TypeInfo,
-    TypeRegistration, Typed, UnnamedField,
+    DynamicInfo, FromReflect, GetTypeRegistration, Reflect, ReflectMut, ReflectOwned, ReflectRef,
+    TypeInfo, TypeRegistration, Typed, UnnamedField,
 };
 use std::any::{Any, TypeId};
 use std::fmt::{Debug, Formatter};
@@ -317,6 +317,11 @@ impl Reflect for DynamicTuple {
     }
 
     #[inline]
+    fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+        self
+    }
+
+    #[inline]
     fn as_reflect(&self) -> &dyn Reflect {
         self
     }
@@ -339,6 +344,11 @@ impl Reflect for DynamicTuple {
     #[inline]
     fn reflect_mut(&mut self) -> ReflectMut {
         ReflectMut::Tuple(self)
+    }
+
+    #[inline]
+    fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+        ReflectOwned::Tuple(self)
     }
 
     fn apply(&mut self, value: &dyn Reflect) {
@@ -396,9 +406,7 @@ pub fn tuple_apply<T: Tuple>(a: &mut T, b: &dyn Reflect) {
 /// Returns [`None`] if the comparison couldn't even be performed.
 #[inline]
 pub fn tuple_partial_eq<T: Tuple>(a: &T, b: &dyn Reflect) -> Option<bool> {
-    let b = if let ReflectRef::Tuple(tuple) = b.reflect_ref() {
-        tuple
-    } else {
+    let ReflectRef::Tuple(b) = b.reflect_ref() else {
         return Some(false);
     };
 
@@ -517,6 +525,10 @@ macro_rules! impl_reflect_tuple {
                 self
             }
 
+            fn into_reflect(self: Box<Self>) -> Box<dyn Reflect> {
+                self
+            }
+
             fn as_reflect(&self) -> &dyn Reflect {
                 self
             }
@@ -540,6 +552,10 @@ macro_rules! impl_reflect_tuple {
 
             fn reflect_mut(&mut self) -> ReflectMut {
                 ReflectMut::Tuple(self)
+            }
+
+            fn reflect_owned(self: Box<Self>) -> ReflectOwned {
+                ReflectOwned::Tuple(self)
             }
 
             fn clone_value(&self) -> Box<dyn Reflect> {

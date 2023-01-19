@@ -9,20 +9,19 @@ use bevy::{
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Extract, RenderApp, RenderStage},
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: 1024.0,
-                height: 768.0,
-                title: "many_lights".to_string(),
+            primary_window: Some(Window {
+                resolution: (1024.0, 768.0).into(),
+                title: "many_lights".into(),
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
@@ -47,10 +46,13 @@ fn setup(
     const N_LIGHTS: usize = 100_000;
 
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Icosphere {
-            radius: RADIUS,
-            subdivisions: 9,
-        })),
+        mesh: meshes.add(
+            Mesh::try_from(shape::Icosphere {
+                radius: RADIUS,
+                subdivisions: 9,
+            })
+            .unwrap(),
+        ),
         material: materials.add(StandardMaterial::from(Color::WHITE)),
         transform: Transform::from_scale(Vec3::NEG_ONE),
         ..default()
@@ -102,7 +104,7 @@ fn setup(
         mesh,
         material,
         transform: Transform {
-            translation: Vec3::new(0.0, RADIUS as f32, 0.0),
+            translation: Vec3::new(0.0, RADIUS, 0.0),
             scale: Vec3::splat(5.0),
             ..default()
         },

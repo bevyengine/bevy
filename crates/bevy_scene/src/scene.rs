@@ -65,7 +65,7 @@ impl Scene {
             for scene_entity in archetype.entities() {
                 let entity = *instance_info
                     .entity_map
-                    .entry(*scene_entity)
+                    .entry(scene_entity.entity())
                     .or_insert_with(|| world.spawn_empty().id());
                 for component_id in archetype.components() {
                     let component_info = self
@@ -86,7 +86,7 @@ impl Scene {
                                 }
                             })
                         })?;
-                    reflect_component.copy(&self.world, world, *scene_entity, entity);
+                    reflect_component.copy(&self.world, world, scene_entity.entity(), entity);
                 }
             }
         }

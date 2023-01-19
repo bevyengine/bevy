@@ -2,11 +2,12 @@
 //! animation to stress test skinned meshes.
 
 use std::f32::consts::PI;
+use std::time::Duration;
 
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 
 #[derive(Resource)]
@@ -19,11 +20,11 @@ struct Foxes {
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".to_string(),
+            primary_window: Some(Window {
+                title: "🦊🦊🦊 Many Foxes! 🦊🦊🦊".into(),
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin)
@@ -113,7 +114,7 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                SpatialBundle::VISIBLE_IDENTITY,
+                SpatialBundle::INHERITED_IDENTITY,
                 ring_direction,
                 Ring { radius },
             ))
@@ -131,7 +132,7 @@ fn setup(
             commands.entity(ring_parent).with_children(|builder| {
                 builder.spawn(SceneBundle {
                     scene: fox_handle.clone(),
-                    transform: Transform::from_xyz(x as f32, 0.0, z as f32)
+                    transform: Transform::from_xyz(x, 0.0, z)
                         .with_scale(Vec3::splat(0.01))
                         .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
                     ..default()
@@ -266,7 +267,10 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Return) {
             player
-                .play(animations.0[*current_animation].clone_weak())
+                .play_with_transition(
+                    animations.0[*current_animation].clone_weak(),
+                    Duration::from_millis(250),
+                )
                 .repeat();
         }
     }

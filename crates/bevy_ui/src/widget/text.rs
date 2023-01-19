@@ -9,10 +9,10 @@ use bevy_math::Vec2;
 use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, Text, TextError, TextLayoutInfo, TextPipeline, TextSettings,
-    YAxisOrientation,
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
+    TextSettings, YAxisOrientation,
 };
-use bevy_window::Windows;
+use bevy_window::{PrimaryWindow, Window};
 
 #[derive(Debug, Default)]
 pub struct QueuedText {
@@ -51,8 +51,9 @@ pub fn text_system(
     mut last_scale_factor: Local<f64>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    windows: Res<Windows>,
+    windows: Query<&Window, With<PrimaryWindow>>,
     text_settings: Res<TextSettings>,
+    mut font_atlas_warning: ResMut<FontAtlasWarning>,
     ui_scale: Res<UiScale>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
@@ -68,13 +69,11 @@ pub fn text_system(
         )>,
     )>,
 ) {
-    // TODO: This should support window-independent scale settings.
-    // See https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = if let Some(window) = windows.get_primary() {
-        window.scale_factor() * ui_scale.scale
-    } else {
-        ui_scale.scale
-    };
+    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
+    let scale_factor = windows
+        .get_single()
+        .map(|window| window.resolution.scale_factor())
+        .unwrap_or(ui_scale.scale);
 
     let inv_scale_factor = 1. / scale_factor;
 
@@ -126,6 +125,7 @@ pub fn text_system(
                 &mut texture_atlases,
                 &mut textures,
                 text_settings.as_ref(),
+                &mut font_atlas_warning,
                 YAxisOrientation::TopToBottom,
             ) {
                 Err(TextError::NoSuchFont) => {
@@ -133,9 +133,8 @@ pub fn text_system(
                     // queue for further processing
                     new_queue.push(entity);
                 }
-                Err(e @ TextError::FailedToAddGlyph(_))
-                | Err(e @ TextError::ExceedMaxTextAtlases(_)) => {
-                    panic!("Fatal error when processing text: {}.", e);
+                Err(e @ TextError::FailedToAddGlyph(_)) => {
+                    panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(info) => {
                     calculated_size.size = Size {

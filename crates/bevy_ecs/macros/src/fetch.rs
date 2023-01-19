@@ -52,8 +52,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                         fetch_struct_attributes.is_mutable = true;
                     } else {
                         panic!(
-                            "The `{}` attribute is expected to have no value or arguments",
-                            MUTABLE_ATTRIBUTE_NAME
+                            "The `{MUTABLE_ATTRIBUTE_NAME}` attribute is expected to have no value or arguments",
                         );
                     }
                 } else if ident == DERIVE_ATTRIBUTE_NAME {
@@ -63,8 +62,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                             .extend(meta_list.nested.iter().cloned());
                     } else {
                         panic!(
-                            "Expected a structured list within the `{}` attribute",
-                            DERIVE_ATTRIBUTE_NAME
+                            "Expected a structured list within the `{DERIVE_ATTRIBUTE_NAME}` attribute",
                         );
                     }
                 } else {
@@ -76,7 +74,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
             }
             Ok(())
         })
-        .unwrap_or_else(|_| panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME));
+        .unwrap_or_else(|_| panic!("Invalid `{WORLD_QUERY_ATTRIBUTE_NAME}` attribute format"));
     }
 
     let path = bevy_ecs_path();
@@ -93,26 +91,26 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
     let struct_name = ast.ident.clone();
     let read_only_struct_name = if fetch_struct_attributes.is_mutable {
-        Ident::new(&format!("{}ReadOnly", struct_name), Span::call_site())
+        Ident::new(&format!("{struct_name}ReadOnly"), Span::call_site())
     } else {
         struct_name.clone()
     };
 
-    let item_struct_name = Ident::new(&format!("{}Item", struct_name), Span::call_site());
+    let item_struct_name = Ident::new(&format!("{struct_name}Item"), Span::call_site());
     let read_only_item_struct_name = if fetch_struct_attributes.is_mutable {
-        Ident::new(&format!("{}ReadOnlyItem", struct_name), Span::call_site())
+        Ident::new(&format!("{struct_name}ReadOnlyItem"), Span::call_site())
     } else {
         item_struct_name.clone()
     };
 
-    let fetch_struct_name = Ident::new(&format!("{}Fetch", struct_name), Span::call_site());
+    let fetch_struct_name = Ident::new(&format!("{struct_name}Fetch"), Span::call_site());
     let read_only_fetch_struct_name = if fetch_struct_attributes.is_mutable {
-        Ident::new(&format!("{}ReadOnlyFetch", struct_name), Span::call_site())
+        Ident::new(&format!("{struct_name}ReadOnlyFetch"), Span::call_site())
     } else {
         fetch_struct_name.clone()
     };
 
-    let state_struct_name = Ident::new(&format!("{}State", struct_name), Span::call_site());
+    let state_struct_name = Ident::new(&format!("{struct_name}State"), Span::call_site());
 
     let fields = match &ast.data {
         Data::Struct(DataStruct {
@@ -180,35 +178,37 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
 
         quote! {
             #derive_macro_call
+            #[doc = "Automatically generated [`WorldQuery`] item type for [`"]
+            #[doc = stringify!(#struct_name)]
+            #[doc = "`], returned when iterating over query results."]
             #[automatically_derived]
             #visibility struct #item_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-                #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Item,)*
+                #(#(#field_attrs)* #field_visibilities #field_idents: <#field_types as #path::query::WorldQuery>::Item<'__w>,)*
                 #(#(#ignored_field_attrs)* #ignored_field_visibilities #ignored_field_idents: #ignored_field_types,)*
             }
 
             #[doc(hidden)]
+            #[doc = "Automatically generated internal [`WorldQuery`] fetch type for [`"]
+            #[doc = stringify!(#struct_name)]
+            #[doc = "`], used to define the world data accessed by this query."]
+            #[automatically_derived]
             #visibility struct #fetch_struct_name #user_impl_generics_with_world #user_where_clauses_with_world {
-                #(#field_idents: <#field_types as #path::query::WorldQueryGats<'__w>>::Fetch,)*
+                #(#field_idents: <#field_types as #path::query::WorldQuery>::Fetch<'__w>,)*
                 #(#ignored_field_idents: #ignored_field_types,)*
             }
 
             // SAFETY: `update_component_access` and `update_archetype_component_access` are called on every field
-
-            impl #user_impl_generics_with_world #path::query::WorldQueryGats<'__w>
-                for #struct_name #user_ty_generics #user_where_clauses {
-                    type Item = #item_struct_name #user_ty_generics_with_world;
-                    type Fetch = #fetch_struct_name #user_ty_generics_with_world;
-                }
-
             unsafe impl #user_impl_generics #path::query::WorldQuery
                 for #struct_name #user_ty_generics #user_where_clauses {
 
+                type Item<'__w> = #item_struct_name #user_ty_generics_with_world;
+                type Fetch<'__w> = #fetch_struct_name #user_ty_generics_with_world;
                 type ReadOnly = #read_only_struct_name #user_ty_generics;
                 type State = #state_struct_name #user_ty_generics;
 
                 fn shrink<'__wlong: '__wshort, '__wshort>(
-                    item: <#struct_name #user_ty_generics as #path::query::WorldQueryGats<'__wlong>>::Item
-                ) -> <#struct_name #user_ty_generics as #path::query::WorldQueryGats<'__wshort>>::Item {
+                    item: <#struct_name #user_ty_generics as #path::query::WorldQuery>::Item<'__wlong>
+                ) -> <#struct_name #user_ty_generics as #path::query::WorldQuery>::Item<'__wshort> {
                     #item_struct_name {
                         #(
                             #field_idents: <#field_types>::shrink(item.#field_idents),
@@ -224,7 +224,7 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                     state: &Self::State,
                     _last_change_tick: u32,
                     _change_tick: u32
-                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Fetch {
+                ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
                     #fetch_struct_name {
                         #(#field_idents:
                             <#field_types>::init_fetch(
@@ -239,8 +239,8 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 }
 
                 unsafe fn clone_fetch<'__w>(
-                    _fetch: &<Self as #path::query::WorldQueryGats<'__w>>::Fetch
-                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Fetch {
+                    _fetch: &<Self as #path::query::WorldQuery>::Fetch<'__w>
+                ) -> <Self as #path::query::WorldQuery>::Fetch<'__w> {
                     #fetch_struct_name {
                         #(
                             #field_idents: <#field_types>::clone_fetch(& _fetch. #field_idents),
@@ -258,58 +258,45 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
                 /// SAFETY: we call `set_archetype` for each member that implements `Fetch`
                 #[inline]
                 unsafe fn set_archetype<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _state: &Self::State,
                     _archetype: &'__w #path::archetype::Archetype,
-                    _tables: &'__w #path::storage::Tables
+                    _table: &'__w #path::storage::Table
                 ) {
-                    #(<#field_types>::set_archetype(&mut _fetch.#field_idents, &_state.#field_idents, _archetype, _tables);)*
+                    #(<#field_types>::set_archetype(&mut _fetch.#field_idents, &_state.#field_idents, _archetype, _table);)*
                 }
 
                 /// SAFETY: we call `set_table` for each member that implements `Fetch`
                 #[inline]
                 unsafe fn set_table<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                     _state: &Self::State,
                     _table: &'__w #path::storage::Table
                 ) {
                     #(<#field_types>::set_table(&mut _fetch.#field_idents, &_state.#field_idents, _table);)*
                 }
 
-                /// SAFETY: we call `table_fetch` for each member that implements `Fetch`.
-                #[inline]
-                unsafe fn table_fetch<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
-                    _table_row: usize
-                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Item {
+                /// SAFETY: we call `fetch` for each member that implements `Fetch`.
+                #[inline(always)]
+                unsafe fn fetch<'__w>(
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                    _entity: #path::entity::Entity,
+                    _table_row: #path::storage::TableRow,
+                ) -> <Self as #path::query::WorldQuery>::Item<'__w> {
                     Self::Item {
-                        #(#field_idents: <#field_types>::table_fetch(&mut _fetch.#field_idents, _table_row),)*
-                        #(#ignored_field_idents: Default::default(),)*
-                    }
-                }
-
-                /// SAFETY: we call `archetype_fetch` for each member that implements `Fetch`.
-                #[inline]
-                unsafe fn archetype_fetch<'__w>(
-                    _fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch,
-                    _archetype_index: usize
-                ) -> <Self as #path::query::WorldQueryGats<'__w>>::Item {
-                    Self::Item {
-                        #(#field_idents: <#field_types>::archetype_fetch(&mut _fetch.#field_idents, _archetype_index),)*
+                        #(#field_idents: <#field_types>::fetch(&mut _fetch.#field_idents, _entity, _table_row),)*
                         #(#ignored_field_idents: Default::default(),)*
                     }
                 }
 
                 #[allow(unused_variables)]
-                #[inline]
-                unsafe fn table_filter_fetch<'__w>(_fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch, _table_row: usize) -> bool {
-                    true #(&& <#field_types>::table_filter_fetch(&mut _fetch.#field_idents, _table_row))*
-                }
-
-                #[allow(unused_variables)]
-                #[inline]
-                unsafe fn archetype_filter_fetch<'__w>(_fetch: &mut <Self as #path::query::WorldQueryGats<'__w>>::Fetch, _archetype_index: usize) -> bool {
-                    true #(&& <#field_types>::archetype_filter_fetch(&mut _fetch.#field_idents, _archetype_index))*
+                #[inline(always)]
+                unsafe fn filter_fetch<'__w>(
+                    _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
+                    _entity: #path::entity::Entity,
+                    _table_row: #path::storage::TableRow,
+                ) -> bool {
+                    true #(&& <#field_types>::filter_fetch(&mut _fetch.#field_idents, _entity, _table_row))*
                 }
 
                 fn update_component_access(state: &Self::State, _access: &mut #path::query::FilteredAccess<#path::component::ComponentId>) {
@@ -344,6 +331,9 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
     let readonly_impl = if fetch_struct_attributes.is_mutable {
         let world_query_impl = impl_fetch(true);
         quote! {
+            #[doc = "Automatically generated [`WorldQuery`] type for a read-only variant of [`"]
+            #[doc = stringify!(#struct_name)]
+            #[doc = "`]."]
             #[automatically_derived]
             #visibility struct #read_only_struct_name #user_impl_generics #user_where_clauses {
                 #( #field_idents: #read_only_field_types, )*
@@ -382,6 +372,10 @@ pub fn derive_world_query_impl(ast: DeriveInput) -> TokenStream {
         #readonly_impl
 
         #[doc(hidden)]
+        #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
+        #[doc = stringify!(#struct_name)]
+        #[doc = "`], used for caching."]
+        #[automatically_derived]
         #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
             #(#field_idents: <#field_types as #path::query::WorldQuery>::State,)*
             #(#ignored_field_idents: #ignored_field_types,)*
@@ -451,9 +445,7 @@ fn read_world_query_field_info(field: &Field) -> WorldQueryFieldInfo {
                 }
                 Ok(())
             })
-            .unwrap_or_else(|_| {
-                panic!("Invalid `{}` attribute format", WORLD_QUERY_ATTRIBUTE_NAME)
-            });
+            .unwrap_or_else(|_| panic!("Invalid `{WORLD_QUERY_ATTRIBUTE_NAME}` attribute format"));
 
             is_ignored
         });

@@ -245,23 +245,19 @@ fn velocity_system(time: Res<Time>, mut velocity_query: Query<&mut Velocity>) {
 /// velocity. On collision with the ground it applies an upwards
 /// force.
 fn collision_system(
-    windows: Res<Windows>,
+    windows: Query<&Window>,
     mut query: Query<(&mut Velocity, &mut Transform), With<Contributor>>,
 ) {
-    let window = if let Some(window) = windows.get_primary() {
-        window
-    } else {
-        return;
-    };
+    let window = windows.single();
 
     let ceiling = window.height() / 2.;
-    let ground = -(window.height() / 2.);
+    let ground = -window.height() / 2.;
 
-    let wall_left = -(window.width() / 2.);
+    let wall_left = -window.width() / 2.;
     let wall_right = window.width() / 2.;
 
     // The maximum height the birbs should try to reach is one birb below the top of the window.
-    let max_bounce_height = window.height() - SPRITE_SIZE * 2.0;
+    let max_bounce_height = (window.height() - SPRITE_SIZE * 2.0).max(0.0);
 
     let mut rng = rand::thread_rng();
 
@@ -276,7 +272,7 @@ fn collision_system(
             transform.translation.y = ground + SPRITE_SIZE / 2.0;
 
             // How high this birb will bounce.
-            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..max_bounce_height);
+            let bounce_height = rng.gen_range((max_bounce_height * 0.4)..=max_bounce_height);
 
             // Apply the velocity that would bounce the birb up to bounce_height.
             velocity.translation.y = (bounce_height * GRAVITY * 2.).sqrt();

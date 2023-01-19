@@ -37,8 +37,8 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
 }
 
 // Bounce sprites outside the window
-fn bounce_system(windows: Res<Windows>, mut sprites: Query<(&Transform, &mut Velocity)>) {
-    let window = windows.primary();
+fn bounce_system(windows: Query<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
+    let window = windows.single();
     let width = window.width();
     let height = window.height();
     let left = width / -2.0;

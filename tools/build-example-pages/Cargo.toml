@@ -1,6 +1,6 @@
 [package]
 name = "build-example-pages"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 description = "handle examples in Bevy"
 publish = false

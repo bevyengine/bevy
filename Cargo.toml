@@ -1,6 +1,6 @@
 [package]
 name = "bevy"
-version = "0.9.0-dev"
+version = "0.9.0"
 edition = "2021"
 categories = ["game-engines", "graphics", "gui", "rendering"]
 description = "A refreshingly simple data-driven game engine and app framework"
@@ -10,11 +10,13 @@ keywords = ["game", "engine", "gamedev", "graphics", "bevy"]
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/bevyengine/bevy"
+rust-version = "1.66.0"
 
 [workspace]
-exclude = ["benches", "crates/bevy_ecs_compile_fail_tests"]
+exclude = ["benches", "crates/bevy_ecs_compile_fail_tests", "crates/bevy_reflect_compile_fail_tests"]
 members = [
   "crates/*",
+  "examples/android",
   "examples/ios",
   "tools/ci",
   "tools/spancmp",
@@ -31,7 +33,13 @@ default = [
   "bevy_gilrs",
   "bevy_scene",
   "bevy_winit",
-  "render",
+  "bevy_core_pipeline",
+  "bevy_pbr",
+  "bevy_gltf",
+  "bevy_render",
+  "bevy_sprite",
+  "bevy_text",
+  "bevy_ui",
   "png",
   "hdr",
   "vorbis",
@@ -41,17 +49,6 @@ default = [
 
 # Force dynamic linking, which improves iterative compile times
 dynamic = ["bevy_dylib"]
-
-# Rendering support
-render = [
-  "bevy_internal/bevy_core_pipeline",
-  "bevy_internal/bevy_pbr",
-  "bevy_internal/bevy_gltf",
-  "bevy_internal/bevy_render",
-  "bevy_internal/bevy_sprite",
-  "bevy_internal/bevy_text",
-  "bevy_internal/bevy_ui",
-]
 
 # Optional bevy crates
 bevy_animation = ["bevy_internal/bevy_animation"]
@@ -93,6 +90,13 @@ flac = ["bevy_internal/flac"]
 mp3 = ["bevy_internal/mp3"]
 vorbis = ["bevy_internal/vorbis"]
 wav = ["bevy_internal/wav"]
+symphonia-aac = ["bevy_internal/symphonia-aac"]
+symphonia-all = ["bevy_internal/symphonia-all"]
+symphonia-flac = ["bevy_internal/symphonia-flac"]
+symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
+symphonia-mp3 = ["bevy_internal/symphonia-mp3"]
+symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
+symphonia-wav = ["bevy_internal/symphonia-wav"]
 
 # Enable watching file system for asset hot reload
 filesystem_watcher = ["bevy_internal/filesystem_watcher"]
@@ -116,11 +120,11 @@ debug_asset_server = ["bevy_internal/debug_asset_server"]
 animation = ["bevy_internal/animation"]
 
 [dependencies]
-bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0-dev", default-features = false, optional = true }
-bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev", default-features = false }
+bevy_dylib = { path = "crates/bevy_dylib", version = "0.9.0", default-features = false, optional = true }
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-bevy_internal = { path = "crates/bevy_internal", version = "0.9.0-dev", default-features = false, features = [
+bevy_internal = { path = "crates/bevy_internal", version = "0.9.0", default-features = false, features = [
   "webgl",
 ] }
 
@@ -262,6 +266,16 @@ description = "Demonstrates transparency in 2d"
 category = "2D Rendering"
 wasm = true
 
+[[example]]
+name = "pixel_perfect"
+path = "examples/2d/pixel_perfect.rs"
+
+[package.metadata.example.pixel_perfect]
+name = "Pixel Perfect"
+description = "Demonstrates pixel perfect in 2d"
+category = "2D Rendering"
+wasm = true
+
 # 3D Rendering
 [[example]]
 name = "3d_scene"
@@ -314,12 +328,32 @@ category = "3D Rendering"
 wasm = true
 
 [[example]]
+name = "bloom"
+path = "examples/3d/bloom.rs"
+
+[package.metadata.example.bloom]
+name = "Bloom"
+description = "Illustrates bloom configuration using HDR and emissive materials"
+category = "3D Rendering"
+wasm = false
+
+[[example]]
 name = "load_gltf"
 path = "examples/3d/load_gltf.rs"
 
 [package.metadata.example.load_gltf]
 name = "Load glTF"
 description = "Loads and renders a glTF file as a scene"
+category = "3D Rendering"
+wasm = true
+
+[[example]]
+name = "fxaa"
+path = "examples/3d/fxaa.rs"
+
+[package.metadata.example.fxaa]
+name = "FXAA"
+description = "Compares MSAA (Multi-Sample Anti-Aliasing) and FXAA (Fast Approximate Anti-Aliasing)"
 category = "3D Rendering"
 wasm = true
 
@@ -726,6 +760,16 @@ path = "examples/audio/audio_control.rs"
 [package.metadata.example.audio_control]
 name = "Audio Control"
 description = "Shows how to load and play an audio file, and control how it's played"
+category = "Audio"
+wasm = true
+
+[[example]]
+name = "decodable"
+path = "examples/audio/decodable.rs"
+
+[package.metadata.example.decodable]
+name = "Decodable"
+description = "Shows how to create and register a custom audio source by implementing the `Decodable` type."
 category = "Audio"
 wasm = true
 
@@ -1332,7 +1376,7 @@ wasm = true
 # Tools
 [[example]]
 name = "scene_viewer"
-path = "examples/tools/scene_viewer.rs"
+path = "examples/tools/scene_viewer/main.rs"
 
 [package.metadata.example.scene_viewer]
 name = "Scene Viewer"
@@ -1349,17 +1393,6 @@ name = "Gamepad Viewer"
 description = "Shows a visualization of gamepad buttons, sticks, and triggers"
 category = "Tools"
 wasm = false
-
-# Transforms
-[[example]]
-name = "global_vs_local_translation"
-path = "examples/transforms/global_vs_local_translation.rs"
-
-[package.metadata.example.global_vs_local_translation]
-name = "Global / Local Translation"
-description = "Illustrates the difference between direction of a translation in respect to local object or global object Transform"
-category = "Transforms"
-wasm = true
 
 [[example]]
 name = "3d_rotation"
@@ -1413,12 +1446,32 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "window_fallthrough"
+path = "examples/ui/window_fallthrough.rs"
+
+[package.metadata.example.window_fallthrough]
+name = "Window Fallthrough"
+description = "Illustrates how to access `winit::window::Window`'s `hittest` functionality."
+category = "UI (User Interface)"
+wasm = false
+
+[[example]]
 name = "font_atlas_debug"
 path = "examples/ui/font_atlas_debug.rs"
 
 [package.metadata.example.font_atlas_debug]
 name = "Font Atlas Debug"
 description = "Illustrates how FontAtlases are populated (used to optimize text rendering internally)"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "relative_cursor_position"
+path = "examples/ui/relative_cursor_position.rs"
+
+[package.metadata.example.relative_cursor_position]
+name = "Relative Cursor Position"
+description = "Showcases the RelativeCursorPosition component"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1449,6 +1502,16 @@ path = "examples/ui/transparency_ui.rs"
 [package.metadata.example.transparency_ui]
 name = "Transparency UI"
 description = "Demonstrates transparency for UI"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "z_index"
+path = "examples/ui/z_index.rs"
+
+[package.metadata.example.z_index]
+name = "UI Z-Index"
+description = "Demonstrates how to control the relative depth (z-position) of UI elements"
 category = "UI (User Interface)"
 wasm = true
 
@@ -1557,31 +1620,13 @@ description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
 wasm = true
 
-# Android
-[[example]]
-crate-type = ["cdylib"]
-name = "android_example"
-path = "examples/android/android.rs"
-
-[package.metadata.example.android_example]
-hidden = true
-
-[package.metadata.android]
-package = "org.bevyengine.example"
-apk_name = "bevyexample"
-assets = "assets"
-resources = "assets/android-res"
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
-
-[package.metadata.android.application]
-icon = "@mipmap/ic_launcher"
-label = "Bevy Example"
-
 [profile.wasm-release]
 inherits = "release"
 opt-level = "z"
 lto = "fat"
 codegen-units = 1
+
+[profile.stress-test]
+inherits = "release"
+lto = "fat"
+panic = "abort"

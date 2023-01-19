@@ -169,7 +169,7 @@ impl<'a> RenderGraphContext<'a> {
             .graph
             .get_sub_graph(&name)
             .ok_or_else(|| RunSubGraphError::MissingSubGraph(name.clone()))?;
-        if let Some(input_node) = sub_graph.input_node() {
+        if let Some(input_node) = sub_graph.get_input_node() {
             for (i, input_slot) in input_node.input_slots.iter().enumerate() {
                 if let Some(input_value) = inputs.get(i) {
                     if input_slot.slot_type != input_value.slot_type() {
