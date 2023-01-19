@@ -47,7 +47,7 @@ impl CommandQueue {
             apply_command_and_get_size: |ptr, world| {
                 // SAFETY: The safety invariants of the field `CommandMeta.apply_command_and_get_size`
                 // guarantee that `ptr` will point to a value of type `C`.
-                let command = unsafe { ptr.read_unaligned::<C>() };
+                let command: C = unsafe { ptr.read_unaligned() };
                 command.write(world);
                 std::mem::size_of::<C>()
             },
