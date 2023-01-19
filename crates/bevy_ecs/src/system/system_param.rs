@@ -175,7 +175,8 @@ pub unsafe trait SystemParam: Sized {
 /// A [`SystemParam`] that only reads a given [`World`].
 ///
 /// # Safety
-/// This must only be implemented for [`SystemParam`] impls that exclusively read the World passed in to [`SystemParam::get_param`]
+///
+/// This must only be implemented for [`SystemParam`] impls that exclusively read the `World` passed in to [`SystemParam::get_param`].
 pub unsafe trait ReadOnlySystemParam: SystemParam {}
 
 /// Shorthand way of accessing the associated type [`SystemParam::Item`] for a given [`SystemParam`].
