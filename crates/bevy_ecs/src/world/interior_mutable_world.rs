@@ -456,6 +456,34 @@ impl<'w> InteriorMutableEntityRef<'w> {
         }
     }
 
+    /// Retrieves the change ticks for the given [`ComponentId`]. This can be useful for implementing change
+    /// detection in custom runtimes.
+    ///
+    /// **You should prefer to use the typed API [`InteriorMutableEntityRef::get_change_ticks`] where possible and only
+    /// use this in cases where the actual component types are not known at
+    /// compile time.**
+    ///
+    /// # Safety
+    /// It is the callers responsibility to ensure that
+    /// - the [`InteriorMutableEntityRef`] has permission to access the component
+    /// - no other mutable references to the component exist at the same time
+    #[inline]
+    pub fn get_change_ticks_by_id(&self, component_id: ComponentId) -> Option<ComponentTicks> {
+        let info = self.world.components().get_info(component_id)?;
+        // SAFETY:
+        // - entity location and entity is valid
+        // - world access is immutable, lifetime tied to `&self`
+        // - the storage type provided is correct for T
+        unsafe {
+            self.world.0.get_ticks(
+                component_id,
+                info.storage_type(),
+                self.entity,
+                self.location,
+            )
+        }
+    }
+
     /// # Safety
     /// It is the callers responsibility to ensure that
     /// - the [`InteriorMutableEntityRef`] has permission to access the component mutably
