@@ -71,5 +71,7 @@ impl AddAudioSource for App {
             .init_resource::<Audio<T>>()
             .init_non_send_resource::<AudioOutput<T>>()
             .add_system(play_queued_audio_system::<T>.in_set(CoreSet::PostUpdate))
+            .init_resource::<AudioOutput<T>>()
+            .add_system(play_queued_audio_system::<T>.in_set(CoreSet::PostUpdate))
     }
 }

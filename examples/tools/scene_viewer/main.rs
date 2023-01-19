@@ -9,6 +9,7 @@ use bevy::{
     math::Vec3A,
     prelude::*,
     render::primitives::{Aabb, Sphere},
+    window::WindowPlugin,
 };
 
 mod camera_controller_plugin;
@@ -26,10 +27,10 @@ fn main() {
     .add_plugins(
         DefaultPlugins
             .set(WindowPlugin {
-                window: WindowDescriptor {
+                primary_window: Some(Window {
                     title: "bevy scene viewer".to_string(),
                     ..default()
-                },
+                }),
                 ..default()
             })
             .set(AssetPlugin {

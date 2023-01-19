@@ -37,6 +37,7 @@ pub mod prelude {
     };
 }
 
+use bevy_window::{PrimaryWindow, RawHandleWrapper};
 use globals::GlobalsPlugin;
 pub use once_cell;
 
@@ -50,7 +51,7 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::prelude::*;
+use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
@@ -138,17 +139,17 @@ impl Plugin for RenderPlugin {
             .init_asset_loader::<ShaderLoader>()
             .init_debug_asset_loader::<ShaderLoader>();
 
-        if let Some(backends) = self.wgpu_settings.backends {
-            let windows = app.world.resource_mut::<bevy_window::Windows>();
-            let instance = wgpu::Instance::new(backends);
+        let mut system_state: SystemState<Query<&RawHandleWrapper, With<PrimaryWindow>>> =
+            SystemState::new(&mut app.world);
+        let primary_window = system_state.get(&app.world);
 
-            let surface = windows
-                .get_primary()
-                .and_then(|window| window.raw_handle())
-                .map(|wrapper| unsafe {
-                    let handle = wrapper.get_handle();
-                    instance.create_surface(&handle)
-                });
+        if let Some(backends) = self.wgpu_settings.backends {
+            let instance = wgpu::Instance::new(backends);
+            let surface = primary_window.get_single().ok().map(|wrapper| unsafe {
+                // SAFETY: Plugins should be set up on the main thread.
+                let handle = wrapper.get_handle();
+                instance.create_surface(&handle)
+            });
 
             let request_adapter_options = wgpu::RequestAdapterOptions {
                 power_preference: self.wgpu_settings.power_preference,

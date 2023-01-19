@@ -9,20 +9,21 @@ use bevy::{
     pbr::{ExtractedPointLight, GlobalLightMeta},
     prelude::*,
     render::{camera::ScalingMode, Extract, RenderApp, RenderSet},
+    render::{camera::ScalingMode, Extract, RenderApp, RenderStage},
     window::PresentMode,
+    window::{PresentMode, WindowPlugin},
 };
 use rand::{thread_rng, Rng};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                width: 1024.0,
-                height: 768.0,
-                title: "many_lights".to_string(),
+            primary_window: Some(Window {
+                resolution: (1024.0, 768.0).into(),
+                title: "many_lights".into(),
                 present_mode: PresentMode::AutoNoVsync,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
@@ -158,8 +159,8 @@ impl Plugin for LogVisibleLights {
         };
 
         render_app
-            .add_system_to_stage(RenderSet::Extract, extract_time)
-            .add_system_to_stage(RenderSet::Prepare, print_visible_light_count);
+            .add_system(extract_time.in_set(RenderSet::Extract))
+            .add_system(print_visible_light_count.in_set(RenderSet::Prepare));
     }
 }
 
