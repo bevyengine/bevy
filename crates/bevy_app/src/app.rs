@@ -4,8 +4,9 @@ use bevy_ecs::{
     event::{Event, Events},
     prelude::FromWorld,
     schedule::{
-        apply_system_buffers, BoxedScheduleLabel, IntoSystemConfig, IntoSystemConfigs, Schedule,
-        ScheduleLabel, Schedules, States,
+        apply_state_transition, apply_system_buffers, BoxedScheduleLabel, IntoSystemConfig,
+        IntoSystemConfigs, NextState, OnEnter, OnExit, OnUpdate, Schedule, ScheduleLabel,
+        Schedules, State, States,
     },
     system::Resource,
     world::World,
@@ -219,8 +220,33 @@ impl App {
 
     /// Adds [`State<S>`] and [`NextState<S>`] resources, [`OnEnter`] and [`OnExit`] schedules
     /// for each state variant, and an instance of [`apply_state_transition::<S>`] in
-    /// \<insert-`bevy_core`-set-name\> so that transitions happen before `Update`.
-    pub fn add_state<S: States>(&mut self) -> &mut Self;
+    /// [`CoreSet::StateTransitions`] so that transitions happen before [`CoreSet::Update`].
+    ///
+    /// This also adds an [`OnUpdate`] system set for each state variant,
+    /// which run during [`CoreSet::StateTransitions`] after the transitions are applied.
+    /// These systems sets only run if the [`State<S>`] resource matches their label.
+    ///
+    /// Note that you can also apply state tranitions at other points in the schedule
+    /// by adding the [`apply_state_transition`] system manually.
+    pub fn add_state<S: States>(&mut self) -> &mut Self {
+        self.init_resource::<State<S>>();
+        self.init_resource::<NextState<S>>();
+        self.add_system(apply_state_transition::<S>.in_set(CoreSet::StateTransitions));
+        let main_schedule = self.schedule_mut(CoreSchedule::Main).unwrap();
+
+        for variant in S::variants() {
+            self.add_schedule(OnEnter(variant), Schedule::new());
+            self.add_schedule(OnExit(variant), Schedule::new());
+            main_schedule.configure_set(
+                OnUpdate(variant)
+                    .in_set(CoreSet::StateTransitions)
+                    .run_if_state_equals(variant)
+                    .after(apply_state_transition::<S>),
+            );
+        }
+
+        self
+    }
 
     /// Adds a system to the default system set and schedule of the app's [`Schedules`].
     ///
@@ -455,6 +481,7 @@ impl App {
         // Ordering
         main_schedule.configure_set(CoreSet::First.before(CoreSet::PreUpdate));
         main_schedule.configure_set(CoreSet::PreUpdate.before(CoreSet::Update));
+        main_schedule.configure_set(CoreSet::StateTransitions.before(CoreSet::Update));
         main_schedule.configure_set(CoreSet::PostUpdate.after(CoreSet::Update));
         main_schedule.configure_set(CoreSet::Last.after(CoreSet::PostUpdate));
 
@@ -467,6 +494,12 @@ impl App {
         main_schedule.add_system(
             apply_system_buffers
                 .after(CoreSet::PreUpdate)
+                .before(CoreSet::StateTransitions),
+        );
+
+        main_schedule.add_system(
+            apply_system_buffers
+                .after(CoreSet::StateTransitions)
                 .before(CoreSet::Update),
         );
 

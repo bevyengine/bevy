@@ -8,11 +8,13 @@ use crate::system::Resource;
 use crate::world::World;
 
 /// Types that can define states in a finite-state machine.
-pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
+///
+/// The [`Default`] trait defines the starting state.
+pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug + Default {
     type Iter: Iterator<Item = Self>;
 
     /// Returns an iterator over all the state variants.
-    fn states() -> Self::Iter;
+    fn variants() -> Self::Iter;
 }
 
 /// The label of a [`Schedule`](super::Schedule) that runs whenever [`State<S>`]
@@ -25,7 +27,7 @@ pub struct OnEnter<S: States>(pub S);
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct OnExit<S: States>(pub S);
 
-/// A [`SystemSet`] that will run within \<insert-`bevy_core`-set-name\> when this state is active.
+/// A [`SystemSet`] that will run within `CoreSet::StateTransitions` when this state is active.
 ///
 /// This is provided for convenience. A more general [`state_equals`](super::state_equals)
 /// [condition](super::Condition) also exists for systems that need to run elsewhere.
@@ -38,13 +40,15 @@ pub struct OnUpdate<S: States>(pub S);
 /// The current state value can be accessed through this resource. To *change* the state,
 /// queue a transition in the [`NextState<S>`] resource, and it will be applied by the next
 /// [`apply_state_transition::<S>`] system.
-#[derive(Resource)]
+///
+/// The starting state is defined via the [`Default`] implementation for `S`.
+#[derive(Resource, Default)]
 pub struct State<S: States>(pub S);
 
 /// The next state of [`State<S>`].
 ///
 /// To queue a transition, just set the contained value to `Some(next_state)`.
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct NextState<S: States>(pub Option<S>);
 
 /// If a new state is queued in [`NextState<S>`], this system:

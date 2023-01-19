@@ -40,6 +40,8 @@ pub enum CoreSchedule {
 
 /// The names of the default [`App`] system sets.
 ///
+/// These are ordered in the same order they are listed.
+///
 /// The corresponding [`SystemSets`](bevy_ecs::schedule::SystemSet) are added by [`App::add_default_sets`].
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum CoreSet {
@@ -47,6 +49,8 @@ pub enum CoreSet {
     First,
     /// Runs before [`CoreStage::Update`].
     PreUpdate,
+    /// Applies [`State`](bevy_ecs::schedule::State) transitions
+    StateTransitions,
     /// Responsible for doing most app logic. Systems should be registered here by default.
     Update,
     /// Runs after [`CoreStage::Update`].
