@@ -168,44 +168,50 @@ pub(crate) mod test_setup {
         });
         event.send(RequestRedraw);
         commands.spawn((
-            TextBundle::from_sections([
-                TextSection::new(
-                    "Press spacebar to cycle modes\n",
-                    TextStyle {
+            TextBundle {
+                text: Text::from_sections([
+                    TextSection::new(
+                        "Press spacebar to cycle modes\n",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 50.0,
+                            color: Color::WHITE,
+                        },
+                    ),
+                    TextSection::from_style(TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
-                        color: Color::WHITE,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 50.0,
-                    color: Color::GREEN,
-                }),
-                TextSection::new(
-                    "\nFrame: ",
-                    TextStyle {
+                        color: Color::GREEN,
+                    }),
+                    TextSection::new(
+                        "\nFrame: ",
+                        TextStyle {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 50.0,
+                            color: Color::YELLOW,
+                        },
+                    ),
+                    TextSection::from_style(TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                         font_size: 50.0,
                         color: Color::YELLOW,
-                    },
-                ),
-                TextSection::from_style(TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                    font_size: 50.0,
-                    color: Color::YELLOW,
-                }),
-            ])
-            .with_style(Style {
-                align_self: AlignSelf::FlexStart,
-                position_type: PositionType::Absolute,
-                position: UiRect {
-                    top: Val::Px(5.0),
-                    left: Val::Px(5.0),
+                    }),
+                ]),
+                control: LayoutControl {
+                    position: Position::Absolute,
+                    inset: Inset(UiRect {
+                        top: Val::Px(5.0),
+                        left: Val::Px(5.0),
+                        ..default()
+                    }),
+                    ..default()
+                },
+                child_layout: FlexItem {
+                    align_self: AlignSelf::FlexStart,
                     ..default()
                 },
                 ..default()
-            }),
+            },
             ModeText,
         ));
     }

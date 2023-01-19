@@ -1,8 +1,9 @@
 use crate::Val;
 use bevy_reflect::Reflect;
+use serde::{Deserialize, Serialize};
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-/// A type which is commonly used to define positions, margins, paddings and borders.
+/// A type which is commonly used throughout UI and layouting, commonly used to define inset, margins, paddings and borders.
 ///
 /// # Examples
 ///
@@ -65,61 +66,17 @@ use std::ops::{Div, DivAssign, Mul, MulAssign};
 /// right values of the position because the size of the UI element is already explicitly specified.
 ///
 /// ```
-/// # use bevy_ui::{UiRect, Size, Val, Style};
+/// # use bevy_ui::{UiRect, Size, Val, SizeConstraints, Inset};
 /// # use bevy_utils::default;
 /// #
-/// let style = Style {
-///     position: UiRect { // Defining all four sides
-///         left: Val::Px(100.0),
-///         right: Val::Px(200.0),
-///         top: Val::Px(300.0),
-///         bottom: Val::Px(400.0),
-///     },
-///     size: Size::new(Val::Percent(100.0), Val::Percent(50.0)), // but also explicitly specifying a size
-///     ..default()
-/// };
-/// ```
+/// let inset = Inset(UiRect {
+///     left: Val::Px(100.0),
+///     right: Val::Px(200.0),
+///     top: Val::Px(300.0),
+///     bottom: Val::Px(400.0),
+/// });
 ///
-/// ## Margin
-///
-/// A margin is used to create space around UI elements, outside of any defined borders.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
-/// let margin = UiRect::all(Val::Auto); // Centers the UI element
-/// ```
-///
-/// ## Padding
-///
-/// A padding is used to create space around UI elements, inside of any defined borders.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
-/// let padding = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
-/// };
-/// ```
-///
-/// ## Borders
-///
-/// A border is used to define the width of the border of a UI element.
-///
-/// ```
-/// # use bevy_ui::{UiRect, Val};
-/// #
-/// let border = UiRect {
-///     left: Val::Px(10.0),
-///     right: Val::Px(20.0),
-///     top: Val::Px(30.0),
-///     bottom: Val::Px(40.0),
-/// };
-/// ```
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq)]
 pub struct UiRect {
     /// The value corresponding to the left side of the UI rect.
@@ -133,13 +90,6 @@ pub struct UiRect {
 }
 
 impl UiRect {
-    pub const DEFAULT: Self = Self {
-        left: Val::DEFAULT,
-        right: Val::DEFAULT,
-        top: Val::DEFAULT,
-        bottom: Val::DEFAULT,
-    };
-
     /// Creates a new [`UiRect`] from the values specified.
     ///
     /// # Example
@@ -318,6 +268,15 @@ impl UiRect {
             ..Default::default()
         }
     }
+
+    /// Alias of [`UiRect::UNDEFINED`]
+    pub const DEFAULT: UiRect = UiRect::UNDEFINED;
+
+    /// Creates a [`UiRect`] where all sides are [`Val::Undefined`]
+    pub const UNDEFINED: UiRect = UiRect::all(Val::Undefined);
+
+    /// Creates a [`UiRect`] where all sides are [`Val::Auto`]
+    pub const AUTO: UiRect = UiRect::all(Val::Auto);
 }
 
 impl Default for UiRect {
@@ -329,7 +288,7 @@ impl Default for UiRect {
 /// A 2-dimensional area defined by a width and height.
 ///
 /// It is commonly used to define the size of a text or UI element.
-#[derive(Copy, Clone, PartialEq, Debug, Reflect)]
+#[derive(Copy, Clone, PartialEq, Debug, Reflect, Serialize, Deserialize)]
 #[reflect(PartialEq)]
 pub struct Size {
     /// The width of the 2-dimensional area.
@@ -339,11 +298,6 @@ pub struct Size {
 }
 
 impl Size {
-    pub const DEFAULT: Self = Self {
-        width: Val::DEFAULT,
-        height: Val::DEFAULT,
-    };
-
     /// Creates a new [`Size`] from a width and a height.
     ///
     /// # Example
@@ -360,16 +314,41 @@ impl Size {
         Size { width, height }
     }
 
-    /// Creates a Size where both values are [`Val::Auto`].
+    /// Creates a new [`Size`] where both values are given in [`Val::Px`].
+    pub const fn px(width: f32, height: f32) -> Self {
+        Size {
+            width: Val::Px(width),
+            height: Val::Px(height),
+        }
+    }
+
+    /// Creates a new [`Size`] where both values are given in [`Val::Percent`].
+    pub const fn percent(width: f32, height: f32) -> Self {
+        Size {
+            width: Val::Percent(width),
+            height: Val::Percent(height),
+        }
+    }
+
+    /// Alias of [`Size::UNDEFINED`]
+    pub const DEFAULT: Size = Size::UNDEFINED;
+
+    /// Creates a new [`Size`] where both values are [`Val::Auto`].
     pub const AUTO: Size = Size {
         width: Val::Auto,
         height: Val::Auto,
     };
 
-    /// Creates a Size where both values are [`Val::Undefined`].
+    /// Creates a new [`Size`] where both values are [`Val::Undefined`].
     pub const UNDEFINED: Size = Size {
         width: Val::Undefined,
         height: Val::Undefined,
+    };
+
+    /// Creates a new [`Size`] where both values are 100 percent.
+    pub const FULL: Size = Size {
+        width: Val::FULL,
+        height: Val::FULL,
     };
 }
 

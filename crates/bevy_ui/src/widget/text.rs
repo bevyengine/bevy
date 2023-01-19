@@ -1,4 +1,8 @@
-use crate::{CalculatedSize, Size, Style, UiScale, Val};
+use crate::{
+    layout_components::flex::{FlexLayoutChanged, FlexLayoutQuery},
+    prelude::{FlexContainer, FlexItem},
+    CalculatedSize, Size, UiScale, Val,
+};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
@@ -59,11 +63,11 @@ pub fn text_system(
     mut font_atlas_set_storage: ResMut<Assets<FontAtlasSet>>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_queries: ParamSet<(
-        Query<Entity, Or<(Changed<Text>, Changed<Style>)>>,
-        Query<Entity, (With<Text>, With<Style>)>,
+        Query<Entity, Or<(Changed<Text>, FlexLayoutChanged)>>,
+        Query<Entity, (With<Text>, With<FlexContainer>, With<FlexItem>)>,
         Query<(
             &Text,
-            &Style,
+            FlexLayoutQuery,
             &mut CalculatedSize,
             Option<&mut TextLayoutInfo>,
         )>,
@@ -99,18 +103,18 @@ pub fn text_system(
     let mut new_queue = Vec::new();
     let mut query = text_queries.p2();
     for entity in queued_text.entities.drain(..) {
-        if let Ok((text, style, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
+        if let Ok((text, layout, mut calculated_size, text_layout_info)) = query.get_mut(entity) {
             let node_size = Vec2::new(
                 text_constraint(
-                    style.min_size.width,
-                    style.size.width,
-                    style.max_size.width,
+                    layout.size_constraints.min.width,
+                    layout.size_constraints.suggested.width,
+                    layout.size_constraints.max.width,
                     scale_factor,
                 ),
                 text_constraint(
-                    style.min_size.height,
-                    style.size.height,
-                    style.max_size.height,
+                    layout.size_constraints.min.height,
+                    layout.size_constraints.suggested.height,
+                    layout.size_constraints.max.height,
                     scale_factor,
                 ),
             );

@@ -39,7 +39,7 @@ fn atlas_render_system(
 ) {
     if let Some(set) = font_atlas_sets.get(&state.handle.cast_weak::<FontAtlasSet>()) {
         if let Some((_size, font_atlas)) = set.iter().next() {
-            let x_offset = state.atlas_count as f32;
+            let x_inset = state.atlas_count as f32;
             if state.atlas_count == font_atlas.len() as u32 {
                 return;
             }
@@ -49,13 +49,13 @@ fn atlas_render_system(
             state.atlas_count += 1;
             commands.spawn(ImageBundle {
                 image: texture_atlas.texture.clone().into(),
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    position: UiRect {
+                control: LayoutControl {
+                    position: Position::Absolute,
+                    inset: Inset(UiRect {
                         top: Val::Px(0.0),
-                        left: Val::Px(512.0 * x_offset),
+                        left: Val::Px(512.0 * x_inset),
                         ..default()
-                    },
+                    }),
                     ..default()
                 },
                 ..default()
@@ -85,24 +85,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResM
     commands
         .spawn(NodeBundle {
             background_color: Color::NONE.into(),
-            style: Style {
-                position_type: PositionType::Absolute,
-                position: UiRect {
+            control: LayoutControl {
+                position: Position::Absolute,
+                inset: Inset(UiRect {
                     bottom: Val::Px(0.0),
                     ..default()
-                },
+                }),
                 ..default()
             },
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "a",
-                TextStyle {
-                    font: font_handle,
-                    font_size: 60.0,
-                    color: Color::YELLOW,
-                },
-            ));
+            parent.spawn(TextBundle {
+                text: Text::from_section(
+                    "a",
+                    TextStyle {
+                        font: font_handle,
+                        font_size: 60.0,
+                        color: Color::YELLOW,
+                    },
+                ),
+                ..default()
+            });
         });
 }

@@ -48,8 +48,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+            size_constraints: SizeConstraints::FILL_PARENT,
+            layout: FlexContainer {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -59,8 +59,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             parent
                 .spawn(ButtonBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(150.0), Val::Px(65.0)),
+                    size_constraints: SizeConstraints::suggested(Val::Px(150.0), Val::Px(65.0)),
+                    layout: FlexContainer {
                         // horizontally center child text
                         justify_content: JustifyContent::Center,
                         // vertically center child text
@@ -71,14 +71,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Button",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::rgb(0.9, 0.9, 0.9),
-                        },
-                    ));
+                    parent.spawn(TextBundle {
+                        text: Text::from_section(
+                            "Button",
+                            TextStyle {
+                                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                                font_size: 40.0,
+                                color: Color::rgb(0.9, 0.9, 0.9),
+                            },
+                        ),
+                        ..default()
+                    });
                 });
         });
 }

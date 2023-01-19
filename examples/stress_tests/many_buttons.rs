@@ -61,10 +61,7 @@ fn setup(mut commands: Commands, font: Res<UiFont>) {
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                ..default()
-            },
+            size_constraints: SizeConstraints::FILL_PARENT,
             ..default()
         })
         .with_children(|commands| {
@@ -88,16 +85,21 @@ fn spawn_button(
     commands
         .spawn((
             ButtonBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(width), Val::Percent(width)),
-
-                    position: UiRect {
+                size_constraints: SizeConstraints::suggested(
+                    Val::Percent(width),
+                    Val::Percent(width),
+                ),
+                control: LayoutControl {
+                    position: Position::Absolute,
+                    inset: Inset(UiRect {
                         bottom: Val::Percent(100.0 / total * i as f32),
                         left: Val::Percent(100.0 / total * j as f32),
                         ..default()
-                    },
+                    }),
+                    ..default()
+                },
+                layout: FlexContainer {
                     align_items: AlignItems::Center,
-                    position_type: PositionType::Absolute,
                     ..default()
                 },
                 background_color: color,
@@ -106,13 +108,16 @@ fn spawn_button(
             IdleColor(color),
         ))
         .with_children(|commands| {
-            commands.spawn(TextBundle::from_section(
-                format!("{i}, {j}"),
-                TextStyle {
-                    font,
-                    font_size: FONT_SIZE,
-                    color: Color::rgb(0.2, 0.2, 0.2),
-                },
-            ));
+            commands.spawn(TextBundle {
+                text: Text::from_section(
+                    format!("{i}, {j}"),
+                    TextStyle {
+                        font,
+                        font_size: FONT_SIZE,
+                        color: Color::rgb(0.2, 0.2, 0.2),
+                    },
+                ),
+                ..default()
+            });
         });
 }

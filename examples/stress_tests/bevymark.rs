@@ -111,25 +111,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
-        TextBundle::from_sections([
-            text_section(Color::GREEN, "Bird Count"),
-            text_section(Color::CYAN, ""),
-            text_section(Color::GREEN, "\nFPS (raw): "),
-            text_section(Color::CYAN, ""),
-            text_section(Color::GREEN, "\nFPS (SMA): "),
-            text_section(Color::CYAN, ""),
-            text_section(Color::GREEN, "\nFPS (EMA): "),
-            text_section(Color::CYAN, ""),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                top: Val::Px(5.0),
-                left: Val::Px(5.0),
+        TextBundle {
+            text: Text::from_sections([
+                text_section(Color::GREEN, "Bird Count"),
+                text_section(Color::CYAN, ""),
+                text_section(Color::GREEN, "\nFPS (raw): "),
+                text_section(Color::CYAN, ""),
+                text_section(Color::GREEN, "\nFPS (SMA): "),
+                text_section(Color::CYAN, ""),
+                text_section(Color::GREEN, "\nFPS (EMA): "),
+                text_section(Color::CYAN, ""),
+            ]),
+            control: LayoutControl {
+                position: Position::Absolute,
+                inset: Inset(UiRect {
+                    top: Val::Px(5.0),
+                    left: Val::Px(5.0),
+                    ..default()
+                }),
                 ..default()
             },
             ..default()
-        }),
+        },
         StatsText,
     ));
 

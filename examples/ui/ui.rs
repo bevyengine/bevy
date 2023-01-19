@@ -23,8 +23,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // root node
     commands
         .spawn(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+            size_constraints: SizeConstraints::FILL_PARENT,
+            layout: FlexContainer {
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -34,11 +34,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // left vertical fill (border)
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
+                    size_constraints: SizeConstraints::suggested(
+                        Val::Px(200.0),
+                        Val::Percent(100.0),
+                    ),
+                    spacing: Spacing::border_all(Val::Px(2.0)),
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
@@ -46,38 +46,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     // left vertical fill (content)
                     parent
                         .spawn(NodeBundle {
-                            style: Style {
-                                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                                ..default()
-                            },
+                            size_constraints: SizeConstraints::FILL_PARENT,
                             background_color: Color::rgb(0.15, 0.15, 0.15).into(),
                             ..default()
                         })
                         .with_children(|parent| {
                             // text
-                            parent.spawn(
-                                TextBundle::from_section(
+                            parent.spawn(TextBundle {
+                                text: Text::from_section(
                                     "Text Example",
                                     TextStyle {
                                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                         font_size: 30.0,
                                         color: Color::WHITE,
                                     },
-                                )
-                                .with_style(Style {
-                                    margin: UiRect::all(Val::Px(5.0)),
-                                    ..default()
-                                }),
-                            );
+                                ),
+                                spacing: Spacing::margin_all(Val::Px(5.0)),
+                                ..default()
+                            });
                         });
                 });
             // right vertical fill
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        flex_direction: FlexDirection::Column,
+                    size_constraints: SizeConstraints::suggested(
+                        Val::Px(200.0),
+                        Val::Percent(100.0),
+                    ),
+                    layout: FlexContainer {
+                        direction: Direction::Column,
                         justify_content: JustifyContent::Center,
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
                         ..default()
                     },
                     background_color: Color::rgb(0.15, 0.15, 0.15).into(),
@@ -85,33 +83,36 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // Title
-                    parent.spawn(
-                        TextBundle::from_section(
+                    parent.spawn(TextBundle {
+                        text: Text::from_section(
                             "Scrolling list",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 25.,
                                 color: Color::WHITE,
                             },
-                        )
-                        .with_style(Style {
-                            size: Size::new(Val::Undefined, Val::Px(25.)),
-                            margin: UiRect {
-                                left: Val::Auto,
-                                right: Val::Auto,
-                                ..default()
-                            },
-                            ..default()
-                        }),
-                    );
+                        ),
+                        spacing: Spacing::margin(UiRect::horizontal(Val::Auto)),
+                        size_constraints: SizeConstraints::suggested(Val::Undefined, Val::Px(25.)),
+                        ..default()
+                    });
                     // List with hidden overflow
                     parent
                         .spawn(NodeBundle {
-                            style: Style {
-                                flex_direction: FlexDirection::Column,
-                                align_self: AlignSelf::Center,
-                                size: Size::new(Val::Percent(100.0), Val::Percent(50.0)),
+                            size_constraints: SizeConstraints::suggested(
+                                Val::Percent(100.0),
+                                Val::Percent(50.0),
+                            ),
+                            control: LayoutControl {
                                 overflow: Overflow::Hidden,
+                                ..default()
+                            },
+                            layout: FlexContainer {
+                                direction: Direction::Column,
+                                ..default()
+                            },
+                            child_layout: FlexItem {
+                                align_self: AlignSelf::Center,
                                 ..default()
                             },
                             background_color: Color::rgb(0.10, 0.10, 0.10).into(),
@@ -122,10 +123,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             parent
                                 .spawn((
                                     NodeBundle {
-                                        style: Style {
-                                            flex_direction: FlexDirection::Column,
-                                            flex_grow: 1.0,
-                                            max_size: Size::UNDEFINED,
+                                        size_constraints: SizeConstraints::max(
+                                            Val::Undefined,
+                                            Val::Undefined,
+                                        ),
+                                        layout: FlexContainer {
+                                            direction: Direction::Column,
+                                            ..default()
+                                        },
+                                        child_layout: FlexItem {
+                                            grow: 1.0,
                                             ..default()
                                         },
                                         ..default()
@@ -135,8 +142,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 .with_children(|parent| {
                                     // List items
                                     for i in 0..30 {
-                                        parent.spawn(
-                                            TextBundle::from_section(
+                                        parent.spawn(TextBundle {
+                                            text: Text::from_section(
                                                 format!("Item {i}"),
                                                 TextStyle {
                                                     font: asset_server
@@ -144,44 +151,46 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                                     font_size: 20.,
                                                     color: Color::WHITE,
                                                 },
-                                            )
-                                            .with_style(Style {
-                                                flex_shrink: 0.,
-                                                size: Size::new(Val::Undefined, Val::Px(20.)),
-                                                margin: UiRect {
-                                                    left: Val::Auto,
-                                                    right: Val::Auto,
-                                                    ..default()
-                                                },
+                                            ),
+                                            child_layout: FlexItem {
+                                                shrink: 0.,
                                                 ..default()
-                                            }),
-                                        );
+                                            },
+                                            spacing: Spacing::margin(UiRect::new(
+                                                Val::Auto,
+                                                Val::Auto,
+                                                Val::Undefined,
+                                                Val::Undefined,
+                                            )),
+                                            size_constraints: SizeConstraints::suggested(
+                                                Val::Undefined,
+                                                Val::Px(20.),
+                                            ),
+                                            ..default()
+                                        });
                                     }
                                 });
                         });
                 });
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Px(200.0)),
-                        position_type: PositionType::Absolute,
-                        position: UiRect {
+                    size_constraints: SizeConstraints::suggested(Val::Px(200.0), Val::Px(200.0)),
+                    control: LayoutControl {
+                        position: Position::Absolute,
+                        inset: Inset(UiRect {
                             left: Val::Px(210.0),
                             bottom: Val::Px(10.0),
                             ..default()
-                        },
-                        border: UiRect::all(Val::Px(20.0)),
+                        }),
                         ..default()
                     },
+                    spacing: Spacing::border(UiRect::all(Val::Px(20.0))),
                     background_color: Color::rgb(0.4, 0.4, 1.0).into(),
                     ..default()
                 })
                 .with_children(|parent| {
                     parent.spawn(NodeBundle {
-                        style: Style {
-                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                            ..default()
-                        },
+                        size_constraints: SizeConstraints::FILL_PARENT,
                         background_color: Color::rgb(0.8, 0.8, 1.0).into(),
                         ..default()
                     });
@@ -189,9 +198,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // render order test: reddest in the back, whitest in the front (flex center)
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                        position_type: PositionType::Absolute,
+                    size_constraints: SizeConstraints::FILL_PARENT,
+                    control: LayoutControl {
+                        position: Position::Absolute,
+                        ..default()
+                    },
+                    layout: FlexContainer {
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Center,
                         ..default()
@@ -201,51 +213,48 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     parent
                         .spawn(NodeBundle {
-                            style: Style {
-                                size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                ..default()
-                            },
+                            size_constraints: SizeConstraints::FILL_PARENT,
                             background_color: Color::rgb(1.0, 0.0, 0.0).into(),
                             ..default()
                         })
                         .with_children(|parent| {
                             parent.spawn(NodeBundle {
-                                style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                    position_type: PositionType::Absolute,
-                                    position: UiRect {
+                                size_constraints: SizeConstraints::FILL_PARENT,
+                                control: LayoutControl {
+                                    position: Position::Absolute,
+                                    inset: Inset(UiRect {
                                         left: Val::Px(20.0),
                                         bottom: Val::Px(20.0),
                                         ..default()
-                                    },
+                                    }),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.3, 0.3).into(),
                                 ..default()
                             });
                             parent.spawn(NodeBundle {
-                                style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                    position_type: PositionType::Absolute,
-                                    position: UiRect {
+                                size_constraints: SizeConstraints::FILL_PARENT,
+                                control: LayoutControl {
+                                    position: Position::Absolute,
+                                    inset: Inset(UiRect {
                                         left: Val::Px(40.0),
                                         bottom: Val::Px(40.0),
                                         ..default()
-                                    },
+                                    }),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.5, 0.5).into(),
                                 ..default()
                             });
                             parent.spawn(NodeBundle {
-                                style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                    position_type: PositionType::Absolute,
-                                    position: UiRect {
+                                size_constraints: SizeConstraints::FILL_PARENT,
+                                control: LayoutControl {
+                                    position: Position::Absolute,
+                                    inset: Inset(UiRect {
                                         left: Val::Px(60.0),
                                         bottom: Val::Px(60.0),
                                         ..default()
-                                    },
+                                    }),
                                     ..default()
                                 },
                                 background_color: Color::rgb(1.0, 0.7, 0.7).into(),
@@ -253,14 +262,17 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             });
                             // alpha test
                             parent.spawn(NodeBundle {
-                                style: Style {
-                                    size: Size::new(Val::Px(100.0), Val::Px(100.0)),
-                                    position_type: PositionType::Absolute,
-                                    position: UiRect {
+                                size_constraints: SizeConstraints::suggested(
+                                    Val::Px(100.0),
+                                    Val::Px(100.0),
+                                ),
+                                control: LayoutControl {
+                                    position: Position::Absolute,
+                                    inset: Inset(UiRect {
                                         left: Val::Px(80.0),
                                         bottom: Val::Px(80.0),
                                         ..default()
-                                    },
+                                    }),
                                     ..default()
                                 },
                                 background_color: Color::rgba(1.0, 0.9, 0.9, 0.4).into(),
@@ -271,9 +283,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // bevy logo (flex center)
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                        position_type: PositionType::Absolute,
+                    size_constraints: SizeConstraints::FILL_PARENT,
+                    control: LayoutControl {
+                        position: Position::Absolute,
+                        ..default()
+                    },
+                    layout: FlexContainer {
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::FlexStart,
                         ..default()
@@ -283,10 +298,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 .with_children(|parent| {
                     // bevy logo (image)
                     parent.spawn(ImageBundle {
-                        style: Style {
-                            size: Size::new(Val::Px(500.0), Val::Auto),
-                            ..default()
-                        },
+                        size_constraints: SizeConstraints::suggested(Val::Px(500.0), Val::Auto),
                         image: asset_server.load("branding/bevy_logo_dark_big.png").into(),
                         ..default()
                     });
@@ -301,11 +313,11 @@ struct ScrollingList {
 
 fn mouse_scroll(
     mut mouse_wheel_events: EventReader<MouseWheel>,
-    mut query_list: Query<(&mut ScrollingList, &mut Style, &Children, &Node)>,
+    mut query_list: Query<(&mut ScrollingList, &mut LayoutControl, &Children, &Node)>,
     query_item: Query<&Node>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.iter() {
-        for (mut scrolling_list, mut style, children, uinode) in &mut query_list {
+        for (mut scrolling_list, mut control, children, uinode) in &mut query_list {
             let items_height: f32 = children
                 .iter()
                 .map(|entity| query_item.get(*entity).unwrap().size().y)
@@ -318,7 +330,7 @@ fn mouse_scroll(
             };
             scrolling_list.position += dy;
             scrolling_list.position = scrolling_list.position.clamp(-max_scroll, 0.);
-            style.position.top = Val::Px(scrolling_list.position);
+            control.inset.top = Val::Px(scrolling_list.position);
         }
     }
 }

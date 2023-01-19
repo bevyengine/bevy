@@ -25,28 +25,31 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2dBundle::default());
     // Text with one section
-    commands.spawn((
+    commands.spawn(
         // Create a TextBundle that has a Text with a single section.
-        TextBundle::from_section(
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            "Hit 'P' then scroll/click around!",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 100.0, // Nice and big so you can see it!
-                color: Color::WHITE,
-            },
-        )
-        // Set the style of the TextBundle itself.
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.),
-                right: Val::Px(10.),
+        TextBundle {
+            text: Text::from_section(
+                // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                "Hit 'P' then scroll/click around!",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 100.0, // Nice and big so you can see it!
+                    color: Color::WHITE,
+                },
+            ),
+            // Set the style of the TextBundle itself.
+            control: LayoutControl {
+                position: Position::Absolute,
+                inset: Inset(UiRect {
+                    bottom: Val::Px(5.),
+                    right: Val::Px(10.),
+                    ..default()
+                }),
                 ..default()
             },
             ..default()
-        }),
-    ));
+        },
+    );
 }
 // A simple system to handle some keyboard input and toggle on/off the hittest.
 fn toggle_mouse_passthrough(keyboard_input: Res<Input<KeyCode>>, mut windows: Query<&mut Window>) {

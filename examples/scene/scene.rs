@@ -126,18 +126,19 @@ fn save_scene_system(world: &mut World) {
 // text example.
 fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn(TextBundle {
+        text: Text::from_section(
             "Nothing to see in this window! Check the console output!",
             TextStyle {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 font_size: 50.0,
                 color: Color::WHITE,
             },
-        )
-        .with_style(Style {
+        ),
+        child_layout: FlexItem {
             align_self: AlignSelf::FlexEnd,
             ..default()
-        }),
-    );
+        },
+        ..default()
+    });
 }

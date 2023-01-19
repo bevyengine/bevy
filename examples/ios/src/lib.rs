@@ -98,23 +98,26 @@ fn setup_scene(
     // Test ui
     commands
         .spawn(ButtonBundle {
-            style: Style {
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                position_type: PositionType::Absolute,
-                position: UiRect {
+            control: LayoutControl {
+                position: Position::Absolute,
+                inset: Inset(UiRect {
                     left: Val::Px(50.0),
                     right: Val::Px(50.0),
                     top: Val::Auto,
                     bottom: Val::Px(50.0),
-                },
+                }),
+                ..default()
+            },
+            layout: FlexContainer {
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
                 ..default()
             },
             ..default()
         })
         .with_children(|b| {
-            b.spawn(
-                TextBundle::from_section(
+            b.spawn(TextBundle {
+                text: Text::from_section(
                     "Test Button",
                     TextStyle {
                         font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -122,8 +125,9 @@ fn setup_scene(
                         color: Color::BLACK,
                     },
                 )
-                .with_text_alignment(TextAlignment::Center),
-            );
+                .with_alignment(TextAlignment::Center),
+                ..default()
+            });
         });
 }
 

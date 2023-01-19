@@ -17,11 +17,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                align_items: AlignItems::Center,
+            size_constraints: SizeConstraints::FILL_PARENT,
+            layout: FlexContainer {
                 justify_content: JustifyContent::Center,
-                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Center,
+                direction: Direction::Column,
                 ..default()
             },
             ..default()
@@ -29,11 +29,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .with_children(|parent| {
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(250.0), Val::Px(250.0)),
-                        margin: UiRect::new(Val::Px(0.), Val::Px(0.), Val::Px(0.), Val::Px(15.)),
-                        ..default()
-                    },
+                    size_constraints: SizeConstraints::suggested(Val::Px(250.0), Val::Px(250.0)),
+                    spacing: Spacing::margin(UiRect::bottom(Val::Px(15.0))),
                     background_color: Color::rgb(235., 35., 12.).into(),
                     ..default()
                 })

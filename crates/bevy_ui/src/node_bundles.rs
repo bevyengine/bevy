@@ -1,15 +1,18 @@
 //! This module contains basic node bundles used to build UIs
 
 use crate::{
-    widget::Button, BackgroundColor, CalculatedSize, FocusPolicy, Interaction, Node, Style,
-    UiImage, ZIndex,
+    layout_components::{SizeConstraints, Spacing},
+    prelude::{FlexContainer, FlexItem},
+    widget::Button,
+    BackgroundColor, CalculatedSize, FocusPolicy, Interaction, LayoutControl, Node, UiImage,
+    ZIndex,
 };
 use bevy_ecs::bundle::Bundle;
 use bevy_render::{
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
-use bevy_text::{Text, TextAlignment, TextSection, TextStyle};
+use bevy_text::Text;
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -19,8 +22,18 @@ use bevy_transform::prelude::{GlobalTransform, Transform};
 pub struct NodeBundle {
     /// Describes the size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
-    pub style: Style,
+    /// Core controls for layouting of this node.
+    ///
+    /// See: [`Display`](crate::Display), [`Position`](crate::Position), [`Inset`](crate::Inset), [`Overflow`](crate::Overflow).
+    pub control: LayoutControl,
+    /// Defines how this node's layout should be.
+    pub layout: FlexContainer,
+    /// Defines how  this node should behave as a child of a node.
+    pub child_layout: FlexItem,
+    /// The constraints on the size of this node
+    pub size_constraints: SizeConstraints,
+    /// The margin, padding and border of the UI node
+    pub spacing: Spacing,
     /// The background color, which serves as a "fill" for this node
     pub background_color: BackgroundColor,
     /// Whether this node should block interaction with lower nodes
@@ -28,12 +41,16 @@ pub struct NodeBundle {
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `nodebundle`, use the properties of the [`Style`] component.
+    /// To alter the position of this entity, use the properties of layouting components.
+    ///
+    /// See: [`LayoutControl`], [`FlexContainer`], [`FlexItem`], [`SizeConstraints`], [`Spacing`].
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of this entity, use the properties of layouting components.
+    ///
+    /// See: [`LayoutControl`], [`FlexContainer`], [`FlexItem`], [`SizeConstraints`], [`Spacing`].
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -46,10 +63,14 @@ pub struct NodeBundle {
 impl Default for NodeBundle {
     fn default() -> Self {
         NodeBundle {
+            node: Default::default(),
+            control: Default::default(),
+            layout: Default::default(),
+            child_layout: Default::default(),
+            size_constraints: Default::default(),
+            spacing: Default::default(),
             // Transparent background
             background_color: Color::NONE.into(),
-            node: Default::default(),
-            style: Default::default(),
             focus_policy: Default::default(),
             transform: Default::default(),
             global_transform: Default::default(),
@@ -65,8 +86,18 @@ impl Default for NodeBundle {
 pub struct ImageBundle {
     /// Describes the size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
-    pub style: Style,
+    /// Core controls for layouting of this node.
+    ///
+    /// See: [`Display`](crate::Display), [`Position`](crate::Position), [`Inset`](crate::Inset), [`Overflow`](crate::Overflow).
+    pub control: LayoutControl,
+    /// Defines how this node's layout should be.
+    pub layout: FlexContainer,
+    /// Defines how  this node should behave as a child of a node.
+    pub child_layout: FlexItem,
+    /// The constraints on the size of this node
+    pub size_constraints: SizeConstraints,
+    /// The margin, padding and border of the UI node
+    pub spacing: Spacing,
     /// The calculated size based on the given image
     pub calculated_size: CalculatedSize,
     /// The background color, which serves as a "fill" for this node
@@ -80,12 +111,16 @@ pub struct ImageBundle {
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of this entity, use the properties of layouting components.
+    ///
+    /// See: [`LayoutControl`], [`FlexContainer`], [`FlexItem`], [`SizeConstraints`], [`Spacing`].
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of this entity, use the properties of layouting components.
+    ///
+    /// See: [`LayoutControl`], [`FlexContainer`], [`FlexItem`], [`SizeConstraints`], [`Spacing`].
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -96,12 +131,22 @@ pub struct ImageBundle {
 }
 
 /// A UI node that is text
-#[derive(Bundle, Clone, Debug, Default)]
+#[derive(Bundle, Clone, Debug)]
 pub struct TextBundle {
     /// Describes the size of the node
     pub node: Node,
-    /// Describes the style including flexbox settings
-    pub style: Style,
+    /// Core controls for layouting of this node.
+    ///
+    /// See: [`Display`](crate::Display), [`Position`](crate::Position), [`Inset`](crate::Inset), [`Overflow`](crate::Overflow).
+    pub control: LayoutControl,
+    /// Defines how this node's layout should be.
+    pub layout: FlexContainer,
+    /// Defines how  this node should behave as a child of a node.
+    pub child_layout: FlexItem,
+    /// The constraints on the size of this node
+    pub size_constraints: SizeConstraints,
+    /// The margin, padding and border of the UI node
+    pub spacing: Spacing,
     /// Contains the text of the node
     pub text: Text,
     /// The calculated size based on the given image
@@ -111,12 +156,16 @@ pub struct TextBundle {
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of this entity, use the properties of layouting components.
+    ///
+    /// See: [`LayoutControl`], [`FlexContainer`], [`FlexItem`], [`SizeConstraints`], [`Spacing`].
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of this entity, use the properties of layouting components.
+    ///
+    /// See: [`LayoutControl`], [`FlexContainer`], [`FlexItem`], [`SizeConstraints`], [`Spacing`].
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -126,37 +175,24 @@ pub struct TextBundle {
     pub z_index: ZIndex,
 }
 
-impl TextBundle {
-    /// Create a [`TextBundle`] from a single section.
-    ///
-    /// See [`Text::from_section`] for usage.
-    pub fn from_section(value: impl Into<String>, style: TextStyle) -> Self {
-        Self {
-            text: Text::from_section(value, style),
-            ..Default::default()
+impl Default for TextBundle {
+    fn default() -> Self {
+        TextBundle {
+            focus_policy: FocusPolicy::Pass,
+            text: Default::default(),
+            node: Default::default(),
+            calculated_size: Default::default(),
+            layout: Default::default(),
+            control: Default::default(),
+            child_layout: Default::default(),
+            size_constraints: Default::default(),
+            transform: Default::default(),
+            global_transform: Default::default(),
+            visibility: Default::default(),
+            computed_visibility: Default::default(),
+            z_index: Default::default(),
+            spacing: Default::default(),
         }
-    }
-
-    /// Create a [`TextBundle`] from a list of sections.
-    ///
-    /// See [`Text::from_sections`] for usage.
-    pub fn from_sections(sections: impl IntoIterator<Item = TextSection>) -> Self {
-        Self {
-            text: Text::from_sections(sections),
-            ..Default::default()
-        }
-    }
-
-    /// Returns this [`TextBundle`] with a new [`TextAlignment`] on [`Text`].
-    pub const fn with_text_alignment(mut self, alignment: TextAlignment) -> Self {
-        self.text.alignment = alignment;
-        self
-    }
-
-    /// Returns this [`TextBundle`] with a new [`Style`].
-    pub const fn with_style(mut self, style: Style) -> Self {
-        self.style = style;
-        self
     }
 }
 
@@ -167,8 +203,18 @@ pub struct ButtonBundle {
     pub node: Node,
     /// Marker component that signals this node is a button
     pub button: Button,
-    /// Describes the style including flexbox settings
-    pub style: Style,
+    /// Core controls for layouting of this node.
+    ///
+    /// See: [`Display`](crate::Display), [`Position`](crate::Position), [`Inset`](crate::Inset), [`Overflow`](crate::Overflow).
+    pub control: LayoutControl,
+    /// Defines how this node's layout should be.
+    pub layout: FlexContainer,
+    /// Defines how  this node should behave as a child of a node.
+    pub child_layout: FlexItem,
+    /// The constraints on the size of this node
+    pub size_constraints: SizeConstraints,
+    /// The margin, padding and border of the UI node
+    pub spacing: Spacing,
     /// Describes whether and how the button has been interacted with by the input
     pub interaction: Interaction,
     /// Whether this node should block interaction with lower nodes
@@ -182,12 +228,16 @@ pub struct ButtonBundle {
     /// The transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of this entity, use the properties of layouting components.
+    ///
+    /// See: [`LayoutControl`], [`FlexContainer`], [`FlexItem`], [`SizeConstraints`], [`Spacing`].
     pub transform: Transform,
     /// The global transform of the node
     ///
     /// This field is automatically managed by the UI layout system.
-    /// To alter the position of the `NodeBundle`, use the properties of the [`Style`] component.
+    /// To alter the position of this entity, use the properties of layouting components.
+    ///
+    /// See: [`LayoutControl`], [`FlexContainer`], [`FlexItem`], [`SizeConstraints`], [`Spacing`].
     pub global_transform: GlobalTransform,
     /// Describes the visibility properties of the node
     pub visibility: Visibility,
@@ -203,7 +253,6 @@ impl Default for ButtonBundle {
             focus_policy: FocusPolicy::Block,
             node: Default::default(),
             button: Default::default(),
-            style: Default::default(),
             interaction: Default::default(),
             background_color: Default::default(),
             image: Default::default(),
@@ -212,6 +261,11 @@ impl Default for ButtonBundle {
             visibility: Default::default(),
             computed_visibility: Default::default(),
             z_index: Default::default(),
+            control: Default::default(),
+            layout: Default::default(),
+            child_layout: Default::default(),
+            size_constraints: Default::default(),
+            spacing: Default::default(),
         }
     }
 }

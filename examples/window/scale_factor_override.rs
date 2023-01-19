@@ -25,8 +25,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // root node
     commands
         .spawn(NodeBundle {
-            style: Style {
-                size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+            size_constraints: SizeConstraints::FILL_PARENT,
+            layout: FlexContainer {
                 justify_content: JustifyContent::SpaceBetween,
                 ..default()
             },
@@ -36,29 +36,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // left vertical fill (border)
             parent
                 .spawn(NodeBundle {
-                    style: Style {
-                        size: Size::new(Val::Px(200.0), Val::Percent(100.0)),
-                        border: UiRect::all(Val::Px(2.0)),
-                        ..default()
-                    },
+                    size_constraints: SizeConstraints::suggested(Val::Px(200.), Val::FULL),
+                    spacing: Spacing::border_all(Val::Px(2.0)),
                     background_color: Color::rgb(0.65, 0.65, 0.65).into(),
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn(
-                        TextBundle::from_section(
+                    parent.spawn(TextBundle {
+                        text: Text::from_section(
                             "Example text",
                             TextStyle {
                                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                                 font_size: 30.0,
                                 color: Color::WHITE,
                             },
-                        )
-                        .with_style(Style {
+                        ),
+                        child_layout: FlexItem {
                             align_self: AlignSelf::FlexEnd,
                             ..default()
-                        }),
-                    );
+                        },
+                        ..default()
+                    });
                 });
         });
 }

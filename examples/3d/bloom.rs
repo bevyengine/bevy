@@ -75,25 +75,26 @@ fn setup_scene(
         }
     }
 
-    commands.spawn(
-        TextBundle::from_section(
+    commands.spawn(TextBundle {
+        text: Text::from_section(
             "",
             TextStyle {
                 font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                 font_size: 18.0,
                 color: Color::BLACK,
             },
-        )
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
+        ),
+        control: LayoutControl {
+            position: Position::Absolute,
+            inset: Inset(UiRect {
                 top: Val::Px(10.0),
                 left: Val::Px(10.0),
                 ..default()
-            },
+            }),
             ..default()
-        }),
-    );
+        },
+        ..default()
+    });
 }
 
 // ------------------------------------------------------------------------------------------------

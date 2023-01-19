@@ -1,6 +1,9 @@
 mod convert;
 
-use crate::{CalculatedSize, Node, Style, UiScale};
+use crate::{
+    layout_components::flex::{FlexLayoutChanged, FlexLayoutQuery, FlexLayoutQueryItem},
+    CalculatedSize, Node, UiScale,
+};
 use bevy_ecs::{
     change_detection::DetectChanges,
     entity::Entity,
@@ -60,10 +63,17 @@ impl Default for FlexSurface {
 }
 
 impl FlexSurface {
-    pub fn upsert_node(&mut self, entity: Entity, style: &Style, scale_factor: f64) {
+    /// Inserts the node into the hashmap if they don't already exist,
+    /// or update the contents if they already to exist.
+    pub fn upsert_node(
+        &mut self,
+        entity: Entity,
+        layout: FlexLayoutQueryItem<'_>,
+        scale_factor: f64,
+    ) {
         let mut added = false;
         let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(scale_factor, style);
+        let taffy_style = convert::from_flex_layout(scale_factor, layout);
         let taffy_node = self.entity_to_taffy.entry(entity).or_insert_with(|| {
             added = true;
             taffy.new_leaf(taffy_style).unwrap()
@@ -77,12 +87,12 @@ impl FlexSurface {
     pub fn upsert_leaf(
         &mut self,
         entity: Entity,
-        style: &Style,
+        layout: FlexLayoutQueryItem<'_>,
         calculated_size: CalculatedSize,
         scale_factor: f64,
     ) {
         let taffy = &mut self.taffy;
-        let taffy_style = convert::from_style(scale_factor, style);
+        let taffy_style = convert::from_flex_layout(scale_factor, layout);
         let measure = taffy::node::MeasureFunc::Boxed(Box::new(
             move |constraints: Size<Option<f32>>, _available: Size<AvailableSpace>| {
                 let mut size = convert::from_f32_size(scale_factor, calculated_size.size);
@@ -227,10 +237,13 @@ pub fn flex_node_system(
     mut scale_factor_events: EventReader<WindowScaleFactorChanged>,
     mut flex_surface: ResMut<FlexSurface>,
     root_node_query: Query<Entity, (With<Node>, Without<Parent>)>,
-    node_query: Query<(Entity, &Style, Option<&CalculatedSize>), (With<Node>, Changed<Style>)>,
-    full_node_query: Query<(Entity, &Style, Option<&CalculatedSize>), With<Node>>,
+    node_query: Query<
+        (Entity, FlexLayoutQuery, Option<&CalculatedSize>),
+        (With<Node>, FlexLayoutChanged),
+    >,
+    full_node_query: Query<(Entity, FlexLayoutQuery, Option<&CalculatedSize>), With<Node>>,
     changed_size_query: Query<
-        (Entity, &Style, &CalculatedSize),
+        (Entity, FlexLayoutQuery, &CalculatedSize),
         (With<Node>, Changed<CalculatedSize>),
     >,
     children_query: Query<(Entity, &Children), (With<Node>, Changed<Children>)>,
@@ -257,15 +270,15 @@ pub fn flex_node_system(
     fn update_changed<F: ReadOnlyWorldQuery>(
         flex_surface: &mut FlexSurface,
         scaling_factor: f64,
-        query: Query<(Entity, &Style, Option<&CalculatedSize>), F>,
+        query: Query<(Entity, FlexLayoutQuery, Option<&CalculatedSize>), F>,
     ) {
         // update changed nodes
-        for (entity, style, calculated_size) in &query {
+        for (entity, layout, calculated_size) in &query {
             // TODO: remove node from old hierarchy if its root has changed
             if let Some(calculated_size) = calculated_size {
-                flex_surface.upsert_leaf(entity, style, *calculated_size, scaling_factor);
+                flex_surface.upsert_leaf(entity, layout, *calculated_size, scaling_factor);
             } else {
-                flex_surface.upsert_node(entity, style, scaling_factor);
+                flex_surface.upsert_node(entity, layout, scaling_factor);
             }
         }
     }
@@ -276,8 +289,8 @@ pub fn flex_node_system(
         update_changed(&mut flex_surface, scale_factor, node_query);
     }
 
-    for (entity, style, calculated_size) in &changed_size_query {
-        flex_surface.upsert_leaf(entity, style, *calculated_size, scale_factor);
+    for (entity, layout, calculated_size) in &changed_size_query {
+        flex_surface.upsert_leaf(entity, layout, *calculated_size, scale_factor);
     }
 
     // clean up removed nodes

@@ -32,46 +32,57 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Text with one section
     commands.spawn((
         // Create a TextBundle that has a Text with a single section.
-        TextBundle::from_section(
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            "hello\nbevy!",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 100.0,
-                color: Color::WHITE,
+        TextBundle {
+            text: Text::from_section(
+                // Accepts a `String` or any type that converts into a `String`, such as `&str`
+                "hello\nbevy!",
+                TextStyle {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 100.0,
+                    color: Color::WHITE,
+                },
+            )
+            // Set the alignment of the Text
+            .with_alignment(TextAlignment::Center),
+            // Set the style of the TextBundle itself.
+            child_layout: FlexItem {
+                align_self: AlignSelf::FlexEnd,
+                ..default()
             },
-        ) // Set the alignment of the Text
-        .with_text_alignment(TextAlignment::Center)
-        // Set the style of the TextBundle itself.
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
-                bottom: Val::Px(5.0),
-                right: Val::Px(15.0),
+            control: LayoutControl {
+                position: Position::Absolute,
+                inset: Inset(UiRect {
+                    bottom: Val::Px(5.0),
+                    right: Val::Px(15.0),
+                    ..default()
+                }),
                 ..default()
             },
             ..default()
-        }),
+        },
         ColorText,
     ));
     // Text with multiple sections
     commands.spawn((
         // Create a TextBundle that has a Text with a list of sections.
-        TextBundle::from_sections([
-            TextSection::new(
-                "FPS: ",
-                TextStyle {
-                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+        TextBundle {
+            text: Text::from_sections([
+                TextSection::new(
+                    "FPS: ",
+                    TextStyle {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 60.0,
+                        color: Color::WHITE,
+                    },
+                ),
+                TextSection::from_style(TextStyle {
+                    font: asset_server.load("fonts/FiraMono-Medium.ttf"),
                     font_size: 60.0,
-                    color: Color::WHITE,
-                },
-            ),
-            TextSection::from_style(TextStyle {
-                font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                font_size: 60.0,
-                color: Color::GOLD,
-            }),
-        ]),
+                    color: Color::GOLD,
+                }),
+            ]),
+            ..default()
+        },
         FpsText,
     ));
 }

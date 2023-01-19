@@ -10,6 +10,7 @@ mod stack;
 mod ui_node;
 
 pub mod camera_config;
+pub mod layout_components;
 pub mod node_bundles;
 pub mod update;
 pub mod widget;
@@ -18,6 +19,7 @@ use bevy_render::{camera::CameraUpdateSystem, extract_component::ExtractComponen
 pub use flex::*;
 pub use focus::*;
 pub use geometry::*;
+pub use layout_components::*;
 pub use render::*;
 pub use ui_node::*;
 
@@ -25,8 +27,8 @@ pub use ui_node::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        camera_config::*, geometry::*, node_bundles::*, ui_node::*, widget::Button, Interaction,
-        UiScale,
+        camera_config::*, geometry::*, layout_components::flex::*, layout_components::*,
+        node_bundles::*, ui_node::*, widget::Button, Interaction, UiScale,
     };
 }
 
@@ -77,18 +79,23 @@ impl Default for UiScale {
 
 impl Plugin for UiPlugin {
     fn build(&self, app: &mut App) {
+        use crate::layout_components::flex::*;
+        use crate::layout_components::*;
+
         app.add_plugin(ExtractComponentPlugin::<UiCameraConfig>::default())
             .init_resource::<FlexSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
+            .register_type::<Display>()
             .register_type::<AlignContent>()
             .register_type::<AlignItems>()
             .register_type::<AlignSelf>()
             .register_type::<CalculatedSize>()
+            .register_type::<LayoutControl>()
+            .register_type::<FlexContainer>()
+            .register_type::<FlexItem>()
             .register_type::<Direction>()
-            .register_type::<Display>()
-            .register_type::<FlexDirection>()
-            .register_type::<FlexWrap>()
+            .register_type::<Wrap>()
             .register_type::<FocusPolicy>()
             .register_type::<Interaction>()
             .register_type::<JustifyContent>()
@@ -96,10 +103,9 @@ impl Plugin for UiPlugin {
             // NOTE: used by Style::aspect_ratio
             .register_type::<Option<f32>>()
             .register_type::<Overflow>()
-            .register_type::<PositionType>()
+            .register_type::<Position>()
             .register_type::<Size>()
             .register_type::<UiRect>()
-            .register_type::<Style>()
             .register_type::<BackgroundColor>()
             .register_type::<UiImage>()
             .register_type::<Val>()

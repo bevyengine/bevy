@@ -436,16 +436,19 @@ fn setup_connected(mut commands: Commands, font: Res<FontHandle>) {
         font: font.clone(),
     };
     commands.spawn((
-        TextBundle::from_sections([
-            TextSection {
-                value: "Connected Gamepads:\n".to_string(),
-                style: style.clone(),
-            },
-            TextSection {
-                value: "None".to_string(),
-                style,
-            },
-        ]),
+        TextBundle {
+            text: Text::from_sections([
+                TextSection {
+                    value: "Connected Gamepads:\n".to_string(),
+                    style: style.clone(),
+                },
+                TextSection {
+                    value: "None".to_string(),
+                    style,
+                },
+            ]),
+            ..default()
+        },
         ConnectedGamepadsText,
     ));
 }

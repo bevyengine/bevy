@@ -217,8 +217,8 @@ fn setup(
     ));
 
     // Scoreboard
-    commands.spawn(
-        TextBundle::from_sections([
+    commands.spawn(TextBundle {
+        text: Text::from_sections([
             TextSection::new(
                 "Score: ",
                 TextStyle {
@@ -232,17 +232,18 @@ fn setup(
                 font_size: SCOREBOARD_FONT_SIZE,
                 color: SCORE_COLOR,
             }),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            position: UiRect {
+        ]),
+        control: LayoutControl {
+            position: Position::Absolute,
+            inset: Inset(UiRect {
                 top: SCOREBOARD_TEXT_PADDING,
                 left: SCOREBOARD_TEXT_PADDING,
                 ..default()
-            },
+            }),
             ..default()
-        }),
-    );
+        },
+        ..default()
+    });
 
     // Walls
     commands.spawn(WallBundle::new(WallLocation::Left));

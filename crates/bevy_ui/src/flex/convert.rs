@@ -1,7 +1,14 @@
 use crate::{
-    AlignContent, AlignItems, AlignSelf, Display, FlexDirection, FlexWrap, JustifyContent,
-    PositionType, Size, Style, UiRect, Val,
+    layout_components::{
+        flex::{
+            AlignContent, AlignItems, AlignSelf, Direction, FlexLayoutQueryItem, JustifyContent,
+            Wrap,
+        },
+        Position,
+    },
+    Display,
 };
+use crate::{Size, UiRect, Val};
 
 pub fn from_rect(
     scale_factor: f64,
@@ -32,28 +39,28 @@ pub fn from_val_size(
     }
 }
 
-pub fn from_style(scale_factor: f64, value: &Style) -> taffy::style::Style {
+pub fn from_flex_layout(scale_factor: f64, value: FlexLayoutQueryItem<'_>) -> taffy::style::Style {
     taffy::style::Style {
-        display: value.display.into(),
-        position_type: value.position_type.into(),
-        flex_direction: value.flex_direction.into(),
-        flex_wrap: value.flex_wrap.into(),
-        align_items: value.align_items.into(),
-        align_self: value.align_self.into(),
-        align_content: value.align_content.into(),
-        justify_content: value.justify_content.into(),
-        position: from_rect(scale_factor, value.position),
-        margin: from_rect(scale_factor, value.margin),
-        padding: from_rect(scale_factor, value.padding),
-        border: from_rect(scale_factor, value.border),
-        flex_grow: value.flex_grow,
-        flex_shrink: value.flex_shrink,
-        flex_basis: from_val(scale_factor, value.flex_basis),
-        size: from_val_size(scale_factor, value.size),
-        min_size: from_val_size(scale_factor, value.min_size),
-        max_size: from_val_size(scale_factor, value.max_size),
-        aspect_ratio: value.aspect_ratio,
-        gap: from_val_size(scale_factor, value.gap),
+        display: (value.control.display).into(),
+        position_type: (value.control.position).into(),
+        flex_direction: value.layout.direction.into(),
+        flex_wrap: value.layout.wrap.into(),
+        align_items: value.layout.align_items.into(),
+        align_self: value.child_layout.align_self.into(),
+        align_content: value.layout.align_content.into(),
+        justify_content: value.layout.justify_content.into(),
+        position: from_rect(scale_factor, value.control.inset.0),
+        margin: from_rect(scale_factor, value.spacing.margin),
+        padding: from_rect(scale_factor, value.spacing.padding),
+        border: from_rect(scale_factor, value.spacing.border),
+        flex_grow: value.child_layout.grow,
+        flex_shrink: value.child_layout.shrink,
+        flex_basis: from_val(scale_factor, value.child_layout.basis),
+        size: from_val_size(scale_factor, value.size_constraints.suggested),
+        min_size: from_val_size(scale_factor, value.size_constraints.min),
+        max_size: from_val_size(scale_factor, value.size_constraints.max),
+        aspect_ratio: value.size_constraints.aspect_ratio,
+        gap: from_val_size(scale_factor, value.layout.gap),
     }
 }
 
@@ -122,13 +129,13 @@ impl From<Display> for taffy::style::Display {
     }
 }
 
-impl From<FlexDirection> for taffy::style::FlexDirection {
-    fn from(value: FlexDirection) -> Self {
+impl From<Direction> for taffy::style::FlexDirection {
+    fn from(value: Direction) -> Self {
         match value {
-            FlexDirection::Row => taffy::style::FlexDirection::Row,
-            FlexDirection::Column => taffy::style::FlexDirection::Column,
-            FlexDirection::RowReverse => taffy::style::FlexDirection::RowReverse,
-            FlexDirection::ColumnReverse => taffy::style::FlexDirection::ColumnReverse,
+            Direction::Row => taffy::style::FlexDirection::Row,
+            Direction::Column => taffy::style::FlexDirection::Column,
+            Direction::RowReverse => taffy::style::FlexDirection::RowReverse,
+            Direction::ColumnReverse => taffy::style::FlexDirection::ColumnReverse,
         }
     }
 }
@@ -146,21 +153,21 @@ impl From<JustifyContent> for taffy::style::JustifyContent {
     }
 }
 
-impl From<PositionType> for taffy::style::PositionType {
-    fn from(value: PositionType) -> Self {
+impl From<Position> for taffy::style::PositionType {
+    fn from(value: Position) -> Self {
         match value {
-            PositionType::Relative => taffy::style::PositionType::Relative,
-            PositionType::Absolute => taffy::style::PositionType::Absolute,
+            Position::Relative => taffy::style::PositionType::Relative,
+            Position::Absolute => taffy::style::PositionType::Absolute,
         }
     }
 }
 
-impl From<FlexWrap> for taffy::style::FlexWrap {
-    fn from(value: FlexWrap) -> Self {
+impl From<Wrap> for taffy::style::FlexWrap {
+    fn from(value: Wrap) -> Self {
         match value {
-            FlexWrap::NoWrap => taffy::style::FlexWrap::NoWrap,
-            FlexWrap::Wrap => taffy::style::FlexWrap::Wrap,
-            FlexWrap::WrapReverse => taffy::style::FlexWrap::WrapReverse,
+            Wrap::NoWrap => taffy::style::FlexWrap::NoWrap,
+            Wrap::Wrap => taffy::style::FlexWrap::Wrap,
+            Wrap::WrapReverse => taffy::style::FlexWrap::WrapReverse,
         }
     }
 }
