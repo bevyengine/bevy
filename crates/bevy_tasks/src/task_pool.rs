@@ -328,7 +328,7 @@ impl TaskPool {
         let executor: &'env async_executor::Executor = unsafe { mem::transmute(executor) };
         let thread_executor: &'env ThreadExecutor<'env> =
             unsafe { mem::transmute(thread_executor) };
-        let spawned: ConcurrentQueue<async_executor::Task<T>> = ConcurrentQueue::unbounded();
+        let spawned: ConcurrentQueue<FallibleTask<T>> = ConcurrentQueue::unbounded();
         let spawned_ref: &'env ConcurrentQueue<FallibleTask<T>> =
             unsafe { mem::transmute(&spawned) };
 
