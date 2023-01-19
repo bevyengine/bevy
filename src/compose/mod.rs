@@ -1130,16 +1130,20 @@ impl Composer {
         create_headers: bool,
         demote_entrypoints: bool,
     ) -> Result<ComposableModule, ComposerError> {
+        let wrap_err = |inner: ComposerErrorInner| -> ComposerError {
+            ComposerError {
+                inner,
+                source: ErrSource::Module(module_definition.name.to_owned(), 0),
+            }
+        };
+
         let (_, source, imports) = self
             .preprocess_defs(
                 &module_definition.substituted_source,
                 shader_defs,
                 self.validate,
             )
-            .map_err(|inner| ComposerError {
-                inner,
-                source: ErrSource::Module(module_definition.name.to_owned(), 0),
-            })?;
+            .map_err(wrap_err)?;
 
         let mut imports: Vec<_> = imports
             .into_iter()
@@ -1178,69 +1182,66 @@ impl Composer {
         #[cfg(not(feature = "override_any"))]
         let mut override_error = None;
 
-        let source = self
-            .override_fn_regex
-            .replace_all(&source, |cap: &regex::Captures| {
-                let target_module = cap.get(2).unwrap().as_str().to_owned();
-                let target_function = cap.get(3).unwrap().as_str().to_owned();
+        let source =
+            self.override_fn_regex
+                .replace_all(&source, |cap: &regex::Captures| {
+                    let target_module = cap.get(2).unwrap().as_str().to_owned();
+                    let target_function = cap.get(3).unwrap().as_str().to_owned();
 
-                #[cfg(not(feature = "override_any"))]
-                {
-                    // ensure overrides are applied to virtual functions
-                    let raw_module_name = Self::decode(&target_module);
-                    let module_set = self.module_sets.get(&raw_module_name);
+                    #[cfg(not(feature = "override_any"))]
+                    {
+                        // ensure overrides are applied to virtual functions
+                        let raw_module_name = Self::decode(&target_module);
+                        let module_set = self.module_sets.get(&raw_module_name);
 
-                    match module_set {
-                        None => {
-                            let pos = cap.get(2).unwrap().start();
-                            override_error = Some(ComposerError {
-                                inner: ComposerErrorInner::ImportNotFound(raw_module_name, pos),
-                                source: ErrSource::Module(module_definition.name.to_owned(), 0),
-                            });
-                        }
-                        Some(module_set) => {
-                            let module = module_set.get_module(shader_defs).unwrap();
-                            if !module.virtual_functions.contains(&target_function) {
-                                let pos = cap.get(3).unwrap().start();
-                                override_error = Some(ComposerError {
-                                    inner: ComposerErrorInner::OverrideNotVirtual {
-                                        name: target_function.clone(),
-                                        pos,
-                                    },
-                                    source: ErrSource::Module(module_definition.name.to_owned(), 0),
-                                });
+                        match module_set {
+                            None => {
+                                let pos = cap.get(2).unwrap().start();
+                                override_error = Some(wrap_err(
+                                    ComposerErrorInner::ImportNotFound(raw_module_name, pos),
+                                ));
+                            }
+                            Some(module_set) => {
+                                let module = module_set.get_module(shader_defs).unwrap();
+                                if !module.virtual_functions.contains(&target_function) {
+                                    let pos = cap.get(3).unwrap().start();
+                                    override_error =
+                                        Some(wrap_err(ComposerErrorInner::OverrideNotVirtual {
+                                            name: target_function.clone(),
+                                            pos,
+                                        }));
+                                }
                             }
                         }
                     }
-                }
 
-                let base_name = format!(
-                    "{}{}{}{}",
-                    DECORATION_PRE,
-                    target_module.as_str(),
-                    DECORATION_POST,
-                    target_function.as_str()
-                );
-                let rename = format!(
-                    "{}{}{}{}",
-                    DECORATION_OVERRIDE_PRE,
-                    target_module.as_str(),
-                    DECORATION_POST,
-                    target_function.as_str()
-                );
+                    let base_name = format!(
+                        "{}{}{}{}",
+                        DECORATION_PRE,
+                        target_module.as_str(),
+                        DECORATION_POST,
+                        target_function.as_str()
+                    );
+                    let rename = format!(
+                        "{}{}{}{}",
+                        DECORATION_OVERRIDE_PRE,
+                        target_module.as_str(),
+                        DECORATION_POST,
+                        target_function.as_str()
+                    );
 
-                let replacement_str = format!(
-                    "{}fn {}{}(",
-                    " ".repeat(cap.get(1).unwrap().range().len() - 3),
-                    rename,
-                    " ".repeat(cap.get(4).unwrap().range().len()),
-                );
+                    let replacement_str = format!(
+                        "{}fn {}{}(",
+                        " ".repeat(cap.get(1).unwrap().range().len() - 3),
+                        rename,
+                        " ".repeat(cap.get(4).unwrap().range().len()),
+                    );
 
-                local_override_functions.insert(rename, base_name);
+                    local_override_functions.insert(rename, base_name);
 
-                replacement_str
-            })
-            .to_string();
+                    replacement_str
+                })
+                .to_string();
 
         #[cfg(not(feature = "override_any"))]
         if let Some(err) = override_error {
@@ -1265,6 +1266,14 @@ impl Composer {
             &imports,
             shader_defs,
         )?;
+
+        // from here on errors need to be reported using the modified source with start_offset
+        let wrap_err = |inner: ComposerErrorInner| -> ComposerError {
+            ComposerError {
+                inner,
+                source: ErrSource::Module(module_definition.name.to_owned(), start_offset),
+            }
+        };
 
         // add our local override to the total set of overrides for the given function
         for (rename, base_name) in &local_override_functions {
@@ -1458,17 +1467,8 @@ impl Composer {
 
         let info =
             naga::valid::Validator::new(naga::valid::ValidationFlags::all(), self.capabilities)
-                .validate(&header_ir);
-
-        let info = match info {
-            Ok(info) => info,
-            Err(e) => {
-                return Err(ComposerError {
-                    inner: ComposerErrorInner::HeaderValidationError(e),
-                    source: ErrSource::Module(module_definition.name.to_owned(), start_offset),
-                });
-            }
-        };
+                .validate(&header_ir)
+                .map_err(|e| wrap_err(ComposerErrorInner::HeaderValidationError(e)))?;
 
         let headers = if create_headers {
             [
@@ -1479,10 +1479,7 @@ impl Composer {
                         &info,
                         naga::back::wgsl::WriterFlags::EXPLICIT_TYPES,
                     )
-                    .map_err(|e| ComposerError {
-                        inner: ComposerErrorInner::WgslBackError(e),
-                        source: ErrSource::Module(module_definition.name.to_owned(), start_offset),
-                    })?,
+                    .map_err(|e| wrap_err(ComposerErrorInner::WgslBackError(e)))?,
                 ),
                 (
                     // note this must come last as we add a dummy entry point
@@ -1514,20 +1511,8 @@ impl Composer {
                             naga::valid::ValidationFlags::all(),
                             self.capabilities,
                         )
-                        .validate(&header_ir);
-
-                        let info = match info {
-                            Ok(info) => info,
-                            Err(e) => {
-                                return Err(ComposerError {
-                                    inner: ComposerErrorInner::HeaderValidationError(e),
-                                    source: ErrSource::Module(
-                                        module_definition.name.to_owned(),
-                                        start_offset,
-                                    ),
-                                });
-                            }
-                        };
+                        .validate(&header_ir)
+                        .map_err(|e| wrap_err(ComposerErrorInner::HeaderValidationError(e)))?;
 
                         let mut string = String::new();
                         let options = naga::back::glsl::Options {
