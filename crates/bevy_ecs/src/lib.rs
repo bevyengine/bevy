@@ -31,10 +31,12 @@ pub mod prelude {
         change_detection::{DetectChanges, DetectChangesMut},
         component::Component,
         entity::Entity,
-        event::{EventReader, EventWriter, Events},
+        event::{Event, EventReader, EventWriter, Events},
         query::{Added, AnyOf, ChangeTrackers, Changed, Or, QueryState, With, Without},
         schedule::{
-            IntoSystemConfig, IntoSystemConfigs, Schedule, Schedules, State, States, SystemSet,
+            apply_state_transition, apply_system_buffers, IntoSystemConfig, IntoSystemConfigs,
+            IntoSystemSet, IntoSystemSetConfig, NextState, OnEnter, OnExit, OnUpdate, Schedule,
+            Schedules, State, States, SystemSet,
         },
         system::{
             adapter as system_adapter,

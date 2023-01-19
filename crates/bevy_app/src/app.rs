@@ -1,15 +1,8 @@
 use crate::{CoreSchedule, CoreSet, Plugin, PluginGroup, StartupSet};
 pub use bevy_derive::AppLabel;
 use bevy_ecs::{
-    event::{Event, Events},
-    prelude::FromWorld,
-    schedule::{
-        apply_state_transition, apply_system_buffers, BoxedScheduleLabel, IntoSystemConfig,
-        IntoSystemConfigs, NextState, OnEnter, OnExit, OnUpdate, Schedule, ScheduleLabel,
-        Schedules, State, States,
-    },
-    system::Resource,
-    world::World,
+    prelude::*,
+    schedule::{apply_state_transition, BoxedScheduleLabel, ScheduleLabel},
 };
 use bevy_utils::{tracing::debug, HashMap, HashSet};
 use std::fmt::Debug;
