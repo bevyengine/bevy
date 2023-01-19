@@ -930,8 +930,8 @@ pub fn queue_mesh_view_bind_groups(
                 },
             ];
 
-            // When using webgl with msaa, we can't create the fallback textures required by the prepass
-            // When msaa is disabled, we can't bind the textures either
+            // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
+            // When using WebGL, and MSAA is disabled, we can't bind the textures either
             if cfg!(not(feature = "webgl")) {
                 let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
                     Some(texture) => &texture.default_view,
