@@ -1,10 +1,10 @@
-mod fixed_timestep;
+pub mod fixed_timestep;
 mod stopwatch;
 #[allow(clippy::module_inception)]
 mod time;
 mod timer;
 
-pub use fixed_timestep::*;
+use fixed_timestep::{apply_fixed_timestep, FixedTime};
 pub use stopwatch::*;
 pub use time::*;
 pub use timer::*;
@@ -16,7 +16,7 @@ use crossbeam_channel::{Receiver, Sender};
 pub mod prelude {
     //! The Bevy Time Prelude.
     #[doc(hidden)]
-    pub use crate::{Time, Timer, TimerMode};
+    pub use crate::{fixed_timestep::FixedTime, Time, Timer, TimerMode};
 }
 
 use bevy_app::prelude::*;
@@ -35,11 +35,12 @@ impl Plugin for TimePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Time>()
             .init_resource::<TimeUpdateStrategy>()
-            .init_resource::<FixedTimesteps>()
             .register_type::<Timer>()
             .register_type::<Time>()
             .register_type::<Stopwatch>()
-            .add_system(time_system.in_set(TimeSystem).in_set(CoreSet::First));
+            .init_resource::<FixedTime>()
+            .add_system(time_system.in_set(TimeSystem).in_set(CoreSet::First))
+            .add_system(apply_fixed_timestep.in_set(CoreSet::FixedTimestep));
     }
 }
 
