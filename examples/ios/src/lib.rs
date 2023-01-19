@@ -5,11 +5,11 @@ use bevy::{input::touch::TouchPhase, prelude::*, window::WindowMode};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
+            primary_window: Some(Window {
                 resizable: false,
                 mode: WindowMode::BorderlessFullscreen,
                 ..default()
-            },
+            }),
             ..default()
         }))
         .add_startup_system(setup_scene)
@@ -20,17 +20,18 @@ fn main() {
 }
 
 fn touch_camera(
-    windows: ResMut<Windows>,
+    windows: Query<&Window>,
     mut touches: EventReader<TouchInput>,
     mut camera: Query<&mut Transform, With<Camera3d>>,
     mut last_position: Local<Option<Vec2>>,
 ) {
+    let window = windows.single();
+
     for touch in touches.iter() {
         if touch.phase == TouchPhase::Started {
             *last_position = None;
         }
         if let Some(last_position) = *last_position {
-            let window = windows.primary();
             let mut transform = camera.single_mut();
             *transform = Transform::from_xyz(
                 transform.translation.x
