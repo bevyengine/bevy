@@ -14,7 +14,7 @@ pub use bevy_utils::AHasher as ReflectHasher;
 /// A simple enumeration of "kinds" of type, without any associated object.
 ///
 /// A `ReflectKind` is obtained via [`Reflect::reflect_kind`].
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ReflectKind {
     Struct,
     TupleStruct,
