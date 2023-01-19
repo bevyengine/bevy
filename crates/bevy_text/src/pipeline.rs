@@ -11,7 +11,7 @@ use glyph_brush_layout::{FontId, SectionText};
 
 use crate::{
     error::TextError, glyph_brush::GlyphBrush, scale_value, Font, FontAtlasSet, FontAtlasWarning,
-    PositionedGlyph, TextAlignment, TextSection, TextSettings, YAxisOrientation,
+    PositionedGlyph, TextAlignment, TextSection, TextSettings, YAxisOrientation, TextLineBreakBehaviour,
 };
 
 #[derive(Default, Resource)]
@@ -45,6 +45,7 @@ impl TextPipeline {
         sections: &[TextSection],
         scale_factor: f64,
         text_alignment: TextAlignment,
+        linebreak_behaviour: TextLineBreakBehaviour,
         bounds: Vec2,
         font_atlas_set_storage: &mut Assets<FontAtlasSet>,
         texture_atlases: &mut Assets<TextureAtlas>,
@@ -77,7 +78,7 @@ impl TextPipeline {
 
         let section_glyphs = self
             .brush
-            .compute_glyphs(&sections, bounds, text_alignment)?;
+            .compute_glyphs(&sections, bounds, text_alignment, linebreak_behaviour)?;
 
         if section_glyphs.is_empty() {
             return Ok(TextLayoutInfo::default());

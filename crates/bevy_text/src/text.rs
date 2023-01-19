@@ -14,6 +14,8 @@ pub struct Text {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
     pub alignment: TextAlignment,
+    /// How the text should linebreak when running out of the bounds determined by max_size
+    pub linebreak_behaviour: TextLineBreakBehaviour,
 }
 
 impl Default for Text {
@@ -21,6 +23,7 @@ impl Default for Text {
         Self {
             sections: Default::default(),
             alignment: TextAlignment::Left,
+            linebreak_behaviour: TextLineBreakBehaviour::Unicode,
         }
     }
 }
@@ -101,6 +104,11 @@ impl Text {
     /// Returns this [`Text`] with a new [`TextAlignment`].
     pub const fn with_alignment(mut self, alignment: TextAlignment) -> Self {
         self.alignment = alignment;
+        self
+    }
+
+    pub const fn with_linebreak_behaviour(mut self, linebreak_behaviour: TextLineBreakBehaviour) -> Self {
+        self.linebreak_behaviour = linebreak_behaviour;
         self
     }
 }
