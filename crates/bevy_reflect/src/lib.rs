@@ -158,7 +158,7 @@ pub enum FromReflectError {
 }
 
 impl FromReflectError {
-    /// Returns the [`TypeInfo`] of the source type
+    /// Returns the [`TypeInfo`] of the source type.
     pub fn from_type(&self) -> &'static TypeInfo {
         match self {
             Self::InvalidType { from_type, .. }
@@ -174,7 +174,7 @@ impl FromReflectError {
         }
     }
 
-    /// Returns the [`TypeInfo`] of the target type
+    /// Returns the [`TypeInfo`] of the target type.
     pub fn to_type(&self) -> &'static TypeInfo {
         match self {
             Self::InvalidType { to_type, .. }
@@ -190,7 +190,7 @@ impl FromReflectError {
         }
     }
 
-    /// Returns the [`ReflectKind`] of the source type
+    /// Returns the [`ReflectKind`] of the source type.
     pub fn from_kind(&self) -> ReflectKind {
         *match self {
             Self::InvalidType { from_kind, .. }
@@ -206,7 +206,7 @@ impl FromReflectError {
         }
     }
 
-    /// Returns the "kind" of source type for display purposes
+    /// Returns the "kind" of source type for display purposes.
     fn display_from_kind(&self) -> String {
         let prefix = if let TypeInfo::Dynamic(_) = self.from_type() {
             "(Dynamic)"
@@ -217,7 +217,7 @@ impl FromReflectError {
         format!("{}{:?}", prefix, self.from_kind())
     }
 
-    /// Returns the "kind" of target type for display purposes
+    /// Returns the "kind" of target type for display purposes.
     fn display_to_kind(&self) -> &str {
         match self.to_type() {
             TypeInfo::Struct(_) => "Struct",
