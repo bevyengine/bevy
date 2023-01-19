@@ -39,14 +39,7 @@ impl Plugin for TimePlugin {
             .register_type::<Timer>()
             .register_type::<Time>()
             .register_type::<Stopwatch>()
-            // time system is added as an "exclusive system" to ensure it runs before other systems
-            // in CoreStage::First
-            .add_system(
-                time_system
-                    .at_start()
-                    .in_set(TimeSystem)
-                    .in_set(CoreSet::First),
-            );
+            .add_system(time_system.in_set(TimeSystem).in_set(CoreSet::First));
     }
 }
 
