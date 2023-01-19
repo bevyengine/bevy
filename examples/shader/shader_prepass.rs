@@ -3,7 +3,7 @@
 //! The textures are not generated for any material using alpha blending.
 //!
 //! # WARNING
-//! The prepass currently doesn't work on WebGL.
+//! The prepass currently doesn't work on `WebGL`.
 
 use bevy::{
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
