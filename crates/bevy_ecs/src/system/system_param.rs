@@ -126,7 +126,7 @@ use std::{
 ///
 /// The implementor must ensure the following is true.
 /// - [`SystemParam::init_state`] correctly registers all [`World`] accesses used
-///   by this [`SystemParam`] with the provided [`system_meta`](SystemMeta).
+///   by [`SystemParam::get_param`] with the provided [`system_meta`](SystemMeta).
 /// - None of the world accesses may conflict with any prior accesses registered
 ///   on `system_meta`.
 pub unsafe trait SystemParam: Sized {
@@ -594,7 +594,7 @@ unsafe impl<'a, T: Resource> SystemParam for Option<ResMut<'a, T>> {
 // SAFETY: Commands only accesses internal state
 unsafe impl<'w, 's> ReadOnlySystemParam for Commands<'w, 's> {}
 
-// SAFETY: only local state is accessed
+// SAFETY: `Commands::get_param` does not access the world.
 unsafe impl SystemParam for Commands<'_, '_> {
     type State = CommandQueue;
     type Item<'w, 's> = Commands<'w, 's>;
