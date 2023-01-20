@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
+use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
@@ -20,12 +21,14 @@ use bevy_render::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         GpuBufferInfo, Mesh, MeshVertexBufferLayout,
     },
+    prelude::Msaa,
     render_asset::RenderAssets,
     render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
+        BevyDefault, DefaultImageSampler, FallbackImagesDepth, FallbackImagesMsaa, GpuImage, Image,
+        ImageSampler, TextureFormatPixelInfo,
     },
     view::{ComputedVisibility, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, RenderApp, RenderStage,
@@ -255,6 +258,7 @@ pub fn extract_skinned_meshes(
 #[derive(Resource, Clone)]
 pub struct MeshPipeline {
     pub view_layout: BindGroupLayout,
+    pub view_layout_multisampled: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
     pub skinned_mesh_layout: BindGroupLayout,
     pub environment_map_layout: BindGroupLayout,
@@ -274,8 +278,12 @@ impl FromWorld for MeshPipeline {
         let clustered_forward_buffer_binding_type = render_device
             .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT);
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            entries: &[
+        /// Returns the appropriate bind group layout vec based on the parameters
+        fn layout_entries(
+            clustered_forward_buffer_binding_type: BufferBindingType,
+            multisampled: bool,
+        ) -> Vec<BindGroupLayoutEntry> {
+            let mut entries = vec![
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -383,6 +391,7 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
+                // Globals
                 BindGroupLayoutEntry {
                     binding: 9,
                     visibility: ShaderStages::VERTEX_FRAGMENT,
@@ -393,9 +402,44 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
-            ],
+            ];
+            if cfg!(not(feature = "webgl")) {
+                // Depth texture
+                entries.push(BindGroupLayoutEntry {
+                    binding: 10,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled,
+                        sample_type: TextureSampleType::Depth,
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                });
+                // Normal texture
+                entries.push(BindGroupLayoutEntry {
+                    binding: 11,
+                    visibility: ShaderStages::FRAGMENT,
+                    ty: BindingType::Texture {
+                        multisampled,
+                        sample_type: TextureSampleType::Float { filterable: true },
+                        view_dimension: TextureViewDimension::D2,
+                    },
+                    count: None,
+                });
+            }
+            entries
+        }
+
+        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
             label: Some("mesh_view_layout"),
+            entries: &layout_entries(clustered_forward_buffer_binding_type, false),
         });
+
+        let view_layout_multisampled =
+            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
+                label: Some("mesh_view_layout_multisampled"),
+                entries: &layout_entries(clustered_forward_buffer_binding_type, true),
+            });
 
         let mesh_binding = BindGroupLayoutEntry {
             binding: 0,
@@ -482,6 +526,7 @@ impl FromWorld for MeshPipeline {
 
         MeshPipeline {
             view_layout,
+            view_layout_multisampled,
             mesh_layout,
             skinned_mesh_layout,
             environment_map_layout: new_environment_map_bind_group_layout(&render_device),
@@ -520,6 +565,9 @@ bitflags::bitflags! {
         const TONEMAP_IN_SHADER           = (1 << 2);
         const DEBAND_DITHER               = (1 << 3);
         const ENVIRONMENT_MAP             = (1 << 4);
+        const DEPTH_PREPASS               = (1 << 5);
+        const NORMAL_PREPASS              = (1 << 6);
+        const ALPHA_MASK                  = (1 << 7);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -611,7 +659,14 @@ impl SpecializedMeshPipeline for MeshPipeline {
             vertex_attributes.push(Mesh::ATTRIBUTE_COLOR.at_shader_location(4));
         }
 
-        let mut bind_group_layout = vec![self.view_layout.clone()];
+        let mut bind_group_layout = match key.msaa_samples() {
+            1 => vec![self.view_layout.clone()],
+            _ => {
+                shader_defs.push("MULTISAMPLED".into());
+                vec![self.view_layout_multisampled.clone()]
+            }
+        };
+
         if layout.contains(Mesh::ATTRIBUTE_JOINT_INDEX)
             && layout.contains(Mesh::ATTRIBUTE_JOINT_WEIGHT)
         {
@@ -690,7 +745,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
             depth_stencil: Some(DepthStencilState {
                 format: TextureFormat::Depth32Float,
                 depth_write_enabled,
-                depth_compare: CompareFunction::Greater,
+                depth_compare: CompareFunction::GreaterEqual,
                 stencil: StencilState {
                     front: StencilFaceState::IGNORE,
                     back: StencilFaceState::IGNORE,
@@ -812,7 +867,15 @@ pub fn queue_mesh_view_bind_groups(
     light_meta: Res<LightMeta>,
     global_light_meta: Res<GlobalLightMeta>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<(Entity, &ViewShadowBindings, &ViewClusterBindings)>,
+    views: Query<(
+        Entity,
+        &ViewShadowBindings,
+        &ViewClusterBindings,
+        Option<&ViewPrepassTextures>,
+    )>,
+    mut fallback_images: FallbackImagesMsaa,
+    mut fallback_depths: FallbackImagesDepth,
+    msaa: Res<Msaa>,
     globals_buffer: Res<GlobalsBuffer>,
 ) {
     if let (Some(view_binding), Some(light_binding), Some(point_light_binding), Some(globals)) = (
@@ -821,58 +884,94 @@ pub fn queue_mesh_view_bind_groups(
         global_light_meta.gpu_point_lights.binding(),
         globals_buffer.buffer.binding(),
     ) {
-        for (entity, view_shadow_bindings, view_cluster_bindings) in &views {
+        for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
+            let layout = if msaa.samples() > 1 {
+                &mesh_pipeline.view_layout_multisampled
+            } else {
+                &mesh_pipeline.view_layout
+            };
+
+            let mut entries = vec![
+                BindGroupEntry {
+                    binding: 0,
+                    resource: view_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 1,
+                    resource: light_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 2,
+                    resource: BindingResource::TextureView(
+                        &view_shadow_bindings.point_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 3,
+                    resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 4,
+                    resource: BindingResource::TextureView(
+                        &view_shadow_bindings.directional_light_depth_texture_view,
+                    ),
+                },
+                BindGroupEntry {
+                    binding: 5,
+                    resource: BindingResource::Sampler(&shadow_pipeline.directional_light_sampler),
+                },
+                BindGroupEntry {
+                    binding: 6,
+                    resource: point_light_binding.clone(),
+                },
+                BindGroupEntry {
+                    binding: 7,
+                    resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
+                },
+                BindGroupEntry {
+                    binding: 8,
+                    resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
+                },
+                BindGroupEntry {
+                    binding: 9,
+                    resource: globals.clone(),
+                },
+            ];
+
+            // When using WebGL with MSAA, we can't create the fallback textures required by the prepass
+            // When using WebGL, and MSAA is disabled, we can't bind the textures either
+            if cfg!(not(feature = "webgl")) {
+                let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
+                    Some(texture) => &texture.default_view,
+                    None => {
+                        &fallback_depths
+                            .image_for_samplecount(msaa.samples())
+                            .texture_view
+                    }
+                };
+                entries.push(BindGroupEntry {
+                    binding: 10,
+                    resource: BindingResource::TextureView(depth_view),
+                });
+
+                let normal_view = match prepass_textures.and_then(|x| x.normal.as_ref()) {
+                    Some(texture) => &texture.default_view,
+                    None => {
+                        &fallback_images
+                            .image_for_samplecount(msaa.samples())
+                            .texture_view
+                    }
+                };
+                entries.push(BindGroupEntry {
+                    binding: 11,
+                    resource: BindingResource::TextureView(normal_view),
+                });
+            }
+
             let view_bind_group = render_device.create_bind_group(&BindGroupDescriptor {
-                entries: &[
-                    BindGroupEntry {
-                        binding: 0,
-                        resource: view_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 1,
-                        resource: light_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 2,
-                        resource: BindingResource::TextureView(
-                            &view_shadow_bindings.point_light_depth_texture_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 3,
-                        resource: BindingResource::Sampler(&shadow_pipeline.point_light_sampler),
-                    },
-                    BindGroupEntry {
-                        binding: 4,
-                        resource: BindingResource::TextureView(
-                            &view_shadow_bindings.directional_light_depth_texture_view,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 5,
-                        resource: BindingResource::Sampler(
-                            &shadow_pipeline.directional_light_sampler,
-                        ),
-                    },
-                    BindGroupEntry {
-                        binding: 6,
-                        resource: point_light_binding.clone(),
-                    },
-                    BindGroupEntry {
-                        binding: 7,
-                        resource: view_cluster_bindings.light_index_lists_binding().unwrap(),
-                    },
-                    BindGroupEntry {
-                        binding: 8,
-                        resource: view_cluster_bindings.offsets_and_counts_binding().unwrap(),
-                    },
-                    BindGroupEntry {
-                        binding: 9,
-                        resource: globals.clone(),
-                    },
-                ],
+                entries: &entries,
                 label: Some("mesh_view_bind_group"),
-                layout: &mesh_pipeline.view_layout,
+                layout,
             });
 
             commands.entity(entity).insert(MeshViewBindGroup {

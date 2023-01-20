@@ -9,6 +9,20 @@ use std::{
 #[derive(Debug, Default, Clone)]
 pub struct TaskPoolBuilder {}
 
+/// This is a dummy struct for wasm support to provide the same api as with the multithreaded
+/// task pool. In the case of the multithreaded task pool this struct is used to spawn
+/// tasks on a specific thread. But the wasm task pool just calls
+/// [`wasm_bindgen_futures::spawn_local`] for spawning which just runs tasks on the main thread
+/// and so the [`ThreadExecutor`] does nothing.
+#[derive(Default)]
+pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
+impl<'a> ThreadExecutor<'a> {
+    /// Creates a new `ThreadExecutor`
+    pub fn new() -> Self {
+        Self(PhantomData::default())
+    }
+}
+
 impl TaskPoolBuilder {
     /// Creates a new TaskPoolBuilder instance
     pub fn new() -> Self {
@@ -63,6 +77,24 @@ impl TaskPool {
     ///
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
+    where
+        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        T: Send + 'static,
+    {
+        self.scope_with_executor(false, None, f)
+    }
+
+    /// Allows spawning non-`static futures on the thread pool. The function takes a callback,
+    /// passing a scope object into it. The scope object provided to the callback can be used
+    /// to spawn tasks. This function will await the completion of all tasks before returning.
+    ///
+    /// This is similar to `rayon::scope` and `crossbeam::scope`
+    pub fn scope_with_executor<'env, F, T>(
+        &self,
+        _tick_task_pool_executor: bool,
+        _thread_executor: Option<&ThreadExecutor>,
+        f: F,
+    ) -> Vec<T>
     where
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
