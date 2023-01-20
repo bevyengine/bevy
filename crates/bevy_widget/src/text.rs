@@ -1,20 +1,26 @@
-use bevy_app::{CoreStage, Plugin, App};
+use bevy_app::{App, CoreStage, Plugin};
 use bevy_asset::Assets;
 use bevy_ecs::{
     entity::Entity,
+    prelude::Bundle,
     query::{Changed, Or, With},
-    system::{Commands, Local, ParamSet, Query, Res, ResMut}, prelude::Bundle, schedule::IntoSystemDescriptor,
+    schedule::IntoSystemDescriptor,
+    system::{Commands, Local, ParamSet, Query, Res, ResMut},
 };
 use bevy_math::Vec2;
-use bevy_render::{texture::Image, camera::CameraUpdateSystem, view::{Visibility, ComputedVisibility}};
+use bevy_render::{
+    camera::CameraUpdateSystem,
+    texture::Image,
+    view::{ComputedVisibility, Visibility},
+};
 use bevy_sprite::TextureAtlas;
 use bevy_text::{
-    Font, FontAtlasSet, FontAtlasWarning, Text, TextError, TextLayoutInfo, TextPipeline,
-    TextSettings, YAxisOrientation, TextStyle, TextSection, TextAlignment,
+    Font, FontAtlasSet, FontAtlasWarning, Text, TextAlignment, TextError, TextLayoutInfo,
+    TextPipeline, TextSection, TextSettings, TextStyle, YAxisOrientation,
 };
-use bevy_transform::prelude::{Transform, GlobalTransform};
-use bevy_ui::{CalculatedSize, Size, Style, UiScale, Val, UiSystem, Node, FocusPolicy, ZIndex};
-use bevy_window::{PrimaryWindow, Window, ModifiesWindows};
+use bevy_transform::prelude::{GlobalTransform, Transform};
+use bevy_ui::{CalculatedSize, FocusPolicy, Node, Size, Style, UiScale, UiSystem, Val, ZIndex};
+use bevy_window::{ModifiesWindows, PrimaryWindow, Window};
 
 /// Text entities queued for further processing
 #[derive(Debug, Default)]
