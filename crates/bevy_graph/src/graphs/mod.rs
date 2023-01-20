@@ -34,7 +34,7 @@ pub trait Graph<N, E> {
         Self: 'n,
         N: 'n;
     /// Iterator fix because TAIT not available
-    type Edges<'e>: Iterator<Item = &'e Edge<E>>
+    type Edges<'e>: Iterator<Item = EdgeRef<'e, E>>
     where
         Self: 'e,
         E: 'e;

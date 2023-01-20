@@ -212,9 +212,9 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         self.nodes.values_mut()
     }
 
-    type Edges<'e> = slotmap::hop::Values<'e, EdgeIdx, Edge<E>> where Self: 'e;
+    type Edges<'e> = iters::EdgesRef<'e, E, slotmap::hop::Values<'e, EdgeIdx, Edge<E>>> where Self: 'e;
     fn edges(&self) -> Self::Edges<'_> {
-        self.edges.values()
+        iters::EdgesRef::new(self.edges.values())
     }
 
     type EdgesMut<'e> = slotmap::hop::ValuesMut<'e, EdgeIdx, Edge<E>> where Self: 'e;
