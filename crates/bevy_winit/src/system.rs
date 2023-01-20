@@ -5,6 +5,7 @@ use bevy_ecs::{
     system::{Commands, NonSendMut, Query, RemovedComponents},
     world::Mut,
 };
+use bevy_math::DVec2;
 use bevy_utils::{
     tracing::{error, info, warn},
     HashMap,
@@ -148,6 +149,7 @@ pub(crate) fn changed_window(
                     winit_window.set_fullscreen(new_mode);
                 }
             }
+
             if window.resolution != previous.resolution {
                 let physical_size = PhysicalSize::new(
                     window.resolution.physical_width(),
@@ -160,7 +162,9 @@ pub(crate) fn changed_window(
                 }
             }
 
-            if window.cursor.position != previous.cursor.position {
+            let current_position = window.cursor.position.map(|p| p.as_ivec2());
+            let previous_position = previous.cursor.position.map(|p| p.as_ivec2());
+            if current_position != previous_position {
                 if let Some(physical_position) = window.cursor.position {
                     let inner_size = winit_window.inner_size();
 
