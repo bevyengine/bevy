@@ -7,7 +7,7 @@
 
 use bevy::{
     prelude::*,
-    text::{Text2dBounds, TextLineBreakBehaviour},
+    text::{BreakLineOn, Text2dBounds},
 };
 
 fn main() {
@@ -90,7 +90,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     alignment: TextAlignment::Left,
-                    linebreak_behaviour: TextLineBreakBehaviour::Unicode,
+                    linebreak_behaviour: BreakLineOn::WordBoundary,
                 },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
@@ -122,7 +122,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         slightly_smaller_text_style.clone(),
                     )],
                     alignment: TextAlignment::Left,
-                    linebreak_behaviour: TextLineBreakBehaviour::AnyCharacter,
+                    linebreak_behaviour: BreakLineOn::AnyCharacter,
                 },
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle

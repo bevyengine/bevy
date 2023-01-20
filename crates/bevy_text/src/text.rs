@@ -15,7 +15,7 @@ pub struct Text {
     /// Should not affect its position within a container.
     pub alignment: TextAlignment,
     /// How the text should linebreak when running out of the bounds determined by max_size
-    pub linebreak_behaviour: TextLineBreakBehaviour,
+    pub linebreak_behaviour: BreakLineOn,
 }
 
 impl Default for Text {
@@ -23,7 +23,7 @@ impl Default for Text {
         Self {
             sections: Default::default(),
             alignment: TextAlignment::Left,
-            linebreak_behaviour: TextLineBreakBehaviour::Unicode,
+            linebreak_behaviour: BreakLineOn::WordBoundary,
         }
     }
 }
@@ -177,24 +177,22 @@ impl Default for TextStyle {
 /// Determines how lines will be broken when preventing text from running out of bounds.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize)]
-pub enum TextLineBreakBehaviour {
-    /// Lines will be broken up at the nearest word boundary, usually at a space.<br/>
-    /// This behaviour suits most cases, as it keeps words intact. Aims to implement the Unicode line breaking algorithm.
-    Unicode,
-    /// Lines will be broken without discrimination at the first character that runs out of bounds.<br/>
-    /// This is closer to the behaviour one might expect from a terminal.
+pub enum BreakLineOn {
+    /// Uses the [Unicode Line Breaking Algorithm](https://www.unicode.org/reports/tr14/).<br/>
+    /// Lines will be broken up at the nearest suitable word boundary, usually a space.<br/>
+    /// This behaviour suits most cases, as it keeps words intact across linebreaks.<br/>
+    WordBoundary,
+    /// Lines will be broken without discrimination on any character that would leave bounds.<br/>
+    /// This is closer to the behaviour one might expect from text in a terminal. <br/>
+    /// However it may lead to words being broken up across linebreaks<br />
     AnyCharacter,
 }
 
-impl From<TextLineBreakBehaviour> for glyph_brush_layout::BuiltInLineBreaker {
-    fn from(val: TextLineBreakBehaviour) -> Self {
+impl From<BreakLineOn> for glyph_brush_layout::BuiltInLineBreaker {
+    fn from(val: BreakLineOn) -> Self {
         match val {
-            TextLineBreakBehaviour::Unicode => {
-                glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker
-            }
-            TextLineBreakBehaviour::AnyCharacter => {
-                glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker
-            }
+            BreakLineOn::WordBoundary => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
+            BreakLineOn::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
         }
     }
 }
