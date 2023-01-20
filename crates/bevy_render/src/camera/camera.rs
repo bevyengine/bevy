@@ -590,6 +590,8 @@ pub fn extract_cameras(
 /// Useful for temporal rendering techniques.
 ///
 /// Do not use with [`OrthographicProjection`].
+///
+/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
 #[derive(Component, Clone, Default)]
 pub struct TemporalJitter {
     pub offset: Vec2,
