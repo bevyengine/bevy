@@ -13,7 +13,7 @@ impl Requests {
     }
 
     fn add(&mut self, request: Request) {
-        self.0.push(request)
+        self.0.push(request);
     }
 
     fn len(&self) -> usize {
