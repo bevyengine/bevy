@@ -721,6 +721,73 @@ mod test {
         output_eq!(wgsl, "tests/expected/item_import_test.txt");
     }
 
+    #[test]
+    fn bad_identifiers() {
+        let mut composer = Composer::default();
+
+        let check_err = |composer: &mut Composer, name: &str| -> bool {
+            let result = composer.make_naga_module(NagaModuleDescriptor {
+                source: &format!("#import {}", name),
+                file_path: name,
+                ..Default::default()
+            });
+
+            if let Err(err) = &result {
+                if let ComposerErrorInner::InvalidIdentifier { original, .. } = &err.inner {
+                    return original.ends_with("bad_");
+                }
+            }
+
+            println!("{:?}", result);
+            false
+        };
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/invalid_identifiers/const.wgsl"),
+                file_path: "tests/invalid_identifiers/const.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(check_err(&mut composer, "consts"));
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/invalid_identifiers/fn.wgsl"),
+                file_path: "tests/invalid_identifiers/fn.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(check_err(&mut composer, "fns"));
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/invalid_identifiers/global.wgsl"),
+                file_path: "tests/invalid_identifiers/global.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(check_err(&mut composer, "globals"));
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/invalid_identifiers/struct_member.wgsl"),
+                file_path: "tests/invalid_identifiers/struct_member.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(check_err(&mut composer, "struct_members"));
+
+        composer
+            .add_composable_module(ComposableModuleDescriptor {
+                source: include_str!("tests/invalid_identifiers/struct.wgsl"),
+                file_path: "tests/invalid_identifiers/struct.wgsl",
+                ..Default::default()
+            })
+            .unwrap();
+        assert!(check_err(&mut composer, "structs"));
+    }
+
     // actually run a shader and extract the result
     // needs the composer to contain a module called "test_module", with a function called "entry_point" returning an f32.
     fn test_shader(composer: &mut Composer) -> f32 {

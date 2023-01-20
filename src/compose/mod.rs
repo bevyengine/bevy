@@ -398,6 +398,10 @@ pub enum ComposerErrorInner {
         "override is invalid as `{name}` is not virtual (this error can be disabled with feature 'override_any')"
     )]
     OverrideNotVirtual { name: String, pos: usize },
+    #[error(
+        "Composable module identifiers must not require substitution according to naga writeback rules: `{original}`"
+    )]
+    InvalidIdentifier { original: String, at: naga::Span },
 }
 
 struct ErrorSources<'a> {
@@ -518,6 +522,11 @@ impl ComposerError {
                     path
                 );
             }
+            ComposerErrorInner::InvalidIdentifier { at, .. } => (
+                vec![Label::primary((), map_span(at.to_range().unwrap_or(0..0)))
+                    .with_message(self.inner.to_string())],
+                vec![],
+            ),
         };
 
         let diagnostic = Diagnostic::error()
@@ -1118,6 +1127,129 @@ impl Composer {
         (name, imports)
     }
 
+    // check that identifiers exported by a module do not get modified in string export
+    fn validate_identifiers(
+        source_ir: &naga::Module,
+        lang: ShaderLanguage,
+        header: &str,
+        module_decoration: &str,
+        owned_types: &HashSet<String>,
+    ) -> Result<(), ComposerErrorInner> {
+        // TODO: remove this once glsl has INCLUDE_UNUSED_ITEMS
+        if lang == ShaderLanguage::Glsl {
+            return Ok(());
+        }
+
+        let recompiled = match lang {
+            ShaderLanguage::Wgsl => naga::front::wgsl::parse_str(header).unwrap(),
+            ShaderLanguage::Glsl => naga::front::glsl::Parser::default()
+                .parse(
+                    &naga::front::glsl::Options {
+                        stage: naga::ShaderStage::Vertex,
+                        defines: Default::default(),
+                    },
+                    &format!("{}\n{}", header, "void main() {}"),
+                )
+                .unwrap(),
+        };
+
+        let recompiled_types: HashMap<_, _> = recompiled
+            .types
+            .iter()
+            .flat_map(|(h, ty)| ty.name.as_deref().map(|name| (name, h)))
+            .collect();
+        for (h, ty) in source_ir.types.iter() {
+            if let Some(name) = &ty.name {
+                let decorated_type_name = format!("{}{}", module_decoration, name);
+                if !owned_types.contains(&decorated_type_name) {
+                    continue;
+                }
+                match recompiled_types.get(decorated_type_name.as_str()) {
+                    Some(recompiled_h) => {
+                        if let naga::TypeInner::Struct { members, .. } = &ty.inner {
+                            let recompiled_ty = recompiled.types.get_handle(*recompiled_h).unwrap();
+                            let naga::TypeInner::Struct { members: recompiled_members, .. } = &recompiled_ty.inner else {
+                                panic!();
+                            };
+                            for (member, recompiled_member) in
+                                members.iter().zip(recompiled_members)
+                            {
+                                if member.name != recompiled_member.name {
+                                    return Err(ComposerErrorInner::InvalidIdentifier {
+                                        original: member.name.clone().unwrap_or_default(),
+                                        at: source_ir.types.get_span(h),
+                                    });
+                                }
+                            }
+                        }
+                    }
+                    None => {
+                        return Err(ComposerErrorInner::InvalidIdentifier {
+                            original: name.clone(),
+                            at: source_ir.types.get_span(h),
+                        })
+                    }
+                }
+            }
+        }
+
+        let recompiled_consts: HashSet<_> = recompiled
+            .constants
+            .iter()
+            .flat_map(|(_, c)| c.name.as_deref())
+            .filter(|name| name.starts_with(module_decoration))
+            .collect();
+        for (h, c) in source_ir.constants.iter() {
+            if let Some(name) = &c.name {
+                if name.starts_with(module_decoration) && !recompiled_consts.contains(name.as_str())
+                {
+                    return Err(ComposerErrorInner::InvalidIdentifier {
+                        original: name.clone(),
+                        at: source_ir.constants.get_span(h),
+                    });
+                }
+            }
+        }
+
+        let recompiled_globals: HashSet<_> = recompiled
+            .global_variables
+            .iter()
+            .flat_map(|(_, c)| c.name.as_deref())
+            .filter(|name| name.starts_with(module_decoration))
+            .collect();
+        for (h, gv) in source_ir.global_variables.iter() {
+            if let Some(name) = &gv.name {
+                if name.starts_with(module_decoration)
+                    && !recompiled_globals.contains(name.as_str())
+                {
+                    return Err(ComposerErrorInner::InvalidIdentifier {
+                        original: name.clone(),
+                        at: source_ir.global_variables.get_span(h),
+                    });
+                }
+            }
+        }
+
+        let recompiled_fns: HashSet<_> = recompiled
+            .functions
+            .iter()
+            .flat_map(|(_, c)| c.name.as_deref())
+            .filter(|name| name.starts_with(module_decoration))
+            .collect();
+        for (h, f) in source_ir.functions.iter() {
+            if let Some(name) = &f.name {
+                if name.starts_with(module_decoration) && !recompiled_fns.contains(name.as_str()) {
+                    return Err(ComposerErrorInner::InvalidIdentifier {
+                        original: name.clone(),
+                        at: source_ir.functions.get_span(h),
+                    });
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     // build a ComposableModule from a ComposableModuleDefinition, for a given set of shader defs
     // - build the naga IR (against headers)
     // - record any types/vars/constants/functions that are defined within this module
@@ -1451,16 +1583,19 @@ impl Composer {
                 }
             }
         }
-        for (_, constant) in module_ir.constants.iter_mut() {
-            if let Some(name) = constant.name.as_mut() {
-                if let Some(rename) = renamed_consts.get(name) {
-                    trace!(
-                        "{}: module rename {} -> {}",
-                        module_definition.name,
-                        name,
-                        rename
-                    );
-                    *name = rename.clone();
+        // we do this in the module_ir, and source_ir as well so that identifier validation works
+        for ir in [&mut module_ir, &mut source_ir] {
+            for (_, constant) in ir.constants.iter_mut() {
+                if let Some(name) = constant.name.as_mut() {
+                    if let Some(rename) = renamed_consts.get(name) {
+                        trace!(
+                            "{}: module rename {} -> {}",
+                            module_definition.name,
+                            name,
+                            rename
+                        );
+                        *name = rename.clone();
+                    }
                 }
             }
         }
@@ -1470,7 +1605,7 @@ impl Composer {
                 .validate(&header_ir)
                 .map_err(|e| wrap_err(ComposerErrorInner::HeaderValidationError(e)))?;
 
-        let headers = if create_headers {
+        let headers: HashMap<_, _> = if create_headers {
             [
                 (
                     ShaderLanguage::Wgsl,
@@ -1563,6 +1698,24 @@ impl Composer {
         } else {
             Default::default()
         };
+
+        if self.validate {
+            // check that identifiers haven't been renamed
+            for (lang, header) in headers.iter() {
+                Self::validate_identifiers(
+                    &source_ir,
+                    *lang,
+                    header,
+                    &module_decoration,
+                    &owned_types,
+                )
+                .map_err(|e| {
+                    println!("source: {:#?}", source_ir);
+                    println!("header: {}", header);
+                    wrap_err(e)
+                })?;
+            }
+        }
 
         let composable_module = ComposableModule {
             decorated_name: module_decoration,
