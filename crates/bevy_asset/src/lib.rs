@@ -46,8 +46,8 @@ pub use loader::*;
 pub use path::*;
 pub use reflect::*;
 
-use bevy_app::{prelude::Plugin, App};
-use bevy_ecs::schedule::SystemSet;
+use bevy_app::prelude::*;
+use bevy_ecs::prelude::*;
 
 /// The names of asset stages in an [`App`] schedule.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -105,18 +105,14 @@ impl Plugin for AssetPlugin {
             app.insert_resource(asset_server);
         }
 
-        app.add_stage_before(
-            bevy_app::CoreSet::PreUpdate,
-            AssetSet::LoadAssets,
-            SystemStage::parallel(),
-        )
-        .add_stage_after(
-            bevy_app::CoreSet::PostUpdate,
-            AssetSet::AssetEvents,
-            SystemStage::parallel(),
-        )
-        .register_type::<HandleId>()
-        .add_system(asset_server::free_unused_assets_system.in_set(CoreSet::PreUpdate));
+        app.register_type::<HandleId>();
+
+        let main_schedule = app.schedule_mut(&CoreSchedule::Main).unwrap();
+
+        main_schedule
+            .configure_set(AssetSet::LoadAssets.before(CoreSet::PreUpdate))
+            .configure_set(AssetSet::AssetEvents.after(CoreSet::PostUpdate))
+            .add_system(asset_server::free_unused_assets_system.in_set(CoreSet::PreUpdate));
 
         #[cfg(all(
             feature = "filesystem_watcher",

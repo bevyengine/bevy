@@ -22,7 +22,9 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::AppTypeRegistry;
     #[doc(hidden)]
-    pub use crate::{app::App, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet};
+    pub use crate::{
+        app::App, CoreSchedule, CoreSet, DynamicPlugin, Plugin, PluginGroup, StartupSet,
+    };
 }
 
 use bevy_ecs::{
