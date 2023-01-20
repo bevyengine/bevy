@@ -99,7 +99,7 @@ impl<K: PartialEq + Ord, V> VecMap<K, V> for Vec<(K, V)> {
     }
 }
 
-/// Iterator over all values in a VecMap
+/// Iterator over all values in a `VecMap`
 pub struct Values<'s, K: PartialEq, V> {
     inner: slice::Iter<'s, (K, V)>,
 }
