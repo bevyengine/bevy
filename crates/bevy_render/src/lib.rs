@@ -237,9 +237,6 @@ impl Plugin for RenderPlugin {
                 .world
                 .components()
                 .get_resource_id(TypeId::of::<MainWorld>());
-            // `Extract` systems must read from the main world. We want to emit an error when that doesn't occur
-            // Safe to unwrap: Ensured it existed just above
-            extract_stage.set_must_read_resource(main_world_in_render.unwrap());
 
             // This set applies the commands from the extract stage while the render schedule
             // is running in parallel with the main app.
