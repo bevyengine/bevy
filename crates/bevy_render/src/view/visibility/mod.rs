@@ -213,8 +213,8 @@ impl Plugin for VisibilityPlugin {
         app.add_system(
             calculate_bounds
                 .in_set(CalculateBounds)
-                .before_commands()
-                .in_set(CoreSet::PostUpdate),
+                // The commands from this system must be applied before we compute culling frustra
+                .in_set(CoreSet::Update),
         )
         .add_system(
             update_frusta::<OrthographicProjection>
