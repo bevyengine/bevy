@@ -92,7 +92,7 @@ impl Plugin for TemporalAntialiasPlugin {
     }
 }
 
-/// Bundle to apply temporal antialiasing (TemporalAntialiasSettings, DepthPrepass, VelocityPrepass).
+/// Bundle to apply temporal antialiasing ([`TemporalAntialiasSettings`], `DepthPrepass`, `VelocityPrepass`).
 #[derive(Bundle, Default)]
 pub struct TemporalAntialiasBundle {
     pub settings: TemporalAntialiasSettings,
@@ -121,7 +121,7 @@ pub struct TemporalAntialiasBundle {
 /// Requires that you add the [`TemporalAntialiasPlugin`] to your app,
 /// and enable the depth and velocity prepass on the camera.
 ///
-/// Cannot be used with OrthographicProjection.
+/// Cannot be used with `OrthographicProjection`.
 #[derive(Component, Reflect, Clone, Default)]
 pub struct TemporalAntialiasSettings {}
 
@@ -196,7 +196,7 @@ impl Node for TAANode {
                 entries: &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(&view_target.source),
+                        resource: BindingResource::TextureView(view_target.source),
                     },
                     BindGroupEntry {
                         binding: 1,
@@ -509,7 +509,7 @@ struct TAAPipelineId(CachedRenderPipelineId);
 
 fn prepare_taa_pipelines(
     mut commands: Commands,
-    mut pipeline_cache: ResMut<PipelineCache>,
+    pipeline_cache: Res<PipelineCache>,
     mut pipelines: ResMut<SpecializedRenderPipelines<TAAPipeline>>,
     pipeline: Res<TAAPipeline>,
     views: Query<(Entity, &ExtractedView), With<TemporalAntialiasSettings>>,
@@ -517,7 +517,7 @@ fn prepare_taa_pipelines(
     for (entity, view) in &views {
         let pipeline_key = TAAPipelineKey { hdr: view.hdr };
 
-        let pipeline_id = pipelines.specialize(&mut pipeline_cache, &pipeline, pipeline_key);
+        let pipeline_id = pipelines.specialize(&pipeline_cache, &pipeline, pipeline_key);
 
         commands.entity(entity).insert(TAAPipelineId(pipeline_id));
     }
