@@ -2,7 +2,7 @@ use bevy_ecs::{
     entity::{Entity, EntityMap, MapEntities, MapEntitiesError},
     prelude::{Component, ReflectComponent},
 };
-use bevy_math::{DVec2, IVec2};
+use bevy_math::{DVec2, IVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, FromReflect, Reflect};
 
 #[cfg(feature = "serialize")]
@@ -229,6 +229,32 @@ impl Window {
     pub fn scale_factor(&self) -> f64 {
         self.resolution.scale_factor()
     }
+
+    /// The cursor position in this window
+    #[inline]
+    pub fn cursor_position(&self) -> Option<Vec2> {
+        self.cursor
+            .physical_position
+            .map(|position| (position / self.scale_factor()).as_vec2())
+    }
+
+    /// The physical cursor position in this window
+    #[inline]
+    pub fn physical_cursor_position(&self) -> Option<Vec2> {
+        self.cursor
+            .physical_position
+            .map(|position| position.as_vec2())
+    }
+
+    /// Set the cursor position in this window
+    pub fn set_cursor_position(&mut self, position: Option<Vec2>) {
+        self.cursor.physical_position = position.map(|p| p.as_dvec2() * self.scale_factor());
+    }
+
+    /// Set the physical cursor position in this window
+    pub fn set_physical_cursor_position(&mut self, position: Option<DVec2>) {
+        self.cursor.physical_position = position;
+    }
 }
 
 /// The size limits on a window.
@@ -345,7 +371,7 @@ pub struct Cursor {
     pub hit_test: bool,
 
     /// The position of this window's cursor.
-    pub position: Option<DVec2>,
+    physical_position: Option<DVec2>,
 }
 
 impl Default for Cursor {
@@ -355,7 +381,7 @@ impl Default for Cursor {
             visible: true,
             grab_mode: CursorGrabMode::None,
             hit_test: true,
-            position: None,
+            physical_position: None,
         }
     }
 }
