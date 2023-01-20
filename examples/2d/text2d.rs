@@ -5,7 +5,10 @@
 //! For an example on how to render text as part of a user interface, independent from the world
 //! viewport, you may want to look at `2d/contributors.rs` or `ui/text.rs`.
 
-use bevy::{prelude::*, text::{Text2dBounds, TextLineBreakBehaviour}};
+use bevy::{
+    prelude::*,
+    text::{Text2dBounds, TextLineBreakBehaviour},
+};
 
 fn main() {
     App::new()
@@ -56,14 +59,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Demonstrate changing scale
     commands.spawn((
         Text2dBundle {
-            text: Text::from_section("scale", text_style.clone()).with_alignment(text_alignment),
+            text: Text::from_section("scale", text_style).with_alignment(text_alignment),
             ..default()
         },
         AnimateScale,
     ));
     // Demonstrate text wrapping
     let slightly_smaller_text_style = TextStyle {
-        font: font,
+        font,
         font_size: 42.0,
         color: Color::WHITE,
     };
@@ -81,9 +84,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
-                text: Text::from_section("this text wraps in the box\n(Unicode linebreaks)", slightly_smaller_text_style.clone())
-                    .with_alignment(TextAlignment::Left)
-                    .with_linebreak_behaviour(TextLineBreakBehaviour::Unicode),
+                text: Text::from_section(
+                    "this text wraps in the box\n(Unicode linebreaks)",
+                    slightly_smaller_text_style.clone(),
+                )
+                .with_alignment(TextAlignment::Left)
+                .with_linebreak_behaviour(TextLineBreakBehaviour::Unicode),
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
                     size: box_size,
@@ -94,10 +100,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             });
         });
 
-
-        let other_box_size = Vec2::new(300.0, 200.0);
-        let other_box_position = Vec2::new(320.0, -250.0);
-        commands
+    let other_box_size = Vec2::new(300.0, 200.0);
+    let other_box_position = Vec2::new(320.0, -250.0);
+    commands
         .spawn(SpriteBundle {
             sprite: Sprite {
                 color: Color::rgb(0.20, 0.3, 0.70),
@@ -109,9 +114,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         })
         .with_children(|builder| {
             builder.spawn(Text2dBundle {
-                text: Text::from_section("this text wraps in the box\n(AnyCharacter linebreaks)", slightly_smaller_text_style)
-                    .with_alignment(TextAlignment::Left)
-                    .with_linebreak_behaviour(TextLineBreakBehaviour::AnyCharacter),
+                text: Text::from_section(
+                    "this text wraps in the box\n(AnyCharacter linebreaks)",
+                    slightly_smaller_text_style,
+                )
+                .with_alignment(TextAlignment::Left)
+                .with_linebreak_behaviour(TextLineBreakBehaviour::AnyCharacter),
                 text_2d_bounds: Text2dBounds {
                     // Wrap text in the rectangle
                     size: other_box_size,

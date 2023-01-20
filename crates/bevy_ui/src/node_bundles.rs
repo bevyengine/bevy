@@ -9,7 +9,7 @@ use bevy_render::{
     prelude::{Color, ComputedVisibility},
     view::Visibility,
 };
-use bevy_text::{Text, TextAlignment, TextSection, TextStyle, TextLineBreakBehaviour};
+use bevy_text::{Text, TextAlignment, TextLineBreakBehaviour, TextSection, TextStyle};
 use bevy_transform::prelude::{GlobalTransform, Transform};
 
 /// The basic UI node
@@ -154,7 +154,10 @@ impl TextBundle {
     }
 
     /// Returns this [`TextBundle`] with a new [`TextLineBreakBehaviour`] on [`Text`].
-    pub const fn with_linebreak_behaviour(mut self, linebreak_behaviour: TextLineBreakBehaviour) -> Self {
+    pub const fn with_linebreak_behaviour(
+        mut self,
+        linebreak_behaviour: TextLineBreakBehaviour,
+    ) -> Self {
         self.text.linebreak_behaviour = linebreak_behaviour;
         self
     }

@@ -5,12 +5,13 @@ use bevy_render::texture::Image;
 use bevy_sprite::TextureAtlas;
 use bevy_utils::tracing::warn;
 use glyph_brush_layout::{
-    FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph, SectionText, ToSectionText, BuiltInLineBreaker,
+    BuiltInLineBreaker, FontId, GlyphPositioner, Layout, SectionGeometry, SectionGlyph,
+    SectionText, ToSectionText,
 };
 
 use crate::{
     error::TextError, Font, FontAtlasSet, FontAtlasWarning, GlyphAtlasInfo, TextAlignment,
-    TextSettings, YAxisOrientation, TextLineBreakBehaviour,
+    TextLineBreakBehaviour, TextSettings, YAxisOrientation,
 };
 
 pub struct GlyphBrush {

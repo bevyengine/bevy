@@ -107,7 +107,10 @@ impl Text {
         self
     }
 
-    pub const fn with_linebreak_behaviour(mut self, linebreak_behaviour: TextLineBreakBehaviour) -> Self {
+    pub const fn with_linebreak_behaviour(
+        mut self,
+        linebreak_behaviour: TextLineBreakBehaviour,
+    ) -> Self {
         self.linebreak_behaviour = linebreak_behaviour;
         self
     }
@@ -194,8 +197,12 @@ pub enum TextLineBreakBehaviour {
 impl From<TextLineBreakBehaviour> for glyph_brush_layout::BuiltInLineBreaker {
     fn from(val: TextLineBreakBehaviour) -> Self {
         match val {
-            TextLineBreakBehaviour::Unicode => glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker,
-            TextLineBreakBehaviour::AnyCharacter => glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker,
+            TextLineBreakBehaviour::Unicode => {
+                glyph_brush_layout::BuiltInLineBreaker::UnicodeLineBreaker
+            }
+            TextLineBreakBehaviour::AnyCharacter => {
+                glyph_brush_layout::BuiltInLineBreaker::AnyCharLineBreaker
+            }
         }
     }
 }
