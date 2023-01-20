@@ -55,10 +55,10 @@ pub use bevy_ecs_macros::all_tuples;
 #[cfg(test)]
 mod tests {
     use crate as bevy_ecs;
-    use crate::change_detection::Ref;
     use crate::prelude::Or;
     use crate::{
         bundle::Bundle,
+        change_detection::Ref,
         component::{Component, ComponentId},
         entity::Entity,
         query::{Added, Changed, FilteredAccess, ReadOnlyWorldQuery, With, Without},
