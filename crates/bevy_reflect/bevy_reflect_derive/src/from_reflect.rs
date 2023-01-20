@@ -2,7 +2,7 @@ use crate::container_attributes::REFLECT_DEFAULT;
 use crate::derive_data::ReflectEnum;
 use crate::enum_utility::{get_variant_constructors, EnumVariantConstructors};
 use crate::field_attributes::DefaultBehavior;
-use crate::fq_std::{FQAny, FQBox, FQClone, FQDefault, FQResult};
+use crate::fq_std::{FQAny, FQBox, FQClone, FQCow, FQDefault, FQResult};
 use crate::{ReflectMeta, ReflectStruct};
 use proc_macro::TokenStream;
 use proc_macro2::Span;
@@ -44,6 +44,7 @@ pub(crate) fn impl_value(meta: &ReflectMeta) -> TokenStream {
 pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
     let fqresult = FQResult.into_token_stream();
     let fqbox = FQBox.into_token_stream();
+    let fqcow = FQCow.into_token_stream();
 
     let type_name = reflect_enum.meta().type_name();
     let bevy_reflect_path = reflect_enum.meta().bevy_reflect_path();
@@ -66,7 +67,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                                 from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
                                 from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
                                 to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
-                                variant: #variant_names.to_string(),
+                                variant: #fqcow::Borrowed(#variant_names),
                                 source: #fqbox::new(err),
                             }
                         }),)*
@@ -74,7 +75,7 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> TokenStream {
                             from_type: #bevy_reflect_path::Reflect::get_type_info(#ref_value),
                             from_kind: #bevy_reflect_path::Reflect::reflect_kind(#ref_value),
                             to_type: <Self as #bevy_reflect_path::Typed>::type_info(),
-                            variant: name.to_string(),
+                            variant: #fqcow::Owned(name.to_string()),
                         }),
                     }
                 } else {

@@ -36,6 +36,7 @@ use quote::{quote, ToTokens};
 pub(crate) struct FQAny;
 pub(crate) struct FQBox;
 pub(crate) struct FQClone;
+pub(crate) struct FQCow;
 pub(crate) struct FQDefault;
 pub(crate) struct FQOption;
 pub(crate) struct FQResult;
@@ -55,6 +56,12 @@ impl ToTokens for FQBox {
 impl ToTokens for FQClone {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         quote!(::core::clone::Clone).to_tokens(tokens);
+    }
+}
+
+impl ToTokens for FQCow {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        quote!(::std::borrow::Cow).to_tokens(tokens);
     }
 }
 

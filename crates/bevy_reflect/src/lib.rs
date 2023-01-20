@@ -65,6 +65,7 @@ pub use bevy_reflect_derive::*;
 pub use erased_serde;
 
 use thiserror::Error;
+use std::borrow::Cow;
 
 /// An Error for failed conversion of reflected type to original type in [`FromReflect::from_reflect`].
 ///
@@ -110,7 +111,7 @@ pub enum FromReflectError {
         from_type: &'static TypeInfo,
         from_kind: ReflectKind,
         to_type: &'static TypeInfo,
-        variant: String,
+        variant: Cow<'static, str>,
     },
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in the field `{}`", 
             .from_type.type_name(), self.display_from_kind(), .to_type.type_name(), .field)]
@@ -136,7 +137,7 @@ pub enum FromReflectError {
         from_type: &'static TypeInfo,
         from_kind: ReflectKind,
         to_type: &'static TypeInfo,
-        variant: String,
+        variant: Cow<'static, str>,
         source: Box<FromReflectError>,
     },
     #[error("The reflected type `{}` of kind {} cannot be converted to type `{}` due to an error in a key of the Map",

@@ -979,7 +979,7 @@ impl<T: FromReflect> FromReflect for Option<T> {
                         from_type: reflect.get_type_info(),
                         from_kind: reflect.reflect_kind(),
                         to_type: Self::type_info(),
-                        variant: "Some".to_string(),
+                        variant: Cow::Borrowed("Some"),
                         source: Box::new(err),
                     })?;
                     Ok(Some(field))
@@ -989,7 +989,7 @@ impl<T: FromReflect> FromReflect for Option<T> {
                     from_type: reflect.get_type_info(),
                     from_kind: reflect.reflect_kind(),
                     to_type: Self::type_info(),
-                    variant: name.to_string(),
+                    variant: Cow::Owned(name.to_string()),
                 }),
             }
         } else {
