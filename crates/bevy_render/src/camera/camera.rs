@@ -532,7 +532,7 @@ pub fn extract_cameras(
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct TemporalJitter {
     pub offset: Vec2,
 }

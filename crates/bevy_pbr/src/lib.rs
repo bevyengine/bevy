@@ -7,7 +7,6 @@ mod material;
 mod pbr_material;
 mod prepass;
 mod render;
-mod ssao;
 mod taa;
 
 pub use alpha::*;
@@ -18,7 +17,6 @@ pub use material::*;
 pub use pbr_material::*;
 pub use prepass::*;
 pub use render::*;
-pub use ssao::*;
 pub use taa::*;
 
 use bevy_window::ModifiesWindows;
@@ -165,7 +163,6 @@ impl Plugin for PbrPlugin {
                 prepass_enabled: self.prepass_enabled,
                 ..default()
             })
-            .add_plugin(ScreenSpaceAmbientOcclusionPlugin)
             .init_resource::<AmbientLight>()
             .init_resource::<GlobalVisiblePointLights>()
             .init_resource::<DirectionalLightShadowMap>()

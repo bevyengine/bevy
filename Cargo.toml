@@ -270,15 +270,6 @@ wasm = true
 
 # 3D Rendering
 [[example]]
-name = "ssao"
-path = "examples/3d/ssao.rs"
-
-[package.metadata.example.ssao]
-name = "Screen Space Ambient Occlusion"
-description = "A scene showcasing screen space ambient occlusion"
-category = "3D Rendering"
-
-[[example]]
 name = "taa"
 path = "examples/3d/taa.rs"
 
@@ -286,6 +277,7 @@ path = "examples/3d/taa.rs"
 name = "Temporal Antialiasing"
 description = "A scene showcasing temporal antialiasing"
 category = "3D Rendering"
+wasm = true
 
 [[example]]
 name = "3d_scene"

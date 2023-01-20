@@ -1,9 +1,8 @@
 //! A scene showcasing temporal antialiasing.
 
 use bevy::{
-    pbr::{TemporalAntialiasBundle, TemporalAntialiasPlugin},
+    pbr::{TemporalAntialiasBundle, TemporalAntialiasPlugin, TemporalAntialiasSettings},
     prelude::*,
-    render::camera::TemporalJitter,
 };
 
 fn main() {
@@ -80,15 +79,15 @@ fn setup(
 }
 
 fn update(
-    camera: Query<(Entity, Option<&TemporalJitter>), With<Camera>>,
+    camera: Query<(Entity, Option<&TemporalAntialiasSettings>), With<Camera>>,
     mut text: Query<&mut Text>,
     mut commands: Commands,
     keycode: Res<Input<KeyCode>>,
 ) {
-    let (camera_entity, temporal_jitter) = camera.single();
+    let (camera_entity, taa_settings) = camera.single();
 
     if keycode.just_pressed(KeyCode::Space) {
-        if temporal_jitter.is_some() {
+        if taa_settings.is_some() {
             commands
                 .entity(camera_entity)
                 .remove::<TemporalAntialiasBundle>();
@@ -104,7 +103,7 @@ fn update(
     text.clear();
 
     text.push_str("Temporal Antialiasing:\n");
-    text.push_str(match temporal_jitter {
+    text.push_str(match taa_settings {
         Some(_) => "(Space) Enabled",
         None => "(Space) Disabled",
     });

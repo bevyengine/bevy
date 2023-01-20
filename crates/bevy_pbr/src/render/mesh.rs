@@ -1,8 +1,7 @@
 use crate::{
     GlobalLightMeta, GpuLights, GpuPointLights, LightMeta, NotShadowCaster, NotShadowReceiver,
-    PreviousGlobalTransform, ScreenSpaceAmbientOcclusionTextures, ShadowPipeline,
-    ViewClusterBindings, ViewLightsUniformOffset, ViewShadowBindings,
-    CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
+    PreviousGlobalTransform, ShadowPipeline, ViewClusterBindings, ViewLightsUniformOffset,
+    ViewShadowBindings, CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT, MAX_DIRECTIONAL_LIGHTS,
 };
 use bevy_app::Plugin;
 use bevy_asset::{load_internal_asset, Assets, Handle, HandleUntyped};
@@ -439,17 +438,6 @@ impl FromWorld for MeshPipeline {
                     },
                     count: None,
                 },
-                // Screen space ambient occlusion texture
-                BindGroupLayoutEntry {
-                    binding: 13,
-                    visibility: ShaderStages::FRAGMENT,
-                    ty: BindingType::Texture {
-                        multisampled: false,
-                        sample_type: TextureSampleType::Float { filterable: true },
-                        view_dimension: TextureViewDimension::D2,
-                    },
-                    count: None,
-                },
             ]
         }
 
@@ -590,7 +578,6 @@ bitflags::bitflags! {
         const NORMAL_PREPASS                 = (1 << 5);
         const VELOCITY_PREPASS               = (1 << 6);
         const ALPHA_MASK                     = (1 << 7);
-        const SCREEN_SPACE_AMBIENT_OCCLUSION = (1 << 8);
         const MSAA_RESERVED_BITS          = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
     }
@@ -726,10 +713,6 @@ impl SpecializedMeshPipeline for MeshPipeline {
             if key.contains(MeshPipelineKey::DEBAND_DITHER) {
                 shader_defs.push("DEBAND_DITHER".into());
             }
-        }
-
-        if key.contains(MeshPipelineKey::SCREEN_SPACE_AMBIENT_OCCLUSION) {
-            shader_defs.push("SCREEN_SPACE_AMBIENT_OCCLUSION".into());
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -895,7 +878,6 @@ pub fn queue_mesh_view_bind_groups(
         &ViewShadowBindings,
         &ViewClusterBindings,
         Option<&ViewPrepassTextures>,
-        Option<&ScreenSpaceAmbientOcclusionTextures>,
     )>,
     mut fallback_images: FallbackImagesMsaa,
     mut fallback_depths: FallbackImagesDepth,
@@ -915,19 +897,8 @@ pub fn queue_mesh_view_bind_groups(
             .image_for_samplecount(msaa.samples)
             .texture_view
             .clone();
-        let fallback_ssao = fallback_images
-            .image_for_samplecount(1)
-            .texture_view
-            .clone();
 
-        for (
-            entity,
-            view_shadow_bindings,
-            view_cluster_bindings,
-            prepass_textures,
-            ambient_occlusion_textures,
-        ) in &views
-        {
+        for (entity, view_shadow_bindings, view_cluster_bindings, prepass_textures) in &views {
             let depth_view = match prepass_textures.and_then(|x| x.depth.as_ref()) {
                 Some(texture) => &texture.default_view,
                 None => fallback_depth,
@@ -939,10 +910,6 @@ pub fn queue_mesh_view_bind_groups(
             let velocity_view = match prepass_textures.and_then(|x| x.velocity.as_ref()) {
                 Some(texture) => &texture.default_view,
                 None => &fallback_view,
-            };
-            let screen_space_ambient_occlusion_texture = match ambient_occlusion_textures {
-                Some(texture) => &texture.screen_space_ambient_occlusion_texture.default_view,
-                None => &fallback_ssao,
             };
 
             let layout = if msaa.samples > 1 {
@@ -1010,12 +977,6 @@ pub fn queue_mesh_view_bind_groups(
                     BindGroupEntry {
                         binding: 12,
                         resource: BindingResource::TextureView(velocity_view),
-                    },
-                    BindGroupEntry {
-                        binding: 13,
-                        resource: BindingResource::TextureView(
-                            screen_space_ambient_occlusion_texture,
-                        ),
                     },
                 ],
                 label: Some("mesh_view_bind_group"),

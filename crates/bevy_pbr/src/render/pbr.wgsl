@@ -69,12 +69,6 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
             diffuse_occlusion = vec3<f32>(textureSample(occlusion_texture, occlusion_sampler, in.uv).r);
         }
 #endif
-#ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
-        let uv = coords_to_viewport_uv(in.frag_coord.xy, view.viewport);
-        let ssao = textureSample(screen_space_ambient_occlusion_texture, occlusion_sampler, uv).r;
-        let ssao = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
-        diffuse_occlusion = min(diffuse_occlusion, ssao);
-#endif
         pbr_input.diffuse_occlusion = diffuse_occlusion;
         pbr_input.specular_occlusion = vec3<f32>(1.0, 1.0, 1.0);
 

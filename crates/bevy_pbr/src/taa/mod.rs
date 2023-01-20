@@ -9,13 +9,15 @@ use bevy_core_pipeline::{
 use bevy_ecs::{
     prelude::{Bundle, Component, Entity},
     query::{QueryState, With},
+    schedule::IntoSystemDescriptor,
     system::{Commands, Query, Res, ResMut, Resource},
     world::{FromWorld, World},
 };
+use bevy_math::vec2;
 use bevy_reflect::{Reflect, TypeUuid};
 use bevy_render::{
     camera::{ExtractedCamera, TemporalJitter},
-    prelude::Camera,
+    prelude::{Camera, Projection},
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext, SlotInfo, SlotType},
     render_phase::TrackedRenderPass,
     render_resource::{
@@ -58,6 +60,7 @@ impl Plugin for TemporalAntialiasPlugin {
             .init_resource::<TAAPipeline>()
             .init_resource::<SpecializedRenderPipelines<TAAPipeline>>()
             .add_system_to_stage(RenderStage::Extract, extract_taa_settings)
+            .add_system_to_stage(RenderStage::Prepare, prepare_taa_jitter.at_start())
             .add_system_to_stage(RenderStage::Prepare, prepare_taa_history_textures)
             .add_system_to_stage(RenderStage::Prepare, prepare_taa_pipelines);
 
@@ -96,14 +99,8 @@ pub struct TemporalAntialiasBundle {
     pub velocity_prepass: VelocityPrepass,
 }
 
-#[derive(Component, Reflect, Clone)]
+#[derive(Component, Reflect, Clone, Default)]
 pub struct TemporalAntialiasSettings {}
-
-impl Default for TemporalAntialiasSettings {
-    fn default() -> Self {
-        Self {}
-    }
-}
 
 struct TAANode {
     view_query: QueryState<(
@@ -384,7 +381,7 @@ fn extract_taa_settings(
     mut commands: Commands,
     cameras_3d: Extract<
         Query<
-            (Entity, &Camera, &TemporalAntialiasSettings),
+            (Entity, &Camera, &Projection, &TemporalAntialiasSettings),
             (
                 With<Camera3d>,
                 With<TemporalJitter>,
@@ -394,10 +391,38 @@ fn extract_taa_settings(
         >,
     >,
 ) {
-    for (entity, camera, taa_settings) in &cameras_3d {
-        if camera.is_active {
-            commands.get_or_spawn(entity).insert(taa_settings.clone());
+    for (entity, camera, camera_projection, taa_settings) in &cameras_3d {
+        let perspective_projection = matches!(camera_projection, Projection::Perspective(_));
+        if camera.is_active && perspective_projection {
+            commands
+                .get_or_spawn(entity)
+                .insert((taa_settings.clone(), TemporalJitter::default()));
         }
+    }
+}
+
+fn prepare_taa_jitter(
+    frame_count: Res<FrameCount>,
+    mut query: Query<&mut TemporalJitter, With<TemporalAntialiasSettings>>,
+) {
+    let halton_sequence = [
+        vec2(0.0, -0.16666666),
+        vec2(-0.25, 0.16666669),
+        vec2(0.25, -0.3888889),
+        vec2(-0.375, -0.055555552),
+        vec2(0.125, 0.2777778),
+        vec2(-0.125, -0.2777778),
+        vec2(0.375, 0.055555582),
+        vec2(-0.4375, 0.3888889),
+        vec2(0.0625, -0.46296296),
+        vec2(-0.1875, -0.12962961),
+        vec2(0.3125, 0.2037037),
+        vec2(-0.3125, -0.35185185),
+    ];
+    let offset = halton_sequence[frame_count.0 as usize % halton_sequence.len()];
+
+    for mut jitter in &mut query {
+        jitter.offset = offset + 0.5; // TODO
     }
 }
 
