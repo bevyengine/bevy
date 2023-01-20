@@ -527,6 +527,7 @@ impl Components {
     ///
     /// assert_eq!(resource_a_id, world.components().resource_id::<ResourceA>().unwrap())
     /// ```
+    #[inline]
     pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
         self.get_resource_id(TypeId::of::<T>())
     }
