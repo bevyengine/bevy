@@ -1115,6 +1115,7 @@ unsafe impl<T: ReadOnlyWorldQuery> ReadOnlyWorldQuery for Option<T> {}
 /// }
 /// # bevy_ecs::system::assert_is_system(print_moving_objects_system);
 /// ```
+#[deprecated = "Use `bevy_ecs::Ref<T>` instead"]
 pub struct ChangeTrackers<T: Component> {
     pub(crate) component_ticks: ComponentTicks,
     pub(crate) last_change_tick: u32,
@@ -1122,18 +1123,17 @@ pub struct ChangeTrackers<T: Component> {
     marker: PhantomData<T>,
 }
 
+#[allow(deprecated)]
 impl<T: Component> Clone for ChangeTrackers<T> {
     fn clone(&self) -> Self {
-        Self {
-            component_ticks: self.component_ticks,
-            last_change_tick: self.last_change_tick,
-            change_tick: self.change_tick,
-            marker: PhantomData,
-        }
+        *self
     }
 }
+
+#[allow(deprecated)]
 impl<T: Component> Copy for ChangeTrackers<T> {}
 
+#[allow(deprecated)]
 impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ChangeTrackers")
@@ -1144,6 +1144,7 @@ impl<T: Component> std::fmt::Debug for ChangeTrackers<T> {
     }
 }
 
+#[allow(deprecated)]
 impl<T: Component> ChangeTrackers<T> {
     /// Returns true if this component has been added since the last execution of this system.
     pub fn is_added(&self) -> bool {
@@ -1172,6 +1173,7 @@ pub struct ChangeTrackersFetch<'w, T> {
 }
 
 // SAFETY: `ROQueryFetch<Self>` is the same as `QueryFetch<Self>`
+#[allow(deprecated)]
 unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
     type Fetch<'w> = ChangeTrackersFetch<'w, T>;
     type Item<'w> = ChangeTrackers<T>;
@@ -1318,6 +1320,7 @@ unsafe impl<T: Component> WorldQuery for ChangeTrackers<T> {
 }
 
 /// SAFETY: access is read only
+#[allow(deprecated)]
 unsafe impl<T: Component> ReadOnlyWorldQuery for ChangeTrackers<T> {}
 
 macro_rules! impl_tuple_fetch {
