@@ -202,6 +202,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
         todo!()
     }
 
+    type NodeIndices<'n> = slotmap::hop::Keys<'n, NodeIdx, N> where Self: 'n;
+    fn node_indices(&self) -> Self::NodeIndices<'_> {
+        self.nodes.keys()
+    }
+
     type Nodes<'n> = slotmap::hop::Values<'n, NodeIdx, N> where Self: 'n;
     fn nodes(&self) -> Self::Nodes<'_> {
         self.nodes.values()
@@ -210,6 +215,11 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     type NodesMut<'n> = slotmap::hop::ValuesMut<'n, NodeIdx, N> where Self: 'n;
     fn nodes_mut(&mut self) -> Self::NodesMut<'_> {
         self.nodes.values_mut()
+    }
+
+    type EdgeIndices<'e> = slotmap::hop::Keys<'e, EdgeIdx, Edge<E>> where Self: 'e;
+    fn edge_indices(&self) -> Self::EdgeIndices<'_> {
+        self.edges.keys()
     }
 
     type Edges<'e> = iters::EdgesRef<'e, E, slotmap::hop::Values<'e, EdgeIdx, Edge<E>>> where Self: 'e;

@@ -24,6 +24,11 @@ use self::{
 /// A trait with all the common functions for a graph
 pub trait Graph<N, E> {
     /// Iterator fix because TAIT not available
+    type NodeIndices<'n>: Iterator<Item = NodeIdx>
+    where
+        Self: 'n,
+        E: 'n;
+    /// Iterator fix because TAIT not available
     type Nodes<'n>: Iterator<Item = &'n N>
     where
         Self: 'n,
@@ -33,6 +38,11 @@ pub trait Graph<N, E> {
     where
         Self: 'n,
         N: 'n;
+    /// Iterator fix because TAIT not available
+    type EdgeIndices<'e>: Iterator<Item = EdgeIdx>
+    where
+        Self: 'e,
+        E: 'e;
     /// Iterator fix because TAIT not available
     type Edges<'e>: Iterator<Item = EdgeRef<'e, E>>
     where
@@ -53,6 +63,30 @@ pub trait Graph<N, E> {
     where
         Self: 'e,
         E: 'e;
+    /*
+
+    /// Iterator fix because TAIT not available
+    type Sources<'n>: Iterator<Item = &'n N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type SourcesMut<'n>: Iterator<Item = &'n mut N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type Sinks<'n>: Iterator<Item = &'n N>
+    where
+        Self: 'n,
+        N: 'n;
+    /// Iterator fix because TAIT not available
+    type SinksMut<'n>: Iterator<Item = &'n mut N>
+    where
+        Self: 'n,
+        N: 'n;
+
+    */
 
     /// Creates a new graph
     fn new() -> Self
@@ -175,11 +209,17 @@ pub trait Graph<N, E> {
     /// In multi-graphs, edges that form self-loops add 2 to the degree.
     fn degree(&self, index: NodeIdx) -> usize;
 
+    /// Returns an iterator over all `NodeIdx`s.
+    fn node_indices(&self) -> Self::NodeIndices<'_>;
+
     /// Returns an iterator over all nodes.
     fn nodes(&self) -> Self::Nodes<'_>;
 
     /// Returns a mutable iterator over all nodes.
     fn nodes_mut(&mut self) -> Self::NodesMut<'_>;
+
+    /// Returns an iterator over all `EdgeIdx`s.
+    fn edge_indices(&self) -> Self::EdgeIndices<'_>;
 
     /// Returns an iterator over all edges.
     fn edges(&self) -> Self::Edges<'_>;
@@ -198,6 +238,20 @@ pub trait Graph<N, E> {
 
     /// Returns the number of edges coming out of the specified node.
     fn out_degree(&self, index: NodeIdx) -> usize;
+
+    /*
+    /// Returns an iterator over all nodes with zero in-degree.
+    fn sources(&self) -> Self::Sources<'_>;
+
+    /// Returns a mutable iterator over all nodes with zero in-degree.
+    fn sources_mut(&mut self) -> Self::SourcesMut<'_>;
+
+    /// Returns an iterator over all nodes with zero out-degree.
+    fn sinks(&self) -> Self::Sinks<'_>;
+
+    /// Returns a mutable iterator over all nodes with zero out-degree.
+    fn sinks_mut(&mut self) -> Self::SinksMut<'_>;
+    */
 }
 
 /// A more precise trait with functions special for simple graphs

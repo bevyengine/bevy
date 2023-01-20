@@ -18,6 +18,12 @@ impl<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = &'g EdgeIdx>> EdgesByIdx<'
             phantom: PhantomData,
         }
     }
+
+    /// Returns the inner iterator which yields `EdgeIdx`
+    #[inline]
+    pub fn into_indices_iter(self) -> I {
+        self.inner
+    }
 }
 
 impl<'g, N, E: 'g, G: Graph<N, E>, I: Iterator<Item = &'g EdgeIdx>> Iterator
