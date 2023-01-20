@@ -51,34 +51,34 @@ macro_rules! render_resource_wrapper {
                 self.0
                 .map(|unit_ptr| {
                     let value_ptr = unit_ptr.cast::<$wgpu_type>();
-                    // SAFETY: pointer refers to a valid arc by invariant.
+                    // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
                     // we take the pointer here, and this reconstructed arc is dropped/decremented within this scope.
                     unsafe { std::sync::Arc::from_raw(value_ptr) };
                 });
             }
         }
 
-        // We manually implement Send and Sync, which is valid for Arc<T> when T: Send + Sync.
+        // SAFETY: We manually implement Send and Sync, which is valid for Arc<T> when T: Send + Sync.
         // We ensure correctness by checking that $wgpu_type does implement Send and Sync.
         // If in future there is a case where a wrapper is required for a non-send/sync type
         // we can implement a macro variant that omits these manual Send + Sync impls
+        unsafe impl Send for $wrapper_type {}
+        unsafe impl Sync for $wrapper_type {}
         const _: () = {
             trait AssertSendSyncBound: Send + Sync {}
             impl AssertSendSyncBound for $wgpu_type {}
         };
 
-        unsafe impl Send for $wrapper_type {}
-        unsafe impl Sync for $wrapper_type {}
 
         impl Clone for $wrapper_type {
             fn clone(&self) -> Self {
                 let inner = self.0.map(|unit_ptr| {
                     let value_ptr = unit_ptr.cast::<$wgpu_type>();
-                    // SAFETY: pointer refers to a valid arc by invariant.
+                    // SAFETY: pointer refers to a valid Arc, and was created from Arc::into_raw.
                     let arc = unsafe { std::sync::Arc::from_raw(value_ptr.cast::<$wgpu_type>()) };
                     let cloned = std::sync::Arc::clone(&arc);
-                    // we have not taken the pointer, so we must `into_raw` the arc again after cloning, to avoid decrementing the ref counter.
-                    let _ = std::sync::Arc::into_raw(arc);
+                    // we have not taken the pointer, so we must forget the Arc to avoid decrementing the ref counter.
+                    std::mem::forget(arc);
                     std::sync::Arc::into_raw(cloned).cast()
                 });
 
