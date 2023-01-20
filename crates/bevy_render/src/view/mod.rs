@@ -65,9 +65,9 @@ impl Plugin for ViewPlugin {
 ///     .insert_resource(Msaa::from(MultiSampleLevel::Sample4))
 ///     .run();
 /// ```
-#[derive(Resource, Clone, ExtractResource, Reflect)]
+#[derive(Resource, Clone, Copy, ExtractResource, Reflect, PartialEq, PartialOrd)]
 #[reflect(Resource)]
-pub struct Msaa {
+pub enum Msaa {
     /// The number of samples to run for Multi-Sample Anti-Aliasing. Higher numbers result in
     /// smoother edges.
     /// Defaults to 4.
@@ -75,36 +75,24 @@ pub struct Msaa {
     /// Note that WGPU currently only supports 1 or 4 samples.
     /// Ultimately we plan on supporting whatever is natively supported on a given device.
     /// Check out this issue for more info: <https://github.com/gfx-rs/wgpu/issues/1832>
-    pub level: MultiSampleLevel,
+    Off = 1,
+    Sample4 = 4,
 }
 
 impl Msaa {
     #[inline]
     pub fn samples(&self) -> u32 {
-        self.level as u32
+        *self as u32
     }
 }
 
 impl Default for Msaa {
     fn default() -> Self {
-        Self {
-            level: MultiSampleLevel::Sample4,
-        }
+        Self::Sample4
     }
 }
 
-impl From<MultiSampleLevel> for Msaa {
-    fn from(level: MultiSampleLevel) -> Self {
-        Self { level }
-    }
-}
 
-#[derive(Clone, Copy, Reflect, PartialEq)]
-#[non_exhaustive]
-pub enum MultiSampleLevel {
-    Off = 1,
-    Sample4 = 4,
-}
 
 #[derive(Component)]
 pub struct ExtractedView {

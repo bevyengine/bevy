@@ -8,14 +8,13 @@ use bevy::{
     render::{
         render_resource::{Extent3d, SamplerDescriptor, TextureDimension, TextureFormat},
         texture::ImageSampler,
-        view::MultiSampleLevel,
     },
 };
 
 fn main() {
     App::new()
         // Disable MSAA by default
-        .insert_resource(Msaa::from(MultiSampleLevel::Off))
+        .insert_resource(Msaa::default())
         .add_plugins(DefaultPlugins)
         .add_startup_system(setup)
         .add_system(toggle_fxaa)
@@ -123,16 +122,16 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
     for mut fxaa in &mut query {
         if set_msaa {
             fxaa.enabled = false;
-            msaa.level = MultiSampleLevel::Sample4;
+            *msaa = Msaa::Sample4;
             info!("MSAA 4x");
         }
         if set_no_aa {
             fxaa.enabled = false;
-            msaa.level = MultiSampleLevel::Off;
+            *msaa = Msaa::Off;
             info!("NO AA");
         }
         if set_no_aa | set_fxaa {
-            msaa.level = MultiSampleLevel::Off;
+            *msaa = Msaa::Off;
         }
         if fxaa_low {
             fxaa.edge_threshold = Sensitivity::Low;
@@ -152,7 +151,7 @@ fn toggle_fxaa(keys: Res<Input<KeyCode>>, mut query: Query<&mut Fxaa>, mut msaa:
         }
         if set_fxaa {
             fxaa.enabled = true;
-            msaa.level = MultiSampleLevel::Off;
+            *msaa = Msaa::Off;
             info!("FXAA {}", fxaa.edge_threshold.get_str());
         }
     }
