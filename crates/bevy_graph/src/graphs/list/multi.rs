@@ -12,8 +12,6 @@ use crate::{
     utils::{vecmap::VecMap, vecset::VecSet},
 };
 
-type MultiListGraphStorage = AdjacencyStorage<Vec<(NodeIdx, Vec<EdgeIdx>)>>;
-
 /// Implementation of a `MultiGraph` which uses `Vec<(NodeIdx, Vec<EdgeIdx>)>` for adjacencies
 ///
 /// `MultiGraph`s can hold multiple edges between two nodes and edges between the same node
@@ -21,7 +19,7 @@ type MultiListGraphStorage = AdjacencyStorage<Vec<(NodeIdx, Vec<EdgeIdx>)>>;
 pub struct MultiListGraph<N, E, const DIRECTED: bool> {
     nodes: HopSlotMap<NodeIdx, N>,
     edges: HopSlotMap<EdgeIdx, Edge<E>>,
-    adjacencies: SecondaryMap<NodeIdx, MultiListGraphStorage>,
+    adjacencies: SecondaryMap<NodeIdx, AdjacencyStorage<Vec<(NodeIdx, Vec<EdgeIdx>)>>>,
 }
 
 impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> {
@@ -58,12 +56,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiListGraph<N, E, DIRECTED> 
 
     #[inline]
     fn reserve_nodes(&mut self, additional: usize) {
-        self.nodes.reserve(additional)
+        self.nodes.reserve(additional);
     }
 
     #[inline]
     fn reserve_edges(&mut self, additional: usize) {
-        self.edges.reserve(additional)
+        self.edges.reserve(additional);
     }
 
     #[inline]

@@ -56,12 +56,12 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for SimpleMapGraph<N, E, DIRECTED> 
 
     #[inline]
     fn reserve_nodes(&mut self, additional: usize) {
-        self.nodes.reserve(additional)
+        self.nodes.reserve(additional);
     }
 
     #[inline]
     fn reserve_edges(&mut self, additional: usize) {
-        self.edges.reserve(additional)
+        self.edges.reserve(additional);
     }
 
     #[inline]
