@@ -192,9 +192,15 @@ pub trait Graph<N, E> {
 
     /// Returns an iterator over the edge indices coming out of the specified node.
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::OutgoingEdgesOf<'_>;
+
+    /// Returns the number of edges going into the specified node.
+    fn in_degree(&self, index: NodeIdx) -> usize;
+
+    /// Returns the number of edges coming out of the specified node.
+    fn out_degree(&self, index: NodeIdx) -> usize;
 }
 
-/// A more precise trait with functions special for a simple graph
+/// A more precise trait with functions special for simple graphs
 pub trait SimpleGraph<N, E>: Graph<N, E> {
     /// Returns an edge between two nodes as `EdgeIdx`
     fn edge_between(&self, from: NodeIdx, to: NodeIdx) -> Result<Option<EdgeIdx>, GraphError>;

@@ -231,4 +231,14 @@ impl<N, E, const DIRECTED: bool> Graph<N, E> for MultiMapGraph<N, E, DIRECTED> {
     fn outgoing_edges_of(&self, index: NodeIdx) -> Self::IncomingEdgesOf<'_> {
         iters::EdgesByIdx::new(self.adjacencies[index].outgoing().values().flatten(), self)
     }
+
+    #[inline]
+    fn in_degree(&self, index: NodeIdx) -> usize {
+        self.adjacencies[index].incoming().len()
+    }
+
+    #[inline]
+    fn out_degree(&self, index: NodeIdx) -> usize {
+        self.adjacencies[index].outgoing().len()
+    }
 }
