@@ -22,6 +22,7 @@ mod spatial_bundle;
 pub mod texture;
 pub mod view;
 
+use bevy_derive::{Deref, DerefMut};
 use bevy_hierarchy::ValidParentCheckPlugin;
 pub use extract_param::Extract;
 
@@ -52,7 +53,7 @@ use crate::{
 };
 use bevy_app::{App, AppLabel, CoreSchedule, Plugin};
 use bevy_asset::{AddAsset, AssetServer};
-use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_ecs::{prelude::*, schedule::ScheduleLabel, system::SystemState};
 use bevy_utils::tracing::debug;
 use std::{
     any::TypeId,
@@ -70,11 +71,6 @@ pub struct RenderPlugin {
 /// The sets run in the order listed, with [`apply_system_buffers`] inserted between each set.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum RenderSet {
-    /// Extract data from the "app world" and insert it into the "render world".
-    /// This step should be kept as short as possible to increase the "pipelining potential" for
-    /// running the next frame while rendering the current frame.
-    Extract,
-
     /// A stage for applying the commands from the [`Extract`] stage
     ExtractCommands,
 
@@ -106,14 +102,7 @@ impl RenderSet {
     pub fn base_schedule() -> Schedule {
         let mut schedule = Schedule::new();
 
-        // Don't apply buffers when the Extract stage finishes running
-        // This runs on the render world, but buffers are applied
-        // after access to the main world is removed
-        // See also https://github.com/bevyengine/bevy/issues/5082
-        schedule.configure_set(RenderSet::Extract.before(RenderSet::ExtractCommands));
-
-        // Buffer flushes + induced ordering
-
+        // Create "stage-like" structure using buffer flushes + induced ordering
         schedule.add_system(
             apply_system_buffers
                 .after(RenderSet::ExtractCommands)
@@ -145,9 +134,25 @@ impl RenderSet {
     }
 }
 
-/// Resource for holding the extract stage of the rendering schedule.
-#[derive(Resource)]
-pub struct ExtractStage(pub SystemStage);
+/// The [`ScheduleLabel`] for [`ExtractSchedule`].
+#[derive(ScheduleLabel, PartialEq, Eq, Debug, Clone, Hash)]
+struct RenderExtraction;
+
+/// Schedule which extract data from the main world and inserts it into the render world.
+///
+/// This step should be kept as short as possible to increase the "pipelining potential" for
+/// running the next frame while rendering the current frame.
+///
+/// This schedule is run on the main world, but its buffers are not applied
+/// via [`Shedule::apply_system_buffers`] until it is returned to the render world.
+///
+/// This schedule is stored as a resource on the render world,
+/// which is mutable accessed from the main world via the borrow splitting enabled by [`App::add_subapp`].
+///
+/// When adding systems to this schedule, be careful not to add any copies of [`apply_system_buffers`],
+/// as that system will attempt to extract the data into the main world pre-emptively!
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct ExtractSchedule(pub Schedule);
 
 /// The simulation [`World`] of the application, stored as a resource.
 /// This resource is only available during [`RenderStage::Extract`] and not
@@ -220,8 +225,7 @@ impl Plugin for RenderPlugin {
             app.insert_resource(device.clone())
                 .insert_resource(queue.clone())
                 .insert_resource(adapter_info.clone())
-                .insert_resource(render_adapter.clone())
-                .init_resource::<ScratchMainWorld>();
+                .insert_resource(render_adapter.clone());
 
             let pipeline_cache = PipelineCache::new(device.clone());
             let asset_server = app.world.resource::<AssetServer>().clone();
@@ -229,7 +233,10 @@ impl Plugin for RenderPlugin {
             let mut render_app = App::empty();
             let mut render_schedule = RenderSet::base_schedule();
 
-            render_schedule.add_system(PipelineCache::extract_shaders.in_set(RenderSet::Extract));
+            // Prepare the schedule which extracts data from the main world to the render world
+            let extract_schedule = ExtractSchedule::default();
+            extract_schedule.add_system(PipelineCache::extract_shaders);
+
             // Get the ComponentId for MainWorld. This does technically 'waste' a `WorldId`, but that's probably fine
             render_app.init_resource::<MainWorld>();
             render_app.world.remove_resource::<MainWorld>();
@@ -266,7 +273,7 @@ impl Plugin for RenderPlugin {
             app.insert_resource(receiver);
             render_app.insert_resource(sender);
 
-            app.add_sub_app(RenderApp, render_app, move |app_world, render_app| {
+            app.add_sub_app(RenderApp, render_app, move |main_world, render_app| {
                 #[cfg(feature = "trace")]
                 let _render_span = bevy_utils::tracing::info_span!("extract main app to render subapp").entered();
                 {
@@ -275,9 +282,9 @@ impl Plugin for RenderPlugin {
                         bevy_utils::tracing::info_span!("stage", name = "reserve_and_flush")
                             .entered();
 
-                    // reserve all existing app entities for use in render_app
+                    // reserve all existing main world entities for use in render_app
                     // they can only be spawned using `get_or_spawn()`
-                    let total_count = app_world.entities().total_count();
+                    let total_count = main_world.entities().total_count();
 
                     assert_eq!(
                         render_app.world.entities().len(),
@@ -299,8 +306,14 @@ impl Plugin for RenderPlugin {
                     let _stage_span =
                         bevy_utils::tracing::info_span!("stage", name = "extract").entered();
 
-                    // extract
-                    extract(app_world, render_app);
+                    // Fetch the extract schedule from the render world to the main world
+                    let extract_schedule = render_app.world.resource_mut::<ExtractSchedule>();
+
+                    // Run the extract schedule on the main world, being careful not to apply buffers
+                    extract_schedule.run(main_world);
+
+                    // Now that the data is safely captured in a resource on the render world,
+                    // we can release the lock on the main world, allowing its schedule to proceed.
                 }
             });
         }
@@ -317,49 +330,11 @@ impl Plugin for RenderPlugin {
             .register_type::<primitives::CubemapFrusta>()
             .register_type::<primitives::Frustum>();
     }
-
-    fn setup(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            // move the extract stage to a resource so render_app.run() does not run it.
-            let stage = render_app
-                .schedule
-                .remove_stage(RenderSet::Extract)
-                .unwrap()
-                .downcast::<SystemStage>()
-                .unwrap();
-
-            render_app.world.insert_resource(ExtractStage(*stage));
-        }
-    }
 }
 
-/// A "scratch" world used to avoid allocating new worlds every frame when
-/// swapping out the [`MainWorld`] for [`RenderStage::Extract`].
-#[derive(Resource, Default)]
-struct ScratchMainWorld(World);
-
-/// Executes the [`Extract`](RenderStage::Extract) stage of the renderer.
-/// This updates the render world with the extracted ECS data of the current frame.
-fn extract(app_world: &mut World, render_app: &mut App) {
-    render_app
-        .world
-        .resource_scope(|render_world, mut extract_stage: Mut<ExtractStage>| {
-            // temporarily add the app world to the render world as a resource
-            let scratch_world = app_world.remove_resource::<ScratchMainWorld>().unwrap();
-            let inserted_world = std::mem::replace(app_world, scratch_world.0);
-            render_world.insert_resource(MainWorld(inserted_world));
-
-            extract_stage.0.run(render_world);
-            // move the app world back, as if nothing happened.
-            let inserted_world = render_world.remove_resource::<MainWorld>().unwrap();
-            let scratch_world = std::mem::replace(app_world, inserted_world.0);
-            app_world.insert_resource(ScratchMainWorld(scratch_world));
-        });
-}
-
-// system for render app to apply the extract commands
-fn apply_extract_commands(world: &mut World) {
-    world.resource_scope(|world, mut extract_stage: Mut<ExtractStage>| {
-        extract_stage.0.apply_buffers(world);
+/// Applies the
+fn apply_extract_commands(render_world: &mut World) {
+    render_world.resource_scope(|render_world, extract_schedule: Mut<ExtractSchedule>| {
+        extract_schedule.apply_system_buffers(render_world);
     });
 }
